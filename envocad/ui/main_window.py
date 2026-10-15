@@ -180,6 +180,11 @@ class MainWindow(QMainWindow):
         self.act_dark.setChecked(theme.is_dark())
         self.act_dark.toggled.connect(self.set_dark)
         m_view.addAction(self.act_dark)
+        from envocad.model.frame import frame_enabled
+        self.act_frame = QAction("Rámeček a popisové pole", self, checkable=True)
+        self.act_frame.setChecked(frame_enabled())
+        self.act_frame.toggled.connect(self.set_frame)
+        m_view.addAction(self.act_frame)
 
         m_sheet = mb.addMenu("&List")
         act(m_sheet, "Nový list schématu", self.new_schematic_sheet)
@@ -540,6 +545,15 @@ class MainWindow(QMainWindow):
         self._rebuild_sheet_views(sh)
         self._refresh_tab_titles()
         self.undo.resetClean()
+
+    def set_frame(self, on: bool) -> None:
+        """Zapne/vypne rámeček s popisovým polem a QR na všech listech (uloží se do ~/.envocad/settings.json)."""
+        from envocad.settings import load_settings, save_settings
+        data = load_settings()
+        data["frame"] = bool(on)
+        save_settings(data)
+        if self.view is not None:
+            self.view.viewport().update()
 
     def set_dark(self, dark: bool) -> None:
         log.info("set_dark %s", dark)

@@ -12,6 +12,15 @@ TB_W, TB_H = 180.0, 32.0  # popisové pole (š × v)
 COMPANY = "ENVO s.r.o."   # výchozí; přepíše `standard.company` v ~/.envocad/settings.json
 
 
+def frame_enabled() -> bool:
+    """Kreslit rámeček s popisovým polem? (nastavení `frame`, výchozí vypnuto – souřadnicová síť /2.B4 funguje i bez něj)"""
+    try:
+        from envocad.settings import load_settings
+        return bool(load_settings().get("frame", False))
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def company_names() -> tuple[str, str]:
     """(krátký název do loga, plný název firmy) z firemního standardu."""
     try:

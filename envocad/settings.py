@@ -19,6 +19,7 @@ from envocad.library.store import home_dir
 
 DEFAULTS = {
     "shared_library_dir": "",
+    "frame": False,   # rámeček s popisovým polem a QR na listech (zatím vypnuto; Zobrazit → Rámeček a popisové pole)
     "standard": {
         "author": "", "company": "ENVO s.r.o.",
         "dc_cable": "H1Z2Z2-K 1x6", "dc_cross": 6, "ac_cable": "CYKY-J 5x16", "ac_cross": 16,

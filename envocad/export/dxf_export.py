@@ -95,14 +95,14 @@ def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Pa
     for name, color in LAYERS.items():
         doc.layers.add(name, color=color)
     msp = doc.modelspace()
-    from envocad.model.frame import MARGIN, MARGIN_LEFT, frame_geometry
-    g = frame_geometry(project, sheet)
-    for x1, y1, x2, y2 in g.lines:
+    from envocad.model.frame import MARGIN, MARGIN_LEFT, frame_enabled, frame_geometry
+    g = frame_geometry(project, sheet) if frame_enabled() else None
+    for x1, y1, x2, y2 in (g.lines if g else []):
         msp.add_line((x1, y1), (x2, y2), dxfattribs={"layer": "RAMECEK"})
-    for x, y, text, h, align in g.texts:
+    for x, y, text, h, align in (g.texts if g else []):
         if text:
             _text(msp, x, y, text, h, align, 0, layer="RAMECEK")
-    for x, y, w, h in g.rects:  # QR kód jako vyplněné čtverce
+    for x, y, w, h in (g.rects if g else []):  # QR kód jako vyplněné čtverce
         msp.add_solid([(x, y), (x + w, y), (x, y + h), (x + w, y + h)], dxfattribs={"layer": "RAMECEK"})
     if sheet.is_switchboard:
         from envocad.model.project import switchboard_header

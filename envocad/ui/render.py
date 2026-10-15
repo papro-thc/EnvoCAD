@@ -74,7 +74,10 @@ def draw_text(painter: QPainter, x: float, y: float, text: str, height: float = 
 
 
 def draw_frame(painter: QPainter, geom, color) -> None:
-    """Rámeček a popisové pole z `model/frame.py` (geometrie v mm, Y nahoru)."""
+    """Rámeček a popisové pole z `model/frame.py` (geometrie v mm, Y nahoru). Nic, když je rámeček vypnutý."""
+    from envocad.model.frame import frame_enabled
+    if not frame_enabled():
+        return
     painter.save()
     painter.setBrush(Qt.NoBrush)
     painter.setPen(QPen(color, 0.5))
