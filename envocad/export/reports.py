@@ -165,5 +165,60 @@ def terminal_plan_report(project: Project, lib: LibraryStore, sheet: Sheet | Non
     return head, rows
 
 
+def _end_text(project: Project, s: Sheet, w, side: str, conductor: str) -> str:
+    """Konec žíly: svorka (X1:3), jinak prvek:port; u bloku rozvaděče cíl uvnitř rozvaděče."""
+    from envocad.model.multipole import wire_end_terminal
+    t = wire_end_terminal(s, w, conductor, side)
+    if t:
+        return t
+    end = w.a if side == "a" else w.b
+    e = s.element(end.element_id)
+    return f"{e.ref or e.symbol_id}:{end.port}"
+
+
+def cable_plan(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
+    """Kabelový plán: každá žíla každého kabelu – číslo, barva, odkud, kam (jako v EPLAN)."""
+    from envocad.model.project import CORE_COLORS, sync_cables
+    sync_cables(project)
+    head = ["Kabel", "Typ", "Průřez [mm²]", "Žíla", "Č.", "Barva", "Odkud", "Kam", "Stínění", "Délka [m]", "List"]
+    rows = []
+    for s in _sheets(project, sheet):
+        if s.is_switchboard:
+            continue
+        for w in s.wires:
+            c = project.cable_of_wire(w)
+            if c is None:
+                continue
+            for i, name in enumerate(w.conductors or ["L1"], start=1):
+                core = c.core(name)
+                rows.append([c.ref, c.type, c.cross, name, core.number if core else str(i),
+                             core.color if core else CORE_COLORS.get(name, ""),
+                             _end_text(project, s, w, "a", name), _end_text(project, s, w, "b", name),
+                             "ano" if c.shield else "", c.length, s.name])
+    rows.sort(key=lambda r: (r[10], _ref_key(r[0]), int(r[4]) if str(r[4]).isdigit() else 99))
+    return head, rows
+
+
+def wiring_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
+    """Zapojovací seznam: každé propojení po žílách – odkud, kam, kabel/vodič, barva, průřez (pro zapojování)."""
+    from envocad.model.project import CORE_COLORS, sync_cables
+    sync_cables(project)
+    head = ["List", "Kabel / vodič", "Žíla", "Barva", "Průřez [mm²]", "Odkud", "Kam", "Poznámka"]
+    rows = []
+    for s in _sheets(project, sheet):
+        for w in s.wires:
+            c = project.cable_of_wire(w) if not s.is_switchboard else None
+            label = c.ref if c else (w.attrs.get("ref") or "vodič")
+            cross = (c.cross if c else "") or w.attrs.get("cross", "")
+            for name in (w.conductors or ["L1"]):
+                core = c.core(name) if c else None
+                color = core.color if core and core.color else CORE_COLORS.get(name, "")
+                rows.append([s.name, label, name, color, cross, _end_text(project, s, w, "a", name),
+                             _end_text(project, s, w, "b", name), c.type if c else w.attrs.get("cable", "")])
+    rows.sort(key=lambda r: (r[0], _ref_key(r[1])))
+    return head, rows
+
+
 ALL_REPORTS = [("Přístroje", device_list), ("Výkaz materiálu", bom), ("Kabely", cables),
+               ("Kabelový plán", cable_plan), ("Zapojovací seznam", wiring_list),
                ("Svorkovnice", terminals), ("Plán svorkovnice", terminal_plan_report), ("Štítky", labels)]

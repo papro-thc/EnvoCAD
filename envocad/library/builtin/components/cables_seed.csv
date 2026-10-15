@@ -1,0 +1,19 @@
+id;manufacturer;part_number;name;category;symbol_id;footprint_id;datasheet_url;source;price_czk;cores_n;cross_mm2;od_mm;un_v;shield;note
+seed-cyky-j-3x1-5;obecný;CYKY-J 3x1,5;Kabel CYKY-J 3×1,5 (L, N, PE);cable;;;;seed;;3;1.5;;450;;Cu, PVC, pevné uložení; ověřit u dodavatele (seed)
+seed-cyky-j-3x2-5;obecný;CYKY-J 3x2,5;Kabel CYKY-J 3×2,5;cable;;;;seed;;3;2.5;;450;;seed – ověřit
+seed-cyky-j-5x1-5;obecný;CYKY-J 5x1,5;Kabel CYKY-J 5×1,5 (L1, L2, L3, N, PE);cable;;;;seed;;5;1.5;;450;;seed – ověřit
+seed-cyky-j-5x2-5;obecný;CYKY-J 5x2,5;Kabel CYKY-J 5×2,5;cable;;;;seed;;5;2.5;;450;;seed – ověřit
+seed-cyky-j-5x4;obecný;CYKY-J 5x4;Kabel CYKY-J 5×4;cable;;;;seed;;5;4;;450;;seed – ověřit
+seed-cyky-j-5x6;obecný;CYKY-J 5x6;Kabel CYKY-J 5×6;cable;;;;seed;;5;6;;450;;seed – ověřit
+seed-cyky-j-5x10;obecný;CYKY-J 5x10;Kabel CYKY-J 5×10;cable;;;;seed;;5;10;;450;;seed – ověřit
+seed-cyky-j-5x16;obecný;CYKY-J 5x16;Kabel CYKY-J 5×16;cable;;;;seed;;5;16;;450;;seed – ověřit
+seed-cyky-j-5x25;obecný;CYKY-J 5x25;Kabel CYKY-J 5×25;cable;;;;seed;;5;25;;450;;seed – ověřit
+seed-cyky-j-5x35;obecný;CYKY-J 5x35;Kabel CYKY-J 5×35;cable;;;;seed;;5;35;;450;;seed – ověřit
+seed-cyky-o-5x16;obecný;CYKY-O 5x16;Kabel CYKY-O 5×16 (bez PE, žíly 1–5);cable;;;;seed;;5;16;;450;;seed – ověřit
+seed-1-ayky-j-4x50;obecný;1-AYKY-J 4x50;Kabel 1-AYKY-J 4×50 (Al);cable;;;;seed;;4;50;;450;;Al vodiče; seed – ověřit
+seed-1-ayky-j-4x120;obecný;1-AYKY-J 4x120;Kabel 1-AYKY-J 4×120 (Al);cable;;;;seed;;4;120;;450;;Al vodiče; seed – ověřit
+seed-h1z2z2-k-1x4;obecný;H1Z2Z2-K 1x4;Solární kabel H1Z2Z2-K 1×4 (DC);cable;;;;seed;;1;4;;1500;;EN 50618, DC 1,5 kV; seed – ověřit
+seed-h1z2z2-k-1x6;obecný;H1Z2Z2-K 1x6;Solární kabel H1Z2Z2-K 1×6 (DC);cable;;;;seed;;1;6;;1500;;EN 50618; seed – ověřit
+seed-h1z2z2-k-1x10;obecný;H1Z2Z2-K 1x10;Solární kabel H1Z2Z2-K 1×10 (DC);cable;;;;seed;;1;10;;1500;;EN 50618; seed – ověřit
+seed-jytyc-2x2x0-8;obecný;JYTY 2x1;Sdělovací kabel JYTY 2×1 stíněný (RS485);cable;;;;seed;;2;1;;;ano;stíněný; seed – ověřit
+seed-utp-cat6;obecný;UTP Cat.6;Datový kabel UTP Cat.6 (komunikace střídače);cable;;;;seed;;8;;;;;seed – ověřit

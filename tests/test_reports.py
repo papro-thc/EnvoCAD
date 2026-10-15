@@ -44,7 +44,7 @@ def test_xlsx_and_docx(tmp_path):
     x = tmp_path / "r.xlsx"
     export_reports_xlsx(p, lib, x, s)
     wb = load_workbook(x)
-    assert set(wb.sheetnames) == {"Přístroje", "Výkaz materiálu", "Kabely", "Svorkovnice", "Plán svorkovnice", "Štítky"}
+    assert set(wb.sheetnames) == {n[:31] for n, _ in reports.ALL_REPORTS}
     assert wb["Výkaz materiálu"].max_row > 4
     d = tmp_path / "p.docx"
     export_routine_test_docx(p, lib, s, d)
@@ -61,3 +61,37 @@ def test_empty_sheet_reports(tmp_path):
     for _, fn in reports.ALL_REPORTS:
         head, rows = fn(p, lib, Sheet())
         assert head and rows == []
+
+
+def test_cables_as_objects_and_wiring_list(tmp_path):
+    from envocad.model.project import CORE_COLORS, Cable, Element, Project, Wire, WireEnd, sync_cables
+    lib = LibraryStore(tmp_path / "lib.db")
+    p = Project(name="Kabely")
+    s = p.sheets[0]
+    t = Element("fve.inverter", 50, 150, attrs={"ref": "T1"})
+    f = Element("fve.breaker_mcb", 120, 150, attrs={"ref": "F1", "poles": "3"})
+    s.elements += [t, f]
+    w = Wire(WireEnd(t.id, "AC"), WireEnd(f.id, "1"), attrs={"ref": "W2", "cable": "CYKY-J 5x16", "cross": "16"},
+             conductors=["L1", "L2", "L3", "N", "PE"])
+    s.wires.append(w)
+    assert sync_cables(p) > 0
+    c = p.cable_of_wire(w)
+    assert isinstance(c, Cable) and c.ref == "W2" and c.type == "CYKY-J 5x16" and c.cross == "16"
+    assert [(x.name, x.number, x.color) for x in c.cores][:2] == [("L1", "1", "hnědá"), ("L2", "2", "černá")]
+    assert c.core("PE").color == CORE_COLORS["PE"]
+    # ruční barva zůstane i po změně žil
+    c.core("N").color = "světle modrá"
+    w.conductors = ["L1", "N", "PE"]
+    sync_cables(p)
+    assert [x.name for x in c.cores] == ["L1", "N", "PE"] and c.core("N").color == "světle modrá"
+    assert sync_cables(p) == 0
+    # uložení/načtení
+    p.save(tmp_path / "k.ecp")
+    p2 = Project.load(tmp_path / "k.ecp")
+    assert p2.cables[0].core("N").color == "světle modrá" and p2.sheets[0].wires[0].attrs["cable_id"] == c.id
+    head, rows = reports.cable_plan(p, lib)
+    assert [r[3] for r in rows] == ["L1", "N", "PE"] and rows[0][6] == "T1:AC" and rows[0][7] == "F1:1"
+    _, rows = reports.wiring_list(p, lib)
+    assert len(rows) == 3 and rows[0][1] == "W2" and rows[0][3] == "hnědá"
+    # artikl kabelu v knihovně
+    assert any(cc.category == "cable" for cc in lib.components(category="cable"))

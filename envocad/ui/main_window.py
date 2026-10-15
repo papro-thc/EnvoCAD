@@ -145,6 +145,7 @@ class MainWindow(QMainWindow):
         act(m_edit, "Svorky vybraného vodiče…", self.edit_wire_terminals, "Ctrl+T")
         act(m_edit, "Očíslovat svorky automaticky", self.auto_number_terminals)
         act(m_edit, "Svorkovnice a můstky…", self.edit_strip, "Ctrl+Shift+T")
+        act(m_edit, "Kabel vybraného vodiče (žíly, barvy, stínění)…", self.edit_cable, "Ctrl+Shift+K")
         m_edit.addSeparator()
         act(m_edit, "Najít označení…", self.find_ref, "Ctrl+F")
         act(m_edit, "Kontrola projektu…", self.run_checks, "F7", True)
@@ -233,6 +234,8 @@ class MainWindow(QMainWindow):
         from envocad.model.project import sync_feed_links
         self.project = project
         sync_feed_links(project)
+        from envocad.model.project import sync_cables
+        sync_cables(project)
         self.nav_panel.set_project(project)
         self.undo.clear()
         while self.tabs.count():
@@ -592,8 +595,9 @@ class MainWindow(QMainWindow):
 
     def _sync_links_and_blocks(self) -> None:
         """Po změně modelu: vazby přívodů/vývodů na vodiče JPS (odvozené, mimo undo) a porty bloků ROZVADĚČ."""
-        from envocad.model.project import sync_feed_links
+        from envocad.model.project import sync_cables, sync_feed_links
         sync_feed_links(self.project)
+        sync_cables(self.project)
         self._refresh_switchboard_blocks()
 
     def _refresh_switchboard_blocks(self) -> None:
@@ -665,6 +669,27 @@ class MainWindow(QMainWindow):
         strip, groups = dlg.values()
         if strip and groups != self.project.bridge_groups(strip):
             self.undo.push(commands.SetBridgesCommand(self.project, strip, self.project.bridge_groups(strip), groups))
+
+    def edit_cable(self) -> None:
+        hit = self._selected_wire_id()
+        if not hit:
+            QMessageBox.information(self, "Kabel", "Vyberte vodič v JPS.")
+            return
+        sh, wid = hit
+        from envocad.model.project import sync_cables
+        sync_cables(self.project)
+        w = next(w for w in sh.wires if w.id == wid)
+        c = self.project.cable_of_wire(w)
+        if c is None:
+            QMessageBox.information(self, "Kabel", "Vodič nemá označení ani typ kabelu – vyplňte je v dialogu vodiče (dvojklik).")
+            return
+        from envocad.ui.dialogs import CableDialog
+        dlg = CableDialog(c, self, library=self.library)
+        if dlg.exec() != CableDialog.Accepted:
+            return
+        old, new = c.to_dict(), dlg.values()
+        if old != new:
+            self.undo.push(commands.SetCableCommand(self.project, c.id, old, new))
 
     def auto_number_terminals(self) -> None:
         sh = self.current_sheet

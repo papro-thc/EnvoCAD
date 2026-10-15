@@ -271,3 +271,24 @@ class MoveMultipoleCommand(QUndoCommand):
 
     def undo(self):
         self._apply(0)
+
+
+class SetCableCommand(QUndoCommand):
+    """Změna kabelu (žíly, barvy, stínění, poznámka, artikl)."""
+
+    def __init__(self, project, cable_id: str, old: dict, new: dict):
+        super().__init__(f"Kabel {new.get('ref', '')}")
+        self.project, self.cid, self.old, self.new = project, cable_id, old, new
+
+    def _set(self, d: dict):
+        from envocad.model.project import Cable
+        for i, c in enumerate(self.project.cables):
+            if c.id == self.cid:
+                self.project.cables[i] = Cable.from_dict(d)
+                return
+
+    def redo(self):
+        self._set(self.new)
+
+    def undo(self):
+        self._set(self.old)

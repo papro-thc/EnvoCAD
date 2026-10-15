@@ -24,7 +24,7 @@ Volitelné (podle kategorie): viz tabulka. Neznámou hodnotu nechte **prázdnou*
 | `manufacturer` | Výrobce | OEZ, Eaton, Hager, Schneider, ABB, Siemens, SMA, Huawei, SolarEdge, Fronius, SolaX, GoodWe, BMR… |
 | `part_number` | Objednací číslo / typové označení přesně dle katalogu | |
 | `name` | Lidský název | např. „Jistič LTN 16B 3p“ |
-| `category` | `mcb`, `mccb`, `rcd`, `rcbo`, `spd`, `switch`, `contactor`, `fuse`, `fuse_holder`, `meter`, `inverter`, `inverter_hybrid`, `battery`, `pv_module`, `enclosure`, `terminal`, `relay`, `accessory`, `connector`, `other` | |
+| `category` | `mcb`, `mccb`, `rcd`, `rcbo`, `spd`, `switch`, `contactor`, `fuse`, `fuse_holder`, `meter`, `inverter`, `inverter_hybrid`, `battery`, `pv_module`, `enclosure`, `terminal`, `relay`, `accessory`, `connector`, `cable`, `other` | |
 | `symbol_id` | schematická značka z knihovny (viz `LibraryStore().list_symbols()`) | např. `fve.breaker_mcb`, `sb.rcd`, `fve.inverter`, `fve.spd`; skříň: prázdné |
 | `footprint_id` | symbol pro rozložení (prázdné = generický modulový podle `modules`) | |
 | `datasheet_url` | odkaz na katalogový list / stránku výrobce, ze které hodnoty pocházejí | **povinné pro data od agentů** |
@@ -45,6 +45,7 @@ Volitelné (podle kategorie): viz tabulka. Neznámou hodnotu nechte **prázdnou*
 | `spd_type`, `uc_v`, `up_kv`, `iimp_ka`, `in_ka` | svodiče | T1 / T2 / T1+T2 / T1+T2 DC; V; kV; kA; kA |
 | `rows`, `modules_per_row`, `ip`, `ik`, `material`, `mounting`, `door` | skříně | |
 | `terminal_kind`, `connection`, `cross_mm2`, `cross_max_mm2`, `width_mm`, `in_`, `un_v`, `color`, `levels` | řadové svorky: druh (`prochozi`, `pe`, `n-odpojovaci`, `dvoupatrova`, `pojistkova`, `rozbocovaci`, `distribucni`, `mustek`), připojení (`sroub`, `push-in`, `pruzina`), jmenovitý / max. průřez, rozteč (šířka), In, Un, barva, počet pater | mm², mm, A, V |
+| `cores_n`, `cross_mm2`, `od_mm`, `un_v`, `shield` | kabely: počet žil, průřez, vnější průměr, Un, stínění (`ano`) | ks, mm², mm, V |
 | `note` | cokoliv dalšího (např. „DC 1000 V“, „s pomocným kontaktem“) | |
 
 ## Propsání do prvku

@@ -17,7 +17,7 @@ WIRE_ATTRIBUTES = [
     Attribute("route", "Trasa / uložení"),
 ]
 
-FORMAT_VERSION = 5
+FORMAT_VERSION = 6
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 SHEET_KINDS = ("schematic", "switchboard")
@@ -77,6 +77,62 @@ class Element:
             attrs=dict(d.get("attrs", {})), component_id=d.get("component_id"), id=d["id"],
             mp_pos=tuple(d["mp_pos"]) if d.get("mp_pos") else None,
         )
+
+
+# Barvy žil dle ČSN 33 0165 ed. 2 / HD 308 S2 (kabely CYKY, NYY…); DC podle zvyklosti FVE (červená +, černá −)
+CORE_COLORS = {"L1": "hnědá", "L2": "černá", "L3": "šedá", "L": "hnědá", "N": "modrá", "PE": "zelenožlutá",
+               "PEN": "zelenožlutá", "DC+": "červená", "DC-": "černá", "+": "červená", "-": "černá",
+               "L+": "červená", "L-": "černá"}
+
+
+@dataclass
+class Core:
+    """Žíla kabelu."""
+    name: str                  # L1, N, PE, DC+ … (shodné s Wire.conductors)
+    number: str = ""           # číslo žíly (1…n) u číslovaných kabelů
+    color: str = ""
+
+    def to_dict(self) -> dict:
+        return {"name": self.name, "number": self.number, "color": self.color}
+
+
+@dataclass
+class Cable:
+    """Kabel jako objekt (jako v EPLAN): typ, průřez, žíly s barvami, stínění, délka, trasa.
+    Vodiče (Wire) na něj odkazují přes `cable_id`; jeden kabel může procházet více vodiči (přes svorky)."""
+    ref: str
+    type: str = ""
+    cross: str = ""
+    cores: list[Core] = field(default_factory=list)
+    shield: bool = False
+    length: str = ""
+    route: str = ""
+    note: str = ""
+    component_id: str | None = None   # artikl kabelu z knihovny
+    id: str = field(default_factory=_uid)
+
+    def core(self, name: str) -> Core | None:
+        return next((c for c in self.cores if c.name == name), None)
+
+    def set_cores(self, names: list[str], keep_colors: bool = True) -> None:
+        old = {c.name: c for c in self.cores}
+        self.cores = []
+        for i, n in enumerate(names, start=1):
+            prev = old.get(n) if keep_colors else None
+            self.cores.append(Core(n, prev.number if prev and prev.number else str(i),
+                                   prev.color if prev and prev.color else CORE_COLORS.get(n, "")))
+
+    def to_dict(self) -> dict:
+        return {"id": self.id, "ref": self.ref, "type": self.type, "cross": self.cross,
+                "cores": [c.to_dict() for c in self.cores], "shield": self.shield, "length": self.length,
+                "route": self.route, "note": self.note, "component_id": self.component_id}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> Cable:
+        return cls(ref=d.get("ref", ""), type=d.get("type", ""), cross=d.get("cross", ""),
+                   cores=[Core(c["name"], c.get("number", ""), c.get("color", "")) for c in d.get("cores", [])],
+                   shield=bool(d.get("shield")), length=d.get("length", ""), route=d.get("route", ""),
+                   note=d.get("note", ""), component_id=d.get("component_id"), id=d["id"])
 
 
 @dataclass
@@ -276,7 +332,20 @@ class Project:
     sheets: list[Sheet] = field(default_factory=lambda: [Sheet()])
     # můstky (propoje) svorkovnic: {"X2": [["1", "6", "11"], ["2", "7", "12"]]} – čísla svorek spojená můstkem
     bridges: dict[str, list[list[str]]] = field(default_factory=dict)
+    cables: list[Cable] = field(default_factory=list)
     path: Path | None = None
+
+    # ---- kabely ------------------------------------------------------
+    def cable(self, cid: str) -> Cable | None:
+        return next((c for c in self.cables if c.id == cid), None)
+
+    def cable_by_ref(self, ref: str) -> Cable | None:
+        return next((c for c in self.cables if c.ref == ref), None) if ref else None
+
+    def cable_of_wire(self, w: Wire) -> Cable | None:
+        """Kabel vodiče: podle `cable_id`, jinak podle označení vodiče (W2 = kabel W2)."""
+        cid = w.attrs.get("cable_id", "")
+        return (self.cable(cid) if cid else None) or self.cable_by_ref(w.attrs.get("ref", ""))
 
     # ---- svorkovnice -------------------------------------------------
     def bridge_groups(self, strip: str) -> list[list[str]]:
@@ -346,7 +415,7 @@ class Project:
         return {
             "format": "envocad-project", "format_version": FORMAT_VERSION,
             "name": self.name, "meta": self.meta, "sheets": [s.to_dict() for s in self.sheets],
-            "bridges": self.bridges,
+            "bridges": self.bridges, "cables": [c.to_dict() for c in self.cables],
         }
 
     @classmethod
@@ -359,7 +428,8 @@ class Project:
         d = migrate(d, ver)
         return cls(name=d.get("name", ""), meta=dict(d.get("meta", {})),
                    sheets=[Sheet.from_dict(s) for s in d.get("sheets", [])] or [Sheet()],
-                   bridges={k: [[str(x) for x in g] for g in v] for k, v in d.get("bridges", {}).items()})
+                   bridges={k: [[str(x) for x in g] for g in v] for k, v in d.get("bridges", {}).items()},
+                   cables=[Cable.from_dict(c) for c in d.get("cables", [])])
 
     def save(self, path: Path | str | None = None) -> None:
         p = Path(path) if path else self.path
@@ -385,6 +455,7 @@ def migrate(d: dict, ver: int) -> dict:
     if ver < 3:
         d.setdefault("bridges", {})  # v3: můstky svorkovnic
     # v4: volitelné `mp_pos` prvku (ruční pozice ve vícepólu) – bez migrace
+    # v6: `cables` – kabely jako objekty; vytvoří se z vodičů při načtení (sync_cables)
     if ver < 5:
         # v5: FV string má jeden port DC (pár DC+/DC- jsou žíly), střídač porty DC1/DC2 místo DC+/DC-
         port_map = {"fve.pv_string": {"DC+": "DC", "DC-": "DC"},
@@ -648,5 +719,41 @@ def sync_feed_links(project: Project) -> int:
                     for sw in s.wires:
                         if sw.touches(f.id) and sw.conductors != list(w.conductors):
                             sw.conductors = list(w.conductors)
+                changed += 1
+    return changed
+
+
+# ---- kabely ↔ vodiče -------------------------------------------------------------------------------------
+def sync_cables(project: Project) -> int:
+    """Z vodičů JPS (s označením nebo typem kabelu) udržuje objekty Cable: typ/průřez/délka/trasa se berou
+    z atributů vodiče (ten je editační místo), žíly z `Wire.conductors` (barvy se dopočítají a ručně upravené
+    zůstanou). Vodiče uvnitř rozvaděčů kabel nedostanou. Vrací počet změn."""
+    changed = 0
+    for s in project.sheets:
+        if s.is_switchboard:
+            continue
+        for w in s.wires:
+            ref = w.attrs.get("ref", "")
+            if not ref and not w.attrs.get("cable"):
+                continue
+            c = project.cable_of_wire(w)
+            if c is None:
+                c = Cable(ref=ref or f"W{len(project.cables) + 1}")
+                project.cables.append(c)
+                changed += 1
+            for key, attr in (("type", "cable"), ("cross", "cross"), ("length", "length"), ("route", "route")):
+                v = w.attrs.get(attr, "")
+                if v and getattr(c, key) != v:
+                    setattr(c, key, v)
+                    changed += 1
+            if ref and c.ref != ref:
+                c.ref = ref
+                changed += 1
+            names = list(w.conductors) or ["L1"]
+            if [x.name for x in c.cores] != names:
+                c.set_cores(names)
+                changed += 1
+            if w.attrs.get("cable_id") != c.id:
+                w.attrs["cable_id"] = c.id
                 changed += 1
     return changed

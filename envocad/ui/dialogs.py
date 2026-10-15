@@ -239,6 +239,89 @@ class StripDialog(QDialog):
         return self._shown, groups
 
 
+class CableDialog(QDialog):
+    """Kabel jako objekt: žíly s čísly a barvami, stínění, délka/trasa/poznámka, artikl kabelu z knihovny."""
+
+    def __init__(self, cable, parent=None, library=None):
+        super().__init__(parent)
+        from envocad.model.project import Cable
+        self.cable: Cable = cable
+        self.library = library
+        self.component_id = cable.component_id
+        self.setWindowTitle(f"Kabel {cable.ref}")
+        self.setMinimumWidth(520)
+        lay = QVBoxLayout(self)
+        form = QFormLayout()
+        self.type = QLineEdit(cable.type)
+        self.cross = QLineEdit(cable.cross)
+        self.length = QLineEdit(cable.length)
+        self.route = QLineEdit(cable.route)
+        self.note = QLineEdit(cable.note)
+        form.addRow("Označení", QLabel(f"<b>{cable.ref}</b>"))
+        form.addRow("Typ kabelu", self.type)
+        form.addRow("Průřez [mm²]", self.cross)
+        form.addRow("Délka [m]", self.length)
+        form.addRow("Trasa / uložení", self.route)
+        form.addRow("Poznámka", self.note)
+        from PySide6.QtWidgets import QCheckBox
+        self.shield = QCheckBox("stíněný kabel")
+        self.shield.setChecked(cable.shield)
+        form.addRow("Stínění", self.shield)
+        lay.addLayout(form)
+        if library is not None:
+            row = QHBoxLayout()
+            self.comp_label = QLabel(self._comp_text())
+            btn = QPushButton("Vybrat kabel z knihovny…")
+            btn.clicked.connect(self.pick_component)
+            row.addWidget(self.comp_label, 1)
+            row.addWidget(btn)
+            lay.addLayout(row)
+        lay.addWidget(QLabel("Žíly (barvy dle ČSN 33 0165 – lze přepsat):"))
+        self.table = QTableWidget(len(cable.cores), 3)
+        self.table.setHorizontalHeaderLabels(["Žíla", "Číslo", "Barva"])
+        for r, c in enumerate(cable.cores):
+            it = QTableWidgetItem(c.name)
+            it.setFlags(it.flags() & ~Qt.ItemIsEditable)
+            self.table.setItem(r, 0, it)
+            self.table.setItem(r, 1, QTableWidgetItem(c.number))
+            self.table.setItem(r, 2, QTableWidgetItem(c.color))
+        self.table.horizontalHeader().setStretchLastSection(True)
+        lay.addWidget(self.table)
+        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        lay.addWidget(bb)
+
+    def _comp_text(self) -> str:
+        if self.library is not None and self.component_id:
+            c = self.library.component(self.component_id)
+            if c:
+                return f"Artikl: <b>{c.label}</b>"
+        return "Artikl: –"
+
+    def pick_component(self) -> None:
+        from envocad.ui.component_picker import ComponentPicker
+        dlg = ComponentPicker(self.library, category="cable", parent=self, title="Vybrat kabel")
+        if dlg.exec() == ComponentPicker.Accepted and dlg.selected is not None:
+            comp = dlg.selected
+            self.component_id = comp.id
+            self.type.setText(comp.part_number)
+            if comp.params.get("cross_mm2"):
+                self.cross.setText(comp.params["cross_mm2"])
+            self.comp_label.setText(self._comp_text())
+
+    def values(self) -> dict:
+        d = self.cable.to_dict()
+        d.update(type=self.type.text().strip(), cross=self.cross.text().strip(), length=self.length.text().strip(),
+                 route=self.route.text().strip(), note=self.note.text().strip(), shield=self.shield.isChecked(),
+                 component_id=self.component_id)
+        d["cores"] = [{"name": self.table.item(r, 0).text(),
+                       "number": (self.table.item(r, 1).text() if self.table.item(r, 1) else "").strip(),
+                       "color": (self.table.item(r, 2).text() if self.table.item(r, 2) else "").strip()}
+                      for r in range(self.table.rowCount())]
+        return d
+
+
 class ElementDialog(AttrDialog):
     def __init__(self, symbol: Symbol, attrs: dict[str, str], parent=None, title: str | None = None,
                  library=None, component_id: str | None = None, wire_choices: list[tuple[str, str]] | None = None):
