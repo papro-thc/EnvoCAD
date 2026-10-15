@@ -251,11 +251,6 @@ class LayoutScene(QGraphicsScene):
             return
         super().mouseDoubleClickEvent(ev)
 
-    def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
-        from envocad.model.frame import frame_geometry
-        from envocad.ui.render import draw_frame
-        draw_frame(painter, frame_geometry(self.project, self.sheet, view="rozložení"), colors().ink)
-
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
         c = colors()
         lay = self.sheet.layout
