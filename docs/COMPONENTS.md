@@ -44,6 +44,7 @@ Volitelné (podle kategorie): viz tabulka. Neznámou hodnotu nechte **prázdnou*
 | `p_wp`, `voc_v`, `isc_a`, `vmp_v`, `imp_a` | FV moduly (STC) | Wp, V, A |
 | `spd_type`, `uc_v`, `up_kv`, `iimp_ka`, `in_ka` | svodiče | T1 / T2 / T1+T2 / T1+T2 DC; V; kV; kA; kA |
 | `rows`, `modules_per_row`, `ip`, `ik`, `material`, `mounting`, `door` | skříně | |
+| `terminal_kind`, `connection`, `cross_mm2`, `cross_max_mm2`, `width_mm`, `in_`, `un_v`, `color`, `levels` | řadové svorky: druh (`prochozi`, `pe`, `n-odpojovaci`, `dvoupatrova`, `pojistkova`, `rozbocovaci`, `distribucni`, `mustek`), připojení (`sroub`, `push-in`, `pruzina`), jmenovitý / max. průřez, rozteč (šířka), In, Un, barva, počet pater | mm², mm, A, V |
 | `note` | cokoliv dalšího (např. „DC 1000 V“, „s pomocným kontaktem“) | |
 
 ## Propsání do prvku

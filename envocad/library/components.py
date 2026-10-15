@@ -21,7 +21,8 @@ CATEGORIES = {"mcb", "mccb", "rcd", "rcbo", "spd", "switch", "contactor", "fuse"
               "other"}
 NUMERIC = {"price_czk", "in_", "poles", "icu_ka", "idn_ma", "un_v", "modules", "width_mm", "height_mm", "depth_mm",
            "p_loss_w", "p_ac_kw", "p_dc_max_kwp", "mppt", "phases", "i_ac_max_a", "e_kwh", "p_kw", "u_dc_v", "p_wp",
-           "voc_v", "isc_a", "vmp_v", "imp_a", "uc_v", "up_kv", "iimp_ka", "in_ka", "rows", "modules_per_row"}
+           "voc_v", "isc_a", "vmp_v", "imp_a", "uc_v", "up_kv", "iimp_ka", "in_ka", "rows", "modules_per_row",
+           "cross_mm2", "cross_max_mm2", "levels"}
 SOURCES = {"catalog", "datasheet", "web", "seed", "user"}
 
 # výchozí schematická značka podle kategorie (když symbol_id chybí)
@@ -38,6 +39,7 @@ PARAM_TO_ATTR = {
     "icu_ka": "icu", "idn_ma": "idn", "modules": "modules", "p_loss_w": "p_loss_w", "spd_type": "spd_type",
     "uc_v": "uc", "p_ac_kw": "p_ac", "p_dc_max_kwp": "p_dc_max", "mppt": "mppt", "phases": "phases",
     "e_kwh": "e_kwh", "p_kw": "p_kw", "un_v": "un", "p_wp": "p_module", "voc_v": "voc", "isc_a": "isc",
+    "cross_mm2": "cross", "terminal_kind": "kind",
 }
 
 
