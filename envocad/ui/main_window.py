@@ -223,7 +223,9 @@ class MainWindow(QMainWindow):
 
     # ---- projekt ---------------------------------------------------------------
     def _load_project(self, project: Project) -> None:
+        from envocad.model.project import sync_feed_links
         self.project = project
+        sync_feed_links(project)
         self.undo.clear()
         while self.tabs.count():
             w = self.tabs.widget(0)
@@ -525,6 +527,10 @@ class MainWindow(QMainWindow):
 
     def _on_undo_changed(self, _value=None) -> None:
         self._update_title()
+        from envocad.model.project import sync_feed_links
+        if sync_feed_links(self.project):
+            pass  # odvozené atributy přívodů/vývodů (odkud, kabel) – nejsou v undo
+        self._refresh_switchboard_blocks()
         # odvozené pohledy (vícepól, plán svorkovnice): viditelný se přestaví hned, ostatní až při přepnutí
         for i in range(self.tabs.count()):
             w = self._unwrap(self.tabs.widget(i))
@@ -533,6 +539,25 @@ class MainWindow(QMainWindow):
                     w.scene().rebuild()
                 else:
                     w._dirty = True
+
+    def _refresh_switchboard_blocks(self) -> None:
+        """Bloky ROZVADĚČ v JPS mají porty podle přívodů/vývodů svého listu – po změně listu se přestaví."""
+        from envocad.model.project import element_symbol
+        for i in range(self.tabs.count()):
+            w = self._unwrap(self.tabs.widget(i))
+            sc = w.scene()
+            if not isinstance(sc, SchematicScene):
+                continue
+            for e in sc.sheet.elements:
+                if e.symbol_id != "fve.switchboard":
+                    continue
+                it = sc.element_items.get(e.id)
+                sym = element_symbol(self.project, e, self.library)
+                if it is not None and [p.to_dict() for p in it.symbol.ports] != [p.to_dict() for p in sym.ports]:
+                    it.symbol = sym
+                    it._path = __import__("envocad.ui.render", fromlist=["symbol_path"]).symbol_path(sym)
+                    it.sync_from_model()
+                    sc.update_wires_of(e.id)
 
     # ---- vícepól ---------------------------------------------------------------
     def open_multipole(self) -> None:

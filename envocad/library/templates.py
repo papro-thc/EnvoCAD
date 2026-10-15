@@ -56,7 +56,12 @@ def _auto_link_feed(project: Project, sheet: Sheet, feed: Element, port_hint: st
     cands.sort(key=lambda w: 0 if port_hint and (w.a.port == port_hint or w.b.port == port_hint) else 1)
     if not cands:
         return
-    feed.attrs.update(feed_link_attrs(project, sheet, feed, cands[0].id))
+    w = cands[0]
+    # konec vodiče na bloku se přejmenuje na označení přívodu (X1) – blok má porty podle přívodů/vývodů
+    for end in (w.a, w.b):
+        if end.element_id == block and feed.ref:
+            end.port = feed.ref
+    feed.attrs.update(feed_link_attrs(project, sheet, feed, w.id))
     if cands[0].conductors:
         for w in sheet.wires:
             if w.touches(feed.id):

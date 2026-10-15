@@ -6,7 +6,7 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from envocad.model.symbol import Attribute, Symbol, rotate_point
+from envocad.model.symbol import Attribute, Port, Symbol, rotate_point
 
 # Atributy vodiče (vodič nemá symbol, proto jsou definované zde)
 WIRE_ATTRIBUTES = [
@@ -502,13 +502,14 @@ def wire_choices(project: Project, sheet: Sheet) -> list[tuple[str, str]]:
 def linked_wire(project: Project, sheet: Sheet, e: Element) -> tuple[Sheet, Wire] | None:
     """Vodič JPS navázaný na přívod/vývod (atribut `wire_id`)."""
     wid = e.attrs.get("wire_id", "")
-    if not wid:
-        return None
-    for s in project.sheets:
-        for w in s.wires:
-            if w.id == wid:
-                return s, w
-    return None
+    if wid:
+        for s in project.sheets:
+            for w in s.wires:
+                if w.id == wid:
+                    return s, w
+    w = feed_wire_by_port(project, sheet, e)  # bez ruční vazby: podle portu bloku se jménem svorky
+    ps = parent_sheet(project, sheet)
+    return (ps, w) if (w is not None and ps is not None) else None
 
 
 def feed_link_attrs(project: Project, sheet: Sheet, e: Element, wire_id: str) -> dict[str, str]:
@@ -529,8 +530,15 @@ def feed_link_attrs(project: Project, sheet: Sheet, e: Element, wire_id: str) ->
 
 def feeds_linked_to(project: Project, wire_id: str) -> list[tuple[Sheet, Element]]:
     """Přívody/vývody rozvaděčů navázané na vodič JPS (pro křížový odkaz u vodiče)."""
-    return [(s, e) for s in project.sheets for e in s.elements
-            if e.symbol_id in FEED_SYMBOLS and e.attrs.get("wire_id") == wire_id]
+    out = []
+    for s in project.sheets:
+        for e in s.elements:
+            if e.symbol_id not in FEED_SYMBOLS:
+                continue
+            hit = linked_wire(project, s, e)
+            if hit is not None and hit[1].id == wire_id:
+                out.append((s, e))
+    return out
 
 
 def wire_xref(project: Project, wire_id: str) -> str:
@@ -543,3 +551,89 @@ def wire_xref(project: Project, wire_id: str) -> str:
             bname = block.element(s.parent_element_id).ref
         parts.append(f"{bname or s.name}:{e.ref}" if e.ref else (bname or s.name))
     return ("→ " + ", ".join(parts)) if parts else ""
+
+
+# ---- blok ROZVADĚČ s porty podle přívodů/vývodů listu rozvaděče -------------------------------------------
+PORT_PITCH = 10.0
+
+
+def switchboard_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
+    """Značka bloku ROZVADĚČ odvozená z jeho listu: port za každý přívod (vlevo) a vývod (vpravo),
+    pojmenovaný označením svorky (X1, X4…). Bez listu zůstává základní značka. Porty, na které ještě vedou
+    vodiče se starými názvy (1–4), se zachovají, aby se nic nerozpojilo."""
+    sheet = project.switchboard_sheet(e.id)
+    if sheet is None:
+        return base
+    feeds_in = [f for f in sheet.elements if f.symbol_id == "sb.feed_in" and f.ref]
+    feeds_out = [f for f in sheet.elements if f.symbol_id == "sb.feed_out" and f.ref]
+    if not feeds_in and not feeds_out:
+        return base
+    n = max(len(feeds_in), len(feeds_out), 1)
+    h = max(20.0, n * PORT_PITCH + PORT_PITCH)
+    half = h / 2
+    prims: list = [{"type": "rect", "x": -15, "y": -half, "w": 30, "h": h},
+                   {"type": "text", "x": 0, "y": half + 1.5, "text": "ROZVADĚČ", "height": 2, "align": "center"}]
+    ports: list[Port] = []
+    for i, f in enumerate(feeds_in):
+        y = half - PORT_PITCH / 2 - i * PORT_PITCH
+        y = round(y / 2.5) * 2.5
+        ports.append(Port(f.ref, -15, y, "W"))
+        prims.append({"type": "text", "x": -13.5, "y": y - 0.8, "text": f.ref, "height": 1.8, "align": "left"})
+    for i, f in enumerate(feeds_out):
+        y = half - PORT_PITCH / 2 - i * PORT_PITCH
+        y = round(y / 2.5) * 2.5
+        ports.append(Port(f.ref, 15, y, "E"))
+        prims.append({"type": "text", "x": 13.5, "y": y - 0.8, "text": f.ref, "height": 1.8, "align": "right"})
+    names = {p.name for p in ports}
+    parent = project.sheet_of_element(e.id)
+    used = {end.port for w in (parent.wires if parent else []) for end in (w.a, w.b) if end.element_id == e.id}
+    for p in base.ports:  # staré porty, dokud na ně něco vede
+        if p.name in used and p.name not in names:
+            ports.append(Port(p.name, p.x, p.y if abs(p.y) < half else (half if p.y > 0 else -half), p.dir))
+    return Symbol(id=base.id, name=base.name, category=base.category, description=base.description,
+                  iec_ref=base.iec_ref, primitives=prims, ports=ports, attributes=base.attributes,
+                  label_pos=(-15, -half - 3))
+
+
+def element_symbol(project: Project, e: Element, lib) -> Symbol:
+    """Značka prvku – pro blok ROZVADĚČ odvozená z jeho listu, jinak z knihovny."""
+    base = lib.get_symbol(e.symbol_id)
+    return switchboard_symbol(project, e, base) if e.symbol_id == "fve.switchboard" else base
+
+
+def feed_wire_by_port(project: Project, sheet: Sheet, feed: Element) -> Wire | None:
+    """Vodič JPS napojený na port bloku ROZVADĚČ se jménem přívodu/vývodu (X1, X4…)."""
+    block = sheet.parent_element_id
+    parent = parent_sheet(project, sheet)
+    if parent is None or not feed.ref:
+        return None
+    for w in parent.wires:
+        for end in (w.a, w.b):
+            if end.element_id == block and end.port == feed.ref:
+                return w
+    return None
+
+
+def sync_feed_links(project: Project) -> int:
+    """Přívody/vývody rozvaděčů se navážou na vodiče JPS podle portu bloku (X1 → port X1); vrací počet změn.
+    Ruční vazba (`wire_id` na jiný vodič) má přednost, pokud ten vodič ještě existuje."""
+    changed = 0
+    for s in project.sheets:
+        if not s.is_switchboard:
+            continue
+        for f in s.elements:
+            if f.symbol_id not in FEED_SYMBOLS:
+                continue
+            cur = f.attrs.get("wire_id", "")
+            if cur and linked_wire(project, s, f) is not None and feed_wire_by_port(project, s, f) is None:
+                continue
+            w = feed_wire_by_port(project, s, f)
+            new_id = w.id if w else ""
+            if new_id != cur or (new_id and not f.attrs.get("cable") and w.attrs.get("cable")):
+                f.attrs.update(feed_link_attrs(project, s, f, new_id))
+                if w and w.conductors:
+                    for sw in s.wires:
+                        if sw.touches(f.id) and sw.conductors != list(w.conductors):
+                            sw.conductors = list(w.conductors)
+                changed += 1
+    return changed

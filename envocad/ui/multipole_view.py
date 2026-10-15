@@ -14,7 +14,7 @@ from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QGraphicsRectIte
 from envocad.library.store import LibraryStore
 from envocad.model import multipole as mp
 from envocad.model.geometry import wire_label_anchor
-from envocad.model.project import Element, Project, Sheet, Wire
+from envocad.model.project import Element, Project, Sheet, Wire, element_symbol
 from envocad.model.symbol import GRID, Symbol, rotate_dir
 from envocad.ui import commands
 from envocad.ui.canvas import SchematicView
@@ -254,7 +254,7 @@ class MultipoleScene(QGraphicsScene):
         self._paper.setPen(QPen(colors().paper, 0.5))
         poles: dict[str, mp.ElementPoles] = {}
         for e in self.sheet.elements:
-            sym = self.library.get_symbol(e.symbol_id)
+            sym = element_symbol(self.project, e, self.library)
             poles[e.id] = mp.element_poles(self.sheet, e, sym)
         self.layout_pos = mp.auto_layout(self.sheet, poles, y_top=self.sheet.height - 40.0, bridges=self.project.bridges)
         for eid, ep in poles.items():

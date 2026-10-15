@@ -157,3 +157,41 @@ def test_feed_link_to_jps_wire():
     from envocad.export import reports
     _, rows = reports.cables(p, LibraryStore())
     assert [r[0] for r in rows] == ["W2"] and rows[0][8] == "R1:X1"
+
+
+def test_switchboard_block_ports_follow_feeds():
+    from envocad.library.templates import apply_template
+    from envocad.model.project import element_symbol, feeds_linked_to, linked_wire, sync_feed_links, wire_xref
+    lib = LibraryStore()
+    p = Project(name="Blok")
+    s = p.sheets[0]
+    t = Element("fve.inverter", 50, 150, attrs={"ref": "T1"})
+    blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
+    load = Element("fve.load", 200, 150, attrs={"ref": "M1"})
+    s.elements += [t, blk, load]
+    w_in = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "1"), attrs={"ref": "W2", "cable": "CYKY-J 5x16"},
+                conductors=["L1", "L2", "L3", "N", "PE"])
+    s.wires.append(w_in)
+    assert [pt.name for pt in element_symbol(p, blk, lib).ports] == ["1", "2", "3", "4"]  # bez listu základní
+    sb = p.create_switchboard_sheet(blk)
+    apply_template(p, sb, "ac_fve")
+    sym = element_symbol(p, blk, lib)
+    assert [pt.name for pt in sym.ports] == ["X1", "X4", "X5", "X6"]   # přívod vlevo, vývody vpravo
+    assert w_in.b.port == "X1"                                           # vodič přejmenovaný na port přívodu
+    assert sym.port("X1").dir == "W" and sym.port("X4").dir == "E"
+    # nový vodič na port X4 → vývod X4 se naváže sám (podle jména portu)
+    w_out = Wire(WireEnd(blk.id, "X4"), WireEnd(load.id, "1"), attrs={"ref": "W3", "cable": "CYKY-J 5x6", "cross": "6"},
+                 conductors=["L1", "L2", "L3", "N", "PE"])
+    s.wires.append(w_out)
+    x4 = next(e for e in sb.elements if e.ref == "X4")
+    assert linked_wire(p, sb, x4)[1] is w_out
+    assert wire_xref(p, w_out.id) == "→ R1:X4" and [e.ref for _, e in feeds_linked_to(p, w_out.id)] == ["X4"]
+    assert sync_feed_links(p) >= 1
+    assert x4.attrs["to"] == "W3 M1:1" and x4.attrs["cable"] == "CYKY-J 5x6 6" and x4.attrs["wire_id"] == w_out.id
+    assert sync_feed_links(p) == 0
+    # starý port zůstane jen dokud na něj něco vede
+    w_old = Wire(WireEnd(blk.id, "3"), WireEnd(load.id, "1"))
+    s.wires.append(w_old)
+    assert "3" in [pt.name for pt in element_symbol(p, blk, lib).ports]
+    s.wires.remove(w_old)
+    assert "3" not in [pt.name for pt in element_symbol(p, blk, lib).ports]

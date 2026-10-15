@@ -7,7 +7,7 @@ import ezdxf
 
 from envocad.library.store import LibraryStore
 from envocad.model.geometry import wire_label_anchor
-from envocad.model.project import Element, Project, Sheet
+from envocad.model.project import Element, Project, Sheet, element_symbol
 from envocad.model.symbol import GRID, Symbol, rotate_dir, rotate_point
 
 
@@ -70,9 +70,9 @@ def _text(msp, x, y, text, height, align, rot, layer="SYMBOLY"):
     t.set_placement((x, y), align=getattr(ezdxf.enums.TextEntityAlignment, al))
 
 
-def _wire_points(sheet: Sheet, lib: LibraryStore, w) -> list[tuple[float, float]]:
+def _wire_points(project: Project, sheet: Sheet, lib: LibraryStore, w) -> list[tuple[float, float]]:
     ea, eb = sheet.element(w.a.element_id), sheet.element(w.b.element_id)
-    sa, sb = lib.get_symbol(ea.symbol_id), lib.get_symbol(eb.symbol_id)
+    sa, sb = element_symbol(project, ea, lib), element_symbol(project, eb, lib)
     pa, pb = ea.port_pos(sa, w.a.port), eb.port_pos(sb, w.b.port)
     da, db = rotate_dir(sa.port(w.a.port).dir, ea.rotation), rotate_dir(sb.port(w.b.port).dir, eb.rotation)
     va, vb = DIR_VEC[da], DIR_VEC[db]
@@ -123,9 +123,9 @@ def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Pa
             _text(msp, x0, y, k, 2.5, "left", 0, layer="TEXTY")
             _text(msp, x0 + 32, y, v, 2.5, "left", 0, layer="TEXTY")
     for e in sheet.elements:
-        _draw_symbol(msp, e, lib.get_symbol(e.symbol_id))
+        _draw_symbol(msp, e, element_symbol(project, e, lib))
     for w in sheet.wires:
-        pts = _wire_points(sheet, lib, w)
+        pts = _wire_points(project, sheet, lib, w)
         msp.add_lwpolyline(pts, dxfattribs={"layer": "VODICE"})
         label = wire_label(w.attrs)
         if label:

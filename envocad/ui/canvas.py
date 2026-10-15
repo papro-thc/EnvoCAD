@@ -12,7 +12,16 @@ from PySide6.QtWidgets import QGraphicsPathItem, QGraphicsRectItem, QGraphicsSce
 
 from envocad.library.store import LibraryStore
 from envocad.model.multipole import default_conductors
-from envocad.model.project import WIRE_ATTRIBUTES, Element, Project, Sheet, Wire, WireEnd, feed_link_attrs
+from envocad.model.project import (
+    WIRE_ATTRIBUTES,
+    Element,
+    Project,
+    Sheet,
+    Wire,
+    WireEnd,
+    element_symbol,
+    feed_link_attrs,
+)
 from envocad.model.symbol import GRID
 from envocad.ui import commands
 from envocad.ui.items import ElementItem, WireItem, route, snap
@@ -69,7 +78,7 @@ class SchematicScene(QGraphicsScene):
             self.add_wire_item(w)
 
     def add_element_item(self, e: Element) -> ElementItem:
-        it = ElementItem(e, self.library.get_symbol(e.symbol_id))
+        it = ElementItem(e, element_symbol(self.project, e, self.library))
         self.addItem(it)
         self.element_items[e.id] = it
         return it
@@ -320,7 +329,7 @@ class SchematicScene(QGraphicsScene):
         """Dialog s atributy existujícího prvku; změny jdou přes undo příkazy."""
         from envocad.ui.dialogs import ElementDialog
         e = self.sheet.element(eid)
-        sym = self.library.get_symbol(e.symbol_id)
+        sym = element_symbol(self.project, e, self.library)
         dlg = ElementDialog(sym, e.attrs, self._parent_widget(), title=f"Upravit: {e.ref or sym.name}",
                             library=self.library, component_id=e.component_id, wire_choices=self._wire_choices(sym.id))
         dlg.used_refs = self._used_refs_for(sym.id)
