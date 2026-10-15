@@ -216,50 +216,65 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
     columns: dict[int, list[str]] = {}
     for eid, d in depth.items():
         columns.setdefault(d, []).append(eid)
-    # sousedé přes vodiče (pro zarovnání dítěte pod rodiče)
+    # sousedé přes vodiče (rodič = soused v předchozím sloupci)
     nb: dict[str, set[str]] = {eid: set() for eid in poles}
     for w in sheet.wires:
         if w.a.element_id in nb and w.b.element_id in nb:
             nb[w.a.element_id].add(w.b.element_id)
             nb[w.b.element_id].add(w.a.element_id)
-    out: dict[str, tuple[float, float]] = {}
-    perp: dict[str, float] = {}  # souřadnice kolmo na tok (počátek prvku)
-    pos_flow = x0 if horizontal else y_top
-    sign = -1.0 if horizontal else 1.0  # vodorovný tok: prvky ve sloupci jdou dolů; svislý: doprava
+    key = ((lambda i: (-poles[i].element.y, poles[i].element.x)) if horizontal
+           else (lambda i: (poles[i].element.x, -poles[i].element.y)))
+    # strom: každý prvek má jednoho rodiče (první soused v předchozím sloupci podle JPS); prvky bez rodiče,
+    # které patří do uzlu spojeného můstkem, se zavěsí vedle člena uzlu s rodičem; zbytek jsou kořeny
+    children: dict[str, list[str]] = {eid: [] for eid in poles}
+    parent: dict[str, str] = {}
     for d in sorted(columns):
-        ids = columns[d]
-        ids.sort(key=(lambda i: -poles[i].element.y) if horizontal else (lambda i: poles[i].element.x))
-        width = max(flow_extent(poles[i]) for i in ids)
-        # přání: prvek s jediným rodičem v předchozím sloupci se zarovná pod rodiče; má-li rodič víc dětí,
-        # zarovná se jen první z nich podle JPS (pokračování toku), odbočky (SPD…) se naskládají vedle
-        key = ((lambda i: (-poles[i].element.y, poles[i].element.x)) if horizontal
-               else (lambda i: (poles[i].element.x, -poles[i].element.y)))
-        wish: dict[str, float] = {}
-        for i in ids:
-            parents = [p for p in nb[i] if depth.get(p) == d - 1]
-            if len(parents) == 1:
-                p = parents[0]
-                children = sorted((c for c in nb[p] if depth.get(c) == d), key=key)
-                if children and children[0] == i and p in perp:
-                    wish[i] = perp[p]
-        # seřadit podle přání (pak podle JPS) a naskládat bez překryvu
-        ordered = sorted(ids, key=lambda i: (0, wish[i] * sign) if i in wish else (1, 0))
-        pos_perp = (y_top if horizontal else x0)
-        cursor = pos_perp
-        for i in ordered:
-            ep = poles[i]
-            ext = perp_extent(ep)
-            want = wish.get(i)
-            if want is None:
-                start = cursor
-            else:
-                wanted = want - sign * 8.0
-                # zarovnání pod rodiče má přednost, pokud se mezera zmenší nejvýš o část ROW_GAP
-                start = wanted if (cursor - wanted) * sign <= ROW_GAP * 0.6 else cursor
-            perp[i] = start + sign * 8.0
-            out[i] = (pos_flow + width / 2, perp[i]) if horizontal else (perp[i], pos_flow - width / 2)
-            cursor = start + sign * (ext + ROW_GAP + 8.0)
-        pos_flow = pos_flow + width + COL_GAP if horizontal else pos_flow - width - COL_GAP
+        for i in sorted(columns[d], key=key):
+            ps = sorted((p for p in nb[i] if depth.get(p) == d - 1), key=key)
+            if ps:
+                parent[i] = ps[0]
+                children[ps[0]].append(i)
+    for d in sorted(columns):
+        for i in sorted(columns[d], key=key):
+            if i in parent or d == 0:
+                continue
+            mates = [m for m in columns[d] if comp[m] == comp[i] and m in parent]
+            if mates:
+                anchor = parent[mates[0]]
+                parent[i] = anchor
+                children[anchor].append(i)
+    for c in children.values():
+        c.sort(key=key)
+    roots = [i for i in sorted(poles, key=key) if i not in parent]
+
+    def width(i: str) -> float:
+        own = perp_extent(poles[i]) + 8.0
+        kids = children[i]
+        return max(own, sum(width(c) for c in kids) + ROW_GAP * max(len(kids) - 1, 0))
+
+    col_w = {d: max(flow_extent(poles[i]) for i in ids) for d, ids in columns.items()}
+    flow_pos: dict[int, float] = {}
+    pos = x0 if horizontal else y_top
+    for d in sorted(columns):
+        flow_pos[d] = pos
+        pos = pos + col_w[d] + COL_GAP if horizontal else pos - col_w[d] - COL_GAP
+    out: dict[str, tuple[float, float]] = {}
+    sign = -1.0 if horizontal else 1.0  # vodorovný tok: prvky ve sloupci jdou dolů; svislý: doprava
+
+    def place(i: str, start: float) -> None:
+        d = depth[i]
+        perp = start + sign * 8.0
+        fp = flow_pos[d]
+        out[i] = (fp + col_w[d] / 2, perp) if horizontal else (perp, fp - col_w[d] / 2)
+        cursor = start
+        for c in children[i]:
+            place(c, cursor)
+            cursor += sign * (width(c) + ROW_GAP)
+
+    cursor = y_top if horizontal else x0
+    for r in roots:
+        place(r, cursor)
+        cursor += sign * (width(r) + ROW_GAP)
     for i, ep in poles.items():
         if ep.element.mp_pos:
             out[i] = tuple(ep.element.mp_pos)

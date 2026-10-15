@@ -623,12 +623,15 @@ def feeds_linked_to(project: Project, wire_id: str) -> list[tuple[Sheet, Element
     return out
 
 
-def wire_label(attrs: dict) -> str:
-    """Popisek vodiče ve výkresu: označení + typ kabelu + průřez (průřez se vynechá, když ho typ kabelu už obsahuje: „1x6“)."""
+def wire_label(attrs: dict, conductors: list[str] | None = None) -> str:
+    """Popisek vodiče ve výkresu: označení + typ kabelu + průřez. Průřez se vynechá, když ho typ kabelu už
+    obsahuje („1x6“); u jednožilového kabelu s více žílami (string DC+/DC−) se doplní počet: „2× H1Z2Z2-K 1x6“."""
     parts = [attrs.get("ref", "")]
     cable, cross = attrs.get("cable", ""), attrs.get("cross", "")
     if cross and re.search(rf"[x×]\s*{re.escape(cross)}(\b|$)", cable):
         cross = ""
+    if cable and conductors and len(conductors) > 1 and re.search(r"(^|\s)1\s*[x×]\s*\d", cable):
+        cable = f"{len(conductors)}× {cable}"
     text = " ".join(x for x in (cable, cross) if x)
     if text:
         parts.append(text + ("" if "mm" in text or not cross else " mm²"))

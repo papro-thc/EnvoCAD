@@ -37,7 +37,16 @@ from envocad.library.templates import (
     _terminal_group,
     _wire,
 )
-from envocad.model.project import Element, Project, Sheet, Wire, WireEnd, sync_cables, sync_feed_links
+from envocad.model.project import (
+    PORT_PITCH,
+    Element,
+    Project,
+    Sheet,
+    Wire,
+    WireEnd,
+    sync_cables,
+    sync_feed_links,
+)
 
 DEFAULT_SPEC = {
     "name": "Nový projekt FVE",
@@ -79,12 +88,12 @@ def build_project(spec: dict) -> Project:
     y_top = min(250.0, 150.0 + total_h / 2)
     n_route = max(0, int(dc.get("route_boxes") or 0))
     n_boxes = n_route + (1 if dc.get("tech_box") else 0)
-    box_pitch = 65.0
+    box_pitch = 60.0
     x_str = 35.0
-    x_boxes = [100.0 + j * box_pitch for j in range(n_boxes)]
+    x_boxes = [95.0 + j * box_pitch for j in range(n_boxes)]
     x_dc = 130.0                                                   # samostatný odpínač DC (bez rozvaděčů)
-    x_inv = (x_boxes[-1] + box_pitch) if n_boxes else 200.0
-    x_blk, x_grid = x_inv + 85.0, x_inv + 165.0
+    x_inv = (x_boxes[-1] + 80.0) if n_boxes else 200.0             # před střídačem víc místa: stringy se slévají do DC1/DC2
+    x_blk, x_grid = x_inv + 80.0, x_inv + 155.0
     if x_grid + 25.0 > s.width:    # víc DC rozvaděčů po trase → širší list (A2 na výšku A3)
         s.width, s.paper = x_grid + 25.0, "vlastní"
     p_total = 0.0
@@ -126,17 +135,26 @@ def build_project(spec: dict) -> Project:
             boxes.append(b)
             dc_boxes.append((b, gens, kind))
         n_str = len(gens)
+        # porty bloku DC rozvaděče (viz switchboard_symbol): rozteč PORT_PITCH, shora dolů
+        half = max(20.0, n_str * PORT_PITCH + PORT_PITCH) / 2
+        port_y = [y_mid + round((half - PORT_PITCH / 2 - k * PORT_PITCH) / 2.5) * 2.5 for k in range(n_str)]
         for k, g in enumerate(gens):
             port_inv = "DC1" if k % 2 == 0 else "DC2"
             if boxes:
                 prev, prev_port = g, "DC"
                 for j, b in enumerate(boxes):
                     length = dc.get("length") if j == 0 else dc.get("route_length")
+                    # string → 1. rozvaděč: lom každého stringu na vlastním x, aby se svislé úseky nekryly
+                    pts = [] if j else [(b.x - 15.0 - 5.0 * (n_str - k), g.y), (b.x - 15.0 - 5.0 * (n_str - k), port_y[k])]
                     s.wires.append(Wire(WireEnd(prev.id, prev_port), WireEnd(b.id, f"X{k + 1}"), conductors=list(DC_CONDUCTORS),
+                                        points=pts,
                                         attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": _s(dc.get("cross")),
                                                "length": _s(length), "method": "E"}))
                     prev, prev_port = b, f"X{n_str + k + 1}"
+                xb = prev.x + 50.0 + 5.0 * k   # lomy až za popisky
+                y_inv = t.y + (5.0 if port_inv == "DC1" else -5.0)
                 s.wires.append(Wire(WireEnd(prev.id, prev_port), WireEnd(t.id, port_inv), conductors=list(DC_CONDUCTORS),
+                                    points=[(xb, port_y[k]), (xb, y_inv)],
                                     attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": _s(dc.get("cross")),
                                            "length": _s(dc.get("tech_length")), "method": "E"}))
             elif dc.get("disconnect"):

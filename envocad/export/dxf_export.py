@@ -121,10 +121,12 @@ def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Pa
     for w in sheet.wires:
         pts = _wire_points(project, sheet, lib, w)
         msp.add_lwpolyline(pts, dxfattribs={"layer": "VODICE"})
-        label = wire_label(w.attrs)
+        label = wire_label(w.attrs, w.conductors)
         xref = wire_xref(project, w.id) if not sheet.is_switchboard else ""
         if label or xref:
             x, y, align, vertical = wire_label_anchor(pts)
+            if w.points and len(pts) >= 2 and abs(pts[1][1] - pts[0][1]) < 1e-6:
+                x, y, align, vertical = min(pts[0][0], pts[1][0]) + 1.5, pts[0][1] + 1.5, "left", False
             if label:
                 _text(msp, x, y, label, 2.0, align, 0, layer="TEXTY")
             if xref:

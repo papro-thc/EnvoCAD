@@ -139,12 +139,15 @@ class WireItem(QGraphicsPathItem):
         painter.setPen(pen)
         painter.setBrush(Qt.NoBrush)
         painter.drawPath(self.path())
-        label = wire_label(self.wire.attrs)
+        label = wire_label(self.wire.attrs, self.wire.conductors)
         sc = self.scene()
         xref = sc.wire_xref(self.wire) if hasattr(sc, "wire_xref") else ""
         if label or xref:
             pts = path_points(self.path())
             x, y, align, vertical = wire_label_anchor(pts)
+            if self.wire.points and len(pts) >= 2 and abs(pts[1][1] - pts[0][1]) < 1e-6:
+                # ručně lomený vodič: popisek u začátku prvního (vodorovného) úseku jako v EPLAN, ne na nejdelším
+                x, y, align, vertical = min(pts[0][0], pts[1][0]) + 1.5, pts[0][1] + 1.5, "left", False
             painter.setPen(QPen(pen.color(), 0.2))
             # křížový odkaz na druhý řádek (pod vodorovný vodič / pod popisek u svislého), aby se krátké úseky nepřekrývaly
             if label:
