@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.10.1 – 2026-10-15
+- Vícepól: dítě se zarovná pod pól rodiče, ze kterého vede spojovací žíla (vývod PE pod PE svodiče, ne pod L1 – PE už nevede skrz svodič).
 - AC rozvaděč se sběrnicí: bez vnitřní PE lišty – PE je potenciál sběrnice (1PE), SPD jde svým PE na vývod `XPE`, stejně jako PE sběrnice; uzemnění je vývod `XPE` na ekvipotenciální svorkovnici (HOP) vně rozvaděče; generátor přidá do JPS uzemnění s kabelem (`ac.pe_cable`, výchozí CYA 16).
 - Přívod a vývod se kreslí jen jako svorky (kroužek s číslem a krátký vnější vývod), bez šipek „Y“ a nápisů ve vícepólu; v JPS kroužek s nápisem.
 - Vícepól: **vývody vždy v dolní řadě** (přívody nahoře → rozvod → přístroje → vývody dole), PE lišta pod nimi s odstupem; rodič prvku = nejbližší soused výš (ne jen o sloupec); popis sběrnice vpravo nad čarami.

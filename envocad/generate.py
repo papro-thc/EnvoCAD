@@ -264,7 +264,7 @@ def _build_ac_switchboard(project: Project, sheet: Sheet, invs: list[dict], ac: 
         # PE je potenciál sběrnice (1PE); SPD i PE rozvaděče jdou na ekvipotenciální svorkovnici (HOP) vně – vývod XPE
         _wire(project, sheet, bus, "1", spd, "L", AC_CONDUCTORS[:4])   # zdola (vývody)
         _wire(project, sheet, bus, "3", q, "1", AC_CONDUCTORS)
-        xpe = _el(project, sheet, "sb.feed_out", x_spd - GROUP_PITCH, y - 95, "", desc="k ekvipotenciální svorkovnici (HOP)")
+        xpe = _el(project, sheet, "sb.feed_out", x_spd - GROUP_PITCH, y - 95, "", desc="k HOP")
         xpe.attrs["ref"] = "XPE"
         _wire(project, sheet, spd, "PE", xpe, "1", ["PE"])
         _wire(project, sheet, bus, "4", xpe, "1", ["PE"])

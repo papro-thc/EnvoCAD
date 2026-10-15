@@ -297,6 +297,30 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
         k1 = int((start + own - x0) // page_w)
         return start if k1 == k0 else x0 + k1 * page_w
 
+    wire_between: dict[tuple[str, str], Wire] = {}
+    for w in sheet.wires:
+        wire_between.setdefault((w.a.element_id, w.b.element_id), w)
+        wire_between.setdefault((w.b.element_id, w.a.element_id), w)
+
+    def link_wish(parent: str, child: str) -> float | None:
+        """Kolmá pozice dítěte, při které je jeho pól pod pólem rodiče, ze kterého vede spojovací žíla
+        (vývod PE pod PE svodiče, ne pod L1 – jinak vede svisle skrz rodiče)."""
+        w = wire_between.get((parent, child))
+        if w is None:
+            return None
+        pp, cp = (w.a.port, w.b.port) if w.a.element_id == parent else (w.b.port, w.a.port)
+        c0 = wire_conductors(w)[0]
+        ep_p, ep_c = poles[parent], poles[child]
+        try:
+            px, py = ep_p.pole_pos(pp, c0)
+            save = ep_c.origin
+            ep_c.origin = (0.0, 0.0)
+            cx, cy = ep_c.pole_pos(cp, c0)
+            ep_c.origin = save
+        except (KeyError, StopIteration, ValueError):
+            return None
+        return (py - cy) if horizontal else (px - cx)
+
     def place(i: str, start: float) -> float:
         """Umístí prvek a jeho podstrom; vrátí konec podstromu (kolmo na tok) – kvůli skokům na další stranu."""
         d = depth[i]
@@ -305,9 +329,15 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
         perp = start + sign * 8.0
         fp = flow_pos[d]
         out[i] = (fp + col_w[d] / 2, perp) if horizontal else (perp, fp - col_w[d] / 2)
+        poles[i].origin = out[i]
         cursor = start
         end = start + sign * own
         for c in children[i]:
+            wish = link_wish(i, c)
+            if wish is not None:
+                want = wish - sign * 8.0
+                if (want - cursor) * sign > 0:
+                    cursor = want
             e = place(c, cursor)
             cursor = e + sign * ROW_GAP
             end = max(end, e) if sign > 0 else min(end, e)

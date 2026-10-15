@@ -133,7 +133,7 @@ def build_ac_fve(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
         # PE je potenciál sběrnice; uzemnění = vývod na ekvipotenciální svorkovnici (HOP) vně rozvaděče
         _wire(project, sheet, q, "2", bus, "T1", AC_CONDUCTORS)
         _wire(project, sheet, bus, "1", spd, "L", AC_CONDUCTORS[:4])
-        xpe = _el(project, sheet, "sb.feed_out", x0 - GROUP_PITCH, y - 95, "X", desc="k ekvipotenciální svorkovnici (HOP)")
+        xpe = _el(project, sheet, "sb.feed_out", x0 - GROUP_PITCH, y - 95, "X", desc="k HOP")
         _wire(project, sheet, spd, "PE", xpe, "1", ["PE"])            # SPD na ekvipotenciální svorkovnici
         _wire(project, sheet, bus, str(n_out + 3), xpe, "1", ["PE"])
     else:
