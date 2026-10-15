@@ -1,9 +1,10 @@
 """Scéna a pohled editoru: mřížka, snap, režimy (výběr / vkládání / vodič), zoom a posun."""
 from __future__ import annotations
 
+import logging
 from enum import Enum
 
-from PySide6.QtCore import QPointF, QRectF, Qt, Signal
+from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QKeyEvent, QMouseEvent, QPainter, QPen, QUndoStack, QWheelEvent
 from PySide6.QtWidgets import QGraphicsPathItem, QGraphicsRectItem, QGraphicsScene, QGraphicsView
 
@@ -14,6 +15,8 @@ from envocad.ui import commands
 from envocad.ui.items import ElementItem, WireItem, route, snap
 from envocad.ui.render import sp
 from envocad.ui.theme import PRINT, colors
+
+log = logging.getLogger("envocad.ui")
 
 
 class Mode(Enum):
@@ -110,6 +113,7 @@ class SchematicScene(QGraphicsScene):
         self._wire_from = None
         self._place_symbol_id = None
         self.mode = mode
+        log.info("režim: %s", mode.name)
         self.mode_changed.emit(mode)
 
     def start_place(self, symbol_id: str) -> None:
@@ -169,12 +173,10 @@ class SchematicScene(QGraphicsScene):
             e.attrs = {a.key: a.default for a in sym.attributes}
             e.attrs["ref"] = self.project.next_ref(sym.iec_ref)
             if self.ask_attributes:
-                from envocad.ui.dialogs import ElementDialog
-                dlg = ElementDialog(sym, e.attrs, self._parent_widget())
-                if dlg.exec() != ElementDialog.Accepted:
-                    return
-                e.attrs = dlg.values()
-            self.undo.push(commands.AddElementCommand(self, e))
+                # modální dialog až po doběhnutí události myši (uvnitř obsluhy stisku padá Qt na Windows)
+                QTimer.singleShot(0, lambda: self._finish_place(sym, e))
+            else:
+                self.undo.push(commands.AddElementCommand(self, e))
             return  # zůstáváme v režimu vkládání (Esc / pravé tlačítko ukončí)
         if self.mode == Mode.WIRE and ev.button() == Qt.LeftButton:
             hit = self._port_near(p)
@@ -194,13 +196,10 @@ class SchematicScene(QGraphicsScene):
                     w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}
                     w.attrs["ref"] = self.project.next_ref("W")
                     if self.ask_attributes:
-                        from envocad.ui.dialogs import AttrDialog
-                        dlg = AttrDialog(WIRE_ATTRIBUTES, w.attrs, self._parent_widget(), "Vložit vodič",
-                                         f"<b>Vodič</b> {a.element.ref}:{pa} → {b.element.ref}:{pb}")
-                        if dlg.exec() != AttrDialog.Accepted:
-                            return
-                        w.attrs = dlg.values()
-                    self.undo.push(commands.AddWireCommand(self, w))
+                        heading = f"<b>Vodič</b> {a.element.ref}:{pa} → {b.element.ref}:{pb}"
+                        QTimer.singleShot(0, lambda: self._finish_wire(w, heading))
+                    else:
+                        self.undo.push(commands.AddWireCommand(self, w))
             return
         # SELECT: zapamatovat výchozí pozice pro undo posunu
         super().mousePressEvent(ev)
@@ -210,6 +209,24 @@ class SchematicScene(QGraphicsScene):
     def _parent_widget(self):
         return self.views()[0] if self.views() else None
 
+    def _finish_place(self, sym, e: Element) -> None:
+        from envocad.ui.dialogs import ElementDialog
+        log.info("dialog: vložit %s", sym.id)
+        dlg = ElementDialog(sym, e.attrs, self._parent_widget())
+        if dlg.exec() != ElementDialog.Accepted:
+            return
+        e.attrs = dlg.values()
+        self.undo.push(commands.AddElementCommand(self, e))
+
+    def _finish_wire(self, w: Wire, heading: str) -> None:
+        from envocad.ui.dialogs import AttrDialog
+        log.info("dialog: vložit vodič")
+        dlg = AttrDialog(WIRE_ATTRIBUTES, w.attrs, self._parent_widget(), "Vložit vodič", heading)
+        if dlg.exec() != AttrDialog.Accepted:
+            return
+        w.attrs = dlg.values()
+        self.undo.push(commands.AddWireCommand(self, w))
+
     def mouseDoubleClickEvent(self, ev):
         if self.mode != Mode.SELECT:
             return super().mouseDoubleClickEvent(ev)
@@ -218,10 +235,14 @@ class SchematicScene(QGraphicsScene):
             if it.symbol.id == "fve.switchboard":
                 self.open_switchboard.emit(it.element.id)
                 return None
-            return self.edit_element(it.element.id)
+            eid = it.element.id
+            QTimer.singleShot(0, lambda: self.edit_element(eid))
+            return None
         for w in self.items(ev.scenePos()):
             if isinstance(w, WireItem):
-                return self.edit_wire(w.wire.id)
+                wid = w.wire.id
+                QTimer.singleShot(0, lambda: self.edit_wire(wid))
+                return None
         super().mouseDoubleClickEvent(ev)
 
     def edit_wire(self, wid: str) -> None:

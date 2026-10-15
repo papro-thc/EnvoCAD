@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2 – 2026-10-15
+- Dialogy parametrů (vložení prvku, vodiče, dvojklik) se otevírají až po doběhnutí události myši – oprava pádu na Windows.
+- Do logu se zapisují akce (režim, dialogy, záložky), aby šel pád dohledat.
+
 ## 0.2.1 – 2026-10-15
 - Logování do `~/.envocad/log/` (rotace 5 běhů), dialog při chybě, `crash.log` pro nativní pády (faulthandler).
 - Oprava pravděpodobného pádu v pohledu rozložení (přestavba scény během obsluhy myši); otevření rozvaděče z dvojkliku je odložené mimo obsluhu události.

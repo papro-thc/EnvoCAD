@@ -146,3 +146,23 @@ def test_switchboard_tabs_and_layout(app, tmp_path):
     assert win.save_project()
     q = Project.load(p.path)
     assert len(q.switchboards()) == 1 and q.switchboards()[0].parent_element_id == block.id
+
+
+def test_deferred_place_dialog(app, tmp_path, monkeypatch):
+    from PySide6.QtWidgets import QGraphicsSceneMouseEvent
+
+    from envocad.ui import dialogs
+    lib = LibraryStore(tmp_path / "lib.db")
+    win = MainWindow(library=lib, project=Project())
+    win.show()
+    sc = win.scene
+    monkeypatch.setattr(dialogs.ElementDialog, "exec", lambda self: dialogs.ElementDialog.Accepted)
+    sc.start_place("fve.fuse")
+    ev = QGraphicsSceneMouseEvent(QGraphicsSceneMouseEvent.GraphicsSceneMousePress)
+    ev.setScenePos(QPointF(50, -50))
+    ev.setButton(Qt.LeftButton)
+    sc.mousePressEvent(ev)
+    assert len(sc.sheet.elements) == 0  # dialog je odložený
+    for _ in range(5):
+        app.processEvents()
+    assert len(sc.sheet.elements) == 1 and sc.sheet.elements[0].ref == "F1"

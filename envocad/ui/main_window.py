@@ -1,6 +1,7 @@
 """Hlavní okno EnvoCAD."""
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -25,6 +26,7 @@ from envocad.ui.layout_view import LayoutScene, LayoutView
 from envocad.ui.panels import LibraryPanel, PropertiesPanel
 
 FILE_FILTER = "Projekt EnvoCAD (*.ecp)"
+log = logging.getLogger("envocad.ui")
 
 
 class MainWindow(QMainWindow):
@@ -182,6 +184,7 @@ class MainWindow(QMainWindow):
 
     def open_sheet(self, sheet: Sheet, kind: str = "schematic") -> None:
         """Otevře (nebo aktivuje) záložku listu; kind = schematic | layout."""
+        log.info("open_sheet %s (%s)", sheet.name, kind)
         i = self._find_tab(sheet, kind)
         if i >= 0:
             self.tabs.setCurrentIndex(i)
@@ -212,6 +215,7 @@ class MainWindow(QMainWindow):
         return self.tabs.widget(i).scene().element_items.get(eid)
 
     def _close_tab(self, index: int) -> None:
+        log.info("close_tab %s", index)
         if self.tabs.count() <= 1:
             return
         w = self.tabs.widget(index)
@@ -219,6 +223,7 @@ class MainWindow(QMainWindow):
         w.deleteLater()
 
     def _tab_changed(self, _index: int) -> None:
+        log.info("tab_changed %s", _index)
         self.props_panel.show_item(None)
         if self.scene:
             self._show_mode(self.scene.mode)
@@ -354,6 +359,7 @@ class MainWindow(QMainWindow):
         self.undo.resetClean()
 
     def set_dark(self, dark: bool) -> None:
+        log.info("set_dark %s", dark)
         theme.apply(dark)
         for i in range(self.tabs.count()):
             sc = self.tabs.widget(i).scene()
