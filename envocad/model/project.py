@@ -688,8 +688,11 @@ def switchboard_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
     sheet = project.switchboard_sheet(e.id)
     if sheet is None:
         return base
-    feeds_in = [f for f in sheet.elements if f.symbol_id == "sb.feed_in" and f.ref]
-    feeds_out = [f for f in sheet.elements if f.symbol_id == "sb.feed_out" and f.ref]
+    def nat(f: Element) -> tuple:
+        m = re.match(r"([A-Za-z]*)(\d*)(.*)", f.ref)
+        return (m.group(1), int(m.group(2)) if m.group(2) else 10**9, m.group(3))
+    feeds_in = sorted((f for f in sheet.elements if f.symbol_id == "sb.feed_in" and f.ref), key=nat)
+    feeds_out = sorted((f for f in sheet.elements if f.symbol_id == "sb.feed_out" and f.ref), key=nat)
     if not feeds_in and not feeds_out:
         return base
     n = max(len(feeds_in), len(feeds_out), 1)

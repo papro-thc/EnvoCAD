@@ -1,29 +1,29 @@
 {
  "name": "DC string v rozvaděči",
- "description": "Přívod X1 → pojistkový odpínač gPV → vývod X2, SPD T2 DC na string (rozvaděč)",
+ "description": "Generátor (u technologie): X{k} → pojistkový odpínač {fuse_in} → X{nk}, SPD {spd} DC, PE → XPE; proměnné k, nk, string, fuse_in, spd",
  "fragment": {
   "elements": [
    {
-    "id": "e76dfa104db1",
+    "id": "98e219a42d0e",
     "symbol_id": "sb.feed_in",
     "x": 60,
     "y": 240,
     "rotation": 0,
     "attrs": {
-     "ref": "X1",
-     "desc": "od stringu"
+     "ref": "X{k}",
+     "desc": "od {string}"
     },
     "component_id": null
    },
    {
-    "id": "8b6f2cd0d590",
+    "id": "3292771ded18",
     "symbol_id": "fve.fuse_disconnect",
     "x": 60,
     "y": 210,
     "rotation": 270,
     "attrs": {
      "ref": "F1",
-     "in_": "15",
+     "in_": "{fuse_in}",
      "char": "gPV",
      "un": "1000",
      "poles": "2",
@@ -32,62 +32,56 @@
     "component_id": null
    },
    {
-    "id": "922ffde3d0d2",
+    "id": "9fb50a44764e",
     "symbol_id": "sb.feed_out",
     "x": 60,
     "y": 170,
     "rotation": 0,
     "attrs": {
-     "ref": "X2",
-     "desc": "dál"
+     "ref": "X{nk}",
+     "desc": "{string} dál"
     },
     "component_id": null
    },
    {
-    "id": "03e0dae42eb7",
+    "id": "169d87ec241a",
     "symbol_id": "fve.spd",
     "x": 72.5,
     "y": 180,
     "rotation": 0,
     "attrs": {
      "ref": "F1",
-     "spd_type": "T2 DC",
+     "spd_type": "{spd} DC",
      "uc": "1000",
      "poles": "3",
-     "modules": "3"
+     "modules": "3",
+     "desc": "string {string}"
+    },
+    "component_id": null
+   },
+   {
+    "id": "a7dec15ad1d4",
+    "symbol_id": "sb.feed_out",
+    "x": 40,
+    "y": 150,
+    "rotation": 0,
+    "attrs": {
+     "ref": "XPE",
+     "desc": "k HOP",
+     "shared": "1"
     },
     "component_id": null
    }
   ],
   "wires": [
    {
-    "id": "a38b58e70476",
+    "id": "d2d4e1cb0b00",
     "a": {
-     "element_id": "e76dfa104db1",
+     "element_id": "98e219a42d0e",
      "port": "1"
     },
     "b": {
-     "element_id": "8b6f2cd0d590",
-     "port": "1"
-    },
-    "points": [],
-    "attrs": {
-     "ref": ""
-    },
-    "conductors": [
-     "DC+",
-     "DC-"
-    ],
-    "terminals": {}
-   },
-   {
-    "id": "93c2fe4987d9",
-    "a": {
-     "element_id": "8b6f2cd0d590",
-     "port": "2"
-    },
-    "b": {
-     "element_id": "922ffde3d0d2",
+     "element_id": "3292771ded18",
      "port": "1"
     },
     "points": [],
@@ -101,13 +95,33 @@
     "terminals": {}
    },
    {
-    "id": "086eec828980",
+    "id": "807feede9532",
     "a": {
-     "element_id": "8b6f2cd0d590",
+     "element_id": "3292771ded18",
      "port": "2"
     },
     "b": {
-     "element_id": "03e0dae42eb7",
+     "element_id": "9fb50a44764e",
+     "port": "1"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "DC+",
+     "DC-"
+    ],
+    "terminals": {}
+   },
+   {
+    "id": "19d8e987d0d8",
+    "a": {
+     "element_id": "3292771ded18",
+     "port": "2"
+    },
+    "b": {
+     "element_id": "169d87ec241a",
      "port": "L"
     },
     "points": [],
@@ -119,7 +133,27 @@
      "DC-"
     ],
     "terminals": {}
+   },
+   {
+    "id": "1d311070d144",
+    "a": {
+     "element_id": "169d87ec241a",
+     "port": "PE"
+    },
+    "b": {
+     "element_id": "a7dec15ad1d4",
+     "port": "1"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "PE"
+    ],
+    "terminals": {}
    }
-  ]
+  ],
+  "pitch": 30
  }
 }

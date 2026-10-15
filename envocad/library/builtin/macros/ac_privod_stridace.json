@@ -1,0 +1,99 @@
+{
+ "name": "AC přívod střídače",
+ "description": "Generátor: X{k} od {inverter} → jistič {breaker_in} → sběrnice 1 port T{k}; proměnné k, inverter, breaker_in, main_in",
+ "fragment": {
+  "elements": [
+   {
+    "id": "6b62ab8a1cb2",
+    "symbol_id": "sb.feed_in",
+    "x": 60,
+    "y": 240,
+    "rotation": 0,
+    "attrs": {
+     "ref": "X{k}",
+     "desc": "od {inverter}"
+    },
+    "component_id": null
+   },
+   {
+    "id": "1c182266942b",
+    "symbol_id": "fve.breaker_mcb",
+    "x": 60,
+    "y": 210,
+    "rotation": 270,
+    "attrs": {
+     "ref": "F1",
+     "in_": "{breaker_in}",
+     "char": "B",
+     "poles": "3",
+     "modules": "3"
+    },
+    "component_id": null
+   },
+   {
+    "id": "46436a875e40",
+    "symbol_id": "sb.busbar",
+    "x": 120,
+    "y": 175,
+    "rotation": 0,
+    "attrs": {
+     "ref": "1",
+     "desc": "rozvod AC",
+     "in_": "{main_in}",
+     "conductors": "L1 L2 L3 N PE",
+     "shared": "1"
+    },
+    "component_id": null
+   }
+  ],
+  "wires": [
+   {
+    "id": "10f722a260b9",
+    "a": {
+     "element_id": "6b62ab8a1cb2",
+     "port": "1"
+    },
+    "b": {
+     "element_id": "1c182266942b",
+     "port": "1"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "L1",
+     "L2",
+     "L3",
+     "N",
+     "PE"
+    ],
+    "terminals": {}
+   },
+   {
+    "id": "5b1483b80cb7",
+    "a": {
+     "element_id": "1c182266942b",
+     "port": "2"
+    },
+    "b": {
+     "element_id": "46436a875e40",
+     "port": "T{k}"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "L1",
+     "L2",
+     "L3",
+     "N",
+     "PE"
+    ],
+    "terminals": {}
+   }
+  ],
+  "pitch": 30
+ }
+}

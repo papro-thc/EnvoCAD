@@ -20,7 +20,9 @@ Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
          "distribution": "bus"},                                      # rozvod v AC rozvaděči: "bus" (sběrnice potenciálů) | "terminals" (svorky s můstky)
   "switchboard": {"ref": "RH", "desc": "AC rozvaděč FVE"},
   "grid": {"dso": "ČEZ Distribuce", "voltage": "3×400 V"},
-  "battery": {"e_kwh": 10, "p_kw": 5, "type": "…"}        # volitelné, jen u hybridního střídače
+  "battery": {"e_kwh": 10, "p_kw": 5, "type": "…"},       # volitelné, jen u hybridního střídače
+  "macros": {"dc_tech": "DC string v rozvaděči", "dc_route": "DC string po trase",   # rozvaděče se skládají z maker
+             "ac_feed": "AC přívod střídače", "ac_core": "AC jádro rozvaděče"}       # (knihovna → Makra); "" = kód
 }
 """
 from __future__ import annotations
@@ -63,6 +65,9 @@ DEFAULT_SPEC = {
            "distribution": "bus"},
     "switchboard": {"ref": "RH", "desc": "AC rozvaděč FVE"},
     "grid": {"dso": "", "voltage": "3×400 V"},
+    # makra, ze kterých se rozvaděče skládají (název makra z knihovny; "" = vestavěný kód); výkresy ladí projektant
+    "macros": {"dc_tech": "DC string v rozvaděči", "dc_route": "DC string po trase",
+               "ac_feed": "AC přívod střídače", "ac_core": "AC jádro rozvaděče"},
 }
 
 
@@ -209,14 +214,67 @@ def build_project(spec: dict) -> Project:
                                    "length": _s(ac.get("pe_length") or 5)}))
     p.meta.setdefault("p_installed_kwp", f"{p_total:g}")
     # listy DC rozvaděčů a AC rozvaděče
+    macros = spec.get("macros") or {}
     for b, gens, kind in dc_boxes:
-        build_dc_strings(p, p.create_switchboard_sheet(b), [g.ref for g in gens], kind, _s(dc.get("fuse_in") or 15),
-                         _s(dc.get("disconnect_in") or 32), _s(dc.get("spd") or "T2"))
+        sheet = p.create_switchboard_sheet(b)
+        name = macros.get("dc_tech" if kind == "tech" else "dc_route", "")
+        if not _dc_box_from_macro(p, sheet, [g.ref for g in gens], name, dc):
+            build_dc_strings(p, sheet, [g.ref for g in gens], kind, _s(dc.get("fuse_in") or 15),
+                             _s(dc.get("disconnect_in") or 32), _s(dc.get("spd") or "T2"))
     sb = p.create_switchboard_sheet(blk)
-    _build_ac_switchboard(p, sb, invs, ac, spec)
+    if not _ac_box_from_macros(p, sb, invs, ac, macros):
+        _build_ac_switchboard(p, sb, invs, ac, spec)
     sync_feed_links(p)
     sync_cables(p)
     return p
+
+
+def _macro_vars(dc: dict, ac: dict) -> dict:
+    return {"fuse_in": _s(dc.get("fuse_in") or 15), "disc_in": _s(dc.get("disconnect_in") or 32), "spd": _s(dc.get("spd") or "T2"),
+            "breaker_in": _s(ac.get("breaker_in") or 40), "main_in": _s(ac.get("main_in") or 125), "ac_spd": _s(ac.get("spd") or "T1+T2")}
+
+
+def _dc_box_from_macro(project: Project, sheet: Sheet, strings: list[str], name: str, dc: dict) -> bool:
+    """DC rozvaděč složený z makra na string (proměnné k, nk, string, fuse_in, disc_in, spd). False = makro chybí."""
+    from envocad.library.macros import find_macro, instantiate, macro_pitch
+    from envocad.library.store import LibraryStore
+    m = find_macro(name) if name else None
+    if m is None:
+        return False
+    lib = LibraryStore()
+    n = len(strings)
+    pitch = macro_pitch(m)
+    devices = []
+    for k, g in enumerate(strings, start=1):
+        vars_ = {**_macro_vars(dc, {}), "k": k, "nk": n + k, "n": n, "string": g}
+        els, _ = instantiate(project, sheet, m.fragment, vars_, dx=(k - 1) * pitch, ref_prefix_of=lambda sid: lib.get_symbol(sid).iec_ref)
+        devices += [e for e in els if e.modules > 0 and e.symbol_id not in ("sb.feed_in", "sb.feed_out", "sb.busbar")]
+    _place_sequential(sheet, devices)
+    return True
+
+
+def _ac_box_from_macros(project: Project, sheet: Sheet, invs: list[dict], ac: dict, macros: dict) -> bool:
+    """AC rozvaděč: makro přívodu na každý střídač (k, inverter, breaker_in, main_in) + makro jádra (spd, main_in)."""
+    from envocad.library.macros import find_macro, instantiate, macro_pitch
+    from envocad.library.store import LibraryStore
+    mf, mc = find_macro(macros.get("ac_feed", "") or ""), find_macro(macros.get("ac_core", "") or "")
+    if mf is None or mc is None or (ac.get("distribution") or "bus") != "bus":
+        return False
+    lib = LibraryStore()
+    pitch = macro_pitch(mf)
+    devices = []
+    base = _macro_vars({}, ac)
+    base["spd"] = base["ac_spd"]
+    for k, inv in enumerate(invs, start=1):
+        vars_ = {**base, "k": k, "inverter": inv.get("ref") or f"T{k}"}
+        els, _ = instantiate(project, sheet, mf.fragment, vars_, dx=(k - 1) * pitch, ref_prefix_of=lambda sid: lib.get_symbol(sid).iec_ref)
+        devices += [e for e in els if e.modules > 0 and e.symbol_id not in ("sb.feed_in", "sb.feed_out", "sb.busbar")]
+    els, _ = instantiate(project, sheet, mc.fragment, base, dx=len(invs) * pitch, ref_prefix_of=lambda sid: lib.get_symbol(sid).iec_ref)
+    devices += [e for e in els if e.modules > 0 and e.symbol_id not in ("sb.feed_in", "sb.feed_out", "sb.busbar")]
+    _place_sequential(sheet, devices)
+    if ac.get("enclosure"):
+        sheet.layout.params["type"] = _s(ac["enclosure"])
+    return True
 
 
 def _build_ac_switchboard(project: Project, sheet: Sheet, invs: list[dict], ac: dict, spec: dict) -> None:

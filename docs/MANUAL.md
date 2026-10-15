@@ -87,8 +87,21 @@ tažením rámečku v prázdné ploše. Kolečko zoomuje, střední tlačítko p
 Vyber prvky (vodiče mezi nimi se přiberou) a `Úpravy → Uložit výběr jako makro…` (`Ctrl+Shift+S`): makro se
 uloží do `~/.envocad/macros/` nebo – když je nastavená sdílená knihovna – na dotaz do `<sdílená>/macros/`
 pro všechny. V panelu Knihovna je dole uzel **Makra**; dvojklik vloží sestavu doprostřed pohledu s novými
-označeními. Vestavěná makra: *AC vývod s jističem*, *DC string v rozvaděči*, *String → střídač*.
-`Úpravy → Smazat makro…` maže vlastní a sdílená.
+označeními. `Úpravy → Smazat makro…` maže vlastní a sdílená.
+
+**Generátor skládá rozvaděče z maker** – výkres ladí projektant, program ho jen opakuje. Specifikace (`macros`)
+říká, které makro se použije: `dc_tech` (string v DC rozvaděči u technologie), `dc_route` (po trase),
+`ac_feed` (přívod od střídače), `ac_core` (jádro AC rozvaděče). Výchozí jsou vestavěná makra stejných jmen;
+**vlastní makro se stejným názvem** (uložené do `~/.envocad/macros/` nebo do sdílené knihovny) má přednost –
+stačí tedy nakreslit svou verzi, uložit ji pod tím jménem a generátor ji začne používat.
+
+Parametrické makro používá v atributech, označeních a názvech portů **proměnné** `{k}` (pořadí instance),
+`{nk}` (n + k – pro vývod X{nk}), `{n}`, `{string}` / `{inverter}` (označení z JPS), `{fuse_in}`, `{disc_in}`,
+`{breaker_in}`, `{main_in}`, `{spd}`. Označení s proměnnou se dosadí a nepřečísluje (`X{k}` → X3), ostatní
+(F1, W1) dostanou další volné číslo. Prvek s atributem **`shared` = 1** (sběrnice, vývod XPE k HOP) se vloží
+jen jednou a další instance se na něj napojí; do portu sběrnice se dá psát `T{k}`. Rozteč instancí určuje
+klíč `pitch` v JSON makra (jinak šířka + 10 mm). Nejjednodušší cesta: otevři vestavěné makro
+(`envocad/library/builtin/macros/*.json`), uprav podle sebe a ulož pod stejným názvem do vlastní složky.
 
 ### Přerušovací body
 Prvek **Přerušovací bod** (Svorky a propojení) přenese potenciál jinam – dva body se stejným označením se

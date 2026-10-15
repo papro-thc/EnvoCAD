@@ -1,0 +1,184 @@
+{
+ "name": "AC jádro rozvaděče",
+ "description": "Generátor: sběrnice 1 → SPD {spd} → XPE (k HOP), sběrnice → hlavní vypínač {main_in} → XOUT",
+ "fragment": {
+  "elements": [
+   {
+    "id": "84d7e1ad62c1",
+    "symbol_id": "sb.busbar",
+    "x": 120,
+    "y": 175,
+    "rotation": 0,
+    "attrs": {
+     "ref": "1",
+     "desc": "rozvod AC",
+     "in_": "{main_in}",
+     "conductors": "L1 L2 L3 N PE",
+     "shared": "1"
+    },
+    "component_id": null
+   },
+   {
+    "id": "0d68697d1bb3",
+    "symbol_id": "fve.spd",
+    "x": 60,
+    "y": 140,
+    "rotation": 0,
+    "attrs": {
+     "ref": "F1",
+     "spd_type": "{spd}",
+     "poles": "4",
+     "modules": "4"
+    },
+    "component_id": null
+   },
+   {
+    "id": "19a36020560f",
+    "symbol_id": "sb.feed_out",
+    "x": 40,
+    "y": 105,
+    "rotation": 0,
+    "attrs": {
+     "ref": "XPE",
+     "desc": "k HOP",
+     "shared": "1"
+    },
+    "component_id": null
+   },
+   {
+    "id": "35ec4fae1a2d",
+    "symbol_id": "sb.main_switch",
+    "x": 120,
+    "y": 140,
+    "rotation": 270,
+    "attrs": {
+     "ref": "Q1",
+     "in_": "{main_in}",
+     "poles": "4",
+     "modules": "4"
+    },
+    "component_id": null
+   },
+   {
+    "id": "ddcc3ffcf9a6",
+    "symbol_id": "sb.feed_out",
+    "x": 120,
+    "y": 105,
+    "rotation": 0,
+    "attrs": {
+     "ref": "XOUT",
+     "desc": "do HDS / DS"
+    },
+    "component_id": null
+   }
+  ],
+  "wires": [
+   {
+    "id": "01cf4b55d0d7",
+    "a": {
+     "element_id": "84d7e1ad62c1",
+     "port": "1"
+    },
+    "b": {
+     "element_id": "0d68697d1bb3",
+     "port": "L"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "L1",
+     "L2",
+     "L3",
+     "N"
+    ],
+    "terminals": {}
+   },
+   {
+    "id": "6c824ec2d1df",
+    "a": {
+     "element_id": "0d68697d1bb3",
+     "port": "PE"
+    },
+    "b": {
+     "element_id": "19a36020560f",
+     "port": "1"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "PE"
+    ],
+    "terminals": {}
+   },
+   {
+    "id": "63448818049d",
+    "a": {
+     "element_id": "84d7e1ad62c1",
+     "port": "4"
+    },
+    "b": {
+     "element_id": "19a36020560f",
+     "port": "1"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "PE"
+    ],
+    "terminals": {}
+   },
+   {
+    "id": "d745a13d75c7",
+    "a": {
+     "element_id": "84d7e1ad62c1",
+     "port": "3"
+    },
+    "b": {
+     "element_id": "35ec4fae1a2d",
+     "port": "1"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "L1",
+     "L2",
+     "L3",
+     "N",
+     "PE"
+    ],
+    "terminals": {}
+   },
+   {
+    "id": "36a1d638406a",
+    "a": {
+     "element_id": "35ec4fae1a2d",
+     "port": "2"
+    },
+    "b": {
+     "element_id": "ddcc3ffcf9a6",
+     "port": "1"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "L1",
+     "L2",
+     "L3",
+     "N",
+     "PE"
+    ],
+    "terminals": {}
+   }
+  ]
+ }
+}

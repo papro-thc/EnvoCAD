@@ -66,7 +66,7 @@ def test_dc_boxes_along_route():
     s = p.sheets[0]
     boxes = [e for e in s.elements if e.symbol_id == "fve.switchboard" and e.ref.startswith("RDC")]
     assert [b.ref for b in boxes] == ["RDC1", "RDC2", "RDC3"]
-    assert [pt.name for pt in element_symbol(p, boxes[0], lib).ports] == ["X1", "X2", "X3", "X4", "X5", "X6"]
+    assert [pt.name for pt in element_symbol(p, boxes[0], lib).ports] == ["X1", "X2", "X3", "X4", "X5", "X6", "XPE"]
     # string → RDC1 → RDC2 → RDC3 (u technologie) → střídač, každý string odděleně
     g1 = next(e for e in s.elements if e.symbol_id == "fve.pv_string")
     chain = [w for w in s.wires if w.touches(g1.id)]

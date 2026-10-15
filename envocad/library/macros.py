@@ -97,3 +97,82 @@ def fragment_bounds(fragment: dict) -> tuple[float, float, float, float]:
     if not xs:
         return (0.0, 0.0, 0.0, 0.0)
     return (min(xs), min(ys), max(xs), max(ys))
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Parametrická makra pro generátor: `{proměnná}` v atributech, označeních a portech se dosadí při vložení;
+# prvek s atributem `shared` = "1" (sběrnice, vývod XPE…) se vloží jen jednou – další instance se na něj napojí.
+class _Safe(dict):
+    def __missing__(self, key):
+        return "{" + key + "}"
+
+
+def _subst(text: str, vars_: dict) -> str:
+    try:
+        return str(text).format_map(_Safe(vars_))
+    except (ValueError, IndexError):
+        return str(text)
+
+
+def instantiate(project, sheet, fragment: dict, vars_: dict, dx: float = 0.0, dy: float = 0.0,
+                ref_prefix_of=None) -> tuple[list, list]:
+    """Vloží parametrické makro do listu: dosadí `{proměnné}` (atributy, označení, porty vodičů), prvky s `shared`
+    sloučí s už existujícím prvkem stejného označení na listu, ostatní označení bez proměnných přečísluje
+    (F1 → další volné). Vrací (nové prvky, nové vodiče) – už vložené do listu."""
+    from envocad.model.project import Element, Wire, WireEnd
+    used = project.used_refs(sheet)
+    idmap: dict[str, str] = {}
+    els: list[Element] = []
+    for d in fragment.get("elements", []):
+        src = Element.from_dict(d)
+        attrs = {k: _subst(v, vars_) for k, v in src.attrs.items()}
+        shared = str(src.attrs.get("shared", "")).strip() in ("1", "true", "ano")
+        if shared:
+            ref = attrs.get("ref", "")
+            existing = next((e for e in sheet.elements if e.symbol_id == src.symbol_id and e.ref == ref and ref), None)
+            if existing is not None:
+                idmap[src.id] = existing.id
+                continue
+        new = Element(symbol_id=src.symbol_id, x=src.x + dx, y=src.y + dy, rotation=src.rotation, attrs=attrs,
+                      component_id=src.component_id)
+        prefix = ref_prefix_of(src.symbol_id) if ref_prefix_of else ""
+        if "{" not in str(src.attrs.get("ref", "")) and src.attrs.get("ref") and prefix and not shared \
+                and src.symbol_id not in ("sb.terminal_block", "fve.terminal", "sb.feed_in", "sb.feed_out", "sb.busbar"):
+            n = 1
+            while f"{prefix}{n}" in used:
+                n += 1
+            new.attrs["ref"] = f"{prefix}{n}"
+        used.add(new.attrs.get("ref", ""))
+        new.attrs.pop("sheet", None)
+        idmap[src.id] = new.id
+        sheet.elements.append(new)
+        els.append(new)
+    wires: list[Wire] = []
+    for d in fragment.get("wires", []):
+        w = Wire.from_dict(d)
+        if w.a.element_id not in idmap or w.b.element_id not in idmap:
+            continue
+        nw = Wire(WireEnd(idmap[w.a.element_id], _subst(w.a.port, vars_)), WireEnd(idmap[w.b.element_id], _subst(w.b.port, vars_)),
+                  points=[(x + dx, y + dy) for x, y in w.points], attrs={k: _subst(v, vars_) for k, v in w.attrs.items()},
+                  conductors=list(w.conductors))
+        if nw.attrs.get("ref") and "{" not in str(w.attrs.get("ref", "")):
+            n = 1
+            while f"W{n}" in used:
+                n += 1
+            nw.attrs["ref"] = f"W{n}"
+            used.add(nw.attrs["ref"])
+        sheet.wires.append(nw)
+        wires.append(nw)
+    return els, wires
+
+
+def find_macro(name: str) -> Macro | None:
+    return next((m for m in list_macros() if m.name == name), None)
+
+
+def macro_pitch(m: Macro) -> float:
+    """Rozteč opakovaných instancí: atribut `pitch` makra, jinak šířka + 10 mm."""
+    try:
+        return float(m.fragment.get("pitch") or 0) or (fragment_bounds(m.fragment)[2] - fragment_bounds(m.fragment)[0] + 10.0)
+    except (TypeError, ValueError):
+        return fragment_bounds(m.fragment)[2] - fragment_bounds(m.fragment)[0] + 10.0
