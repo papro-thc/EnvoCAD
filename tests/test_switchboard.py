@@ -149,7 +149,7 @@ def test_feed_link_to_jps_wire():
     assert [c[0] for c in wire_choices(p, sb)] == [w.id]
     apply_template(p, sb, "ac_fve")
     feed = next(e for e in sb.elements if e.symbol_id == "sb.feed_in")
-    assert feed.attrs["wire_id"] == w.id and feed.attrs["from"] == "W2 T1:AC" and feed.attrs["cable"] == "CYKY-J 5x16 16"
+    assert feed.attrs["wire_id"] == w.id and feed.attrs["from"].startswith("W2 T1:AC /1.") and feed.attrs["cable"] == "CYKY-J 5x16 16"
     assert linked_wire(p, sb, feed)[1] is w
     assert wire_xref(p, w.id) == "→ R1:X1"
     assert feed_link_attrs(p, sb, feed, "") == {"wire_id": "", "from": "", "to": "", "cable": ""}
@@ -187,7 +187,7 @@ def test_switchboard_block_ports_follow_feeds():
     assert linked_wire(p, sb, x4)[1] is w_out
     assert wire_xref(p, w_out.id) == "→ R1:X4" and [e.ref for _, e in feeds_linked_to(p, w_out.id)] == ["X4"]
     assert sync_feed_links(p) >= 1
-    assert x4.attrs["to"] == "W3 M1:1" and x4.attrs["cable"] == "CYKY-J 5x6 6" and x4.attrs["wire_id"] == w_out.id
+    assert x4.attrs["to"].startswith("W3 M1:1 /1.") and x4.attrs["cable"] == "CYKY-J 5x6 6" and x4.attrs["wire_id"] == w_out.id
     assert sync_feed_links(p) == 0
     # starý port zůstane jen dokud na něj něco vede
     w_old = Wire(WireEnd(blk.id, "3"), WireEnd(load.id, "1"))

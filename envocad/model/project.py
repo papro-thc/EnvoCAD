@@ -593,7 +593,8 @@ def feed_link_attrs(project: Project, sheet: Sheet, e: Element, wire_id: str) ->
     block = sheet.parent_element_id
     far_end = w.b if w.a.element_id == block else w.a
     far = s.element(far_end.element_id)
-    text = f"{w.attrs.get('ref', '')} {far.ref or far.symbol_id}:{far_end.port}".strip()
+    from envocad.model.frame import position_ref
+    text = f"{w.attrs.get('ref', '')} {far.ref or far.symbol_id}:{far_end.port} {position_ref(project, s, far.x, far.y)}".strip()
     cable = " ".join(x for x in (w.attrs.get("cable", ""), w.attrs.get("cross", "")) if x)
     key = "from" if e.symbol_id == "sb.feed_in" else "to"
     return {"wire_id": wire_id, key: text, "cable": cable}
@@ -620,7 +621,9 @@ def wire_xref(project: Project, wire_id: str) -> str:
         bname = ""
         if block is not None:
             bname = block.element(s.parent_element_id).ref
-        parts.append(f"{bname or s.name}:{e.ref}" if e.ref else (bname or s.name))
+        from envocad.model.frame import position_ref
+        pos = position_ref(project, s, e.x, e.y)
+        parts.append((f"{bname or s.name}:{e.ref}" if e.ref else (bname or s.name)) + f" {pos}")
     return ("→ " + ", ".join(parts)) if parts else ""
 
 
@@ -757,3 +760,28 @@ def sync_cables(project: Project) -> int:
                 w.attrs["cable_id"] = c.id
                 changed += 1
     return changed
+
+
+# ---- přerušovací body (potenciál pokračuje jinde) --------------------------------------------------------
+INTERRUPT_SYMBOL = "fve.interrupt"
+
+
+def interrupt_partner(project: Project, e: Element) -> tuple[Sheet, Element] | None:
+    """Protějšek přerušovacího bodu: jiný přerušovací bod se stejným označením (kdekoli v projektu)."""
+    if e.symbol_id != INTERRUPT_SYMBOL or not e.ref:
+        return None
+    for s in project.sheets:
+        for o in s.elements:
+            if o.symbol_id == INTERRUPT_SYMBOL and o.id != e.id and o.ref == e.ref:
+                return s, o
+    return None
+
+
+def element_xref(project: Project, sheet: Sheet, e: Element) -> str:
+    """Text křížového odkazu kreslený u prvku: přerušovací bod → poloha protějšku („→ /2.C3“)."""
+    hit = interrupt_partner(project, e)
+    if hit is None:
+        return "" if e.symbol_id != INTERRUPT_SYMBOL else "→ ?"
+    s, o = hit
+    from envocad.model.frame import position_ref
+    return "→ " + position_ref(project, s, o.x, o.y)

@@ -101,6 +101,10 @@ class ElementItem(QGraphicsItem):
             if a.show and a.key != "ref" and self.element.attrs.get(a.key):
                 draw_text(painter, 0, line, self.element.attrs[a.key], 2.0, "left")
                 line -= 3.0
+        sc = self.scene()
+        xref = sc.element_xref(self.element) if hasattr(sc, "element_xref") else ""
+        if xref:
+            draw_text(painter, 0, line, xref, 2.0, "left")
         painter.restore()
 
 

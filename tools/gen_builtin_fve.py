@@ -219,6 +219,14 @@ SYMBOLS = [
         "label_pos": {"x": 2, "y": 2},
     },
     {
+        "id": "fve.interrupt", "name": "Přerušovací bod", "category": "Svorky a propojení", "iec_ref": "",
+        "description": "Potenciál pokračuje jinde (na jiném listu / místě) – páruje se podle označení",
+        "primitives": [L(-7.5, 0, -2.5, 0), {"type": "polyline", "points": [[-2.5, 2.5], [2.5, 0], [-2.5, -2.5]], "closed": True}],
+        "ports": [P("1", -7.5, 0, "W")],
+        "attributes": [attr("ref", "Označení potenciálu", "", True), attr("desc", "Popis")],
+        "label_pos": {"x": -5, "y": 4},
+    },
+    {
         "id": "fve.earth", "name": "Uzemnění", "category": "Svorky a propojení", "iec_ref": "",
         "description": "Zemnicí svorka / PE",
         "primitives": [L(0, 5, 0, 0), L(-4, 0, 4, 0), L(-2.5, -1.5, 2.5, -1.5), L(-1, -3, 1, -3)],

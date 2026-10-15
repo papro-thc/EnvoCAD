@@ -1,0 +1,60 @@
+{
+  "id": "fve.interrupt",
+  "name": "Přerušovací bod",
+  "category": "Svorky a propojení",
+  "iec_ref": "",
+  "description": "Potenciál pokračuje jinde (na jiném listu / místě) – páruje se podle označení",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": 0,
+      "x2": -2.5,
+      "y2": 0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -2.5,
+          2.5
+        ],
+        [
+          2.5,
+          0
+        ],
+        [
+          -2.5,
+          -2.5
+        ]
+      ],
+      "closed": true
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -7.5,
+      "y": 0,
+      "dir": "W"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení potenciálu",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "desc",
+      "label": "Popis",
+      "default": "",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": -5,
+    "y": 4
+  }
+}

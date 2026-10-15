@@ -185,3 +185,45 @@ def test_frame_geometry_and_copy_paste():
     assert els[0].x == 60 and els[0].y == 90 and els[0].id != a.id
     assert wires[0].attrs["ref"] == "W2" and wires[0].conductors == ["L1", "N", "PE"] and wires[0].terminals == {}
     assert wires[0].a.element_id == els[0].id
+
+
+def test_grid_coords_and_interrupt_points():
+    from envocad.library.store import LibraryStore
+    from envocad.model.checks import check_project
+    from envocad.model.frame import frame_geometry, grid_coord, position_ref
+    from envocad.model.project import (
+        Element,
+        Project,
+        Sheet,
+        Wire,
+        WireEnd,
+        element_xref,
+        interrupt_partner,
+        wire_xref,
+    )
+    p = Project(name="Síť")
+    s1 = p.sheets[0]
+    s2 = Sheet(name="List 2")
+    p.sheets.append(s2)
+    assert grid_coord(s1, 25, 280) == "A1" and grid_coord(s1, 400, 20) == "H6"
+    assert position_ref(p, s2, 210, 150) == "/2.D3"
+    g = frame_geometry(p, s1)
+    assert {t[2] for t in g.texts} >= set("ABCDEFGH") | {"1", "6"}
+    a = Element("fve.interrupt", 300, 150, attrs={"ref": "L1-A"})
+    b = Element("fve.interrupt", 60, 200, rotation=180, attrs={"ref": "L1-A"})
+    lone = Element("fve.interrupt", 60, 100, attrs={"ref": "N-X"})
+    s1.elements.append(a)
+    s2.elements += [b, lone]
+    assert interrupt_partner(p, a)[1] is b
+    assert element_xref(p, s1, a) == "→ /2.A2" and element_xref(p, s2, b) == "→ /1.F3"
+    assert element_xref(p, s2, lone) == "→ ?"
+    assert any(f.code == "interrupt_alone" and f.ref == "N-X" for f in check_project(p, LibraryStore()))
+    # křížový odkaz vodiče na vývod má i souřadnici
+    t = Element("fve.inverter", 50, 150, attrs={"ref": "T1"})
+    blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
+    s1.elements += [t, blk]
+    sb = p.create_switchboard_sheet(blk)
+    sb.elements.append(Element("sb.feed_in", 40, 250, attrs={"ref": "X1"}))
+    w = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "X1"), attrs={"ref": "W2"})
+    s1.wires.append(w)
+    assert wire_xref(p, w.id).startswith("→ R1:X1 /3.")

@@ -8,7 +8,7 @@ from collections import Counter
 from dataclasses import dataclass
 
 from envocad.model import multipole as mp
-from envocad.model.project import FEED_SYMBOLS, Element, Project, Sheet, linked_wire
+from envocad.model.project import FEED_SYMBOLS, Element, Project, Sheet, interrupt_partner, linked_wire
 
 ERROR, WARNING, INFO = "chyba", "varování", "info"
 # prvky, u kterých nevadí nezapojený port (jde o odkazy/bloky/sběrnice s rezervou)
@@ -77,6 +77,9 @@ def check_project(project: Project, lib) -> list[Finding]:
             if (e.symbol_id not in NO_ARTICLE_SYMBOLS and not e.component_id and not e.attrs.get("type")
                     and not mp.is_terminal_block(e)):
                 out.append(Finding(INFO, s.id, s.name, e.id, False, e.ref, "Bez artiklu / typu", "no_article"))
+            if e.symbol_id == "fve.interrupt" and interrupt_partner(project, e) is None:
+                out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
+                                   "Přerušovací bod bez protějšku (stejné označení jinde)", "interrupt_alone"))
             if e.symbol_id == "fve.switchboard" and project.switchboard_sheet(e.id) is None:
                 out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref, "Rozvaděč nemá list (dvojklik)", "no_sheet"))
         for w in s.wires:

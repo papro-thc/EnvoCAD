@@ -365,6 +365,10 @@ class SchematicScene(QGraphicsScene):
         from envocad.model.project import wire_xref
         return wire_xref(self.project, w.id)
 
+    def element_xref(self, e: Element) -> str:
+        from envocad.model.project import element_xref
+        return element_xref(self.project, self.sheet, e)
+
     def mouseReleaseEvent(self, ev):
         super().mouseReleaseEvent(ev)
         if self.mode == Mode.SELECT and self._move_start:

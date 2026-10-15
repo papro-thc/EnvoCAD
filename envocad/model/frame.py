@@ -10,6 +10,8 @@ MARGIN = 10.0        # okraj rámečku
 MARGIN_LEFT = 20.0   # širší okraj pro vazbu
 TB_W, TB_H = 180.0, 32.0  # popisové pole (š × v)
 COMPANY = "ENVO s.r.o."
+COLS = "ABCDEFGH"   # sloupce souřadnicové sítě (zleva doprava)
+ROWS = 6            # řádky 1…6 (shora dolů)
 
 
 @dataclass
@@ -17,6 +19,24 @@ class FrameGeometry:
     lines: list[tuple[float, float, float, float]] = field(default_factory=list)      # x1, y1, x2, y2
     texts: list[tuple[float, float, str, float, str]] = field(default_factory=list)  # x, y, text, výška, zarovnání
     inner: tuple[float, float, float, float] = (0, 0, 0, 0)                           # x0, y0, x1, y1 kreslicí plochy
+
+
+def grid_coord(sheet: Sheet, x: float, y: float, width: float | None = None, height: float | None = None) -> str:
+    """Souřadnice v síti listu („B4“) pro bod (x, y) v mm – sloupce A–H zleva, řádky 1–6 shora."""
+    w = width or sheet.width
+    h = height or sheet.height
+    x0, y0, x1, y1 = MARGIN_LEFT, MARGIN, w - MARGIN, h - MARGIN
+    ci = int((x - x0) / (x1 - x0) * len(COLS)) if x1 > x0 else 0
+    ri = int((y1 - y) / (y1 - y0) * ROWS) if y1 > y0 else 0
+    ci = min(max(ci, 0), len(COLS) - 1)
+    ri = min(max(ri, 0), ROWS - 1)
+    return f"{COLS[ci]}{ri + 1}"
+
+
+def position_ref(project: Project, sheet: Sheet, x: float, y: float) -> str:
+    """Odkaz na místo ve výkresu jako v EPLAN: „/3.B4“ = list 3, sloupec B, řádek 4."""
+    n = sheet_number(project, sheet).split("/")[0]
+    return f"/{n}.{grid_coord(sheet, x, y)}"
 
 
 def sheet_number(project: Project, sheet: Sheet) -> str:
@@ -48,6 +68,19 @@ def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, h
     x0, y0, x1, y1 = MARGIN_LEFT, MARGIN, w - MARGIN, h - MARGIN
     g.inner = (x0, y0, x1, y1)
     g.lines += [(x0, y0, x1, y0), (x1, y0, x1, y1), (x1, y1, x0, y1), (x0, y1, x0, y0)]
+    # souřadnicová síť v okraji: sloupce A–H nahoře i dole, řádky 1–6 vlevo i vpravo
+    cw = (x1 - x0) / len(COLS)
+    for i, c in enumerate(COLS):
+        cx = x0 + i * cw
+        if i:
+            g.lines += [(cx, y1, cx, y1 + 3), (cx, y0, cx, y0 - 3)]
+        g.texts += [(cx + cw / 2, y1 + 1.5, c, 2.5, "center"), (cx + cw / 2, y0 - 4.0, c, 2.5, "center")]
+    rh = (y1 - y0) / ROWS
+    for r in range(ROWS):
+        ry = y1 - r * rh
+        if r:
+            g.lines += [(x0 - 3, ry, x0, ry), (x1, ry, x1 + 3, ry)]
+        g.texts += [(x0 - 2.0, ry - rh / 2 - 1.0, str(r + 1), 2.5, "right"), (x1 + 2.0, ry - rh / 2 - 1.0, str(r + 1), 2.5, "left")]
     # popisové pole
     tx0, ty0 = x1 - TB_W, y0
     tx1, ty1 = x1, y0 + TB_H
