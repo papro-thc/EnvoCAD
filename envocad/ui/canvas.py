@@ -242,7 +242,7 @@ class SchematicScene(QGraphicsScene):
         for w in self.items(ev.scenePos()):
             if isinstance(w, WireItem):
                 wid = w.wire.id
-                QTimer.singleShot(0, lambda: self.edit_wire(wid))
+                QTimer.singleShot(0, lambda wid=wid: self.edit_wire(wid))
                 return None
         super().mouseDoubleClickEvent(ev)
 

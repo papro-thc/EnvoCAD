@@ -60,7 +60,7 @@ def setup(show_dialog: bool = True) -> Path:
     try:
         import PySide6
         log.info("PySide6 %s", PySide6.__version__)
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001, S110
         pass
 
     def hook(exc_type, exc, tb):
@@ -73,7 +73,7 @@ def setup(show_dialog: bool = True) -> Path:
                     QMessageBox.critical(None, "EnvoCAD – chyba",
                                          f"Došlo k chybě (program může běžet dál, ale raději uložte práci).\n\n"
                                          f"{exc_type.__name__}: {exc}\n\nPodrobnosti: {path}")
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001, S110
                 pass
 
     sys.excepthook = hook

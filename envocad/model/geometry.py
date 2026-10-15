@@ -1,5 +1,8 @@
 """Geometrické pomůcky nad lomenými čarami (bez Qt) – sdílí je editor i DXF export."""
+
 from __future__ import annotations
+
+from itertools import pairwise
 
 Point = tuple[float, float]
 
@@ -7,7 +10,7 @@ Point = tuple[float, float]
 def longest_segment(pts: list[Point]) -> tuple[Point, Point]:
     """Nejdelší úsek lomené čáry (pro umístění popisku)."""
     best, best_len = (pts[0], pts[-1]), -1.0
-    for a, b in zip(pts, pts[1:]):
+    for a, b in pairwise(pts):
         d = abs(b[0] - a[0]) + abs(b[1] - a[1])
         if d > best_len:
             best, best_len = (a, b), d

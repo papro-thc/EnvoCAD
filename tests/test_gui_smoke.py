@@ -221,7 +221,7 @@ def test_component_picker_and_apply(app, tmp_path):
     from envocad.model.project import Sheet
     from envocad.ui.dialogs import EnclosurePanel
     s = Sheet(kind="switchboard")
-    panel = EnclosurePanel(s, library=lib)
+    EnclosurePanel(s, library=lib)
     enc = ComponentPicker(lib, category="enclosure")
     assert enc.table.rowCount() >= 1 and all(c.category == "enclosure" for c in enc._rows)
 

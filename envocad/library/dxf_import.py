@@ -70,7 +70,7 @@ def _entities_to_primitives(entities, m: Matrix44, out: list[Primitive], doc, de
                     m,
                 )
                 _entities_to_primitives(blk, sub, out, doc, depth + 1)
-        except Exception:  # noqa: BLE001 – vadná entita nesmí shodit celý import
+        except Exception:  # noqa: BLE001, S112 – vadná entita nesmí shodit celý import
             continue
 
 

@@ -198,7 +198,8 @@ def main(argv=None) -> int:
         print("\n".join(errs) if errs else "OK")
         return 1 if errs else 0
     for k, v in stats(a.csv).items():
-        print(f"{k}: {v}{"" if k == "count" else " %"}")
+        unit = "" if k == "count" else " %"
+        print(f"{k}: {v}{unit}")
     return 0
 
 

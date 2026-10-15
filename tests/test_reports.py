@@ -26,15 +26,15 @@ def test_reports_content(tmp_path):
     head, rows = reports.bom(p, lib, s)
     jistice = [r for r in rows if r[1] == "Jistič"]
     assert len(jistice) == 1 and jistice[0][5] == 3 and "F2" in jistice[0][6]
-    head, rows = reports.cables(p, lib, s)
+    _, rows = reports.cables(p, lib, s)
     assert rows and rows[0][0] == "W1" and rows[0][5] == "L1 L2 L3 N PE"
-    head, rows = reports.terminals(p, lib, s)
+    _, rows = reports.terminals(p, lib, s)
     x1 = [r for r in rows if r[0] == "X1"]
     assert {r[2] for r in x1} == {"L1", "L2", "L3", "N", "PE"}
-    assert [r for r in x1 if r[2] == "L1"][0][1] == "1"  # ruční svorka z Wire.terminals
-    head, rows = reports.labels(p, lib, s)
+    assert next(r for r in x1 if r[2] == "L1")[1] == "1"  # ruční svorka z Wire.terminals
+    _, rows = reports.labels(p, lib, s)
     assert any(r[0] == "Q1" for r in rows)
-    head, rows = reports.device_list(p, lib)  # celý projekt – blok R1 není přístroj
+    _, rows = reports.device_list(p, lib)  # celý projekt – blok R1 není přístroj
     assert not any(r[0] == "R1" for r in rows)
 
 
