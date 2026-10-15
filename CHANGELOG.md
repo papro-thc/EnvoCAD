@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.0 – 2026-10-15 (nad rámec EPLAN)
+- **Výpočty z modelu** (`model/calc.py`): kontrola stringů proti střídači (Uoc při −10 °C vs. Umax, Umpp při 70 °C vs. rozsah MPPT, 1,25·Isc vs. Imax vstupu – nové atributy stringu `vmp`, `beta_voc` a střídače `u_dc_max`, `u_mppt_min/max`, `i_mppt_max`), proud kabelem (1,25·Isc, P_AC/√3U, In), zatížitelnost Iz dle ČSN 33 2000-5-52 podle uložení (A1/B1/C/D/E z atributu `method` nebo textu trasy; tabulky orientační), In ≤ Iz, úbytek napětí (mez 3 %), základní selektivita po cestě ke zdroji. Nálezy v kontrole F7 a výkaz **Výpočty**.
+- **Průvodce novým projektem** (`Ctrl+Shift+N`) a **generování ze specifikace JSON** (`Soubor → Nový projekt ze specifikace`, CLI `python -m envocad.generate spec.json out.ecp`) – rozhraní pro agenty: stringy → odpínače DC → střídače → AC rozvaděč (přívody po střídačích, jističe, rozvodné svorky s můstky, SPD, hlavní vypínač, vývod do HDS) → síť, kabely jako objekty, vazby, instalovaný výkon.
+- **Porovnání s revizí** (`Soubor → Porovnat s revizí`): rozdíl dvou .ecp (prvky, vodiče, kabely, můstky, skříň) → změnový list jedním tlačítkem, skok na změněný prvek.
+- **Technická zpráva (docx)** z modelu: základní údaje, FV pole + kontrola stringů, střídače, rozvaděče s oteplením, kabely s Iz/ΔU, selektivita, SPD, výkazy; výkaz **Data pro DS** (žádost o připojení).
+- **Provoz**: autosave každé 2 min s nabídkou obnovy po startu, Poslední projekty, export PDF zmenšený na A4, štítky CSV pro tiskárnu (UTF-8 BOM, `;`), QR kód s identifikací výkresu v popisovém poli (knihovna `segno`).
+- **Sdílená knihovna a firemní standard**: `Knihovna → Sdílená knihovna` (síťová složka s JSON/CSV načítaná navíc), `Firemní standard` (výchozí kabely, zpracoval) – `~/.envocad/settings.json`; nový projekt a průvodce standard předvyplní.
+
 ## 0.9.0 – 2026-10-15 (srovnání s EPLAN)
 - **Kontrola projektu** (`F7`): duplicitní označení, vodiče na neexistující porty, nezapojené porty/prvky, skupiny svorek bez čísel, přívody bez vazby, prvky bez artiklu, vodiče bez kabelu/žil, můstky na neexistující svorky, přerušovací body a kontakty bez protějšku; dvojklik skočí na prvek.
 - **Navigátor** (dok vlevo): listy → prvky a vodiče s filtrem; `Ctrl+F` najde označení kdekoli v projektu a vybere ho.

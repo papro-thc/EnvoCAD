@@ -206,6 +206,9 @@ class MainWindow(QMainWindow):
         act(m_lib, "Importovat symbol z DXF…", self.import_dxf_symbol)
         act(m_lib, "Prohlížet artikly…", self.browse_components)
         act(m_lib, "Importovat artikly z CSV…", self.import_components_csv)
+        m_lib.addSeparator()
+        act(m_lib, "Sdílená knihovna (síťová složka)…", self.set_shared_library)
+        act(m_lib, "Firemní standard (výchozí kabely, zpracoval)…", self.edit_standard)
 
         m_help = mb.addMenu("&Nápověda")
         act(m_help, "Otevřít složku s logy", self.open_log_dir)
@@ -734,7 +737,39 @@ class MainWindow(QMainWindow):
 
     def new_project(self) -> None:
         if self._confirm_discard():
-            self._load_project(Project())
+            from envocad.settings import load_settings
+            st = load_settings()["standard"]
+            p = Project()
+            p.meta.update({k: str(v) for k, v in (st.get("project_meta") or {}).items()})
+            if st.get("author"):
+                p.meta.setdefault("author", st["author"])
+            self._load_project(p)
+
+    def set_shared_library(self) -> None:
+        from envocad.settings import load_settings, save_settings
+        st = load_settings()
+        d = QFileDialog.getExistingDirectory(self, "Sdílená knihovna (složka s *.json a *.csv)", st.get("shared_library_dir") or "")
+        if not d:
+            return
+        st["shared_library_dir"] = d
+        save_settings(st)
+        n = self.library.sync_builtin()
+        self.lib_panel.refresh()
+        self.statusBar().showMessage(f"Sdílená knihovna: {d} (načteno, {n} nových značek)", 5000)
+
+    def edit_standard(self) -> None:
+        from envocad.settings import load_settings, save_settings
+        st = load_settings()
+        s = st["standard"]
+        for key, label in (("author", "Zpracoval (výchozí)"), ("dc_cable", "DC kabel"), ("dc_cross", "DC průřez [mm²]"),
+                           ("ac_cable", "AC kabel střídač–rozvaděč"), ("ac_cross", "AC průřez [mm²]"),
+                           ("grid_cable", "Kabel do HDS"), ("grid_cross", "průřez do HDS [mm²]")):
+            v, ok = QInputDialog.getText(self, "Firemní standard", label, text=str(s.get(key, "")))
+            if not ok:
+                return
+            s[key] = v.strip()
+        save_settings(st)
+        self.statusBar().showMessage("Firemní standard uložen (~/.envocad/settings.json)", 4000)
 
     def new_project_wizard(self) -> None:
         if not self._confirm_discard():
@@ -744,8 +779,9 @@ class MainWindow(QMainWindow):
         dlg = ProjectWizard(self, library=self.library)
         if dlg.exec() != ProjectWizard.Accepted:
             return
+        from envocad.settings import apply_standard_to_spec
         try:
-            project = build_project(dlg.spec())
+            project = build_project(apply_standard_to_spec(dlg.spec()))
         except Exception as ex:  # noqa: BLE001
             QMessageBox.warning(self, "Průvodce", f"Projekt se nepodařilo vygenerovat: {ex}")
             return

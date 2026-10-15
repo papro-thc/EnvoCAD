@@ -56,6 +56,14 @@
 - [ ] Generování částí TZ/DSPS z modelu (šablony)
 - [ ] Sdílená knihovna pro celé ENVO (PostgreSQL nebo sdílený soubor)
 
+## Nad rámec EPLAN – hotovo 10/2026
+- [x] Výpočty z modelu (stringy, Iz, In ≤ Iz, úbytky, selektivita) v kontrole a výkazu
+- [x] Průvodce / specifikace JSON → projekt (rozhraní pro agenty), porovnání revizí → změnový list, TZ docx, data pro DS
+- [x] Autosave, poslední projekty, PDF A4, štítky CSV, QR v popisovém poli, sdílená knihovna, firemní standard
+- [ ] Slovenská mutace výstupů (odloženo na přání)
+- [ ] Výpočty: tabulky Iz ověřit proti normě, seskupení kabelů, teplota půdy; selektivita podle křivek výrobců
+- [ ] Průvodce: DC rozvaděč, baterie, více AC rozvaděčů, výběr modulu/střídače z knihovny (dnes ručně)
+
 ## Proti EPLAN (analýza 10/2026) – zbývá
 - [ ] Potenciály: T-odbočka vodiče do vodiče, sledování potenciálu přes svorky a můstky, kontrola N/PE
 - [ ] Funkční šablony artiklů (střídač → porty podle MPPT, jistič → příslušenství), přiřazení příslušenství k rámu

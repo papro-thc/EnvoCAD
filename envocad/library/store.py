@@ -71,6 +71,13 @@ class LibraryStore:
         sources = [(BUILTIN_DIR, "builtin")]
         if self.path == default_db_path():
             sources.append((user_library_dir(), "user"))
+            try:  # sdílená firemní knihovna (síťová složka) z nastavení – načítá se navíc, přebíjí stejná id
+                from envocad.settings import shared_library_dir
+                shared = shared_library_dir()
+                if shared is not None:
+                    sources.append((shared, "shared"))
+            except Exception:  # noqa: BLE001, S110
+                pass
         for root, tag in sources:
             self._sync_symbols(root, tag, seen, rows)
             self._sync_components(root)
