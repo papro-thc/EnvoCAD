@@ -437,6 +437,7 @@ class MainWindow(QMainWindow):
                 pass
         # schéma rozvaděče je vícepólové; jednopólová podoba je jen editační (Ctrl+J)
         self.open_sheet(sheet, "multipole" if kind == "schematic" else kind)
+        self._sync_links_and_blocks()
 
     def _open_selected_switchboard(self, kind: str) -> None:
         if kind == "edit":
@@ -488,6 +489,7 @@ class MainWindow(QMainWindow):
             self.undo.resetClean()
 
     def _rebuild_sheet_views(self, sheet: Sheet) -> None:
+        self._sync_links_and_blocks()
         for kind in ("schematic", "layout", "multipole", "terminals"):
             i = self._find_tab(sheet, kind)
             if i >= 0:
@@ -527,10 +529,7 @@ class MainWindow(QMainWindow):
 
     def _on_undo_changed(self, _value=None) -> None:
         self._update_title()
-        from envocad.model.project import sync_feed_links
-        if sync_feed_links(self.project):
-            pass  # odvozené atributy přívodů/vývodů (odkud, kabel) – nejsou v undo
-        self._refresh_switchboard_blocks()
+        self._sync_links_and_blocks()
         # odvozené pohledy (vícepól, plán svorkovnice): viditelný se přestaví hned, ostatní až při přepnutí
         for i in range(self.tabs.count()):
             w = self._unwrap(self.tabs.widget(i))
@@ -539,6 +538,12 @@ class MainWindow(QMainWindow):
                     w.scene().rebuild()
                 else:
                     w._dirty = True
+
+    def _sync_links_and_blocks(self) -> None:
+        """Po změně modelu: vazby přívodů/vývodů na vodiče JPS (odvozené, mimo undo) a porty bloků ROZVADĚČ."""
+        from envocad.model.project import sync_feed_links
+        sync_feed_links(self.project)
+        self._refresh_switchboard_blocks()
 
     def _refresh_switchboard_blocks(self) -> None:
         """Bloky ROZVADĚČ v JPS mají porty podle přívodů/vývodů svého listu – po změně listu se přestaví."""

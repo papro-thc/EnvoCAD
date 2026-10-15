@@ -413,3 +413,24 @@ def test_switchboard_opens_as_multipole_and_delete(app, tmp_path, monkeypatch):
     assert len(sb.elements) == n_before
     w.undo.setClean()
     w.close()
+
+
+def test_block_ports_refresh_without_moving(app, tmp_path, monkeypatch):
+    """Po založení listu rozvaděče se blok v JPS přestaví hned (bez posunu)."""
+    p = Project(name="Blok")
+    s = p.sheets[0]
+    t = Element("fve.inverter", 50, 150, attrs={"ref": "T1"})
+    blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
+    s.elements += [t, blk]
+    s.wires.append(Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "1"), attrs={"ref": "W2"}))
+    w = MainWindow(LibraryStore(), p)
+    jps = w.scene
+    assert [pt.name for pt in jps.element_items[blk.id].symbol.ports] == ["1", "2", "3", "4"]
+    monkeypatch.setattr(MainWindow, "_choose_template", lambda self, sheet: (
+        __import__("envocad.library.templates", fromlist=["apply_template"]).apply_template(p, sheet, "ac_fve"),
+        self._rebuild_sheet_views(sheet))[1] or True)
+    w._open_switchboard_now(blk.id, "schematic")
+    assert [pt.name for pt in jps.element_items[blk.id].symbol.ports] == ["X1", "X4", "X5", "X6"]
+    assert s.wires[0].b.port == "X1"
+    w.undo.setClean()
+    w.close()
