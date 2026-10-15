@@ -78,7 +78,8 @@ def test_dc_boxes_along_route():
     assert not [e for e in route.elements if e.symbol_id == "fve.fuse_disconnect"]
     fds = [e for e in tech.elements if e.symbol_id == "fve.fuse_disconnect"]
     assert len(fds) == 3 and fds[0].attrs["in_"] == "20"
-    assert sum(1 for e in tech.elements if e.symbol_id == "fve.spd") == 2   # jeden SPD na MPPT
+    assert sum(1 for e in tech.elements if e.symbol_id == "fve.spd") == 3   # SPD na každý string, stringy se nespojují
+    assert sorted(w.b.port for w in s.wires if w.touches(inv.id) and w.a.element_id == boxes[2].id) == ["DC1", "DC2", "DC3"]
     assert all(f.attrs.get("wire_id") for f in tech.elements if f.symbol_id == "sb.feed_in")
     assert s.width > 420   # dva rozvaděče po trase → širší list
     fs = check_project(p, lib)

@@ -25,7 +25,7 @@ def test_checks_find_typical_problems():
     assert ("no_sheet", "R1") in codes
     assert ("unconnected", "P1") in codes
     assert ("no_cable", "W1") in codes and ("no_cond", "W1") in codes
-    assert ("free_port", "T1") in codes  # DC2 nezapojen
+    assert ("free_port", "T1") not in codes  # volný DC vstup střídače je rezerva, ne chyba
     assert any(x.severity == ERROR for x in fs) and any(x.severity == WARNING for x in fs) and any(x.severity == INFO for x in fs)
     assert fs[0].severity == ERROR  # seřazeno podle závažnosti
     assert "chyb" in summary(fs)

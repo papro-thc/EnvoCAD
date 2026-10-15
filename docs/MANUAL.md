@@ -187,7 +187,9 @@ kabelů a vazeb. Hned potom spusť `F7`.
 
 DC strana se dělá jako na stavbě: ke každému střídači vznikne **DC rozvaděč po trase** (počet zadáš, i 0 –
 odpínač DC a SPD na každý string, stringy jím procházejí odděleně) a **DC rozvaděč u technologie**
-(pojistkové odpínače gPV a SPD DC na každý MPPT). Blok DC rozvaděče v JPS má porty podle přívodů
+(pojistkové odpínače gPV a SPD DC na každý string). **Stringy se v rozvaděči nikdy nespojují** – každý jde
+zvlášť až na vlastní DC vstup střídače (DC1…DCn podle počtu MPPT × stringů na MPPT; paralelní spojení dělá
+jen SolarEdge a kreslí se jako jeden string). Blok DC rozvaděče v JPS má porty podle přívodů
 (X1…Xn od stringů) a vývodů (Xn+1… dál). Když obojí vypneš, vloží se jen samostatný odpínač DC v JPS.
 AC rozvaděč má přívody po střídačích, jističe, rozvodné svorky s můstky, SPD, hlavní vypínač a vývod do HDS.
 Označení jsou jedinečná uvnitř každého rozvaděče (jako v EPLAN `+RDC1-X1`), takže X1 smí být v každém

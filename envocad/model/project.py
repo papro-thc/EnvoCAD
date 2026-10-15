@@ -710,10 +710,60 @@ def switchboard_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
                   label_pos=(-15, -half - 3))
 
 
+INVERTER_SYMBOLS = {"fve.inverter", "fve.inverter_hybrid"}
+
+
+def inverter_dc_inputs(project: Project, e: Element) -> int:
+    """Počet DC vstupů střídače: MPPT × stringů na MPPT (výchozí 2), nejméně tolik, kolik je zapojeno (DC1…DCn).
+    Stringy se v rozvaděči nikdy nespojují – každý má na střídači vlastní vstup."""
+    try:
+        mppt = int(float(str(e.attrs.get("mppt") or 0).replace(",", ".")))
+    except ValueError:
+        mppt = 0
+    try:
+        spm = int(float(str(e.attrs.get("strings_per_mppt") or 2).replace(",", "."))) or 2
+    except ValueError:
+        spm = 2
+    n = mppt * spm if mppt else 2
+    sheet = project.sheet_of_element(e.id)
+    used = {end.port for w in (sheet.wires if sheet else []) for end in (w.a, w.b) if end.element_id == e.id}
+    for p in used:
+        if re.fullmatch(r"DC(\d+)", p):
+            n = max(n, int(p[2:]))
+    return max(n, 2)
+
+
+def inverter_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
+    """Značka střídače s DC vstupem na každý string (DC1…DCn vlevo); základní značka má DC1/DC2."""
+    n = inverter_dc_inputs(project, e)
+    if n <= 2:
+        return base
+    h = max(20.0, 5.0 * n + 5.0)
+    half = h / 2
+    prims = []
+    for pr in base.primitives:
+        if pr.get("type") == "rect" and pr.get("w") == 20:
+            prims.append({**pr, "y": -half, "h": h})
+        elif pr.get("type") == "line" and pr.get("x1") == -10 and pr.get("y1") == -10 and pr.get("x2") == 10 and pr.get("y2") == 10:
+            prims.append({**pr, "y1": -half, "y2": half})
+        else:
+            prims.append(pr)
+    ports = [Port(f"DC{k + 1}", -10, 2.5 * (n - 1) - 5 * k, "W") for k in range(n)]
+    ports += [p for p in base.ports if not p.name.startswith("DC")]
+    ports = [Port(p.name, p.x, (-half if p.y == -10 else (half if p.y == 10 else p.y)), p.dir) for p in ports]
+    return Symbol(id=base.id, name=base.name, category=base.category, description=base.description, iec_ref=base.iec_ref,
+                  primitives=prims, ports=ports, attributes=base.attributes, multipole=base.multipole,
+                  label_pos=(base.label_pos[0], half + 10.0))
+
+
 def element_symbol(project: Project, e: Element, lib) -> Symbol:
-    """Značka prvku – pro blok ROZVADĚČ odvozená z jeho listu, jinak z knihovny."""
+    """Značka prvku – blok ROZVADĚČ podle jeho listu, střídač podle počtu DC vstupů, jinak z knihovny."""
     base = lib.get_symbol(e.symbol_id)
-    return switchboard_symbol(project, e, base) if e.symbol_id == "fve.switchboard" else base
+    if e.symbol_id == "fve.switchboard":
+        return switchboard_symbol(project, e, base)
+    if e.symbol_id in INVERTER_SYMBOLS:
+        return inverter_symbol(project, e, base)
+    return base
 
 
 def feed_wire_by_port(project: Project, sheet: Sheet, feed: Element) -> Wire | None:

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from envocad.model import multipole as mp
 from envocad.model.project import (
     FEED_SYMBOLS,
+    INVERTER_SYMBOLS,
     Element,
     Project,
     Sheet,
@@ -79,6 +80,8 @@ def check_project(project: Project, lib) -> list[Finding]:
             conn = _connected_ports(s, e)
             if e.symbol_id not in OPTIONAL_PORT_SYMBOLS:
                 free = [p.name for p in sym.ports if p.name not in conn]
+                if e.symbol_id in INVERTER_SYMBOLS and any(p.startswith("DC") for p in conn):
+                    free = [p for p in free if not p.startswith("DC")]   # volné DC vstupy střídače jsou rezerva
                 if free and (free != [p.name for p in sym.ports]):
                     out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                        f"Nezapojené porty: {', '.join(free)}", "free_port"))
