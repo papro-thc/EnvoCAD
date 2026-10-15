@@ -5,8 +5,10 @@ from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -113,3 +115,49 @@ class ChecksDialog(QDialog):
         bb.rejected.connect(self.reject)
         bb.accepted.connect(self.accept)
         lay.addWidget(bb)
+
+
+class DiffDialog(QDialog):
+    """Změny proti starší revizi projektu (.ecp) – dvojklik skočí na prvek, tlačítko zapíše změnový list."""
+    goto = Signal(str, str, bool)
+
+    def __init__(self, changes, project, parent=None):
+        super().__init__(parent)
+        from envocad.model.diff import summary as dsum
+        self.changes, self.project = changes, project
+        self.setWindowTitle("Porovnání s revizí")
+        self.resize(820, 480)
+        lay = QVBoxLayout(self)
+        lay.addWidget(QLabel(f"<b>{dsum(changes)}</b>"))
+        self.tree = QTreeWidget()
+        self.tree.setHeaderLabels(["Změna", "List", "Co", "Označení", "Podrobnosti"])
+        sheet_ids = {s.name: s.id for s in project.sheets}
+        for c in changes:
+            it = QTreeWidgetItem([c.kind, c.sheet, c.what, c.ref, c.detail])
+            it.setData(0, Qt.UserRole, (sheet_ids.get(c.sheet, ""), c.target_id, c.is_wire))
+            self.tree.addTopLevelItem(it)
+        for i in range(4):
+            self.tree.resizeColumnToContents(i)
+        self.tree.itemDoubleClicked.connect(lambda it, _c: it.data(0, Qt.UserRole)[1] and self.goto.emit(*it.data(0, Qt.UserRole)))
+        lay.addWidget(self.tree)
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Revize:"))
+        self.rev = QLineEdit(str(project.meta.get("revision") or "1"))
+        row.addWidget(self.rev)
+        row.addWidget(QLabel("Datum:"))
+        self.date = QLineEdit(project.meta.get("date", ""))
+        row.addWidget(self.date)
+        row.addWidget(QLabel("Zpracoval:"))
+        self.author = QLineEdit(project.meta.get("author", ""))
+        row.addWidget(self.author)
+        lay.addLayout(row)
+        bb = QDialogButtonBox(QDialogButtonBox.Close)
+        self.btn_write = QPushButton("Zapsat do změnového listu")
+        bb.addButton(self.btn_write, QDialogButtonBox.ActionRole)
+        self.btn_write.clicked.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        lay.addWidget(bb)
+
+    def change_text(self) -> str:
+        from envocad.model.diff import change_list_text
+        return change_list_text(self.changes, self.rev.text().strip(), self.date.text().strip(), self.author.text().strip())

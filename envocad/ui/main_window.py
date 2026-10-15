@@ -125,6 +125,7 @@ class MainWindow(QMainWindow):
         act(m_file, "Export &PDF…", self.export_pdf)
         m_file.addSeparator()
         act(m_file, "Vlastnosti projektu…", self.edit_project_meta)
+        act(m_file, "Porovnat s revizí (.ecp)…", self.compare_revision)
         m_file.addSeparator()
         act(m_file, "Konec", self.close, "Ctrl+Q")
 
@@ -753,6 +754,29 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Specifikace", f"Projekt se nepodařilo vygenerovat: {ex}")
             return
         self._load_project(project)
+
+    def compare_revision(self) -> None:
+        """Změnový list z porovnání se starší verzí projektu."""
+        path, _ = QFileDialog.getOpenFileName(self, "Starší revize projektu", "", "EnvoCAD projekt (*.ecp)")
+        if not path:
+            return
+        from envocad.model.diff import diff_projects
+        from envocad.ui.navigator import DiffDialog
+        try:
+            old = Project.load(path)
+        except Exception as ex:  # noqa: BLE001
+            QMessageBox.warning(self, "Porovnání", f"Soubor nejde načíst: {ex}")
+            return
+        changes = diff_projects(old, self.project)
+        dlg = DiffDialog(changes, self.project, self)
+        dlg.goto.connect(self.goto_target)
+        if dlg.exec() == DiffDialog.Accepted and changes:
+            text = dlg.change_text()
+            cur = self.project.meta.get("changes", "")
+            self.project.meta["changes"] = (cur + "\n" + text).strip() if cur else text
+            self.project.meta["revision"] = dlg.rev.text().strip()
+            self.undo.resetClean()
+            self.statusBar().showMessage(f"Změnový list doplněn o {len(changes)} řádků", 4000)
 
     def open_project(self) -> None:
         if not self._confirm_discard():
