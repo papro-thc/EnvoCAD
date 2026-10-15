@@ -76,26 +76,40 @@ def test_auto_number_terminals():
     assert mp.wire_end_terminal(s, w1, "PE", "a") == "X1:11"
     assert mp.wire_end_terminal(s, w1, "PE", "b") == ""  # F1 není svorka
     assert mp.auto_number_terminal_blocks(s) == {}
-    # přívody/vývody: číslování per žíla přes Wire.terminals
+    # přívod/vývod je svorkovnice: svorka na každou žílu, bez zadání 1…n
+    assert mp.is_terminal_block(out) and mp.terminal_numbers(out, 3) == ["1", "2", "3"]
+    assert mp.wire_end_terminal(s, w2, "L1", "b") == "X2:1" and mp.wire_end_terminal(s, w2, "PE", "b") == "X2:3"
+    out.attrs["terminal"] = "4"
+    assert mp.wire_end_terminal(s, w2, "PE", "b") == "X2:6"
+    assert mp.auto_number_terminals(s) == {}             # nic jiného (PE lišta) na listu není
+    # PE lišta se čísluje per žíla přes Wire.terminals
+    pe = Element("sb.pe_bar", attrs={"ref": "X3"})
+    s.elements.append(pe)
+    w4 = Wire(WireEnd(out.id, "1"), WireEnd(pe.id, "1"), conductors=["PE"])
+    s.wires.append(w4)
     res = mp.auto_number_terminals(s)
-    assert w1.id not in res                              # svorkový prvek má čísla sám
-    assert res[w2.id]["L1"]["b"] == "X2:1" and res[w2.id]["PE"]["b"] == "X2:3"
-    for wid, t in res.items():
-        next(w for w in s.wires if w.id == wid).terminals = t
-    assert mp.auto_number_terminals(s) == {}
+    assert res[w4.id]["PE"]["b"] == "X3:1"
 
 
 def test_bridges_roundtrip(tmp_path):
     from envocad.model.project import Project
     p = Project()
-    p.set_bridges("X2", [["1", "6", "11"], ["2", "7"], ["3"]])
-    assert p.bridge_groups("X2") == [["1", "6", "11"], ["2", "7"]]
-    assert p.bridge_of("X2", "7") == ["2", "7"] and p.bridge_of("X2", "3") == []
+    sh = p.sheets[0]
+    p.set_bridges("X2", [["1", "6", "11"], ["2", "7"], ["3"]], sh)
+    assert p.bridge_groups("X2", sh) == [["1", "6", "11"], ["2", "7"]]
+    assert p.bridge_of("X2", "7", sh) == ["2", "7"] and p.bridge_of("X2", "3", sh) == []
     p.save(tmp_path / "b.ecp")
     p2 = Project.load(tmp_path / "b.ecp")
-    assert p2.bridges == {"X2": [["1", "6", "11"], ["2", "7"]]}
-    p2.set_bridges("X2", [])
-    assert "X2" not in p2.bridges
+    assert p2.sheets[0].bridges == {"X2": [["1", "6", "11"], ["2", "7"]]}
+    p2.set_bridges("X2", [], p2.sheets[0])
+    assert "X2" not in p2.sheets[0].bridges
+    # starý formát (můstky u projektu) se přesune k listu se svorkovnicí
+    import json
+    d = json.loads((tmp_path / "b.ecp").read_text(encoding="utf-8"))
+    d["format_version"] = 6
+    d["sheets"][0].pop("bridges", None)
+    d["bridges"] = {"X2": [["1", "2"]]}
+    assert Project.from_dict(d).sheets[0].bridges == {"X2": [["1", "2"]]}
 
 
 def test_auto_layout_terminal_schematic():
@@ -109,7 +123,7 @@ def test_auto_layout_terminal_schematic():
     apply_template(p, sb, "ac_fve")
     lib = _lib()
     poles = {e.id: mp.element_poles(sb, e, lib.get_symbol(e.symbol_id)) for e in sb.elements}
-    lay = mp.auto_layout(sb, poles, y_top=257, bridges=p.bridges)
+    lay = mp.auto_layout(sb, poles, y_top=257, bridges=sb.bridges)
     assert set(lay) == set(poles)
     groups = [e for e in sb.elements if e.symbol_id == "sb.terminal_block"]
     ys = {lay[e.id][1] for e in groups}
@@ -124,7 +138,7 @@ def test_auto_layout_terminal_schematic():
     assert lay[f2.id][1] < lay[g1.id][1] < lay[next(e for e in sb.elements if e.ref == "Q1").id][1]
     # ruční pozice má přednost
     f2.mp_pos = (300.0, 50.0)
-    lay2 = mp.auto_layout(sb, poles, y_top=257, bridges=p.bridges)
+    lay2 = mp.auto_layout(sb, poles, y_top=257, bridges=sb.bridges)
     assert lay2[f2.id] == (300.0, 50.0)
     # serializace mp_pos
     d = f2.to_dict()

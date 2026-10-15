@@ -71,8 +71,71 @@
       "label": "Kabel",
       "default": "",
       "show": false
+    },
+    {
+      "key": "terminal",
+      "label": "Svorka č.",
+      "default": "",
+      "show": false
     }
   ],
+  "multipole": {
+    "pole": [
+      {
+        "type": "circle",
+        "cx": 0,
+        "cy": -2.5,
+        "r": 1.5
+      },
+      {
+        "type": "line",
+        "x1": 0,
+        "y1": -4,
+        "x2": 0,
+        "y2": -5
+      },
+      {
+        "type": "line",
+        "x1": 0,
+        "y1": -1,
+        "x2": 0,
+        "y2": 3
+      },
+      {
+        "type": "polyline",
+        "points": [
+          [
+            -3,
+            6
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            3,
+            6
+          ]
+        ],
+        "closed": false
+      }
+    ],
+    "common": [
+      {
+        "type": "text",
+        "x": 0,
+        "y": 8,
+        "text": "PŘÍVOD",
+        "height": 2,
+        "align": "center"
+      }
+    ],
+    "link": false,
+    "link_at": [
+      0,
+      2
+    ]
+  },
   "label_pos": {
     "x": 7,
     "y": 0

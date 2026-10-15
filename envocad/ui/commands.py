@@ -204,15 +204,15 @@ class SetTerminalsCommand(QUndoCommand):
 
 
 class SetBridgesCommand(QUndoCommand):
-    """Můstky jedné svorkovnice (`Project.bridges[strip]`)."""
+    """Můstky jedné svorkovnice na listu (`Sheet.bridges[strip]`)."""
 
-    def __init__(self, project, strip: str, old: list[list[str]], new: list[list[str]], on_change=None):
+    def __init__(self, project, sheet, strip: str, old: list[list[str]], new: list[list[str]], on_change=None):
         super().__init__(f"Můstky {strip}")
-        self.project, self.strip = project, strip
+        self.project, self.sheet, self.strip = project, sheet, strip
         self.old, self.new, self.on_change = [list(g) for g in old], [list(g) for g in new], on_change
 
     def _set(self, v):
-        self.project.set_bridges(self.strip, v)
+        self.project.set_bridges(self.strip, v, self.sheet)
         if self.on_change:
             self.on_change()
 

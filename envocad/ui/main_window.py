@@ -686,8 +686,8 @@ class MainWindow(QMainWindow):
         if dlg.exec() != StripDialog.Accepted:
             return
         strip, groups = dlg.values()
-        if strip and groups != self.project.bridge_groups(strip):
-            self.undo.push(commands.SetBridgesCommand(self.project, strip, self.project.bridge_groups(strip), groups))
+        if strip and groups != self.project.bridge_groups(strip, sh):
+            self.undo.push(commands.SetBridgesCommand(self.project, sh, strip, self.project.bridge_groups(strip, sh), groups))
 
     def edit_cable(self) -> None:
         hit = self._selected_wire_id()

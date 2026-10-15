@@ -269,7 +269,7 @@ def _build_ac_switchboard(project: Project, sheet: Sheet, invs: list[dict], ac: 
     first = 1 + (n + 1) * nc
     firsts.append(first)
     g_out = _terminal_group(project, sheet, x_out, y - 30, strip, first, nc, "vývod")
-    project.set_bridges(strip, _bridge_groups(firsts, nc))
+    project.set_bridges(strip, _bridge_groups(firsts, nc), sheet)
     spd = _el(project, sheet, "fve.spd", x_spd, y - 60, "F", spd_type=_s(ac.get("spd") or "T1+T2"), poles="4", modules="4")
     pe = _el(project, sheet, "sb.pe_bar", x_spd, y - 90, "X", kind="PE")
     _wire(project, sheet, g_spd, "2", spd, "L", AC_CONDUCTORS[:4])

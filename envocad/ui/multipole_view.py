@@ -92,10 +92,14 @@ class PoleItem(QGraphicsItem):
                   if a.show and a.key not in skip and self.element.attrs.get(a.key)]
         multi = len(self.ep.switched) > 1
         if multi:
-            # vícepólový prvek: popisek nad prvním pólem, řádky skládané nahoru (pod ním jsou další póly)
-            x0, _y0, _x1, y1 = self.symbol.bounds()
-            lx, ly = x0, y1 + (7.5 if mp.is_terminal_block(self.element) else 1.5)  # nad můstky
+            # vícepólový prvek: popisek nad prvním pólem, řádky skládané nahoru (pod ním jsou další póly);
+            # vývod má popisek pod sebou (nad ním vedou žíly)
+            x0, y0, _x1, y1 = self.symbol.bounds()
             y = sum(h + 1.0 for _, h in lines[1:])
+            if self.element.symbol_id == "sb.feed_out":
+                lx, ly = x0, y0 - 6.0 - (y + 2.5)
+            else:
+                lx, ly = x0, y1 + (7.5 if mp.is_terminal_block(self.element) else 1.5)  # nad můstky
         else:
             lx, ly = self.symbol.label_pos
             y = 0.0
@@ -256,13 +260,13 @@ class MultipoleScene(QGraphicsScene):
         for e in self.sheet.elements:
             sym = element_symbol(self.project, e, self.library)
             poles[e.id] = mp.element_poles(self.sheet, e, sym)
-        self.layout_pos = mp.auto_layout(self.sheet, poles, y_top=self.sheet.height - 40.0, bridges=self.project.bridges)
+        self.layout_pos = mp.auto_layout(self.sheet, poles, y_top=self.sheet.height - 40.0, bridges=self.sheet.bridges)
         for eid, ep in poles.items():
             ep.origin = self.layout_pos.get(eid, (ep.element.x, ep.element.y))
         self._fit_paper(poles)
         for e in self.sheet.elements:
             ep = poles[e.id]
-            if ep.through and ep.switched:
+            if ep.per_pole:
                 for i, c in enumerate(ep.switched):
                     self._add(PoleItem(ep, c, first=(i == 0)))
                 if ep.symbol.pole_link and len(ep.switched) > 1:
@@ -291,17 +295,17 @@ class MultipoleScene(QGraphicsScene):
         pos: dict[tuple[str, str], tuple[float, float, float, float]] = {}  # (střed x, y, směr k portu 1)
         for ep in poles.values():
             e = ep.element
-            if not mp.is_terminal_block(e) or not ep.through:
+            if not mp.is_terminal_block(e) or not ep.per_pole:
                 continue
             nums = mp.terminal_numbers(e, len(ep.slots))
-            px, py = e.port_pos(ep.symbol, ep.through[0])
+            px, py = e.port_pos(ep.symbol, ep.through[0] if ep.through else ep.symbol.ports[0].name)
             dx, dy = px - e.x, py - e.y
             n = (dx * dx + dy * dy) ** 0.5 or 1.0
             for c, num in zip(ep.slots, nums):
                 if num:
                     ox, oy = ep.pole_offset(c)
                     pos[(e.ref, num)] = (ep.origin[0] + ox, ep.origin[1] + oy, dx / n, dy / n)
-        for strip, groups in self.project.bridges.items():
+        for strip, groups in self.sheet.bridges.items():
             for gi, g in enumerate(groups):
                 hits = [pos[(strip, n)] for n in g if (strip, n) in pos]
                 if len(hits) < 2:

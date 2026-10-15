@@ -487,7 +487,7 @@ class SchematicScene(QGraphicsScene):
 
     def _draw_bridges(self, painter: QPainter) -> None:
         """Skupiny svorek jedné svorkovnice spojené můstkem: čárkovaná čára mezi prvky (JPS nemá jednotlivé svorky)."""
-        if not self.project.bridges:
+        if not self.sheet.bridges:
             return
         from envocad.model.multipole import is_terminal_block, terminal_numbers, wire_conductors
         owner: dict[tuple[str, str], Element] = {}
@@ -500,7 +500,7 @@ class SchematicScene(QGraphicsScene):
                 if num:
                     owner[(e.ref, num)] = e
         pairs: set[tuple[str, str]] = set()
-        for strip, groups in self.project.bridges.items():
+        for strip, groups in self.sheet.bridges.items():
             for g in groups:
                 els = {owner[(strip, n)].id: owner[(strip, n)] for n in g if (strip, n) in owner}
                 lst = sorted(els.values(), key=lambda e: (e.x, e.y))

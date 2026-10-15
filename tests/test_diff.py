@@ -20,7 +20,7 @@ def test_diff_projects(tmp_path):
     w.attrs["cross"] = "10"
     w.conductors = ["DC+", "DC-"]
     removed = s.wires.pop()  # kabel do HDS
-    p2.set_bridges("X2", [["1", "6"]])
+    p2.set_bridges("X2", [["1", "6"]], p2.sheets[1])
     from envocad.model.project import sync_cables
     sync_cables(p2)
     ch = diff_projects(p1, p2)

@@ -44,7 +44,7 @@ def test_templates_build_and_place(tmp_path):
                  for n in e.attrs["terminal"].split()]
         assert len(terms) == len(set(terms)), t.id
         # můstky odkazují jen na existující svorky
-        for strip, groups in p.bridges.items():
+        for strip, groups in s.bridges.items():
             for g in groups:
                 assert all((strip, n) in terms for n in g), (t.id, strip, g)
         assert not any(e.symbol_id == "sb.busbar" for e in s.elements)

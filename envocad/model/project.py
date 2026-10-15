@@ -19,7 +19,7 @@ WIRE_ATTRIBUTES = [
     Attribute("method", "Uložení dle ČSN (A1/B1/C/D/E)"),
 ]
 
-FORMAT_VERSION = 6
+FORMAT_VERSION = 7
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 SHEET_KINDS = ("schematic", "switchboard")
@@ -289,6 +289,8 @@ class Sheet:
     kind: str = "schematic"               # "schematic" | "switchboard"
     parent_element_id: str | None = None  # blok ROZVADĚČ na nadřazeném listu, který tento list reprezentuje
     layout: Layout = field(default_factory=Layout)
+    # můstky (propoje) svorkovnic tohoto listu: {"X2": [["1", "6", "11"], ["2", "7", "12"]]} – čísla svorek spojená můstkem
+    bridges: dict[str, list[list[str]]] = field(default_factory=dict)
     id: str = field(default_factory=_uid)
 
     @property
@@ -314,6 +316,7 @@ class Sheet:
             "id": self.id, "name": self.name, "paper": self.paper, "width": self.width, "height": self.height,
             "kind": self.kind, "parent_element_id": self.parent_element_id, "layout": self.layout.to_dict(),
             "elements": [e.to_dict() for e in self.elements], "wires": [w.to_dict() for w in self.wires],
+            "bridges": self.bridges,
         }
 
     @classmethod
@@ -324,6 +327,7 @@ class Sheet:
             layout=Layout.from_dict(d.get("layout")),
             elements=[Element.from_dict(e) for e in d.get("elements", [])],
             wires=[Wire.from_dict(w) for w in d.get("wires", [])], id=d["id"],
+            bridges={k: [[str(x) for x in g] for g in v] for k, v in d.get("bridges", {}).items()},
         )
 
 
@@ -332,8 +336,6 @@ class Project:
     name: str = "Nový projekt"
     meta: dict[str, str] = field(default_factory=dict)  # investor, číslo zakázky, místo, zpracoval…
     sheets: list[Sheet] = field(default_factory=lambda: [Sheet()])
-    # můstky (propoje) svorkovnic: {"X2": [["1", "6", "11"], ["2", "7", "12"]]} – čísla svorek spojená můstkem
-    bridges: dict[str, list[list[str]]] = field(default_factory=dict)
     cables: list[Cable] = field(default_factory=list)
     path: Path | None = None
 
@@ -349,21 +351,21 @@ class Project:
         cid = w.attrs.get("cable_id", "")
         return (self.cable(cid) if cid else None) or self.cable_by_ref(w.attrs.get("ref", ""))
 
-    # ---- svorkovnice -------------------------------------------------
-    def bridge_groups(self, strip: str) -> list[list[str]]:
-        return [list(g) for g in self.bridges.get(strip, [])]
+    # ---- svorkovnice (můstky patří listu – svorkovnice X1 je v každém rozvaděči jiná) ----------
+    def bridge_groups(self, strip: str, sheet: Sheet) -> list[list[str]]:
+        return [list(g) for g in sheet.bridges.get(strip, [])]
 
-    def set_bridges(self, strip: str, groups: list[list[str]]) -> None:
+    def set_bridges(self, strip: str, groups: list[list[str]], sheet: Sheet) -> None:
         groups = [[str(x).strip() for x in g if str(x).strip()] for g in groups]
         groups = [g for g in groups if len(g) >= 2]
         if groups:
-            self.bridges[strip] = groups
+            sheet.bridges[strip] = groups
         else:
-            self.bridges.pop(strip, None)
+            sheet.bridges.pop(strip, None)
 
-    def bridge_of(self, strip: str, number: str) -> list[str]:
+    def bridge_of(self, strip: str, number: str, sheet: Sheet) -> list[str]:
         """Skupina svorek propojených můstkem se svorkou `strip:number` (včetně ní), nebo []."""
-        for g in self.bridges.get(strip, []):
+        for g in sheet.bridges.get(strip, []):
             if number in g:
                 return list(g)
         return []
@@ -425,7 +427,7 @@ class Project:
         return {
             "format": "envocad-project", "format_version": FORMAT_VERSION,
             "name": self.name, "meta": self.meta, "sheets": [s.to_dict() for s in self.sheets],
-            "bridges": self.bridges, "cables": [c.to_dict() for c in self.cables],
+            "cables": [c.to_dict() for c in self.cables],
         }
 
     @classmethod
@@ -438,7 +440,6 @@ class Project:
         d = migrate(d, ver)
         return cls(name=d.get("name", ""), meta=dict(d.get("meta", {})),
                    sheets=[Sheet.from_dict(s) for s in d.get("sheets", [])] or [Sheet()],
-                   bridges={k: [[str(x) for x in g] for g in v] for k, v in d.get("bridges", {}).items()},
                    cables=[Cable.from_dict(c) for c in d.get("cables", [])])
 
     def save(self, path: Path | str | None = None) -> None:
@@ -480,6 +481,15 @@ def migrate(d: dict, ver: int) -> dict:
                 if not w.get("conductors") and any(
                         sym_of.get(end["element_id"]) in port_map for end in (w["a"], w["b"])):
                     w["conductors"] = ["DC+", "DC-"]
+    if ver < 7 and d.get("bridges"):
+        # v7: můstky patří listu (svorkovnice X1 je v každém rozvaděči jiná) – přesun k listu, kde svorkovnice je
+        sheets = d.get("sheets", [])
+        for strip, groups in d["bridges"].items():
+            target = next((s for s in sheets if any(e.get("attrs", {}).get("ref") == strip for e in s.get("elements", []))),
+                          None) or next((s for s in sheets if s.get("kind") == "switchboard"), None) or (sheets[0] if sheets else None)
+            if target is not None:
+                target.setdefault("bridges", {})[strip] = groups
+        d.pop("bridges", None)
     d["format_version"] = FORMAT_VERSION
     return d
 

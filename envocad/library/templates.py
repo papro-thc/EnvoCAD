@@ -119,7 +119,7 @@ def build_ac_fve(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
         firsts.append(first)
         groups.append(_terminal_group(project, sheet, x0 + i * GROUP_PITCH, y - 30, strip, first, nc,
                                       "napájení" if i == 0 else f"vývod {i}"))
-    project.set_bridges(strip, _bridge_groups(firsts, nc))
+    project.set_bridges(strip, _bridge_groups(firsts, nc), sheet)
     spd = _el(project, sheet, "fve.spd", x0, y - 60, "F", spd_type="T1+T2", poles="4", modules="4")
     pe = _el(project, sheet, "sb.pe_bar", x0, y - 90, "X", kind="PE")
     _wire(project, sheet, feed, "1", q, "1", AC_CONDUCTORS)
@@ -155,7 +155,7 @@ def build_dc(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
         firsts.append(first)
         desc = f"string {i + 1}" if i < n_str else ("SPD" if i == n_str else "ke střídači")
         groups.append(_terminal_group(project, sheet, x0 + i * GROUP_PITCH, y - 40, strip, first, nc, desc))
-    project.set_bridges(strip, _bridge_groups(firsts, nc))
+    project.set_bridges(strip, _bridge_groups(firsts, nc), sheet)
     for i in range(n_str):
         x = x0 + i * GROUP_PITCH
         feed = _el(project, sheet, "sb.feed_in", x, y + 10, "X", desc=f"string {i + 1}")

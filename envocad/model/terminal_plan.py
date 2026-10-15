@@ -62,7 +62,7 @@ def terminal_plan(project: Project, sheet: Sheet) -> list[StripPlan]:
     for e in sheet.elements:
         if e.symbol_id not in mp.TERMINAL_SYMBOLS or not e.ref:
             continue
-        plan = strips.setdefault(e.ref, StripPlan(e.ref, bridges=project.bridge_groups(e.ref)))
+        plan = strips.setdefault(e.ref, StripPlan(e.ref, bridges=project.bridge_groups(e.ref, sheet)))
         ends = [(w, side, end) for w in sheet.wires for side, end in (("a", w.a), ("b", w.b)) if end.element_id == e.id]
         slots = sorted({c for w, _, _ in ends for c in mp.wire_conductors(w)}, key=mp.canon_key)
         nums = mp.terminal_numbers(e, len(slots)) if mp.is_terminal_block(e) else [""] * len(slots)
@@ -93,7 +93,7 @@ def terminal_plan(project: Project, sheet: Sheet) -> list[StripPlan]:
                     row.internal, row.int_cable = text, cable
             if not row.number:
                 row.number = str(len(plan.rows) + 1)
-            b = project.bridge_of(e.ref, row.number)
+            b = project.bridge_of(e.ref, row.number, sheet)
             row.bridge = "-".join(b) if b else ""
             plan.rows.append(row)
     for plan in strips.values():

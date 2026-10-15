@@ -308,7 +308,12 @@ SYMBOLS = [
         "primitives": [{"type": "polyline", "points": [[-5, 5], [0, 0], [5, 5]], "closed": False}, L(0, 0, 0, -5),
                        T(0, 7.5, "PŘÍVOD", 2)],
         "ports": [P("1", 0, -5, "S")],
-        "attributes": [REF, attr("desc", "Popis", "", True), attr("from", "Odkud", "", True), attr("cable", "Kabel")],
+        "attributes": [REF, attr("desc", "Popis", "", True), attr("from", "Odkud", "", True), attr("cable", "Kabel"),
+                       attr("terminal", "Svorka č.", "")],
+        # ve vícepólu: svorka na každou žílu (kroužek s číslem) s šipkou přívodu, nápis jen u první
+        "multipole": MP([C(0, -2.5, 1.5), L(0, -4, 0, -5), L(0, -1, 0, 3),
+                         {"type": "polyline", "points": [[-3, 6], [0, 3], [3, 6]], "closed": False}],
+                        [T(0, 8, "PŘÍVOD", 2)], link=False),
         "label_pos": {"x": 7, "y": 0},
     },
     {
@@ -317,7 +322,11 @@ SYMBOLS = [
         "primitives": [L(0, 5, 0, 0), {"type": "polyline", "points": [[-5, -5], [0, 0], [5, -5]], "closed": False},
                        T(0, -9, "VÝVOD", 2)],
         "ports": [P("1", 0, 5, "N")],
-        "attributes": [REF, attr("desc", "Popis", "", True), attr("to", "Kam", "", True), attr("cable", "Kabel")],
+        "attributes": [REF, attr("desc", "Popis", "", True), attr("to", "Kam", "", True), attr("cable", "Kabel"),
+                       attr("terminal", "Svorka č.", "")],
+        "multipole": MP([C(0, 2.5, 1.5), L(0, 4, 0, 5), L(0, 1, 0, -3),
+                         {"type": "polyline", "points": [[-3, -6], [0, -3], [3, -6]], "closed": False}],
+                        [T(0, -10, "VÝVOD", 2)], link=False),
         "label_pos": {"x": 7, "y": 0},
     },
     {

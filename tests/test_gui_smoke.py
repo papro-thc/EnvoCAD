@@ -304,7 +304,7 @@ def test_strip_dialog_and_bridges(app, tmp_path):
     s.elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
     apply_template(p, sb, "ac_fve")
-    assert "X2" in p.bridges and len(p.bridges["X2"]) == 5
+    assert "X2" in sb.bridges and len(sb.bridges["X2"]) == 5
     w = MainWindow(LibraryStore(), p)
     w.open_sheet(sb, "schematic")
     dlg = StripDialog(p, sb, w, "X2")
@@ -314,12 +314,12 @@ def test_strip_dialog_and_bridges(app, tmp_path):
     strip, groups = dlg.values()
     assert strip == "X2" and groups == [["1", "6"], ["2", "7", "12"]]
     from envocad.ui import commands
-    w.undo.push(commands.SetBridgesCommand(p, strip, p.bridge_groups(strip), groups))
-    assert p.bridge_groups("X2") == groups
+    w.undo.push(commands.SetBridgesCommand(p, sb, strip, p.bridge_groups(strip, sb), groups))
+    assert p.bridge_groups("X2", sb) == groups
     w.open_sheet(sb, "multipole")
     assert len([it for it in w.view.scene().items() if isinstance(it, BridgeItem)]) == 2
     w.undo.undo()
-    assert len(p.bridge_groups("X2")) == 5
+    assert len(p.bridge_groups("X2", sb)) == 5
     # výkaz svorkovnice obsahuje můstky a čísla ze skupin svorek
     from envocad.export import reports
     _, rows = reports.terminals(p, w.library, sb)

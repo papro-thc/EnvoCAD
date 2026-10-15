@@ -128,7 +128,7 @@ def check_project(project: Project, lib) -> list[Finding]:
                 terms |= {(e.ref, n) for n in mp.terminal_numbers(e, n_slots) if n}
         strips = {e.ref for e in s.elements if mp.is_terminal_block(e)}
         for strip in strips:
-            for g in project.bridge_groups(strip):
+            for g in project.bridge_groups(strip, s):
                 missing = [n for n in g if (strip, n) not in terms]
                 if missing:
                     out.append(Finding(WARNING, s.id, s.name, "", False, strip,

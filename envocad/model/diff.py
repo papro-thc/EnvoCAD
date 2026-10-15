@@ -98,12 +98,15 @@ def diff_projects(old: Project, new: Project) -> list[Change]:
                 d.append(f"řady/moduly: {os_.layout.rows}×{os_.layout.modules_per_row} → {ns.layout.rows}×{ns.layout.modules_per_row}")
             if d:
                 changes.append(Change("změněno", ns.name, "", "skříň", "; ".join(d)))
-    for strip in sorted(set(old.bridges) | set(new.bridges)):
-        a, b = old.bridge_groups(strip), new.bridge_groups(strip)
-        if a != b:
-            kind = "přidáno" if not a else ("odebráno" if not b else "změněno")
-            changes.append(Change(kind, "", strip, "můstky",
-                                  f"{', '.join('-'.join(g) for g in a) or '–'} → {', '.join('-'.join(g) for g in b) or '–'}"))
+    for sid, ns in new_sheets.items():
+        os_ = old_sheets.get(sid)
+        for strip in sorted(set(os_.bridges if os_ else {}) | set(ns.bridges)):
+            a = old.bridge_groups(strip, os_) if os_ else []
+            b = new.bridge_groups(strip, ns)
+            if a != b:
+                kind = "přidáno" if not a else ("odebráno" if not b else "změněno")
+                changes.append(Change(kind, ns.name, strip, "můstky",
+                                      f"{', '.join('-'.join(g) for g in a) or '–'} → {', '.join('-'.join(g) for g in b) or '–'}"))
     oc = {c.ref: c for c in old.cables}
     nc = {c.ref: c for c in new.cables}
     for ref in sorted(set(oc) | set(nc)):

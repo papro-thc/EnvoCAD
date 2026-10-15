@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from envocad.model.project import Element, Sheet, Wire
+from envocad.model.project import FEED_SYMBOLS, Element, Sheet, Wire
 from envocad.model.symbol import GRID, Symbol, rotate_dir
 
 POLE_PITCH = 3 * GRID  # 7,5 mm mezi póly
@@ -22,7 +22,7 @@ CANON = ["L1", "L2", "L3", "N", "PE", "PEN", "DC+", "DC-", "+", "-", "L+", "L-"]
 NEVER_SWITCHED = {"PE", "PEN"}
 TERMINAL_SYMBOLS = {"sb.feed_in", "sb.feed_out", "sb.terminal_block", "fve.terminal", "sb.pe_bar"}
 # řadové svorky: prvek v JPS = skupina svorek (jedna na žílu), čísla v atributu `terminal` ("1 2 3 4 5" nebo "1")
-TERMINAL_BLOCK_SYMBOLS = {"sb.terminal_block", "fve.terminal"}
+TERMINAL_BLOCK_SYMBOLS = {"sb.terminal_block", "fve.terminal", "sb.feed_in", "sb.feed_out"}  # přívod/vývod = svorky X1:1…n
 
 OPPOSITE = {"N": "S", "S": "N", "E": "W", "W": "E"}
 # kolmý směr pro řazení pólů (model, Y nahoru): vodorovný tok → póly dolů, svislý tok → póly doprava
@@ -74,7 +74,8 @@ def terminal_numbers(e: Element, n: int) -> list[str]:
     Bez atributu vrací prázdné řetězce."""
     toks = parse_conductors(e.attrs.get("terminal", ""))
     if not toks:
-        return [""] * n
+        # přívod/vývod bez zadaných čísel: svorky 1…n
+        return [str(i + 1) for i in range(n)] if e.symbol_id in FEED_SYMBOLS else [""] * n
     if len(toks) == 1 and toks[0].isdigit() and n > 1:
         k = int(toks[0])
         return [str(k + i) for i in range(n)]
@@ -127,11 +128,17 @@ class ElementPoles:
         mx, my = self.origin
         return (mx + (px - e.x) + ox * k * POLE_PITCH, my + (py - e.y) + oy * k * POLE_PITCH)
 
+    @property
+    def per_pole(self) -> bool:
+        """Kreslí se po pólech: průchozí prvek, nebo přívod/vývod (svorka na každou žílu)."""
+        return bool(self.switched) and (self.through is not None or self.element.symbol_id in FEED_SYMBOLS)
+
     def pole_offset(self, conductor: str) -> tuple[float, float]:
-        """Posun opakovaného symbolu pro spínanou žílu (podle směru průchozích portů)."""
-        if not self.through:
+        """Posun opakovaného symbolu pro spínanou žílu (podle směru průchozích portů, u přívodu podle jeho portu)."""
+        if not self.through and self.element.symbol_id not in FEED_SYMBOLS:
             return (0.0, 0.0)
-        d = rotate_dir(self.symbol.port(self.through[0]).dir, self.element.rotation)
+        port = self.through[0] if self.through else self.symbol.ports[0].name
+        d = rotate_dir(self.symbol.port(port).dir, self.element.rotation)
         ox, oy = PERP[d]
         k = self.slot(conductor)
         return (ox * k * POLE_PITCH, oy * k * POLE_PITCH)
@@ -292,7 +299,7 @@ def element_poles(sheet: Sheet, e: Element, sym: Symbol) -> ElementPoles:
     thr = through_ports(sym, e.rotation)
     switched: list[str] = []
     bypass: list[str] = []
-    if thr and is_terminal_block(e):
+    if is_terminal_block(e) and (thr or e.symbol_id in FEED_SYMBOLS):
         switched = list(slots)  # každá žíla má svou svorku
     elif thr:
         n = e.poles

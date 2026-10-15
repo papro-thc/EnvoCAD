@@ -207,7 +207,7 @@ class StripDialog(QDialog):
                         if t:
                             num = t.partition(":")[2] or t
                             break
-                bridge = self.project.bridge_of(strip, num) if num else []
+                bridge = self.project.bridge_of(strip, num, self.sheet) if num else []
                 rows.append([num, c, conn[0] if conn else "", conn[1] if len(conn) > 1 else "",
                              "-".join(bridge) if bridge else ""])
         rows.sort(key=lambda r: (not r[0].isdigit(), int(r[0]) if r[0].isdigit() else 0, r[0]))
@@ -228,7 +228,7 @@ class StripDialog(QDialog):
             for c, v in enumerate(row):
                 self.table.setItem(r, c, QTableWidgetItem(v))
         self.table.resizeColumnsToContents()
-        self.bridges.setPlainText("\n".join("-".join(g) for g in self.project.bridge_groups(strip)))
+        self.bridges.setPlainText("\n".join("-".join(g) for g in self.project.bridge_groups(strip, self.sheet)))
         self._shown = strip
 
     def values(self) -> tuple[str, list[list[str]]]:

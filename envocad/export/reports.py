@@ -62,10 +62,10 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
     qty: dict[tuple, int] = {}
     for s in _sheets(project, sheet):
         for e in s.elements:
-            if e.symbol_id in NON_DEVICE_SYMBOLS:
+            if e.symbol_id in NON_DEVICE_SYMBOLS and not is_terminal_block(e):
                 continue
             if is_terminal_block(e):
-                # skupina svorek = tolik kusů svorky, kolik má žil; parametr = průřez/druh z artiklu
+                # skupina svorek (i přívod/vývod) = tolik kusů svorky, kolik má žil; parametr = průřez/druh z artiklu
                 n = len({c for w in s.wires for end in (w.a, w.b) if end.element_id == e.id for c in wire_conductors(w)})
                 n = n or len([x for x in terminal_numbers(e, 1) if x]) or 1
                 params = ", ".join(x for x in (e.attrs.get("cross", "") and f"{e.attrs['cross']} mm²",
@@ -81,7 +81,7 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
         if s.is_switchboard or sheet is not None:
             strips = {e.ref for e in s.elements if is_terminal_block(e) and e.ref}
             for strip in sorted(strips):
-                for g in project.bridge_groups(strip):
+                for g in project.bridge_groups(strip, s):
                     key = ("Můstek svorek", "", "", f"{len(g)} pólů")
                     groups.setdefault(key, []).append(f"{strip}:{'-'.join(g)}")
                     qty[key] = qty.get(key, 0) + 1
@@ -124,7 +124,7 @@ def terminals(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -
                     desig = wire_end_terminal(s, w, c, side) if c else ""
                     strip, _, num = desig.partition(":")
                     term = num or end.attrs.get("terminal") or (str(i) if c else "")
-                    bridge = project.bridge_of(strip or end.ref, term)
+                    bridge = project.bridge_of(strip or end.ref, term, s)
                     rows.append([end.ref, term, c, w.attrs.get("ref") or w.attrs.get("cable", ""),
                                  f"{other.ref or other.symbol_id}:{other_port}",
                                  "-".join(bridge) if bridge else "", end.attrs.get("desc", ""), s.name])

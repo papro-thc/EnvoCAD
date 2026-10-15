@@ -116,14 +116,17 @@ List → Rozvaděč – jednopólová editace); `Ctrl+M` tě vrátí do vícepó
 ### Svorky a můstky
 Prvek **Svorkovnice** (`sb.terminal_block`) je v JPS *skupina svorek* jedné svorkovnice: označení X2 a
 v atributu „Svorka č.“ čísla (`1 2 3 4 5`, nebo jen první číslo – zbytek se dopočítá). Ve vícepólu má každá
-žíla vlastní svorku s číslem. `Úpravy → Očíslovat svorky automaticky` doplní chybějící čísla (skupiny i
-přívody/vývody/PE lišta), ruční čísla nechá.
+žíla vlastní svorku s číslem. **Přívod a vývod** (`sb.feed_in`, `sb.feed_out`) jsou také svorkovnice: ve
+vícepólu dostane každá žíla svorku s číslem (bez zadání 1…n, jinak „Svorka č.“ stejně jako u skupiny),
+jsou v plánu svorkovnice i v BOM. `Úpravy → Očíslovat svorky automaticky` doplní chybějící čísla (skupiny,
+PE lišta), ruční čísla nechá.
 
 `Úpravy → Svorkovnice a můstky…` (`Ctrl+Shift+T`): tabulka svorek vybrané svorkovnice (vnitřní/vnější strana,
 můstek) a editace **můstků** – jedna skupina na řádek, čísla svorek pomlčkou (`1-6-11-16`). Můstky se kreslí
-ve vícepólu, v JPS čárkovaně mezi skupinami, a jsou ve výkazech a BOM.
+ve vícepólu, v JPS čárkovaně mezi skupinami, a jsou ve výkazech a BOM. Můstky patří listu rozvaděče –
+svorkovnice X1 v RDC1 a X1 v RH jsou dvě různé.
 
-`Ctrl+T` (Svorky vybraného vodiče) přiřadí svorky ručně po žílách (`X1:3`, `F2:1`) – pro přívody, vývody a
+`Ctrl+T` (Svorky vybraného vodiče) přiřadí svorky ručně po žílách (`X1:3`, `F2:1`) – pro PE lištu a
 prvky bez skupin svorek.
 
 ### Plán svorkovnice
