@@ -217,6 +217,7 @@ class ConductorItem(QGraphicsPathItem):
 class MultipoleScene(QGraphicsScene):
     selection_info = Signal(object)   # PoleItem | ConductorItem | None
     edit_element_requested = Signal(str)
+    delete_requested = Signal(list, list)  # element_ids, wire_ids
 
     def __init__(self, project: Project, sheet: Sheet, library: LibraryStore, undo: QUndoStack):
         super().__init__()
@@ -389,6 +390,11 @@ class MultipoleScene(QGraphicsScene):
     def keyPressEvent(self, ev):
         if ev.key() == Qt.Key_Escape:
             self.clearSelection()
+        elif ev.key() == Qt.Key_Delete:
+            eids = sorted({it.element.id for it in self.selectedItems() if isinstance(it, PoleItem)})
+            wids = sorted({it.wire.id for it in self.selectedItems() if isinstance(it, ConductorItem)})
+            if eids or wids:
+                self.delete_requested.emit(eids, wids)
         else:
             super().keyPressEvent(ev)
 

@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.8.0 – 2026-10-15
+- Schéma rozvaděče je vícepólové: dvojklik na blok / „Otevřít rozvaděč (schéma)“ otevře záložku „R – schéma“ jako vícepól (značky po pólech, svorky, můstky); jednopólová podoba je jen editační („R – jednopól (editace)“, `Ctrl+J`, menu List). Delete ve vícepólu maže přes undo.
 - Vícepólové značky: značka má volitelnou část `multipole` (pól, společná část, mechanická vazba) – ve vícepólu se jistič/odpínač/stykač/chránič rozkreslí po pólech s čárkovanou vazbou a společnou spouští, pojistky a svorky po pólech bez vazby. Vlastní značky mají `multipole` vygenerované (`tools/gen_builtin_fve.py`), QET značky se opakují celé.
 - Panel knihovny: nadpisy jsou druhy prvků (Zdroje, Střídače a měniče, Jištění, Spínání, Měření, Svorky a propojení, Rozvaděče, …), vlastní značky přímo pod nadpisem, cizí (QET, 673 ks) ve sbalené podsložce „QET (n)“ s příznakem „[vícepól]“ v názvu; rozlišení jednopól/vícepól z cest zmizelo (`tools/recategorize_qet.py`).
 - FV string má v JPS jeden port DC (pár DC+/DC- jsou žíly vodiče), střídač má DC vstupy DC1/DC2 (MPPT); staré projekty se zmigrují (formát v5). Rozložení už nekreslí rámeček listu.

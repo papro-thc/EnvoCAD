@@ -284,7 +284,7 @@ def test_multipole_view_and_terminals(app, tmp_path):
     n = w.scene.auto_number_terminals()
     assert n > 0 and any(w_.terminals for w_ in sb.wires)
     w.open_sheet(sb, "multipole")
-    assert w.tabs.tabText(w.tabs.currentIndex()).endswith("vícepól")
+    assert w.tabs.tabText(w.tabs.currentIndex()).endswith("schéma")  # schéma rozvaděče = vícepól
     # export PDF vícepólu
     from envocad.export.pdf_export import export_scene_pdf
     out = tmp_path / "mp.pdf"
@@ -384,5 +384,32 @@ def test_multipole_move_and_reset(app, tmp_path):
     assert getattr(w._unwrap(w.tabs.widget(w._find_tab(sb, "multipole"))), "_dirty", False)
     w.open_sheet(sb, "multipole")
     assert not getattr(w.view, "_dirty", False)
+    w.undo.setClean()
+    w.close()
+
+
+def test_switchboard_opens_as_multipole_and_delete(app, tmp_path, monkeypatch):
+    from envocad.ui.multipole_view import MultipoleView, PoleItem
+    p = Project(name="RH")
+    s = p.sheets[0]
+    blk = Element("fve.switchboard", 100, 150, attrs={"ref": "RH"})
+    s.elements.append(blk)
+    w = MainWindow(LibraryStore(), p)
+    monkeypatch.setattr(MainWindow, "_choose_template", lambda self, sheet: (
+        __import__("envocad.library.templates", fromlist=["apply_template"]).apply_template(p, sheet, "ac_fve") or True))
+    w._open_switchboard_now(blk.id, "schematic")
+    assert isinstance(w.view, MultipoleView) and w.tabs.tabText(w.tabs.currentIndex()) == "RH – schéma"
+    sb = w.view.scene().sheet
+    assert w._find_tab(sb, "schematic") < 0  # jednopólový editor se neotvírá automaticky
+    f2 = next(e for e in sb.elements if e.ref == "F2")
+    sc = w.view.scene()
+    for it in sc.items():
+        if isinstance(it, PoleItem) and it.element is f2:
+            it.setSelected(True)
+    n_before = len(sb.elements)
+    sc.delete_requested.emit([f2.id], [])
+    assert len(sb.elements) == n_before - 1 and isinstance(w.view, MultipoleView)
+    w.undo.undo()
+    assert len(sb.elements) == n_before
     w.undo.setClean()
     w.close()

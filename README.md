@@ -48,7 +48,7 @@ Pokyny pro agenty: `CLAUDE.md`.
 | Zoom / posun pohledu | kolečko / střední tlačítko |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Y` |
 | Tmavý / světlý režim | `Ctrl+D` |
-| Otevřít rozvaděč | dvojklik na blok ROZVADĚČ (poprvé nabídne šablonu) |
+| Otevřít rozvaděč | dvojklik na blok ROZVADĚČ (poprvé nabídne šablonu) – otevře vícepólové schéma; `Ctrl+J` přepne na jednopólovou editaci (vkládání, vodiče) |
 | Rozložení rozvaděče | `Ctrl+L` na listu rozvaděče; přístroje přetáhnout na DIN lišty; parametry skříně a oteplení v panelu vpravo (`Ctrl+K`) |
 | Výkazy / protokol | menu Výstupy (xlsx, docx) |
 | Vícepól | `Ctrl+M` otevře vícepólový pohled listu (odvozený z JPS, `Ctrl+J` zpět); žíly vodiče se zadávají v dialogu vodiče („Žíly“), dvojklik na žílu / `Ctrl+T` = svorky, Úpravy → Očíslovat svorky |

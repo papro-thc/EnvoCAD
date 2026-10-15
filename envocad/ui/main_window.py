@@ -167,6 +167,7 @@ class MainWindow(QMainWindow):
         act(m_sheet, "Odstranit list", self.delete_sheet)
         m_sheet.addSeparator()
         act(m_sheet, "Otevřít rozvaděč (schéma)", lambda: self._open_selected_switchboard("schematic"))
+        act(m_sheet, "Rozvaděč – jednopólová editace", lambda: self._open_selected_switchboard("edit"))
         act(m_sheet, "Otevřít rozvaděč (rozložení)", lambda: self._open_selected_switchboard("layout"))
         act(m_sheet, "Rozložení aktuálního rozvaděče", self.open_current_layout, "Ctrl+L", True)
         self.act_enclosure = act(m_sheet, "Skříň rozvaděče (rozměry a parametry)…", self.edit_enclosure, "Ctrl+K", True)
@@ -285,7 +286,8 @@ class MainWindow(QMainWindow):
             scene.selection_info.connect(lambda it: self.props_panel.show_item(
                 self._element_item_for(sheet, it.element.id) if it is not None and hasattr(it, "element") else None))
             scene.edit_element_requested.connect(lambda eid, sh=sheet: self._edit_element_anywhere(sh, eid))
-            title = f"{sheet.name} – vícepól"
+            scene.delete_requested.connect(lambda eids, wids, sh=sheet: self._delete_anywhere(sh, eids, wids))
+            title = f"{sheet.name} – schéma" if sheet.is_switchboard else f"{sheet.name} – vícepól"
         elif kind == "terminals":
             scene = TerminalPlanScene(self.project, sheet, self.library, self.undo)
             view = TerminalPlanView(scene)
@@ -297,7 +299,7 @@ class MainWindow(QMainWindow):
             scene.attrs_changed.connect(lambda _id: self.props_panel.show_item(self._selected_item()))
             scene.mode_changed.connect(self._show_mode)
             scene.open_switchboard.connect(self.open_switchboard_from_block)
-            title = sheet.name if not sheet.is_switchboard else f"{sheet.name} – schéma"
+            title = sheet.name if not sheet.is_switchboard else f"{sheet.name} – jednopól (editace)"
         self._scenes.append(scene)  # držet referenci – scéna musí přežít stejně dlouho jako pohled
         view._scene_ref = scene
         widget = view
@@ -326,6 +328,17 @@ class MainWindow(QMainWindow):
             sc = self._jps_scene(sheet)
         if sc is not None:
             sc.edit_element(eid)
+
+    def _delete_anywhere(self, sheet: Sheet, eids: list, wids: list) -> None:
+        """Mazání z odvozeného pohledu: příkaz jde přes JPS scénu listu (otevře se skrytě, záložka se nepřepne)."""
+        cur = self.tabs.currentIndex()
+        sc = self._jps_scene(sheet)
+        if sc is None:
+            self.open_sheet(sheet, "schematic")
+            sc = self._jps_scene(sheet)
+            self.tabs.setCurrentIndex(cur)
+        if sc is not None and (eids or wids):
+            sc.undo.push(commands.RemoveItemsCommand(sc, eids, wids))
 
     def _element_item_for(self, sheet: Sheet, eid: str):
         i = self._find_tab(sheet, "schematic")
@@ -365,11 +378,11 @@ class MainWindow(QMainWindow):
             if isinstance(w, LayoutView):
                 self.tabs.setTabText(i, f"{sh.name} – rozložení")
             elif isinstance(w, MultipoleView):
-                self.tabs.setTabText(i, f"{sh.name} – vícepól")
+                self.tabs.setTabText(i, f"{sh.name} – schéma" if sh.is_switchboard else f"{sh.name} – vícepól")
             elif isinstance(w, TerminalPlanView):
                 self.tabs.setTabText(i, f"{sh.name} – svorkovnice")
             else:
-                self.tabs.setTabText(i, f"{sh.name} – schéma" if sh.is_switchboard else sh.name)
+                self.tabs.setTabText(i, f"{sh.name} – jednopól (editace)" if sh.is_switchboard else sh.name)
 
     def new_schematic_sheet(self) -> None:
         name, ok = QInputDialog.getText(self, "Nový list", "Název listu:", text=f"List {len(self.project.sheets) + 1}")
@@ -420,15 +433,22 @@ class MainWindow(QMainWindow):
             self.undo.resetClean()
             if not self._choose_template(sheet):
                 pass
-        self.open_sheet(sheet, kind)
+        # schéma rozvaděče je vícepólové; jednopólová podoba je jen editační (Ctrl+J)
+        self.open_sheet(sheet, "multipole" if kind == "schematic" else kind)
 
     def _open_selected_switchboard(self, kind: str) -> None:
+        if kind == "edit":
+            kind = "schematic"
+            sh = self.current_sheet
+            if sh is not None and sh.is_switchboard:
+                self.open_sheet(sh, "schematic")
+                return
         it = self._selected_item()
         from envocad.ui.items import ElementItem
         if isinstance(it, ElementItem) and it.symbol.id == "fve.switchboard":
             self.open_switchboard_from_block(it.element.id, kind)
         elif self.current_sheet and self.current_sheet.is_switchboard:
-            self.open_sheet(self.current_sheet, kind)
+            self.open_sheet(self.current_sheet, "multipole" if kind == "schematic" else kind)
         else:
             QMessageBox.information(self, "Rozvaděč", "Vyberte blok ROZVADĚČ ve schématu (nebo na něj dvakrát klikněte).")
 
