@@ -434,3 +434,24 @@ def test_block_ports_refresh_without_moving(app, tmp_path, monkeypatch):
     assert s.wires[0].b.port == "X1"
     w.undo.setClean()
     w.close()
+
+
+def test_navigator_and_goto(app, tmp_path):
+    p = _project()
+    s = p.sheets[0]
+    w = MainWindow(LibraryStore(), p)
+    w.nav_panel.refresh()
+    assert w.nav_panel.tree.topLevelItemCount() == 1 and w.nav_panel.tree.topLevelItem(0).childCount() >= 5
+    f1 = next(e for e in s.elements if e.ref == "F1")
+    w.goto_target(s.id, f1.id, False)
+    assert [it.element.id for it in w.scene.selectedItems() if hasattr(it, "element")] == [f1.id]
+    w.nav_panel.filter.setText("W2")
+    w.nav_panel.refresh()
+    top = w.nav_panel.tree.topLevelItem(0)
+    assert top.childCount() == 1 and top.child(0).text(0) == "W2"
+    from envocad.model.checks import check_project
+    from envocad.ui.navigator import ChecksDialog
+    dlg = ChecksDialog(check_project(p, w.library), w)
+    assert dlg.tree.topLevelItemCount() >= 1
+    w.undo.setClean()
+    w.close()

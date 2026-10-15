@@ -51,9 +51,13 @@ class MainWindow(QMainWindow):
         self._panels_wired = False
         self._scenes: list = []
 
+        from envocad.ui.navigator import NavigatorPanel
         self.lib_panel = LibraryPanel(self.library)
         self.props_panel = PropertiesPanel(self.library)
+        self.nav_panel = NavigatorPanel(self.library)
+        self.nav_panel.goto.connect(self.goto_target)
         self._dock("Knihovna", self.lib_panel, Qt.LeftDockWidgetArea)
+        self._dock("Navigátor", self.nav_panel, Qt.LeftDockWidgetArea)
         self._dock("Vlastnosti", self.props_panel, Qt.RightDockWidgetArea)
         self.setStatusBar(QStatusBar())
         self._build_actions()
@@ -141,6 +145,9 @@ class MainWindow(QMainWindow):
         act(m_edit, "Svorky vybraného vodiče…", self.edit_wire_terminals, "Ctrl+T")
         act(m_edit, "Očíslovat svorky automaticky", self.auto_number_terminals)
         act(m_edit, "Svorkovnice a můstky…", self.edit_strip, "Ctrl+Shift+T")
+        m_edit.addSeparator()
+        act(m_edit, "Najít označení…", self.find_ref, "Ctrl+F")
+        act(m_edit, "Kontrola projektu…", self.run_checks, "F7", True)
 
         m_draw = mb.addMenu("&Kreslit")
         tb.addSeparator()
@@ -226,6 +233,7 @@ class MainWindow(QMainWindow):
         from envocad.model.project import sync_feed_links
         self.project = project
         sync_feed_links(project)
+        self.nav_panel.set_project(project)
         self.undo.clear()
         while self.tabs.count():
             w = self.tabs.widget(0)
@@ -530,6 +538,7 @@ class MainWindow(QMainWindow):
     def _on_undo_changed(self, _value=None) -> None:
         self._update_title()
         self._sync_links_and_blocks()
+        self.nav_panel._schedule()
         # odvozené pohledy (vícepól, plán svorkovnice): viditelný se přestaví hned, ostatní až při přepnutí
         for i in range(self.tabs.count()):
             w = self._unwrap(self.tabs.widget(i))
@@ -538,6 +547,48 @@ class MainWindow(QMainWindow):
                     w.scene().rebuild()
                 else:
                     w._dirty = True
+
+    # ---- navigace --------------------------------------------------------------
+    def goto_target(self, sheet_id: str, target_id: str, is_wire: bool) -> None:
+        """Skok na prvek/vodič: otevře (editační) list, vybere položku a vycentruje pohled."""
+        sheet = next((s for s in self.project.sheets if s.id == sheet_id), None)
+        if sheet is None:
+            return
+        self.open_sheet(sheet, "schematic")
+        sc = self.scene
+        if sc is None or not target_id:
+            return
+        it = sc.wire_items.get(target_id) if is_wire else sc.element_items.get(target_id)
+        if it is None:
+            return
+        sc.clearSelection()
+        it.setSelected(True)
+        self.view.centerOn(it)
+
+    def find_ref(self) -> None:
+        text, ok = QInputDialog.getText(self, "Najít", "Označení prvku nebo vodiče (např. F2, X1, W3):")
+        if not ok or not text.strip():
+            return
+        q = text.strip().lower()
+        for s in self.project.sheets:
+            for e in s.elements:
+                if e.ref.lower() == q:
+                    self.goto_target(s.id, e.id, False)
+                    return
+            for w in s.wires:
+                if w.attrs.get("ref", "").lower() == q:
+                    self.goto_target(s.id, w.id, True)
+                    return
+        self.nav_panel.filter.setText(text.strip())
+        self.statusBar().showMessage(f"„{text}“ nenalezeno – v navigátoru je nastavený filtr", 4000)
+
+    def run_checks(self) -> None:
+        from envocad.model.checks import check_project
+        from envocad.ui.navigator import ChecksDialog
+        findings = check_project(self.project, self.library)
+        dlg = ChecksDialog(findings, self)
+        dlg.goto.connect(self.goto_target)
+        dlg.exec()
 
     def _sync_links_and_blocks(self) -> None:
         """Po změně modelu: vazby přívodů/vývodů na vodiče JPS (odvozené, mimo undo) a porty bloků ROZVADĚČ."""
