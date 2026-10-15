@@ -242,10 +242,10 @@ class BusItem(QGraphicsItem):
         painter.setPen(QPen(ink, LINE_WIDTH))
         for x, y in self.taps:
             painter.drawEllipse(sp(x, y), 0.7, 0.7)
-        if self.first and (self.element.ref or self.element.attrs.get("desc")):
+        if self.first and self.element.attrs.get("desc"):
             painter.setPen(QPen(ink, 0.2))
             top = max(self.ys.values())
-            draw_text(painter, self.x0, top + 2.0, f"{self.element.ref} {self.element.attrs.get('desc', '')}".strip(), 2.5, "left")
+            draw_text(painter, self.x1, top + 4.5, self.element.attrs.get("desc", ""), 2.0, "right")
 
 
 class ConductorItem(QGraphicsPathItem):

@@ -125,7 +125,8 @@ zůstane port označený `?`.
 Je odvozené z jednopólové kresby rozvaděče – nic se nekopíruje. Průchozí přístroje (jistič, odpínač,
 chránič, stykač) se kreslí po pólech s čárkovanou mechanickou vazbou a společnou spouští, N a PE jdou kolem;
 pojistky, SPD a svorky po pólech bez vazby. Automatické rozmístění je po sloupcích podle toku od přívodu
-(svorkové schéma); prvky jdou chytit a posunout myší, `Zobrazit → Vícepól: rozmístit automaticky` vrátí
+(svorkové schéma) – přívody nahoře, rozvod, přístroje, **vývody vždy v dolní řadě**, PE lišta pod nimi;
+prvky jdou chytit a posunout myší, `Zobrazit → Vícepól: rozmístit automaticky` vrátí
 automatiku. Dvojklik na prvek = parametry, dvojklik na žílu = svorky, `Delete` maže.
 
 **Více stran s odkazy**: když se rozvaděč nevejde na jednu stranu, rozmístění pokračuje na dalších stranách

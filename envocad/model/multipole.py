@@ -228,6 +228,15 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
         frontier = nxt
     last = max(cdepth.values(), default=0) + 1
     depth = {eid: cdepth.get(comp[eid], last) for eid in poles}
+    # vývody vždy v dolní řadě (jako v EPLAN: přívody nahoře, rozvod, přístroje, vývody dole), PE lišta pod nimi
+    sinks = [eid for eid, ep in poles.items() if ep.element.symbol_id == "sb.feed_out"]
+    if sinks:
+        bottom = max((d for eid, d in depth.items() if eid not in sinks), default=0) + 1
+        for eid in sinks:
+            depth[eid] = max(depth[eid], bottom)
+        bottom = max(depth[eid] for eid in sinks)
+        for eid in sinks:
+            depth[eid] = bottom
     columns: dict[int, list[str]] = {}
     for eid, d in depth.items():
         columns.setdefault(d, []).append(eid)
@@ -248,7 +257,8 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
         for i in sorted(columns[d], key=key):
             if i in bars:
                 continue
-            ps = sorted((p for p in nb[i] if depth.get(p) == d - 1 and p not in bars), key=key)
+            # rodič = nejbližší soused s menší hloubkou (vývod posunutý do dolní řady má rodiče o víc sloupců výš)
+            ps = sorted((p for p in nb[i] if depth.get(p, d) < d and p not in bars), key=lambda p: (-depth[p], key(p)))
             if ps:
                 parent[i] = ps[0]
                 children[ps[0]].append(i)
@@ -308,9 +318,9 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
         cursor = place(r, cursor) + sign * ROW_GAP
     for b in bars:
         ns = [n for n in nb[b] if n in out]
-        d = max([depth[n] for n in ns], default=depth[b] - 1) + 1   # PE lišta až za svými sousedy (SPD…)
+        d = max([depth[n] for n in ns] + [depth[x] for x in sinks], default=depth[b] - 1) + 1   # PE lišta dole pod vývody
         if d not in flow_pos:
-            flow_pos[d] = pos
+            flow_pos[d] = pos + (15.0 if horizontal else -15.0)   # o kus dál, ať příčky PE nevedou přes popisky vývodů
             col_w[d] = flow_extent(poles[b])
             pos = pos + col_w[d] + COL_GAP if horizontal else pos - col_w[d] - COL_GAP
         fp = flow_pos[d]
