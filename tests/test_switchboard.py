@@ -155,5 +155,5 @@ def test_feed_link_to_jps_wire():
     assert feed_link_attrs(p, sb, feed, "") == {"wire_id": "", "from": "", "to": "", "cable": ""}
     # seznam kabelů celého projektu: kabel je jen jednou (W2 v JPS) a má odkaz na rozvaděč
     from envocad.export import reports
-    head, rows = reports.cables(p, LibraryStore())
+    _, rows = reports.cables(p, LibraryStore())
     assert [r[0] for r in rows] == ["W2"] and rows[0][8] == "R1:X1"
