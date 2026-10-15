@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0 – 2026-10-15
+- Knihovna artiklů: formát CSV v2 (`docs/COMPONENTS.md`), validátor (`python -m envocad.library.components validate …`), vestavěné CSV v `library/builtin/components/` načítané při startu, import vlastních CSV z menu Knihovna.
+- Výběr artiklu v dialogu prvku (filtr výrobce / In / póly / charakteristika, odkaz na datasheet) – parametry se propíší do prvku; prohlížeč artiklů v menu Knihovna; výběr skříně z knihovny v panelu rozložení.
+- Rozložení: generický footprint modulového přístroje (páčky podle pólů, svorky), footprint z DXF přes `footprint_id`.
+- Startovní data: 77 artiklů (OEZ Minia LTN/LFN/OLI/SVBC + 3VA, Hager MBN/MCN/CDA/Volta, SMA STP X, Huawei, SolaX X3-ULTRA, BMR PLA33) – každý s odkazem na zdroj.
+
 ## 0.3.1 – 2026-10-15
 - List rozvaděče má vlevo nahoře informační blok s parametry skříně (skříň, rozměry, moduly, Un, In, Icw, síť, IP/IK, montáž, materiál) – živě z panelu skříně, stejně v PDF i DXF.
 

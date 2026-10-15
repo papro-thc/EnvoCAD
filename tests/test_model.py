@@ -60,7 +60,7 @@ def test_components_csv(tmp_path):
     assert lib.import_components_csv(csv) == 1
     c = lib.get_component("sma-stp50")
     assert c["params"]["p_ac"] == "50" and c["price"] == 85000.0
-    assert lib.list_components("fve.inverter")[0]["part_number"] == "STP 50-40"
+    assert any(c["part_number"] == "STP 50-40" for c in lib.list_components("fve.inverter"))
 
 
 def test_dxf_import_export(tmp_path):

@@ -202,3 +202,25 @@ def test_enclosure_dialog(app, tmp_path):
     lay = d.apply()
     assert lay.rows == 4 and lay.enclosure == "Hager Volta VU48" and lay.params["ip"] == "IP 44" and lay.width_mm == 550
     assert "modulů" in d.info.text()
+
+
+def test_component_picker_and_apply(app, tmp_path):
+    from envocad.ui.component_picker import ComponentPicker
+    from envocad.ui.dialogs import ElementDialog
+    lib = LibraryStore(tmp_path / "lib.db")
+    pk = ComponentPicker(lib, symbol_id="fve.breaker_mcb", preset_filters={"in_": "16", "poles": "3", "char": "B"})
+    assert pk.table.rowCount() >= 1
+    assert all(c.num("in_") == 16 and c.params.get("poles") == "3" for c in pk._rows)
+    comp = pk.current()
+    sym = lib.get_symbol("fve.breaker_mcb")
+    d = ElementDialog(sym, {"ref": "F1"}, library=lib)
+    d.apply_component(comp)
+    v = d.values()
+    assert v["type"] == comp.part_number and v["in_"] == "16" and v["poles"] == "3" and d.component_id == comp.id
+    # skříň z knihovny
+    from envocad.model.project import Sheet
+    from envocad.ui.dialogs import EnclosurePanel
+    s = Sheet(kind="switchboard")
+    panel = EnclosurePanel(s, library=lib)
+    enc = ComponentPicker(lib, category="enclosure")
+    assert enc.table.rowCount() >= 1 and all(c.category == "enclosure" for c in enc._rows)

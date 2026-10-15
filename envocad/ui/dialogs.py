@@ -7,8 +7,10 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QGroupBox,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -52,9 +54,54 @@ class AttrDialog(QDialog):
 
 
 class ElementDialog(AttrDialog):
-    def __init__(self, symbol: Symbol, attrs: dict[str, str], parent=None, title: str | None = None):
+    def __init__(self, symbol: Symbol, attrs: dict[str, str], parent=None, title: str | None = None,
+                 library=None, component_id: str | None = None):
         super().__init__(symbol.attributes, attrs, parent, title or f"Vložit: {symbol.name}",
                          f"<b>{symbol.name}</b> <small>({symbol.id})</small>")
+        self.library = library
+        self.symbol = symbol
+        self.component_id = component_id
+        if library is not None:
+            row = QHBoxLayout()
+            self.comp_label = QLabel(self._comp_text())
+            self.comp_label.setWordWrap(True)
+            btn = QPushButton("Vybrat artikl z knihovny…")
+            btn.clicked.connect(self.pick_component)
+            clear = QPushButton("Zrušit")
+            clear.clicked.connect(self._clear_component)
+            row.addWidget(self.comp_label, 1)
+            row.addWidget(btn)
+            row.addWidget(clear)
+            self.layout().insertLayout(1, row)
+
+    def _comp_text(self) -> str:
+        if self.library is not None and self.component_id:
+            c = self.library.component(self.component_id)
+            if c:
+                return f"Artikl: <b>{c.label}</b>"
+        return "<i>Artikl nepřiřazen</i> – parametry lze vyplnit ručně nebo vybrat z knihovny"
+
+    def pick_component(self) -> None:
+        from envocad.ui.component_picker import ComponentPicker
+        preset = {k: self._edits[k].text() for k in ("in_", "poles", "char") if k in self._edits}
+        dlg = ComponentPicker(self.library, symbol_id=self.symbol.id, parent=self, preset_filters=preset)
+        if dlg.exec() == ComponentPicker.Accepted and dlg.selected:
+            self.apply_component(dlg.selected)
+
+    def apply_component(self, comp) -> None:
+        """Propíše parametry artiklu do polí dialogu (uživatel je ještě může upravit)."""
+        from envocad.library.components import PARAM_TO_ATTR
+        self.component_id = comp.id
+        src = {"part_number": comp.part_number, "manufacturer": comp.manufacturer, **comp.params}
+        for pkey, akey in PARAM_TO_ATTR.items():
+            v = src.get(pkey)
+            if v not in (None, "") and akey in self._edits:
+                self._edits[akey].setText(str(v))
+        self.comp_label.setText(self._comp_text())
+
+    def _clear_component(self) -> None:
+        self.component_id = None
+        self.comp_label.setText(self._comp_text())
 
 
 class EnclosurePanel(QWidget):
@@ -62,7 +109,7 @@ class EnclosurePanel(QWidget):
 
     changed = Signal()
 
-    def __init__(self, sheet: Sheet, parent=None):
+    def __init__(self, sheet: Sheet, parent=None, library=None):
         super().__init__(parent)
         self._sheet = sheet
         lay = sheet.layout
@@ -76,7 +123,14 @@ class EnclosurePanel(QWidget):
         self.name.setPlaceholderText("např. Hager Volta VU36, Schrack BK085…")
         self.rows = QSpinBox(minimum=1, maximum=20, value=lay.rows)
         self.mods = QSpinBox(minimum=4, maximum=120, value=lay.modules_per_row)
-        f1.addRow("Označení skříně", self.name)
+        self.library = library
+        name_row = QHBoxLayout()
+        name_row.addWidget(self.name, 1)
+        if library is not None:
+            pick = QPushButton("Z knihovny…")
+            pick.clicked.connect(self.pick_enclosure)
+            name_row.addWidget(pick)
+        f1.addRow("Označení skříně", name_row)
         f1.addRow("Počet řad DIN lišt", self.rows)
         f1.addRow("Modulů v řadě (17,5 mm)", self.mods)
         self.info = QLabel()
@@ -140,6 +194,26 @@ class EnclosurePanel(QWidget):
             txt += "\n" + "; ".join(r.notes)
         self.thermal.setText(txt)
 
+    def pick_enclosure(self) -> None:
+        from envocad.ui.component_picker import ComponentPicker
+        dlg = ComponentPicker(self.library, category="enclosure", parent=self, title="Vybrat skříň z knihovny")
+        if dlg.exec() != ComponentPicker.Accepted or not dlg.selected:
+            return
+        c = dlg.selected
+        self.name.setText(f"{c.manufacturer} {c.part_number}")
+        mapping = {"manufacturer": c.manufacturer, "type": c.part_number}
+        for k in ("width_mm", "height_mm", "depth_mm", "ip", "ik", "material", "mounting", "door"):
+            if c.params.get(k):
+                mapping[k] = c.params[k]
+        for k, v in mapping.items():
+            if k in self._edits:
+                self._edits[k].setText(str(v))
+        if c.num("rows"):
+            self.rows.setValue(int(c.num("rows")))
+        if c.num("modules_per_row"):
+            self.mods.setValue(int(c.num("modules_per_row")))
+        self._apply()
+
     def _apply(self, *_) -> None:
         self.apply()
         self.refresh()
@@ -158,13 +232,11 @@ class EnclosurePanel(QWidget):
 class EnclosureDialog(QDialog):
     """Totéž jako panel, ale modálně (z menu List)."""
 
-    def __init__(self, sheet: Sheet, parent=None):
+    def __init__(self, sheet: Sheet, parent=None, library=None):
         super().__init__(parent)
         self.setWindowTitle(f"Skříň rozvaděče – {sheet.name}")
         self.setMinimumWidth(480)
-        self.panel = EnclosurePanel(sheet)
-        for sig in (self.panel.name.editingFinished, self.panel.rows.valueChanged, self.panel.mods.valueChanged):
-            pass
+        self.panel = EnclosurePanel(sheet, library=library)
         lay = QVBoxLayout(self)
         lay.addWidget(self.panel)
         bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)

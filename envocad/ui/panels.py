@@ -59,8 +59,9 @@ class LibraryPanel(QWidget):
 class PropertiesPanel(QWidget):
     attr_edited = Signal(str, bool, str, str)  # target_id, is_wire, key, value
 
-    def __init__(self):
+    def __init__(self, library=None):
         super().__init__()
+        self._library = library
         self.form = QFormLayout(self)
         self.form.setContentsMargins(4, 4, 4, 4)
         self._target: tuple[str, bool] | None = None
@@ -85,7 +86,11 @@ class PropertiesPanel(QWidget):
         if isinstance(item, ElementItem):
             e, sym = item.element, item.symbol
             self._target = (e.id, False)
-            self.form.addRow(QLabel(f"<b>{sym.name}</b><br><small>{sym.id}</small>"))
+            comp = ""
+            if e.component_id and self._library is not None:
+                c = self._library.component(e.component_id)
+                comp = f"<br><small>Artikl: {c.label}</small>" if c else ""
+            self.form.addRow(QLabel(f"<b>{sym.name}</b><br><small>{sym.id}</small>{comp}"))
             for a in sym.attributes:
                 self._add_field(a.key, a.label, e.attrs.get(a.key, ""))
         elif isinstance(item, WireItem):

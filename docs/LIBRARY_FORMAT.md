@@ -61,3 +61,15 @@ Aby se přístroj objevil v rozložení a ve výkazech správně, má mít atrib
 a `modules` (šířka na DIN liště v modulech 17,5 mm; `0` = nemodulový, nerozmisťuje se).
 Symboly pro list rozvaděče mají prefix `sb.` (`envocad/library/builtin/switchboard/`): sběrnice `sb.busbar`
 (porty IN + 1…10 po 15 mm), přívod `sb.feed_in`, vývod `sb.feed_out`, svorkovnice `sb.terminal_block`, PE/N můstek `sb.pe_bar`.
+
+## Footprinty (pohled do rozložení)
+
+Footprint je obyčejný symbol (JSON) v kategorii `Rozložení/<výrobce>`, kreslený **ve skutečných mm**
+s počátkem v levém horním rohu přístroje a Y nahoru (tedy souřadnice dolů jsou záporné). Artikl na něj
+odkazuje sloupcem `footprint_id`. Vytvoří se importem DXF od výrobce:
+
+```
+python -m envocad.library.dxf_import pohled_LTN.dxf --id fp.oez.ltn-3p --name "LTN 3p čelní pohled" --no-center -o envocad/library/builtin/footprints/fp.oez.ltn-3p.json
+```
+
+Bez footprintu se kreslí generický modulový přístroj (páčky podle pólů, svorky) o šířce `modules` × 17,5 mm.

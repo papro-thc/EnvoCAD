@@ -131,3 +131,21 @@ class SetAttrCommand(QUndoCommand):
 
     def undo(self):
         self._set(self.old)
+
+
+class SetComponentCommand(QUndoCommand):
+    def __init__(self, scene, element_id: str, old: str | None, new: str | None):
+        super().__init__("Přiřadit artikl")
+        self.scene, self.eid, self.old, self.new = scene, element_id, old, new
+
+    def _set(self, v):
+        e = self.scene.sheet.element(self.eid)
+        e.component_id = v
+        self.scene.element_items[self.eid].update()
+        self.scene.attrs_changed.emit(self.eid)
+
+    def redo(self):
+        self._set(self.new)
+
+    def undo(self):
+        self._set(self.old)

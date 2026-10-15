@@ -47,7 +47,7 @@ class MainWindow(QMainWindow):
         self._scenes: list = []
 
         self.lib_panel = LibraryPanel(self.library)
-        self.props_panel = PropertiesPanel()
+        self.props_panel = PropertiesPanel(self.library)
         self._dock("Knihovna", self.lib_panel, Qt.LeftDockWidgetArea)
         self._dock("Vlastnosti", self.props_panel, Qt.RightDockWidgetArea)
         self.setStatusBar(QStatusBar())
@@ -156,6 +156,8 @@ class MainWindow(QMainWindow):
 
         m_lib = mb.addMenu("&Knihovna")
         act(m_lib, "Importovat symbol z DXF…", self.import_dxf_symbol)
+        act(m_lib, "Prohlížet artikly…", self.browse_components)
+        act(m_lib, "Importovat artikly z CSV…", self.import_components_csv)
 
         m_help = mb.addMenu("&Nápověda")
         act(m_help, "Otevřít složku s logy", self.open_log_dir)
@@ -202,7 +204,7 @@ class MainWindow(QMainWindow):
             from envocad.ui.dialogs import EnclosurePanel
             scene = LayoutScene(self.project, sheet, self.library, self.undo)
             view = LayoutView(scene)
-            panel = EnclosurePanel(sheet)
+            panel = EnclosurePanel(sheet, library=self.library)
             panel.changed.connect(lambda sc=scene, sh=sheet: (sc.rebuild(), self._rebuild_sheet_views(sh),
                                                             self._refresh_tab_titles(), self.undo.resetClean()))
             scene.layout_changed.connect(panel.refresh)
@@ -377,7 +379,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Skříň", "Otevřete list rozvaděče.")
             return
         from envocad.ui.dialogs import EnclosureDialog
-        dlg = EnclosureDialog(sh, self)
+        dlg = EnclosureDialog(sh, self, library=self.library)
         if dlg.exec() != EnclosureDialog.Accepted:
             return
         dlg.apply()
@@ -501,6 +503,25 @@ class MainWindow(QMainWindow):
         if path:
             export_routine_test_docx(self.project, self.library, sh, path)
             self.statusBar().showMessage(f"Exportováno: {path}", 3000)
+
+    def browse_components(self) -> None:
+        from envocad.ui.component_picker import ComponentPicker
+        dlg = ComponentPicker(self.library, parent=self, title="Knihovna artiklů")
+        dlg.only_compatible.setCurrentIndex(1)
+        dlg.exec()
+
+    def import_components_csv(self) -> None:
+        from envocad.library.components import validate
+        path, _ = QFileDialog.getOpenFileName(self, "Import artiklů z CSV", "", "CSV (*.csv)")
+        if not path:
+            return
+        known = {s[0] for s in self.library.list_symbols()}
+        errs = validate(path, known)
+        if errs:
+            QMessageBox.warning(self, "Import artiklů", "CSV má chyby (viz docs/COMPONENTS.md):\n\n" + "\n".join(errs[:20]))
+            return
+        n = self.library.import_components_csv_v2(path)
+        QMessageBox.information(self, "Import artiklů", f"Načteno {n} artiklů.")
 
     def import_dxf_symbol(self) -> None:
         from envocad.library.dxf_import import import_dxf, list_blocks

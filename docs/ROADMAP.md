@@ -16,7 +16,10 @@
 
 ## v0.2 – Knihovna a výkazy
 - [ ] Editor symbolů (porty, atributy) přímo v GUI
-- [ ] Správa artiklů (výrobci, parametry, ceny), CSV import, přiřazení k elementu
+- [x] Artikly: CSV formát, validátor, výběr v dialogu prvku, propsání parametrů, skříně z knihovny
+- [ ] Doplnit data: OEZ rozměry a Pv z Katalogu Minia (PDF), Eaton/Schneider/ABB, DC prvky, FV moduly, SolarEdge/Fronius/GoodWe – z PDF katalogů (web je v prostředí blokovaný)
+- [ ] Footprinty z DXF výrobců (OEZ, Hager) a editor portů importovaných symbolů
+- [ ] Ceny v artiklech + výkaz s cenami
 - [ ] Výkaz materiálu (.xlsx) a seznam kabelů z modelu
 - [ ] Hromadný import DXF knihoven výrobců (SMA, Huawei, SolarEdge, Eaton, Schneider, OEZ…)
 

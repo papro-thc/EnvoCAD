@@ -212,10 +212,11 @@ class SchematicScene(QGraphicsScene):
     def _finish_place(self, sym, e: Element) -> None:
         from envocad.ui.dialogs import ElementDialog
         log.info("dialog: vložit %s", sym.id)
-        dlg = ElementDialog(sym, e.attrs, self._parent_widget())
+        dlg = ElementDialog(sym, e.attrs, self._parent_widget(), library=self.library)
         if dlg.exec() != ElementDialog.Accepted:
             return
         e.attrs = dlg.values()
+        e.component_id = dlg.component_id
         self.undo.push(commands.AddElementCommand(self, e))
 
     def _finish_wire(self, w: Wire, heading: str) -> None:
@@ -267,9 +268,12 @@ class SchematicScene(QGraphicsScene):
         from envocad.ui.dialogs import ElementDialog
         e = self.sheet.element(eid)
         sym = self.library.get_symbol(e.symbol_id)
-        dlg = ElementDialog(sym, e.attrs, self._parent_widget(), title=f"Upravit: {e.ref or sym.name}")
+        dlg = ElementDialog(sym, e.attrs, self._parent_widget(), title=f"Upravit: {e.ref or sym.name}",
+                            library=self.library, component_id=e.component_id)
         if dlg.exec() != ElementDialog.Accepted:
             return
+        if dlg.component_id != e.component_id:
+            self.undo.push(commands.SetComponentCommand(self, eid, e.component_id, dlg.component_id))
         self._apply_attr_changes(eid, False, e.attrs, dlg.values(), f"Upravit {e.ref or sym.name}")
 
     def mouseReleaseEvent(self, ev):

@@ -1,6 +1,6 @@
 [project]
 name = "envocad"
-version = "0.3.1"
+version = "0.4.0"
 description = "Interní nástroj ENVO pro elektro-dokumentaci FVE (jednopólová schémata, knihovna prvků)"
 requires-python = ">=3.11"
 dependencies = [

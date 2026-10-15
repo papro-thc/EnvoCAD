@@ -37,22 +37,34 @@ class SetPlacementCommand(QUndoCommand):
 
 
 class DeviceItem(QGraphicsRectItem):
-    def __init__(self, element: Element, name: str, placed: bool):
+    """Přístroj v rozložení. Kreslí footprint artiklu (symbol v mm), jinak generický modulový přístroj."""
+
+    def __init__(self, element: Element, name: str, placed: bool, footprint=None, kind: str = ""):
         w = max(element.modules, 1.0) * MODULE_WIDTH
         super().__init__(0, 0, w, DEV_H)
-        self.element, self.name, self.placed = element, name, placed
+        self.element, self.name, self.placed, self.footprint, self.kind = element, name, placed, footprint, kind
         self.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemSendsGeometryChanges)
         self.setZValue(5)
 
     def paint(self, painter, option, widget=None):
         c = colors()
         painter.setRenderHint(QPainter.Antialiasing)
+        r = self.rect()
+        pen = QPen(c.selection if self.isSelected() else c.ink, 0.4, Qt.SolidLine if self.placed else Qt.DashLine)
         fill = QColor(c.selection) if self.isSelected() else QColor(c.ink)
         fill.setAlpha(40 if self.placed else 15)
         painter.setBrush(QBrush(fill))
-        painter.setPen(QPen(c.selection if self.isSelected() else c.ink, 0.4, Qt.SolidLine if self.placed else Qt.DashLine))
-        painter.drawRect(self.rect())
-        r = self.rect()
+        painter.setPen(pen)
+        painter.drawRect(r)
+        if self.footprint is not None:
+            # footprint = symbol v mm, počátek v levém horním rohu přístroje (Y nahoru → převrátit)
+            from envocad.ui.render import paint_symbol
+            painter.save()
+            painter.translate(r.left(), r.top())  # paint_symbol převrací Y sám (model Y nahoru → scéna Y dolů)
+            paint_symbol(painter, self.footprint, QPen(pen.color(), 0.25))
+            painter.restore()
+        else:
+            self._paint_generic(painter, pen, r)
         painter.setPen(QPen(c.ink, 0.2))
         draw_text(painter, r.center().x(), -(r.top() + 8), self.element.ref, 3.0, "center")
         typ = self.element.attrs.get("type") or self.name
@@ -62,6 +74,24 @@ class DeviceItem(QGraphicsRectItem):
         if info:
             draw_text(painter, r.center().x(), -(r.top() + 19), info, 2.0, "center")
         draw_text(painter, r.center().x(), -(r.bottom() - 2), f"{self.element.modules:g} M", 1.8, "center")
+
+    def _paint_generic(self, painter, pen, r):
+        """Generický modulový přístroj: páčky po pólech, svorky nahoře/dole; MCCB: široká páka."""
+        painter.setBrush(Qt.NoBrush)
+        painter.setPen(QPen(pen.color(), 0.25))
+        poles = max(self.element.poles, 1)
+        if self.kind in ("mccb",):
+            hw = r.width() * 0.5
+            painter.drawRect(r.center().x() - hw / 2, r.top() + 22, hw, 10)
+            return
+        mods = max(self.element.modules, 1.0)
+        pole_w = r.width() / max(min(poles, mods), 1)
+        n = int(min(poles, mods)) if mods >= 1 else 1
+        for i in range(n):
+            x = r.left() + i * pole_w
+            painter.drawRect(x + pole_w * 0.25, r.top() + 22, pole_w * 0.5, 9)  # páčka
+            painter.drawEllipse(x + pole_w / 2 - 2.5, r.top() + 2, 5, 5)        # svorka nahoře
+            painter.drawEllipse(x + pole_w / 2 - 2.5, r.bottom() - 7, 5, 5)     # svorka dole
 
 
 class LayoutScene(QGraphicsScene):
@@ -164,7 +194,17 @@ class LayoutScene(QGraphicsScene):
                 continue
             sym = self.library.get_symbol(e.symbol_id)
             pl = lay.placement(e.id)
-            it = DeviceItem(e, sym.name, pl is not None)
+            fp, kind = None, ""
+            if e.component_id:
+                comp = self.library.component(e.component_id)
+                if comp:
+                    kind = comp.category
+                    if comp.footprint_id:
+                        try:
+                            fp = self.library.get_symbol(comp.footprint_id)
+                        except KeyError:
+                            fp = None
+            it = DeviceItem(e, sym.name, pl is not None, fp, kind)
             if pl:
                 it.setPos(self.pos_to_scene(pl.row, pl.pos))
             else:
