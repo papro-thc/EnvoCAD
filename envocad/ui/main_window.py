@@ -130,6 +130,8 @@ class MainWindow(QMainWindow):
         tb.addAction(u)
         tb.addAction(r)
         m_edit.addSeparator()
+        act(m_edit, "Kopírovat", lambda: self.scene and self.scene.copy_selected())
+        act(m_edit, "Vložit kopii", lambda: self.scene and self.scene.paste())
         act(m_edit, "Smazat", lambda: self.scene and self.scene.delete_selected(), "Delete")
         act(m_edit, "Otočit o 90°", lambda: self.scene and self.scene.rotate_selected(), "R")
         m_edit.addSeparator()
@@ -593,7 +595,7 @@ class MainWindow(QMainWindow):
 
     def edit_project_meta(self) -> None:
         for key, label in [("name", "Název projektu"), ("investor", "Investor"), ("order", "Číslo zakázky"),
-                           ("place", "Místo"), ("author", "Zpracoval")]:
+                           ("place", "Místo"), ("author", "Zpracoval"), ("date", "Datum"), ("revision", "Revize")]:
             cur = self.project.name if key == "name" else self.project.meta.get(key, "")
             val, ok = QInputDialog.getText(self, "Vlastnosti projektu", label, text=cur)
             if not ok:

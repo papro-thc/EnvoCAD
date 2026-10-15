@@ -103,13 +103,17 @@ def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Pa
     for name, color in LAYERS.items():
         doc.layers.add(name, color=color)
     msp = doc.modelspace()
-    msp.add_lwpolyline([(0, 0), (sheet.width, 0), (sheet.width, sheet.height), (0, sheet.height)],
-                       close=True, dxfattribs={"layer": "RAMECEK"})
-    _text(msp, 5, 5, f"{project.name}  –  {sheet.name}", 3.5, "left", 0, layer="RAMECEK")
+    from envocad.model.frame import MARGIN, MARGIN_LEFT, frame_geometry
+    g = frame_geometry(project, sheet)
+    for x1, y1, x2, y2 in g.lines:
+        msp.add_line((x1, y1), (x2, y2), dxfattribs={"layer": "RAMECEK"})
+    for x, y, text, h, align in g.texts:
+        if text:
+            _text(msp, x, y, text, h, align, 0, layer="RAMECEK")
     if sheet.is_switchboard:
         from envocad.model.project import switchboard_header
         rows = switchboard_header(project, sheet)
-        x0, y0, lh = 10.0, sheet.height - 10.0, 4.0
+        x0, y0, lh = MARGIN_LEFT + 4.0, sheet.height - MARGIN - 4.0, 4.0
         w, h = 95.0, lh * len(rows) + 3
         msp.add_lwpolyline([(x0 - 2, y0 + 2), (x0 - 2 + w, y0 + 2), (x0 - 2 + w, y0 + 2 - h), (x0 - 2, y0 + 2 - h)],
                            close=True, dxfattribs={"layer": "RAMECEK"})

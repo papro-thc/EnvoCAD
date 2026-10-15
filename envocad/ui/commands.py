@@ -221,3 +221,33 @@ class SetBridgesCommand(QUndoCommand):
 
     def undo(self):
         self._set(self.old)
+
+
+class PasteCommand(QUndoCommand):
+    """Vložení kopie prvků a vodičů ze schránky."""
+
+    def __init__(self, scene, elements: list[Element], wires: list[Wire]):
+        super().__init__(f"Vložit kopii ({len(elements)})")
+        self.scene, self.elements, self.wires = scene, elements, wires
+
+    def redo(self):
+        for e in self.elements:
+            self.scene.sheet.elements.append(e)
+            self.scene.add_element_item(e)
+        for w in self.wires:
+            self.scene.sheet.wires.append(w)
+            self.scene.add_wire_item(w)
+        self.scene.clearSelection()
+        for e in self.elements:
+            self.scene.element_items[e.id].setSelected(True)
+
+    def undo(self):
+        wid = {w.id for w in self.wires}
+        eid = {e.id for e in self.elements}
+        s = self.scene.sheet
+        s.wires = [w for w in s.wires if w.id not in wid]
+        s.elements = [e for e in s.elements if e.id not in eid]
+        for w in self.wires:
+            self.scene.remove_wire_item(w.id)
+        for e in self.elements:
+            self.scene.remove_element_item(e.id)

@@ -71,3 +71,20 @@ def draw_text(painter: QPainter, x: float, y: float, text: str, height: float = 
     dx = {"left": 0.0, "center": -w / 2, "right": -w}.get(align, 0.0)
     painter.drawText(QPointF(dx, 0), text)
     painter.restore()
+
+
+def draw_frame(painter: QPainter, geom, color) -> None:
+    """Rámeček a popisové pole z `model/frame.py` (geometrie v mm, Y nahoru)."""
+    painter.save()
+    painter.setBrush(Qt.NoBrush)
+    painter.setPen(QPen(color, 0.5))
+    for x1, y1, x2, y2 in geom.lines[:4]:
+        painter.drawLine(sp(x1, y1), sp(x2, y2))
+    painter.setPen(QPen(color, 0.25))
+    for x1, y1, x2, y2 in geom.lines[4:]:
+        painter.drawLine(sp(x1, y1), sp(x2, y2))
+    painter.setPen(QPen(color, 0.2))
+    for x, y, text, h, align in geom.texts:
+        if text:
+            draw_text(painter, x, y, text, h, align)
+    painter.restore()

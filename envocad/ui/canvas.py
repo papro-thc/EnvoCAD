@@ -4,9 +4,10 @@ from __future__ import annotations
 import logging
 from enum import Enum
 from itertools import pairwise
+from typing import ClassVar
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
-from PySide6.QtGui import QKeyEvent, QMouseEvent, QPainter, QPen, QUndoStack, QWheelEvent
+from PySide6.QtGui import QKeyEvent, QKeySequence, QMouseEvent, QPainter, QPen, QUndoStack, QWheelEvent
 from PySide6.QtWidgets import QGraphicsPathItem, QGraphicsRectItem, QGraphicsScene, QGraphicsView
 
 from envocad.library.store import LibraryStore
@@ -15,7 +16,7 @@ from envocad.model.project import WIRE_ATTRIBUTES, Element, Project, Sheet, Wire
 from envocad.model.symbol import GRID
 from envocad.ui import commands
 from envocad.ui.items import ElementItem, WireItem, route, snap
-from envocad.ui.render import draw_text, sp
+from envocad.ui.render import draw_frame, draw_text, sp
 from envocad.ui.theme import PRINT, colors
 
 log = logging.getLogger("envocad.ui")
@@ -209,6 +210,12 @@ class SchematicScene(QGraphicsScene):
         self._move_start = {it.element.id: (it.element.x, it.element.y)
                             for it in self.selectedItems() if isinstance(it, ElementItem)}
 
+    def _used_refs_for(self, symbol_id: str) -> set[str]:
+        """Označení pro kontrolu duplicit; skupiny svorek sdílejí označení svorkovnice, ty se nekontrolují."""
+        if symbol_id in ("sb.terminal_block", "fve.terminal"):
+            return set()
+        return self.project.used_refs()
+
     def _parent_widget(self):
         return self.views()[0] if self.views() else None
 
@@ -216,6 +223,7 @@ class SchematicScene(QGraphicsScene):
         from envocad.ui.dialogs import ElementDialog
         log.info("dialog: vložit %s", sym.id)
         dlg = ElementDialog(sym, e.attrs, self._parent_widget(), library=self.library)
+        dlg.used_refs = self._used_refs_for(sym.id)
         if dlg.exec() != ElementDialog.Accepted:
             return
         e.attrs = dlg.values()
@@ -226,6 +234,7 @@ class SchematicScene(QGraphicsScene):
         from envocad.ui.dialogs import WireDialog
         log.info("dialog: vložit vodič")
         dlg = WireDialog(w.attrs, w.conductors, self._parent_widget(), "Vložit vodič", heading)
+        dlg.used_refs = self.project.used_refs()
         if dlg.exec() != WireDialog.Accepted:
             return
         w.attrs = dlg.values()
@@ -254,6 +263,7 @@ class SchematicScene(QGraphicsScene):
         from envocad.ui.dialogs import WireDialog
         w = next(w for w in self.sheet.wires if w.id == wid)
         dlg = WireDialog(w.attrs, w.conductors, self._parent_widget(), f"Upravit vodič {w.attrs.get('ref', '')}")
+        dlg.used_refs = self.project.used_refs()
         if dlg.exec() != WireDialog.Accepted:
             return
         label = f"Upravit {w.attrs.get('ref') or 'vodič'}"
@@ -310,6 +320,7 @@ class SchematicScene(QGraphicsScene):
         sym = self.library.get_symbol(e.symbol_id)
         dlg = ElementDialog(sym, e.attrs, self._parent_widget(), title=f"Upravit: {e.ref or sym.name}",
                             library=self.library, component_id=e.component_id)
+        dlg.used_refs = self._used_refs_for(sym.id)
         if dlg.exec() != ElementDialog.Accepted:
             return
         if dlg.component_id != e.component_id:
@@ -338,10 +349,39 @@ class SchematicScene(QGraphicsScene):
             self.rotate_selected()
         elif ev.key() == Qt.Key_W:
             self.start_wire()
+        elif ev.matches(QKeySequence.Copy):
+            self.copy_selected()
+        elif ev.matches(QKeySequence.Paste):
+            self.paste()
         else:
             super().keyPressEvent(ev)
 
     # ---- akce ---------------------------------------------------------------
+    CLIPBOARD: ClassVar[dict] = {}  # sdílená schránka všech scén (výřez listu + počet vložení pro posun)
+
+    def copy_selected(self) -> int:
+        from envocad.model.project import copy_fragment
+        eids = [it.element.id for it in self.selectedItems() if isinstance(it, ElementItem)]
+        if not eids:
+            return 0
+        SchematicScene.CLIPBOARD = {"fragment": copy_fragment(self.sheet, eids), "n": 0}
+        log.info("copy %d prvků", len(eids))
+        return len(eids)
+
+    def paste(self) -> int:
+        from envocad.model.project import paste_fragment
+        clip = SchematicScene.CLIPBOARD
+        if not clip:
+            return 0
+        clip["n"] += 1
+        d = 10.0 * clip["n"]
+        els, wires = paste_fragment(self.project, clip["fragment"],
+                                    lambda sid: self.library.get_symbol(sid).iec_ref, d, -d)
+        if not els:
+            return 0
+        self.undo.push(commands.PasteCommand(self, els, wires))
+        return len(els)
+
     def delete_selected(self) -> None:
         eids = [it.element.id for it in self.selectedItems() if isinstance(it, ElementItem)]
         wids = [it.wire.id for it in self.selectedItems() if isinstance(it, WireItem)]
@@ -379,7 +419,10 @@ class SchematicScene(QGraphicsScene):
         self.update()
 
     def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
-        """Můstky mezi skupinami svorek (čárkovaně) a informační blok s parametry rozvaděče (list rozvaděče)."""
+        """Rámeček s popisovým polem, můstky mezi skupinami svorek (čárkovaně) a informační blok rozvaděče."""
+        from envocad.model.frame import MARGIN, MARGIN_LEFT, frame_geometry
+        c = PRINT if not self.draw_grid else colors()
+        draw_frame(painter, frame_geometry(self.project, self.sheet), c.ink)
         self._draw_bridges(painter)
         if not self.sheet.is_switchboard:
             return
@@ -387,8 +430,7 @@ class SchematicScene(QGraphicsScene):
         rows = switchboard_header(self.project, self.sheet)
         if not rows:
             return
-        c = PRINT if not self.draw_grid else colors()
-        x0, y0 = 10.0, self.sheet.height - 10.0  # model (Y nahoru)
+        x0, y0 = MARGIN_LEFT + 4.0, self.sheet.height - MARGIN - 4.0  # model (Y nahoru), uvnitř rámečku
         lh = 4.0
         w, h = 95.0, lh * len(rows) + 3
         painter.setPen(QPen(c.ink, 0.25))

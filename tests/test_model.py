@@ -155,3 +155,33 @@ def test_eplan_import_heuristics(tmp_path):
     assert rows2[0]["p_loss_w"] == "2.32" and rows2[0]["id"] == "hager-mcn116"
     write_components_csv(rows + rows2, tmp_path / "o.csv")
     assert validate(tmp_path / "o.csv") == []
+
+
+def test_frame_geometry_and_copy_paste():
+    from envocad.model.frame import frame_geometry, sheet_number
+    from envocad.model.project import Element, Project, Wire, WireEnd, copy_fragment, paste_fragment
+    p = Project(name="Test")
+    p.meta.update(order="2026-001", author="PR")
+    s = p.sheets[0]
+    g = frame_geometry(p, s)
+    assert g.inner == (20.0, 10.0, s.width - 10.0, s.height - 10.0)
+    texts = {t[2] for t in g.texts}
+    assert {"Test", "2026-001", "PR", "ENVO", "1/1", "A3"} <= texts
+    assert sheet_number(p, s) == "1/1"
+    a = Element("fve.breaker_mcb", 50, 100, attrs={"ref": "F1", "in_": "16"})
+    b = Element("fve.load", 100, 100, attrs={"ref": "M1"})
+    x = Element("sb.terminal_block", 75, 120, attrs={"ref": "X1", "terminal": "1 2 3"})
+    s.elements += [a, b, x]
+    s.wires.append(Wire(WireEnd(a.id, "2"), WireEnd(b.id, "1"), attrs={"ref": "W1"}, conductors=["L1", "N", "PE"],
+                        terminals={"L1": {"a": "F1:2"}}))
+    frag = copy_fragment(s, [a.id, b.id, x.id])
+    assert len(frag["elements"]) == 3 and len(frag["wires"]) == 1
+    prefix = {"fve.breaker_mcb": "F", "fve.load": "", "sb.terminal_block": "X"}
+    els, wires = paste_fragment(p, frag, lambda sid: prefix[sid], 10, -10)
+    refs = {e.ref for e in els}
+    assert "F2" in refs and "X1" in refs and "M1" in refs   # M1 bez prefixu zůstává
+    xe = next(e for e in els if e.symbol_id == "sb.terminal_block")
+    assert xe.attrs["terminal"] == ""
+    assert els[0].x == 60 and els[0].y == 90 and els[0].id != a.id
+    assert wires[0].attrs["ref"] == "W2" and wires[0].conductors == ["L1", "N", "PE"] and wires[0].terminals == {}
+    assert wires[0].a.element_id == els[0].id

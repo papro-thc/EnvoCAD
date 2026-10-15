@@ -406,3 +406,50 @@ def switchboard_header(project: Project, sheet: Sheet) -> list[tuple[str, str]]:
         ("Materiál / dveře", " / ".join(x for x in (p.get("material", ""), p.get("door", "")) if x)),
     ]
     return [(k, v) for k, v in rows if v]
+
+
+def copy_fragment(sheet: Sheet, element_ids: list[str]) -> dict:
+    """Výřez listu pro schránku: vybrané prvky + vodiče mezi nimi (čistá data, přenositelná mezi listy)."""
+    ids = set(element_ids)
+    els = [e.to_dict() for e in sheet.elements if e.id in ids]
+    wires = [w.to_dict() for w in sheet.wires if w.a.element_id in ids and w.b.element_id in ids]
+    return {"elements": els, "wires": wires}
+
+
+def paste_fragment(project: Project, fragment: dict, ref_prefix_of, dx: float = 10.0, dy: float = -10.0
+                   ) -> tuple[list[Element], list[Wire]]:
+    """Vytvoří kopie s novými id a označeními (F1 → další volné), posunuté o (dx, dy). Skupiny svorek si nechají
+    označení svorkovnice, čísla svorek se vymažou (doplní automatické číslování). Nic nevkládá do listu."""
+    used = project.used_refs()
+    idmap: dict[str, str] = {}
+    els: list[Element] = []
+    for d in fragment.get("elements", []):
+        e = Element.from_dict(d)
+        new = Element(symbol_id=e.symbol_id, x=e.x + dx, y=e.y + dy, rotation=e.rotation,
+                      attrs=dict(e.attrs), component_id=e.component_id)
+        prefix = ref_prefix_of(e.symbol_id)
+        if e.symbol_id in ("sb.terminal_block", "fve.terminal"):
+            new.attrs["terminal"] = ""
+        elif e.ref and prefix:
+            n = 1
+            while f"{prefix}{n}" in used:
+                n += 1
+            new.attrs["ref"] = f"{prefix}{n}"
+            used.add(new.attrs["ref"])
+        if "sheet" in new.attrs:
+            new.attrs["sheet"] = ""
+        idmap[e.id] = new.id
+        els.append(new)
+    wires: list[Wire] = []
+    for d in fragment.get("wires", []):
+        w = Wire.from_dict(d)
+        nw = Wire(WireEnd(idmap[w.a.element_id], w.a.port), WireEnd(idmap[w.b.element_id], w.b.port),
+                  points=[(x + dx, y + dy) for x, y in w.points], attrs=dict(w.attrs), conductors=list(w.conductors))
+        if nw.attrs.get("ref"):
+            n = 1
+            while f"W{n}" in used:
+                n += 1
+            nw.attrs["ref"] = f"W{n}"
+            used.add(nw.attrs["ref"])
+        wires.append(nw)
+    return els, wires

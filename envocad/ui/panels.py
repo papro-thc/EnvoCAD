@@ -100,6 +100,10 @@ class PropertiesPanel(QWidget):
             self.form.addRow(QLabel(f"<b>Vodič</b><br><small>{w.a.element_id}:{w.a.port} → {w.b.element_id}:{w.b.port}</small>"))
             for a in WIRE_ATTRIBUTES:
                 self._add_field(a.key, a.label, w.attrs.get(a.key, ""))
+            conds = " ".join(w.conductors) or "–"
+            terms = "<br>".join(f"{c}: {t.get('a', '')} → {t.get('b', '')}" for c, t in w.terminals.items()) or "–"
+            self.form.addRow("Žíly", QLabel(conds))
+            self.form.addRow("Svorky", QLabel(f"<small>{terms}</small>"))
         else:
             self._target = None
             self.form.addRow(QLabel("<i>Nic není vybráno</i>"))

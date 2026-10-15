@@ -27,9 +27,13 @@ from envocad.model.symbol import Attribute, Symbol
 class AttrDialog(QDialog):
     """Zadání všech atributů prvku nebo vodiče – při vložení i při dvojkliku na existující."""
 
+    used_refs: set[str] | None = None  # označení už použitá v projektu (varování na duplicitu)
+    own_ref: str = ""                  # vlastní původní označení (není duplicita)
+
     def __init__(self, attributes: list[Attribute], attrs: dict[str, str], parent=None,
                  title: str = "Parametry", heading: str = ""):
         super().__init__(parent)
+        self.own_ref = attrs.get("ref", "")
         self.setWindowTitle(title)
         self.setMinimumWidth(360)
         self._edits: dict[str, QLineEdit] = {}
@@ -55,6 +59,17 @@ class AttrDialog(QDialog):
 
     def values(self) -> dict[str, str]:
         return {k: e.text().strip() for k, e in self._edits.items()}
+
+    def accept(self) -> None:
+        ref = self.values().get("ref", "")
+        if ref and self.used_refs and ref != self.own_ref and ref in self.used_refs:
+            from PySide6.QtWidgets import QMessageBox
+            r = QMessageBox.question(self, "Duplicitní označení",
+                                     f"Označení <b>{ref}</b> už v projektu existuje. Použít přesto?",
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if r != QMessageBox.Yes:
+                return
+        super().accept()
 
 
 CONDUCTOR_PRESETS = ["L1 L2 L3 N PE", "L1 L2 L3 PE", "L1 L2 L3 N", "L1 N PE", "L1 N", "L1", "N", "PE",

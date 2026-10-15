@@ -19,7 +19,7 @@ from envocad.model.symbol import GRID, Symbol, rotate_dir
 from envocad.ui import commands
 from envocad.ui.canvas import SchematicView
 from envocad.ui.items import PORT_R, path_points, route, wire_label
-from envocad.ui.render import LINE_WIDTH, draw_text, paint_symbol, sp, symbol_path
+from envocad.ui.render import LINE_WIDTH, draw_frame, draw_text, paint_symbol, sp, symbol_path
 from envocad.ui.theme import PRINT, colors
 
 log = logging.getLogger("envocad.ui")
@@ -331,10 +331,10 @@ class MultipoleScene(QGraphicsScene):
             y += step
 
     def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
+        from envocad.model.frame import frame_geometry
         c = PRINT if not self.draw_grid else colors()
-        _w, h = self.paper_size
-        painter.setPen(QPen(c.ink, 0.2))
-        draw_text(painter, 10, h - 8, f"{self.sheet.name} – vícepólové schéma (odvozeno z JPS)", 3.0, "left")
+        w, h = self.paper_size
+        draw_frame(painter, frame_geometry(self.project, self.sheet, w, h, "vícepólové schéma"), c.ink)
 
 
 class MultipoleView(SchematicView):
