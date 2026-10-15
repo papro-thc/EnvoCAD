@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.8.0 – 2026-10-15
+- FV string má v JPS jeden port DC (pár DC+/DC- jsou žíly vodiče), střídač má DC vstupy DC1/DC2 (MPPT); staré projekty se zmigrují (formát v5). Rozložení už nekreslí rámeček listu.
 - **Vícepól jako svorkové schéma s vlastním rozmístěním**: automatické rozmístění po sloupcích podle hloubky od zdroje (přívod/FV/baterie), skupiny svorek spojené můstky v jedné řadě, vývody zarovnané pod svými svorkami; prvky jdou ve vícepólu posouvat myší (undo, `Element.mp_pos`, formát projektu v4), `Zobrazit → Vícepól: rozmístit automaticky` vrátí automatiku. List vícepólu se podle potřeby zvětší.
 - **Plán svorkovnice** (`Zobrazit → Plán svorkovnice`, `Ctrl+Shift+M`): kreslený list jako v EPLAN – svorky v řadě, vnější připojení nahoře (navázaný kabel JPS), vnitřní dole, můstky; export PDF. Stejná data jako list xlsx „Plán svorkovnice“. Výkaz materiálu počítá svorky po kusech (skupina = počet žil) a můstky po skupinách.
 - **Rámeček s popisovým polem ENVO** na všech listech (JPS, rozvaděč, vícepól, rozložení, plán svorkovnice) i v DXF/PDF: projekt, zakázka, investor, místo, list x/y, zpracoval, datum, revize, formát (`Soubor → Vlastnosti projektu`).

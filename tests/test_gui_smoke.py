@@ -29,8 +29,8 @@ def _project():
     n = Element("fve.grid", 220, 150, attrs={"ref": ""})
     s.elements += [g, q, t, f, n]
     s.wires += [
-        Wire(WireEnd(g.id, "DC+"), WireEnd(q.id, "1"), attrs={"ref": "W1"}),
-        Wire(WireEnd(q.id, "2"), WireEnd(t.id, "DC+")),
+        Wire(WireEnd(g.id, "DC"), WireEnd(q.id, "1"), attrs={"ref": "W1"}),
+        Wire(WireEnd(q.id, "2"), WireEnd(t.id, "DC1")),
         Wire(WireEnd(t.id, "AC"), WireEnd(f.id, "1"), attrs={"ref": "W2"}),
         Wire(WireEnd(f.id, "2"), WireEnd(n.id, "1")),
     ]

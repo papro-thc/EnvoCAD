@@ -57,9 +57,9 @@ SYMBOLS = [
             C(-15, 10, 2), L(-15, 13, -15, 14.5), L(-12, 10, -10.5, 10), L(-12.9, 12.1, -11.8, 13.2),
             L(-17.1, 12.1, -18.2, 13.2),
             T(-2.5, -11, "FV", 2.5),
-            L(5, 2.5, 7.5, 2.5), L(5, -2.5, 7.5, -2.5), T(6.5, 4.5, "+", 2), T(6.5, -5.5, "–", 2),
+            L(5, 0, 7.5, 0),
         ],
-        "ports": [P("DC+", 7.5, 2.5, "E"), P("DC-", 7.5, -2.5, "E")],
+        "ports": [P("DC", 7.5, 0, "E")],  # jednopólově: jedna čára = pár DC+/DC- (žíly vodiče)
         "attributes": [REF, TYPE, attr("n_modules", "Počet modulů"), attr("p_module", "P modul [Wp]"),
                        attr("p_string", "P string [kWp]", "", True), attr("voc", "Uoc [V]"), attr("isc", "Isc [A]")],
         "label_pos": {"x": -10, "y": 10},
@@ -99,7 +99,7 @@ SYMBOLS = [
         "primitives": [R(-10, -10, 20, 20), L(-10, -10, 10, 10), T(-5, 0.5, "DC", 2.5), T(5, -6, "AC", 2.5),
                        L(-5.5, 6, -1.5, 6), L(-5.5, 4.5, -3.5, 4.5), L(-2.5, 4.5, -1.5, 4.5),
                        A(2.5, -1.5, 1.5, 0, 180), A(5.5, -1.5, 1.5, 180, 360)],
-        "ports": [P("DC+", -10, 5, "W"), P("DC-", -10, -5, "W"), P("AC", 10, 0, "E")],
+        "ports": [P("DC1", -10, 5, "W"), P("DC2", -10, -5, "W"), P("AC", 10, 0, "E")],  # DC vstupy (MPPT)
         "attributes": [REF, TYPE, attr("p_ac", "P AC [kW]", "", True), attr("p_dc_max", "P DC max [kWp]"),
                        attr("mppt", "Počet MPPT"), attr("phases", "Fáze", "3")],
         "label_pos": {"x": -10, "y": 16},
@@ -110,7 +110,7 @@ SYMBOLS = [
         "primitives": [R(-10, -10, 20, 20), L(-10, -10, 10, 10), T(-5, 0.5, "DC", 2.5), T(5, -6, "AC", 2.5),
                        L(-5.5, 6, -1.5, 6), L(-5.5, 4.5, -3.5, 4.5), L(-2.5, 4.5, -1.5, 4.5),
                        A(2.5, -1.5, 1.5, 0, 180), A(5.5, -1.5, 1.5, 180, 360), T(0, -13.5, "BAT", 2)],
-        "ports": [P("DC+", -10, 5, "W"), P("DC-", -10, -5, "W"), P("AC", 10, 0, "E"), P("BAT", 0, -10, "S")],
+        "ports": [P("DC1", -10, 5, "W"), P("DC2", -10, -5, "W"), P("AC", 10, 0, "E"), P("BAT", 0, -10, "S")],
         "attributes": [REF, TYPE, attr("p_ac", "P AC [kW]", "", True), attr("p_dc_max", "P DC max [kWp]"),
                        attr("mppt", "Počet MPPT"), attr("phases", "Fáze", "3")],
         "label_pos": {"x": -10, "y": 16},
@@ -261,7 +261,7 @@ SYMBOLS = [
         "primitives": [{"type": "polyline", "points": [[-5, 5], [0, 0], [5, 5]], "closed": False}, L(0, 0, 0, -5),
                        T(0, 7.5, "PŘÍVOD", 2)],
         "ports": [P("1", 0, -5, "S")],
-        "attributes": [REF, attr("desc", "Popis", "", True), attr("from", "Odkud"), attr("cable", "Kabel")],
+        "attributes": [REF, attr("desc", "Popis", "", True), attr("from", "Odkud", "", True), attr("cable", "Kabel")],
         "label_pos": {"x": 7, "y": 0},
     },
     {
@@ -270,7 +270,7 @@ SYMBOLS = [
         "primitives": [L(0, 5, 0, 0), {"type": "polyline", "points": [[-5, -5], [0, 0], [5, -5]], "closed": False},
                        T(0, -9, "VÝVOD", 2)],
         "ports": [P("1", 0, 5, "N")],
-        "attributes": [REF, attr("desc", "Popis", "", True), attr("to", "Kam"), attr("cable", "Kabel")],
+        "attributes": [REF, attr("desc", "Popis", "", True), attr("to", "Kam", "", True), attr("cable", "Kabel")],
         "label_pos": {"x": 7, "y": 0},
     },
     {

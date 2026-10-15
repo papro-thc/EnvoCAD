@@ -30,7 +30,7 @@ def test_project_roundtrip(tmp_path):
     g = Element("fve.pv_string", 20, 100, attrs={"ref": "G1"})
     t = Element("fve.inverter", 80, 100, rotation=90, attrs={"ref": "T1", "p_ac": "50"})
     s.elements += [g, t]
-    s.wires.append(Wire(WireEnd(g.id, "DC+"), WireEnd(t.id, "DC+"), attrs={"ref": "W1"}))
+    s.wires.append(Wire(WireEnd(g.id, "DC"), WireEnd(t.id, "DC1"), attrs={"ref": "W1"}))
     f = tmp_path / "t.ecp"
     p.save(f)
     q = Project.load(f)
@@ -90,7 +90,7 @@ def test_dxf_import_export(tmp_path):
     a = Element("fve.pv_string", 20, 100, attrs={"ref": "G1"})
     b = Element("fve.inverter", 80, 120, attrs={"ref": "T1"})
     s.elements += [a, b]
-    s.wires.append(Wire(WireEnd(a.id, "DC+"), WireEnd(b.id, "DC+"), attrs={"ref": "W1"}))
+    s.wires.append(Wire(WireEnd(a.id, "DC"), WireEnd(b.id, "DC1"), attrs={"ref": "W1"}))
     out = tmp_path / "out.dxf"
     export_sheet_dxf(p, s, lib, out)
     d = ezdxf.readfile(out)

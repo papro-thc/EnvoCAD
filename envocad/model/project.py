@@ -17,7 +17,7 @@ WIRE_ATTRIBUTES = [
     Attribute("route", "Trasa / uložení"),
 ]
 
-FORMAT_VERSION = 4
+FORMAT_VERSION = 5
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 SHEET_KINDS = ("schematic", "switchboard")
@@ -385,6 +385,20 @@ def migrate(d: dict, ver: int) -> dict:
     if ver < 3:
         d.setdefault("bridges", {})  # v3: můstky svorkovnic
     # v4: volitelné `mp_pos` prvku (ruční pozice ve vícepólu) – bez migrace
+    if ver < 5:
+        # v5: FV string má jeden port DC (pár DC+/DC- jsou žíly), střídač porty DC1/DC2 místo DC+/DC-
+        port_map = {"fve.pv_string": {"DC+": "DC", "DC-": "DC"},
+                    "fve.inverter": {"DC+": "DC1", "DC-": "DC2"}, "fve.inverter_hybrid": {"DC+": "DC1", "DC-": "DC2"}}
+        for s in d.get("sheets", []):
+            sym_of = {e["id"]: e["symbol_id"] for e in s.get("elements", [])}
+            for w in s.get("wires", []):
+                for end in (w["a"], w["b"]):
+                    m = port_map.get(sym_of.get(end["element_id"], ""))
+                    if m and end["port"] in m:
+                        end["port"] = m[end["port"]]
+                if not w.get("conductors") and any(
+                        sym_of.get(end["element_id"]) in port_map for end in (w["a"], w["b"])):
+                    w["conductors"] = ["DC+", "DC-"]
     d["format_version"] = FORMAT_VERSION
     return d
 

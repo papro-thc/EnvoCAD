@@ -46,8 +46,10 @@ def default_conductors(a: Element, pa: str, b: Element, pb: str) -> list[str]:
     """Výchozí žíly nového vodiče podle portů a pólů připojených prvků."""
     for p in (pa, pb):
         up = p.upper()
-        if up.startswith("DC") or up in ("+", "-", "BAT"):
-            return [p if up != "BAT" else "DC+"]
+        if up in ("DC+", "DC-", "+", "-"):
+            return [p]
+        if up.startswith("DC") or up == "BAT":  # jednopólová DC čára = pár DC+ / DC-
+            return ["DC+", "DC-"]
         if up == "PE":
             return ["PE"]
     poles = 1

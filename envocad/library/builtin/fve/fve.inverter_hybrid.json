@@ -83,13 +83,13 @@
   ],
   "ports": [
     {
-      "name": "DC+",
+      "name": "DC1",
       "x": -10,
       "y": 5,
       "dir": "W"
     },
     {
-      "name": "DC-",
+      "name": "DC2",
       "x": -10,
       "y": -5,
       "dir": "W"
