@@ -5,12 +5,26 @@ Cíl: nahradit EPLAN pro naše potřeby, s jedním modelem, ze kterého se gener
 
 ## Instalace (Windows i Linux)
 
+Doporučený Python 3.11–3.13 (3.14 je nový a PySide6 na něm není prověřené).
+
 ```
-python -m venv .venv
-.venv\Scripts\activate        # Windows   |   source .venv/bin/activate   # Linux
-pip install -e .[dev]
-python -m envocad
+# Windows (PowerShell)
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1
+scripts\run.ps1
+
+# Linux (Fedora/Ubuntu)
+bash scripts/install.sh
+scripts/run.sh            # Wayland potíže: QT_QPA_PLATFORM=xcb scripts/run.sh
 ```
+
+Ručně: `python -m venv .venv`, aktivovat, `pip install -e .[dev]`, `python -m envocad`.
+
+## Samostatná aplikace (bez Pythonu, pro kolegy)
+
+`scripts\build.ps1` (Windows) / `scripts/build.sh` (Linux) sestaví přes PyInstaller složku `dist/EnvoCAD`
+s binárkou `EnvoCAD.exe` / `EnvoCAD` (~260 MB, obsahuje Qt). Složku zabalte do ZIP a rozdejte; data
+uživatele (knihovna, pluginy, logy) jsou v `~/.envocad/`, takže aktualizace = přepsat složku aplikace.
+Build pro Windows se musí dělat na Windows, pro Linux na Linuxu.
 
 ## Stav
 

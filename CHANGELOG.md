@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.5.0 – 2026-10-15
+- Instalační skripty `scripts/install.ps1|sh`, `run.*`, balení `scripts/build.*` + `envocad.spec` (PyInstaller, ověřeno na Linuxu). Python omezen na 3.11–3.13.
 - Import značek QElectroTech (`library/qet_import.py`): 673 značek IEC 60617 (jednopól + vícepólové jištění, spínání, transformátory, střídače, zdroje, svorky, relé, kabely) v kategoriích „QET …“, s uvedením autorství (CC BY 3.0, `builtin/qet/ATTRIBUTION.md`).
 - Import z EPLAN exportů (`library/eplan_import.py`): obchodní CSV z Data Portalu, XML artiklů z P8, DXF ZIP → footprinty; heuristické mapování sloupců s `--dump`.
 - Modularita: uživatelské balíčky knihovny v `~/.envocad/library/` (JSON + CSV, bez kódu), pluginy `~/.envocad/plugins/*.py` s `register(ctx)` (menu, šablony, importéry, výkazy); menu Knihovna → Otevřít složku knihovny a pluginů.
