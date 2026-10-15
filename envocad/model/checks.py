@@ -15,6 +15,7 @@ from envocad.model.project import (
     Sheet,
     coil_of,
     contact_terminals,
+    element_symbol,
     interrupt_partner,
     is_contact,
     linked_wire,
@@ -59,7 +60,7 @@ def check_project(project: Project, lib) -> list[Finding]:
         sym_of = {}
         for e in s.elements:
             try:
-                sym = lib.get_symbol(e.symbol_id)
+                sym = element_symbol(project, e, lib)
             except Exception:  # noqa: BLE001
                 out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref, f"Neznámá značka {e.symbol_id}", "symbol"))
                 continue

@@ -125,6 +125,7 @@ def build_ac_fve(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
     _wire(project, sheet, feed, "1", q, "1", AC_CONDUCTORS)
     _wire(project, sheet, q, "2", groups[0], "1", AC_CONDUCTORS)
     _wire(project, sheet, groups[0], "2", spd, "L", AC_CONDUCTORS[:4])
+    _wire(project, sheet, groups[0], "2", pe, "2", ["PE"])   # PE svorka skupiny → PE lišta
     _wire(project, sheet, spd, "PE", pe, "1", ["PE"])
     outs: list[Element] = []
     for i in range(1, n_out + 1):

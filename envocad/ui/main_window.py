@@ -115,6 +115,8 @@ class MainWindow(QMainWindow):
 
         m_file = mb.addMenu("&Soubor")
         act(m_file, "&Nový", self.new_project, "Ctrl+N", True)
+        act(m_file, "Nový projekt z průvodce…", self.new_project_wizard, "Ctrl+Shift+N")
+        act(m_file, "Nový projekt ze specifikace (JSON)…", self.new_project_from_spec)
         act(m_file, "&Otevřít…", self.open_project, "Ctrl+O", True)
         act(m_file, "&Uložit", self.save_project, "Ctrl+S", True)
         act(m_file, "Uložit &jako…", self.save_project_as, "Ctrl+Shift+S")
@@ -721,6 +723,36 @@ class MainWindow(QMainWindow):
     def new_project(self) -> None:
         if self._confirm_discard():
             self._load_project(Project())
+
+    def new_project_wizard(self) -> None:
+        if not self._confirm_discard():
+            return
+        from envocad.generate import build_project
+        from envocad.ui.dialogs import ProjectWizard
+        dlg = ProjectWizard(self, library=self.library)
+        if dlg.exec() != ProjectWizard.Accepted:
+            return
+        try:
+            project = build_project(dlg.spec())
+        except Exception as ex:  # noqa: BLE001
+            QMessageBox.warning(self, "Průvodce", f"Projekt se nepodařilo vygenerovat: {ex}")
+            return
+        self._load_project(project)
+        self.statusBar().showMessage(f"Vygenerováno: {project.meta.get('p_installed_kwp')} kWp – zkontrolujte F7", 6000)
+
+    def new_project_from_spec(self) -> None:
+        if not self._confirm_discard():
+            return
+        path, _ = QFileDialog.getOpenFileName(self, "Specifikace projektu", "", "JSON (*.json)")
+        if not path:
+            return
+        from envocad.generate import build_project, load_spec
+        try:
+            project = build_project(load_spec(path))
+        except Exception as ex:  # noqa: BLE001
+            QMessageBox.warning(self, "Specifikace", f"Projekt se nepodařilo vygenerovat: {ex}")
+            return
+        self._load_project(project)
 
     def open_project(self) -> None:
         if not self._confirm_discard():

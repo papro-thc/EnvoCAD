@@ -322,6 +322,124 @@ class CableDialog(QDialog):
         return d
 
 
+class ProjectWizard(QDialog):
+    """Průvodce novým projektem FVE → specifikace pro `envocad.generate.build_project`."""
+
+    def __init__(self, parent=None, library=None):
+        super().__init__(parent)
+        self.library = library
+        self.setWindowTitle("Nový projekt FVE – průvodce")
+        self.setMinimumWidth(560)
+        lay = QVBoxLayout(self)
+        form = QFormLayout()
+        self.name = QLineEdit("FVE ")
+        self.investor = QLineEdit()
+        self.place = QLineEdit()
+        self.order = QLineEdit()
+        self.author = QLineEdit()
+        form.addRow("Název projektu", self.name)
+        form.addRow("Investor", self.investor)
+        form.addRow("Místo", self.place)
+        form.addRow("Číslo zakázky", self.order)
+        form.addRow("Zpracoval", self.author)
+        self.mod_type = QLineEdit()
+        self.mod_p = QLineEdit("450")
+        self.mod_voc = QLineEdit("49.5")
+        self.mod_vmp = QLineEdit("41.5")
+        self.mod_isc = QLineEdit("13.9")
+        form.addRow("FV modul – typ", self.mod_type)
+        form.addRow("P modulu [Wp]", self.mod_p)
+        form.addRow("Uoc / Umpp modulu [V]", self._pair(self.mod_voc, self.mod_vmp))
+        form.addRow("Isc modulu [A]", self.mod_isc)
+        self.inv_type = QLineEdit()
+        self.inv_p = QLineEdit("25")
+        self.inv_udc = QLineEdit("1100")
+        self.inv_mppt = QLineEdit("200")
+        self.inv_mppt_max = QLineEdit("1000")
+        self.inv_imax = QLineEdit("30")
+        self.strings = QLineEdit("20,20,18,18; 20,20")
+        self.strings.setToolTip("Stringy po střídačích: počty modulů oddělené čárkou, střídače středníkem")
+        form.addRow("Střídač – typ", self.inv_type)
+        form.addRow("P AC střídače [kW]", self.inv_p)
+        form.addRow("U DC max / MPPT min / MPPT max [V]", self._triple(self.inv_udc, self.inv_mppt, self.inv_mppt_max))
+        form.addRow("I max na MPPT [A]", self.inv_imax)
+        form.addRow("Stringy (moduly; střídače ;)", self.strings)
+        self.dc_cable = QLineEdit("H1Z2Z2-K 1x6")
+        self.dc_cross = QLineEdit("6")
+        self.dc_len = QLineEdit("30")
+        form.addRow("DC kabel / průřez / délka", self._triple(self.dc_cable, self.dc_cross, self.dc_len))
+        self.ac_cable = QLineEdit("CYKY-J 5x16")
+        self.ac_cross = QLineEdit("16")
+        self.ac_len = QLineEdit("30")
+        form.addRow("AC kabel střídač–rozvaděč / průřez / délka", self._triple(self.ac_cable, self.ac_cross, self.ac_len))
+        self.ac_breaker = QLineEdit("40")
+        self.ac_main = QLineEdit("125")
+        form.addRow("In jističe střídače / hlavního vypínače [A]", self._pair(self.ac_breaker, self.ac_main))
+        self.grid_cable = QLineEdit("CYKY-J 5x35")
+        self.grid_cross = QLineEdit("35")
+        self.grid_len = QLineEdit("20")
+        form.addRow("Kabel do HDS / průřez / délka", self._triple(self.grid_cable, self.grid_cross, self.grid_len))
+        self.dso = QLineEdit("")
+        form.addRow("Distributor (DSO)", self.dso)
+        lay.addLayout(form)
+        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        lay.addWidget(bb)
+
+    @staticmethod
+    def _pair(a, b) -> QWidget:
+        w = QWidget()
+        h = QHBoxLayout(w)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.addWidget(a)
+        h.addWidget(b)
+        return w
+
+    @staticmethod
+    def _triple(a, b, c) -> QWidget:
+        w = QWidget()
+        h = QHBoxLayout(w)
+        h.setContentsMargins(0, 0, 0, 0)
+        for x in (a, b, c):
+            h.addWidget(x)
+        return w
+
+    @staticmethod
+    def _num(ed: QLineEdit):
+        t = ed.text().strip().replace(",", ".")
+        try:
+            return float(t) if "." in t else int(t)
+        except ValueError:
+            return t
+
+    def spec(self) -> dict:
+        inv_strings = []
+        for part in self.strings.text().split(";"):
+            nums = [int(x) for x in part.replace(" ", "").split(",") if x.strip().isdigit()]
+            if nums:
+                inv_strings.append(nums)
+        inverters = [{"ref": f"T{i + 1}", "type": self.inv_type.text().strip(), "p_ac": self._num(self.inv_p),
+                      "u_dc_max": self._num(self.inv_udc), "u_mppt_min": self._num(self.inv_mppt),
+                      "u_mppt_max": self._num(self.inv_mppt_max), "i_mppt_max": self._num(self.inv_imax),
+                      "strings": st} for i, st in enumerate(inv_strings or [[1]])]
+        return {
+            "name": self.name.text().strip() or "Nový projekt FVE",
+            "meta": {"investor": self.investor.text().strip(), "place": self.place.text().strip(),
+                     "order": self.order.text().strip(), "author": self.author.text().strip()},
+            "module": {"type": self.mod_type.text().strip(), "p_wp": self._num(self.mod_p), "voc": self._num(self.mod_voc),
+                       "vmp": self._num(self.mod_vmp), "isc": self._num(self.mod_isc)},
+            "inverters": inverters,
+            "dc": {"cable": self.dc_cable.text().strip(), "cross": self._num(self.dc_cross), "length": self._num(self.dc_len),
+                   "disconnect": True},
+            "ac": {"cable": self.ac_cable.text().strip(), "cross": self._num(self.ac_cross), "length": self._num(self.ac_len),
+                   "breaker_in": self._num(self.ac_breaker), "main_in": self._num(self.ac_main),
+                   "grid_cable": self.grid_cable.text().strip(), "grid_cross": self._num(self.grid_cross),
+                   "grid_length": self._num(self.grid_len)},
+            "grid": {"dso": self.dso.text().strip()},
+        }
+
+
 class ElementDialog(AttrDialog):
     def __init__(self, symbol: Symbol, attrs: dict[str, str], parent=None, title: str | None = None,
                  library=None, component_id: str | None = None, wire_choices: list[tuple[str, str]] | None = None):
