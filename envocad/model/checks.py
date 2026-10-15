@@ -129,8 +129,38 @@ def check_project(project: Project, lib) -> list[Finding]:
                     out.append(Finding(WARNING, s.id, s.name, "", False, strip,
                                        f"Můstek {strip}:{'-'.join(g)} odkazuje na neexistující svorky {', '.join(missing)}",
                                        "bridge_missing"))
+    out += calc_findings(project)
     order = {ERROR: 0, WARNING: 1, INFO: 2}
     out.sort(key=lambda f: (order[f.severity], f.sheet_name, f.ref))
+    return out
+
+
+def calc_findings(project: Project) -> list[Finding]:
+    """Nálezy z výpočtů (model/calc.py): stringy, kabely, selektivita."""
+    from envocad.model import calc
+    out: list[Finding] = []
+    sheet_of = {e.id: s for s in project.sheets for e in s.elements}
+    el_by_ref = {e.ref: e for s in project.sheets for e in s.elements if e.ref}
+    for sc in calc.check_strings(project):
+        e = el_by_ref.get(sc.ref)
+        s = sheet_of.get(e.id) if e else None
+        for msg in sc.issues:
+            sev = WARNING if ("chybí" in msg or "nemá" in msg or "není" in msg) else ERROR
+            out.append(Finding(sev, s.id if s else "", s.name if s else "", e.id if e else "", False, sc.ref,
+                               f"String: {msg}", "calc_string"))
+    for cc in calc.check_cables(project):
+        s = next((x for x in project.sheets if x.name == cc.sheet), None)
+        w = next((w for w in (s.wires if s else []) if w.attrs.get("ref") == cc.ref), None)
+        for msg in cc.issues:
+            sev = INFO if "chybí" in msg else (WARNING if "úbytek" in msg else ERROR)
+            out.append(Finding(sev, s.id if s else "", cc.sheet, w.id if w else "", True, cc.ref,
+                               f"Kabel: {msg}", "calc_cable"))
+    for lo, hi, _il, _ih, msg in calc.check_selectivity(project):
+        if msg != "OK":
+            e = el_by_ref.get(lo)
+            s = sheet_of.get(e.id) if e else None
+            out.append(Finding(WARNING if "menší" in msg else INFO, s.id if s else "", s.name if s else "",
+                               e.id if e else "", False, lo, f"Selektivita: {msg}", "calc_selectivity"))
     return out
 
 

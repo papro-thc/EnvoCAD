@@ -15,6 +15,7 @@ WIRE_ATTRIBUTES = [
     Attribute("cross", "Průřez [mm²]", "", True),
     Attribute("length", "Délka [m]"),
     Attribute("route", "Trasa / uložení"),
+    Attribute("method", "Uložení dle ČSN (A1/B1/C/D/E)"),
 ]
 
 FORMAT_VERSION = 6

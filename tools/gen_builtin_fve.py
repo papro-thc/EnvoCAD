@@ -71,7 +71,9 @@ SYMBOLS = [
         ],
         "ports": [P("DC", 7.5, 0, "E")],  # jednopólově: jedna čára = pár DC+/DC- (žíly vodiče)
         "attributes": [REF, TYPE, attr("n_modules", "Počet modulů"), attr("p_module", "P modul [Wp]"),
-                       attr("p_string", "P string [kWp]", "", True), attr("voc", "Uoc [V]"), attr("isc", "Isc [A]")],
+                       attr("p_string", "P string [kWp]", "", True), attr("voc", "Uoc modulu STC [V]"),
+                       attr("vmp", "Umpp modulu STC [V]"), attr("isc", "Isc modulu [A]"),
+                       attr("beta_voc", "Tepl. součinitel Uoc [%/K]", "-0.27")],
         "label_pos": {"x": -10, "y": 10},
     },
     {
@@ -114,7 +116,9 @@ SYMBOLS = [
                        A(2.5, -1.5, 1.5, 0, 180), A(5.5, -1.5, 1.5, 180, 360)],
         "ports": [P("DC1", -10, 5, "W"), P("DC2", -10, -5, "W"), P("AC", 10, 0, "E")],  # DC vstupy (MPPT)
         "attributes": [REF, TYPE, attr("p_ac", "P AC [kW]", "", True), attr("p_dc_max", "P DC max [kWp]"),
-                       attr("mppt", "Počet MPPT"), attr("phases", "Fáze", "3")],
+                       attr("mppt", "Počet MPPT"), attr("phases", "Fáze", "3"), attr("u_dc_max", "U DC max [V]"),
+                       attr("u_mppt_min", "U MPPT min [V]"), attr("u_mppt_max", "U MPPT max [V]"),
+                       attr("i_mppt_max", "I max na MPPT [A]"), attr("strings_per_mppt", "Stringů na MPPT")],
         "label_pos": {"x": -10, "y": 16},
     },
     {
@@ -125,7 +129,9 @@ SYMBOLS = [
                        A(2.5, -1.5, 1.5, 0, 180), A(5.5, -1.5, 1.5, 180, 360), T(0, -13.5, "BAT", 2)],
         "ports": [P("DC1", -10, 5, "W"), P("DC2", -10, -5, "W"), P("AC", 10, 0, "E"), P("BAT", 0, -10, "S")],
         "attributes": [REF, TYPE, attr("p_ac", "P AC [kW]", "", True), attr("p_dc_max", "P DC max [kWp]"),
-                       attr("mppt", "Počet MPPT"), attr("phases", "Fáze", "3")],
+                       attr("mppt", "Počet MPPT"), attr("phases", "Fáze", "3"), attr("u_dc_max", "U DC max [V]"),
+                       attr("u_mppt_min", "U MPPT min [V]"), attr("u_mppt_max", "U MPPT max [V]"),
+                       attr("i_mppt_max", "I max na MPPT [A]"), attr("strings_per_mppt", "Stringů na MPPT")],
         "label_pos": {"x": -10, "y": 16},
     },
     {

@@ -40,6 +40,8 @@ Volitelné (podle kategorie): viz tabulka. Neznámou hodnotu nechte **prázdnou*
 | `width_mm`, `height_mm`, `depth_mm` | rozměry | mm (u modulových: šířka, výška čela, hloubka) |
 | `p_loss_w` | ztrátový výkon při In (celý přístroj, všechny póly) | W |
 | `p_ac_kw`, `p_dc_max_kwp`, `mppt`, `phases`, `i_ac_max_a` | střídače | kW, kWp, počet, 1/3, A |
+| `u_dc_max_v`, `u_mppt_min_v`, `u_mppt_max_v`, `i_mppt_max_a`, `strings_per_mppt` | střídače – pro kontrolu stringů (výpočty) | V, V, V, A, ks |
+| `p_wp`, `voc_v`, `vmp_v`, `isc_a`, `imp_a`, `beta_voc` | FV moduly (STC) + tepl. součinitel Uoc | Wp, V, V, A, A, %/K |
 | `e_kwh`, `p_kw`, `u_dc_v` | baterie | kWh, kW, V |
 | `p_wp`, `voc_v`, `isc_a`, `vmp_v`, `imp_a` | FV moduly (STC) | Wp, V, A |
 | `spd_type`, `uc_v`, `up_kv`, `iimp_ka`, `in_ka` | svodiče | T1 / T2 / T1+T2 / T1+T2 DC; V; kV; kA; kA |

@@ -110,14 +110,26 @@
     },
     {
       "key": "voc",
-      "label": "Uoc [V]",
+      "label": "Uoc modulu STC [V]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "vmp",
+      "label": "Umpp modulu STC [V]",
       "default": "",
       "show": false
     },
     {
       "key": "isc",
-      "label": "Isc [A]",
+      "label": "Isc modulu [A]",
       "default": "",
+      "show": false
+    },
+    {
+      "key": "beta_voc",
+      "label": "Tepl. součinitel Uoc [%/K]",
+      "default": "-0.27",
       "show": false
     }
   ],

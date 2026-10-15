@@ -143,6 +143,36 @@
       "label": "Fáze",
       "default": "3",
       "show": false
+    },
+    {
+      "key": "u_dc_max",
+      "label": "U DC max [V]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "u_mppt_min",
+      "label": "U MPPT min [V]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "u_mppt_max",
+      "label": "U MPPT max [V]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "i_mppt_max",
+      "label": "I max na MPPT [A]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "strings_per_mppt",
+      "label": "Stringů na MPPT",
+      "default": "",
+      "show": false
     }
   ],
   "label_pos": {
