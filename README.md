@@ -32,7 +32,7 @@ v0.5 – jednopólové schéma FVE, listy rozvaděčů (schéma + fyzické rozlo
 šablony rozvaděčů, výkazy (xlsx) a protokol kusového ověření (docx), export DXF/PDF, vícepól jako svorkové schéma (automatické rozmístění + posun myší), plán svorkovnice, rámeček s popisovým polem, knihovna 460 artiklů (OEZ, Eaton,
 Schneider, Hager, SMA, SolaX, Huawei, BMR) + 673 značek QElectroTech, import DXF/EPLAN, pluginy, tmavý režim.
 
-Dokumentace: `docs/ARCHITECTURE.md`, `docs/LIBRARY_FORMAT.md`, `docs/ROADMAP.md`, `docs/COMPONENTS.md`.
+Dokumentace: **`docs/MANUAL.md` (uživatelská příručka)**, `docs/ARCHITECTURE.md`, `docs/LIBRARY_FORMAT.md`, `docs/ROADMAP.md`, `docs/COMPONENTS.md`.
 Nastavení a firemní standard: `~/.envocad/settings.json` (menu Knihovna), sdílená knihovna = síťová složka s JSON/CSV.
 Pokyny pro agenty: `CLAUDE.md`.
 
