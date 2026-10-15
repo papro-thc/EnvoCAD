@@ -6,29 +6,24 @@
   "description": "Vývodní svorky rozvaděče",
   "primitives": [
     {
-      "type": "line",
-      "x1": 0,
-      "y1": 5,
-      "x2": 0,
-      "y2": 0
+      "type": "circle",
+      "cx": 0,
+      "cy": 0,
+      "r": 1.5
     },
     {
-      "type": "polyline",
-      "points": [
-        [
-          -5,
-          -5
-        ],
-        [
-          0,
-          0
-        ],
-        [
-          5,
-          -5
-        ]
-      ],
-      "closed": false
+      "type": "line",
+      "x1": 0,
+      "y1": 1.5,
+      "x2": 0,
+      "y2": 5
+    },
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": -1.5,
+      "x2": 0,
+      "y2": -5
     },
     {
       "type": "text",
@@ -100,36 +95,9 @@
         "y1": 1,
         "x2": 0,
         "y2": -3
-      },
-      {
-        "type": "polyline",
-        "points": [
-          [
-            -3,
-            -6
-          ],
-          [
-            0,
-            -3
-          ],
-          [
-            3,
-            -6
-          ]
-        ],
-        "closed": false
       }
     ],
-    "common": [
-      {
-        "type": "text",
-        "x": 0,
-        "y": -10,
-        "text": "VÝVOD",
-        "height": 2,
-        "align": "center"
-      }
-    ],
+    "common": [],
     "link": false,
     "link_at": [
       0,

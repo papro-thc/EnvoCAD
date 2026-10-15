@@ -97,7 +97,7 @@ class PoleItem(QGraphicsItem):
             x0, y0, _x1, y1 = self.symbol.bounds()
             y = sum(h + 1.0 for _, h in lines[1:])
             if self.element.symbol_id == "sb.feed_out":
-                lx, ly = x0, y0 - 6.0 - (y + 2.5)
+                lx, ly = x0, y0 - 3.0 - (y + 2.5)
             elif self.element.rotation == 270 and not mp.is_terminal_block(self.element):
                 # svislý tok (otočení 270°): strana -y je vlevo od prvního pólu – popisek vedle, ne mezi póly
                 lx, ly = x0, y0 - 1.5 - (y + 2.5)

@@ -6,34 +6,29 @@
   "description": "Přívodní svorky rozvaděče (vazba na nadřazený list)",
   "primitives": [
     {
-      "type": "polyline",
-      "points": [
-        [
-          -5,
-          5
-        ],
-        [
-          0,
-          0
-        ],
-        [
-          5,
-          5
-        ]
-      ],
-      "closed": false
+      "type": "circle",
+      "cx": 0,
+      "cy": 0,
+      "r": 1.5
     },
     {
       "type": "line",
       "x1": 0,
-      "y1": 0,
+      "y1": -1.5,
       "x2": 0,
       "y2": -5
     },
     {
+      "type": "line",
+      "x1": 0,
+      "y1": 1.5,
+      "x2": 0,
+      "y2": 5
+    },
+    {
       "type": "text",
       "x": 0,
-      "y": 7.5,
+      "y": 7,
       "text": "PŘÍVOD",
       "height": 2,
       "align": "center"
@@ -100,36 +95,9 @@
         "y1": -1,
         "x2": 0,
         "y2": 3
-      },
-      {
-        "type": "polyline",
-        "points": [
-          [
-            -3,
-            6
-          ],
-          [
-            0,
-            3
-          ],
-          [
-            3,
-            6
-          ]
-        ],
-        "closed": false
       }
     ],
-    "common": [
-      {
-        "type": "text",
-        "x": 0,
-        "y": 8,
-        "text": "PŘÍVOD",
-        "height": 2,
-        "align": "center"
-      }
-    ],
+    "common": [],
     "link": false,
     "link_at": [
       0,
