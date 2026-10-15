@@ -13,9 +13,8 @@ from PySide6.QtWidgets import (
 )
 
 from envocad.library.store import LibraryStore
+from envocad.model.project import WIRE_ATTRIBUTES
 from envocad.ui.items import ElementItem, WireItem
-
-WIRE_ATTRS = [("ref", "Označení"), ("cable", "Typ kabelu"), ("cross", "Průřez [mm²]"), ("length", "Délka [m]")]
 
 
 class LibraryPanel(QWidget):
@@ -83,8 +82,8 @@ class PropertiesPanel(QWidget):
             w = item.wire
             self._target = (w.id, True)
             self.form.addRow(QLabel(f"<b>Vodič</b><br><small>{w.a.element_id}:{w.a.port} → {w.b.element_id}:{w.b.port}</small>"))
-            for key, label in WIRE_ATTRS:
-                self._add_field(key, label, w.attrs.get(key, ""))
+            for a in WIRE_ATTRIBUTES:
+                self._add_field(a.key, a.label, w.attrs.get(a.key, ""))
         else:
             self._target = None
             self.form.addRow(QLabel("<i>Nic není vybráno</i>"))

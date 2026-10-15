@@ -43,6 +43,7 @@ def test_window_and_commands(app, tmp_path):
     win.show()
     app.processEvents()
     sc = win.scene
+    sc.ask_attributes = False
     assert len(sc.element_items) == 5 and len(sc.wire_items) == 4
 
     # vložení symbolu přes režim PLACE
@@ -94,3 +95,18 @@ def test_window_and_commands(app, tmp_path):
     assert win.save_project()
     assert {e.ref for e in Project.load(tmp_path / "s.ecp").sheets[0].elements} >= {"P1", "T1", "G1"}
     del QMouseEvent
+
+
+def test_attr_dialog_and_wire_refs(app, tmp_path):
+    from envocad.model.project import WIRE_ATTRIBUTES
+    from envocad.ui.dialogs import AttrDialog, ElementDialog
+    lib = LibraryStore(tmp_path / "lib.db")
+    sym = lib.get_symbol("fve.inverter")
+    d = ElementDialog(sym, {"ref": "T1", "p_ac": "50"})
+    v = d.values()
+    assert v["ref"] == "T1" and v["p_ac"] == "50" and "phases" in v
+    d2 = AttrDialog(WIRE_ATTRIBUTES, {"ref": "W1", "cable": "CYKY 5x16"})
+    assert d2.values()["cable"] == "CYKY 5x16"
+    # číslování vodičů bere v úvahu existující W-označení
+    p = _project()
+    assert p.next_ref("W") == "W3"

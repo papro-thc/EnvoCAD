@@ -6,7 +6,16 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from envocad.model.symbol import Symbol, rotate_point
+from envocad.model.symbol import Attribute, Symbol, rotate_point
+
+# Atributy vodiče (vodič nemá symbol, proto jsou definované zde)
+WIRE_ATTRIBUTES = [
+    Attribute("ref", "Označení", "", True),
+    Attribute("cable", "Typ kabelu", "", True),
+    Attribute("cross", "Průřez [mm²]", "", True),
+    Attribute("length", "Délka [m]"),
+    Attribute("route", "Trasa / uložení"),
+]
 
 FORMAT_VERSION = 1
 
@@ -130,7 +139,9 @@ class Project:
 
     # ---- označení prvků ---------------------------------------------
     def used_refs(self) -> set[str]:
-        return {e.ref for s in self.sheets for e in s.elements if e.ref}
+        refs = {e.ref for s in self.sheets for e in s.elements if e.ref}
+        refs |= {w.attrs.get("ref", "") for s in self.sheets for w in s.wires if w.attrs.get("ref")}
+        return refs
 
     def next_ref(self, prefix: str) -> str:
         if not prefix:

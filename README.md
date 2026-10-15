@@ -24,10 +24,11 @@ Pokyny pro agenty: `CLAUDE.md`.
 
 | Akce | Jak |
 |---|---|
-| Vložit symbol | dvojklik v panelu Knihovna, pak klik do výkresu (Esc zruší) |
+| Vložit symbol | dvojklik v panelu Knihovna, klik do výkresu, vyplnit parametry v dialogu (Esc zruší režim) |
+| Upravit parametry | dvojklik na prvek nebo vodič |
 | Posun | tažení myší (snap na mřížku 2,5 mm) |
 | Rotace | `R` (o 90°) |
-| Vodič | `W`, klik na port → klik na port |
+| Vodič | `W`, klik na port → klik na port, vyplnit parametry (označení, kabel, průřez) |
 | Smazat | `Delete` |
 | Zoom / posun pohledu | kolečko / střední tlačítko |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Y` |

@@ -135,11 +135,20 @@ class WireItem(QGraphicsPathItem):
         painter.setPen(pen)
         painter.setBrush(Qt.NoBrush)
         painter.drawPath(self.path())
-        ref = self.wire.attrs.get("ref")
-        if ref:
+        label = wire_label(self.wire.attrs)
+        if label:
             c = self.path().pointAtPercent(0.5)
             painter.setPen(QPen(pen.color(), 0.2))
-            draw_text(painter, c.x(), -c.y() + 1.5, ref, 2.0, "center")
+            draw_text(painter, c.x(), -c.y() + 1.5, label, 2.0, "center")
+
+
+def wire_label(attrs: dict) -> str:
+    """Popisek vodiče ve výkresu: označení + typ kabelu + průřez (co je vyplněné)."""
+    parts = [attrs.get("ref", "")]
+    cable = " ".join(x for x in (attrs.get("cable", ""), attrs.get("cross", "")) if x)
+    if cable:
+        parts.append(cable + ("" if "mm" in cable or not attrs.get("cross") else " mm²"))
+    return "  ".join(x for x in parts if x)
 
 
 def route(pa: QPointF, da: str, pb: QPointF, db: str, mid: list[QPointF]) -> QPainterPath:

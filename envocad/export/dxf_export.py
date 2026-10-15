@@ -9,6 +9,14 @@ from envocad.library.store import LibraryStore
 from envocad.model.project import Element, Project, Sheet
 from envocad.model.symbol import GRID, Symbol, rotate_dir, rotate_point
 
+
+def wire_label(attrs: dict) -> str:
+    parts = [attrs.get("ref", "")]
+    cable = " ".join(x for x in (attrs.get("cable", ""), attrs.get("cross", "")) if x)
+    if cable:
+        parts.append(cable + ("" if "mm" in cable or not attrs.get("cross") else " mm²"))
+    return "  ".join(x for x in parts if x)
+
 LAYERS = {
     "SYMBOLY": 7, "VODICE": 7, "TEXTY": 7, "RAMECEK": 8, "PORTY": 1,
 }
@@ -102,9 +110,10 @@ def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Pa
     for w in sheet.wires:
         pts = _wire_points(sheet, lib, w)
         msp.add_lwpolyline(pts, dxfattribs={"layer": "VODICE"})
-        if w.attrs.get("ref"):
+        label = wire_label(w.attrs)
+        if label:
             i = len(pts) // 2 - 1
             mx, my = (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2
-            _text(msp, mx, my + 1.5, w.attrs["ref"], 2.0, "center", 0, layer="TEXTY")
+            _text(msp, mx, my + 1.5, label, 2.0, "center", 0, layer="TEXTY")
     doc.saveas(str(path))
 

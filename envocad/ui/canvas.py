@@ -8,7 +8,7 @@ from PySide6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QPen, QUndoS
 from PySide6.QtWidgets import QGraphicsPathItem, QGraphicsRectItem, QGraphicsScene, QGraphicsView
 
 from envocad.library.store import LibraryStore
-from envocad.model.project import Element, Project, Sheet, Wire, WireEnd
+from envocad.model.project import WIRE_ATTRIBUTES, Element, Project, Sheet, Wire, WireEnd
 from envocad.model.symbol import GRID
 from envocad.ui import commands
 from envocad.ui.items import ElementItem, WireItem, route, snap
@@ -33,6 +33,7 @@ class SchematicScene(QGraphicsScene):
         self.wire_items: dict[str, WireItem] = {}
         self.mode = Mode.SELECT
         self.draw_grid = True
+        self.ask_attributes = True  # dialog s parametry při vložení prvku (testy vypínají)
         self._ghost: ElementItem | None = None
         self._place_symbol_id: str | None = None
         self._wire_from: tuple[ElementItem, str] | None = None
@@ -162,9 +163,15 @@ class SchematicScene(QGraphicsScene):
             return
         if self.mode == Mode.PLACE and ev.button() == Qt.LeftButton and self._place_symbol_id:
             sym = self.library.get_symbol(self._place_symbol_id)
-            e = Element(symbol_id=sym.id, x=snap(p.x()), y=-snap(p.y()))
+            e = Element(symbol_id=sym.id, x=snap(p.x()), y=-snap(p.y()), rotation=self._ghost.element.rotation)
             e.attrs = {a.key: a.default for a in sym.attributes}
             e.attrs["ref"] = self.project.next_ref(sym.iec_ref)
+            if self.ask_attributes:
+                from envocad.ui.dialogs import ElementDialog
+                dlg = ElementDialog(sym, e.attrs, self._parent_widget())
+                if dlg.exec() != ElementDialog.Accepted:
+                    return
+                e.attrs = dlg.values()
             self.undo.push(commands.AddElementCommand(self, e))
             return  # zůstáváme v režimu vkládání (Esc / pravé tlačítko ukončí)
         if self.mode == Mode.WIRE and ev.button() == Qt.LeftButton:
@@ -178,16 +185,66 @@ class SchematicScene(QGraphicsScene):
             else:
                 a, pa = self._wire_from
                 b, pb = hit
-                if not (a is b and pa == pb):
-                    w = Wire(WireEnd(a.element.id, pa), WireEnd(b.element.id, pb))
-                    self.undo.push(commands.AddWireCommand(self, w))
                 self._wire_from = None
                 self.removeItem(self._wire_preview)
+                if not (a is b and pa == pb):
+                    w = Wire(WireEnd(a.element.id, pa), WireEnd(b.element.id, pb))
+                    w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}
+                    w.attrs["ref"] = self.project.next_ref("W")
+                    if self.ask_attributes:
+                        from envocad.ui.dialogs import AttrDialog
+                        dlg = AttrDialog(WIRE_ATTRIBUTES, w.attrs, self._parent_widget(), "Vložit vodič",
+                                         f"<b>Vodič</b> {a.element.ref}:{pa} → {b.element.ref}:{pb}")
+                        if dlg.exec() != AttrDialog.Accepted:
+                            return
+                        w.attrs = dlg.values()
+                    self.undo.push(commands.AddWireCommand(self, w))
             return
         # SELECT: zapamatovat výchozí pozice pro undo posunu
         super().mousePressEvent(ev)
         self._move_start = {it.element.id: (it.element.x, it.element.y)
                             for it in self.selectedItems() if isinstance(it, ElementItem)}
+
+    def _parent_widget(self):
+        return self.views()[0] if self.views() else None
+
+    def mouseDoubleClickEvent(self, ev):
+        if self.mode != Mode.SELECT:
+            return super().mouseDoubleClickEvent(ev)
+        it = self._element_at(ev.scenePos())
+        if it is not None:
+            return self.edit_element(it.element.id)
+        for w in self.items(ev.scenePos()):
+            if isinstance(w, WireItem):
+                return self.edit_wire(w.wire.id)
+        super().mouseDoubleClickEvent(ev)
+
+    def edit_wire(self, wid: str) -> None:
+        from envocad.ui.dialogs import AttrDialog
+        w = next(w for w in self.sheet.wires if w.id == wid)
+        dlg = AttrDialog(WIRE_ATTRIBUTES, w.attrs, self._parent_widget(), f"Upravit vodič {w.attrs.get('ref', '')}")
+        if dlg.exec() != AttrDialog.Accepted:
+            return
+        self._apply_attr_changes(wid, True, w.attrs, dlg.values(), f"Upravit {w.attrs.get('ref') or 'vodič'}")
+
+    def _apply_attr_changes(self, tid: str, is_wire: bool, old: dict, new: dict, label: str) -> None:
+        changed = [(k, v) for k, v in new.items() if old.get(k, "") != v]
+        if not changed:
+            return
+        self.undo.beginMacro(label)
+        for k, v in changed:
+            self.set_attr(tid, is_wire, k, v)
+        self.undo.endMacro()
+
+    def edit_element(self, eid: str) -> None:
+        """Dialog s atributy existujícího prvku; změny jdou přes undo příkazy."""
+        from envocad.ui.dialogs import ElementDialog
+        e = self.sheet.element(eid)
+        sym = self.library.get_symbol(e.symbol_id)
+        dlg = ElementDialog(sym, e.attrs, self._parent_widget(), title=f"Upravit: {e.ref or sym.name}")
+        if dlg.exec() != ElementDialog.Accepted:
+            return
+        self._apply_attr_changes(eid, False, e.attrs, dlg.values(), f"Upravit {e.ref or sym.name}")
 
     def mouseReleaseEvent(self, ev):
         super().mouseReleaseEvent(ev)
