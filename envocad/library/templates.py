@@ -128,17 +128,20 @@ def build_ac_fve(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
                                           "napájení" if i == 0 else f"vývod {i}"))
         project.set_bridges(strip, _bridge_groups(firsts, nc), sheet)
     spd = _el(project, sheet, "fve.spd", x0, y - 60, "F", spd_type="T1+T2", poles="4", modules="4")
-    pe = _el(project, sheet, "sb.pe_bar", x0, y - 90, "X", kind="PE")
     _wire(project, sheet, feed, "1", q, "1", AC_CONDUCTORS)
     if use_bus:
+        # PE je potenciál sběrnice; uzemnění = vývod na ekvipotenciální svorkovnici (HOP) vně rozvaděče
         _wire(project, sheet, q, "2", bus, "T1", AC_CONDUCTORS)
         _wire(project, sheet, bus, "1", spd, "L", AC_CONDUCTORS[:4])
-        _wire(project, sheet, bus, "2", pe, "2", ["PE"])
+        _wire(project, sheet, spd, "PE", bus, "2", ["PE"])
+        xpe = _el(project, sheet, "sb.feed_out", x0 - GROUP_PITCH, y - 95, "X", desc="k ekvipotenciální svorkovnici (HOP)")
+        _wire(project, sheet, bus, str(n_out + 3), xpe, "1", ["PE"])
     else:
+        pe = _el(project, sheet, "sb.pe_bar", x0, y - 90, "X", kind="PE")
         _wire(project, sheet, q, "2", groups[0], "1", AC_CONDUCTORS)
         _wire(project, sheet, groups[0], "2", spd, "L", AC_CONDUCTORS[:4])
         _wire(project, sheet, groups[0], "2", pe, "2", ["PE"])   # PE svorka skupiny → PE lišta
-    _wire(project, sheet, spd, "PE", pe, "1", ["PE"])
+        _wire(project, sheet, spd, "PE", pe, "1", ["PE"])
     outs: list[Element] = []
     for i in range(1, n_out + 1):
         x = x0 + i * GROUP_PITCH

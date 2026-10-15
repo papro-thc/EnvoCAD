@@ -21,7 +21,7 @@ def test_build_project_from_spec(tmp_path):
     assert p.meta["p_installed_kwp"] == "44.1"
     lib = LibraryStore()
     blk = next(e for e in s.elements if e.symbol_id == "fve.switchboard")
-    assert [pt.name for pt in element_symbol(p, blk, lib).ports] == ["X1", "X2", "XOUT"]
+    assert [pt.name for pt in element_symbol(p, blk, lib).ports] == ["X1", "X2", "XOUT", "XPE"]   # XPE = uzemnění na HOP
     # přívody rozvaděče jsou navázané na AC vodiče střídačů, kabely jako objekty
     sb = p.sheets[1]
     feeds = [e for e in sb.elements if e.symbol_id == "sb.feed_in"]

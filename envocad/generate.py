@@ -200,6 +200,13 @@ def build_project(spec: dict) -> Project:
                   attrs={"ref": p.next_ref("W"), "cable": _s(ac.get("grid_cable")), "cross": _s(ac.get("grid_cross")),
                          "length": _s(ac.get("grid_length")), "method": "D"})
     s.wires.append(w_grid)
+    if (ac.get("distribution") or "bus") == "bus":
+        # PE rozvaděče je uzemněný na ekvipotenciální svorkovnici (HOP) vně rozvaděče – vývod XPE → uzemnění
+        earth = Element("fve.earth", x_blk, 150.0 - 60.0, attrs={"ref": "", "desc": "ekvipotenciální svorkovnice (HOP)"})
+        s.elements.append(earth)
+        s.wires.append(Wire(WireEnd(blk.id, "XPE"), WireEnd(earth.id, "PE"), conductors=["PE"],
+                            attrs={"ref": p.next_ref("W"), "cable": _s(ac.get("pe_cable") or "CYA 16"), "cross": _s(ac.get("pe_cross") or 16),
+                                   "length": _s(ac.get("pe_length") or 5)}))
     p.meta.setdefault("p_installed_kwp", f"{p_total:g}")
     # listy DC rozvaděčů a AC rozvaděče
     for b, gens, kind in dc_boxes:
@@ -250,15 +257,19 @@ def _build_ac_switchboard(project: Project, sheet: Sheet, invs: list[dict], ac: 
     x_spd = x0 + n * GROUP_PITCH
     x_out = x0 + (n + 1) * GROUP_PITCH
     spd = _el(project, sheet, "fve.spd", x_spd, y - 60, "F", spd_type=_s(ac.get("spd") or "T1+T2"), poles="4", modules="4")
-    pe = _el(project, sheet, "sb.pe_bar", x_spd, y - 90, "X", kind="PE")
     q = _el(project, sheet, "sb.main_switch", x_out, y - 60, "Q", rot=270, in_=str(ac.get("main_in") or 125), poles="4", modules="4")
     out = _el(project, sheet, "sb.feed_out", x_out, y - 95, "", desc="do HDS / DS")
     out.attrs["ref"] = "XOUT"
     if use_bus:
+        # PE je potenciál sběrnice (1PE) – SPD se na něj napojí přímo; uzemnění = vývod na ekvipotenciální svorkovnici vně
         _wire(project, sheet, bus, "1", spd, "L", AC_CONDUCTORS[:4])   # zdola (vývody)
-        _wire(project, sheet, bus, "2", pe, "2", ["PE"])              # PE potenciál sběrnice → PE lišta
+        _wire(project, sheet, spd, "PE", bus, "2", ["PE"])
         _wire(project, sheet, bus, "3", q, "1", AC_CONDUCTORS)
+        xpe = _el(project, sheet, "sb.feed_out", x_spd - GROUP_PITCH, y - 95, "", desc="k ekvipotenciální svorkovnici (HOP)")
+        xpe.attrs["ref"] = "XPE"
+        _wire(project, sheet, bus, "4", xpe, "1", ["PE"])
     else:
+        pe = _el(project, sheet, "sb.pe_bar", x_spd, y - 90, "X", kind="PE")
         # skupina pro SPD a skupina pro hlavní vypínač / vývod
         first = 1 + n * nc
         firsts.append(first)
@@ -270,7 +281,7 @@ def _build_ac_switchboard(project: Project, sheet: Sheet, invs: list[dict], ac: 
         _wire(project, sheet, g_spd, "2", spd, "L", AC_CONDUCTORS[:4])
         _wire(project, sheet, g_spd, "2", pe, "2", ["PE"])   # PE svorka skupiny → PE lišta
         _wire(project, sheet, g_out, "2", q, "1", AC_CONDUCTORS)
-    _wire(project, sheet, spd, "PE", pe, "1", ["PE"])
+        _wire(project, sheet, spd, "PE", pe, "1", ["PE"])
     _wire(project, sheet, q, "2", out, "1", AC_CONDUCTORS)
     _place_sequential(sheet, [q, spd, *breakers])
     if ac.get("enclosure"):
