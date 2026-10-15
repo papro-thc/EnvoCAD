@@ -341,11 +341,12 @@ SYMBOLS = [
     {
         "id": "sb.pe_bar", "name": "PE/N můstek", "category": "Svorky a propojení", "iec_ref": "X",
         "description": "Ochranná / nulová sběrnice",
+        # porty nahoře (N): vodiče přicházejí od přístrojů shora, lišta je dole a nic přes ni nevede
         "primitives": [{"type": "polyline", "points": [[-15, 0], [15, 0]], "closed": False},
-                       {"type": "polyline", "points": [[-15, 1.5], [15, 1.5]], "closed": False}, T(17, 0, "PE", 2, "left")],
-        "ports": [P(f"{i + 1}", -12.5 + i * 5, -2.5, "S") for i in range(6)],
+                       {"type": "polyline", "points": [[-15, -1.5], [15, -1.5]], "closed": False}, T(17, -1.5, "PE", 2, "left")],
+        "ports": [P(f"{i + 1}", -12.5 + i * 5, 2.5, "N") for i in range(6)],
         "attributes": [REF, attr("kind", "Druh", "PE")],
-        "label_pos": {"x": -15, "y": 3.5},
+        "label_pos": {"x": -15, "y": -4.5},
     },
 ]
 

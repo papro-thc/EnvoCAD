@@ -2,6 +2,7 @@
 
 ## 0.10.1 – 2026-10-15
 - **Značky kontaktů dle IEC 60617 / EPLAN**: kloub pohyblivého kontaktu na straně výstupu (port 2), volný konec u vstupu – ve svislém vícepólu kloub dole, nůž nahoře; spoušť „x“ jističe na volném konci nože, pevný kontakt odpojovače s příčkou na vstupu; pomocné kontakty NO/NC stejně. Pojistkový odpínač má pojistku správně na noži.
+- PE lišta má porty nahoře (vodiče k ní přicházejí shora, nic přes ni nevede); příčky Z-tras ve vícepólu jsou u cíle (80 % délky), ne uprostřed přes prvky v mezilehlém sloupci.
 - Vícepól: PE lišta ve vlastním sloupci pod svými sousedy (SPD…), můstky čárkovaně podél řady svorek místo tlusté „sběrnice“, popisek svislých přístrojů vedle prvního pólu, označení skupiny svorek vedle čáry.
 - **Přívod a vývod rozvaděče jsou svorkovnice**: ve vícepólu má každá žíla svorku s číslem (bez zadání 1…n, jinak atribut „Svorka č.“), jsou v plánu svorkovnice, ve výkazu svorkovnice a v BOM (řadové svorky); popisek vývodu pod svorkami.
 - **Můstky patří listu rozvaděče** (`Sheet.bridges`, formát projektu v7 s migrací) – X1 v RDC1 a X1 v RH jsou různé svorkovnice; `SetBridgesCommand`/`bridge_groups`/`set_bridges`/`bridge_of` berou list.

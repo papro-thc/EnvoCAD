@@ -191,7 +191,7 @@ class ConductorItem(QGraphicsPathItem):
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.setZValue(5)
         self.setPen(QPen(colors().wire, LINE_WIDTH * 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
-        self.setPath(route(pa, da, pb, db, [], stagger=idx * GRID))
+        self.setPath(route(pa, da, pb, db, [], stagger=idx * GRID, jog=0.8))
         self._da, self._db = da, db
 
     def type(self) -> int:
