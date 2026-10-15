@@ -629,12 +629,12 @@ def wire_label(attrs: dict, conductors: list[str] | None = None) -> str:
     parts = [attrs.get("ref", "")]
     cable, cross = attrs.get("cable", ""), attrs.get("cross", "")
     if cross and re.search(rf"[x×]\s*{re.escape(cross)}(\b|$)", cable):
-        cross = ""
+        cross = ""          # průřez už je v typu („1x6“) – jen se doplní jednotka
     if cable and conductors and len(conductors) > 1 and re.search(r"(^|\s)1\s*[x×]\s*\d", cable):
         cable = f"{len(conductors)}× {cable}"
     text = " ".join(x for x in (cable, cross) if x)
     if text:
-        parts.append(text + ("" if "mm" in text or not cross else " mm²"))
+        parts.append(text + ("" if "mm" in text or not (cross or attrs.get("cross")) else " mm²"))
     return "  ".join(x for x in parts if x)
 
 
