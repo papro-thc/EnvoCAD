@@ -6,7 +6,7 @@ from PySide6.QtGui import QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QStyleOptionGraphicsItem, QWidget
 
 from envocad.model.geometry import wire_label_anchor
-from envocad.model.project import Element, Wire
+from envocad.model.project import Element, Wire, wire_label
 from envocad.model.symbol import GRID, Symbol, rotate_dir
 from envocad.ui.render import LINE_WIDTH, draw_text, paint_symbol, sp, symbol_path
 from envocad.ui.theme import colors
@@ -142,13 +142,15 @@ class WireItem(QGraphicsPathItem):
         label = wire_label(self.wire.attrs)
         sc = self.scene()
         xref = sc.wire_xref(self.wire) if hasattr(sc, "wire_xref") else ""
-        if xref:
-            label = f"{label}  {xref}" if label else xref
-        if label:
+        if label or xref:
             pts = path_points(self.path())
             x, y, align, vertical = wire_label_anchor(pts)
             painter.setPen(QPen(pen.color(), 0.2))
-            draw_text(painter, x, y, label, 2.0, align)
+            # křížový odkaz na druhý řádek (pod vodorovný vodič / pod popisek u svislého), aby se krátké úseky nepřekrývaly
+            if label:
+                draw_text(painter, x, y, label, 2.0, align)
+            if xref:
+                draw_text(painter, x, y - (3.0 if label else 0.0) - (1.5 if not vertical and label else 0.0), xref, 1.8, align)
             if vertical:  # značka na vodiči jako v EPLAN (krátká šikmá čárka u popisku)
                 painter.setPen(QPen(pen.color(), 0.3))
                 painter.drawLine(sp(x - 1.5 - 1.2, y + 1.0 - 1.2), sp(x - 1.5 + 1.2, y + 1.0 + 1.2))
@@ -159,13 +161,6 @@ def path_points(path: QPainterPath) -> list[tuple[float, float]]:
     return [(path.elementAt(i).x, -path.elementAt(i).y) for i in range(path.elementCount())]
 
 
-def wire_label(attrs: dict) -> str:
-    """Popisek vodiče ve výkresu: označení + typ kabelu + průřez (co je vyplněné)."""
-    parts = [attrs.get("ref", "")]
-    cable = " ".join(x for x in (attrs.get("cable", ""), attrs.get("cross", "")) if x)
-    if cable:
-        parts.append(cable + ("" if "mm" in cable or not attrs.get("cross") else " mm²"))
-    return "  ".join(x for x in parts if x)
 
 
 def route(pa: QPointF, da: str, pb: QPointF, db: str, mid: list[QPointF], stagger: float = 0.0) -> QPainterPath:

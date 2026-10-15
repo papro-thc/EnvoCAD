@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.1 – 2026-10-15
+- **Generátor / průvodce – DC strana jako na stavbě**: ke každému střídači DC rozvaděče **po trase** (`dc.route_boxes`, odpínač DC + SPD na každý string, stringy procházejí odděleně) a **u technologie** (`dc.tech_box`, pojistkové odpínače gPV + SPD DC na každý MPPT); bloky v JPS mají porty X1…Xn (od stringů) a Xn+1… (dál); kabely string → 1. rozvaděč, mezi rozvaděči (`route_length`) a ke střídači (`tech_length`). Starou variantu (jen odpínač v JPS) zapne `dc.disconnect` bez rozvaděčů. Více rozvaděčů po trase rozšíří list JPS.
+- Nová značka **pojistkový odpínač** (`fve.fuse_disconnect`, F, gPV, 1000 V DC).
+- **Označení jedinečná uvnitř rozvaděče** (jako EPLAN `+RDC1-X1`): kontrola duplicit i varování v dialogu počítají s prostorem označení listu rozvaděče; listy JPS sdílejí jeden.
+- Popisky vodičů: křížový odkaz (`→ RDC1:X1 /2.A2`) na druhém řádku pod vodičem (JPS i DXF), průřez se neopakuje, když ho typ kabelu obsahuje (`H1Z2Z2-K 1x6`).
+- Vícepól: má-li prvek víc dětí (vývod + SPD), pod rodiče se zarovná pokračování toku, odbočky vedle.
+
 ## 0.10.0 – 2026-10-15 (nad rámec EPLAN)
 - **Výpočty z modelu** (`model/calc.py`): kontrola stringů proti střídači (Uoc při −10 °C vs. Umax, Umpp při 70 °C vs. rozsah MPPT, 1,25·Isc vs. Imax vstupu – nové atributy stringu `vmp`, `beta_voc` a střídače `u_dc_max`, `u_mppt_min/max`, `i_mppt_max`), proud kabelem (1,25·Isc, P_AC/√3U, In), zatížitelnost Iz dle ČSN 33 2000-5-52 podle uložení (A1/B1/C/D/E z atributu `method` nebo textu trasy; tabulky orientační), In ≤ Iz, úbytek napětí (mez 3 %), základní selektivita po cestě ke zdroji. Nálezy v kontrole F7 a výkaz **Výpočty**.
 - **Průvodce novým projektem** (`Ctrl+Shift+N`) a **generování ze specifikace JSON** (`Soubor → Nový projekt ze specifikace`, CLI `python -m envocad.generate spec.json out.ecp`) – rozhraní pro agenty: stringy → odpínače DC → střídače → AC rozvaděč (přívody po střídačích, jističe, rozvodné svorky s můstky, SPD, hlavní vypínač, vývod do HDS) → síť, kabely jako objekty, vazby, instalovaný výkon.

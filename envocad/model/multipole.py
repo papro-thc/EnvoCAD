@@ -230,14 +230,17 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
         ids = columns[d]
         ids.sort(key=(lambda i: -poles[i].element.y) if horizontal else (lambda i: poles[i].element.x))
         width = max(flow_extent(poles[i]) for i in ids)
-        # přání: prvek s jediným rodičem v předchozím sloupci, který má jediné dítě, se zarovná pod rodiče
+        # přání: prvek s jediným rodičem v předchozím sloupci se zarovná pod rodiče; má-li rodič víc dětí,
+        # zarovná se jen první z nich podle JPS (pokračování toku), odbočky (SPD…) se naskládají vedle
+        key = ((lambda i: (-poles[i].element.y, poles[i].element.x)) if horizontal
+               else (lambda i: (poles[i].element.x, -poles[i].element.y)))
         wish: dict[str, float] = {}
         for i in ids:
             parents = [p for p in nb[i] if depth.get(p) == d - 1]
             if len(parents) == 1:
                 p = parents[0]
-                children = [c for c in nb[p] if depth.get(c) == d]
-                if len(children) == 1 and p in perp:
+                children = sorted((c for c in nb[p] if depth.get(c) == d), key=key)
+                if children and children[0] == i and p in perp:
                     wish[i] = perp[p]
         # seřadit podle přání (pak podle JPS) a naskládat bez překryvu
         ordered = sorted(ids, key=lambda i: (0, wish[i] * sign) if i in wish else (1, 0))

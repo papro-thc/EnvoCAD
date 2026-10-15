@@ -62,7 +62,7 @@ Pokyny pro agenty: `CLAUDE.md`.
 | Dokumentace | `Ctrl+Shift+E` celá dokumentace do jednoho PDF (titulní list, obsah, listy, výkazy, změnový list) |
 | Ovládací obvody | značky Cívka / Kontakt NO / NC / silový (Relé a stykače); kontakt dostane označení cívky, pod cívkou se kreslí zrcadlo kontaktů |
 | Výpočty | `F7` ukáže i výpočty (stringy, Iz, In ≤ Iz, úbytky, selektivita); výkaz Výpočty; uložení kabelu v atributu „Uložení dle ČSN“ nebo v textu trasy (zem, vzduch, trubka, stěna) |
-| Nový projekt | `Ctrl+Shift+N` průvodce (stringy, střídače, kabely) nebo `Soubor → ze specifikace (JSON)`; CLI `python -m envocad.generate spec.json out.ecp` |
+| Nový projekt | `Ctrl+Shift+N` průvodce (stringy, střídače, DC rozvaděče po trase a u technologie, kabely) nebo `Soubor → ze specifikace (JSON)`; CLI `python -m envocad.generate spec.json out.ecp` |
 | Revize | `Soubor → Porovnat s revizí` → změnový list; `Soubor → Vlastnosti` revize/datum |
 | TZ / DS | `Výstupy → Technická zpráva (docx)`, výkaz Data pro DS |
 | Artikl z knihovny | v dialogu prvku „Vybrat artikl z knihovny…“; menu Knihovna → Prohlížet / Importovat CSV |

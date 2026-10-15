@@ -47,15 +47,19 @@ def _connected_ports(sheet: Sheet, e: Element) -> set[str]:
 
 def check_project(project: Project, lib) -> list[Finding]:
     out: list[Finding] = []
-    # duplicitní označení přes celý projekt (skupiny svorek smí sdílet označení svorkovnice)
-    refs: Counter[str] = Counter()
+    # duplicitní označení: jako v EPLAN je úplné označení „+rozvaděč-X1“ – uvnitř každého rozvaděče (listu) musí být
+    # označení jedinečné, mezi rozvaděči se smí opakovat (X1 v RDC1 i v RH); listy JPS tvoří jeden společný prostor
+    refs: Counter[tuple[str, str]] = Counter()
+
+    def scope(sh) -> str:
+        return sh.id if sh.is_switchboard else ""
     for s in project.sheets:
         for e in s.elements:
             if e.ref and not mp.is_terminal_block(e) and not is_contact(e):
-                refs[e.ref] += 1
+                refs[(scope(s), e.ref)] += 1
         for w in s.wires:
             if w.attrs.get("ref"):
-                refs[w.attrs["ref"]] += 1
+                refs[(scope(s), w.attrs["ref"])] += 1
     for s in project.sheets:
         sym_of = {}
         for e in s.elements:
@@ -68,7 +72,7 @@ def check_project(project: Project, lib) -> list[Finding]:
             if is_contact(e) and e.ref and coil_of(project, e) is None:
                 out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                    f"Kontakt {contact_terminals(e)} bez cívky/přístroje {e.ref}", "contact_alone"))
-            if e.ref and refs[e.ref] > 1 and not mp.is_terminal_block(e) and not is_contact(e):
+            if e.ref and refs[(scope(s), e.ref)] > 1 and not mp.is_terminal_block(e) and not is_contact(e):
                 out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref, f"Duplicitní označení {e.ref}", "dup_ref"))
             if not e.ref and e.symbol_id not in ("fve.earth", "fve.grid", "fve.load"):
                 out.append(Finding(WARNING, s.id, s.name, e.id, False, "", f"Prvek {sym.name} bez označení", "no_ref"))
@@ -109,7 +113,7 @@ def check_project(project: Project, lib) -> list[Finding]:
                 if sym is not None and not any(p.name == end.port for p in sym.ports):
                     out.append(Finding(ERROR, s.id, s.name, w.id, True, ref,
                                        f"Vodič na neexistující port {e.ref or e.symbol_id}:{end.port}", "bad_port"))
-            if ref and refs[ref] > 1:
+            if ref and refs[(scope(s), ref)] > 1:
                 out.append(Finding(ERROR, s.id, s.name, w.id, True, ref, f"Duplicitní označení {ref}", "dup_ref"))
             if not s.is_switchboard and not (w.attrs.get("cable") or w.attrs.get("cross")):
                 out.append(Finding(INFO, s.id, s.name, w.id, True, ref, "Vodič bez typu kabelu / průřezu", "no_cable"))

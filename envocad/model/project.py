@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -368,9 +369,17 @@ class Project:
         return []
 
     # ---- označení prvků ---------------------------------------------
-    def used_refs(self) -> set[str]:
-        refs = {e.ref for s in self.sheets for e in s.elements if e.ref and e.symbol_id not in CONTACT_SYMBOLS}
-        refs |= {w.attrs.get("ref", "") for s in self.sheets for w in s.wires if w.attrs.get("ref")}
+    def used_refs(self, sheet: Sheet | None = None) -> set[str]:
+        """Použitá označení. S `sheet` jen ta ve stejném prostoru označení: list rozvaděče je vlastní prostor
+        (jako EPLAN „+RDC1-X1“), listy JPS sdílejí jeden společný."""
+        if sheet is None:
+            sheets = self.sheets
+        elif sheet.is_switchboard:
+            sheets = [sheet]
+        else:
+            sheets = [s for s in self.sheets if not s.is_switchboard]
+        refs = {e.ref for s in sheets for e in s.elements if e.ref and e.symbol_id not in CONTACT_SYMBOLS}
+        refs |= {w.attrs.get("ref", "") for s in sheets for w in s.wires if w.attrs.get("ref")}
         return refs
 
     def next_ref(self, prefix: str) -> str:
@@ -612,6 +621,18 @@ def feeds_linked_to(project: Project, wire_id: str) -> list[tuple[Sheet, Element
             if hit is not None and hit[1].id == wire_id:
                 out.append((s, e))
     return out
+
+
+def wire_label(attrs: dict) -> str:
+    """Popisek vodiče ve výkresu: označení + typ kabelu + průřez (průřez se vynechá, když ho typ kabelu už obsahuje: „1x6“)."""
+    parts = [attrs.get("ref", "")]
+    cable, cross = attrs.get("cable", ""), attrs.get("cross", "")
+    if cross and re.search(rf"[x×]\s*{re.escape(cross)}(\b|$)", cable):
+        cross = ""
+    text = " ".join(x for x in (cable, cross) if x)
+    if text:
+        parts.append(text + ("" if "mm" in text or not cross else " mm²"))
+    return "  ".join(x for x in parts if x)
 
 
 def wire_xref(project: Project, wire_id: str) -> str:

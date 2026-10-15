@@ -14,11 +14,11 @@ from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QGraphicsRectIte
 from envocad.library.store import LibraryStore
 from envocad.model import multipole as mp
 from envocad.model.geometry import wire_label_anchor
-from envocad.model.project import Element, Project, Sheet, Wire, element_symbol
+from envocad.model.project import Element, Project, Sheet, Wire, element_symbol, wire_label
 from envocad.model.symbol import GRID, Symbol, rotate_dir
 from envocad.ui import commands
 from envocad.ui.canvas import SchematicView
-from envocad.ui.items import PORT_R, path_points, route, snap, wire_label
+from envocad.ui.items import PORT_R, path_points, route, snap
 from envocad.ui.render import LINE_WIDTH, draw_frame, draw_text, paint_symbol, sp, symbol_path
 from envocad.ui.theme import PRINT, colors
 

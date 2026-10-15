@@ -9,7 +9,11 @@ Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
   "inverters": [{"ref": "T1", "type": "SMA STP 25-50", "p_ac": 25, "phases": 3, "u_dc_max": 1100,
                  "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30, "strings": [20, 20, 18, 18],
                  "component_id": "sma-stp-25-50"}],
-  "dc": {"cable": "H1Z2Z2-K 1x6", "cross": 6, "length": 40, "disconnect": true, "fuse_in": 15},
+  "dc": {"cable": "H1Z2Z2-K 1x6", "cross": 6, "length": 40,          # string → první DC rozvaděč
+         "route_boxes": 1, "route_length": 20,                        # DC rozvaděče po trase (odpínač + SPD), kabel mezi nimi
+         "tech_box": true, "tech_length": 5,                          # DC rozvaděč u technologie (pojistkové odpínače + SPD), kabel ke střídači
+         "spd": "T2", "fuse_in": 15, "disconnect_in": 32,
+         "disconnect": false},                                        # jen samostatný odpínač v JPS bez DC rozvaděčů (stará varianta)
   "ac": {"cable": "CYKY-J 5x16", "cross": 16, "length": 30, "breaker_in": 40, "main_in": 125,
          "grid_cable": "CYKY-J 5x35", "grid_cross": 35, "grid_length": 20, "spd": "T1+T2", "enclosure": ""},
   "switchboard": {"ref": "RH", "desc": "AC rozvaděč FVE"},
@@ -39,7 +43,8 @@ DEFAULT_SPEC = {
     "name": "Nový projekt FVE",
     "meta": {},
     "module": {"p_wp": 450, "voc": 49.5, "vmp": 41.5, "isc": 13.9, "beta_voc": -0.27, "type": ""},
-    "dc": {"cable": "H1Z2Z2-K 1x6", "cross": 6, "length": 30, "disconnect": True, "fuse_in": 0},
+    "dc": {"cable": "H1Z2Z2-K 1x6", "cross": 6, "length": 30, "route_boxes": 1, "route_length": 20,
+           "tech_box": True, "tech_length": 5, "spd": "T2", "fuse_in": 15, "disconnect_in": 32, "disconnect": False},
     "ac": {"cable": "CYKY-J 5x16", "cross": 16, "length": 30, "breaker_in": 40, "main_in": 125,
            "grid_cable": "CYKY-J 5x35", "grid_cross": 35, "grid_length": 20, "spd": "T1+T2", "enclosure": ""},
     "switchboard": {"ref": "RH", "desc": "AC rozvaděč FVE"},
@@ -72,12 +77,22 @@ def build_project(spec: dict) -> Project:
     row_h = [max(55.0, 30.0 * max(len(inv.get("strings") or [1]), 1) + 20.0) for inv in invs]
     total_h = sum(row_h)
     y_top = min(250.0, 150.0 + total_h / 2)
-    x_str, x_dc, x_inv, x_blk, x_grid = 40.0, 130.0, 200.0, 300.0, 395.0
+    n_route = max(0, int(dc.get("route_boxes") or 0))
+    n_boxes = n_route + (1 if dc.get("tech_box") else 0)
+    box_pitch = 65.0
+    x_str = 35.0
+    x_boxes = [100.0 + j * box_pitch for j in range(n_boxes)]
+    x_dc = 130.0                                                   # samostatný odpínač DC (bez rozvaděčů)
+    x_inv = (x_boxes[-1] + box_pitch) if n_boxes else 200.0
+    x_blk, x_grid = x_inv + 85.0, x_inv + 165.0
+    if x_grid + 25.0 > s.width:    # víc DC rozvaděčů po trase → širší list (A2 na výšku A3)
+        s.width, s.paper = x_grid + 25.0, "vlastní"
     p_total = 0.0
     blk = Element("fve.switchboard", x_blk, 150.0, attrs={"ref": spec["switchboard"]["ref"], "desc": spec["switchboard"]["desc"]})
     s.elements.append(blk)
     y = y_top
     inverter_elements: list[Element] = []
+    dc_boxes: list[tuple[Element, list[Element], str]] = []   # (blok, stringy, druh) – listy se dostaví po JPS
     for i, inv in enumerate(invs):
         strings = inv.get("strings") or [1]
         y_mid = y - row_h[i] / 2
@@ -90,6 +105,7 @@ def build_project(spec: dict) -> Project:
             "p_dc_max": _s(inv.get("p_dc_max"))}, component_id=inv.get("component_id"))
         s.elements.append(t)
         inverter_elements.append(t)
+        gens: list[Element] = []
         for k, n_mod in enumerate(strings):
             ys = y - 15.0 - k * 30.0
             p_str = round(n_mod * float(mod.get("p_wp") or 0) / 1000, 2)
@@ -99,21 +115,42 @@ def build_project(spec: dict) -> Project:
                 "p_string": f"{p_str:g} kWp", "voc": _s(mod.get("voc")), "vmp": _s(mod.get("vmp")),
                 "isc": _s(mod.get("isc")), "beta_voc": _s(mod.get("beta_voc"))})
             s.elements.append(g)
-            target, port = t, "DC1" if k % 2 == 0 else "DC2"
-            if dc.get("disconnect"):
-                q = Element("fve.dc_disconnect", x_dc, ys, attrs={"ref": p.next_ref("Q"), "in_": "32", "poles": "2", "modules": "2"})
+            gens.append(g)
+        # DC rozvaděče: po trase (odpínač + SPD) a u technologie (pojistkové odpínače + SPD); stringy jimi procházejí odděleně
+        boxes: list[Element] = []
+        for j in range(n_boxes):
+            kind = "tech" if (dc.get("tech_box") and j == n_boxes - 1) else "route"
+            desc = f"DC rozvaděč u {ref_t}" if kind == "tech" else (f"DC rozvaděč po trase {ref_t}" + (f" ({j + 1})" if n_route > 1 else ""))
+            b = Element("fve.switchboard", x_boxes[j], y_mid, attrs={"ref": p.next_ref("RDC"), "desc": desc})
+            s.elements.append(b)
+            boxes.append(b)
+            dc_boxes.append((b, gens, kind))
+        n_str = len(gens)
+        for k, g in enumerate(gens):
+            port_inv = "DC1" if k % 2 == 0 else "DC2"
+            if boxes:
+                prev, prev_port = g, "DC"
+                for j, b in enumerate(boxes):
+                    length = dc.get("length") if j == 0 else dc.get("route_length")
+                    s.wires.append(Wire(WireEnd(prev.id, prev_port), WireEnd(b.id, f"X{k + 1}"), conductors=list(DC_CONDUCTORS),
+                                        attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": _s(dc.get("cross")),
+                                               "length": _s(length), "method": "E"}))
+                    prev, prev_port = b, f"X{n_str + k + 1}"
+                s.wires.append(Wire(WireEnd(prev.id, prev_port), WireEnd(t.id, port_inv), conductors=list(DC_CONDUCTORS),
+                                    attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": _s(dc.get("cross")),
+                                           "length": _s(dc.get("tech_length")), "method": "E"}))
+            elif dc.get("disconnect"):
+                q = Element("fve.dc_disconnect", x_dc, g.y, attrs={"ref": p.next_ref("Q"), "in_": _s(dc.get("disconnect_in") or 32),
+                                                                  "poles": "2", "modules": "2"})
                 s.elements.append(q)
-                w1 = Wire(WireEnd(g.id, "DC"), WireEnd(q.id, "1"), conductors=list(DC_CONDUCTORS),
-                          attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": _s(dc.get("cross")),
-                                 "length": _s(dc.get("length")), "method": "E"})
-                s.wires.append(w1)
-                w2 = Wire(WireEnd(q.id, "2"), WireEnd(t.id, port), conductors=list(DC_CONDUCTORS), attrs={"ref": ""})
-                s.wires.append(w2)
+                s.wires.append(Wire(WireEnd(g.id, "DC"), WireEnd(q.id, "1"), conductors=list(DC_CONDUCTORS),
+                                    attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": _s(dc.get("cross")),
+                                           "length": _s(dc.get("length")), "method": "E"}))
+                s.wires.append(Wire(WireEnd(q.id, "2"), WireEnd(t.id, port_inv), conductors=list(DC_CONDUCTORS), attrs={"ref": ""}))
             else:
-                w1 = Wire(WireEnd(g.id, "DC"), WireEnd(target.id, port), conductors=list(DC_CONDUCTORS),
-                          attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": _s(dc.get("cross")),
-                                 "length": _s(dc.get("length")), "method": "E"})
-                s.wires.append(w1)
+                s.wires.append(Wire(WireEnd(g.id, "DC"), WireEnd(t.id, port_inv), conductors=list(DC_CONDUCTORS),
+                                    attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": _s(dc.get("cross")),
+                                           "length": _s(dc.get("length")), "method": "E"}))
         # AC vodič ke bloku rozvaděče – port podle přívodu (X1, X2…), doplní se po vytvoření listu
         w_ac = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, f"X{i + 1}"), conductors=list(AC_CONDUCTORS),
                     attrs={"ref": p.next_ref("W"), "cable": _s(ac.get("cable")), "cross": _s(ac.get("cross")),
@@ -134,12 +171,49 @@ def build_project(spec: dict) -> Project:
                          "length": _s(ac.get("grid_length")), "method": "D"})
     s.wires.append(w_grid)
     p.meta.setdefault("p_installed_kwp", f"{p_total:g}")
-    # list AC rozvaděče
+    # listy DC rozvaděčů a AC rozvaděče
+    for b, gens, kind in dc_boxes:
+        _build_dc_box(p, p.create_switchboard_sheet(b), gens, kind, dc)
     sb = p.create_switchboard_sheet(blk)
     _build_ac_switchboard(p, sb, invs, ac, spec)
     sync_feed_links(p)
     sync_cables(p)
     return p
+
+
+def _build_dc_box(project: Project, sheet: Sheet, gens: list[Element], kind: str, dc: dict) -> None:
+    """DC rozvaděč: každý string prochází odděleně – přívod X1…Xn → odpínač DC (po trase) nebo pojistkový odpínač
+    (u technologie) → vývod X(n+1)…X(2n); SPD DC na každý MPPT (stringy 1,3,… = MPPT1, 2,4,… = MPPT2), PE lišta."""
+    n = len(gens)
+    y, x0 = 200.0, 60.0
+    devices: list[Element] = []
+    outs: list[Element] = []
+    for k, g in enumerate(gens):
+        x = x0 + k * GROUP_PITCH
+        feed = _el(project, sheet, "sb.feed_in", x, y + 40, "", desc=f"od {g.ref}")
+        feed.attrs["ref"] = f"X{k + 1}"
+        if kind == "tech":
+            d = _el(project, sheet, "fve.fuse_disconnect", x, y + 10, "F", rot=270, in_=_s(dc.get("fuse_in") or 15), char="gPV",
+                    un="1000", poles="2", modules="2")
+        else:
+            d = _el(project, sheet, "fve.dc_disconnect", x, y + 10, "Q", rot=270, in_=_s(dc.get("disconnect_in") or 32),
+                    un="1000", poles="2", modules="2")
+        out = _el(project, sheet, "sb.feed_out", x, y - 30, "", desc=f"{g.ref} dál")
+        out.attrs["ref"] = f"X{n + k + 1}"
+        _wire(project, sheet, feed, "1", d, "1", DC_CONDUCTORS)
+        _wire(project, sheet, d, "2", out, "1", DC_CONDUCTORS)
+        devices.append(d)
+        outs.append(out)
+    x_spd = x0 + n * GROUP_PITCH
+    pe = _el(project, sheet, "sb.pe_bar", x_spd, y - 60, "X", kind="PE")
+    spds: list[Element] = []
+    for m in range(min(2, n)):   # SPD na MPPT: string 1,3,… → MPPT1, 2,4,… → MPPT2
+        spd = _el(project, sheet, "fve.spd", x_spd + m * 20.0, y - 10, "F", spd_type=_s(dc.get("spd") or "T2") + " DC",
+                  uc="1000", poles="3", modules="3", desc=f"MPPT{m + 1}")
+        _wire(project, sheet, devices[m], "2", spd, "L", DC_CONDUCTORS)
+        _wire(project, sheet, spd, "PE", pe, "1", ["PE"])
+        spds.append(spd)
+    _place_sequential(sheet, [*devices, *spds])
 
 
 def _build_ac_switchboard(project: Project, sheet: Sheet, invs: list[dict], ac: dict, spec: dict) -> None:

@@ -6,7 +6,8 @@ from envocad.model.project import Element, Project
 
 
 def test_diff_projects(tmp_path):
-    spec = {"name": "Diff", "inverters": [{"ref": "T1", "p_ac": 25, "strings": [20, 20]}]}
+    spec = {"name": "Diff", "inverters": [{"ref": "T1", "p_ac": 25, "strings": [20, 20]}],
+            "dc": {"route_boxes": 0, "tech_box": False, "disconnect": True}}
     p1 = build_project(spec)
     p1.save(tmp_path / "r0.ecp")
     p2 = Project.load(tmp_path / "r0.ecp")

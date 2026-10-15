@@ -223,7 +223,7 @@ class SchematicScene(QGraphicsScene):
         """Označení pro kontrolu duplicit; skupiny svorek sdílejí označení svorkovnice, ty se nekontrolují."""
         if symbol_id in ("sb.terminal_block", "fve.terminal"):
             return set()
-        return self.project.used_refs()
+        return self.project.used_refs(self.sheet)
 
     def _parent_widget(self):
         return self.views()[0] if self.views() else None
@@ -246,7 +246,7 @@ class SchematicScene(QGraphicsScene):
         from envocad.ui.dialogs import WireDialog
         log.info("dialog: vložit vodič")
         dlg = WireDialog(w.attrs, w.conductors, self._parent_widget(), "Vložit vodič", heading)
-        dlg.used_refs = self.project.used_refs()
+        dlg.used_refs = self.project.used_refs(self.sheet)
         if dlg.exec() != WireDialog.Accepted:
             return
         w.attrs = dlg.values()
@@ -275,7 +275,7 @@ class SchematicScene(QGraphicsScene):
         from envocad.ui.dialogs import WireDialog
         w = next(w for w in self.sheet.wires if w.id == wid)
         dlg = WireDialog(w.attrs, w.conductors, self._parent_widget(), f"Upravit vodič {w.attrs.get('ref', '')}")
-        dlg.used_refs = self.project.used_refs()
+        dlg.used_refs = self.project.used_refs(self.sheet)
         if dlg.exec() != WireDialog.Accepted:
             return
         label = f"Upravit {w.attrs.get('ref') or 'vodič'}"

@@ -98,6 +98,19 @@ SYMBOLS = [
         "label_pos": {"x": -5, "y": 4},
     },
     {
+        "id": "fve.fuse_disconnect", "name": "Pojistkový odpínač", "category": "Jištění", "iec_ref": "F",
+        "description": "Pojistkový odpínač (pojistka ve vyklápěcím držáku) – DC rozvaděč u technologie, gPV",
+        "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 4, 4), L(2.5, 0, 7.5, 0), L(2.5, -1.5, 2.5, 1.5),
+                       # pojistka na páce (natočený obdélník)
+                       L(-1.5, -0.5, 3.0, 2.3), L(-0.5, -2.1, 4.0, 0.7), L(-1.5, -0.5, -0.5, -2.1), L(3.0, 2.3, 4.0, 0.7)],
+        "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "gPV"),
+                       attr("un", "Un [V DC]", "1000"), attr("poles", "Póly", "2"), attr("modules", "Šířka [moduly]", "2"), PLOSS],
+        "multipole": MP([L(-7.5, 0, -2.5, 0), L(-2.5, 0, 4, 4), L(2.5, 0, 7.5, 0), L(2.5, -1.5, 2.5, 1.5),
+                         L(-1.5, -0.5, 3.0, 2.3), L(-0.5, -2.1, 4.0, 0.7), L(-1.5, -0.5, -0.5, -2.1), L(3.0, 2.3, 4.0, 0.7)]),
+        "label_pos": {"x": -5, "y": -6},
+    },
+    {
         "id": "fve.spd", "name": "Svodič přepětí (SPD)", "category": "Jištění", "iec_ref": "F",
         "description": "Svodič přepětí, typ 1/2, DC nebo AC",
         "primitives": [R(-2.5, -5, 5, 10), L(0, 5, 0, 7.5), L(0, -5, 0, -7.5), L(-2, -3.5, 2, 3.5),

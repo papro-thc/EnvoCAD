@@ -506,3 +506,22 @@ def test_autosave_recent_and_a4(app, tmp_path, monkeypatch):
     w.undo.setClean()
     w.close()
     os.environ.pop("ENVOCAD_HOME", None)
+
+
+def test_wizard_spec_dc_boxes(app):
+    from envocad.generate import build_project
+    from envocad.ui.dialogs import ProjectWizard
+    d = ProjectWizard()
+    d.strings.setText("20,20; 18")
+    d.dc_route_boxes.setText("2")
+    spec = d.spec()
+    assert spec["dc"]["route_boxes"] == 2 and spec["dc"]["tech_box"] is True and spec["dc"]["disconnect"] is False
+    p = build_project(spec)
+    assert len([s for s in p.sheets if s.is_switchboard]) == 2 * 3 + 1
+    d.dc_tech_box.setChecked(False)
+    d.dc_route_boxes.setText("0")
+    spec = d.spec()
+    assert spec["dc"]["disconnect"] is True
+    p = build_project(spec)
+    assert len([s for s in p.sheets if s.is_switchboard]) == 1
+    assert any(e.symbol_id == "fve.dc_disconnect" for e in p.sheets[0].elements)

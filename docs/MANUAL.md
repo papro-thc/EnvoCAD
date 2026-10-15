@@ -179,9 +179,16 @@ základní selektivita (poměr In po cestě ke zdroji ≥ 1,6). Tabulky Iz jsou 
 
 `Ctrl+Shift+N` (Soubor → Nový projekt z průvodce): zadej projekt a investora, modul (typ, Wp, Uoc, Umpp, Isc),
 střídač (typ, P AC, Umax, rozsah MPPT, Imax), stringy po střídačích (`20,20,18; 20,20`), kabely a jištění.
-Vygeneruje se JPS (stringy → odpínače DC → střídače → AC rozvaděč → síť) a list AC rozvaděče s přívody po
-střídačích, jističi, rozvodnými svorkami s můstky, SPD, hlavním vypínačem a vývodem do HDS, včetně kabelů
-a vazeb. Hned potom spusť `F7`.
+Vygeneruje se JPS (stringy → DC rozvaděče → střídače → AC rozvaděč → síť) a listy všech rozvaděčů včetně
+kabelů a vazeb. Hned potom spusť `F7`.
+
+DC strana se dělá jako na stavbě: ke každému střídači vznikne **DC rozvaděč po trase** (počet zadáš, i 0 –
+odpínač DC a SPD na každý string, stringy jím procházejí odděleně) a **DC rozvaděč u technologie**
+(pojistkové odpínače gPV a SPD DC na každý MPPT). Blok DC rozvaděče v JPS má porty podle přívodů
+(X1…Xn od stringů) a vývodů (Xn+1… dál). Když obojí vypneš, vloží se jen samostatný odpínač DC v JPS.
+AC rozvaděč má přívody po střídačích, jističe, rozvodné svorky s můstky, SPD, hlavní vypínač a vývod do HDS.
+Označení jsou jedinečná uvnitř každého rozvaděče (jako v EPLAN `+RDC1-X1`), takže X1 smí být v každém
+rozvaděči; listy JPS sdílejí jeden prostor označení.
 
 Totéž umí příkaz `python -m envocad.generate spec.json vystup.ecp` – specifikace je JSON popsaný
 v `envocad/generate.py`. To je cesta pro AI agenty: z poptávky a datasheetů připraví specifikaci, program

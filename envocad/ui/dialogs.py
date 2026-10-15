@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -263,7 +264,6 @@ class CableDialog(QDialog):
         form.addRow("Délka [m]", self.length)
         form.addRow("Trasa / uložení", self.route)
         form.addRow("Poznámka", self.note)
-        from PySide6.QtWidgets import QCheckBox
         self.shield = QCheckBox("stíněný kabel")
         self.shield.setChecked(cable.shield)
         form.addRow("Stínění", self.shield)
@@ -372,7 +372,18 @@ class ProjectWizard(QDialog):
         self.dc_cable = QLineEdit(str(std.get("dc_cable") or "H1Z2Z2-K 1x6"))
         self.dc_cross = QLineEdit(str(std.get("dc_cross") or "6"))
         self.dc_len = QLineEdit("30")
-        form.addRow("DC kabel / průřez / délka", self._triple(self.dc_cable, self.dc_cross, self.dc_len))
+        form.addRow("DC kabel / průřez / délka string → 1. DC rozvaděč [m]", self._triple(self.dc_cable, self.dc_cross, self.dc_len))
+        self.dc_route_boxes = QLineEdit("1")
+        self.dc_route_len = QLineEdit("20")
+        self.dc_route_boxes.setToolTip("DC rozvaděče po trase (odpínač DC + SPD na každý string); 0 = žádný")
+        form.addRow("DC rozvaděčů po trase / délka kabelu mezi nimi [m]", self._pair(self.dc_route_boxes, self.dc_route_len))
+        self.dc_tech_box = QCheckBox("DC rozvaděč u technologie (pojistkové odpínače + SPD)")
+        self.dc_tech_box.setChecked(True)
+        self.dc_tech_len = QLineEdit("5")
+        self.dc_fuse_in = QLineEdit("15")
+        self.dc_spd = QLineEdit("T2")
+        form.addRow("", self.dc_tech_box)
+        form.addRow("Délka ke střídači [m] / In pojistek [A] / SPD DC", self._triple(self.dc_tech_len, self.dc_fuse_in, self.dc_spd))
         self.ac_cable = QLineEdit(str(std.get("ac_cable") or "CYKY-J 5x16"))
         self.ac_cross = QLineEdit(str(std.get("ac_cross") or "16"))
         self.ac_len = QLineEdit("30")
@@ -436,7 +447,10 @@ class ProjectWizard(QDialog):
                        "vmp": self._num(self.mod_vmp), "isc": self._num(self.mod_isc)},
             "inverters": inverters,
             "dc": {"cable": self.dc_cable.text().strip(), "cross": self._num(self.dc_cross), "length": self._num(self.dc_len),
-                   "disconnect": True},
+                   "route_boxes": self._num(self.dc_route_boxes) or 0, "route_length": self._num(self.dc_route_len),
+                   "tech_box": self.dc_tech_box.isChecked(), "tech_length": self._num(self.dc_tech_len),
+                   "fuse_in": self._num(self.dc_fuse_in), "spd": self.dc_spd.text().strip() or "T2",
+                   "disconnect": not self.dc_tech_box.isChecked() and not self._num(self.dc_route_boxes)},
             "ac": {"cable": self.ac_cable.text().strip(), "cross": self._num(self.ac_cross), "length": self._num(self.ac_len),
                    "breaker_in": self._num(self.ac_breaker), "main_in": self._num(self.ac_main),
                    "grid_cable": self.grid_cable.text().strip(), "grid_cross": self._num(self.grid_cross),

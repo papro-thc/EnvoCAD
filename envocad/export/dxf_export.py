@@ -7,16 +7,8 @@ import ezdxf
 
 from envocad.library.store import LibraryStore
 from envocad.model.geometry import wire_label_anchor
-from envocad.model.project import Element, Project, Sheet, element_symbol
+from envocad.model.project import Element, Project, Sheet, element_symbol, wire_label, wire_xref
 from envocad.model.symbol import GRID, Symbol, rotate_dir, rotate_point
-
-
-def wire_label(attrs: dict) -> str:
-    parts = [attrs.get("ref", "")]
-    cable = " ".join(x for x in (attrs.get("cable", ""), attrs.get("cross", "")) if x)
-    if cable:
-        parts.append(cable + ("" if "mm" in cable or not attrs.get("cross") else " mm²"))
-    return "  ".join(x for x in parts if x)
 
 LAYERS = {
     "SYMBOLY": 7, "VODICE": 7, "TEXTY": 7, "RAMECEK": 8, "PORTY": 1,
@@ -130,9 +122,13 @@ def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Pa
         pts = _wire_points(project, sheet, lib, w)
         msp.add_lwpolyline(pts, dxfattribs={"layer": "VODICE"})
         label = wire_label(w.attrs)
-        if label:
+        xref = wire_xref(project, w.id) if not sheet.is_switchboard else ""
+        if label or xref:
             x, y, align, vertical = wire_label_anchor(pts)
-            _text(msp, x, y, label, 2.0, align, 0, layer="TEXTY")
+            if label:
+                _text(msp, x, y, label, 2.0, align, 0, layer="TEXTY")
+            if xref:
+                _text(msp, x, y - (3.0 if label else 0.0) - (1.5 if not vertical and label else 0.0), xref, 1.8, align, 0, layer="TEXTY")
             if vertical:
                 msp.add_line((x - 2.7, y - 0.2), (x - 0.3, y + 2.2), dxfattribs={"layer": "VODICE"})
     doc.saveas(str(path))
