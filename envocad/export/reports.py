@@ -55,15 +55,36 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
     """Výkaz materiálu – sloučeno podle přístroje/typu/výrobce/parametrů."""
     head = ["Pol.", "Přístroj", "Typ", "Výrobce", "Parametry", "Ks", "Označení"]
     groups: OrderedDict[tuple, list[str]] = OrderedDict()
+    from envocad.model.multipole import is_terminal_block, terminal_numbers, wire_conductors
+    qty: dict[tuple, int] = {}
     for s in _sheets(project, sheet):
         for e in s.elements:
             if e.symbol_id in NON_DEVICE_SYMBOLS:
                 continue
+            if is_terminal_block(e):
+                # skupina svorek = tolik kusů svorky, kolik má žil; parametr = průřez/druh z artiklu
+                n = len({c for w in s.wires for end in (w.a, w.b) if end.element_id == e.id for c in wire_conductors(w)})
+                n = n or len([x for x in terminal_numbers(e, 1) if x]) or 1
+                params = ", ".join(x for x in (e.attrs.get("cross", "") and f"{e.attrs['cross']} mm²",
+                                               e.attrs.get("kind", "")) if x)
+                key = ("Řadová svorka", e.attrs.get("type", ""), e.attrs.get("manufacturer", ""), params)
+                groups.setdefault(key, []).append(f"{e.ref} ({n})")
+                qty[key] = qty.get(key, 0) + n
+                continue
             key = (lib.get_symbol(e.symbol_id).name, e.attrs.get("type", ""), e.attrs.get("manufacturer", ""), _param_str(e))
             groups.setdefault(key, []).append(e.ref)
+            qty[key] = qty.get(key, 0) + 1
+        # můstky: za každou skupinu můstků jeden (vícepólový) můstek dané svorkovnice
+        if s.is_switchboard or sheet is not None:
+            strips = {e.ref for e in s.elements if is_terminal_block(e) and e.ref}
+            for strip in sorted(strips):
+                for g in project.bridge_groups(strip):
+                    key = ("Můstek svorek", "", "", f"{len(g)} pólů")
+                    groups.setdefault(key, []).append(f"{strip}:{'-'.join(g)}")
+                    qty[key] = qty.get(key, 0) + 1
     rows = []
     for i, (key, refs) in enumerate(sorted(groups.items(), key=lambda kv: (kv[0][0], kv[0][3])), start=1):
-        rows.append([i, key[0], key[1], key[2], key[3], len(refs), ", ".join(sorted(refs, key=_ref_key))])
+        rows.append([i, key[0], key[1], key[2], key[3], qty[key], ", ".join(sorted(refs, key=_ref_key))])
     return head, rows
 
 
@@ -130,5 +151,19 @@ def _ref_key(ref: str) -> tuple:
     return (m.group(1), int(m.group(2) or 0)) if m else (ref, 0)
 
 
+def terminal_plan_report(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
+    """Plán svorkovnice: vnější strana | svorka | můstek | vnitřní strana (jako v EPLAN)."""
+    from envocad.model.terminal_plan import terminal_plan
+    head = ["Svorkovnice", "Svorka", "Žíla", "Vnější připojení", "Vnější kabel", "Můstek", "Vnitřní připojení",
+            "Vnitřní kabel", "List"]
+    rows = []
+    for s in _sheets(project, sheet):
+        for plan in terminal_plan(project, s):
+            for r in plan.rows:
+                rows.append([r.strip, r.number, r.conductor, r.external, r.ext_cable, r.bridge, r.internal, r.int_cable,
+                             s.name])
+    return head, rows
+
+
 ALL_REPORTS = [("Přístroje", device_list), ("Výkaz materiálu", bom), ("Kabely", cables),
-               ("Svorkovnice", terminals), ("Štítky", labels)]
+               ("Svorkovnice", terminals), ("Plán svorkovnice", terminal_plan_report), ("Štítky", labels)]

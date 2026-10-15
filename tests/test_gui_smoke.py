@@ -327,3 +327,28 @@ def test_strip_dialog_and_bridges(app, tmp_path):
     assert any(r[1] == "7" and r[5] == "2-7-12-17" for r in x2), x2[:5]
     w.undo.setClean()
     w.close()
+
+
+def test_terminal_plan_view_and_pdf(app, tmp_path):
+    from envocad.library.templates import apply_template
+    from envocad.ui.terminal_plan_view import TerminalPlanView
+    p = Project(name="Plán")
+    s = p.sheets[0]
+    t = Element("fve.inverter", 50, 150, attrs={"ref": "T1"})
+    blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
+    s.elements += [t, blk]
+    s.wires.append(Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "1"), attrs={"ref": "W2", "cable": "CYKY-J 5x16"},
+                        conductors=["L1", "L2", "L3", "N", "PE"]))
+    sb = p.create_switchboard_sheet(blk)
+    apply_template(p, sb, "ac_fve")
+    w = MainWindow(LibraryStore(), p)
+    w.open_sheet(sb, "terminals")
+    assert isinstance(w.view, TerminalPlanView)
+    sc = w.view.scene()
+    assert [pl.strip for pl in sc.plans][:2] == ["X1", "X2"] and sc.plans[0].rows[0].external == "T1:AC"
+    from envocad.export.pdf_export import export_scene_pdf
+    out = tmp_path / "plan.pdf"
+    export_scene_pdf(sc, out)
+    assert out.stat().st_size > 500
+    w.undo.setClean()
+    w.close()

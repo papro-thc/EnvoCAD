@@ -44,7 +44,7 @@ def test_xlsx_and_docx(tmp_path):
     x = tmp_path / "r.xlsx"
     export_reports_xlsx(p, lib, x, s)
     wb = load_workbook(x)
-    assert set(wb.sheetnames) == {"Přístroje", "Výkaz materiálu", "Kabely", "Svorkovnice", "Štítky"}
+    assert set(wb.sheetnames) == {"Přístroje", "Výkaz materiálu", "Kabely", "Svorkovnice", "Plán svorkovnice", "Štítky"}
     assert wb["Výkaz materiálu"].max_row > 4
     d = tmp_path / "p.docx"
     export_routine_test_docx(p, lib, s, d)
