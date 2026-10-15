@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.2 – 2026-10-15
+- Tmavý režim (výchozí), přepínání Zobrazit → Tmavý režim / Ctrl+D, volba se pamatuje. PDF export vždy černá na bílé.
+
 ## 0.1.1 – 2026-10-15
 - Dialog s parametry při vložení prvku i vodiče; dvojklik = úprava parametrů (undo jako jeden krok).
 - Vodiče: automatické označení W1, W2…; ve výkresu se zobrazuje označení + typ kabelu + průřez.

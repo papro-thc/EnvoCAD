@@ -8,7 +8,10 @@
 - [x] Panel vlastností (atributy elementu/vodiče)
 - [x] Uložit/načíst projekt
 - [x] Export DXF, PDF
+- [x] Tmavý režim
+- [x] Dialog parametrů při vložení prvku/vodiče
 - [ ] Rámeček a popisové pole listu (šablona ENVO)
+- [ ] Příkazový řádek (styl ZWCAD/CADCraft): každá akce = příkaz, ovladatelné i z agentů
 - [ ] Automatické číslování označení (T1, F1, Q1…) s kontrolou duplicit
 
 ## v0.2 – Knihovna a výkazy

@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 from envocad import __version__
 from envocad.library.store import LibraryStore
 from envocad.model.project import Project
+from envocad.ui import theme
 from envocad.ui.canvas import Mode, SchematicScene, SchematicView
 from envocad.ui.panels import LibraryPanel, PropertiesPanel
 
@@ -102,6 +103,11 @@ class MainWindow(QMainWindow):
 
         m_view = mb.addMenu("&Zobrazit")
         act(m_view, "Přizpůsobit list", lambda: self.view and self.view.zoom_fit(), "Home", True)
+        self.act_dark = QAction("Tmavý režim", self, checkable=True)
+        self.act_dark.setShortcut(QKeySequence("Ctrl+D"))
+        self.act_dark.setChecked(theme.is_dark())
+        self.act_dark.toggled.connect(self.set_dark)
+        m_view.addAction(self.act_dark)
 
         m_lib = mb.addMenu("&Knihovna")
         act(m_lib, "Importovat symbol z DXF…", self.import_dxf_symbol)
@@ -128,6 +134,11 @@ class MainWindow(QMainWindow):
         self.props_panel.show_item(None)
         self._update_title()
         self.view.zoom_fit()
+
+    def set_dark(self, dark: bool) -> None:
+        theme.apply(dark)
+        if self.scene:
+            self.scene.retheme()
 
     def _selected_item(self):
         sel = self.scene.selectedItems() if self.scene else []

@@ -6,6 +6,8 @@ from pathlib import Path
 from PySide6.QtCore import QMarginsF, QRectF, QSizeF
 from PySide6.QtGui import QPageLayout, QPageSize, QPainter, QPdfWriter
 
+from envocad.ui import theme
+
 
 def export_scene_pdf(scene, path: Path | str) -> None:
     sheet = scene.sheet
@@ -22,8 +24,11 @@ def export_scene_pdf(scene, path: Path | str) -> None:
     painter.setRenderHint(QPainter.Antialiasing)
     scene.clearSelection()
     scene.draw_grid = False
+    prev_dark = theme.is_dark()
+    theme._current = theme.PRINT
     src = QRectF(0, -sheet.height, sheet.width, sheet.height)
     scene.render(painter, QRectF(0, 0, writer.width(), writer.height()), src)
     painter.end()
+    theme._current = theme.DARK if prev_dark else theme.LIGHT
     scene.draw_grid = True
     scene.update()

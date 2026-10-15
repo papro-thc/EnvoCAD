@@ -32,3 +32,4 @@ Pokyny pro agenty: `CLAUDE.md`.
 | Smazat | `Delete` |
 | Zoom / posun pohledu | kolečko / střední tlačítko |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Y` |
+| Tmavý / světlý režim | `Ctrl+D` |

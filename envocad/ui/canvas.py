@@ -4,7 +4,7 @@ from __future__ import annotations
 from enum import Enum
 
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
-from PySide6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QPen, QUndoStack, QWheelEvent
+from PySide6.QtGui import QKeyEvent, QMouseEvent, QPainter, QPen, QUndoStack, QWheelEvent
 from PySide6.QtWidgets import QGraphicsPathItem, QGraphicsRectItem, QGraphicsScene, QGraphicsView
 
 from envocad.library.store import LibraryStore
@@ -13,6 +13,7 @@ from envocad.model.symbol import GRID
 from envocad.ui import commands
 from envocad.ui.items import ElementItem, WireItem, route, snap
 from envocad.ui.render import sp
+from envocad.ui.theme import PRINT, colors
 
 
 class Mode(Enum):
@@ -38,12 +39,12 @@ class SchematicScene(QGraphicsScene):
         self._place_symbol_id: str | None = None
         self._wire_from: tuple[ElementItem, str] | None = None
         self._wire_preview = QGraphicsPathItem()
-        self._wire_preview.setPen(QPen(QColor(0, 120, 215), 0.3, Qt.DashLine))
+        self._wire_preview.setPen(QPen(colors().preview, 0.3, Qt.DashLine))
         self._wire_preview.setZValue(20)
         self._move_start: dict[str, tuple[float, float]] = {}
         self.setSceneRect(QRectF(-50, -sheet.height - 50, sheet.width + 100, sheet.height + 100))
         self._paper = QGraphicsRectItem(QRectF(0, -sheet.height, sheet.width, sheet.height))
-        self._paper.setPen(QPen(QColor(120, 120, 120), 0.5))
+        self._paper.setPen(QPen(colors().paper, 0.5))
         self._paper.setZValue(-1)
         self.addItem(self._paper)
         self.selectionChanged.connect(self._on_selection)
@@ -300,14 +301,22 @@ class SchematicScene(QGraphicsScene):
         self.selection_info.emit(sel[0] if len(sel) == 1 else None)
 
     # ---- pozadí -------------------------------------------------------------
+    def retheme(self) -> None:
+        """Po přepnutí tématu obnoví barvy položek."""
+        self._paper.setPen(QPen(colors().paper, 0.5))
+        self._wire_preview.setPen(QPen(colors().preview, 0.3, Qt.DashLine))
+        for it in self.wire_items.values():
+            it.setPen(QPen(colors().wire, it.pen().widthF(), Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        self.update()
+
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
+        c = PRINT if not self.draw_grid else colors()
+        painter.fillRect(rect, c.background)
         if not self.draw_grid:
-            painter.fillRect(rect, QColor(255, 255, 255))
             return
-        painter.fillRect(rect, QColor(250, 250, 250))
         scale = painter.worldTransform().m11()
         step = GRID if scale > 2.5 else GRID * 4
-        painter.setPen(QPen(QColor(215, 215, 215), 0))
+        painter.setPen(QPen(c.grid, 0))
         x = int(rect.left() / step) * step
         while x < rect.right():
             painter.drawLine(QPointF(x, rect.top()), QPointF(x, rect.bottom()))

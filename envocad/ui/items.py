@@ -2,17 +2,15 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
+from PySide6.QtGui import QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QStyleOptionGraphicsItem, QWidget
 
 from envocad.model.project import Element, Wire
 from envocad.model.symbol import GRID, Symbol, rotate_dir
 from envocad.ui.render import LINE_WIDTH, draw_text, paint_symbol, sp, symbol_path
+from envocad.ui.theme import colors
 
 PORT_R = 0.8
-COLOR_SEL = QColor(0, 120, 215)
-COLOR_PORT = QColor(200, 0, 0)
-COLOR_WIRE = QColor(0, 0, 0)
 
 DIR_VEC = {"N": (0, 1), "E": (1, 0), "S": (0, -1), "W": (-1, 0)}
 
@@ -80,10 +78,11 @@ class ElementItem(QGraphicsItem):
     # ---- kreslení ---------------------------------------------------------
     def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: QWidget | None = None) -> None:
         painter.setRenderHint(QPainter.Antialiasing)
-        color = COLOR_SEL if self.isSelected() else QColor(0, 0, 0)
+        c = colors()
+        color = c.selection if self.isSelected() else c.ink
         paint_symbol(painter, self.symbol, QPen(color, LINE_WIDTH, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
         # porty
-        painter.setPen(QPen(COLOR_PORT, 0.2))
+        painter.setPen(QPen(c.port, 0.2))
         painter.setBrush(Qt.NoBrush)
         for p in self.symbol.ports:
             painter.drawEllipse(sp(p.x, p.y), PORT_R, PORT_R)
@@ -112,7 +111,7 @@ class WireItem(QGraphicsPathItem):
         self.wire = wire
         self.setFlags(QGraphicsItem.ItemIsSelectable)
         self.setZValue(5)
-        self.setPen(QPen(COLOR_WIRE, LINE_WIDTH * 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        self.setPen(QPen(colors().wire, LINE_WIDTH * 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
 
     def type(self) -> int:
         return self.Type
@@ -130,8 +129,7 @@ class WireItem(QGraphicsPathItem):
 
     def paint(self, painter, option, widget=None):
         pen = QPen(self.pen())
-        if self.isSelected():
-            pen.setColor(COLOR_SEL)
+        pen.setColor(colors().selection if self.isSelected() else colors().wire)
         painter.setPen(pen)
         painter.setBrush(Qt.NoBrush)
         painter.drawPath(self.path())
