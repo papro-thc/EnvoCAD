@@ -453,3 +453,75 @@ def paste_fragment(project: Project, fragment: dict, ref_prefix_of, dx: float = 
             used.add(nw.attrs["ref"])
         wires.append(nw)
     return els, wires
+
+
+FEED_SYMBOLS = {"sb.feed_in", "sb.feed_out"}
+
+
+def parent_sheet(project: Project, sheet: Sheet) -> Sheet | None:
+    """Nadřazený list (JPS), na kterém je blok ROZVADĚČ tohoto listu."""
+    if not sheet.parent_element_id:
+        return None
+    return project.sheet_of_element(sheet.parent_element_id)
+
+
+def wire_choices(project: Project, sheet: Sheet) -> list[tuple[str, str]]:
+    """Vodiče nadřazeného listu nabízené přívodu/vývodu rozvaděče: (wire_id, popis)."""
+    ps = parent_sheet(project, sheet)
+    if ps is None:
+        return []
+    out = []
+    for w in ps.wires:
+        a, b = ps.element(w.a.element_id), ps.element(w.b.element_id)
+        label = f"{w.attrs.get('ref') or '(bez označení)'}: {a.ref or a.symbol_id}:{w.a.port} → {b.ref or b.symbol_id}:{w.b.port}"
+        cable = " ".join(x for x in (w.attrs.get("cable", ""), w.attrs.get("cross", "")) if x)
+        if cable:
+            label += f"  [{cable}]"
+        out.append((w.id, label))
+    return out
+
+
+def linked_wire(project: Project, sheet: Sheet, e: Element) -> tuple[Sheet, Wire] | None:
+    """Vodič JPS navázaný na přívod/vývod (atribut `wire_id`)."""
+    wid = e.attrs.get("wire_id", "")
+    if not wid:
+        return None
+    for s in project.sheets:
+        for w in s.wires:
+            if w.id == wid:
+                return s, w
+    return None
+
+
+def feed_link_attrs(project: Project, sheet: Sheet, e: Element, wire_id: str) -> dict[str, str]:
+    """Atributy přívodu/vývodu odvozené z navázaného vodiče JPS (odkud/kam, kabel)."""
+    e2 = Element(symbol_id=e.symbol_id, attrs={"wire_id": wire_id})
+    hit = linked_wire(project, sheet, e2)
+    if hit is None:
+        return {"wire_id": "", "from": "", "to": "", "cable": ""} if not wire_id else {}
+    s, w = hit
+    block = sheet.parent_element_id
+    far_end = w.b if w.a.element_id == block else w.a
+    far = s.element(far_end.element_id)
+    text = f"{w.attrs.get('ref', '')} {far.ref or far.symbol_id}:{far_end.port}".strip()
+    cable = " ".join(x for x in (w.attrs.get("cable", ""), w.attrs.get("cross", "")) if x)
+    key = "from" if e.symbol_id == "sb.feed_in" else "to"
+    return {"wire_id": wire_id, key: text, "cable": cable}
+
+
+def feeds_linked_to(project: Project, wire_id: str) -> list[tuple[Sheet, Element]]:
+    """Přívody/vývody rozvaděčů navázané na vodič JPS (pro křížový odkaz u vodiče)."""
+    return [(s, e) for s in project.sheets for e in s.elements
+            if e.symbol_id in FEED_SYMBOLS and e.attrs.get("wire_id") == wire_id]
+
+
+def wire_xref(project: Project, wire_id: str) -> str:
+    """Text křížového odkazu k vodiči JPS: „→ R1:X1“."""
+    parts = []
+    for s, e in feeds_linked_to(project, wire_id):
+        block = project.sheet_of_element(s.parent_element_id) if s.parent_element_id else None
+        bname = ""
+        if block is not None:
+            bname = block.element(s.parent_element_id).ref
+        parts.append(f"{bname or s.name}:{e.ref}" if e.ref else (bname or s.name))
+    return ("→ " + ", ".join(parts)) if parts else ""

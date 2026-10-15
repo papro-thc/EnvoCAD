@@ -135,6 +135,10 @@ class WireItem(QGraphicsPathItem):
         painter.setBrush(Qt.NoBrush)
         painter.drawPath(self.path())
         label = wire_label(self.wire.attrs)
+        sc = self.scene()
+        xref = sc.wire_xref(self.wire) if hasattr(sc, "wire_xref") else ""
+        if xref:
+            label = f"{label}  {xref}" if label else xref
         if label:
             pts = path_points(self.path())
             x, y, align, vertical = wire_label_anchor(pts)

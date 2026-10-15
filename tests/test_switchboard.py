@@ -132,3 +132,28 @@ def test_switchboard_header():
     assert rows["Skříň"] == "Hager VU36" and rows["Krytí"] == "IP 44 / IK 08" and rows["In"] == "80 A"
     assert rows["Síť"] == "TN-S" and rows["Rozměry"].startswith("550 × 650")
     assert "Icw / Ipk" not in rows  # nevyplněné se vynechá
+
+
+def test_feed_link_to_jps_wire():
+    from envocad.library.templates import apply_template
+    from envocad.model.project import feed_link_attrs, linked_wire, wire_choices, wire_xref
+    p = Project(name="Link")
+    s = p.sheets[0]
+    t = Element("fve.inverter", 50, 150, attrs={"ref": "T1"})
+    blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
+    s.elements += [t, blk]
+    w = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "1"), attrs={"ref": "W2", "cable": "CYKY-J 5x16", "cross": "16"},
+             conductors=["L1", "L2", "L3", "N", "PE"])
+    s.wires.append(w)
+    sb = p.create_switchboard_sheet(blk)
+    assert [c[0] for c in wire_choices(p, sb)] == [w.id]
+    apply_template(p, sb, "ac_fve")
+    feed = next(e for e in sb.elements if e.symbol_id == "sb.feed_in")
+    assert feed.attrs["wire_id"] == w.id and feed.attrs["from"] == "W2 T1:AC" and feed.attrs["cable"] == "CYKY-J 5x16 16"
+    assert linked_wire(p, sb, feed)[1] is w
+    assert wire_xref(p, w.id) == "→ R1:X1"
+    assert feed_link_attrs(p, sb, feed, "") == {"wire_id": "", "from": "", "to": "", "cable": ""}
+    # seznam kabelů celého projektu: kabel je jen jednou (W2 v JPS) a má odkaz na rozvaděč
+    from envocad.export import reports
+    head, rows = reports.cables(p, LibraryStore())
+    assert [r[0] for r in rows] == ["W2"] and rows[0][8] == "R1:X1"

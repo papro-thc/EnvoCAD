@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QGraphicsPathItem, QGraphicsRectItem, QGraphicsSce
 
 from envocad.library.store import LibraryStore
 from envocad.model.multipole import default_conductors
-from envocad.model.project import WIRE_ATTRIBUTES, Element, Project, Sheet, Wire, WireEnd
+from envocad.model.project import WIRE_ATTRIBUTES, Element, Project, Sheet, Wire, WireEnd, feed_link_attrs
 from envocad.model.symbol import GRID
 from envocad.ui import commands
 from envocad.ui.items import ElementItem, WireItem, route, snap
@@ -222,11 +222,14 @@ class SchematicScene(QGraphicsScene):
     def _finish_place(self, sym, e: Element) -> None:
         from envocad.ui.dialogs import ElementDialog
         log.info("dialog: vložit %s", sym.id)
-        dlg = ElementDialog(sym, e.attrs, self._parent_widget(), library=self.library)
+        dlg = ElementDialog(sym, e.attrs, self._parent_widget(), library=self.library,
+                            wire_choices=self._wire_choices(sym.id))
         dlg.used_refs = self._used_refs_for(sym.id)
         if dlg.exec() != ElementDialog.Accepted:
             return
         e.attrs = dlg.values()
+        if dlg.wire_combo is not None:
+            e.attrs.update(feed_link_attrs(self.project, self.sheet, e, dlg.wire_id))
         e.component_id = dlg.component_id
         self.undo.push(commands.AddElementCommand(self, e))
 
@@ -319,13 +322,39 @@ class SchematicScene(QGraphicsScene):
         e = self.sheet.element(eid)
         sym = self.library.get_symbol(e.symbol_id)
         dlg = ElementDialog(sym, e.attrs, self._parent_widget(), title=f"Upravit: {e.ref or sym.name}",
-                            library=self.library, component_id=e.component_id)
+                            library=self.library, component_id=e.component_id, wire_choices=self._wire_choices(sym.id))
         dlg.used_refs = self._used_refs_for(sym.id)
         if dlg.exec() != ElementDialog.Accepted:
             return
+        vals = dlg.values()
+        if dlg.wire_combo is not None:
+            vals.update(feed_link_attrs(self.project, self.sheet, e, dlg.wire_id))
+        self.undo.beginMacro(f"Upravit {e.ref or sym.name}")
         if dlg.component_id != e.component_id:
             self.undo.push(commands.SetComponentCommand(self, eid, e.component_id, dlg.component_id))
-        self._apply_attr_changes(eid, False, e.attrs, dlg.values(), f"Upravit {e.ref or sym.name}")
+        self._apply_attr_changes(eid, False, e.attrs, vals, f"Upravit {e.ref or sym.name}")
+        if dlg.wire_combo is not None and dlg.wire_id:
+            self._take_conductors_from_link(eid, dlg.wire_id)
+        self.undo.endMacro()
+
+    def _wire_choices(self, symbol_id: str):
+        from envocad.model.project import FEED_SYMBOLS, wire_choices
+        return wire_choices(self.project, self.sheet) if symbol_id in FEED_SYMBOLS else None
+
+    def _take_conductors_from_link(self, eid: str, wire_id: str) -> None:
+        """Vodiče napojené na přívod/vývod převezmou žíly z navázaného vodiče JPS."""
+        from envocad.model.project import linked_wire
+        hit = linked_wire(self.project, self.sheet, self.sheet.element(eid))
+        if hit is None or not hit[1].conductors:
+            return
+        conds = list(hit[1].conductors)
+        for w in self.sheet.wires:
+            if w.touches(eid) and w.conductors != conds:
+                self.undo.push(commands.SetConductorsCommand(self, w.id, w.conductors, conds))
+
+    def wire_xref(self, w: Wire) -> str:
+        from envocad.model.project import wire_xref
+        return wire_xref(self.project, w.id)
 
     def mouseReleaseEvent(self, ev):
         super().mouseReleaseEvent(ev)

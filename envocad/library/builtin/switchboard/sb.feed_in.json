@@ -64,7 +64,7 @@
       "key": "from",
       "label": "Odkud",
       "default": "",
-      "show": false
+      "show": true
     },
     {
       "key": "cable",

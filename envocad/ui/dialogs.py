@@ -241,12 +241,24 @@ class StripDialog(QDialog):
 
 class ElementDialog(AttrDialog):
     def __init__(self, symbol: Symbol, attrs: dict[str, str], parent=None, title: str | None = None,
-                 library=None, component_id: str | None = None):
+                 library=None, component_id: str | None = None, wire_choices: list[tuple[str, str]] | None = None):
         super().__init__(symbol.attributes, attrs, parent, title or f"Vložit: {symbol.name}",
                          f"<b>{symbol.name}</b> <small>({symbol.id})</small>")
         self.library = library
         self.symbol = symbol
         self.component_id = component_id
+        self.wire_combo: QComboBox | None = None
+        if wire_choices is not None:
+            # přívod/vývod rozvaděče: vazba na vodič nadřazeného JPS (přebere kabel, žíly, křížový odkaz)
+            self.wire_combo = QComboBox()
+            self.wire_combo.addItem("(bez vazby)", "")
+            for wid, label in wire_choices:
+                self.wire_combo.addItem(label, wid)
+            cur = attrs.get("wire_id", "")
+            idx = self.wire_combo.findData(cur)
+            self.wire_combo.setCurrentIndex(max(idx, 0))
+            form = self.layout().itemAt(1).layout()
+            form.addRow("Vodič v JPS", self.wire_combo)
         if library is not None:
             row = QHBoxLayout()
             self.comp_label = QLabel(self._comp_text())
@@ -259,6 +271,10 @@ class ElementDialog(AttrDialog):
             row.addWidget(btn)
             row.addWidget(clear)
             self.layout().insertLayout(1, row)
+
+    @property
+    def wire_id(self) -> str:
+        return self.wire_combo.currentData() if self.wire_combo is not None else ""
 
     def _comp_text(self) -> str:
         if self.library is not None and self.component_id:

@@ -45,6 +45,24 @@ def _wire(project: Project, sheet: Sheet, a: Element, pa: str, b: Element, pb: s
     return w
 
 
+def _auto_link_feed(project: Project, sheet: Sheet, feed: Element, port_hint: str = "") -> None:
+    """Přívod rozvaděče naváže na první vodič JPS napojený na blok ROZVADĚČ (přebere kabel a žíly)."""
+    from envocad.model.project import feed_link_attrs, parent_sheet
+    ps = parent_sheet(project, sheet)
+    if ps is None:
+        return
+    block = sheet.parent_element_id
+    cands = [w for w in ps.wires if w.touches(block)]
+    cands.sort(key=lambda w: 0 if port_hint and (w.a.port == port_hint or w.b.port == port_hint) else 1)
+    if not cands:
+        return
+    feed.attrs.update(feed_link_attrs(project, sheet, feed, cands[0].id))
+    if cands[0].conductors:
+        for w in sheet.wires:
+            if w.touches(feed.id):
+                w.conductors = list(cands[0].conductors)
+
+
 def _place_sequential(sheet: Sheet, elements: list[Element]) -> None:
     """Rozmístí přístroje za sebou po řadách DIN lišt podle jejich šířky v modulech."""
     row, pos = 0, 0.0
@@ -111,6 +129,7 @@ def build_ac_fve(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
         _wire(project, sheet, groups[i], "2", f, "1", AC_CONDUCTORS)
         _wire(project, sheet, f, "2", out, "1", AC_CONDUCTORS)
         outs.append(f)
+    _auto_link_feed(project, sheet, feed, "1")
     _place_sequential(sheet, [q, spd, *outs])
 
 

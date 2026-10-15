@@ -64,7 +64,7 @@
       "key": "to",
       "label": "Kam",
       "default": "",
-      "show": false
+      "show": true
     },
     {
       "key": "cable",
