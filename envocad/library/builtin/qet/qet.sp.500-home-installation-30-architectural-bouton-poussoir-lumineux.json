@@ -1,0 +1,61 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-bouton-poussoir-lumineux",
+  "name": "Tlačítko s indikací",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); bouton_poussoir_lumineux.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -0.75,
+      "y1": -0.75,
+      "x2": 0.75,
+      "y2": 0.75
+    },
+    {
+      "type": "line",
+      "x1": -0.75,
+      "y1": 0.75,
+      "x2": 0.75,
+      "y2": -0.75
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -0.0,
+      "r": 1.875
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -0.0,
+      "r": 1.062
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 2.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 1.5,
+    "y": 3.237
+  }
+}

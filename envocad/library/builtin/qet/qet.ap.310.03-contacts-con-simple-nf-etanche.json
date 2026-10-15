@@ -1,0 +1,133 @@
+{
+  "id": "qet.ap.310.03-contacts-con-simple-nf-etanche",
+  "name": "Vodotěsný kontakt (NC)",
+  "category": "QET vícepól/relays_contactors_contacts/contacts",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; con_simple_nf_etanche.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          1.25,
+          2.5
+        ],
+        [
+          0.0,
+          -2.5
+        ],
+        [
+          0.0,
+          -5.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 2.25,
+      "x2": 1.5,
+      "y2": 2.25
+    },
+    {
+      "type": "line",
+      "x1": -2.125,
+      "y1": 3.0,
+      "x2": -2.125,
+      "y2": -3.0
+    },
+    {
+      "type": "line",
+      "x1": 2.125,
+      "y1": 3.0,
+      "x2": 2.125,
+      "y2": -3.0
+    },
+    {
+      "type": "line",
+      "x1": -1.5,
+      "y1": 3.625,
+      "x2": 1.5,
+      "y2": 3.625
+    },
+    {
+      "type": "arc",
+      "cx": 1.5,
+      "cy": 3.0,
+      "r": 0.625,
+      "start": 0.0,
+      "end": 90.0
+    },
+    {
+      "type": "arc",
+      "cx": -1.5,
+      "cy": 3.0,
+      "r": 0.625,
+      "start": 90.0,
+      "end": 180.0
+    },
+    {
+      "type": "arc",
+      "cx": -1.5,
+      "cy": -3.0,
+      "r": 0.625,
+      "start": 180.0,
+      "end": 270.0
+    },
+    {
+      "type": "line",
+      "x1": -1.5,
+      "y1": -3.625,
+      "x2": 1.5,
+      "y2": -3.625
+    },
+    {
+      "type": "arc",
+      "cx": 1.5,
+      "cy": -3.0,
+      "r": 0.625,
+      "start": 270.0,
+      "end": 360
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 0.0,
+      "y2": 2.25
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 3.188,
+    "y": -0.125
+  }
+}

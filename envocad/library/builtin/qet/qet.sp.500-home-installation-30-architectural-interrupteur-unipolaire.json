@@ -1,0 +1,59 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-interrupteur-unipolaire",
+  "name": "Jednoduchý vypínač",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; interrupteur_unipolaire.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          0.5,
+          0.5
+        ],
+        [
+          2.5,
+          2.5
+        ],
+        [
+          3.0,
+          2.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -0.0,
+      "r": 0.625
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 0.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 0.5,
+    "y": 1.237
+  }
+}

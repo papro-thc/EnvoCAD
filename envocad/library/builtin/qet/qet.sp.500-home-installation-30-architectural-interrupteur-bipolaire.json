@@ -1,0 +1,66 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-interrupteur-bipolaire",
+  "name": "Dvoupólový spínač",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); interrupteur_bipolaire.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 1.75,
+      "y1": 2.0,
+      "x2": 2.5,
+      "y2": 1.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          0.5,
+          -0.0
+        ],
+        [
+          2.25,
+          2.75
+        ],
+        [
+          3.0,
+          2.25
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -1.25,
+      "r": 1.25
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 0.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 1.25,
+    "y": -0.263
+  }
+}

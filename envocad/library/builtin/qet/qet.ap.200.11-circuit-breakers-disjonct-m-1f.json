@@ -1,0 +1,137 @@
+{
+  "id": "qet.ap.200.11-circuit-breakers-disjonct-m-1f",
+  "name": "Jistič 1-pólový",
+  "category": "QET vícepól/fuses_protective_gears/circuit breakers",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; disjonct_m_1f.elmt",
+  "iec_ref": "F",
+  "primitives": [
+    {
+      "type": "text",
+      "x": 0.5,
+      "y": -5.25,
+      "text": "2",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.25,
+          2.5
+        ],
+        [
+          0.0,
+          -2.5
+        ],
+        [
+          0.0,
+          -5.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 0.0,
+      "y2": 3.0
+    },
+    {
+      "type": "text",
+      "x": 0.5,
+      "y": 3.5,
+      "text": "1",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -4.0,
+          -0.0
+        ],
+        [
+          -3.0,
+          0.25
+        ],
+        [
+          -3.25,
+          1.25
+        ],
+        [
+          -2.25,
+          1.5
+        ],
+        [
+          -2.0,
+          0.5
+        ],
+        [
+          -1.0,
+          0.75
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": -3.75,
+      "y1": -1.25,
+      "x2": -0.75,
+      "y2": -0.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -4.0,
+          -1.35
+        ],
+        [
+          -3.25,
+          -0.75
+        ],
+        [
+          -3.05,
+          -1.425
+        ]
+      ],
+      "closed": true
+    }
+  ],
+  "ports": [
+    {
+      "name": "IN.1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "OUT.2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 2.5,
+    "y": 3.75
+  }
+}

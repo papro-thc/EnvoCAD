@@ -1,0 +1,130 @@
+{
+  "id": "qet.sp.500-home-installation-25-v-d-i-terrestrial-reception-connectors-plugs-charge-75-ohms",
+  "name": "75 ohmová zátěž",
+  "category": "QET jednopól/home installation/V.D.I/reception/plugs",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); charge_75_ohms.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -0.25,
+      "y1": 1.5,
+      "x2": -0.25,
+      "y2": 1.0
+    },
+    {
+      "type": "rect",
+      "x": -1.75,
+      "y": -2.0,
+      "w": 3.5,
+      "h": 2.25
+    },
+    {
+      "type": "rect",
+      "x": -1.25,
+      "y": 0.25,
+      "w": 2.5,
+      "h": 0.75
+    },
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": 1.5,
+      "r": 0.25,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "line",
+      "x1": 0.25,
+      "y1": 1.0,
+      "x2": 0.25,
+      "y2": 1.5
+    },
+    {
+      "type": "rect",
+      "x": -2.0,
+      "y": -1.25,
+      "w": 4.0,
+      "h": 1.0
+    },
+    {
+      "type": "rect",
+      "x": -0.75,
+      "y": -1.25,
+      "w": 1.5,
+      "h": 1.0
+    },
+    {
+      "type": "arc",
+      "cx": -1.0,
+      "cy": 0.75,
+      "r": 0.25,
+      "start": 90.0,
+      "end": 180.0
+    },
+    {
+      "type": "arc",
+      "cx": 5.25,
+      "cy": -0.75,
+      "r": 0.25,
+      "start": 0.0,
+      "end": 90.0
+    },
+    {
+      "type": "arc",
+      "cx": 1.0,
+      "cy": 0.75,
+      "r": 0.25,
+      "start": 0.0,
+      "end": 90.0
+    },
+    {
+      "type": "line",
+      "x1": -1.0,
+      "y1": 1.0,
+      "x2": 1.0,
+      "y2": 1.0
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": 0.75,
+      "x2": -1.25,
+      "y2": 0.25
+    },
+    {
+      "type": "line",
+      "x1": 1.25,
+      "y1": 0.75,
+      "x2": 1.25,
+      "y2": 0.25
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": 0.25,
+      "x2": 1.25,
+      "y2": 0.25
+    }
+  ],
+  "ports": [],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -2.0,
+    "y": 5.125
+  }
+}

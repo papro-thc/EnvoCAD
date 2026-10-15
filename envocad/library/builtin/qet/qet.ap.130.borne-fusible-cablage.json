@@ -1,0 +1,81 @@
+{
+  "id": "qet.ap.130.borne-fusible-cablage",
+  "name": "Svorkovnice s pojistkou",
+  "category": "QET vícepól/terminals_terminal_strips",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; borne_fusible_cablage.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -0.75,
+      "y": -10.5,
+      "w": 1.5,
+      "h": 6.25
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -14.25,
+      "x2": 0.0,
+      "y2": -0.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -17.5,
+      "x2": 0.0,
+      "y2": -15.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 2.5,
+      "x2": 0.0,
+      "y2": 0.75
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -15.0,
+      "r": 0.625
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -0.0,
+      "r": 0.625
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 2.5,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -17.5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 2.5,
+    "y": -5.543
+  }
+}

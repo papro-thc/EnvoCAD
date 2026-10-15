@@ -1,0 +1,206 @@
+{
+  "id": "qet.ap.330.30-power-supplies-power-supply-1-phase-ac-dc",
+  "name": "Napájecí zdroj AC/DC 24V",
+  "category": "QET vícepól/transformers_power_supplies/power supplies",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); power_supply_1_phase_ac_dc.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -6.25,
+      "y": -7.5,
+      "w": 22.5,
+      "h": 15.0
+    },
+    {
+      "type": "text",
+      "x": -2.0,
+      "y": 1.75,
+      "text": "AC 1~",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "circle",
+      "cx": 12.5,
+      "cy": 7.5,
+      "r": 0.625
+    },
+    {
+      "type": "text",
+      "x": 6.9,
+      "y": -6.0,
+      "text": "−",
+      "height": 1.35,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 11.9,
+      "y": -6.0,
+      "text": "−",
+      "height": 1.35,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -3.0,
+      "y": 4.5,
+      "text": "L",
+      "height": 1.35,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 6.125,
+      "y": -3.35,
+      "text": "24V DC",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 1.9,
+      "y": -6.0,
+      "text": "+",
+      "height": 1.35,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 11.25,
+      "y": 4.5,
+      "text": "PE",
+      "height": 1.35,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 6.75,
+      "y": 4.5,
+      "text": "N",
+      "height": 1.35,
+      "align": "left"
+    },
+    {
+      "type": "circle",
+      "cx": 7.5,
+      "cy": 7.5,
+      "r": 0.625
+    },
+    {
+      "type": "circle",
+      "cx": -2.5,
+      "cy": -7.5,
+      "r": 0.625
+    },
+    {
+      "type": "circle",
+      "cx": 12.5,
+      "cy": -7.5,
+      "r": 0.625
+    },
+    {
+      "type": "circle",
+      "cx": 2.5,
+      "cy": -7.5,
+      "r": 0.625
+    },
+    {
+      "type": "circle",
+      "cx": 7.5,
+      "cy": -7.5,
+      "r": 0.625
+    },
+    {
+      "type": "text",
+      "x": -3.1,
+      "y": -6.0,
+      "text": "+",
+      "height": 1.35,
+      "align": "left"
+    },
+    {
+      "type": "rect",
+      "x": -2.5,
+      "y": -3.75,
+      "w": 15.0,
+      "h": 7.5
+    },
+    {
+      "type": "line",
+      "x1": 12.5,
+      "y1": 3.75,
+      "x2": -2.5,
+      "y2": -3.75
+    },
+    {
+      "type": "circle",
+      "cx": -2.5,
+      "cy": 7.5,
+      "r": 0.625
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 2.5,
+      "y": -7.5,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": 12.5,
+      "y": -7.5,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": -2.5,
+      "y": -7.5,
+      "dir": "S"
+    },
+    {
+      "name": "4",
+      "x": -2.5,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "5",
+      "x": 7.5,
+      "y": -7.5,
+      "dir": "S"
+    },
+    {
+      "name": "6",
+      "x": 7.5,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "7",
+      "x": 12.5,
+      "y": 7.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -16.25,
+    "y": 5.0
+  }
+}

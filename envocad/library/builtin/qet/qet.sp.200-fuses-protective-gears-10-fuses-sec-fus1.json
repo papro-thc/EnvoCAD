@@ -1,0 +1,95 @@
+{
+  "id": "qet.sp.200-fuses-protective-gears-10-fuses-sec-fus1",
+  "name": "Pojistkový odpojovač",
+  "category": "QET jednopól/fuses protective gears/fuses",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; sec_fus1.elmt",
+  "iec_ref": "F",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.25,
+          2.5
+        ],
+        [
+          0.0,
+          -2.5
+        ],
+        [
+          0.0,
+          -5.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.423,
+          1.127
+        ],
+        [
+          -0.797,
+          -1.373
+        ],
+        [
+          0.172,
+          -1.127
+        ],
+        [
+          -0.453,
+          1.373
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 0.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.5,
+      "y1": 2.5,
+      "x2": -0.5,
+      "y2": 2.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 5.0,
+    "y": 0.5
+  }
+}

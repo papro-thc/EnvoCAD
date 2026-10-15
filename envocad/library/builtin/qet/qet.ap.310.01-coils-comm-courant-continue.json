@@ -1,0 +1,90 @@
+{
+  "id": "qet.ap.310.01-coils-comm-courant-continue",
+  "name": "Cívka relé pro DC napájení",
+  "category": "QET vícepól/relays_contactors_contacts/coils",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); comm_courant_continue.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -6.25,
+      "y": -2.5,
+      "w": 2.5,
+      "h": 5.0
+    },
+    {
+      "type": "rect",
+      "x": -3.75,
+      "y": -2.5,
+      "w": 7.5,
+      "h": 5.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -5.0,
+      "x2": 0.0,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 0.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -4.25,
+      "y1": -0.25,
+      "x2": -5.75,
+      "y2": -0.25
+    },
+    {
+      "type": "line",
+      "x1": -5.763,
+      "y1": 0.25,
+      "x2": -5.25,
+      "y2": 0.25
+    },
+    {
+      "type": "line",
+      "x1": -4.75,
+      "y1": 0.25,
+      "x2": -4.25,
+      "y2": 0.25
+    }
+  ],
+  "ports": [
+    {
+      "name": "A1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "A2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 4.0,
+    "y": 0.5
+  }
+}

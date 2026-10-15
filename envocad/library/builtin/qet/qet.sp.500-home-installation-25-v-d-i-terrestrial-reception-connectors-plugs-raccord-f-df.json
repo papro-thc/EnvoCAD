@@ -1,0 +1,174 @@
+{
+  "id": "qet.sp.500-home-installation-25-v-d-i-terrestrial-reception-connectors-plugs-raccord-f-df",
+  "name": "Spojka F zásuvka -F zásuvka",
+  "category": "QET jednopól/home installation/V.D.I/reception/plugs",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); raccord_f_df.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -1.25,
+      "y": -1.75,
+      "w": 2.5,
+      "h": 0.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.25,
+      "x2": -1.25,
+      "y2": -2.5
+    },
+    {
+      "type": "rect",
+      "x": -1.25,
+      "y": -5.0,
+      "w": 2.5,
+      "h": 4.0
+    },
+    {
+      "type": "rect",
+      "x": -1.25,
+      "y": -0.25,
+      "w": 2.5,
+      "h": 2.75
+    },
+    {
+      "type": "rect",
+      "x": -2.0,
+      "y": -2.25,
+      "w": 4.0,
+      "h": 0.75
+    },
+    {
+      "type": "line",
+      "x1": 1.25,
+      "y1": -2.5,
+      "x2": -1.25,
+      "y2": -3.0
+    },
+    {
+      "type": "rect",
+      "x": -0.75,
+      "y": -2.25,
+      "w": 1.5,
+      "h": 0.75
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": 0.5,
+      "x2": 1.25,
+      "y2": 0.75
+    },
+    {
+      "type": "line",
+      "x1": 1.25,
+      "y1": -3.0,
+      "x2": -1.25,
+      "y2": -3.5
+    },
+    {
+      "type": "line",
+      "x1": 1.25,
+      "y1": -3.5,
+      "x2": -1.25,
+      "y2": -4.0
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": 1.0,
+      "x2": 1.25,
+      "y2": 1.25
+    },
+    {
+      "type": "line",
+      "x1": 1.25,
+      "y1": -4.0,
+      "x2": -1.25,
+      "y2": -4.5
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": 1.5,
+      "x2": 1.25,
+      "y2": 1.75
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": 2.0,
+      "x2": 1.25,
+      "y2": 2.25
+    },
+    {
+      "type": "line",
+      "x1": 1.25,
+      "y1": -4.5,
+      "x2": -1.0,
+      "y2": -5.0
+    },
+    {
+      "type": "rect",
+      "x": -2.0,
+      "y": -1.0,
+      "w": 4.0,
+      "h": 0.75
+    },
+    {
+      "type": "rect",
+      "x": -1.0,
+      "y": 2.5,
+      "w": 2.0,
+      "h": 0.25
+    },
+    {
+      "type": "rect",
+      "x": -1.0,
+      "y": -5.25,
+      "w": 2.0,
+      "h": 0.25
+    },
+    {
+      "type": "rect",
+      "x": -0.75,
+      "y": -1.0,
+      "w": 1.5,
+      "h": 0.75
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 2.5,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 2.5,
+    "y": 5.875
+  }
+}

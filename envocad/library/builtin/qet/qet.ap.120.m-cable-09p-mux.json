@@ -1,0 +1,166 @@
+{
+  "id": "qet.ap.120.m-cable-09p-mux",
+  "name": "Vícežilový kabel 9-pólový Mux",
+  "category": "QET vícepól/cables_wiring",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: Moritz Scholjegerdes; m_cable_09p_mux.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 20.0,
+      "y1": 2.5,
+      "x2": 20.0,
+      "y2": 4.75
+    },
+    {
+      "type": "line",
+      "x1": -10.0,
+      "y1": 2.5,
+      "x2": -10.0,
+      "y2": 4.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 2.5,
+      "x2": 0.0,
+      "y2": 4.75
+    },
+    {
+      "type": "line",
+      "x1": 15.0,
+      "y1": 2.5,
+      "x2": 15.0,
+      "y2": 4.75
+    },
+    {
+      "type": "line",
+      "x1": 10.0,
+      "y1": 2.5,
+      "x2": 10.0,
+      "y2": 4.75
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": 2.5,
+      "x2": 5.0,
+      "y2": 4.75
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": 2.5,
+      "x2": -5.0,
+      "y2": 4.75
+    },
+    {
+      "type": "line",
+      "x1": -15.0,
+      "y1": 2.5,
+      "x2": -15.0,
+      "y2": 4.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 2.5,
+      "x2": 0.0,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": -20.0,
+      "y1": 2.5,
+      "x2": -20.0,
+      "y2": 4.75
+    },
+    {
+      "type": "line",
+      "x1": 20.0,
+      "y1": 2.5,
+      "x2": -20.0,
+      "y2": 2.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "2",
+      "x": -15.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "7",
+      "x": 10.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "1",
+      "x": -20.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "3",
+      "x": -10.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "8",
+      "x": 15.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "5",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "9",
+      "x": 20.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "6",
+      "x": 5.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "4",
+      "x": -5.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "Cable",
+      "x": 0.0,
+      "y": 0.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 22.5,
+    "y": 5.0
+  }
+}

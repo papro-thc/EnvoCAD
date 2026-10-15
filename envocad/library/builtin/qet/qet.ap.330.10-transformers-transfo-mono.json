@@ -1,0 +1,106 @@
+{
+  "id": "qet.ap.330.10-transformers-transfo-mono",
+  "name": "Jednofázový transformátor",
+  "category": "QET vícepól/transformers_power_supplies/transformers",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transfo_mono.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "circle",
+      "cx": 1.25,
+      "cy": -1.25,
+      "r": 2.5
+    },
+    {
+      "type": "circle",
+      "cx": 1.25,
+      "cy": 1.25,
+      "r": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 6.25,
+      "x2": 0.0,
+      "y2": 3.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -3.5,
+      "x2": 0.0,
+      "y2": -6.25
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 6.25,
+      "x2": 2.5,
+      "y2": 3.5
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": -3.5,
+      "x2": 2.5,
+      "y2": -6.25
+    },
+    {
+      "type": "line",
+      "x1": -2.25,
+      "y1": -0.0,
+      "x2": -1.0,
+      "y2": -0.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 2.5,
+      "y": -7.5,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": 0.0,
+      "y": -7.5,
+      "dir": "S"
+    },
+    {
+      "name": "4",
+      "x": 2.5,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "5",
+      "x": -2.5,
+      "y": 0.0,
+      "dir": "W"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 4.5,
+    "y": -0.125
+  }
+}

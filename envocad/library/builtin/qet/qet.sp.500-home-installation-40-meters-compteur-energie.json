@@ -1,0 +1,63 @@
+{
+  "id": "qet.sp.500-home-installation-40-meters-compteur-energie",
+  "name": "Elektroměr",
+  "category": "QET jednopól/home installation/meters",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; compteur_energie.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -1.5,
+      "y1": -2.5,
+      "x2": 6.5,
+      "y2": -2.5
+    },
+    {
+      "type": "rect",
+      "x": -1.5,
+      "y": -10.0,
+      "w": 8.0,
+      "h": 10.0
+    },
+    {
+      "type": "text",
+      "x": -1.0,
+      "y": -7.5,
+      "text": "kWh",
+      "height": 2.25,
+      "align": "left"
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 5.0,
+      "y": -10.0,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -10.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 7.0,
+    "y": -3.263
+  }
+}

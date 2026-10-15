@@ -1,0 +1,192 @@
+{
+  "id": "qet.sp.500-home-installation-25-v-d-i-network-prises-reseau-prise-dti",
+  "name": "Zásuvka DTI",
+  "category": "QET jednopól/home installation/V.D.I/network/reseau",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); prise_dti.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.25,
+          -0.0
+        ],
+        [
+          -1.25,
+          0.5
+        ],
+        [
+          -2.75,
+          0.5
+        ],
+        [
+          -2.75,
+          3.0
+        ],
+        [
+          2.75,
+          3.0
+        ],
+        [
+          2.75,
+          0.5
+        ],
+        [
+          1.25,
+          0.5
+        ],
+        [
+          1.25,
+          -0.0
+        ],
+        [
+          0.75,
+          -0.0
+        ],
+        [
+          0.75,
+          -0.5
+        ],
+        [
+          -0.75,
+          -0.5
+        ],
+        [
+          -0.75,
+          -0.0
+        ],
+        [
+          -1.0,
+          -0.0
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": -0.25,
+      "y1": 3.0,
+      "x2": -0.25,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -0.75,
+      "y1": 3.0,
+      "x2": -0.75,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": 3.0,
+      "x2": -1.25,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -1.75,
+      "y1": 3.0,
+      "x2": -1.75,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.25,
+      "y1": 3.0,
+      "x2": 0.25,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.75,
+      "y1": 3.0,
+      "x2": 0.75,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 1.25,
+      "y1": 3.0,
+      "x2": 1.25,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 1.75,
+      "y1": 3.0,
+      "x2": 1.75,
+      "y2": 2.5
+    },
+    {
+      "type": "rect",
+      "x": -3.5,
+      "y": -1.25,
+      "w": 7.0,
+      "h": 5.0
+    },
+    {
+      "type": "rect",
+      "x": -5.5,
+      "y": -4.25,
+      "w": 11.0,
+      "h": 11.0
+    },
+    {
+      "type": "text",
+      "x": -2.25,
+      "y": 4.5,
+      "text": "TEST",
+      "height": 1.35,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -2.75,
+      "y": -4.0,
+      "text": "DTI",
+      "height": 2.02,
+      "align": "left"
+    },
+    {
+      "type": "rect",
+      "x": -7.5,
+      "y": -6.25,
+      "w": 15.0,
+      "h": 15.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 10.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -2.0,
+    "y": -9.0
+  }
+}

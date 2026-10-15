@@ -1,0 +1,157 @@
+{
+  "id": "qet.sp.500-home-installation-20-home-appliances-bat-ext",
+  "name": "Externí budova 1f",
+  "category": "QET jednopól/home installation/home appliances",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); bat-ext.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": 0.0,
+      "y": -0.0,
+      "w": 30.0,
+      "h": 21.25
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 3.75,
+      "x2": 30.0,
+      "y2": 3.75
+    },
+    {
+      "type": "text",
+      "x": 14.5,
+      "y": 4.5,
+      "text": "kA C",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 11.25,
+      "x2": 30.0,
+      "y2": 11.25
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 16.25,
+      "x2": 30.0,
+      "y2": 16.25
+    },
+    {
+      "type": "text",
+      "x": 16.5,
+      "y": 8.0,
+      "text": "A",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 42.5,
+      "x2": 30.0,
+      "y2": 42.5
+    },
+    {
+      "type": "text",
+      "x": 0.5,
+      "y": 17.25,
+      "text": "Bâtiment extérieur",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": 15.0,
+      "y1": 40.0,
+      "x2": 8.75,
+      "y2": 33.75
+    },
+    {
+      "type": "line",
+      "x1": 15.0,
+      "y1": 40.0,
+      "x2": 21.25,
+      "y2": 33.75
+    },
+    {
+      "type": "line",
+      "x1": 10.0,
+      "y1": 35.0,
+      "x2": 10.0,
+      "y2": 25.0
+    },
+    {
+      "type": "line",
+      "x1": 10.0,
+      "y1": 25.0,
+      "x2": 20.0,
+      "y2": 25.0
+    },
+    {
+      "type": "line",
+      "x1": 20.0,
+      "y1": 25.0,
+      "x2": 20.0,
+      "y2": 35.0
+    },
+    {
+      "type": "line",
+      "x1": 15.0,
+      "y1": 43.75,
+      "x2": 15.0,
+      "y2": 40.0
+    },
+    {
+      "type": "line",
+      "x1": 12.5,
+      "y1": 25.0,
+      "x2": 12.5,
+      "y2": 31.25
+    },
+    {
+      "type": "line",
+      "x1": 12.5,
+      "y1": 31.25,
+      "x2": 17.5,
+      "y2": 31.25
+    },
+    {
+      "type": "line",
+      "x1": 17.5,
+      "y1": 31.25,
+      "x2": 17.5,
+      "y2": 25.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 15.0,
+      "y": 45.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -0.5,
+    "y": 13.5
+  }
+}

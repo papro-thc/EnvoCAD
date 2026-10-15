@@ -1,0 +1,83 @@
+{
+  "id": "qet.ap.130.90-terminal-strips-diagram-90-10-0121",
+  "name": "Svorka zemnící",
+  "category": "QET vícepól/terminals_terminal_strips/terminal strips diagram",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); 90-10-0121.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -2.5,
+      "y": -10.0,
+      "w": 5.0,
+      "h": 20.0
+    },
+    {
+      "type": "rect",
+      "x": -2.0,
+      "y": -3.0,
+      "w": 4.0,
+      "h": 6.0
+    },
+    {
+      "type": "line",
+      "x1": -0.25,
+      "y1": -6.25,
+      "x2": 0.25,
+      "y2": -6.25
+    },
+    {
+      "type": "line",
+      "x1": -0.75,
+      "y1": -5.75,
+      "x2": 0.75,
+      "y2": -5.75
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": -5.25,
+      "x2": 1.25,
+      "y2": -5.25
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -5.25,
+      "x2": 0.0,
+      "y2": -4.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": -10.0,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": 10.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 5.0,
+    "y": 10.0
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-brisvitre",
+  "name": "Detektor rozbití okna",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); brisvitre.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": -0.0,
+      "r": 2.5,
+      "start": 180.0,
+      "end": 270.0
+    },
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": -0.0,
+      "r": 2.5,
+      "start": 90.0,
+      "end": 180.0
+    },
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": -0.0,
+      "r": 2.5,
+      "start": 0.0,
+      "end": 90.0
+    },
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": -0.0,
+      "r": 2.5,
+      "start": 270.0,
+      "end": 360
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 2.5,
+      "x2": -2.5,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": -0.0,
+      "x2": 5.0,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": -0.0,
+      "x2": 7.5,
+      "y2": -0.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 5.0,
+      "y": 0.0,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -11.25,
+    "y": 0.75
+  }
+}

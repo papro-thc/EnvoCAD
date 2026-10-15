@@ -1,0 +1,233 @@
+{
+  "id": "qet.ap.340.10-converters-prevod-i2c-485",
+  "name": "Převodník RS485 na I2C",
+  "category": "QET vícepól/converters_inverters/converters",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); prevod_i2c_485.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -10.0,
+      "y": -10.0,
+      "w": 20.0,
+      "h": 20.0
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": 11.25,
+      "x2": -5.0,
+      "y2": 10.0
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 11.25,
+      "x2": -2.5,
+      "y2": 10.0
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 11.25,
+      "x2": 2.5,
+      "y2": 10.0
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": 11.25,
+      "x2": 5.0,
+      "y2": 10.0
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": -10.0,
+      "x2": -5.0,
+      "y2": -11.25
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -10.0,
+      "x2": -2.5,
+      "y2": -11.25
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -10.0,
+      "x2": 0.0,
+      "y2": -11.25
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": -10.0,
+      "x2": 2.5,
+      "y2": -11.25
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": -10.0,
+      "x2": 5.0,
+      "y2": -11.25
+    },
+    {
+      "type": "text",
+      "x": -4.312,
+      "y": 1.312,
+      "text": "DATA+",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -1.0,
+      "y": 1.312,
+      "text": "DATA-",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 3.875,
+      "y": 4.438,
+      "text": "+Ub",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 6.438,
+      "y": 5.375,
+      "text": "-Ub",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -6.25,
+      "y": -8.75,
+      "text": "1",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -3.75,
+      "y": -8.75,
+      "text": "2",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -1.25,
+      "y": -8.75,
+      "text": "3",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 1.25,
+      "y": -8.75,
+      "text": "4",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 3.75,
+      "y": -8.75,
+      "text": "5",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -7.5,
+      "y": -2.5,
+      "text": "RS485/I2C",
+      "height": 2.02,
+      "align": "left"
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 2.5,
+      "y": 10.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": -2.5,
+      "y": -10.0,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": 5.0,
+      "y": 10.0,
+      "dir": "N"
+    },
+    {
+      "name": "4",
+      "x": -5.0,
+      "y": -10.0,
+      "dir": "S"
+    },
+    {
+      "name": "5",
+      "x": -5.0,
+      "y": 10.0,
+      "dir": "N"
+    },
+    {
+      "name": "6",
+      "x": 2.5,
+      "y": -10.0,
+      "dir": "S"
+    },
+    {
+      "name": "7",
+      "x": 0.0,
+      "y": -10.0,
+      "dir": "S"
+    },
+    {
+      "name": "8",
+      "x": -2.5,
+      "y": 10.0,
+      "dir": "N"
+    },
+    {
+      "name": "9",
+      "x": 5.0,
+      "y": -10.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -16.25,
+    "y": 7.5
+  }
+}

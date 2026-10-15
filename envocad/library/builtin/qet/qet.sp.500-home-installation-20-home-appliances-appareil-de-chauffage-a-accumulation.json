@@ -1,0 +1,77 @@
+{
+  "id": "qet.sp.500-home-installation-20-home-appliances-appareil-de-chauffage-a-accumulation",
+  "name": "Akumulační ohřívač, topné těleso",
+  "category": "QET jednopól/home installation/home appliances",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; appareil_de_chauffage_a_accumulation.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -8.25,
+      "y": -4.0,
+      "w": 16.5,
+      "h": 5.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 1.75,
+      "x2": 0.0,
+      "y2": 2.5
+    },
+    {
+      "type": "rect",
+      "x": -7.5,
+      "y": -3.25,
+      "w": 3.75,
+      "h": 4.25
+    },
+    {
+      "type": "rect",
+      "x": 3.75,
+      "y": -3.25,
+      "w": 3.75,
+      "h": 4.25
+    },
+    {
+      "type": "rect",
+      "x": 0.0,
+      "y": -3.25,
+      "w": 3.75,
+      "h": 4.25
+    },
+    {
+      "type": "rect",
+      "x": -3.75,
+      "y": -3.25,
+      "w": 3.75,
+      "h": 4.25
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 2.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -2.0,
+    "y": -3.0
+  }
+}

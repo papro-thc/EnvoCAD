@@ -1,0 +1,113 @@
+{
+  "id": "qet.ap.110.3-pen-pravy",
+  "name": "Přípojnice 3f+PEN pravá",
+  "category": "QET vícepól/network_supplies",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; 3_pen_pravy.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "text",
+      "x": 1.75,
+      "y": -8.25,
+      "text": "PEN",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 1.75,
+      "y": -3.25,
+      "text": "L3",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 1.75,
+      "y": 1.75,
+      "text": "L2",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 1.75,
+      "y": 6.75,
+      "text": "L1",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 7.5,
+      "x2": 0.0,
+      "y2": 7.5
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 2.5,
+      "x2": 0.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -2.5,
+      "x2": 0.0,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": -2.25,
+      "y1": -7.5,
+      "x2": 0.0,
+      "y2": -7.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "L1",
+      "x": -2.5,
+      "y": 7.5,
+      "dir": "W"
+    },
+    {
+      "name": "L2",
+      "x": -2.5,
+      "y": 2.5,
+      "dir": "W"
+    },
+    {
+      "name": "PEN",
+      "x": -2.5,
+      "y": -7.5,
+      "dir": "W"
+    },
+    {
+      "name": "L3",
+      "x": -2.5,
+      "y": -2.5,
+      "dir": "W"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -1.75,
+    "y": 12.613
+  }
+}

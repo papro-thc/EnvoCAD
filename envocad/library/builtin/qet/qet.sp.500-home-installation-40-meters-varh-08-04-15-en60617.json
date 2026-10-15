@@ -1,0 +1,63 @@
+{
+  "id": "qet.sp.500-home-installation-40-meters-varh-08-04-15-en60617",
+  "name": "Jalový elektroměr",
+  "category": "QET jednopól/home installation/meters",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; varh_08-04-15_en60617.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -3.75,
+      "y": -3.0,
+      "w": 7.5,
+      "h": 6.5
+    },
+    {
+      "type": "rect",
+      "x": -3.75,
+      "y": 3.5,
+      "w": 7.5,
+      "h": 2.0
+    },
+    {
+      "type": "text",
+      "x": -3.0,
+      "y": -1.0,
+      "text": "varh",
+      "height": 1.8,
+      "align": "left"
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": 7.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 4.5,
+    "y": 2.987
+  }
+}

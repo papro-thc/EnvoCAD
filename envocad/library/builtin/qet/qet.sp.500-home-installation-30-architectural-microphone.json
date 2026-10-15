@@ -1,0 +1,90 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-microphone",
+  "name": "Mikrofon",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); microphone.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "circle",
+      "cx": 5.0,
+      "cy": 6.25,
+      "r": 1.25
+    },
+    {
+      "type": "line",
+      "x1": 3.75,
+      "y1": 5.0,
+      "x2": -1.25,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": -0.25,
+      "y1": 0.5,
+      "x2": -0.25,
+      "y2": -5.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 0.5,
+      "x2": 0.0,
+      "y2": -5.0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -2.5,
+          -5.0
+        ],
+        [
+          2.0,
+          -5.0
+        ],
+        [
+          3.25,
+          -5.5
+        ],
+        [
+          -3.75,
+          -5.5
+        ]
+      ],
+      "closed": true
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 0.0,
+      "dir": "W"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -2.5,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -5.5,
+    "y": 4.375
+  }
+}

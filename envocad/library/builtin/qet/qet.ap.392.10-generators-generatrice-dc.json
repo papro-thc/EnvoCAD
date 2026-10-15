@@ -1,0 +1,69 @@
+{
+  "id": "qet.ap.392.10-generators-generatrice-dc",
+  "name": "Dynamo",
+  "category": "QET vícepól/generators_sources/generators",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; generatrice_dc.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 7.5,
+      "x2": 0.0,
+      "y2": -7.5
+    },
+    {
+      "type": "rect",
+      "x": -1.25,
+      "y": -3.75,
+      "w": 2.5,
+      "h": 7.5
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -0.0,
+      "r": 3.125
+    },
+    {
+      "type": "text",
+      "x": -1.5,
+      "y": -1.25,
+      "text": "G",
+      "height": 2.25,
+      "align": "left"
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -7.5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 5.0,
+    "y": -0.25
+  }
+}

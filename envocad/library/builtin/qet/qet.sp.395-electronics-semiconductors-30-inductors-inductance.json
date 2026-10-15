@@ -1,0 +1,70 @@
+{
+  "id": "qet.sp.395-electronics-semiconductors-30-inductors-inductance",
+  "name": "Reaktor",
+  "category": "QET jednopól/electronics semiconductors/inductors",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; inductance.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -3.75,
+      "x2": 0.0,
+      "y2": -7.5
+    },
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": -0.0,
+      "r": 3.75,
+      "start": 270.0,
+      "end": 180.0
+    },
+    {
+      "type": "line",
+      "x1": -3.75,
+      "y1": -0.0,
+      "x2": 0.0,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 7.5,
+      "x2": 0.0,
+      "y2": -0.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -7.5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 6.25,
+    "y": 7.5
+  }
+}

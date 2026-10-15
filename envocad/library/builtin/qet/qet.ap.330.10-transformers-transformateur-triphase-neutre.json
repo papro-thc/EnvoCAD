@@ -1,0 +1,247 @@
+{
+  "id": "qet.ap.330.10-transformers-transformateur-triphase-neutre",
+  "name": "Třífázový transformátor + neutrál",
+  "category": "QET vícepól/transformers_power_supplies/transformers",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformateur_triphase_neutre.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -8.5,
+          -8.75
+        ],
+        [
+          -8.5,
+          -7.5
+        ],
+        [
+          -6.75,
+          -4.75
+        ],
+        [
+          -3.0,
+          -4.75
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "text",
+      "x": -4.0,
+      "y": 7.918,
+      "text": "A1",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          2.75,
+          -5.25
+        ],
+        [
+          4.25,
+          -7.5
+        ],
+        [
+          4.25,
+          -8.75
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -2.75,
+          -5.25
+        ],
+        [
+          -4.25,
+          -7.5
+        ],
+        [
+          -4.25,
+          -8.75
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -2.75,
+          5.25
+        ],
+        [
+          -4.25,
+          7.5
+        ],
+        [
+          -4.25,
+          8.75
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          2.75,
+          5.25
+        ],
+        [
+          4.25,
+          7.5
+        ],
+        [
+          4.25,
+          8.75
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "text",
+      "x": 0.5,
+      "y": -8.582,
+      "text": "B2",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -4.0,
+      "y": -8.582,
+      "text": "A2",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 4.5,
+      "y": 7.918,
+      "text": "C1",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 0.25,
+      "y": 7.918,
+      "text": "B1",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -2.5,
+      "r": 3.75
+    },
+    {
+      "type": "text",
+      "x": 4.5,
+      "y": -8.582,
+      "text": "C2",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -8.25,
+      "y": -8.832,
+      "text": "N",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -6.25,
+      "x2": 0.0,
+      "y2": -8.75
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": 2.5,
+      "r": 3.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 8.75,
+      "x2": 0.0,
+      "y2": 6.25
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 5.0,
+      "y": 10.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": 10.0,
+      "dir": "N"
+    },
+    {
+      "name": "3",
+      "x": -5.0,
+      "y": 10.0,
+      "dir": "N"
+    },
+    {
+      "name": "4",
+      "x": -5.0,
+      "y": -10.0,
+      "dir": "S"
+    },
+    {
+      "name": "5",
+      "x": 0.0,
+      "y": -10.0,
+      "dir": "S"
+    },
+    {
+      "name": "6",
+      "x": 5.0,
+      "y": -10.0,
+      "dir": "S"
+    },
+    {
+      "name": "7",
+      "x": -7.5,
+      "y": -10.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 4.438,
+    "y": -0.375
+  }
+}

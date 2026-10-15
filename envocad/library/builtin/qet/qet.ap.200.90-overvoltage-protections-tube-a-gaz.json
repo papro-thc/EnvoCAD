@@ -1,0 +1,103 @@
+{
+  "id": "qet.ap.200.90-overvoltage-protections-tube-a-gaz",
+  "name": "Plynová bleskojistka",
+  "category": "QET vícepól/fuses_protective_gears/overvoltage protections",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); tube_a_gaz.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 2.0,
+      "x2": 0.0,
+      "y2": 5.0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          0.0,
+          0.5
+        ],
+        [
+          0.5,
+          2.0
+        ],
+        [
+          -0.5,
+          2.0
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "circle",
+      "cx": 1.25,
+      "cy": -1.25,
+      "r": 0.312
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          0.0,
+          -0.5
+        ],
+        [
+          -0.5,
+          -2.0
+        ],
+        [
+          0.5,
+          -2.0
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.0,
+      "x2": 0.0,
+      "y2": -5.0
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -0.0,
+      "r": 2.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 3.0,
+    "y": -0.292
+  }
+}

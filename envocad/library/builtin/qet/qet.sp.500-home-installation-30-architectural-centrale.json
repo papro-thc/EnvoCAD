@@ -1,0 +1,42 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-centrale",
+  "name": "Centrála",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); centrale.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -3.75,
+      "y": -3.75,
+      "w": 7.5,
+      "h": 7.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 3.75,
+    "y": 0.625
+  }
+}

@@ -1,0 +1,180 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-pc8",
+  "name": "Zásuvka s odpínačem",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; pc8.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": 13.75,
+      "r": 0.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.25,
+          13.75
+        ],
+        [
+          0.0,
+          8.75
+        ],
+        [
+          0.0,
+          6.25
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": -4.875,
+      "r": 2.5,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.305,
+      "x2": 0.0,
+      "y2": 7.055
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 16.25,
+      "x2": 0.0,
+      "y2": 14.25
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -2.25,
+      "x2": 2.5,
+      "y2": -2.25
+    },
+    {
+      "type": "line",
+      "x1": 0.5,
+      "y1": 14.25,
+      "x2": -0.5,
+      "y2": 14.25
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -0.578,
+          11.123
+        ],
+        [
+          -4.75,
+          11.123
+        ],
+        [
+          -4.75,
+          -5.125
+        ],
+        [
+          -0.578,
+          -5.125
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -4.125,
+      "x2": 0.0,
+      "y2": -5.125
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -5.062,
+      "x2": 0.0,
+      "y2": -5.438
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -6.0,
+          3.5
+        ],
+        [
+          -6.0,
+          2.5
+        ],
+        [
+          -5.0,
+          3.0
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "rect",
+      "x": -7.5,
+      "y": -6.25,
+      "w": 15.0,
+      "h": 25.0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.25,
+          -1.25
+        ],
+        [
+          1.25,
+          1.2
+        ],
+        [
+          1.25,
+          2.428
+        ]
+      ],
+      "closed": false
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 17.5,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": 2.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -2.5,
+    "y": -9.375
+  }
+}

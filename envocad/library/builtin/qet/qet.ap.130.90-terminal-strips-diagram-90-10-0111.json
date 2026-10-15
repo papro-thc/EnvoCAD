@@ -1,0 +1,61 @@
+{
+  "id": "qet.ap.130.90-terminal-strips-diagram-90-10-0111",
+  "name": "Svorka průchozí",
+  "category": "QET vícepól/terminals_terminal_strips/terminal strips diagram",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); 90-10-0111.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -2.5,
+      "y": -10.0,
+      "w": 5.0,
+      "h": 20.0
+    },
+    {
+      "type": "rect",
+      "x": -2.0,
+      "y": -3.0,
+      "w": 4.0,
+      "h": 6.0
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -5.0,
+      "r": 0.75
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 10.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -10.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 5.0,
+    "y": 10.0
+  }
+}

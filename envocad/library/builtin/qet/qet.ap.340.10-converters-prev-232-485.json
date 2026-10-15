@@ -1,0 +1,206 @@
+{
+  "id": "qet.ap.340.10-converters-prev-232-485",
+  "name": "Převodník RS232/485",
+  "category": "QET vícepól/converters_inverters/converters",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); prev_232_485.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -10.0,
+      "y": -11.25,
+      "w": 20.0,
+      "h": 22.5
+    },
+    {
+      "type": "line",
+      "x1": -10.0,
+      "y1": -11.25,
+      "x2": 10.0,
+      "y2": 11.25
+    },
+    {
+      "type": "text",
+      "x": -6.688,
+      "y": 7.5,
+      "text": "RX",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -3.375,
+      "y": 5.5,
+      "text": "GND",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -0.938,
+      "y": 7.5,
+      "text": "TX",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 4.0,
+      "y": 5.625,
+      "text": "+Ub",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 6.312,
+      "y": 6.688,
+      "text": "-Ub",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 4.062,
+      "y": -10.75,
+      "text": "DATA+",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 5.875,
+      "y": -10.688,
+      "text": "DATA-",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -8.75,
+      "y": 1.25,
+      "text": "RS232",
+      "height": 2.02,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 0.562,
+      "y": -1.688,
+      "text": "RS485",
+      "height": 2.02,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": 12.5,
+      "x2": -7.5,
+      "y2": 11.25
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": 12.5,
+      "x2": -5.0,
+      "y2": 11.25
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 12.5,
+      "x2": -2.5,
+      "y2": 11.25
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 12.5,
+      "x2": 2.5,
+      "y2": 11.25
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": 12.5,
+      "x2": 5.0,
+      "y2": 11.25
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": -12.5,
+      "x2": 2.5,
+      "y2": -11.25
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": -12.5,
+      "x2": 5.0,
+      "y2": -11.25
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 5.0,
+      "y": -12.5,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": -7.5,
+      "y": 12.5,
+      "dir": "N"
+    },
+    {
+      "name": "3",
+      "x": -5.0,
+      "y": 12.5,
+      "dir": "N"
+    },
+    {
+      "name": "4",
+      "x": 5.0,
+      "y": 12.5,
+      "dir": "N"
+    },
+    {
+      "name": "5",
+      "x": 2.5,
+      "y": -12.5,
+      "dir": "S"
+    },
+    {
+      "name": "6",
+      "x": -2.5,
+      "y": 12.5,
+      "dir": "N"
+    },
+    {
+      "name": "7",
+      "x": 2.5,
+      "y": 12.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -15.0,
+    "y": 10.0
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "id": "qet.ap.130.90-terminal-strips-diagram-cable",
+  "name": "Kabel",
+  "category": "QET vícepól/terminals_terminal_strips/terminal strips diagram",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); cable.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -2.5,
+      "y": -57.5,
+      "w": 5.0,
+      "h": 57.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 1.0,
+      "x2": 0.0,
+      "y2": -0.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 0.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -2.5,
+    "y": -52.5
+  }
+}

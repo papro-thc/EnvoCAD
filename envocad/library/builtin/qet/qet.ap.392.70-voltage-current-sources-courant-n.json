@@ -1,0 +1,68 @@
+{
+  "id": "qet.ap.392.70-voltage-current-sources-courant-n",
+  "name": "Zdroj proudu (nový)",
+  "category": "QET vícepól/generators_sources/voltage current sources",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; courant_n.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": -0.0,
+      "x2": -2.5,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.5,
+      "x2": 0.0,
+      "y2": -5.0
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -0.0,
+      "r": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 0.0,
+      "y2": 2.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 3.188,
+    "y": -0.125
+  }
+}

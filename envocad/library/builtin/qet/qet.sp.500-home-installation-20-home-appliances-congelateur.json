@@ -1,0 +1,148 @@
+{
+  "id": "qet.sp.500-home-installation-20-home-appliances-congelateur",
+  "name": "Mraznička, mrazák, mrazicí skříň",
+  "category": "QET jednopól/home installation/home appliances",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; congelateur.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -0.5,
+      "y1": -4.25,
+      "x2": 0.5,
+      "y2": -3.25
+    },
+    {
+      "type": "line",
+      "x1": 1.25,
+      "y1": -3.0,
+      "x2": 2.25,
+      "y2": -2.0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -3.0,
+          0.25
+        ],
+        [
+          -3.0,
+          -5.75
+        ],
+        [
+          3.0,
+          -5.75
+        ],
+        [
+          3.0,
+          0.25
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": -0.5,
+      "y1": -3.25,
+      "x2": 0.5,
+      "y2": -4.25
+    },
+    {
+      "type": "line",
+      "x1": 1.25,
+      "y1": -2.0,
+      "x2": 2.25,
+      "y2": -3.0
+    },
+    {
+      "type": "line",
+      "x1": -2.25,
+      "y1": -3.0,
+      "x2": -1.25,
+      "y2": -2.0
+    },
+    {
+      "type": "line",
+      "x1": -0.75,
+      "y1": -3.75,
+      "x2": 0.75,
+      "y2": -3.75
+    },
+    {
+      "type": "line",
+      "x1": 1.0,
+      "y1": -2.5,
+      "x2": 2.5,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": -2.25,
+      "y1": -2.0,
+      "x2": -1.25,
+      "y2": -3.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -3.0,
+      "x2": 0.0,
+      "y2": -4.5
+    },
+    {
+      "type": "line",
+      "x1": 1.75,
+      "y1": -1.75,
+      "x2": 1.75,
+      "y2": -3.25
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -2.5,
+      "x2": -1.0,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": -1.75,
+      "y1": -1.75,
+      "x2": -1.75,
+      "y2": -3.25
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 3.25,
+      "x2": 0.0,
+      "y2": 0.25
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 2.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -2.0,
+    "y": -4.5
+  }
+}

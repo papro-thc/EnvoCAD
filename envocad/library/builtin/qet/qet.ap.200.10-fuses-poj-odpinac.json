@@ -1,0 +1,95 @@
+{
+  "id": "qet.ap.200.10-fuses-poj-odpinac",
+  "name": "Pojistkový odpínač",
+  "category": "QET vícepól/fuses_protective_gears/fuses",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); poj_odpinac.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          0.708,
+          -2.217
+        ],
+        [
+          -0.73,
+          -2.72
+        ],
+        [
+          -2.192,
+          1.705
+        ],
+        [
+          -0.785,
+          2.203
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": -0.75,
+      "y1": 2.5,
+      "x2": 0.75,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 2.5,
+      "x2": 0.0,
+      "y2": 3.75
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.475,
+          1.95
+        ],
+        [
+          0.0,
+          -2.5
+        ],
+        [
+          0.0,
+          -3.75
+        ]
+      ],
+      "closed": false
+    }
+  ],
+  "ports": [
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -7.0,
+    "y": 1.25
+  }
+}

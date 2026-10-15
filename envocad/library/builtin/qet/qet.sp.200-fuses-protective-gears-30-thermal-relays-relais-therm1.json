@@ -1,0 +1,71 @@
+{
+  "id": "qet.sp.200-fuses-protective-gears-30-thermal-relays-relais-therm1",
+  "name": "Tepelné relé",
+  "category": "QET jednopól/fuses protective gears/thermal relays",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; relais_therm1.elmt",
+  "iec_ref": "F",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          0.0,
+          5.0
+        ],
+        [
+          0.0,
+          1.25
+        ],
+        [
+          1.25,
+          1.25
+        ],
+        [
+          1.25,
+          -1.25
+        ],
+        [
+          0.0,
+          -1.25
+        ],
+        [
+          0.0,
+          -5.0
+        ]
+      ],
+      "closed": false
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 2.5,
+    "y": -0.125
+  }
+}

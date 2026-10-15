@@ -1,0 +1,50 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-minuterie",
+  "name": "Časový spínač",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); minuterie.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "text",
+      "x": 2.0,
+      "y": 1.5,
+      "text": "t",
+      "height": 2.02,
+      "align": "left"
+    },
+    {
+      "type": "rect",
+      "x": -2.5,
+      "y": -0.0,
+      "w": 10.0,
+      "h": 5.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 2.5,
+      "y": 5.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 0.75,
+    "y": 0.487
+  }
+}

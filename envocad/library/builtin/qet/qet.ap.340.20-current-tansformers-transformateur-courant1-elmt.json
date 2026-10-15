@@ -1,0 +1,90 @@
+{
+  "id": "qet.ap.340.20-current-tansformers-transformateur-courant1-elmt",
+  "name": "Proudový nebo impulzní transformátor",
+  "category": "QET vícepól/converters_inverters/current tansformers",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformateur_courant1.elmt.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": -1.875,
+      "r": 0.625,
+      "start": 90.0,
+      "end": 270.0
+    },
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": -0.625,
+      "r": 0.625,
+      "start": 90.0,
+      "end": 270.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -0.0,
+      "x2": 2.5,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.5,
+      "x2": 2.5,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 2.5,
+      "x2": 0.0,
+      "y2": -5.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 2.5,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 2.5,
+      "y": -2.5,
+      "dir": "E"
+    },
+    {
+      "name": "3",
+      "x": 2.5,
+      "y": 0.0,
+      "dir": "E"
+    },
+    {
+      "name": "4",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 0.5,
+    "y": 3.375
+  }
+}

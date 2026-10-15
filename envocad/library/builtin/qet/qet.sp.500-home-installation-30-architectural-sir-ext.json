@@ -1,0 +1,91 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-sir-ext",
+  "name": "Venkovní siréna",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); sir_ext.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -2.625,
+      "y": -3.062,
+      "w": 7.5,
+      "h": 5.0
+    },
+    {
+      "type": "line",
+      "x1": 4.875,
+      "y1": 1.938,
+      "x2": 7.375,
+      "y2": 4.438
+    },
+    {
+      "type": "line",
+      "x1": 7.375,
+      "y1": 4.438,
+      "x2": 7.375,
+      "y2": -5.562
+    },
+    {
+      "type": "line",
+      "x1": 7.375,
+      "y1": -5.562,
+      "x2": 4.875,
+      "y2": -3.062
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -0.5,
+      "x2": -2.0,
+      "y2": -0.5
+    },
+    {
+      "type": "line",
+      "x1": -2.0,
+      "y1": -0.0,
+      "x2": -2.0,
+      "y2": -1.0
+    },
+    {
+      "type": "line",
+      "x1": -1.5,
+      "y1": 0.5,
+      "x2": -1.5,
+      "y2": -1.5
+    },
+    {
+      "type": "line",
+      "x1": -1.5,
+      "y1": -0.5,
+      "x2": -1.0,
+      "y2": -0.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -2.5,
+      "y": 2.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -12.625,
+    "y": 0.188
+  }
+}

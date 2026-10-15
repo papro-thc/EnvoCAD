@@ -1,0 +1,126 @@
+{
+  "id": "qet.sp.500-home-installation-20-home-appliances-appareil-de-cuisson",
+  "name": "Kuchyňský spotřebič",
+  "category": "QET jednopól/home installation/home appliances",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; appareil_de_cuisson.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -0.578,
+      "y1": -5.195,
+      "x2": 0.922,
+      "y2": -3.695
+    },
+    {
+      "type": "line",
+      "x1": -0.955,
+      "y1": -4.75,
+      "x2": 0.545,
+      "y2": -3.25
+    },
+    {
+      "type": "line",
+      "x1": -1.067,
+      "y1": -4.433,
+      "x2": 0.182,
+      "y2": -3.183
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -4.25,
+      "r": 1.117
+    },
+    {
+      "type": "line",
+      "x1": -1.0,
+      "y1": -4.0,
+      "x2": -0.25,
+      "y2": -3.25
+    },
+    {
+      "type": "line",
+      "x1": 0.25,
+      "y1": -5.25,
+      "x2": 1.0,
+      "y2": -4.5
+    },
+    {
+      "type": "line",
+      "x1": -0.25,
+      "y1": -5.25,
+      "x2": 1.0,
+      "y2": -4.0
+    },
+    {
+      "type": "line",
+      "x1": -0.75,
+      "y1": -5.0,
+      "x2": 0.75,
+      "y2": -3.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -3.0,
+          -0.0
+        ],
+        [
+          -3.0,
+          -6.0
+        ],
+        [
+          3.0,
+          -6.0
+        ],
+        [
+          3.0,
+          -0.0
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 3.0,
+      "x2": 0.0,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": -3.0,
+      "y1": -1.25,
+      "x2": 3.0,
+      "y2": -1.25
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 2.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -1.75,
+    "y": -5.0
+  }
+}

@@ -48,7 +48,8 @@ class LibraryPanel(QWidget):
             it.setData(0, Qt.UserRole, sid)
             it.setToolTip(0, sid)
             parent.addChild(it)
-        self.tree.expandAll()
+        for cat, parent in cats.items():
+            parent.setExpanded(bool(self.search.text()) or not cat.startswith("QET"))
 
     def _dbl(self, item: QTreeWidgetItem, _col: int) -> None:
         sid = item.data(0, Qt.UserRole)

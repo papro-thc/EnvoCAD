@@ -1,0 +1,49 @@
+{
+  "id": "qet.ap.110.ground1",
+  "name": "Kostra",
+  "category": "QET vícepól/network_supplies",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); ground1.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 0.0,
+      "y2": -3.25
+    },
+    {
+      "type": "line",
+      "x1": -3.413,
+      "y1": -3.5,
+      "x2": 3.155,
+      "y2": -3.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "GND",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 2.0,
+    "y": -0.25
+  }
+}

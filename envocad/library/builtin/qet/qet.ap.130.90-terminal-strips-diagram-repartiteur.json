@@ -1,0 +1,188 @@
+{
+  "id": "qet.ap.130.90-terminal-strips-diagram-repartiteur",
+  "name": "Rozdělovač",
+  "category": "QET vícepól/terminals_terminal_strips/terminal strips diagram",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; repartiteur.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -4.0,
+      "y": -4.0,
+      "w": 10.5,
+      "h": 3.0
+    },
+    {
+      "type": "circle",
+      "cx": 5.0,
+      "cy": -2.5,
+      "r": 0.125
+    },
+    {
+      "type": "circle",
+      "cx": 2.5,
+      "cy": -2.5,
+      "r": 0.125
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -2.5,
+      "r": 0.125
+    },
+    {
+      "type": "circle",
+      "cx": -2.5,
+      "cy": -2.5,
+      "r": 0.625
+    },
+    {
+      "type": "circle",
+      "cx": -2.5,
+      "cy": -2.5,
+      "r": 0.125
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": -5.0,
+      "x2": 5.0,
+      "y2": -3.25
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": -5.0,
+      "x2": 2.5,
+      "y2": -3.25
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -5.0,
+      "x2": 0.0,
+      "y2": -3.25
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -5.0,
+      "x2": -2.5,
+      "y2": -3.25
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": -0.0,
+      "x2": 5.0,
+      "y2": -1.75
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": -0.0,
+      "x2": 2.5,
+      "y2": -1.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -0.0,
+      "x2": 0.0,
+      "y2": -1.75
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -0.0,
+      "x2": -2.5,
+      "y2": -1.75
+    },
+    {
+      "type": "circle",
+      "cx": 5.0,
+      "cy": -2.5,
+      "r": 0.625
+    },
+    {
+      "type": "circle",
+      "cx": 2.5,
+      "cy": -2.5,
+      "r": 0.625
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -2.5,
+      "r": 0.625
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -2.5,
+      "y": 0.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": -2.5,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": 0.0,
+      "y": 0.0,
+      "dir": "N"
+    },
+    {
+      "name": "4",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "5",
+      "x": 2.5,
+      "y": 0.0,
+      "dir": "N"
+    },
+    {
+      "name": "6",
+      "x": 2.5,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "7",
+      "x": 5.0,
+      "y": 0.0,
+      "dir": "N"
+    },
+    {
+      "name": "8",
+      "x": 5.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 6.75,
+    "y": -2.042
+  }
+}

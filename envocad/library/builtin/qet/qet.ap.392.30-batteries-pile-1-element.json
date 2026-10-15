@@ -1,0 +1,85 @@
+{
+  "id": "qet.ap.392.30-batteries-pile-1-element",
+  "name": "Baterie 1 článek",
+  "category": "QET vícepól/generators_sources/batteries",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; pile_1_element.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": -0.0,
+      "x2": 0.75,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": -0.75,
+      "y1": -0.0,
+      "x2": -5.0,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": -0.75,
+      "y1": 2.25,
+      "x2": -0.75,
+      "y2": -2.25
+    },
+    {
+      "type": "rect",
+      "x": 0.0,
+      "y": -1.5,
+      "w": 0.75,
+      "h": 3.0
+    },
+    {
+      "type": "text",
+      "x": 1.5,
+      "y": -1.667,
+      "text": "-",
+      "height": 1.35,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -2.75,
+      "y": -1.667,
+      "text": "+",
+      "height": 1.35,
+      "align": "left"
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -5.0,
+      "y": 0.0,
+      "dir": "W"
+    },
+    {
+      "name": "2",
+      "x": 5.0,
+      "y": 0.0,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 1.25,
+    "y": 4.487
+  }
+}

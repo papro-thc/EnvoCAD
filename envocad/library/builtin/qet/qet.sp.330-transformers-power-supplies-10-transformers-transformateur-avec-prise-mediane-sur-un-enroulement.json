@@ -1,0 +1,92 @@
+{
+  "id": "qet.sp.330-transformers-power-supplies-10-transformers-transformateur-avec-prise-mediane-sur-un-enroulement",
+  "name": "Jednofázový transformátor, nastavitelný",
+  "category": "QET jednopól/transformers power supplies/transformers",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformateur_avec_prise_mediane_sur_un_enroulement.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": 2.5,
+      "r": 3.75
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -2.5,
+      "r": 3.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 10.0,
+      "x2": 0.0,
+      "y2": 6.25
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -6.25,
+      "x2": 0.0,
+      "y2": -10.0
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": -2.5,
+      "x2": 5.0,
+      "y2": 2.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          4.75,
+          3.0
+        ],
+        [
+          5.25,
+          2.0
+        ],
+        [
+          6.5,
+          3.5
+        ]
+      ],
+      "closed": true
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 10.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -10.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 4.25,
+    "y": 0.625
+  }
+}

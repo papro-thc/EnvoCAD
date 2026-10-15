@@ -1,0 +1,63 @@
+{
+  "id": "qet.sp.500-home-installation-40-meters-wattheuremetre-08-04-03-en60617",
+  "name": "Elektroměr",
+  "category": "QET jednopól/home installation/meters",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); wattheuremetre_08-04-03_en60617.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "text",
+      "x": -2.5,
+      "y": -3.0,
+      "text": "Wh",
+      "height": 2.02,
+      "align": "left"
+    },
+    {
+      "type": "rect",
+      "x": -5.0,
+      "y": -7.5,
+      "w": 10.0,
+      "h": 10.0
+    },
+    {
+      "type": "rect",
+      "x": -5.0,
+      "y": 2.5,
+      "w": 10.0,
+      "h": 5.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -7.5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 5.75,
+    "y": 0.487
+  }
+}

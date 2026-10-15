@@ -1,0 +1,66 @@
+{
+  "id": "qet.sp.500-home-installation-25-v-d-i-terrestrial-reception-sockets-prise-tv-fm",
+  "name": "Dvojzásuvka TV+FM",
+  "category": "QET jednopól/home installation/V.D.I/reception/sockets",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); prise_tv_fm.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "circle",
+      "cx": -1.25,
+      "cy": -2.5,
+      "r": 0.75
+    },
+    {
+      "type": "circle",
+      "cx": -1.25,
+      "cy": -2.5,
+      "r": 0.125
+    },
+    {
+      "type": "circle",
+      "cx": 1.5,
+      "cy": -2.5,
+      "r": 0.75
+    },
+    {
+      "type": "circle",
+      "cx": 1.5,
+      "cy": -2.5,
+      "r": 0.25
+    },
+    {
+      "type": "rect",
+      "x": -2.5,
+      "y": -5.0,
+      "w": 5.0,
+      "h": 5.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 0.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -3.75,
+    "y": -8.0
+  }
+}

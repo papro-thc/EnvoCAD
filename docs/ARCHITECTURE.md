@@ -83,3 +83,19 @@ Jeden model, dva pohledy nad stejnými daty:
 - Přepínání pohledu = jiný `QGraphicsScene` nad stejným `Sheet`; symboly pro vícepól se generují z jednopólových
   (N× opakovaný pólový symbol + společná spoušť), vlastní vícepólové symboly v knihovně jsou volitelné.
 - Svorkovnice a seznam kabelů se generují z `Wire.conductors` + `Wire.terminals`.
+
+## Modularita a rozšiřování
+
+Tři vrstvy rozšíření, od nejjednodušší:
+
+1. **Data bez kódu** – knihovna je jen soubory. `~/.envocad/library/<balíček>/` (Windows
+   `C:\Users\<jméno>\.envocad\library\`) může obsahovat libovolné podsložky se značkami `*.json`
+   (formát `docs/LIBRARY_FORMAT.md`) a artikly `*.csv` (`docs/COMPONENTS.md`). Načtou se při startu, změny
+   podle data souboru. Firemní sdílená knihovna = tato složka na síťovém disku (nebo git repozitář).
+2. **Importéry** – `library/dxf_import.py`, `qet_import.py`, `eplan_import.py` převádějí cizí formáty na (1).
+   Nový formát = nový modul se stejným rozhraním (vstup → `Symbol` / řádky CSV).
+3. **Pluginy** – `~/.envocad/plugins/*.py` s `register(ctx)` (`envocad/plugins.py`): položky menu, šablony
+   rozvaděčů, importéry v menu, vlastní výkazy. Vzor: `envocad/plugins_builtin/example_counts.py`.
+   Budoucí obory (HVAC, MaR, silnoproud budov) = balíček knihovny + plugin se šablonami a výkazy, jádro se nemění.
+
+Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace), takže rozšíření modelu nerozbije staré soubory.

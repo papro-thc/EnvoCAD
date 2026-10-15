@@ -1,0 +1,76 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-gache-electrique",
+  "name": "Elektrický zámek",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); gache_electrique.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          2.5,
+          -2.5
+        ],
+        [
+          5.0,
+          -2.5
+        ],
+        [
+          2.5,
+          -0.0
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "rect",
+      "x": -2.5,
+      "y": -2.5,
+      "w": 5.0,
+      "h": 2.5
+    },
+    {
+      "type": "arc",
+      "cx": -0.625,
+      "cy": -1.5,
+      "r": 0.625,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "arc",
+      "cx": 0.625,
+      "cy": -1.5,
+      "r": 0.625,
+      "start": 0.0,
+      "end": 180.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 0.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -2.5,
+    "y": -2.013
+  }
+}

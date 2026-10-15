@@ -1,0 +1,142 @@
+{
+  "id": "qet.ap.130.90-terminal-strips-diagram-90-10-0211",
+  "name": "Dvoupatrová svorkovnice",
+  "category": "QET vícepól/terminals_terminal_strips/terminal strips diagram",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); 90-10-0211.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "circle",
+      "cx": 5.0,
+      "cy": -7.5,
+      "r": 0.75
+    },
+    {
+      "type": "rect",
+      "x": 3.0,
+      "y": -3.0,
+      "w": 4.0,
+      "h": 6.0
+    },
+    {
+      "type": "rect",
+      "x": -2.0,
+      "y": -3.0,
+      "w": 4.0,
+      "h": 6.0
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -5.0,
+      "r": 0.75
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 10.0,
+      "x2": 2.5,
+      "y2": -10.0
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 10.0,
+      "x2": 2.5,
+      "y2": 10.0
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 10.0,
+      "x2": 2.5,
+      "y2": 12.5
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 12.5,
+      "x2": 7.5,
+      "y2": 12.5
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 10.0,
+      "x2": -2.5,
+      "y2": -10.0
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -10.0,
+      "x2": 2.5,
+      "y2": -10.0
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": -10.0,
+      "x2": 2.5,
+      "y2": -12.5
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": -12.5,
+      "x2": 7.5,
+      "y2": -12.5
+    },
+    {
+      "type": "line",
+      "x1": 7.5,
+      "y1": -12.5,
+      "x2": 7.5,
+      "y2": 12.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 5.0,
+      "y": -12.5,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": 10.0,
+      "dir": "N"
+    },
+    {
+      "name": "3",
+      "x": 5.0,
+      "y": 12.5,
+      "dir": "N"
+    },
+    {
+      "name": "4",
+      "x": 0.0,
+      "y": -10.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 10.0,
+    "y": 12.5
+  }
+}

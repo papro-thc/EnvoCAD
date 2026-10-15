@@ -1,0 +1,87 @@
+{
+  "id": "qet.ap.310.01-coils-comm-verr-mecanique",
+  "name": "Mechanické blokovací relé",
+  "category": "QET vícepól/relays_contactors_contacts/coils",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); comm_verr_mecanique.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -3.75,
+          -2.5
+        ],
+        [
+          -6.25,
+          -0.0
+        ],
+        [
+          -3.75,
+          2.5
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "rect",
+      "x": -6.25,
+      "y": -2.5,
+      "w": 2.5,
+      "h": 5.0
+    },
+    {
+      "type": "rect",
+      "x": -3.75,
+      "y": -2.5,
+      "w": 7.5,
+      "h": 5.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -5.0,
+      "x2": 0.0,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 0.0,
+      "y2": 2.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 4.0,
+    "y": 0.5
+  }
+}

@@ -1,0 +1,318 @@
+{
+  "id": "qet.ap.330.10-transformers-autotransformator-3f-2",
+  "name": "Třífázový autotransformátor Y, spojený do hvězdy",
+  "category": "QET vícepól/transformers_power_supplies/transformers",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; autotransformator_3f_2.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "arc",
+      "cx": -2.5,
+      "cy": 1.875,
+      "r": 0.625,
+      "start": 270.0,
+      "end": 90.0
+    },
+    {
+      "type": "text",
+      "x": 0.5,
+      "y": -4.75,
+      "text": "C2",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 0.043,
+      "y": 3.75,
+      "text": "C1",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -4.855,
+      "y": 3.75,
+      "text": "B1",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -4.397,
+      "y": -4.75,
+      "text": "B2",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "arc",
+      "cx": -7.5,
+      "cy": 1.875,
+      "r": 0.625,
+      "start": 270.0,
+      "end": 90.0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -10.0,
+          -5.0
+        ],
+        [
+          -10.0,
+          -0.0
+        ],
+        [
+          -7.5,
+          -0.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "text",
+      "x": -9.543,
+      "y": -4.75,
+      "text": "A2",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -5.0,
+          -5.0
+        ],
+        [
+          -5.0,
+          -0.0
+        ],
+        [
+          -2.5,
+          -0.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "arc",
+      "cx": -2.5,
+      "cy": 3.125,
+      "r": 0.625,
+      "start": 270.0,
+      "end": 90.0
+    },
+    {
+      "type": "arc",
+      "cx": -7.5,
+      "cy": 3.125,
+      "r": 0.625,
+      "start": 270.0,
+      "end": 90.0
+    },
+    {
+      "type": "arc",
+      "cx": -2.5,
+      "cy": 0.625,
+      "r": 0.625,
+      "start": 270.0,
+      "end": 90.0
+    },
+    {
+      "type": "arc",
+      "cx": -7.5,
+      "cy": 0.625,
+      "r": 0.625,
+      "start": 270.0,
+      "end": 90.0
+    },
+    {
+      "type": "arc",
+      "cx": 2.5,
+      "cy": 1.875,
+      "r": 0.625,
+      "start": 270.0,
+      "end": 90.0
+    },
+    {
+      "type": "arc",
+      "cx": -7.5,
+      "cy": -0.625,
+      "r": 0.625,
+      "start": 270.0,
+      "end": 90.0
+    },
+    {
+      "type": "arc",
+      "cx": -2.5,
+      "cy": -0.625,
+      "r": 0.625,
+      "start": 270.0,
+      "end": 90.0
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -2.5,
+      "x2": -2.5,
+      "y2": -1.25
+    },
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": -2.5,
+      "x2": -7.5,
+      "y2": -1.25
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 3.75,
+      "x2": -2.5,
+      "y2": 5.0
+    },
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": 3.75,
+      "x2": -7.5,
+      "y2": 5.0
+    },
+    {
+      "type": "arc",
+      "cx": 2.5,
+      "cy": 3.125,
+      "r": 0.625,
+      "start": 270.0,
+      "end": 90.0
+    },
+    {
+      "type": "arc",
+      "cx": 2.5,
+      "cy": 0.625,
+      "r": 0.625,
+      "start": 270.0,
+      "end": 90.0
+    },
+    {
+      "type": "arc",
+      "cx": 2.5,
+      "cy": -0.625,
+      "r": 0.625,
+      "start": 270.0,
+      "end": 90.0
+    },
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": -2.5,
+      "x2": 2.5,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": -2.5,
+      "x2": 2.5,
+      "y2": -1.25
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 3.75,
+      "x2": 2.5,
+      "y2": 5.0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          0.0,
+          -5.0
+        ],
+        [
+          0.0,
+          -0.0
+        ],
+        [
+          2.5,
+          -0.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "circle",
+      "cx": -2.5,
+      "cy": -2.5,
+      "r": 0.25
+    },
+    {
+      "type": "text",
+      "x": -10.0,
+      "y": 3.75,
+      "text": "A1",
+      "height": 0.9,
+      "align": "left"
+    }
+  ],
+  "ports": [
+    {
+      "name": "B2",
+      "x": -5.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "B1",
+      "x": -2.5,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "A1",
+      "x": -7.5,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "C2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "C1",
+      "x": 2.5,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "A2",
+      "x": -10.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 3.75,
+    "y": 0.375
+  }
+}

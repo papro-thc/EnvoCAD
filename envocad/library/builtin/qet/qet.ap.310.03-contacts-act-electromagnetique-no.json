@@ -1,0 +1,169 @@
+{
+  "id": "qet.ap.310.03-contacts-act-electromagnetique-no",
+  "name": "Elektromagnetické relé (NO)",
+  "category": "QET vícepól/relays_contactors_contacts/contacts",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; act_electromagnetique_no.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -4.5,
+          -0.75
+        ],
+        [
+          -4.391,
+          -0.739
+        ],
+        [
+          -4.286,
+          -0.705
+        ],
+        [
+          -4.188,
+          -0.65
+        ],
+        [
+          -4.098,
+          -0.575
+        ],
+        [
+          -4.021,
+          -0.482
+        ],
+        [
+          -3.959,
+          -0.375
+        ],
+        [
+          -3.913,
+          -0.257
+        ],
+        [
+          -3.884,
+          -0.13
+        ],
+        [
+          -3.875,
+          -0.0
+        ],
+        [
+          -3.884,
+          0.13
+        ],
+        [
+          -3.913,
+          0.257
+        ],
+        [
+          -3.959,
+          0.375
+        ],
+        [
+          -4.021,
+          0.482
+        ],
+        [
+          -4.098,
+          0.575
+        ],
+        [
+          -4.188,
+          0.65
+        ],
+        [
+          -4.286,
+          0.705
+        ],
+        [
+          -4.391,
+          0.739
+        ],
+        [
+          -4.5,
+          0.75
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": -4.5,
+      "y1": -0.75,
+      "x2": -4.5,
+      "y2": -1.75
+    },
+    {
+      "type": "line",
+      "x1": -4.5,
+      "y1": 1.75,
+      "x2": -4.5,
+      "y2": 0.75
+    },
+    {
+      "type": "line",
+      "x1": -3.75,
+      "y1": -0.0,
+      "x2": -0.75,
+      "y2": -0.0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.25,
+          2.5
+        ],
+        [
+          0.0,
+          -2.5
+        ],
+        [
+          0.0,
+          -5.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 0.0,
+      "y2": 2.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 0.25,
+    "y": 0.5
+  }
+}

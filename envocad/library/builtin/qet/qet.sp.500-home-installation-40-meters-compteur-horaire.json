@@ -1,0 +1,63 @@
+{
+  "id": "qet.sp.500-home-installation-40-meters-compteur-horaire",
+  "name": "Měřič provozních hodin",
+  "category": "QET jednopól/home installation/meters",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; compteur_horaire.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "text",
+      "x": -0.75,
+      "y": -0.583,
+      "text": "h",
+      "height": 2.02,
+      "align": "left"
+    },
+    {
+      "type": "rect",
+      "x": -3.75,
+      "y": -2.75,
+      "w": 7.5,
+      "h": 5.5
+    },
+    {
+      "type": "rect",
+      "x": -3.75,
+      "y": 2.75,
+      "w": 7.5,
+      "h": 2.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 4.5,
+    "y": 2.987
+  }
+}

@@ -30,14 +30,26 @@ CREATE TABLE IF NOT EXISTS components (
     url TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_symbols_cat ON symbols(category);
+CREATE TABLE IF NOT EXISTS builtin_files (path TEXT PRIMARY KEY, mtime REAL NOT NULL);
 CREATE INDEX IF NOT EXISTS ix_components_symbol ON components(symbol_id);
 """
 
 
+def home_dir() -> Path:
+    base = Path(os.environ.get("ENVOCAD_HOME") or os.path.join(os.path.expanduser("~"), ".envocad"))
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def user_library_dir() -> Path:
+    """Uživatelské/firemní balíčky knihovny: libovolná podsložka se symboly (*.json) a artikly (*.csv)."""
+    d = home_dir() / "library"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def default_db_path() -> Path:
-    base = os.environ.get("ENVOCAD_HOME") or os.path.join(os.path.expanduser("~"), ".envocad")
-    Path(base).mkdir(parents=True, exist_ok=True)
-    return Path(base) / "library.db"
+    return home_dir() / "library.db"
 
 
 class LibraryStore:
@@ -54,14 +66,43 @@ class LibraryStore:
     def sync_builtin(self) -> int:
         """Nahraje/aktualizuje vestavěné symboly (JSON) a artikly (CSV). Vrátí počet symbolů."""
         n = 0
-        for f in sorted(BUILTIN_DIR.rglob("*.json")):
-            sym = Symbol.from_json(f)
-            self.put_symbol(sym, builtin=True)
-            n += 1
-        comp_dir = BUILTIN_DIR / "components"
-        if comp_dir.exists():
+        seen = {r["path"]: r["mtime"] for r in self.conn.execute("SELECT path, mtime FROM builtin_files")}
+        rows = []
+        sources = [(BUILTIN_DIR, "builtin")]
+        if self.path == default_db_path():
+            sources.append((user_library_dir(), "user"))
+        for root, tag in sources:
+            self._sync_symbols(root, tag, seen, rows)
+            self._sync_components(root)
+        n = len(rows)
+        if rows:
+            self.conn.executemany(
+                "INSERT INTO symbols(id,name,category,builtin,data) VALUES(?,?,?,?,?) "
+                "ON CONFLICT(id) DO UPDATE SET name=excluded.name, category=excluded.category, "
+                "builtin=excluded.builtin, data=excluded.data", rows)
+            self.conn.commit()
+        return n
+
+    def _sync_symbols(self, root: Path, tag: str, seen: dict, rows: list) -> None:
+        for f in sorted(root.rglob("*.json")):
+            key = f"{tag}:{f.relative_to(root)}"
+            mtime = f.stat().st_mtime
+            if seen.get(key) == mtime:
+                continue  # beze změny – přeskočit (start s ~700 symboly by jinak trval sekundy)
+            try:
+                sym = Symbol.from_json(f)
+            except Exception as ex:  # noqa: BLE001 – vadný uživatelský soubor nesmí shodit start
+                print(f"[knihovna] {f}: {ex}")
+                continue
+            rows.append((sym.id, sym.name, sym.category, 1 if tag == "builtin" else 0,
+                         json.dumps(sym.to_dict(), ensure_ascii=False)))
+            self.conn.execute("INSERT OR REPLACE INTO builtin_files(path, mtime) VALUES(?, ?)", (key, mtime))
+
+    def _sync_components(self, root: Path) -> None:
+        csvs = sorted(root.rglob("*.csv"))
+        if csvs:
             from envocad.library.components import read_csv
-            for f in sorted(comp_dir.glob("*.csv")):
+            for f in csvs:
                 try:
                     comps = read_csv(f)
                 except Exception as ex:  # noqa: BLE001 – vadný soubor nesmí shodit start
@@ -76,7 +117,6 @@ class LibraryStore:
                       json.dumps(c.to_db_row()["params"], ensure_ascii=False), c.price, c.datasheet_url) for c in comps],
                 )
             self.conn.commit()
-        return n
 
     # ---- artikly (typované API) -----------------------------------------
     def component(self, cid: str):

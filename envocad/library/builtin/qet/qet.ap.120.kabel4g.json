@@ -1,0 +1,63 @@
+{
+  "id": "qet.ap.120.kabel4g",
+  "name": "Kabel 4G",
+  "category": "QET vícepól/cables_wiring",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; kabel4g.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -0.512,
+      "y1": 0.512,
+      "x2": 0.487,
+      "y2": -0.487
+    },
+    {
+      "type": "line",
+      "x1": 9.488,
+      "y1": 0.512,
+      "x2": 10.488,
+      "y2": -0.487
+    },
+    {
+      "type": "line",
+      "x1": 4.5,
+      "y1": 0.5,
+      "x2": 5.5,
+      "y2": -0.5
+    },
+    {
+      "type": "line",
+      "x1": -7.485,
+      "y1": -0.0,
+      "x2": 11.982,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": -5.5,
+      "y1": 0.5,
+      "x2": -4.5,
+      "y2": -0.5
+    }
+  ],
+  "ports": [],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -12.75,
+    "y": 2.375
+  }
+}

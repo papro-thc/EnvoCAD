@@ -1,0 +1,85 @@
+{
+  "id": "qet.sp.500-home-installation-20-home-appliances-convecteur",
+  "name": "Elektrické topné těleso",
+  "category": "QET jednopól/home installation/home appliances",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; convecteur.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -3.0,
+          -0.0
+        ],
+        [
+          -3.0,
+          -3.75
+        ],
+        [
+          3.0,
+          -3.75
+        ],
+        [
+          3.0,
+          -0.0
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 3.0,
+      "x2": 0.0,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": -3.0,
+      "y1": -1.125,
+      "x2": 3.0,
+      "y2": -1.125
+    },
+    {
+      "type": "line",
+      "x1": -3.0,
+      "y1": -0.75,
+      "x2": 3.0,
+      "y2": -0.75
+    },
+    {
+      "type": "line",
+      "x1": -3.0,
+      "y1": -0.375,
+      "x2": 3.0,
+      "y2": -0.375
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 2.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -1.75,
+    "y": -2.75
+  }
+}

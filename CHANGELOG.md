@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0 – 2026-10-15
+- Import značek QElectroTech (`library/qet_import.py`): 673 značek IEC 60617 (jednopól + vícepólové jištění, spínání, transformátory, střídače, zdroje, svorky, relé, kabely) v kategoriích „QET …“, s uvedením autorství (CC BY 3.0, `builtin/qet/ATTRIBUTION.md`).
+- Import z EPLAN exportů (`library/eplan_import.py`): obchodní CSV z Data Portalu, XML artiklů z P8, DXF ZIP → footprinty; heuristické mapování sloupců s `--dump`.
+- Modularita: uživatelské balíčky knihovny v `~/.envocad/library/` (JSON + CSV, bez kódu), pluginy `~/.envocad/plugins/*.py` s `register(ctx)` (menu, šablony, importéry, výkazy); menu Knihovna → Otevřít složku knihovny a pluginů.
+- Knihovna se načítá jen při změně souborů (start 0,02 s místo 1,3 s); panel Knihovna má QET kategorie sbalené.
+- `docs/SOURCES.md`: přehled zdrojů dat a komunitních nástrojů (EPLAN Data Portal API, .epdz/E3D, QET).
+
 ## 0.4.0 – 2026-10-15
 - Knihovna artiklů: formát CSV v2 (`docs/COMPONENTS.md`), validátor (`python -m envocad.library.components validate …`), vestavěné CSV v `library/builtin/components/` načítané při startu, import vlastních CSV z menu Knihovna.
 - Výběr artiklu v dialogu prvku (filtr výrobce / In / póly / charakteristika, odkaz na datasheet) – parametry se propíší do prvku; prohlížeč artiklů v menu Knihovna; výběr skříně z knihovny v panelu rozložení.

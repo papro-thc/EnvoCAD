@@ -1,0 +1,131 @@
+{
+  "id": "qet.ap.340.10-converters-convertisseur-tri-ac-dc",
+  "name": "Napájecí zdroj 3f AC/DC",
+  "category": "QET vícepól/converters_inverters/converters",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; convertisseur_tri_ac_dc.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -5.0,
+      "y": -7.5,
+      "w": 10.0,
+      "h": 15.0
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": 7.5,
+      "x2": -5.0,
+      "y2": -7.5
+    },
+    {
+      "type": "line",
+      "x1": -6.25,
+      "y1": -0.0,
+      "x2": -5.0,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": 1.5,
+      "y1": -6.0,
+      "x2": 4.25,
+      "y2": -6.0
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": 5.0,
+      "x2": -6.25,
+      "y2": 5.0
+    },
+    {
+      "type": "arc",
+      "cx": -2.25,
+      "cy": 5.75,
+      "r": 0.625,
+      "start": 185.0,
+      "end": 360
+    },
+    {
+      "type": "line",
+      "x1": 6.25,
+      "y1": -2.5,
+      "x2": 5.0,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": 2.5,
+      "x2": 6.25,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -6.25,
+      "y1": -5.0,
+      "x2": -5.0,
+      "y2": -5.0
+    },
+    {
+      "type": "arc",
+      "cx": -3.5,
+      "cy": 5.75,
+      "r": 0.625,
+      "start": 5.0,
+      "end": 180.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 5.0,
+      "y": 2.5,
+      "dir": "E"
+    },
+    {
+      "name": "2",
+      "x": 5.0,
+      "y": -2.5,
+      "dir": "E"
+    },
+    {
+      "name": "3",
+      "x": -5.0,
+      "y": 0.0,
+      "dir": "W"
+    },
+    {
+      "name": "4",
+      "x": -7.5,
+      "y": -5.0,
+      "dir": "W"
+    },
+    {
+      "name": "5",
+      "x": -5.0,
+      "y": 5.0,
+      "dir": "W"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -3.0,
+    "y": 10.488
+  }
+}

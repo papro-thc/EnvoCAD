@@ -1,0 +1,113 @@
+{
+  "id": "qet.ap.330.10-transformers-autotransformator-1-2",
+  "name": "Jednofázový autotransformátor",
+  "category": "QET vícepól/transformers_power_supplies/transformers",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; autotransformator_1_2.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "arc",
+      "cx": 1.875,
+      "cy": 1.25,
+      "r": 0.625,
+      "start": 180.0,
+      "end": 360
+    },
+    {
+      "type": "arc",
+      "cx": 0.625,
+      "cy": 1.25,
+      "r": 0.625,
+      "start": 180.0,
+      "end": 360
+    },
+    {
+      "type": "arc",
+      "cx": -0.625,
+      "cy": 1.25,
+      "r": 0.625,
+      "start": 180.0,
+      "end": 360
+    },
+    {
+      "type": "arc",
+      "cx": -1.875,
+      "cy": 1.25,
+      "r": 0.625,
+      "start": 180.0,
+      "end": 360
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 5.0,
+      "x2": -2.5,
+      "y2": 1.5
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 5.0,
+      "x2": 2.5,
+      "y2": 1.25
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -2.5,
+      "x2": -2.5,
+      "y2": 1.25
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.5,
+      "x2": 0.0,
+      "y2": 1.25
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -2.5,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 2.5,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "3",
+      "x": -2.5,
+      "y": -2.5,
+      "dir": "S"
+    },
+    {
+      "name": "4",
+      "x": 0.0,
+      "y": -2.5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 3.0,
+    "y": 1.625
+  }
+}

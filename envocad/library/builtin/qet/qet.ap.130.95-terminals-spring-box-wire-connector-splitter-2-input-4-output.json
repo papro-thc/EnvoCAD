@@ -1,0 +1,189 @@
+{
+  "id": "qet.ap.130.95-terminals-spring-box-wire-connector-splitter-2-input-4-output",
+  "name": "Rozbočovací svorka 2 vstupy, 4 výstupy",
+  "category": "QET vícepól/terminals_terminal_strips/terminals spring box",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); wire-connector-splitter-2-input-4-output.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -4.5,
+      "y": 5.125,
+      "w": 6.5,
+      "h": 9.0
+    },
+    {
+      "type": "rect",
+      "x": -3.5,
+      "y": 6.75,
+      "w": 2.0,
+      "h": 7.5
+    },
+    {
+      "type": "rect",
+      "x": -6.75,
+      "y": -4.875,
+      "w": 11.0,
+      "h": 10.0
+    },
+    {
+      "type": "rect",
+      "x": -3.5,
+      "y": -5.0,
+      "w": 2.0,
+      "h": 7.5
+    },
+    {
+      "type": "rect",
+      "x": -1.0,
+      "y": -5.0,
+      "w": 2.0,
+      "h": 7.5
+    },
+    {
+      "type": "rect",
+      "x": 1.5,
+      "y": -5.0,
+      "w": 2.0,
+      "h": 7.5
+    },
+    {
+      "type": "rect",
+      "x": -6.0,
+      "y": -5.0,
+      "w": 2.0,
+      "h": 7.5
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 1.25,
+      "x2": -2.5,
+      "y2": 10.25
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -1.25,
+      "x2": -2.5,
+      "y2": 1.25
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": -1.25,
+      "x2": -5.0,
+      "y2": 1.25
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -1.25,
+      "x2": 0.0,
+      "y2": 1.25
+    },
+    {
+      "type": "circle",
+      "cx": -2.5,
+      "cy": 1.25,
+      "r": 0.25
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 1.25,
+      "x2": -5.0,
+      "y2": 1.25
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 1.25,
+      "x2": 2.5,
+      "y2": -1.25
+    },
+    {
+      "type": "rect",
+      "x": -1.0,
+      "y": 6.75,
+      "w": 2.0,
+      "h": 7.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 1.25,
+      "x2": 0.0,
+      "y2": 10.25
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 1.25,
+      "x2": 0.0,
+      "y2": 1.25
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": 1.25,
+      "r": 0.25
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -2.5,
+      "y": 10.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": 0.0,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": -2.5,
+      "y": 0.0,
+      "dir": "S"
+    },
+    {
+      "name": "4",
+      "x": -5.0,
+      "y": 0.0,
+      "dir": "S"
+    },
+    {
+      "name": "5",
+      "x": 2.5,
+      "y": 0.0,
+      "dir": "S"
+    },
+    {
+      "name": "6",
+      "x": 0.0,
+      "y": 10.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 6.75,
+    "y": 14.25
+  }
+}

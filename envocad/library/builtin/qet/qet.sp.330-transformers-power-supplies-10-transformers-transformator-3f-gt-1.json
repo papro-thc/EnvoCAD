@@ -1,0 +1,152 @@
+{
+  "id": "qet.sp.330-transformers-power-supplies-10-transformers-transformator-3f-gt-1",
+  "name": "Třífázový transformátor Yd",
+  "category": "QET jednopól/transformers power supplies/transformers",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformator_3f_gt_1.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.0,
+          4.0
+        ],
+        [
+          0.0,
+          3.25
+        ],
+        [
+          1.0,
+          4.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": -8.75,
+      "x2": 1.25,
+      "y2": -7.75
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": 6.75,
+      "x2": 1.25,
+      "y2": 7.75
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": 2.5,
+      "r": 3.75
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": -7.75,
+      "x2": 1.25,
+      "y2": -6.75
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": 7.75,
+      "x2": 1.25,
+      "y2": 8.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 3.25,
+      "x2": 0.0,
+      "y2": 2.25
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -2.5,
+      "r": 3.75
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": 7.25,
+      "x2": 1.25,
+      "y2": 8.25
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.0,
+          -4.0
+        ],
+        [
+          1.0,
+          -4.0
+        ],
+        [
+          0.0,
+          -2.25
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 10.0,
+      "x2": 0.0,
+      "y2": 6.25
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": -8.25,
+      "x2": 1.25,
+      "y2": -7.25
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -6.25,
+      "x2": 0.0,
+      "y2": -10.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 10.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -10.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 4.25,
+    "y": 0.625
+  }
+}

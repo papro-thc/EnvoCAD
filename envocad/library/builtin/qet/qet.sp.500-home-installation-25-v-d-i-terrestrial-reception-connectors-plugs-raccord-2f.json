@@ -1,0 +1,77 @@
+{
+  "id": "qet.sp.500-home-installation-25-v-d-i-terrestrial-reception-connectors-plugs-raccord-2f",
+  "name": "Spojka F zástrčka-F zástrčka",
+  "category": "QET jednopól/home installation/V.D.I/reception/plugs",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); raccord_2f.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -1.75,
+      "y": -0.25,
+      "w": 3.5,
+      "h": 2.25
+    },
+    {
+      "type": "rect",
+      "x": -2.0,
+      "y": 0.25,
+      "w": 4.0,
+      "h": 1.0
+    },
+    {
+      "type": "rect",
+      "x": -1.75,
+      "y": -4.5,
+      "w": 3.5,
+      "h": 2.25
+    },
+    {
+      "type": "rect",
+      "x": -1.25,
+      "y": -2.25,
+      "w": 2.5,
+      "h": 2.0
+    },
+    {
+      "type": "rect",
+      "x": -0.75,
+      "y": 0.25,
+      "w": 1.5,
+      "h": 1.0
+    },
+    {
+      "type": "rect",
+      "x": -2.0,
+      "y": -3.75,
+      "w": 4.0,
+      "h": 1.0
+    },
+    {
+      "type": "rect",
+      "x": -0.75,
+      "y": -3.75,
+      "w": 1.5,
+      "h": 1.0
+    }
+  ],
+  "ports": [],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 2.5,
+    "y": -1.625
+  }
+}

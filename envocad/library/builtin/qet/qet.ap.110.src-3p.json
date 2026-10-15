@@ -1,0 +1,92 @@
+{
+  "id": "qet.ap.110.src-3p",
+  "name": "Přípojnice 3f",
+  "category": "QET vícepól/network_supplies",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; src_3p.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -5.0,
+      "x2": 2.5,
+      "y2": -5.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -0.0,
+      "x2": 2.5,
+      "y2": -0.0
+    },
+    {
+      "type": "text",
+      "x": -3.0,
+      "y": -5.75,
+      "text": "L3",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -3.0,
+      "y": -0.75,
+      "text": "L2",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -3.0,
+      "y": 4.25,
+      "text": "L1",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 2.5,
+      "y2": 5.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "L1",
+      "x": 2.5,
+      "y": 5.0,
+      "dir": "E"
+    },
+    {
+      "name": "L2",
+      "x": 2.5,
+      "y": 0.0,
+      "dir": "E"
+    },
+    {
+      "name": "L3",
+      "x": 2.5,
+      "y": -5.0,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -0.5,
+    "y": 9.238
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "id": "qet.sp.500-home-installation-25-v-d-i-network-brassage-cisco",
+  "name": "Přístupový bod WIFI Cisco",
+  "category": "QET jednopól/home installation/V.D.I/network/brassage",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); cisco.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": 0.0,
+      "y": -15.0,
+      "w": 15.0,
+      "h": 15.0
+    },
+    {
+      "type": "text",
+      "x": 2.75,
+      "y": -5.5,
+      "text": "CISCO",
+      "height": 2.02,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 4.25,
+      "y": -11.5,
+      "text": "WIFI",
+      "height": 2.02,
+      "align": "left"
+    },
+    {
+      "type": "rect",
+      "x": 2.5,
+      "y": -12.5,
+      "w": 10.0,
+      "h": 10.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 7.5,
+      "y": 0.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 17.5,
+    "y": 0.0
+  }
+}

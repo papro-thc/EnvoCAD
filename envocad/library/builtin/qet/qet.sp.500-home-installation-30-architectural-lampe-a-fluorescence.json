@@ -1,0 +1,56 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-lampe-a-fluorescence",
+  "name": "Zářivka",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); lampe_a_fluorescence.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": 0.75,
+      "x2": -7.5,
+      "y2": -0.75
+    },
+    {
+      "type": "line",
+      "x1": 7.5,
+      "y1": 0.75,
+      "x2": 7.5,
+      "y2": -0.75
+    },
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": -0.0,
+      "x2": 7.5,
+      "y2": -0.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 0.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -1.75,
+    "y": 2.987
+  }
+}

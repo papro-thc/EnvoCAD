@@ -1,0 +1,110 @@
+{
+  "id": "qet.ap.340.10-converters-redresseur",
+  "name": "Usměrňovač",
+  "category": "QET vícepól/converters_inverters/converters",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); redresseur.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -7.5,
+      "y": -0.0,
+      "w": 10.0,
+      "h": 10.0
+    },
+    {
+      "type": "line",
+      "x1": -1.5,
+      "y1": 1.25,
+      "x2": -0.5,
+      "y2": 1.25
+    },
+    {
+      "type": "line",
+      "x1": 0.25,
+      "y1": 1.25,
+      "x2": 1.25,
+      "y2": 1.25
+    },
+    {
+      "type": "line",
+      "x1": -1.5,
+      "y1": 1.75,
+      "x2": 1.25,
+      "y2": 1.75
+    },
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": -0.0,
+      "x2": 2.5,
+      "y2": 10.0
+    },
+    {
+      "type": "arc",
+      "cx": -4.25,
+      "cy": 8.25,
+      "r": 0.625,
+      "start": 185.0,
+      "end": 360
+    },
+    {
+      "type": "arc",
+      "cx": -5.5,
+      "cy": 8.25,
+      "r": 0.625,
+      "start": 5.0,
+      "end": 180.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -2.5,
+      "y": 0.0,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": -7.5,
+      "y": 7.5,
+      "dir": "W"
+    },
+    {
+      "name": "3",
+      "x": 2.5,
+      "y": 2.5,
+      "dir": "E"
+    },
+    {
+      "name": "4",
+      "x": 2.5,
+      "y": 7.5,
+      "dir": "E"
+    },
+    {
+      "name": "5",
+      "x": -7.5,
+      "y": 2.5,
+      "dir": "W"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -5.5,
+    "y": 13.0
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "id": "qet.ap.310.02-contacts-cross-referencing-15-protection-contacts-contact-relais-no-esclave",
+  "name": "Kontakt (NO) tepelného jističe",
+  "category": "QET vícepól/relays_contactors_contacts/contacts cross referencing/protection contacts",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; contact_relais_no_esclave.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.25,
+          2.5
+        ],
+        [
+          0.0,
+          -2.5
+        ],
+        [
+          0.0,
+          -5.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 0.0,
+      "y2": 2.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -0.75,
+          -0.0
+        ],
+        [
+          -2.25,
+          -0.0
+        ],
+        [
+          -2.25,
+          -1.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": -1.75,
+      "y1": -0.0,
+      "x2": -1.75,
+      "y2": -0.75
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 0.688,
+    "y": -0.125
+  }
+}

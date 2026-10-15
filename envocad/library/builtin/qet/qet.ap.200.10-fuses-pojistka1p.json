@@ -1,0 +1,55 @@
+{
+  "id": "qet.ap.200.10-fuses-pojistka1p",
+  "name": "Pojistka 1p",
+  "category": "QET vícepól/fuses_protective_gears/fuses",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); pojistka1p.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -0.75,
+      "y": -2.5,
+      "w": 1.5,
+      "h": 5.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 0.0,
+      "y2": -5.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -7.5,
+    "y": 1.75
+  }
+}

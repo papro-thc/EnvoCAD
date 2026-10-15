@@ -1,0 +1,88 @@
+{
+  "id": "qet.sp.500-home-installation-20-home-appliances-cuisiniere-electrique",
+  "name": "Elektrický sporák",
+  "category": "QET jednopól/home installation/home appliances",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; cuisiniere_electrique.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "circle",
+      "cx": -1.5,
+      "cy": -4.0,
+      "r": 0.79
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -3.0,
+          0.25
+        ],
+        [
+          -3.0,
+          -5.75
+        ],
+        [
+          3.0,
+          -5.75
+        ],
+        [
+          3.0,
+          0.25
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "circle",
+      "cx": 1.5,
+      "cy": -4.0,
+      "r": 0.79
+    },
+    {
+      "type": "circle",
+      "cx": -1.5,
+      "cy": -1.5,
+      "r": 0.79
+    },
+    {
+      "type": "circle",
+      "cx": 1.5,
+      "cy": -1.5,
+      "r": 0.79
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 3.25,
+      "x2": 0.0,
+      "y2": 0.25
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 2.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -1.75,
+    "y": -5.0
+  }
+}

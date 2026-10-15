@@ -1,0 +1,168 @@
+{
+  "id": "qet.ap.130.95-terminals-spring-box-wire-connector-5-port",
+  "name": "Svorka 5 vodičů",
+  "category": "QET vícepól/terminals_terminal_strips/terminals spring box",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); wire-connector-5-port.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -6.7,
+      "y": -4.875,
+      "w": 13.4,
+      "h": 10.5
+    },
+    {
+      "type": "rect",
+      "x": -3.5,
+      "y": -5.0,
+      "w": 2.0,
+      "h": 7.5
+    },
+    {
+      "type": "rect",
+      "x": -1.0,
+      "y": -5.0,
+      "w": 2.0,
+      "h": 7.5
+    },
+    {
+      "type": "rect",
+      "x": 1.5,
+      "y": -5.0,
+      "w": 2.0,
+      "h": 7.5
+    },
+    {
+      "type": "rect",
+      "x": -6.0,
+      "y": -5.0,
+      "w": 2.0,
+      "h": 7.5
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -1.25,
+      "x2": -2.5,
+      "y2": 1.25
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": -1.25,
+      "x2": -5.0,
+      "y2": 1.25
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -1.25,
+      "x2": 0.0,
+      "y2": 1.25
+    },
+    {
+      "type": "circle",
+      "cx": -2.5,
+      "cy": 1.25,
+      "r": 0.25
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 1.25,
+      "x2": 2.5,
+      "y2": -1.25
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": 1.25,
+      "r": 0.25
+    },
+    {
+      "type": "rect",
+      "x": 4.0,
+      "y": -5.0,
+      "w": 2.0,
+      "h": 7.5
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": 1.25,
+      "x2": -5.0,
+      "y2": 1.25
+    },
+    {
+      "type": "circle",
+      "cx": 2.5,
+      "cy": 1.25,
+      "r": 0.25
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": 1.25,
+      "x2": 5.0,
+      "y2": -1.25
+    },
+    {
+      "type": "rect",
+      "x": -1.0,
+      "y": 3.5,
+      "w": 2.0,
+      "h": 0.75
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 5.0,
+      "y": 0.0,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": -5.0,
+      "y": 0.0,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": -2.5,
+      "y": 0.0,
+      "dir": "S"
+    },
+    {
+      "name": "4",
+      "x": 0.0,
+      "y": 0.0,
+      "dir": "S"
+    },
+    {
+      "name": "5",
+      "x": 2.5,
+      "y": 0.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 9.2,
+    "y": 5.62
+  }
+}

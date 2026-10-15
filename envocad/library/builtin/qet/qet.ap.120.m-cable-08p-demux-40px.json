@@ -1,0 +1,153 @@
+{
+  "id": "qet.ap.120.m-cable-08p-demux-40px",
+  "name": "Vícežilový kabel 8-pólový Demux 40px",
+  "category": "QET vícepól/cables_wiring",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: Moritz Scholjegerdes; m_cable_08p_demux_40px.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -15.0,
+      "y1": -2.5,
+      "x2": -15.0,
+      "y2": -4.75
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": -2.5,
+      "x2": 5.0,
+      "y2": -4.75
+    },
+    {
+      "type": "line",
+      "x1": 35.0,
+      "y1": -2.5,
+      "x2": 35.0,
+      "y2": -4.75
+    },
+    {
+      "type": "line",
+      "x1": 25.0,
+      "y1": -2.5,
+      "x2": 25.0,
+      "y2": -4.75
+    },
+    {
+      "type": "line",
+      "x1": 15.0,
+      "y1": -2.5,
+      "x2": 15.0,
+      "y2": -4.75
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": -2.5,
+      "x2": -5.0,
+      "y2": -4.75
+    },
+    {
+      "type": "line",
+      "x1": -25.0,
+      "y1": -2.5,
+      "x2": -25.0,
+      "y2": -4.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.5,
+      "x2": 0.0,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": -35.0,
+      "y1": -2.5,
+      "x2": -35.0,
+      "y2": -4.75
+    },
+    {
+      "type": "line",
+      "x1": -35.0,
+      "y1": -2.5,
+      "x2": 35.0,
+      "y2": -2.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "Cable",
+      "x": 0.0,
+      "y": 0.0,
+      "dir": "N"
+    },
+    {
+      "name": "4",
+      "x": -5.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "5",
+      "x": 5.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "8",
+      "x": 35.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "1",
+      "x": -35.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "7",
+      "x": 25.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": -25.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "6",
+      "x": 15.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": -15.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 37.5,
+    "y": -0.0
+  }
+}

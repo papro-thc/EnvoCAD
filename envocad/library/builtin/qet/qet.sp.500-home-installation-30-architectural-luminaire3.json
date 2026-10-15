@@ -1,0 +1,70 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-luminaire3",
+  "name": "Světlo se třemi zářivkami",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); luminaire3.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 3.25,
+      "x2": 0.0,
+      "y2": -3.25
+    },
+    {
+      "type": "line",
+      "x1": 15.0,
+      "y1": 3.25,
+      "x2": 15.0,
+      "y2": -3.25
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 2.5,
+      "x2": 15.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -0.0,
+      "x2": 15.0,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.5,
+      "x2": 15.0,
+      "y2": -2.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 7.5,
+      "y": 2.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 5.75,
+    "y": -1.012
+  }
+}

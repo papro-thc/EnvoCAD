@@ -1,0 +1,255 @@
+{
+  "id": "qet.ap.200.10-fuses-sectionneur-3-fusibles",
+  "name": "Pojistkový odpínač 3p",
+  "category": "QET vícepól/fuses_protective_gears/fuses",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; sectionneur_3_fusibles.elmt",
+  "iec_ref": "F",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -8.25,
+      "y1": -0.0,
+      "x2": -6.5,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": -8.75,
+      "y1": 2.5,
+      "x2": -7.5,
+      "y2": -2.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.25,
+          2.5
+        ],
+        [
+          0.0,
+          -2.5
+        ],
+        [
+          0.0,
+          -5.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.423,
+          1.127
+        ],
+        [
+          -0.797,
+          -1.373
+        ],
+        [
+          0.172,
+          -1.127
+        ],
+        [
+          -0.453,
+          1.373
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -6.25,
+          2.5
+        ],
+        [
+          -5.0,
+          -2.5
+        ],
+        [
+          -5.0,
+          -5.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 0.0,
+      "y2": 2.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          3.75,
+          2.5
+        ],
+        [
+          5.0,
+          -2.5
+        ],
+        [
+          5.0,
+          -5.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": 0.5,
+      "y1": 2.5,
+      "x2": -0.5,
+      "y2": 2.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          3.578,
+          1.127
+        ],
+        [
+          4.202,
+          -1.373
+        ],
+        [
+          5.173,
+          -1.127
+        ],
+        [
+          4.548,
+          1.373
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": 4.5,
+      "y1": 2.5,
+      "x2": 5.5,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": 5.0,
+      "x2": 5.0,
+      "y2": 2.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -6.423,
+          1.127
+        ],
+        [
+          -5.798,
+          -1.373
+        ],
+        [
+          -4.827,
+          -1.127
+        ],
+        [
+          -5.452,
+          1.373
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": 5.0,
+      "x2": -5.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -4.5,
+      "y1": 2.5,
+      "x2": -5.5,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": -0.0,
+      "x2": -1.25,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": -0.25,
+      "y1": -0.0,
+      "x2": 3.75,
+      "y2": -0.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -5.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": -5.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": 5.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "4",
+      "x": 5.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "5",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "6",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 10.0,
+    "y": 0.5
+  }
+}

@@ -224,3 +224,23 @@ def test_component_picker_and_apply(app, tmp_path):
     panel = EnclosurePanel(s, library=lib)
     enc = ComponentPicker(lib, category="enclosure")
     assert enc.table.rowCount() >= 1 and all(c.category == "enclosure" for c in enc._rows)
+
+
+def test_plugins_and_user_library(app, tmp_path, monkeypatch):
+    monkeypatch.setenv("ENVOCAD_HOME", str(tmp_path))
+    from envocad.library.store import LibraryStore, user_library_dir
+    from envocad.plugins import plugin_dirs
+    # uživatelský balíček knihovny: symbol + artikl
+    ud = user_library_dir() / "muj_balicek"
+    ud.mkdir(parents=True)
+    (ud / "user.test.json").write_text('{"id":"user.test","name":"Můj symbol","category":"Moje","primitives":[{"type":"circle","cx":0,"cy":0,"r":2.5}],"ports":[{"name":"1","x":0,"y":2.5,"dir":"N"}],"attributes":[]}', encoding="utf-8")
+    (ud / "moje.csv").write_text("id;manufacturer;part_number;name;category;symbol_id;datasheet_url;source\nx-1;X;1;Test;mcb;fve.breaker_mcb;;user\n", encoding="utf-8")
+    # plugin
+    (plugin_dirs()[1] / "hello.py").write_text("def register(ctx):\n    ctx.add_menu_action('Nástroje', 'Ahoj', lambda w: None)\n    ctx.add_importer('Import X…', lambda w: None)\n", encoding="utf-8")
+    lib = LibraryStore()  # výchozí DB v ENVOCAD_HOME → načte i uživatelský balíček
+    assert lib.get_symbol("user.test").name == "Můj symbol"
+    assert lib.component("x-1") is not None
+    win = MainWindow(library=lib, project=Project())
+    assert "hello" in win.plugins.loaded and "example_counts" in win.plugins.loaded
+    titles = [a.text() for m in win.menuBar().findChildren(type(win.menuBar().actions()[0].menu())) for a in m.actions()]
+    assert "Ahoj" in titles and "Import X…" in titles and "Statistika projektu" in titles

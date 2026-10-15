@@ -1,0 +1,99 @@
+{
+  "id": "qet.ap.340.90-filters-schurter-kfs4300",
+  "name": "Filtr KFS 4300",
+  "category": "QET vícepól/converters_inverters/filters/schurter",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); kfs4300.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -7.5,
+      "y": -7.5,
+      "w": 15.0,
+      "h": 15.0
+    },
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": -8.25,
+      "r": 0.75,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "arc",
+      "cx": 5.0,
+      "cy": -8.25,
+      "r": 0.75,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "arc",
+      "cx": -5.0,
+      "cy": -8.25,
+      "r": 0.75,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": 7.5,
+      "x2": -5.0,
+      "y2": 8.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 7.5,
+      "x2": 0.0,
+      "y2": 8.5
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": 7.5,
+      "x2": 5.0,
+      "y2": 8.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 5.0,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "3",
+      "x": -5.0,
+      "y": 7.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -12.5,
+    "y": 5.75
+  }
+}

@@ -1,0 +1,203 @@
+{
+  "id": "qet.ap.330.10-transformers-transformator-3-2",
+  "name": "Transformátor",
+  "category": "QET vícepól/transformers_power_supplies/transformers",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformator_3_2.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "arc",
+      "cx": 0.625,
+      "cy": -0.0,
+      "r": 0.625,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "arc",
+      "cx": -6.875,
+      "cy": -0.0,
+      "r": 0.625,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": -0.0,
+      "x2": 5.0,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -0.0,
+      "x2": -2.5,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -0.0,
+      "x2": 0.0,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": -0.0,
+      "x2": -7.5,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": 1.25,
+      "y1": 5.0,
+      "x2": 1.25,
+      "y2": 2.5
+    },
+    {
+      "type": "arc",
+      "cx": 4.375,
+      "cy": -0.0,
+      "r": 0.625,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "arc",
+      "cx": 3.125,
+      "cy": -0.0,
+      "r": 0.625,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "line",
+      "x1": -3.75,
+      "y1": 5.0,
+      "x2": -3.75,
+      "y2": 2.5
+    },
+    {
+      "type": "arc",
+      "cx": 1.875,
+      "cy": -0.0,
+      "r": 0.625,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "arc",
+      "cx": 0.625,
+      "cy": 2.25,
+      "r": 0.625,
+      "start": 180.0,
+      "end": 360
+    },
+    {
+      "type": "arc",
+      "cx": -0.625,
+      "cy": 2.25,
+      "r": 0.625,
+      "start": 180.0,
+      "end": 360
+    },
+    {
+      "type": "arc",
+      "cx": -1.875,
+      "cy": 2.25,
+      "r": 0.625,
+      "start": 180.0,
+      "end": 360
+    },
+    {
+      "type": "arc",
+      "cx": -3.125,
+      "cy": 2.25,
+      "r": 0.625,
+      "start": 180.0,
+      "end": 360
+    },
+    {
+      "type": "arc",
+      "cx": -3.125,
+      "cy": -0.0,
+      "r": 0.625,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "arc",
+      "cx": -4.375,
+      "cy": -0.0,
+      "r": 0.625,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "arc",
+      "cx": -5.625,
+      "cy": -0.0,
+      "r": 0.625,
+      "start": 0.0,
+      "end": 180.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -5.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "3",
+      "x": -7.5,
+      "y": -2.5,
+      "dir": "S"
+    },
+    {
+      "name": "4",
+      "x": -2.5,
+      "y": -2.5,
+      "dir": "S"
+    },
+    {
+      "name": "5",
+      "x": 0.0,
+      "y": -2.5,
+      "dir": "S"
+    },
+    {
+      "name": "6",
+      "x": 5.0,
+      "y": -2.5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 5.5,
+    "y": 1.625
+  }
+}

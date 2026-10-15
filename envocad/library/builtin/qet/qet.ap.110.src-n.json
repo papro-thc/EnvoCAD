@@ -1,0 +1,50 @@
+{
+  "id": "qet.ap.110.src-n",
+  "name": "Přípojnice N",
+  "category": "QET vícepól/network_supplies",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; src_n.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -0.0,
+      "x2": 2.5,
+      "y2": -0.0
+    },
+    {
+      "type": "text",
+      "x": -3.0,
+      "y": -0.75,
+      "text": "N",
+      "height": 1.12,
+      "align": "left"
+    }
+  ],
+  "ports": [
+    {
+      "name": "N",
+      "x": 2.5,
+      "y": 0.0,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -1.25,
+    "y": 4.237
+  }
+}

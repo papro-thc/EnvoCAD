@@ -1,0 +1,170 @@
+{
+  "id": "qet.sp.500-home-installation-25-v-d-i-network-prises-reseau-prise-rj45-6e-leds",
+  "name": "Zásuvka RJ45 Cat 6e",
+  "category": "QET jednopól/home installation/V.D.I/network/reseau",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); prise_rj45_6e_leds.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -3.5,
+      "y": -1.25,
+      "w": 7.0,
+      "h": 5.0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.25,
+          -0.0
+        ],
+        [
+          -1.25,
+          0.5
+        ],
+        [
+          -2.75,
+          0.5
+        ],
+        [
+          -2.75,
+          3.0
+        ],
+        [
+          2.75,
+          3.0
+        ],
+        [
+          2.75,
+          0.5
+        ],
+        [
+          1.25,
+          0.5
+        ],
+        [
+          1.25,
+          -0.0
+        ],
+        [
+          0.75,
+          -0.0
+        ],
+        [
+          0.75,
+          -0.5
+        ],
+        [
+          -0.75,
+          -0.5
+        ],
+        [
+          -0.75,
+          -0.0
+        ],
+        [
+          -1.0,
+          -0.0
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": -0.25,
+      "y1": 3.0,
+      "x2": -0.25,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -0.75,
+      "y1": 3.0,
+      "x2": -0.75,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": 3.0,
+      "x2": -1.25,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -1.75,
+      "y1": 3.0,
+      "x2": -1.75,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.25,
+      "y1": 3.0,
+      "x2": 0.25,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.75,
+      "y1": 3.0,
+      "x2": 0.75,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 1.25,
+      "y1": 3.0,
+      "x2": 1.25,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 1.75,
+      "y1": 3.0,
+      "x2": 1.75,
+      "y2": 2.5
+    },
+    {
+      "type": "rect",
+      "x": -2.75,
+      "y": -0.75,
+      "w": 1.0,
+      "h": 0.5
+    },
+    {
+      "type": "rect",
+      "x": 1.75,
+      "y": -0.75,
+      "w": 1.0,
+      "h": 0.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -2.0,
+    "y": -3.625
+  }
+}

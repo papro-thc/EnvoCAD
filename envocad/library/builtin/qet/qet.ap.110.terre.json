@@ -1,0 +1,63 @@
+{
+  "id": "qet.ap.110.terre",
+  "name": "Uzemnění",
+  "category": "QET vícepól/network_supplies",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; terre.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -0.75,
+      "y1": -1.0,
+      "x2": 0.75,
+      "y2": -1.0
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": -0.5,
+      "x2": 1.25,
+      "y2": -0.5
+    },
+    {
+      "type": "line",
+      "x1": -1.75,
+      "y1": -0.0,
+      "x2": 1.75,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 2.5,
+      "x2": 0.0,
+      "y2": -0.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "PE",
+      "x": 0.0,
+      "y": 2.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 0.5,
+    "y": 3.125
+  }
+}

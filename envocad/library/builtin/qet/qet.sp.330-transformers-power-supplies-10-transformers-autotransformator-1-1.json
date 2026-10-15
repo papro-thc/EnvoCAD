@@ -1,0 +1,103 @@
+{
+  "id": "qet.sp.330-transformers-power-supplies-10-transformers-autotransformator-1-1",
+  "name": "Autotransformátor",
+  "category": "QET jednopól/transformers power supplies/transformers",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; autotransformator_1_1.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -0.0,
+      "r": 3.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 10.0,
+      "x2": 0.0,
+      "y2": 6.25
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -3.75,
+      "x2": 0.0,
+      "y2": -7.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          3.749,
+          0.12
+        ],
+        [
+          3.671,
+          1.09
+        ],
+        [
+          3.469,
+          2.039
+        ],
+        [
+          3.147,
+          2.946
+        ],
+        [
+          2.712,
+          3.795
+        ],
+        [
+          2.172,
+          4.567
+        ],
+        [
+          1.538,
+          5.247
+        ],
+        [
+          0.824,
+          5.822
+        ],
+        [
+          0.042,
+          6.281
+        ]
+      ],
+      "closed": false
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 10.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -7.5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 4.25,
+    "y": 0.625
+  }
+}

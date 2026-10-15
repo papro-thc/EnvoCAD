@@ -1,0 +1,88 @@
+{
+  "id": "qet.ap.310.01-coils-bobine-ka-a-verrouillage-mecanique",
+  "name": "Mechanické blokovací relé",
+  "category": "QET vícepól/relays_contactors_contacts/coils",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; bobine_ka_a_verrouillage_mecanique.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": 3.5,
+      "y": -2.0,
+      "w": 1.5,
+      "h": 4.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 0.0,
+      "y2": 2.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.0,
+      "x2": 0.0,
+      "y2": -5.0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -3.5,
+          2.0
+        ],
+        [
+          3.5,
+          2.0
+        ],
+        [
+          5.0,
+          -0.0
+        ],
+        [
+          3.5,
+          -2.0
+        ],
+        [
+          -3.5,
+          -2.0
+        ]
+      ],
+      "closed": true
+    }
+  ],
+  "ports": [
+    {
+      "name": "A2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "A1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 7.5,
+    "y": -0.208
+  }
+}

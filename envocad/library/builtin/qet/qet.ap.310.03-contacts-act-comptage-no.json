@@ -1,0 +1,86 @@
+{
+  "id": "qet.ap.310.03-contacts-act-comptage-no",
+  "name": "Kontakt čítače (NO)",
+  "category": "QET vícepól/relays_contactors_contacts/contacts",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; act_comptage_no.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -5.0,
+      "y": 1.25,
+      "w": 2.5,
+      "h": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 2.5,
+      "x2": -0.75,
+      "y2": 2.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.25,
+          5.0
+        ],
+        [
+          0.0,
+          -0.0
+        ],
+        [
+          0.0,
+          -2.5
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 7.5,
+      "x2": 0.0,
+      "y2": 5.0
+    },
+    {
+      "type": "circle",
+      "cx": -3.75,
+      "cy": 2.5,
+      "r": 0.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": -2.5,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": 7.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 0.25,
+    "y": 3.0
+  }
+}

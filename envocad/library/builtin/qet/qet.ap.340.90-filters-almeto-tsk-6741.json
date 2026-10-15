@@ -1,0 +1,149 @@
+{
+  "id": "qet.ap.340.90-filters-almeto-tsk-6741",
+  "name": "RFI filtr TSK 6741",
+  "category": "QET vícepól/converters_inverters/filters/almeto",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); tsk_6741.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -7.5,
+      "y": -7.5,
+      "w": 15.0,
+      "h": 14.5
+    },
+    {
+      "type": "text",
+      "x": -5.5,
+      "y": -6.5,
+      "text": "L",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -1.0,
+      "y": -6.5,
+      "text": "N",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 3.5,
+      "y": -6.5,
+      "text": "PE",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -5.5,
+      "y": 4.5,
+      "text": "L'",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -1.0,
+      "y": 4.5,
+      "text": "N'",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -6.0,
+      "y": 0.5,
+      "text": "RFI Filter TSK6741",
+      "height": 2.02,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": 7.0,
+      "x2": -5.0,
+      "y2": 8.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 7.0,
+      "x2": 0.0,
+      "y2": 8.0
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": -7.5,
+      "x2": -5.0,
+      "y2": -8.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -7.5,
+      "x2": 0.0,
+      "y2": -8.5
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": -7.5,
+      "x2": 5.0,
+      "y2": -8.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": -7.5,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "3",
+      "x": 5.0,
+      "y": -7.5,
+      "dir": "S"
+    },
+    {
+      "name": "4",
+      "x": -5.0,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "5",
+      "x": -5.0,
+      "y": -7.5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -12.0,
+    "y": 5.75
+  }
+}

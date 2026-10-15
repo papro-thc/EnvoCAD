@@ -1,0 +1,81 @@
+{
+  "id": "qet.ap.130.borne-21",
+  "name": "Spojovací svorka",
+  "category": "QET vícepól/terminals_terminal_strips",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; borne_21.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.5,
+      "x2": 0.0,
+      "y2": -0.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 2.5,
+      "x2": 0.0,
+      "y2": 0.75
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -0.0,
+      "r": 0.625
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": -0.0,
+      "x2": 0.75,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": -1.0,
+      "y1": -0.75,
+      "x2": 1.0,
+      "y2": 0.75
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 2.5,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -2.5,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": 2.5,
+      "y": 0.0,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -0.25,
+    "y": 2.25
+  }
+}

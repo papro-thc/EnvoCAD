@@ -1,0 +1,67 @@
+{
+  "id": "qet.sp.330-transformers-power-supplies-10-transformers-transformator-1f-1",
+  "name": "Jednofázový transformátor",
+  "category": "QET jednopól/transformers power supplies/transformers",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformator_1f_1.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": 2.5,
+      "r": 3.75
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -2.5,
+      "r": 3.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 10.0,
+      "x2": 0.0,
+      "y2": 6.25
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -6.25,
+      "x2": 0.0,
+      "y2": -10.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 10.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -10.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 4.25,
+    "y": 0.625
+  }
+}

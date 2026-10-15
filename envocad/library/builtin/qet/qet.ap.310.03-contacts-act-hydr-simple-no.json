@@ -1,0 +1,112 @@
+{
+  "id": "qet.ap.310.03-contacts-act-hydr-simple-no",
+  "name": "Kontakt NO řízený pneumaticky nebo hydraulicky, jednocestný",
+  "category": "QET vícepól/relays_contactors_contacts/contacts",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; act_hydr_simple_no.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -7.5,
+      "y": -1.25,
+      "w": 5.0,
+      "h": 2.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.25,
+          2.5
+        ],
+        [
+          0.0,
+          -2.5
+        ],
+        [
+          0.0,
+          -5.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 0.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": 1.25,
+      "x2": -5.0,
+      "y2": -1.25
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": -0.0,
+      "x2": -0.75,
+      "y2": -0.0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -3.0,
+          2.0
+        ],
+        [
+          -4.0,
+          2.25
+        ],
+        [
+          -4.0,
+          1.75
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": -7.0,
+      "y1": 2.0,
+      "x2": -4.0,
+      "y2": 2.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 0.25,
+    "y": 0.5
+  }
+}

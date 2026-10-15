@@ -1,0 +1,71 @@
+{
+  "id": "qet.sp.500-home-installation-40-meters-compteur-energie-active-a-depassement-de-puissance",
+  "name": "Měřič překročení maxima",
+  "category": "QET jednopól/home installation/meters",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; compteur_energie_active_a_depassement_de_puissance.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "text",
+      "x": -2.5,
+      "y": -1.75,
+      "text": "P >",
+      "height": 2.02,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -2.5,
+      "y": 0.75,
+      "text": "Wh",
+      "height": 2.02,
+      "align": "left"
+    },
+    {
+      "type": "rect",
+      "x": -3.75,
+      "y": -2.5,
+      "w": 7.5,
+      "h": 5.5
+    },
+    {
+      "type": "rect",
+      "x": -3.75,
+      "y": 3.0,
+      "w": 7.5,
+      "h": 2.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": -2.5,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 4.5,
+    "y": 2.987
+  }
+}

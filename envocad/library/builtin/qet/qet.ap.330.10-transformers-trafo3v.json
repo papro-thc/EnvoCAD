@@ -1,0 +1,226 @@
+{
+  "id": "qet.ap.330.10-transformers-trafo3v",
+  "name": "Trafo se třemi vinutími bez odboček",
+  "category": "QET vícepól/transformers_power_supplies/transformers",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); trafo3v.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "arc",
+      "cx": 8.75,
+      "cy": -2.5,
+      "r": 1.25,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "arc",
+      "cx": -3.75,
+      "cy": -2.5,
+      "r": 1.25,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "arc",
+      "cx": -1.25,
+      "cy": -2.5,
+      "r": 1.25,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "arc",
+      "cx": 6.25,
+      "cy": -2.5,
+      "r": 1.25,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "arc",
+      "cx": 8.75,
+      "cy": 2.5,
+      "r": 1.25,
+      "start": 180.0,
+      "end": 360
+    },
+    {
+      "type": "arc",
+      "cx": -3.75,
+      "cy": 2.5,
+      "r": 1.25,
+      "start": 270.0,
+      "end": 360
+    },
+    {
+      "type": "arc",
+      "cx": -3.75,
+      "cy": 2.5,
+      "r": 1.25,
+      "start": 180.0,
+      "end": 270.0
+    },
+    {
+      "type": "arc",
+      "cx": -1.25,
+      "cy": 2.5,
+      "r": 1.25,
+      "start": 270.0,
+      "end": 360
+    },
+    {
+      "type": "arc",
+      "cx": -1.25,
+      "cy": 2.5,
+      "r": 1.25,
+      "start": 180.0,
+      "end": 270.0
+    },
+    {
+      "type": "arc",
+      "cx": 1.25,
+      "cy": 2.5,
+      "r": 1.25,
+      "start": 270.0,
+      "end": 360
+    },
+    {
+      "type": "arc",
+      "cx": 1.25,
+      "cy": 2.5,
+      "r": 1.25,
+      "start": 180.0,
+      "end": 270.0
+    },
+    {
+      "type": "arc",
+      "cx": 3.75,
+      "cy": 2.5,
+      "r": 1.25,
+      "start": 270.0,
+      "end": 360
+    },
+    {
+      "type": "arc",
+      "cx": 3.75,
+      "cy": 2.5,
+      "r": 1.25,
+      "start": 180.0,
+      "end": 270.0
+    },
+    {
+      "type": "line",
+      "x1": -4.5,
+      "y1": -0.0,
+      "x2": 9.5,
+      "y2": -0.0
+    },
+    {
+      "type": "arc",
+      "cx": 6.25,
+      "cy": 2.5,
+      "r": 1.25,
+      "start": 180.0,
+      "end": 360
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": 2.5,
+      "x2": -5.0,
+      "y2": 3.75
+    },
+    {
+      "type": "line",
+      "x1": 10.0,
+      "y1": 2.5,
+      "x2": 10.0,
+      "y2": 3.75
+    },
+    {
+      "type": "line",
+      "x1": 10.0,
+      "y1": -2.5,
+      "x2": 10.0,
+      "y2": -3.75
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": -2.5,
+      "x2": 5.0,
+      "y2": -3.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.5,
+      "x2": 0.0,
+      "y2": -3.75
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": -2.5,
+      "x2": -5.0,
+      "y2": -3.75
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -5.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "5",
+      "x": 5.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "6",
+      "x": 10.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "4",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": 10.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "3",
+      "x": -5.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -11.5,
+    "y": 0.75
+  }
+}

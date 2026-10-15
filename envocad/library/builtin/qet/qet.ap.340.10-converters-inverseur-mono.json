@@ -1,0 +1,92 @@
+{
+  "id": "qet.ap.340.10-converters-inverseur-mono",
+  "name": "Obraceč fáze jednoduchého vedení",
+  "category": "QET vícepól/converters_inverters/converters",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; inverseur_mono.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.25,
+          2.5
+        ],
+        [
+          -1.25,
+          1.25
+        ],
+        [
+          1.25,
+          -1.25
+        ],
+        [
+          1.25,
+          -2.5
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          1.25,
+          2.5
+        ],
+        [
+          1.25,
+          1.25
+        ],
+        [
+          -1.25,
+          -1.25
+        ],
+        [
+          -1.25,
+          -2.5
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 2.5,
+      "x2": 0.0,
+      "y2": -2.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": -2.5,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": 2.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 1.0,
+    "y": 1.237
+  }
+}

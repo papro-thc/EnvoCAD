@@ -1,0 +1,237 @@
+{
+  "id": "qet.ap.110.src-tnc-tns",
+  "name": "Bod rozdělení TN-C > TN-S",
+  "category": "QET vícepól/network_supplies",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; src_tnc_tns.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 6.0,
+      "y1": 7.5,
+      "x2": 7.0,
+      "y2": 7.5
+    },
+    {
+      "type": "line",
+      "x1": 6.0,
+      "y1": -12.5,
+      "x2": 7.0,
+      "y2": -12.5
+    },
+    {
+      "type": "line",
+      "x1": 6.0,
+      "y1": -7.5,
+      "x2": 7.0,
+      "y2": -7.5
+    },
+    {
+      "type": "line",
+      "x1": 6.0,
+      "y1": -2.5,
+      "x2": 7.0,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": 6.0,
+      "y1": 2.5,
+      "x2": 7.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -1.5,
+      "y1": -13.5,
+      "x2": -1.0,
+      "y2": -13.5
+    },
+    {
+      "type": "line",
+      "x1": -2.0,
+      "y1": -13.0,
+      "x2": -0.5,
+      "y2": -13.0
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -12.5,
+      "x2": 0.0,
+      "y2": -12.5
+    },
+    {
+      "type": "text",
+      "x": 3.25,
+      "y": -13.25,
+      "text": "PE",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 3.25,
+      "y": -8.25,
+      "text": "N",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 3.25,
+      "y": -3.25,
+      "text": "L3",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 3.25,
+      "y": 1.75,
+      "text": "L2",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 3.25,
+      "y": 6.75,
+      "text": "L1",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": -3.25,
+      "y1": -2.5,
+      "x2": 3.0,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": -3.25,
+      "y1": 2.5,
+      "x2": 3.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -3.25,
+      "y1": -7.5,
+      "x2": 3.0,
+      "y2": -7.5
+    },
+    {
+      "type": "text",
+      "x": -7.5,
+      "y": -8.25,
+      "text": "PEN",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -7.5,
+      "y": -3.25,
+      "text": "L3",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -7.5,
+      "y": 1.75,
+      "text": "L2",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": -7.5,
+      "y": 6.75,
+      "text": "L1",
+      "height": 1.12,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": -3.25,
+      "y1": 7.5,
+      "x2": 3.0,
+      "y2": 7.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          3.0,
+          -12.5
+        ],
+        [
+          1.75,
+          -12.5
+        ],
+        [
+          -1.25,
+          -7.5
+        ],
+        [
+          -1.25,
+          -12.25
+        ]
+      ],
+      "closed": false
+    }
+  ],
+  "ports": [
+    {
+      "name": "L1",
+      "x": 7.5,
+      "y": 7.5,
+      "dir": "E"
+    },
+    {
+      "name": "N",
+      "x": 7.5,
+      "y": -7.5,
+      "dir": "E"
+    },
+    {
+      "name": "PE",
+      "x": 7.5,
+      "y": -12.5,
+      "dir": "E"
+    },
+    {
+      "name": "L2",
+      "x": 7.5,
+      "y": 2.5,
+      "dir": "E"
+    },
+    {
+      "name": "L3",
+      "x": 7.5,
+      "y": -2.5,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -4.25,
+    "y": 12.988
+  }
+}

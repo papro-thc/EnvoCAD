@@ -1,0 +1,297 @@
+{
+  "id": "qet.ap.200.50-residual-current-circuit-breaker-interdiff-40a",
+  "name": "Proudový chránič 2P",
+  "category": "QET vícepól/fuses_protective_gears/residual current circuit breaker",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; interdiff_40a.elmt",
+  "iec_ref": "F",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": -1.0,
+      "x2": 2.5,
+      "y2": -10.0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -7.5,
+          -0.75
+        ],
+        [
+          -7.5,
+          -0.0
+        ],
+        [
+          -8.75,
+          5.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -5.0,
+          -1.25
+        ],
+        [
+          -5.0,
+          -0.0
+        ],
+        [
+          -6.25,
+          5.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -1.0,
+      "x2": -2.5,
+      "y2": -10.0
+    },
+    {
+      "type": "line",
+      "x1": -5.5,
+      "y1": 2.5,
+      "x2": 2.0,
+      "y2": 2.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -2.5,
+          -0.75
+        ],
+        [
+          -2.5,
+          -0.0
+        ],
+        [
+          -3.75,
+          5.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          2.5,
+          -0.75
+        ],
+        [
+          2.5,
+          -0.0
+        ],
+        [
+          1.25,
+          5.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 7.5,
+      "x2": -2.5,
+      "y2": 5.0
+    },
+    {
+      "type": "line",
+      "x1": -2.0,
+      "y1": 5.5,
+      "x2": -3.0,
+      "y2": 4.5
+    },
+    {
+      "type": "line",
+      "x1": -3.0,
+      "y1": 5.5,
+      "x2": -2.0,
+      "y2": 4.5
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 7.5,
+      "x2": 2.5,
+      "y2": 5.0
+    },
+    {
+      "type": "line",
+      "x1": 3.0,
+      "y1": 5.5,
+      "x2": 2.0,
+      "y2": 4.5
+    },
+    {
+      "type": "line",
+      "x1": 2.0,
+      "y1": 5.5,
+      "x2": 3.0,
+      "y2": 4.5
+    },
+    {
+      "type": "text",
+      "x": 5.5,
+      "y": -5.0,
+      "text": "40A",
+      "height": 2.02,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 5.5,
+      "y": -8.5,
+      "text": "30mA",
+      "height": 2.02,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -8.75,
+      "x2": -7.5,
+      "y2": -8.75
+    },
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": -8.75,
+      "x2": -7.5,
+      "y2": -5.0
+    },
+    {
+      "type": "rect",
+      "x": -8.0,
+      "y": -5.0,
+      "w": 1.0,
+      "h": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": -2.5,
+      "x2": -7.5,
+      "y2": -0.75
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -7.5,
+          5.0
+        ],
+        [
+          -7.5,
+          6.25
+        ],
+        [
+          -5.0,
+          6.25
+        ],
+        [
+          -5.0,
+          5.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": -1.25,
+      "x2": 2.5,
+      "y2": -1.25
+    },
+    {
+      "type": "line",
+      "x1": -10.0,
+      "y1": 2.5,
+      "x2": -8.75,
+      "y2": 2.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -9.5,
+          3.25
+        ],
+        [
+          -10.0,
+          3.25
+        ],
+        [
+          -10.0,
+          1.75
+        ],
+        [
+          -9.5,
+          1.75
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "rect",
+      "x": -5.0,
+      "y": -7.5,
+      "w": 10.0,
+      "h": 2.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 2.5,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": -2.5,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "3",
+      "x": -2.5,
+      "y": -10.0,
+      "dir": "S"
+    },
+    {
+      "name": "4",
+      "x": 2.5,
+      "y": -10.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 5.0,
+    "y": 2.0
+  }
+}

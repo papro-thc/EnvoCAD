@@ -1,0 +1,140 @@
+{
+  "id": "qet.ap.340.90-filters-line-filter",
+  "name": "Síťový filtr 3f",
+  "category": "QET vícepól/converters_inverters/filters",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; line_filter.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -10.0,
+      "y": -5.0,
+      "w": 20.0,
+      "h": 10.0
+    },
+    {
+      "type": "text",
+      "x": -6.5,
+      "y": -0.5,
+      "text": "LINE FILTER",
+      "height": 1.35,
+      "align": "left"
+    },
+    {
+      "type": "circle",
+      "cx": -7.501,
+      "cy": 5.001,
+      "r": 0.559
+    },
+    {
+      "type": "circle",
+      "cx": -7.501,
+      "cy": -4.999,
+      "r": 0.559
+    },
+    {
+      "type": "circle",
+      "cx": 7.499,
+      "cy": -4.999,
+      "r": 0.559
+    },
+    {
+      "type": "circle",
+      "cx": 7.499,
+      "cy": 5.001,
+      "r": 0.559
+    },
+    {
+      "type": "circle",
+      "cx": 2.499,
+      "cy": -4.999,
+      "r": 0.559
+    },
+    {
+      "type": "circle",
+      "cx": 2.499,
+      "cy": 5.001,
+      "r": 0.559
+    },
+    {
+      "type": "circle",
+      "cx": -2.501,
+      "cy": -4.999,
+      "r": 0.559
+    },
+    {
+      "type": "circle",
+      "cx": -2.501,
+      "cy": 5.001,
+      "r": 0.559
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -2.5,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 7.5,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "3",
+      "x": 2.5,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "4",
+      "x": -7.5,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "5",
+      "x": -2.5,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "6",
+      "x": 2.5,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "7",
+      "x": 7.5,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "8",
+      "x": -7.5,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 10.75,
+    "y": 2.987
+  }
+}

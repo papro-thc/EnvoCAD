@@ -1,0 +1,62 @@
+{
+  "id": "qet.ap.310.01-coils-bobine3",
+  "name": "Cívka relé",
+  "category": "QET vícepól/relays_contactors_contacts/coils",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; bobine3.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -3.5,
+      "y": -2.0,
+      "w": 7.0,
+      "h": 4.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 0.0,
+      "y2": 2.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.0,
+      "x2": 0.0,
+      "y2": -5.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "A1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "A2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 6.25,
+    "y": -0.208
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "id": "qet.ap.130.90-terminal-strips-diagram-90-30-0011",
+  "name": "Kabeové připojení dolů",
+  "category": "QET vícepól/terminals_terminal_strips/terminal strips diagram",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); 90-30-0011.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          0.0,
+          -0.0
+        ],
+        [
+          5.0,
+          -0.0
+        ],
+        [
+          5.0,
+          -1.25
+        ]
+      ],
+      "closed": false
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 5.0,
+      "y": 0.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 7.5,
+    "y": -0.0
+  }
+}

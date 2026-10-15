@@ -1,0 +1,88 @@
+{
+  "id": "qet.sp.500-home-installation-20-home-appliances-plaque-cuisson",
+  "name": "Varná deska",
+  "category": "QET jednopól/home installation/home appliances",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; plaque_cuisson.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -3.0,
+          0.25
+        ],
+        [
+          -3.0,
+          -5.75
+        ],
+        [
+          3.0,
+          -5.75
+        ],
+        [
+          3.0,
+          0.25
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 3.25,
+      "x2": 0.0,
+      "y2": 0.25
+    },
+    {
+      "type": "circle",
+      "cx": -1.25,
+      "cy": -4.25,
+      "r": 0.875
+    },
+    {
+      "type": "circle",
+      "cx": 1.25,
+      "cy": -4.25,
+      "r": 1.125
+    },
+    {
+      "type": "circle",
+      "cx": -1.25,
+      "cy": -1.75,
+      "r": 1.125
+    },
+    {
+      "type": "circle",
+      "cx": 1.25,
+      "cy": -1.75,
+      "r": 0.875
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 2.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -2.0,
+    "y": -5.25
+  }
+}

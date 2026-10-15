@@ -1,0 +1,122 @@
+{
+  "id": "qet.sp.500-home-installation-20-home-appliances-hotte-aspirante-filtrante",
+  "name": "Odsávač par s filtrem",
+  "category": "QET jednopól/home installation/home appliances",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; hotte_aspirante_filtrante.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -3.0,
+          0.25
+        ],
+        [
+          -3.0,
+          -5.75
+        ],
+        [
+          3.0,
+          -5.75
+        ],
+        [
+          3.0,
+          0.25
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -5.75,
+      "x2": 0.0,
+      "y2": -4.25
+    },
+    {
+      "type": "line",
+      "x1": 1.5,
+      "y1": -3.0,
+      "x2": 1.5,
+      "y2": -1.5
+    },
+    {
+      "type": "line",
+      "x1": -1.5,
+      "y1": -3.0,
+      "x2": -1.5,
+      "y2": -1.5
+    },
+    {
+      "type": "rect",
+      "x": -3.0,
+      "y": -1.5,
+      "w": 6.0,
+      "h": 1.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 3.25,
+      "x2": 0.0,
+      "y2": 0.25
+    },
+    {
+      "type": "arc",
+      "cx": -1.375,
+      "cy": -0.645,
+      "r": 0.5,
+      "start": 90.0,
+      "end": 270.0
+    },
+    {
+      "type": "line",
+      "x1": 1.25,
+      "y1": -0.14,
+      "x2": -1.25,
+      "y2": -1.14
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": -0.14,
+      "x2": 1.25,
+      "y2": -1.14
+    },
+    {
+      "type": "arc",
+      "cx": 1.39,
+      "cy": -0.645,
+      "r": 0.5,
+      "start": 270.0,
+      "end": 90.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 2.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -1.75,
+    "y": -5.763
+  }
+}

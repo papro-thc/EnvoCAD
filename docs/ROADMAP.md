@@ -18,6 +18,8 @@
 - [ ] Editor symbolů (porty, atributy) přímo v GUI
 - [x] Artikly: CSV formát, validátor, výběr v dialogu prvku, propsání parametrů, skříně z knihovny
 - [ ] Doplnit data: OEZ rozměry a Pv z Katalogu Minia (PDF), Eaton/Schneider/ABB, DC prvky, FV moduly, SolarEdge/Fronius/GoodWe – z PDF katalogů (web je v prostředí blokovaný)
+- [x] Značky z QElectroTech (673), importéry EPLAN CSV/XML/DXF, pluginy a uživatelské balíčky
+- [ ] BMEcat/ETIM importér (volná data výrobců)
 - [ ] Footprinty z DXF výrobců (OEZ, Hager) a editor portů importovaných symbolů
 - [ ] Ceny v artiklech + výkaz s cenami
 - [ ] Výkaz materiálu (.xlsx) a seznam kabelů z modelu

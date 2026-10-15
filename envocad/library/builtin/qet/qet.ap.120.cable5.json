@@ -1,0 +1,110 @@
+{
+  "id": "qet.ap.120.cable5",
+  "name": "Kabel 5G",
+  "category": "QET vícepól/cables_wiring",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; cable5.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -10.512,
+      "y1": -1.988,
+      "x2": -9.512,
+      "y2": -2.987
+    },
+    {
+      "type": "line",
+      "x1": -5.513,
+      "y1": -1.988,
+      "x2": -4.513,
+      "y2": -2.987
+    },
+    {
+      "type": "text",
+      "x": 5.5,
+      "y": -2.25,
+      "text": "2",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": 4.5,
+      "y1": -2.0,
+      "x2": 5.5,
+      "y2": -3.0
+    },
+    {
+      "type": "text",
+      "x": -4.75,
+      "y": -2.25,
+      "text": "BL",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 0.5,
+      "y": -2.25,
+      "text": "1",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": 9.488,
+      "y1": -1.988,
+      "x2": 10.488,
+      "y2": -2.987
+    },
+    {
+      "type": "line",
+      "x1": -0.5,
+      "y1": -2.0,
+      "x2": 0.5,
+      "y2": -3.0
+    },
+    {
+      "type": "text",
+      "x": 10.75,
+      "y": -2.25,
+      "text": "3",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": -10.0,
+      "y1": -2.5,
+      "x2": 10.0,
+      "y2": -2.5
+    },
+    {
+      "type": "text",
+      "x": -10.0,
+      "y": -2.25,
+      "text": "GNYE",
+      "height": 0.9,
+      "align": "left"
+    }
+  ],
+  "ports": [],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -21.25,
+    "y": -0.5
+  }
+}

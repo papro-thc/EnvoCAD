@@ -1,0 +1,117 @@
+{
+  "id": "qet.ap.310.03-contacts-comm-par-horl-no-nf",
+  "name": "Kontakt NC/NO řízený elektrickými hodinami",
+  "category": "QET vícepól/relays_contactors_contacts/contacts",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; comm_par_horl_no_nf.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": 2.5,
+      "x2": -1.25,
+      "y2": 2.5
+    },
+    {
+      "type": "circle",
+      "cx": -6.25,
+      "cy": 2.5,
+      "r": 1.25
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": 4.75,
+      "x2": -1.75,
+      "y2": 4.75
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          0.0,
+          -2.5
+        ],
+        [
+          0.0,
+          -0.0
+        ],
+        [
+          -2.5,
+          5.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": 7.5,
+      "x2": -5.0,
+      "y2": 4.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 7.5,
+      "x2": 0.0,
+      "y2": 5.0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -7.25,
+          2.5
+        ],
+        [
+          -6.25,
+          2.5
+        ],
+        [
+          -6.25,
+          3.5
+        ]
+      ],
+      "closed": false
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": -2.5,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "3",
+      "x": -5.0,
+      "y": 7.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 0.25,
+    "y": 3.0
+  }
+}

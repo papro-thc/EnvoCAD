@@ -1,0 +1,146 @@
+{
+  "id": "qet.ap.200.10-fuses-porte-fusible-bi",
+  "name": "Pojistkový odpínač  1p+N",
+  "category": "QET vícepól/fuses_protective_gears/fuses",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; porte_fusible_bi.elmt",
+  "iec_ref": "F",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -3.75,
+          2.5
+        ],
+        [
+          -2.5,
+          -2.5
+        ],
+        [
+          -2.5,
+          -5.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          1.25,
+          2.5
+        ],
+        [
+          2.5,
+          -2.5
+        ],
+        [
+          2.5,
+          -5.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          1.077,
+          1.127
+        ],
+        [
+          1.702,
+          -1.373
+        ],
+        [
+          2.672,
+          -1.127
+        ],
+        [
+          2.047,
+          1.373
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": 2.0,
+      "y1": 2.5,
+      "x2": 3.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 5.0,
+      "x2": 2.5,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 5.0,
+      "x2": -2.5,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -2.0,
+      "y1": 2.5,
+      "x2": -3.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -3.25,
+      "y1": -0.0,
+      "x2": 1.25,
+      "y2": -0.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -2.5,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": -2.5,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": 2.5,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "4",
+      "x": 2.5,
+      "y": 5.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 7.5,
+    "y": 0.5
+  }
+}

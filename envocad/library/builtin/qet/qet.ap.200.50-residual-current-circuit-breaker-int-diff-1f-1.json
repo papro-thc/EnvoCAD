@@ -1,0 +1,284 @@
+{
+  "id": "qet.ap.200.50-residual-current-circuit-breaker-int-diff-1f-1",
+  "name": "Proudový chránič 2P",
+  "category": "QET vícepól/fuses_protective_gears/residual current circuit breaker",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; int_diff_1f-1.elmt",
+  "iec_ref": "F",
+  "primitives": [
+    {
+      "type": "circle",
+      "cx": 5.0,
+      "cy": 4.5,
+      "r": 0.5
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": 4.5,
+      "r": 0.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          5.0,
+          -7.5
+        ],
+        [
+          5.0,
+          -0.0
+        ],
+        [
+          3.5,
+          5.25
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": 0.5,
+      "y1": 5.0,
+      "x2": -0.5,
+      "y2": 5.0
+    },
+    {
+      "type": "line",
+      "x1": 5.5,
+      "y1": 5.0,
+      "x2": 4.5,
+      "y2": 5.0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          0.0,
+          -7.5
+        ],
+        [
+          0.0,
+          -0.0
+        ],
+        [
+          -1.5,
+          5.25
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "arc",
+      "cx": 5.125,
+      "cy": -4.75,
+      "r": 0.75,
+      "start": 270.0,
+      "end": 90.0
+    },
+    {
+      "type": "arc",
+      "cx": 5.125,
+      "cy": -1.75,
+      "r": 0.75,
+      "start": 270.0,
+      "end": 90.0
+    },
+    {
+      "type": "line",
+      "x1": -10.012,
+      "y1": 3.513,
+      "x2": -10.012,
+      "y2": 1.512
+    },
+    {
+      "type": "arc",
+      "cx": 5.125,
+      "cy": -3.25,
+      "r": 0.75,
+      "start": 270.0,
+      "end": 90.0
+    },
+    {
+      "type": "rect",
+      "x": -6.5,
+      "y": 1.0,
+      "w": 3.0,
+      "h": 3.0
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": 4.0,
+      "x2": -5.0,
+      "y2": 1.0
+    },
+    {
+      "type": "line",
+      "x1": -6.5,
+      "y1": 2.5,
+      "x2": -3.5,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -10.0,
+      "y1": 2.5,
+      "x2": -6.5,
+      "y2": 2.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -8.0,
+          2.0
+        ],
+        [
+          -8.0,
+          3.0
+        ],
+        [
+          -9.0,
+          2.5
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 7.5,
+      "x2": 0.0,
+      "y2": 5.0
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": 7.5,
+      "x2": 5.0,
+      "y2": 5.0
+    },
+    {
+      "type": "rect",
+      "x": -10.25,
+      "y": -4.75,
+      "w": 4.5,
+      "h": 3.0
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": 1.0,
+      "x2": -5.0,
+      "y2": -3.25
+    },
+    {
+      "type": "text",
+      "x": -9.0,
+      "y": -4.0,
+      "text": "IΔ",
+      "height": 1.35,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": -8.0,
+      "y1": -1.0,
+      "x2": 5.0,
+      "y2": -1.0
+    },
+    {
+      "type": "line",
+      "x1": -8.0,
+      "y1": -5.5,
+      "x2": 5.0,
+      "y2": -5.5
+    },
+    {
+      "type": "line",
+      "x1": -3.5,
+      "y1": 2.5,
+      "x2": 4.25,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -8.0,
+      "y1": -1.0,
+      "x2": -8.0,
+      "y2": -1.75
+    },
+    {
+      "type": "line",
+      "x1": -8.0,
+      "y1": -4.75,
+      "x2": -8.0,
+      "y2": -5.5
+    },
+    {
+      "type": "line",
+      "x1": -5.75,
+      "y1": -3.25,
+      "x2": -5.0,
+      "y2": -3.25
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.5,
+      "x2": 5.0,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -4.0,
+      "x2": 5.0,
+      "y2": -4.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -7.5,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": 5.0,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "4",
+      "x": 5.0,
+      "y": -7.5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 5.75,
+    "y": 3.0
+  }
+}

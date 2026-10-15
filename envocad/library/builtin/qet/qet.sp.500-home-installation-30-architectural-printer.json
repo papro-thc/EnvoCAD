@@ -1,0 +1,191 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-printer",
+  "name": "Tiskárna",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); printer.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 4.25,
+      "x2": 2.5,
+      "y2": 2.5
+    },
+    {
+      "type": "arc",
+      "cx": 21.25,
+      "cy": 4.5,
+      "r": 1.25,
+      "start": 0.0,
+      "end": 90.0
+    },
+    {
+      "type": "arc",
+      "cx": 3.75,
+      "cy": 4.5,
+      "r": 1.25,
+      "start": 90.0,
+      "end": 180.0
+    },
+    {
+      "type": "line",
+      "x1": 22.5,
+      "y1": 4.25,
+      "x2": 22.5,
+      "y2": 2.5
+    },
+    {
+      "type": "rect",
+      "x": 0.0,
+      "y": -17.5,
+      "w": 25.0,
+      "h": 2.5
+    },
+    {
+      "type": "rect",
+      "x": 0.0,
+      "y": -14.5,
+      "w": 25.0,
+      "h": 2.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          21.5,
+          2.5
+        ],
+        [
+          21.5,
+          -2.5
+        ],
+        [
+          3.5,
+          -2.5
+        ],
+        [
+          3.5,
+          2.5
+        ],
+        [
+          -2.5,
+          2.5
+        ],
+        [
+          -2.5,
+          -18.5
+        ],
+        [
+          27.5,
+          -18.5
+        ],
+        [
+          27.5,
+          2.5
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          4.0,
+          8.25
+        ],
+        [
+          4.0,
+          -2.0
+        ],
+        [
+          21.0,
+          -2.0
+        ],
+        [
+          21.0,
+          6.25
+        ],
+        [
+          19.0,
+          8.25
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          19.0,
+          8.25
+        ],
+        [
+          19.0,
+          6.25
+        ],
+        [
+          21.0,
+          6.25
+        ]
+      ],
+      "closed": true
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 17.5,
+      "y": -17.5,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": 12.5,
+      "y": -17.5,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": -2.5,
+      "y": -10.0,
+      "dir": "W"
+    },
+    {
+      "name": "4",
+      "x": -2.5,
+      "y": -15.0,
+      "dir": "W"
+    },
+    {
+      "name": "5",
+      "x": 7.5,
+      "y": -17.5,
+      "dir": "S"
+    },
+    {
+      "name": "6",
+      "x": -2.5,
+      "y": -12.5,
+      "dir": "W"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 28.0,
+    "y": -0.125
+  }
+}

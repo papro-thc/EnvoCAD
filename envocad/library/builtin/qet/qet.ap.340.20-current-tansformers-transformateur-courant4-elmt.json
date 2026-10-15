@@ -1,0 +1,139 @@
+{
+  "id": "qet.ap.340.20-current-tansformers-transformateur-courant4-elmt",
+  "name": "Proudový transformátor se dvěma sekundárními vinutími na jednom jádru",
+  "category": "QET vícepól/converters_inverters/current tansformers",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformateur_courant4.elmt.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": 3.125,
+      "r": 0.625,
+      "start": 90.0,
+      "end": 270.0
+    },
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": -1.875,
+      "r": 0.625,
+      "start": 90.0,
+      "end": 270.0
+    },
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": 4.375,
+      "r": 0.625,
+      "start": 90.0,
+      "end": 270.0
+    },
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": -0.625,
+      "r": 0.625,
+      "start": 90.0,
+      "end": 270.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 2.5,
+      "y2": 5.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 2.5,
+      "x2": 2.5,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -0.0,
+      "x2": 2.5,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.5,
+      "x2": 2.5,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 7.5,
+      "x2": 0.0,
+      "y2": -5.0
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": 5.0,
+      "x2": -1.25,
+      "y2": -2.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 2.5,
+      "y": -2.5,
+      "dir": "E"
+    },
+    {
+      "name": "3",
+      "x": 2.5,
+      "y": 0.0,
+      "dir": "E"
+    },
+    {
+      "name": "4",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "5",
+      "x": 2.5,
+      "y": 2.5,
+      "dir": "E"
+    },
+    {
+      "name": "6",
+      "x": 2.5,
+      "y": 5.0,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 0.5,
+    "y": 8.375
+  }
+}

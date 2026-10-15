@@ -1,0 +1,55 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-lampe",
+  "name": "Světlo",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); lampe.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": 2.5,
+      "r": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 1.75,
+      "y1": 4.25,
+      "x2": -1.75,
+      "y2": 0.75
+    },
+    {
+      "type": "line",
+      "x1": -1.75,
+      "y1": 4.25,
+      "x2": 1.75,
+      "y2": 0.75
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 2.5,
+    "y": 3.0
+  }
+}

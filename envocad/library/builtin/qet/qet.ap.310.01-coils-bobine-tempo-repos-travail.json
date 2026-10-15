@@ -1,0 +1,91 @@
+{
+  "id": "qet.ap.310.01-coils-bobine-tempo-repos-travail",
+  "name": "Relé se zpožděným zapnutím a vypnutím",
+  "category": "QET vícepól/relays_contactors_contacts/coils",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; bobine_tempo_repos-travail.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -3.5,
+      "y": -2.0,
+      "w": 7.0,
+      "h": 4.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 0.0,
+      "y2": 2.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.0,
+      "x2": 0.0,
+      "y2": -5.0
+    },
+    {
+      "type": "rect",
+      "x": 1.5,
+      "y": -2.0,
+      "w": 1.0,
+      "h": 4.0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          2.5,
+          -2.0
+        ],
+        [
+          3.5,
+          2.0
+        ],
+        [
+          2.5,
+          2.0
+        ],
+        [
+          3.5,
+          -2.0
+        ]
+      ],
+      "closed": true
+    }
+  ],
+  "ports": [
+    {
+      "name": "A1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "A2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 6.25,
+    "y": 0.042
+  }
+}

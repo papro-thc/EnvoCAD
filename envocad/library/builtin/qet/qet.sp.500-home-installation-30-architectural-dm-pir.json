@@ -1,0 +1,74 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-dm-pir",
+  "name": "PIR detektor",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); dm_pir.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          5.0,
+          2.5
+        ],
+        [
+          0.0,
+          -0.0
+        ],
+        [
+          5.0,
+          -2.5
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": 6.25,
+      "y1": 1.25,
+      "x2": 10.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 6.25,
+      "y1": -0.0,
+      "x2": 10.0,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": 6.25,
+      "y1": -1.25,
+      "x2": 10.0,
+      "y2": -2.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 0.0,
+      "dir": "W"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -10.0,
+    "y": 0.625
+  }
+}

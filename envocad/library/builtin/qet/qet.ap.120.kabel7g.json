@@ -1,0 +1,84 @@
+{
+  "id": "qet.ap.120.kabel7g",
+  "name": "Kabel 7G",
+  "category": "QET vícepól/cables_wiring",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; kabel7g.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 14.488,
+      "y1": 0.512,
+      "x2": 15.488,
+      "y2": -0.487
+    },
+    {
+      "type": "line",
+      "x1": -10.512,
+      "y1": 0.512,
+      "x2": -9.512,
+      "y2": -0.487
+    },
+    {
+      "type": "line",
+      "x1": 9.488,
+      "y1": 0.512,
+      "x2": 10.488,
+      "y2": -0.487
+    },
+    {
+      "type": "line",
+      "x1": 4.487,
+      "y1": 0.512,
+      "x2": 5.487,
+      "y2": -0.487
+    },
+    {
+      "type": "line",
+      "x1": -0.512,
+      "y1": 0.512,
+      "x2": 0.487,
+      "y2": -0.487
+    },
+    {
+      "type": "line",
+      "x1": -5.5,
+      "y1": 0.5,
+      "x2": -4.5,
+      "y2": -0.5
+    },
+    {
+      "type": "line",
+      "x1": -16.985,
+      "y1": -0.0,
+      "x2": 17.75,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": -15.5,
+      "y1": 0.5,
+      "x2": -14.5,
+      "y2": -0.5
+    }
+  ],
+  "ports": [],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -22.5,
+    "y": 2.375
+  }
+}

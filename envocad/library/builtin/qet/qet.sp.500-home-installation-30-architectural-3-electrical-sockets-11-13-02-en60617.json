@@ -1,0 +1,65 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-3-electrical-sockets-11-13-02-en60617",
+  "name": "Trojitá zásuvka",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; 3_electrical_sockets_11-13-02_en60617.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": -4.375,
+      "r": 2.5,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -1.75,
+      "x2": 0.0,
+      "y2": 2.0
+    },
+    {
+      "type": "text",
+      "x": 2.75,
+      "y": -1.75,
+      "text": "3",
+      "height": 1.57,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": -2.25,
+      "x2": 0.5,
+      "y2": -3.75
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 2.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 0.75,
+    "y": 2.987
+  }
+}

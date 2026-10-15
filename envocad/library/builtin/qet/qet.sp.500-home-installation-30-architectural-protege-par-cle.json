@@ -1,0 +1,70 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-protege-par-cle",
+  "name": "Klíčový spínač",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); protege_par_cle.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -0.5,
+          -2.25
+        ],
+        [
+          -1.5,
+          -4.25
+        ],
+        [
+          1.5,
+          -4.25
+        ],
+        [
+          0.5,
+          -2.25
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "rect",
+      "x": -3.25,
+      "y": -6.25,
+      "w": 6.5,
+      "h": 8.75
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -1.0,
+      "r": 1.25
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 2.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 3.75,
+    "y": -0.75
+  }
+}

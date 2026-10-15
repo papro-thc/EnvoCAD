@@ -1,0 +1,113 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-transmetteur",
+  "name": "Vysílač",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); transmetteur.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -7.5,
+      "y": -2.5,
+      "w": 15.0,
+      "h": 5.0
+    },
+    {
+      "type": "arc",
+      "cx": -3.75,
+      "cy": -0.0,
+      "r": 1.25,
+      "start": 0.0,
+      "end": 90.0
+    },
+    {
+      "type": "arc",
+      "cx": -3.75,
+      "cy": -0.0,
+      "r": 1.25,
+      "start": 270.0,
+      "end": 360
+    },
+    {
+      "type": "arc",
+      "cx": -3.75,
+      "cy": -0.0,
+      "r": 1.25,
+      "start": 180.0,
+      "end": 270.0
+    },
+    {
+      "type": "arc",
+      "cx": -3.75,
+      "cy": -0.0,
+      "r": 1.25,
+      "start": 90.0,
+      "end": 180.0
+    },
+    {
+      "type": "arc",
+      "cx": 3.75,
+      "cy": -0.0,
+      "r": 1.25,
+      "start": 0.0,
+      "end": 90.0
+    },
+    {
+      "type": "arc",
+      "cx": 3.75,
+      "cy": -0.0,
+      "r": 1.25,
+      "start": 270.0,
+      "end": 360
+    },
+    {
+      "type": "arc",
+      "cx": 3.75,
+      "cy": -0.0,
+      "r": 1.25,
+      "start": 180.0,
+      "end": 270.0
+    },
+    {
+      "type": "arc",
+      "cx": 3.75,
+      "cy": -0.0,
+      "r": 1.25,
+      "start": 90.0,
+      "end": 180.0
+    },
+    {
+      "type": "line",
+      "x1": -3.75,
+      "y1": 1.25,
+      "x2": 3.75,
+      "y2": 1.25
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -7.5,
+      "y": 2.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -3.75,
+    "y": 5.625
+  }
+}

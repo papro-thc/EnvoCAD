@@ -1,0 +1,115 @@
+{
+  "id": "qet.ap.310.01-coils-comm-polarise",
+  "name": "Polarizované relé",
+  "category": "QET vícepól/relays_contactors_contacts/coils",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); comm_polarise.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -5.5,
+          2.5
+        ],
+        [
+          -5.5,
+          1.75
+        ],
+        [
+          -4.5,
+          1.75
+        ],
+        [
+          -4.5,
+          -1.75
+        ],
+        [
+          -5.5,
+          -1.75
+        ],
+        [
+          -5.5,
+          -2.5
+        ],
+        [
+          -3.75,
+          -2.5
+        ],
+        [
+          -3.75,
+          2.5
+        ],
+        [
+          -5.5,
+          2.5
+        ],
+        [
+          -5.5,
+          1.75
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "rect",
+      "x": -5.5,
+      "y": -2.5,
+      "w": 1.75,
+      "h": 5.0
+    },
+    {
+      "type": "rect",
+      "x": -3.75,
+      "y": -2.5,
+      "w": 7.5,
+      "h": 5.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -5.0,
+      "x2": 0.0,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 0.0,
+      "y2": 2.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 4.0,
+    "y": 0.5
+  }
+}

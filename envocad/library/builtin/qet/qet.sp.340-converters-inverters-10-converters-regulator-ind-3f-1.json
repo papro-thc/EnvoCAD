@@ -1,0 +1,134 @@
+{
+  "id": "qet.sp.340-converters-inverters-10-converters-regulator-ind-3f-1",
+  "name": "Třífázový regulátor napětí",
+  "category": "QET jednopól/converters inverters/converters",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; regulator_ind_3f_1.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": -5.25,
+      "x2": 1.25,
+      "y2": -4.25
+    },
+    {
+      "type": "line",
+      "x1": -1.262,
+      "y1": 4.013,
+      "x2": 1.238,
+      "y2": 5.013
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": 1.25,
+      "r": 2.5
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -0.0,
+      "r": 3.75
+    },
+    {
+      "type": "line",
+      "x1": -1.262,
+      "y1": 5.013,
+      "x2": 1.238,
+      "y2": 6.013
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": -5.75,
+      "x2": 1.25,
+      "y2": -4.75
+    },
+    {
+      "type": "line",
+      "x1": -1.262,
+      "y1": 4.513,
+      "x2": 1.238,
+      "y2": 5.513
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 7.5,
+      "x2": 0.0,
+      "y2": 3.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -3.75,
+      "x2": 0.0,
+      "y2": -7.5
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": -6.25,
+      "x2": 1.25,
+      "y2": -5.25
+    },
+    {
+      "type": "line",
+      "x1": -3.75,
+      "y1": -3.75,
+      "x2": 3.75,
+      "y2": 3.75
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          3.25,
+          4.0
+        ],
+        [
+          4.0,
+          3.25
+        ],
+        [
+          4.75,
+          4.75
+        ]
+      ],
+      "closed": true
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -7.5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 4.25,
+    "y": 0.625
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "id": "qet.ap.330.10-transformers-autotransformateur-monophase",
+  "name": "Jednofázový autotransformátor",
+  "category": "QET vícepól/transformers_power_supplies/transformers",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; autotransformateur_monophase.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 2.0,
+      "y1": 5.0,
+      "x2": 2.0,
+      "y2": 8.75
+    },
+    {
+      "type": "line",
+      "x1": -2.0,
+      "y1": 3.25,
+      "x2": -2.0,
+      "y2": 8.75
+    },
+    {
+      "type": "arc",
+      "cx": 2.5,
+      "cy": -1.25,
+      "r": 6.25,
+      "start": 70.0,
+      "end": 180.0
+    },
+    {
+      "type": "line",
+      "x1": 2.0,
+      "y1": -4.5,
+      "x2": 2.0,
+      "y2": -8.75
+    },
+    {
+      "type": "line",
+      "x1": -2.0,
+      "y1": -4.5,
+      "x2": -2.0,
+      "y2": -8.75
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -1.25,
+      "r": 3.75
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 2.5,
+      "y": 10.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": -2.5,
+      "y": 10.0,
+      "dir": "N"
+    },
+    {
+      "name": "3",
+      "x": -2.5,
+      "y": -10.0,
+      "dir": "S"
+    },
+    {
+      "name": "4",
+      "x": 2.5,
+      "y": -10.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 4.438,
+    "y": -0.375
+  }
+}

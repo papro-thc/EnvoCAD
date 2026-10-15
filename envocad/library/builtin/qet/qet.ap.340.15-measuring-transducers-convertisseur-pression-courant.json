@@ -1,0 +1,133 @@
+{
+  "id": "qet.ap.340.15-measuring-transducers-convertisseur-pression-courant",
+  "name": "Tlakově-elektrický převodník",
+  "category": "QET vícepól/converters_inverters/measuring transducers",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; convertisseur_pression_courant.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "text",
+      "x": 1.25,
+      "y": -2.0,
+      "text": "a",
+      "height": 1.35,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 0.5,
+      "y": -0.75,
+      "text": "P",
+      "height": 2.02,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": -2.75,
+      "y1": 1.75,
+      "x2": -1.0,
+      "y2": 4.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -3.75,
+          5.0
+        ],
+        [
+          3.75,
+          5.0
+        ],
+        [
+          3.75,
+          -2.5
+        ],
+        [
+          -3.75,
+          -2.5
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": -3.75,
+      "y1": 2.5,
+      "x2": -5.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": -0.0,
+      "x2": 3.75,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": 3.75,
+      "y1": 2.5,
+      "x2": 5.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": -0.0,
+      "x2": -3.75,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": 3.125,
+      "y1": 4.875,
+      "x2": -3.75,
+      "y2": -2.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 5.0,
+      "y": 0.0,
+      "dir": "E"
+    },
+    {
+      "name": "2",
+      "x": 5.0,
+      "y": 2.5,
+      "dir": "E"
+    },
+    {
+      "name": "3",
+      "x": -5.0,
+      "y": 0.0,
+      "dir": "W"
+    },
+    {
+      "name": "4",
+      "x": -5.0,
+      "y": 2.5,
+      "dir": "W"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 0.25,
+    "y": 6.75
+  }
+}

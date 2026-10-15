@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QInputDialog,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QStatusBar,
     QTabWidget,
@@ -52,6 +53,7 @@ class MainWindow(QMainWindow):
         self._dock("Vlastnosti", self.props_panel, Qt.RightDockWidgetArea)
         self.setStatusBar(QStatusBar())
         self._build_actions()
+        self._load_plugins()
         self._load_project(self.project)
         self.resize(1400, 900)
 
@@ -163,6 +165,39 @@ class MainWindow(QMainWindow):
         act(m_help, "Otevřít složku s logy", self.open_log_dir)
         act(m_help, "O programu", lambda: QMessageBox.about(
             self, "EnvoCAD", f"EnvoCAD {__version__}\nInterní nástroj ENVO pro elektro-dokumentaci FVE."))
+
+    # ---- pluginy ---------------------------------------------------------------
+    def _load_plugins(self) -> None:
+        from envocad.plugins import load_plugins
+        self.plugins = load_plugins(self.library)
+        menus = {m.title().replace("&", ""): m for m in self.menuBar().findChildren(QMenu) if m.title()}
+        for menu_name, text, cb in self.plugins.menu_actions:
+            menu = menus.get(menu_name)
+            if menu is None:
+                menu = self.menuBar().addMenu(menu_name)
+                menus[menu_name] = menu
+            a = QAction(text, self)
+            a.triggered.connect(lambda _c=False, cb=cb: cb(self))
+            menu.addAction(a)
+        if self.plugins.importers:
+            m_lib = menus.get("Knihovna")
+            if m_lib is not None:
+                m_lib.addSeparator()
+                for text, cb in self.plugins.importers:
+                    a = QAction(text, self)
+                    a.triggered.connect(lambda _c=False, cb=cb: cb(self))
+                    m_lib.addAction(a)
+        act_dir = QAction("Otevřít složku knihovny a pluginů", self)
+        act_dir.triggered.connect(self.open_home_dir)
+        menus["Knihovna"].addSeparator()
+        menus["Knihovna"].addAction(act_dir)
+
+    def open_home_dir(self) -> None:
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        from envocad.library.store import home_dir
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(home_dir())))
 
     # ---- projekt ---------------------------------------------------------------
     def _load_project(self, project: Project) -> None:

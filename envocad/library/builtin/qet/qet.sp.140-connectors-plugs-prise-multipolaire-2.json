@@ -1,0 +1,84 @@
+{
+  "id": "qet.sp.140-connectors-plugs-prise-multipolaire-2",
+  "name": "Zásuvka a zástrčka vícepólová",
+  "category": "QET jednopól/connectors plugs",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); prise_multipolaire_2.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": -3.25,
+      "x2": 1.0,
+      "y2": -5.0
+    },
+    {
+      "type": "line",
+      "x1": -0.25,
+      "y1": -3.0,
+      "x2": -0.25,
+      "y2": -4.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -3.0,
+      "x2": 0.0,
+      "y2": -7.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.25,
+      "x2": 0.0,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": 0.25,
+      "y1": -3.0,
+      "x2": 0.25,
+      "y2": -4.75
+    },
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": -3.25,
+      "r": 0.75,
+      "start": 0.0,
+      "end": 180.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 0.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -7.5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 1.75,
+    "y": -3.125
+  }
+}

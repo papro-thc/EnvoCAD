@@ -1,0 +1,76 @@
+{
+  "id": "qet.ap.200.90-overvoltage-protections-mov",
+  "name": "Varistor",
+  "category": "QET vícepól/fuses_protective_gears/overvoltage protections",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; mov.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.5,
+      "x2": 0.0,
+      "y2": -5.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 2.5,
+      "x2": 0.0,
+      "y2": 5.0
+    },
+    {
+      "type": "line",
+      "x1": 1.75,
+      "y1": -1.5,
+      "x2": -1.75,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 1.75,
+      "y1": -2.5,
+      "x2": 1.75,
+      "y2": -1.5
+    },
+    {
+      "type": "rect",
+      "x": -1.0,
+      "y": -2.5,
+      "w": 2.0,
+      "h": 5.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 2.625,
+    "y": 0.042
+  }
+}

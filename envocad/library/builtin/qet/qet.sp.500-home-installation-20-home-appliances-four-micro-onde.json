@@ -1,0 +1,133 @@
+{
+  "id": "qet.sp.500-home-installation-20-home-appliances-four-micro-onde",
+  "name": "Mikrovlnná trouba",
+  "category": "QET jednopól/home installation/home appliances",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; four_micro_onde.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -3.0,
+          0.278
+        ],
+        [
+          -3.0,
+          -5.723
+        ],
+        [
+          3.0,
+          -5.723
+        ],
+        [
+          3.0,
+          0.278
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": -1.25,
+      "x2": 1.25,
+      "y2": -2.5
+    },
+    {
+      "type": "arc",
+      "cx": 1.375,
+      "cy": -1.875,
+      "r": 0.625,
+      "start": 270.0,
+      "end": 360
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": -3.25,
+      "x2": 1.25,
+      "y2": -4.5
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": -2.25,
+      "x2": 1.25,
+      "y2": -3.5
+    },
+    {
+      "type": "arc",
+      "cx": -1.375,
+      "cy": -1.875,
+      "r": 0.625,
+      "start": 90.0,
+      "end": 180.0
+    },
+    {
+      "type": "arc",
+      "cx": 1.375,
+      "cy": -3.848,
+      "r": 0.625,
+      "start": 270.0,
+      "end": 360
+    },
+    {
+      "type": "arc",
+      "cx": 1.375,
+      "cy": -2.875,
+      "r": 0.625,
+      "start": 270.0,
+      "end": 360
+    },
+    {
+      "type": "arc",
+      "cx": -1.375,
+      "cy": -3.848,
+      "r": 0.625,
+      "start": 90.0,
+      "end": 180.0
+    },
+    {
+      "type": "arc",
+      "cx": -1.375,
+      "cy": -2.875,
+      "r": 0.625,
+      "start": 90.0,
+      "end": 180.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 3.25,
+      "x2": 0.0,
+      "y2": 0.25
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 2.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -1.75,
+    "y": -5.513
+  }
+}

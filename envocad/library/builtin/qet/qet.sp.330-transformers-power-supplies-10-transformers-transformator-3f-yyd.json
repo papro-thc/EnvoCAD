@@ -1,0 +1,217 @@
+{
+  "id": "qet.sp.330-transformers-power-supplies-10-transformers-transformator-3f-yyd",
+  "name": "Třífázový transformátor Yyd",
+  "category": "QET jednopól/transformers power supplies/transformers",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformator_3f_yyd.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": 6.75,
+      "x2": 1.25,
+      "y2": 7.75
+    },
+    {
+      "type": "line",
+      "x1": -3.75,
+      "y1": -8.75,
+      "x2": -1.25,
+      "y2": -7.75
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.0,
+          4.0
+        ],
+        [
+          0.0,
+          3.25
+        ],
+        [
+          1.0,
+          4.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -4.5,
+          -2.0
+        ],
+        [
+          -3.5,
+          -2.75
+        ],
+        [
+          -2.5,
+          -2.0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": 1.25,
+      "y1": -8.75,
+      "x2": 3.75,
+      "y2": -7.75
+    },
+    {
+      "type": "circle",
+      "cx": -2.5,
+      "cy": -2.5,
+      "r": 3.75
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": 2.5,
+      "r": 3.75
+    },
+    {
+      "type": "line",
+      "x1": -3.75,
+      "y1": -7.75,
+      "x2": -1.25,
+      "y2": -6.75
+    },
+    {
+      "type": "line",
+      "x1": 1.25,
+      "y1": -7.75,
+      "x2": 3.75,
+      "y2": -6.75
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": 7.75,
+      "x2": 1.25,
+      "y2": 8.75
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          2.5,
+          -3.75
+        ],
+        [
+          4.5,
+          -3.75
+        ],
+        [
+          3.5,
+          -2.0
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": -3.75,
+      "y1": -8.25,
+      "x2": -1.25,
+      "y2": -7.25
+    },
+    {
+      "type": "line",
+      "x1": -1.25,
+      "y1": 7.25,
+      "x2": 1.25,
+      "y2": 8.25
+    },
+    {
+      "type": "line",
+      "x1": -3.5,
+      "y1": -2.75,
+      "x2": -3.5,
+      "y2": -3.75
+    },
+    {
+      "type": "circle",
+      "cx": 2.5,
+      "cy": -2.5,
+      "r": 3.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 3.25,
+      "x2": 0.0,
+      "y2": 2.25
+    },
+    {
+      "type": "line",
+      "x1": 1.25,
+      "y1": -8.25,
+      "x2": 3.75,
+      "y2": -7.25
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": -10.0,
+      "x2": 2.5,
+      "y2": -6.25
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -6.25,
+      "x2": -2.5,
+      "y2": -10.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 10.0,
+      "x2": 0.0,
+      "y2": 6.25
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 10.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": -2.5,
+      "y": -10.0,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": 2.5,
+      "y": -10.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 6.75,
+    "y": 0.625
+  }
+}

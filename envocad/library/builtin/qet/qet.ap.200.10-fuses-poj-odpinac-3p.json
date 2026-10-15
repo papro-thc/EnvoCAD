@@ -1,0 +1,241 @@
+{
+  "id": "qet.ap.200.10-fuses-poj-odpinac-3p",
+  "name": "Pojistkový odpínač 3p",
+  "category": "QET vícepól/fuses_protective_gears/fuses",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); poj_odpinac_3p.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          0.7,
+          -2.183
+        ],
+        [
+          -0.738,
+          -2.685
+        ],
+        [
+          -2.2,
+          1.75
+        ],
+        [
+          -0.792,
+          2.237
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          10.7,
+          -2.183
+        ],
+        [
+          9.262,
+          -2.685
+        ],
+        [
+          7.8,
+          1.75
+        ],
+        [
+          9.207,
+          2.237
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          5.7,
+          -2.183
+        ],
+        [
+          4.263,
+          -2.685
+        ],
+        [
+          2.8,
+          1.75
+        ],
+        [
+          4.207,
+          2.237
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          8.5,
+          1.95
+        ],
+        [
+          10.0,
+          -2.5
+        ],
+        [
+          10.0,
+          -3.75
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1.5,
+          1.95
+        ],
+        [
+          0.0,
+          -2.5
+        ],
+        [
+          0.0,
+          -3.75
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          3.5,
+          1.95
+        ],
+        [
+          5.0,
+          -2.5
+        ],
+        [
+          5.0,
+          -3.75
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": 4.25,
+      "y1": 2.5,
+      "x2": 5.75,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 9.25,
+      "y1": 2.5,
+      "x2": 10.75,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -0.75,
+      "y1": 2.5,
+      "x2": 0.75,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -0.0,
+      "x2": 3.0,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": -0.0,
+      "x2": 8.0,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 2.5,
+      "x2": 0.0,
+      "y2": 3.75
+    },
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": 2.5,
+      "x2": 5.0,
+      "y2": 3.75
+    },
+    {
+      "type": "line",
+      "x1": 10.0,
+      "y1": 2.5,
+      "x2": 10.0,
+      "y2": 3.75
+    }
+  ],
+  "ports": [
+    {
+      "name": "4",
+      "x": 5.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": 5.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "6",
+      "x": 10.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "5",
+      "x": 10.0,
+      "y": 5.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -9.25,
+    "y": 1.75
+  }
+}

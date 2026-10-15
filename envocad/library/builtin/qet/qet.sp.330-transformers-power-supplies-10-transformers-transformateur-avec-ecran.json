@@ -1,0 +1,74 @@
+{
+  "id": "qet.sp.330-transformers-power-supplies-10-transformers-transformateur-avec-ecran",
+  "name": "Jednofázový transformátor se stíněním",
+  "category": "QET jednopól/transformers power supplies/transformers",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformateur_avec_ecran.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -2.75,
+      "y1": -0.0,
+      "x2": 3.25,
+      "y2": -0.0
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -1.25,
+      "r": 2.5
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": 1.25,
+      "r": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 6.25,
+      "x2": 0.0,
+      "y2": 3.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -3.75,
+      "x2": 0.0,
+      "y2": -6.25
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -7.5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 5.75,
+    "y": 7.5
+  }
+}

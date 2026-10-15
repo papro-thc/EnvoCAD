@@ -1,0 +1,78 @@
+{
+  "id": "qet.ap.130.barette-de-terre",
+  "name": "Uzemňovací svorka",
+  "category": "QET vícepól/terminals_terminal_strips",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; barette_de_terre.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 1.25,
+      "x2": 0.0,
+      "y2": -1.25
+    },
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": -1.25,
+      "r": 1.25,
+      "start": 180.0,
+      "end": 360
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -5.0,
+      "x2": 0.0,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 2.5,
+      "x2": 0.0,
+      "y2": 5.0
+    },
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": 1.25,
+      "r": 1.25,
+      "start": 0.0,
+      "end": 180.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 2.0,
+    "y": 0.487
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-moteur",
+  "name": "Motor",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); moteur.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": 2.0,
+      "r": 3.0
+    },
+    {
+      "type": "text",
+      "x": -1.25,
+      "y": 1.0,
+      "text": "M",
+      "height": 2.02,
+      "align": "left"
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 3.25,
+    "y": 1.737
+  }
+}

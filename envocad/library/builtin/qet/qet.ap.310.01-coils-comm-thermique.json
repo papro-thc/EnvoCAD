@@ -1,0 +1,78 @@
+{
+  "id": "qet.ap.310.01-coils-comm-thermique",
+  "name": "Tepelné relé",
+  "category": "QET vícepól/relays_contactors_contacts/coils",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); comm_thermique.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -3.75,
+      "y": -2.5,
+      "w": 7.5,
+      "h": 5.0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          0.0,
+          5.0
+        ],
+        [
+          0.0,
+          1.25
+        ],
+        [
+          -2.0,
+          1.25
+        ],
+        [
+          -2.0,
+          -1.0
+        ],
+        [
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          -5.0
+        ]
+      ],
+      "closed": false
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 4.0,
+    "y": 0.5
+  }
+}

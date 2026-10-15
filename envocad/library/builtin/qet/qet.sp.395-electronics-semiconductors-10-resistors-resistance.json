@@ -1,0 +1,70 @@
+{
+  "id": "qet.sp.395-electronics-semiconductors-10-resistors-resistance",
+  "name": "Rezistor",
+  "category": "QET jednopól/electronics semiconductors/resistors",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; resistance.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 2.5,
+      "x2": 0.0,
+      "y2": 5.0
+    },
+    {
+      "type": "line",
+      "x1": 1.0,
+      "y1": -2.5,
+      "x2": 1.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -1.0,
+      "y1": -2.5,
+      "x2": 1.0,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": 1.0,
+      "y1": 2.5,
+      "x2": -1.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -1.0,
+      "y1": 2.5,
+      "x2": -1.0,
+      "y2": -2.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 3.5,
+    "y": 5.0
+  }
+}

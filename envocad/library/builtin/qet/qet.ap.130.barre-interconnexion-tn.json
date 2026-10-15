@@ -1,0 +1,83 @@
+{
+  "id": "qet.ap.130.barre-interconnexion-tn",
+  "name": "Propojovací svorka TN",
+  "category": "QET vícepól/terminals_terminal_strips",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; barre_interconnexion_tn.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": 3.5,
+      "r": 1.25
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -3.5,
+      "r": 1.25
+    },
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": -5.0,
+      "r": 2.0,
+      "start": 180.0,
+      "end": 360
+    },
+    {
+      "type": "line",
+      "x1": -2.0,
+      "y1": 5.0,
+      "x2": -2.0,
+      "y2": -5.0
+    },
+    {
+      "type": "arc",
+      "cx": 0.0,
+      "cy": 5.0,
+      "r": 2.0,
+      "start": 0.0,
+      "end": 180.0
+    },
+    {
+      "type": "line",
+      "x1": 2.0,
+      "y1": 5.0,
+      "x2": 2.0,
+      "y2": -5.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": -7.5,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": 7.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 3.25,
+    "y": 5.487
+  }
+}

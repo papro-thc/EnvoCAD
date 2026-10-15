@@ -1,0 +1,63 @@
+{
+  "id": "qet.sp.500-home-installation-30-architectural-eclairage1",
+  "name": "Vývod pro svítidlo na zdi",
+  "category": "QET jednopól/home installation/architectural",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); eclairage1.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 2.5,
+      "x2": 2.5,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 4.25,
+      "y1": 5.25,
+      "x2": 4.25,
+      "y2": -0.25
+    },
+    {
+      "type": "line",
+      "x1": 4.25,
+      "y1": 4.25,
+      "x2": 0.75,
+      "y2": 0.75
+    },
+    {
+      "type": "line",
+      "x1": 0.75,
+      "y1": 4.25,
+      "x2": 4.25,
+      "y2": 0.75
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -2.5,
+      "y": 2.5,
+      "dir": "W"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -3.25,
+    "y": 5.988
+  }
+}

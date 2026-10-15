@@ -1,0 +1,55 @@
+{
+  "id": "qet.ap.120.m-cable-designation",
+  "name": "Označení vícežilového kabelu",
+  "category": "QET vícepól/cables_wiring",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: Moritz Scholjegerdes; m_cable_designation.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -7.5,
+      "x2": 0.0,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -2.5,
+      "x2": 2.5,
+      "y2": -2.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "Cable_B",
+      "x": 0.0,
+      "y": -7.5,
+      "dir": "S"
+    },
+    {
+      "name": "Cable_A",
+      "x": 0.0,
+      "y": 0.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -4.5,
+    "y": -0.0
+  }
+}

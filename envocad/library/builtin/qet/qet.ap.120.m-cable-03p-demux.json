@@ -1,0 +1,88 @@
+{
+  "id": "qet.ap.120.m-cable-03p-demux",
+  "name": "Vícežilový kabel 3-pólový Demux",
+  "category": "QET vícepól/cables_wiring",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: Moritz Scholjegerdes; m_cable_03p_demux.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 5.0,
+      "y1": -2.5,
+      "x2": 5.0,
+      "y2": -4.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.5,
+      "x2": 0.0,
+      "y2": -4.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.5,
+      "x2": 0.0,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": -2.5,
+      "x2": -5.0,
+      "y2": -4.75
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": -2.5,
+      "x2": 5.0,
+      "y2": -2.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "Cable",
+      "x": 0.0,
+      "y": 0.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "1",
+      "x": -5.0,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": 5.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 7.5,
+    "y": -0.0
+  }
+}

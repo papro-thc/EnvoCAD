@@ -1,0 +1,72 @@
+{
+  "id": "qet.ap.120.cable-3wires",
+  "name": "Kabel 3x",
+  "category": "QET vícepól/cables_wiring",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); cable_3wires.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -0.0,
+      "x2": 12.5,
+      "y2": -0.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 0.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 5.0,
+      "y": 0.0,
+      "dir": "N"
+    },
+    {
+      "name": "3",
+      "x": 10.0,
+      "y": 0.0,
+      "dir": "N"
+    },
+    {
+      "name": "4",
+      "x": 0.0,
+      "y": 0.0,
+      "dir": "S"
+    },
+    {
+      "name": "5",
+      "x": 5.0,
+      "y": 0.0,
+      "dir": "S"
+    },
+    {
+      "name": "6",
+      "x": 10.0,
+      "y": 0.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -9.0,
+    "y": 1.625
+  }
+}

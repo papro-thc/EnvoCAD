@@ -1,0 +1,91 @@
+{
+  "id": "qet.ap.120.kabel8g",
+  "name": "Kabel 8G",
+  "category": "QET vícepól/cables_wiring",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: Moritz Scholjegerdes; kabel8g.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 16.738,
+      "y1": 0.512,
+      "x2": 17.738,
+      "y2": -0.487
+    },
+    {
+      "type": "line",
+      "x1": 11.738,
+      "y1": 0.512,
+      "x2": 12.738,
+      "y2": -0.487
+    },
+    {
+      "type": "line",
+      "x1": -13.262,
+      "y1": 0.512,
+      "x2": -12.262,
+      "y2": -0.487
+    },
+    {
+      "type": "line",
+      "x1": 6.737,
+      "y1": 0.512,
+      "x2": 7.737,
+      "y2": -0.487
+    },
+    {
+      "type": "line",
+      "x1": 1.738,
+      "y1": 0.512,
+      "x2": 2.737,
+      "y2": -0.487
+    },
+    {
+      "type": "line",
+      "x1": -3.263,
+      "y1": 0.512,
+      "x2": -2.263,
+      "y2": -0.487
+    },
+    {
+      "type": "line",
+      "x1": -8.25,
+      "y1": 0.5,
+      "x2": -7.25,
+      "y2": -0.5
+    },
+    {
+      "type": "line",
+      "x1": -19.735,
+      "y1": -0.0,
+      "x2": 19.75,
+      "y2": -0.0
+    },
+    {
+      "type": "line",
+      "x1": -18.25,
+      "y1": 0.5,
+      "x2": -17.25,
+      "y2": -0.5
+    }
+  ],
+  "ports": [],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -25.25,
+    "y": 2.375
+  }
+}

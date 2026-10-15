@@ -1,0 +1,120 @@
+{
+  "id": "qet.ap.200.90-overvoltage-protections-parafoudre-2",
+  "name": "Přepěťová ochrana",
+  "category": "QET vícepól/fuses_protective_gears/overvoltage protections",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; parafoudre-2.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "text",
+      "x": -2.5,
+      "y": 4.168,
+      "text": "N",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": 2.0,
+      "y1": -6.0,
+      "x2": 3.5,
+      "y2": -6.0
+    },
+    {
+      "type": "line",
+      "x1": 1.5,
+      "y1": -5.5,
+      "x2": 4.0,
+      "y2": -5.5
+    },
+    {
+      "type": "line",
+      "x1": 1.0,
+      "y1": -5.0,
+      "x2": 4.5,
+      "y2": -5.0
+    },
+    {
+      "type": "line",
+      "x1": -2.75,
+      "y1": 2.5,
+      "x2": -2.75,
+      "y2": 5.0
+    },
+    {
+      "type": "rect",
+      "x": -3.75,
+      "y": -2.5,
+      "w": 7.5,
+      "h": 5.0
+    },
+    {
+      "type": "text",
+      "x": 2.5,
+      "y": -3.75,
+      "text": "T",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "x": 2.75,
+      "y": 4.168,
+      "text": "L1",
+      "height": 0.9,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": 2.75,
+      "y1": -5.0,
+      "x2": 2.75,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 2.5,
+      "x2": 2.5,
+      "y2": 5.0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 2.5,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 2.5,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": -2.5,
+      "y": 5.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 4.5,
+    "y": 1.362
+  }
+}

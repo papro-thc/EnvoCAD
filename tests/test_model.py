@@ -108,3 +108,50 @@ def test_wire_label_anchor():
     vert_pts = [(10, 0), (10, -2.5), (10, -60), (12.5, -60)]
     x, y, align, vert = wire_label_anchor(vert_pts)
     assert align == "left" and vert and x > 10
+
+
+def test_qet_import(tmp_path):
+    from envocad.library.qet_import import parse_elmt
+    elmt = tmp_path / "x.elmt"
+    elmt.write_text("""<definition version="0.100.0" type="element" width="30" height="60" hotspot_x="15" hotspot_y="30">
+<names><name lang="cs">Jistič test</name><name lang="en">Breaker</name></names>
+<kindInformations><kindInformation name="type">protection</kindInformation></kindInformations>
+<informations>Author: Tester</informations>
+<description>
+<line x1="0" y1="-30" x2="0" y2="-10" style="" antialias="false"/>
+<rect x="-5" y="-10" width="10" height="20" style=""/>
+<circle x="-5" y="20" diameter="10" style=""/>
+<arc x="-10" y="-10" width="20" height="20" start="0" angle="90" style=""/>
+<polygon x1="0" y1="10" x2="5" y2="15" x3="0" y3="20" closed="false" style=""/>
+<text text="I&gt;" x="2" y="0" font="Liberation Sans,9,-1,5,50,0,0,0,0,0,Regular"/>
+<dynamic_text x="20" y="-10" text_from="ElementInfo"><text></text><info_name>label</info_name></dynamic_text>
+<terminal x="0" y="-30" orientation="n" name="1"/>
+<terminal x="0" y="30" orientation="s" name="2"/>
+</description></definition>""", encoding="utf-8")
+    s = parse_elmt(elmt, "qet.test", "QET/Test")
+    assert s.name == "Jistič test" and s.iec_ref == "F" and "Tester" in s.description
+    assert {p["type"] for p in s.primitives} == {"line", "rect", "circle", "arc", "polyline", "text"}
+    assert [(p.name, p.x, p.y, p.dir) for p in s.ports] == [("1", 0.0, 7.5, "N"), ("2", 0.0, -7.5, "S")]
+    assert s.validate() == []
+    assert s.label_pos[0] > 0
+
+
+def test_eplan_import_heuristics(tmp_path):
+    from envocad.library.components import validate
+    from envocad.library.eplan_import import (
+        rows_from_commercial_csv,
+        rows_from_parts_xml,
+        write_components_csv,
+    )
+    (tmp_path / "c.csv").write_text("Part number;Manufacturer;Description;Width;Rated current;Product group\n"
+                                    "LTN-16B-3;OEZ;Jistič LTN 16B 3p;52,5;16 A;Leitungsschutzschalter\n", encoding="utf-8")
+    rows, mapping = rows_from_commercial_csv(tmp_path / "c.csv")
+    assert mapping["part_number"] == "Part number" and rows[0]["category"] == "mcb"
+    assert rows[0]["in_"] == "16" and rows[0]["modules"] == "3"
+    (tmp_path / "p.xml").write_text('<Parts><Part P_ARTICLE_PARTNR="MCN116" P_ARTICLE_MANUFACTURER="Hager" '
+                                    'P_ARTICLE_DESCR1="Jistič" P_ARTICLE_POWERDISSIPATION="2.32" P_ARTICLE_PRODUCTGROUP="MCB"/></Parts>',
+                                    encoding="utf-8")
+    rows2, _ = rows_from_parts_xml(tmp_path / "p.xml")
+    assert rows2[0]["p_loss_w"] == "2.32" and rows2[0]["id"] == "hager-mcn116"
+    write_components_csv(rows + rows2, tmp_path / "o.csv")
+    assert validate(tmp_path / "o.csv") == []

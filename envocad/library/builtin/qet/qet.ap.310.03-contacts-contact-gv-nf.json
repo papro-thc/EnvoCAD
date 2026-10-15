@@ -1,0 +1,128 @@
+{
+  "id": "qet.ap.310.03-contacts-contact-gv-nf",
+  "name": "Kontakt (NC) jističe",
+  "category": "QET vícepól/relays_contactors_contacts/contacts",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); contact_gv_nf.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -6.75,
+          4.0
+        ],
+        [
+          -6.75,
+          5.0
+        ],
+        [
+          -5.5,
+          5.0
+        ],
+        [
+          -5.5,
+          6.5
+        ],
+        [
+          -6.75,
+          6.5
+        ],
+        [
+          -6.75,
+          7.5
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "rect",
+      "x": -9.25,
+      "y": 0.5,
+      "w": 5.0,
+      "h": 7.0
+    },
+    {
+      "type": "text",
+      "x": -8.5,
+      "y": 1.25,
+      "text": "I>",
+      "height": 2.02,
+      "align": "left"
+    },
+    {
+      "type": "line",
+      "x1": -9.25,
+      "y1": 4.0,
+      "x2": -4.25,
+      "y2": 4.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 6.25,
+      "x2": 0.0,
+      "y2": 10.0
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 1.25,
+      "x2": 2.5,
+      "y2": 6.25
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.5,
+      "x2": 0.0,
+      "y2": 1.25
+    },
+    {
+      "type": "line",
+      "x1": -3.75,
+      "y1": 3.75,
+      "x2": 0.0,
+      "y2": 3.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 6.25,
+      "x2": 2.5,
+      "y2": 6.25
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": -2.5,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": 10.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 1.0,
+    "y": 3.875
+  }
+}

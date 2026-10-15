@@ -1,0 +1,182 @@
+{
+  "id": "qet.ap.200.90-overvoltage-protections-parafoudre-3",
+  "name": "Bleskojistka, ochrana proti přepětí",
+  "category": "QET vícepól/fuses_protective_gears/overvoltage protections",
+  "description": "Zdroj: QElectroTech (CC BY 3.0); parafoudre_3.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 2.0,
+      "x2": 0.0,
+      "y2": 5.0
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": 2.0,
+      "x2": -5.0,
+      "y2": 5.0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -0.5,
+          2.0
+        ],
+        [
+          -0.5,
+          2.0
+        ],
+        [
+          0.5,
+          2.0
+        ],
+        [
+          0.0,
+          0.5
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -5.5,
+          2.0
+        ],
+        [
+          -5.5,
+          2.0
+        ],
+        [
+          -4.5,
+          2.0
+        ],
+        [
+          -5.0,
+          0.5
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -2.5,
+      "x2": 0.0,
+      "y2": -3.75
+    },
+    {
+      "type": "line",
+      "x1": -5.0,
+      "y1": -2.5,
+      "x2": -5.0,
+      "y2": -3.75
+    },
+    {
+      "type": "line",
+      "x1": 1.0,
+      "y1": -2.5,
+      "x2": 1.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -4.0,
+      "y1": -2.5,
+      "x2": -4.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -1.0,
+      "y1": -2.5,
+      "x2": 1.0,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": -6.0,
+      "y1": -2.5,
+      "x2": -4.0,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": 1.0,
+      "y1": 2.5,
+      "x2": -1.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -4.0,
+      "y1": 2.5,
+      "x2": -6.0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": -6.0,
+      "y1": 2.5,
+      "x2": -6.0,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": -1.0,
+      "y1": 2.5,
+      "x2": -1.0,
+      "y2": -2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -3.75,
+      "x2": -5.0,
+      "y2": -3.75
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -5.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": -2.5,
+      "y": -5.0,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 1.75,
+    "y": -0.667
+  }
+}

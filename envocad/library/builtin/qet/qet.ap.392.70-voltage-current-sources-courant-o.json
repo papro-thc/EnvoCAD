@@ -1,0 +1,92 @@
+{
+  "id": "qet.ap.392.70-voltage-current-sources-courant-o",
+  "name": "Zdroj proudu (starý)",
+  "category": "QET vícepól/generators_sources/voltage current sources",
+  "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; courant_o.elmt",
+  "iec_ref": "",
+  "primitives": [
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": 1.25,
+      "r": 2.5
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -0.75,
+          2.0
+        ],
+        [
+          0.0,
+          3.0
+        ],
+        [
+          0.75,
+          2.0
+        ]
+      ],
+      "closed": true
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 2.25,
+      "x2": 0.0,
+      "y2": -3.0
+    },
+    {
+      "type": "circle",
+      "cx": 0.0,
+      "cy": -1.25,
+      "r": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": -5.0,
+      "x2": 0.0,
+      "y2": -3.75
+    },
+    {
+      "type": "line",
+      "x1": 0.0,
+      "y1": 5.0,
+      "x2": 0.0,
+      "y2": 3.75
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0.0,
+      "y": 5.0,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0.0,
+      "y": -5.0,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 3.188,
+    "y": -0.125
+  }
+}
