@@ -19,6 +19,11 @@
 - [x] Artikly: CSV formát, validátor, výběr v dialogu prvku, propsání parametrů, skříně z knihovny
 - [x] Data z PDF katalogů: OEZ Minia + 3VA + OPVP + RZA, Eaton xPole/xComfort, Schneider skříně, BMR (460 artiklů)
 - [ ] Doplnit: ABB, FV moduly, SolarEdge/Fronius/GoodWe, Pv pro 3VA (OEZ „3VA Parametry“), OPVF10 DC – z dalších PDF (web je v prostředí blokovaný)
+- [ ] Knihovna → program (analýza 10/2026): 222 artiklů bez rozměrů/modulů, 138 z 266 jističů/chráničů bez Pv, 0 footprintů
+  - [ ] rozměry a Pv z Katalogu Minia a „3VA Parametry“ (PDF od uživatele), rozměry svorek Bečov z technických listů
+  - [ ] svorkovnice v rozložení: šířka = `width_mm` artiklu × počet svorek (+ koncové desky), místo ručních modulů
+  - [ ] generické footprinty podle kategorie a rozměrů (kompaktní jistič = obdélník š×v, svorka = úzký obdélník), ne jen moduly
+  - [ ] kontroly z artiklů: In jističe vs. průřez vodiče (základní tabulka), Icu vs. Icw rozvaděče, Uc svodiče vs. síť
 - [x] Značky z QElectroTech (673), importéry EPLAN CSV/XML/DXF, pluginy a uživatelské balíčky
 - [ ] BMEcat/ETIM importér (volná data výrobců)
 - [ ] Footprinty z DXF výrobců (OEZ, Hager) a editor portů importovaných symbolů
@@ -48,6 +53,12 @@
 - [ ] Křížové odkazy mezi listy
 - [ ] Generování částí TZ/DSPS z modelu (šablony)
 - [ ] Sdílená knihovna pro celé ENVO (PostgreSQL nebo sdílený soubor)
+
+## Odloženo (analýza 10/2026 – nebrzdí práci)
+- Příkazový řádek (styl ZWCAD/CADCraft) – až bude potřeba ovládat program z agentů
+- BMEcat/ETIM importér – až budou soubory od výrobců
+- Vlastní vícepólové značky z QET (`qet.ap.*`) – opakovaná jednopólová značka je čitelná a EPLAN to kreslí podobně
+- Rust – ne
 
 ## Později
 - Další obory (HVAC, MaR, silnoproud budov)
