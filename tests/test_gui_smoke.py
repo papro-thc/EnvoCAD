@@ -352,3 +352,37 @@ def test_terminal_plan_view_and_pdf(app, tmp_path):
     assert out.stat().st_size > 500
     w.undo.setClean()
     w.close()
+
+
+def test_multipole_move_and_reset(app, tmp_path):
+    from envocad.library.templates import apply_template
+    from envocad.ui import commands
+    from envocad.ui.multipole_view import PoleItem
+    p = Project(name="Posun")
+    s = p.sheets[0]
+    blk = Element("fve.switchboard", 100, 150, attrs={"ref": "R1"})
+    s.elements.append(blk)
+    sb = p.create_switchboard_sheet(blk)
+    apply_template(p, sb, "ac_fve")
+    w = MainWindow(LibraryStore(), p)
+    w.open_sheet(sb, "multipole")
+    sc = w.view.scene()
+    f2 = next(e for e in sb.elements if e.ref == "F2")
+    auto = sc.layout_pos[f2.id]
+    new = (auto[0] + 21.5, 120.0)  # na mřížce 2,5 mm
+    w.undo.push(commands.MoveMultipoleCommand(sc, {f2.id: (None, new)}))
+    assert f2.mp_pos == new
+    it = next(it for it in sc.items() if isinstance(it, PoleItem) and it.element is f2)
+    assert it.element_origin() == new
+    sc.reset_layout()
+    assert f2.mp_pos is None
+    w.undo.undo()
+    assert f2.mp_pos == new
+    # líná přestavba: při změně modelu na jiné záložce se vícepól přestaví až po přepnutí
+    w.open_sheet(sb, "schematic")
+    w.scene.set_attr(f2.id, False, "in_", "25")
+    assert getattr(w._unwrap(w.tabs.widget(w._find_tab(sb, "multipole"))), "_dirty", False)
+    w.open_sheet(sb, "multipole")
+    assert not getattr(w.view, "_dirty", False)
+    w.undo.setClean()
+    w.close()

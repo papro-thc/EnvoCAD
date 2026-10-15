@@ -153,6 +153,8 @@ class MainWindow(QMainWindow):
         act(m_view, "Jednopólové schéma", self.open_singlepole, "Ctrl+J")
         act(m_view, "Plán svorkovnice", lambda: self.current_sheet and self.open_sheet(self.current_sheet, "terminals"),
             "Ctrl+Shift+M")
+        act(m_view, "Vícepól: rozmístit automaticky", lambda: isinstance(self.view, MultipoleView)
+            and self.view.scene().reset_layout())
         self.act_dark = QAction("Tmavý režim", self, checkable=True)
         self.act_dark.setShortcut(QKeySequence("Ctrl+D"))
         self.act_dark.setChecked(theme.is_dark())
@@ -342,6 +344,10 @@ class MainWindow(QMainWindow):
     def _tab_changed(self, _index: int) -> None:
         log.info("tab_changed %s", _index)
         self.props_panel.show_item(None)
+        v = self.view
+        if isinstance(v, DERIVED_VIEWS) and getattr(v, "_dirty", False):
+            v._dirty = False
+            v.scene().rebuild()
         if self.scene:
             self._show_mode(self.scene.mode)
         elif isinstance(self.view, MultipoleView):
@@ -499,11 +505,14 @@ class MainWindow(QMainWindow):
 
     def _on_undo_changed(self, _value=None) -> None:
         self._update_title()
-        # odvozené pohledy (vícepól) se po každé změně modelu přestaví
+        # odvozené pohledy (vícepól, plán svorkovnice): viditelný se přestaví hned, ostatní až při přepnutí
         for i in range(self.tabs.count()):
             w = self._unwrap(self.tabs.widget(i))
             if isinstance(w, DERIVED_VIEWS):
-                w.scene().rebuild()
+                if i == self.tabs.currentIndex():
+                    w.scene().rebuild()
+                else:
+                    w._dirty = True
 
     # ---- vícepól ---------------------------------------------------------------
     def open_multipole(self) -> None:

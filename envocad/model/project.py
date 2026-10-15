@@ -17,7 +17,7 @@ WIRE_ATTRIBUTES = [
     Attribute("route", "Trasa / uložení"),
 ]
 
-FORMAT_VERSION = 3
+FORMAT_VERSION = 4
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 SHEET_KINDS = ("schematic", "switchboard")
@@ -36,6 +36,7 @@ class Element:
     rotation: int = 0  # 0/90/180/270
     attrs: dict[str, str] = field(default_factory=dict)
     component_id: str | None = None  # přiřazený artikl z knihovny
+    mp_pos: tuple[float, float] | None = None  # ruční pozice ve vícepólu (None = automatické rozmístění)
     id: str = field(default_factory=_uid)
 
     @property
@@ -66,6 +67,7 @@ class Element:
         return {
             "id": self.id, "symbol_id": self.symbol_id, "x": self.x, "y": self.y,
             "rotation": self.rotation, "attrs": self.attrs, "component_id": self.component_id,
+            **({"mp_pos": list(self.mp_pos)} if self.mp_pos else {}),
         }
 
     @classmethod
@@ -73,6 +75,7 @@ class Element:
         return cls(
             symbol_id=d["symbol_id"], x=d["x"], y=d["y"], rotation=d.get("rotation", 0),
             attrs=dict(d.get("attrs", {})), component_id=d.get("component_id"), id=d["id"],
+            mp_pos=tuple(d["mp_pos"]) if d.get("mp_pos") else None,
         )
 
 
@@ -381,6 +384,7 @@ def migrate(d: dict, ver: int) -> dict:
             s.setdefault("kind", "schematic")
     if ver < 3:
         d.setdefault("bridges", {})  # v3: můstky svorkovnic
+    # v4: volitelné `mp_pos` prvku (ruční pozice ve vícepólu) – bez migrace
     d["format_version"] = FORMAT_VERSION
     return d
 

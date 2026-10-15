@@ -1,4 +1,5 @@
 """Vícepólový pohled – výpočty nad modelem (bez Qt)."""
+from itertools import pairwise
 
 from envocad.library.store import LibraryStore
 from envocad.model import multipole as mp
@@ -95,3 +96,37 @@ def test_bridges_roundtrip(tmp_path):
     assert p2.bridges == {"X2": [["1", "6", "11"], ["2", "7"]]}
     p2.set_bridges("X2", [])
     assert "X2" not in p2.bridges
+
+
+def test_auto_layout_terminal_schematic():
+    from envocad.library.templates import apply_template
+    from envocad.model.project import Element, Project
+    p = Project()
+    s = p.sheets[0]
+    blk = Element("fve.switchboard", 100, 150, attrs={"ref": "R1"})
+    s.elements.append(blk)
+    sb = p.create_switchboard_sheet(blk)
+    apply_template(p, sb, "ac_fve")
+    lib = _lib()
+    poles = {e.id: mp.element_poles(sb, e, lib.get_symbol(e.symbol_id)) for e in sb.elements}
+    lay = mp.auto_layout(sb, poles, y_top=257, bridges=p.bridges)
+    assert set(lay) == set(poles)
+    groups = [e for e in sb.elements if e.symbol_id == "sb.terminal_block"]
+    ys = {lay[e.id][1] for e in groups}
+    assert len(ys) == 1, "skupiny svorek spojené můstky jsou v jedné řadě"
+    xs = sorted(lay[e.id][0] for e in groups)
+    assert all(b - a > 30 for a, b in pairwise(xs))
+    # jistič vývodu je zarovnaný pod svou skupinou svorek, vývod pod jističem
+    f2 = next(e for e in sb.elements if e.ref == "F2")
+    g1 = next(e for e in groups if e.attrs["terminal"].startswith("6 "))
+    x4 = next(e for e in sb.elements if e.ref == "X4")
+    assert lay[f2.id][0] == lay[g1.id][0] and lay[x4.id][0] == lay[f2.id][0]
+    assert lay[f2.id][1] < lay[g1.id][1] < lay[next(e for e in sb.elements if e.ref == "Q1").id][1]
+    # ruční pozice má přednost
+    f2.mp_pos = (300.0, 50.0)
+    lay2 = mp.auto_layout(sb, poles, y_top=257, bridges=p.bridges)
+    assert lay2[f2.id] == (300.0, 50.0)
+    # serializace mp_pos
+    d = f2.to_dict()
+    assert d["mp_pos"] == [300.0, 50.0] and Element.from_dict(d).mp_pos == (300.0, 50.0)
+    assert "mp_pos" not in g1.to_dict()

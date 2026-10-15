@@ -251,3 +251,23 @@ class PasteCommand(QUndoCommand):
             self.scene.remove_wire_item(w.id)
         for e in self.elements:
             self.scene.remove_element_item(e.id)
+
+
+class MoveMultipoleCommand(QUndoCommand):
+    """Ruční pozice prvků ve vícepólu (`Element.mp_pos`; None = automatické rozmístění)."""
+
+    def __init__(self, scene, moves: dict):
+        super().__init__("Posun ve vícepólu")
+        self.scene, self.moves = scene, moves
+
+    def _apply(self, idx: int):
+        for eid, pair in self.moves.items():
+            e = self.scene.sheet.element(eid)
+            e.mp_pos = tuple(pair[idx]) if pair[idx] else None
+        self.scene.rebuild()
+
+    def redo(self):
+        self._apply(1)
+
+    def undo(self):
+        self._apply(0)

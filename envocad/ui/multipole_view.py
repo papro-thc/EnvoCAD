@@ -18,7 +18,7 @@ from envocad.model.project import Element, Project, Sheet, Wire
 from envocad.model.symbol import GRID, Symbol, rotate_dir
 from envocad.ui import commands
 from envocad.ui.canvas import SchematicView
-from envocad.ui.items import PORT_R, path_points, route, wire_label
+from envocad.ui.items import PORT_R, path_points, route, snap, wire_label
 from envocad.ui.render import LINE_WIDTH, draw_frame, draw_text, paint_symbol, sp, symbol_path
 from envocad.ui.theme import PRINT, colors
 
@@ -35,11 +35,16 @@ class PoleItem(QGraphicsItem):
         self.element: Element = ep.element
         self.symbol: Symbol = ep.symbol
         self._path = symbol_path(self.symbol)
-        self.setFlag(QGraphicsItem.ItemIsSelectable, True)
+        self.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsMovable)
         self.setZValue(10)
         ox, oy = ep.pole_offset(conductor) if conductor else (0.0, 0.0)
-        self.setPos(sp(self.element.x * mp.SCALE + ox, self.element.y * mp.SCALE + oy))
+        self._offset = (ox, oy)
+        self.setPos(sp(ep.origin[0] + ox, ep.origin[1] + oy))
         self.setRotation(-self.element.rotation)
+
+    def element_origin(self) -> tuple[float, float]:
+        """Pozice prvku ve vícepólu odvozená z aktuální pozice položky (po tažení myší)."""
+        return (snap(self.pos().x()) - self._offset[0], -snap(self.pos().y()) - self._offset[1])
 
     def type(self) -> int:
         return self.Type
@@ -188,15 +193,27 @@ class MultipoleScene(QGraphicsScene):
         self.project, self.sheet, self.library, self.undo = project, sheet, library, undo
         self.draw_grid = True
         self.mode = None
-        self.paper_size = (sheet.width * mp.SCALE, sheet.height * mp.SCALE)
-        w, h = self.paper_size
-        self.setSceneRect(QRectF(-50, -h - 50, w + 100, h + 100))
-        self._paper = QGraphicsRectItem(QRectF(0, -h, w, h))
+        self.paper_size = (sheet.width, sheet.height)
+        self._paper = QGraphicsRectItem(QRectF(0, -sheet.height, sheet.width, sheet.height))
         self._paper.setZValue(-1)
         self.addItem(self._paper)
         self._items: list[QGraphicsItem] = []
+        self._move_start: dict[str, tuple[float, float]] = {}
+        self.layout_pos: dict[str, tuple[float, float]] = {}
         self.selectionChanged.connect(self._on_selection)
         self.rebuild()
+
+    def _fit_paper(self, poles: dict[str, mp.ElementPoles]) -> None:
+        """List vícepólu: rozměr JPS listu, podle potřeby zvětšený, aby se rozmístění vešlo (s okrajem)."""
+        from envocad.model.frame import MARGIN, MARGIN_LEFT
+        w, h = self.sheet.width, self.sheet.height
+        for ep in poles.values():
+            x, y = ep.origin
+            w = max(w, x + mp.flow_extent(ep) + mp.perp_extent(ep) + MARGIN + 40)
+            h = max(h, (self.sheet.height - y) + mp.perp_extent(ep) + MARGIN + 20)
+        self.paper_size = (w, h)
+        self._paper.setRect(QRectF(0, -h, w, h))
+        self.setSceneRect(QRectF(-50 - MARGIN_LEFT, -h - 50, w + 100, h + 100))
 
     # ---- stavba z modelu ----------------------------------------------------
     def rebuild(self) -> None:
@@ -207,8 +224,13 @@ class MultipoleScene(QGraphicsScene):
         poles: dict[str, mp.ElementPoles] = {}
         for e in self.sheet.elements:
             sym = self.library.get_symbol(e.symbol_id)
-            ep = mp.element_poles(self.sheet, e, sym)
-            poles[e.id] = ep
+            poles[e.id] = mp.element_poles(self.sheet, e, sym)
+        self.layout_pos = mp.auto_layout(self.sheet, poles, y_top=self.sheet.height - 40.0, bridges=self.project.bridges)
+        for eid, ep in poles.items():
+            ep.origin = self.layout_pos.get(eid, (ep.element.x, ep.element.y))
+        self._fit_paper(poles)
+        for e in self.sheet.elements:
+            ep = poles[e.id]
             if ep.through and ep.switched:
                 for i, c in enumerate(ep.switched):
                     self._add(PoleItem(ep, c, first=(i == 0)))
@@ -245,7 +267,7 @@ class MultipoleScene(QGraphicsScene):
             for c, num in zip(ep.slots, nums):
                 if num:
                     ox, oy = ep.pole_offset(c)
-                    pos[(e.ref, num)] = (e.x * mp.SCALE + ox, e.y * mp.SCALE + oy, dx / n, dy / n)
+                    pos[(e.ref, num)] = (ep.origin[0] + ox, ep.origin[1] + oy, dx / n, dy / n)
         for strip, groups in self.project.bridges.items():
             for gi, g in enumerate(groups):
                 hits = [pos[(strip, n)] for n in g if (strip, n) in pos]
@@ -305,6 +327,32 @@ class MultipoleScene(QGraphicsScene):
         new = dlg.values()
         if new != w.terminals:
             self.undo.push(commands.SetTerminalsCommand(self, wid, w.terminals, new))
+
+    def mousePressEvent(self, ev):
+        super().mousePressEvent(ev)
+        self._move_start = {it.element.id: it.element_origin() for it in self.selectedItems() if isinstance(it, PoleItem)}
+
+    def mouseReleaseEvent(self, ev):
+        super().mouseReleaseEvent(ev)
+        if not self._move_start:
+            return
+        moves: dict[str, tuple[tuple[float, float], tuple[float, float]]] = {}
+        for it in self.selectedItems():
+            if isinstance(it, PoleItem) and it.element.id in self._move_start:
+                old = self._move_start[it.element.id]
+                new = it.element_origin()
+                if new != old and it.element.id not in moves:
+                    moves[it.element.id] = (old, new)
+        self._move_start = {}
+        if moves:
+            # pozice se zapíše do modelu přes undo; scéna se přestaví (až po doběhnutí události myši)
+            QTimer.singleShot(0, lambda: self.undo.push(commands.MoveMultipoleCommand(self, moves)))
+
+    def reset_layout(self) -> None:
+        """Zruší ruční pozice na listu – vše se rozmístí automaticky."""
+        moves = {e.id: (tuple(e.mp_pos), None) for e in self.sheet.elements if e.mp_pos}
+        if moves:
+            self.undo.push(commands.MoveMultipoleCommand(self, moves))
 
     def keyPressEvent(self, ev):
         if ev.key() == Qt.Key_Escape:
