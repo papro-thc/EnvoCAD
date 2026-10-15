@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.330-transformers-power-supplies-10-transformers-transformator-3-1",
   "name": "Transformátor se třemi vinutími",
-  "category": "QET jednopól/transformers power supplies/transformers",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformator_3_1.elmt",
   "iec_ref": "",
   "primitives": [

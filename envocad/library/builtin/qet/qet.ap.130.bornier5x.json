@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.130.bornier5x",
-  "name": "Svorkovnice 3P+N+PE",
-  "category": "QET vícepól/terminals_terminal_strips",
+  "name": "Svorkovnice 3P+N+PE [vícepól]",
+  "category": "Svorky a propojení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; bornier5x.elmt",
   "iec_ref": "",
   "primitives": [

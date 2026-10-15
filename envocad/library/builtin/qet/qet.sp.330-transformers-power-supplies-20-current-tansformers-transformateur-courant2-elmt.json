@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.330-transformers-power-supplies-20-current-tansformers-transformateur-courant2-elmt",
   "name": "Proudový transformátor se třemi primáry",
-  "category": "QET jednopól/transformers power supplies/current tansformers",
+  "category": "Měření/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformateur_courant2.elmt.elmt",
   "iec_ref": "",
   "primitives": [

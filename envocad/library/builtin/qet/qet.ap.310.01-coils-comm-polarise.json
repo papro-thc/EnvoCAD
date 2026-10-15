@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.01-coils-comm-polarise",
-  "name": "Polarizované relé",
-  "category": "QET vícepól/relays_contactors_contacts/coils",
+  "name": "Polarizované relé [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); comm_polarise.elmt",
   "iec_ref": "",
   "primitives": [

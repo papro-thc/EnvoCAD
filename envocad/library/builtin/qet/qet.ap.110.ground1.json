@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.110.ground1",
-  "name": "Kostra",
-  "category": "QET vícepól/network_supplies",
+  "name": "Kostra [vícepól]",
+  "category": "Síť a zátěž/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); ground1.elmt",
   "iec_ref": "",
   "primitives": [

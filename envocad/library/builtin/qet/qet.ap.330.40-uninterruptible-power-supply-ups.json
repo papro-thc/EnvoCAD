@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.330.40-uninterruptible-power-supply-ups",
-  "name": "UPS",
-  "category": "QET vícepól/transformers_power_supplies/uninterruptible power supply",
+  "name": "UPS [vícepól]",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: RDS for QelectroTech; ups.elmt",
   "iec_ref": "",
   "primitives": [

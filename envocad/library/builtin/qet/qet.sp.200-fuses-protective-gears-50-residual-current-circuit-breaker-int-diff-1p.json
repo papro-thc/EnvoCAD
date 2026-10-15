@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.200-fuses-protective-gears-50-residual-current-circuit-breaker-int-diff-1p",
   "name": "Proudový chránič",
-  "category": "QET jednopól/fuses protective gears/residual current circuit breaker",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; int_diff-1p.elmt",
   "iec_ref": "F",
   "primitives": [

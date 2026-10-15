@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.330.10-transformers-transformator-3f-yd",
-  "name": "Třífázový transformátor Yd, hvězda trojúhelník",
-  "category": "QET vícepól/transformers_power_supplies/transformers",
+  "name": "Třífázový transformátor Yd, hvězda trojúhelník [vícepól]",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformator_3f_yd.elmt",
   "iec_ref": "",
   "primitives": [

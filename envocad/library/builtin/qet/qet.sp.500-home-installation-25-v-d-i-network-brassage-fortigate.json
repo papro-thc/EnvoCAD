@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-25-v-d-i-network-brassage-fortigate",
   "name": "Fortigate 20C",
-  "category": "QET jednopól/home installation/V.D.I/network/brassage",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); fortigate.elmt",
   "iec_ref": "",
   "primitives": [

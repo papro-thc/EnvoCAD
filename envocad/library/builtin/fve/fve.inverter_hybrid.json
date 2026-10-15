@@ -1,7 +1,7 @@
 {
   "id": "fve.inverter_hybrid",
   "name": "Hybridní střídač",
-  "category": "FVE/Střídače",
+  "category": "Střídače a měniče",
   "iec_ref": "T",
   "description": "Hybridní střídač s bateriovým vstupem",
   "primitives": [

@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.03-contacts-act-electromagnetique-nf",
-  "name": "Elektromagnetické relé (NC)",
-  "category": "QET vícepól/relays_contactors_contacts/contacts",
+  "name": "Elektromagnetické relé (NC) [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; act_electromagnetique_nf.elmt",
   "iec_ref": "",
   "primitives": [

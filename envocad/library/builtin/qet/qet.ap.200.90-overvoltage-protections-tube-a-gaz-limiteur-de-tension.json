@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.90-overvoltage-protections-tube-a-gaz-limiteur-de-tension",
-  "name": "Dvojitá plynová bleskojistka",
-  "category": "QET vícepól/fuses_protective_gears/overvoltage protections",
+  "name": "Dvojitá plynová bleskojistka [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); tube_a_gaz_limiteur_de_tension.elmt",
   "iec_ref": "",
   "primitives": [

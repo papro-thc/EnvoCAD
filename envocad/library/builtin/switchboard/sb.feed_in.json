@@ -1,7 +1,7 @@
 {
   "id": "sb.feed_in",
   "name": "Přívod",
-  "category": "Rozvaděč/Propojení",
+  "category": "Svorky a propojení",
   "iec_ref": "X",
   "description": "Přívodní svorky rozvaděče (vazba na nadřazený list)",
   "primitives": [

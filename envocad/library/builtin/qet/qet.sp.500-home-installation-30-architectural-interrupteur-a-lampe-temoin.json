@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-30-architectural-interrupteur-a-lampe-temoin",
   "name": "Vypínač s kontrolkou",
-  "category": "QET jednopól/home installation/architectural",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); interrupteur_a_lampe_temoin.elmt",
   "iec_ref": "",
   "primitives": [

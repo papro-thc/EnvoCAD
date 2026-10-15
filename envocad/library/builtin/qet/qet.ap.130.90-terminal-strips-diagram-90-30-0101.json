@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.130.90-terminal-strips-diagram-90-30-0101",
-  "name": "Typ kabelu",
-  "category": "QET vícepól/terminals_terminal_strips/terminal strips diagram",
+  "name": "Typ kabelu [vícepól]",
+  "category": "Svorky a propojení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); 90-30-0101.elmt",
   "iec_ref": "",
   "primitives": [

@@ -1,7 +1,7 @@
 {
   "id": "sb.rcbo",
   "name": "Jistič s chráničem",
-  "category": "Obecné/Jištění",
+  "category": "Jištění",
   "iec_ref": "F",
   "description": "Proudový chránič s nadproudovou ochranou (RCBO)",
   "primitives": [
@@ -129,6 +129,70 @@
       "show": false
     }
   ],
+  "multipole": {
+    "pole": [
+      {
+        "type": "line",
+        "x1": -7.5,
+        "y1": 0,
+        "x2": -2.5,
+        "y2": 0
+      },
+      {
+        "type": "line",
+        "x1": -2.5,
+        "y1": 0,
+        "x2": 2,
+        "y2": 4
+      },
+      {
+        "type": "line",
+        "x1": 2.5,
+        "y1": 0,
+        "x2": 7.5,
+        "y2": 0
+      },
+      {
+        "type": "line",
+        "x1": -3.5,
+        "y1": -1,
+        "x2": -1.5,
+        "y2": 1
+      },
+      {
+        "type": "line",
+        "x1": -3.5,
+        "y1": 1,
+        "x2": -1.5,
+        "y2": -1
+      }
+    ],
+    "common": [
+      {
+        "type": "polyline",
+        "points": [
+          [
+            0,
+            -2
+          ],
+          [
+            2,
+            -2
+          ],
+          [
+            1,
+            -4.5
+          ]
+        ],
+        "closed": true
+      }
+    ],
+    "link": true,
+    "link_at": [
+      0,
+      2
+    ]
+  },
   "label_pos": {
     "x": -5,
     "y": -7

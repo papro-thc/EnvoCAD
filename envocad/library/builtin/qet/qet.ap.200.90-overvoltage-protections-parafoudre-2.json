@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.90-overvoltage-protections-parafoudre-2",
-  "name": "Přepěťová ochrana",
-  "category": "QET vícepól/fuses_protective_gears/overvoltage protections",
+  "name": "Přepěťová ochrana [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; parafoudre-2.elmt",
   "iec_ref": "",
   "primitives": [

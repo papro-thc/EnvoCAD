@@ -1,7 +1,7 @@
 {
   "id": "fve.battery",
   "name": "Bateriové úložiště",
-  "category": "FVE/Zdroje",
+  "category": "Zdroje",
   "iec_ref": "G",
   "description": "Akumulátor / BESS",
   "primitives": [

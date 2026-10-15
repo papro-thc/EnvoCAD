@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-30-architectural-moteur-pas-a-pas",
   "name": "Krokový motor",
-  "category": "QET jednopól/home installation/architectural",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); moteur_pas_a_pas.elmt",
   "iec_ref": "",
   "primitives": [

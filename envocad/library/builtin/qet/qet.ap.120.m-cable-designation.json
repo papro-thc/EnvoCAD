@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.120.m-cable-designation",
-  "name": "Označení vícežilového kabelu",
-  "category": "QET vícepól/cables_wiring",
+  "name": "Označení vícežilového kabelu [vícepól]",
+  "category": "Kabely/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: Moritz Scholjegerdes; m_cable_designation.elmt",
   "iec_ref": "",
   "primitives": [

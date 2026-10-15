@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.02-contacts-cross-referencing-01-auxiliary-contacts-con-simple-nf",
-  "name": "Rozpínací kontakt",
-  "category": "QET vícepól/relays_contactors_contacts/contacts cross referencing/auxiliary contacts",
+  "name": "Rozpínací kontakt [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; con_simple_nf.elmt",
   "iec_ref": "",
   "primitives": [

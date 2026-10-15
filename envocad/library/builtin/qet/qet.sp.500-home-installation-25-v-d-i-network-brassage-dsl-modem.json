@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-25-v-d-i-network-brassage-dsl-modem",
   "name": "DSL modem",
-  "category": "QET jednopól/home installation/V.D.I/network/brassage",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); dsl-modem.elmt",
   "iec_ref": "",
   "primitives": [

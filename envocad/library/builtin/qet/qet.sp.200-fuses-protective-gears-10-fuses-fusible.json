@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.200-fuses-protective-gears-10-fuses-fusible",
   "name": "Pojistka",
-  "category": "QET jednopól/fuses protective gears/fuses",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; fusible.elmt",
   "iec_ref": "F",
   "primitives": [

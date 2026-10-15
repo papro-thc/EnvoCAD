@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.130.90-terminal-strips-diagram-terminal-4g1",
-  "name": "Svorková lišta 4G1",
-  "category": "QET vícepól/terminals_terminal_strips/terminal strips diagram",
+  "name": "Svorková lišta 4G1 [vícepól]",
+  "category": "Svorky a propojení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; terminal_4g1.elmt",
   "iec_ref": "",
   "primitives": [

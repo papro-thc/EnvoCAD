@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.120.m-cable-06p-demux-40px",
-  "name": "Vícežilový kabel 6-pólový Demux 40px",
-  "category": "QET vícepól/cables_wiring",
+  "name": "Vícežilový kabel 6-pólový Demux 40px [vícepól]",
+  "category": "Kabely/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: Moritz Scholjegerdes; m_cable_06p_demux_40px.elmt",
   "iec_ref": "",
   "primitives": [

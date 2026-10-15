@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.90-filters-almeto-ts-811",
-  "name": "RFI filtr TS 811 1751",
-  "category": "QET vícepól/converters_inverters/filters/almeto",
+  "name": "RFI filtr TS 811 1751 [vícepól]",
+  "category": "Střídače a měniče/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); ts_811.elmt",
   "iec_ref": "",
   "primitives": [

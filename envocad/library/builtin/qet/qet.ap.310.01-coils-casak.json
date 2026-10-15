@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.01-coils-casak",
-  "name": "Časové relé",
-  "category": "QET vícepól/relays_contactors_contacts/coils",
+  "name": "Časové relé [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); casak.elmt",
   "iec_ref": "",
   "primitives": [

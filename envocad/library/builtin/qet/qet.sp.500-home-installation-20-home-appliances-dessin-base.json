@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-20-home-appliances-dessin-base",
   "name": "Jednopólový jistič",
-  "category": "QET jednopól/home installation/home appliances",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; dessin_base.elmt",
   "iec_ref": "F",
   "primitives": [

@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.140-connectors-plugs-prise-multipolaire-2",
   "name": "Zásuvka a zástrčka vícepólová",
-  "category": "QET jednopól/connectors plugs",
+  "category": "Konektory/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); prise_multipolaire_2.elmt",
   "iec_ref": "",
   "primitives": [

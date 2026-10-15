@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.395-electronics-semiconductors-30-inductors-inductance2",
   "name": "Cívka",
-  "category": "QET jednopól/electronics semiconductors/inductors",
+  "category": "Elektronika/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; inductance2.elmt",
   "iec_ref": "",
   "primitives": [

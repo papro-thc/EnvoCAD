@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.90-overvoltage-protections-eclateur",
-  "name": "Jiskřiště",
-  "category": "QET vícepól/fuses_protective_gears/overvoltage protections",
+  "name": "Jiskřiště [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; eclateur.elmt",
   "iec_ref": "",
   "primitives": [

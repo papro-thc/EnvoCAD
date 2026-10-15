@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-30-architectural-dm-pir-us",
   "name": "PIR ultrazvukový detektor",
-  "category": "QET jednopól/home installation/architectural",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); dm_pir_us.elmt",
   "iec_ref": "",
   "primitives": [

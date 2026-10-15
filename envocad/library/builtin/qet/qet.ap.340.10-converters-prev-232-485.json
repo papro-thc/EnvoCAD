@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.10-converters-prev-232-485",
-  "name": "Převodník RS232/485",
-  "category": "QET vícepól/converters_inverters/converters",
+  "name": "Převodník RS232/485 [vícepól]",
+  "category": "Střídače a měniče/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); prev_232_485.elmt",
   "iec_ref": "",
   "primitives": [

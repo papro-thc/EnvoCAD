@@ -51,6 +51,32 @@ class Symbol:
     ports: list[Port] = field(default_factory=list)
     attributes: list[Attribute] = field(default_factory=list)
     label_pos: tuple[float, float] = (0.0, 0.0)
+    # vícepólová podoba: {"pole": [primitiva jednoho pólu], "common": [primitiva kreslená jednou u 1. pólu],
+    #                     "link": True (čárkovaná mechanická vazba pólů), "link_at": [x, y] bod vazby v pólu}
+    multipole: dict = field(default_factory=dict)
+
+    def pole_symbol(self) -> Symbol:
+        """Značka jednoho pólu pro vícepól (bez vlastní – celá značka)."""
+        pole = self.multipole.get("pole")
+        if not pole:
+            return self
+        return Symbol(id=self.id + "#pole", name=self.name, primitives=list(pole), ports=list(self.ports),
+                      attributes=self.attributes, label_pos=self.label_pos)
+
+    def common_symbol(self) -> Symbol | None:
+        common = self.multipole.get("common")
+        if not common:
+            return None
+        return Symbol(id=self.id + "#common", name=self.name, primitives=list(common), ports=[])
+
+    @property
+    def pole_link(self) -> bool:
+        return bool(self.multipole.get("link"))
+
+    @property
+    def link_at(self) -> tuple[float, float]:
+        la = self.multipole.get("link_at") or [0.0, 2.0]
+        return (float(la[0]), float(la[1]))
 
     # ---- serializace -------------------------------------------------
     def to_dict(self) -> dict:
@@ -64,6 +90,7 @@ class Symbol:
             "ports": [p.to_dict() for p in self.ports],
             "attributes": [a.to_dict() for a in self.attributes],
             "label_pos": {"x": self.label_pos[0], "y": self.label_pos[1]},
+            **({"multipole": self.multipole} if self.multipole else {}),
         }
 
     @classmethod
@@ -79,6 +106,7 @@ class Symbol:
             ports=[Port(**p) for p in d.get("ports", [])],
             attributes=[Attribute(**a) for a in d.get("attributes", [])],
             label_pos=(float(lp["x"]), float(lp["y"])),
+            multipole=dict(d.get("multipole") or {}),
         )
         if not any(a.key == "ref" for a in sym.attributes):
             sym.attributes.insert(0, Attribute("ref", "Označení", "", True))

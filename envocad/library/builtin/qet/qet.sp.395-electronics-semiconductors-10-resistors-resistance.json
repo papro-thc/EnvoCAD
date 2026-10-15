@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.395-electronics-semiconductors-10-resistors-resistance",
   "name": "Rezistor",
-  "category": "QET jednopól/electronics semiconductors/resistors",
+  "category": "Elektronika/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; resistance.elmt",
   "iec_ref": "",
   "primitives": [

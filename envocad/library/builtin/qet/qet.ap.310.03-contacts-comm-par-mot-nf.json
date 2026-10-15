@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.03-contacts-comm-par-mot-nf",
-  "name": "Kontakt NC řízený motorem",
-  "category": "QET vícepól/relays_contactors_contacts/contacts",
+  "name": "Kontakt NC řízený motorem [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; comm_par_mot_nf.elmt",
   "iec_ref": "",
   "primitives": [

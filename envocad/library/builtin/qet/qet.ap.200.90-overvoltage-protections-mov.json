@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.90-overvoltage-protections-mov",
-  "name": "Varistor",
-  "category": "QET vícepól/fuses_protective_gears/overvoltage protections",
+  "name": "Varistor [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; mov.elmt",
   "iec_ref": "",
   "primitives": [

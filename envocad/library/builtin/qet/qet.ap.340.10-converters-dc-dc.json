@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.10-converters-dc-dc",
-  "name": "Měnič DC/DC",
-  "category": "QET vícepól/converters_inverters/converters",
+  "name": "Měnič DC/DC [vícepól]",
+  "category": "Střídače a měniče/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; dc_dc.elmt",
   "iec_ref": "",
   "primitives": [

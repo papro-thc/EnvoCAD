@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-20-home-appliances-bat-garage-mono",
   "name": "Garáž 1f",
-  "category": "QET jednopól/home installation/home appliances",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); bat_garage_mono.elmt",
   "iec_ref": "F",
   "primitives": [

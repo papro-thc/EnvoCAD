@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.330-transformers-power-supplies-10-transformers-transformator-3f-yyd",
   "name": "Třífázový transformátor Yyd",
-  "category": "QET jednopól/transformers power supplies/transformers",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformator_3f_yyd.elmt",
   "iec_ref": "",
   "primitives": [

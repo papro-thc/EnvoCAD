@@ -1,7 +1,7 @@
 {
   "id": "sb.pe_bar",
   "name": "PE/N můstek",
-  "category": "Rozvaděč/Propojení",
+  "category": "Svorky a propojení",
   "iec_ref": "X",
   "description": "Ochranná / nulová sběrnice",
   "primitives": [

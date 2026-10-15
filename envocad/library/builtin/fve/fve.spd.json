@@ -1,7 +1,7 @@
 {
   "id": "fve.spd",
   "name": "Svodič přepětí (SPD)",
-  "category": "Obecné/Jištění",
+  "category": "Jištění",
   "iec_ref": "F",
   "description": "Svodič přepětí, typ 1/2, DC nebo AC",
   "primitives": [
@@ -106,6 +106,58 @@
       "show": false
     }
   ],
+  "multipole": {
+    "pole": [
+      {
+        "type": "rect",
+        "x": -2.5,
+        "y": -5,
+        "w": 5,
+        "h": 10
+      },
+      {
+        "type": "line",
+        "x1": 0,
+        "y1": 5,
+        "x2": 0,
+        "y2": 7.5
+      },
+      {
+        "type": "line",
+        "x1": 0,
+        "y1": -5,
+        "x2": 0,
+        "y2": -7.5
+      },
+      {
+        "type": "line",
+        "x1": -2,
+        "y1": -3.5,
+        "x2": 2,
+        "y2": 3.5
+      },
+      {
+        "type": "line",
+        "x1": 1,
+        "y1": 3.5,
+        "x2": 2,
+        "y2": 3.5
+      },
+      {
+        "type": "line",
+        "x1": 2,
+        "y1": 2.5,
+        "x2": 2,
+        "y2": 3.5
+      }
+    ],
+    "common": [],
+    "link": false,
+    "link_at": [
+      0,
+      2
+    ]
+  },
   "label_pos": {
     "x": 4,
     "y": 2

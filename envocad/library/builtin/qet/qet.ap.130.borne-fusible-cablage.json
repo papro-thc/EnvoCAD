@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.130.borne-fusible-cablage",
-  "name": "Svorkovnice s pojistkou",
-  "category": "QET vícepól/terminals_terminal_strips",
+  "name": "Svorkovnice s pojistkou [vícepól]",
+  "category": "Svorky a propojení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; borne_fusible_cablage.elmt",
   "iec_ref": "",
   "primitives": [

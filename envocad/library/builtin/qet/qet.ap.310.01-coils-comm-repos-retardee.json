@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.01-coils-comm-repos-retardee",
-  "name": "Relé se zpožděným vypnutím",
-  "category": "QET vícepól/relays_contactors_contacts/coils",
+  "name": "Relé se zpožděným vypnutím [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); comm_repos_retardee.elmt",
   "iec_ref": "",
   "primitives": [

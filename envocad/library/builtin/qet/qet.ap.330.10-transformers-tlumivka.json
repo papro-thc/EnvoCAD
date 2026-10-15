@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.330.10-transformers-tlumivka",
-  "name": "Tlumivka s jádrem",
-  "category": "QET vícepól/transformers_power_supplies/transformers",
+  "name": "Tlumivka s jádrem [vícepól]",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); tlumivka.elmt",
   "iec_ref": "",
   "primitives": [

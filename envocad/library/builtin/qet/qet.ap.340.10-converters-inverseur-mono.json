@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.10-converters-inverseur-mono",
-  "name": "Obraceč fáze jednoduchého vedení",
-  "category": "QET vícepól/converters_inverters/converters",
+  "name": "Obraceč fáze jednoduchého vedení [vícepól]",
+  "category": "Střídače a měniče/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; inverseur_mono.elmt",
   "iec_ref": "",
   "primitives": [

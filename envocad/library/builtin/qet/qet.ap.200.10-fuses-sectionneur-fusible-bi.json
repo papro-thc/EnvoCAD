@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.10-fuses-sectionneur-fusible-bi",
-  "name": "Pojistkový odpínač 2p",
-  "category": "QET vícepól/fuses_protective_gears/fuses",
+  "name": "Pojistkový odpínač 2p [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; sectionneur_fusible_bi.elmt",
   "iec_ref": "F",
   "primitives": [

@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-20-home-appliances-prise-allemande-10a",
   "name": "Německá zásuvka 10 A",
-  "category": "QET jednopól/home installation/home appliances",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); prise_allemande_10a.elmt",
   "iec_ref": "F",
   "primitives": [

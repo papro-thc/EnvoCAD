@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.03-contacts-con-simple-nf-etanche",
-  "name": "Vodotěsný kontakt (NC)",
-  "category": "QET vícepól/relays_contactors_contacts/contacts",
+  "name": "Vodotěsný kontakt (NC) [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; con_simple_nf_etanche.elmt",
   "iec_ref": "",
   "primitives": [

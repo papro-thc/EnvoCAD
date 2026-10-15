@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.130.borne-finale",
-  "name": "Koncová svorka",
-  "category": "QET vícepól/terminals_terminal_strips",
+  "name": "Koncová svorka [vícepól]",
+  "category": "Svorky a propojení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; borne_finale.elmt",
   "iec_ref": "",
   "primitives": [

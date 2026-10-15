@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.110.3-pen-pravy",
-  "name": "Přípojnice 3f+PEN pravá",
-  "category": "QET vícepól/network_supplies",
+  "name": "Přípojnice 3f+PEN pravá [vícepól]",
+  "category": "Síť a zátěž/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; 3_pen_pravy.elmt",
   "iec_ref": "",
   "primitives": [

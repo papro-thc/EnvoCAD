@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.120.section3",
-  "name": "Označení žil 3 vodiče",
-  "category": "QET vícepól/cables_wiring",
+  "name": "Označení žil 3 vodiče [vícepól]",
+  "category": "Kabely/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; section3.elmt",
   "iec_ref": "",
   "primitives": [

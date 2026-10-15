@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.330.30-power-supplies-alim",
-  "name": "Napájecí zdroj AC/DC s pojistkou",
-  "category": "QET vícepól/transformers_power_supplies/power supplies",
+  "name": "Napájecí zdroj AC/DC s pojistkou [vícepól]",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); alim.elmt",
   "iec_ref": "",
   "primitives": [

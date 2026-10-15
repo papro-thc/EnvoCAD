@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.01-coils-telerupteur",
-  "name": "Dálkově ovládaný spínač",
-  "category": "QET vícepól/relays_contactors_contacts/coils",
+  "name": "Dálkově ovládaný spínač [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; telerupteur.elmt",
   "iec_ref": "",
   "primitives": [

@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.200-fuses-protective-gears-12-magneto-thermal-circuit-breakers-disjoncteur-magneto-thermique-1",
   "name": "Magnetotepelný jistič GV",
-  "category": "QET jednopól/fuses protective gears/magneto thermal circuit breakers",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; disjoncteur_magneto-thermique_1.elmt",
   "iec_ref": "F",
   "primitives": [

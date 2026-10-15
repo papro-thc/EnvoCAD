@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.10-fuses-sec-fus5",
-  "name": "Pojistkový odpínač 3p+N",
-  "category": "QET vícepól/fuses_protective_gears/fuses",
+  "name": "Pojistkový odpínač 3p+N [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; sec_fus5.elmt",
   "iec_ref": "F",
   "primitives": [

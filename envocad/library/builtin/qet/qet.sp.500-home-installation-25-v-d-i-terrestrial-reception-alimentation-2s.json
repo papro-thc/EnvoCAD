@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-25-v-d-i-terrestrial-reception-alimentation-2s",
   "name": "Rozbočovač s napáječem",
-  "category": "QET jednopól/home installation/V.D.I/reception",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); alimentation_2s.elmt",
   "iec_ref": "",
   "primitives": [

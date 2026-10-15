@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.20-disconnecting-switches-inter-sectionneur-tetra",
-  "name": "Odpínač 4P",
-  "category": "QET vícepól/fuses_protective_gears/disconnecting switches",
+  "name": "Odpínač 4P [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; inter-sectionneur_tetra.elmt",
   "iec_ref": "F",
   "primitives": [

@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.90-filters-almeto-tsk6711",
-  "name": "RFI filtr TSK 6711",
-  "category": "QET vícepól/converters_inverters/filters/almeto",
+  "name": "RFI filtr TSK 6711 [vícepól]",
+  "category": "Střídače a měniče/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); tsk6711.elmt",
   "iec_ref": "",
   "primitives": [

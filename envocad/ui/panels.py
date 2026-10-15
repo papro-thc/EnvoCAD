@@ -34,22 +34,46 @@ class LibraryPanel(QWidget):
         self.tree.itemDoubleClicked.connect(self._dbl)
         self.refresh()
 
+    KIND_ORDER = ["Zdroje", "Střídače a měniče", "Jištění", "Spínání", "Měření", "Svorky a propojení", "Rozvaděče",
+                  "Síť a zátěž", "Transformátory a napájení", "Relé a stykače", "Kabely", "Konektory", "Instalace",
+                  "Elektronika", "Ostatní"]
+
     def refresh(self) -> None:
+        """Strom: druh prvku (nadpis) → vlastní značky, pod nimi sbalená složka s cizími (QET…).
+        Pól se nerozlišuje – v JPS je značka vždy jednopólová, ve vícepólu se rozkreslí sama."""
         self.tree.clear()
-        cats: dict[str, QTreeWidgetItem] = {}
-        for sid, name, cat in self.library.list_symbols(self.search.text()):
-            parent = cats.get(cat)
+        searching = bool(self.search.text())
+        kinds: dict[str, QTreeWidgetItem] = {}
+        subs: dict[tuple[str, str], QTreeWidgetItem] = {}
+        rows = self.library.list_symbols(self.search.text())
+        order = {k: i for i, k in enumerate(self.KIND_ORDER)}
+        rows.sort(key=lambda r: (order.get(r[2].split("/")[0], 99), "/" in r[2], r[1]))
+        for sid, name, cat in rows:
+            kind, _, sub = cat.partition("/")
+            kind = kind or "Ostatní"
+            parent = kinds.get(kind)
             if parent is None:
-                parent = QTreeWidgetItem([cat or "Ostatní"])
+                parent = QTreeWidgetItem([kind])
                 parent.setFlags(parent.flags() & ~Qt.ItemIsSelectable)
-                cats[cat] = parent
+                kinds[kind] = parent
                 self.tree.addTopLevelItem(parent)
+            if sub:
+                holder = subs.get((kind, sub))
+                if holder is None:
+                    holder = QTreeWidgetItem([sub])
+                    holder.setFlags(holder.flags() & ~Qt.ItemIsSelectable)
+                    subs[(kind, sub)] = holder
+                    parent.addChild(holder)
+                parent = holder
             it = QTreeWidgetItem([name])
             it.setData(0, Qt.UserRole, sid)
             it.setToolTip(0, sid)
             parent.addChild(it)
-        for cat, parent in cats.items():
-            parent.setExpanded(bool(self.search.text()) or not cat.startswith("QET"))
+        for parent in kinds.values():
+            parent.setExpanded(True)
+        for (kind, sub), holder in subs.items():
+            holder.setText(0, f"{sub} ({holder.childCount()})")
+            holder.setExpanded(searching)
 
     def _dbl(self, item: QTreeWidgetItem, _col: int) -> None:
         sid = item.data(0, Qt.UserRole)

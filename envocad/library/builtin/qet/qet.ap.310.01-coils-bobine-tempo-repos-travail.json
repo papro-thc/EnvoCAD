@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.01-coils-bobine-tempo-repos-travail",
-  "name": "Relé se zpožděným zapnutím a vypnutím",
-  "category": "QET vícepól/relays_contactors_contacts/coils",
+  "name": "Relé se zpožděným zapnutím a vypnutím [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; bobine_tempo_repos-travail.elmt",
   "iec_ref": "",
   "primitives": [

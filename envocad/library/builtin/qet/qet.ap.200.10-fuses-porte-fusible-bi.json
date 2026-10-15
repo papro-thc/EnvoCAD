@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.10-fuses-porte-fusible-bi",
-  "name": "Pojistkový odpínač  1p+N",
-  "category": "QET vícepól/fuses_protective_gears/fuses",
+  "name": "Pojistkový odpínač  1p+N [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; porte_fusible_bi.elmt",
   "iec_ref": "F",
   "primitives": [

@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.340-converters-inverters-10-converters-regulator-ind-3f-1",
   "name": "Třífázový regulátor napětí",
-  "category": "QET jednopól/converters inverters/converters",
+  "category": "Střídače a měniče/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; regulator_ind_3f_1.elmt",
   "iec_ref": "",
   "primitives": [

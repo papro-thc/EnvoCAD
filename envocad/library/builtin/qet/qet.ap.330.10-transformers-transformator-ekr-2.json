@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.330.10-transformers-transformator-ekr-2",
-  "name": "Jednofázový transformátor se stíněním",
-  "category": "QET vícepól/transformers_power_supplies/transformers",
+  "name": "Jednofázový transformátor se stíněním [vícepól]",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformator_ekr_2.elmt",
   "iec_ref": "",
   "primitives": [

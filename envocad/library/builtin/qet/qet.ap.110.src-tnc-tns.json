@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.110.src-tnc-tns",
-  "name": "Bod rozdělení TN-C > TN-S",
-  "category": "QET vícepól/network_supplies",
+  "name": "Bod rozdělení TN-C > TN-S [vícepól]",
+  "category": "Síť a zátěž/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; src_tnc_tns.elmt",
   "iec_ref": "",
   "primitives": [

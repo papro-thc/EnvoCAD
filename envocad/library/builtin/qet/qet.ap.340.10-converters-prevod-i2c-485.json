@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.10-converters-prevod-i2c-485",
-  "name": "Převodník RS485 na I2C",
-  "category": "QET vícepól/converters_inverters/converters",
+  "name": "Převodník RS485 na I2C [vícepól]",
+  "category": "Střídače a měniče/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); prevod_i2c_485.elmt",
   "iec_ref": "",
   "primitives": [

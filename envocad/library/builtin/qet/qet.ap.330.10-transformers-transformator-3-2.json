@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.330.10-transformers-transformator-3-2",
-  "name": "Transformátor",
-  "category": "QET vícepól/transformers_power_supplies/transformers",
+  "name": "Transformátor [vícepól]",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformator_3_2.elmt",
   "iec_ref": "",
   "primitives": [

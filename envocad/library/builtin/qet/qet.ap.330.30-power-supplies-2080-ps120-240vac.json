@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.330.30-power-supplies-2080-ps120-240vac",
-  "name": "Napájecí zdroj AC/DC 2080-PS120-240VAC",
-  "category": "QET vícepól/transformers_power_supplies/power supplies",
+  "name": "Napájecí zdroj AC/DC 2080-PS120-240VAC [vícepól]",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); 2080_ps120_240vac.elmt",
   "iec_ref": "",
   "primitives": [

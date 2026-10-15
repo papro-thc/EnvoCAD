@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.110.src-p",
-  "name": "Přípojnice L",
-  "category": "QET vícepól/network_supplies",
+  "name": "Přípojnice L [vícepól]",
+  "category": "Síť a zátěž/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; src_p.elmt",
   "iec_ref": "",
   "primitives": [

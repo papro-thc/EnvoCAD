@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.03-contacts-con-centrifuge-no",
-  "name": "Odstředivý spínač (NO)",
-  "category": "QET vícepól/relays_contactors_contacts/contacts",
+  "name": "Odstředivý spínač (NO) [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; con_centrifuge_no.elmt",
   "iec_ref": "",
   "primitives": [

@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.330-transformers-power-supplies-10-transformers-transformateur-avec-prise-mediane-sur-un-enroulement",
   "name": "Jednofázový transformátor, nastavitelný",
-  "category": "QET jednopól/transformers power supplies/transformers",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformateur_avec_prise_mediane_sur_un_enroulement.elmt",
   "iec_ref": "",
   "primitives": [

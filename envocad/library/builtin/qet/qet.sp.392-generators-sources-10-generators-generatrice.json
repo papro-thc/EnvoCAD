@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.392-generators-sources-10-generators-generatrice",
   "name": "Generátor",
-  "category": "QET jednopól/generators sources/generators",
+  "category": "Zdroje/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; generatrice.elmt",
   "iec_ref": "",
   "primitives": [

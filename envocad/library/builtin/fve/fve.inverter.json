@@ -1,7 +1,7 @@
 {
   "id": "fve.inverter",
   "name": "Střídač",
-  "category": "FVE/Střídače",
+  "category": "Střídače a měniče",
   "iec_ref": "T",
   "description": "Síťový střídač DC/AC",
   "primitives": [

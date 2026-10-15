@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.30-thermal-relays-relais-therm4-wide",
-  "name": "Tepelné relé 3P",
-  "category": "QET vícepól/fuses_protective_gears/thermal relays",
+  "name": "Tepelné relé 3P [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; relais_therm4_wide.elmt",
   "iec_ref": "F",
   "primitives": [

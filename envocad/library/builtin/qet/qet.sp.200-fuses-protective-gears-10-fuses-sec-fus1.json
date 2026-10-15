@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.200-fuses-protective-gears-10-fuses-sec-fus1",
   "name": "Pojistkový odpojovač",
-  "category": "QET jednopól/fuses protective gears/fuses",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; sec_fus1.elmt",
   "iec_ref": "F",
   "primitives": [

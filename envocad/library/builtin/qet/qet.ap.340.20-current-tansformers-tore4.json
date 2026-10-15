@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.20-current-tansformers-tore4",
-  "name": "Čtyřpólový proudový transformátor",
-  "category": "QET vícepól/converters_inverters/current tansformers",
+  "name": "Čtyřpólový proudový transformátor [vícepól]",
+  "category": "Měření/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; tore4.elmt",
   "iec_ref": "",
   "primitives": [

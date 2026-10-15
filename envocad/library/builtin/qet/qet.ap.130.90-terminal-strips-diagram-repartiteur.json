@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.130.90-terminal-strips-diagram-repartiteur",
-  "name": "Rozdělovač",
-  "category": "QET vícepól/terminals_terminal_strips/terminal strips diagram",
+  "name": "Rozdělovač [vícepól]",
+  "category": "Svorky a propojení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; repartiteur.elmt",
   "iec_ref": "",
   "primitives": [

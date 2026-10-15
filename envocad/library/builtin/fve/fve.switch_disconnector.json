@@ -1,7 +1,7 @@
 {
   "id": "fve.switch_disconnector",
   "name": "Odpínač",
-  "category": "Obecné/Spínání",
+  "category": "Spínání",
   "iec_ref": "Q",
   "description": "Odpínač AC (hlavní vypínač, odpínač FVE)",
   "primitives": [
@@ -92,6 +92,44 @@
       "show": false
     }
   ],
+  "multipole": {
+    "pole": [
+      {
+        "type": "line",
+        "x1": -7.5,
+        "y1": 0,
+        "x2": -2.5,
+        "y2": 0
+      },
+      {
+        "type": "line",
+        "x1": -2.5,
+        "y1": 0,
+        "x2": 2,
+        "y2": 4
+      },
+      {
+        "type": "line",
+        "x1": 2.5,
+        "y1": 0,
+        "x2": 7.5,
+        "y2": 0
+      },
+      {
+        "type": "line",
+        "x1": 2.5,
+        "y1": -1.5,
+        "x2": 2.5,
+        "y2": 1.5
+      }
+    ],
+    "common": [],
+    "link": true,
+    "link_at": [
+      0,
+      2
+    ]
+  },
   "label_pos": {
     "x": -5,
     "y": -6

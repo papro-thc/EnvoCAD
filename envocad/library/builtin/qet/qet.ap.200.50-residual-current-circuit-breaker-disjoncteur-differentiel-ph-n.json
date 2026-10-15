@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.50-residual-current-circuit-breaker-disjoncteur-differentiel-ph-n",
-  "name": "Jističochránič 2P",
-  "category": "QET vícepól/fuses_protective_gears/residual current circuit breaker",
+  "name": "Jističochránič 2P [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; disjoncteur_differentiel_ph_n.elmt",
   "iec_ref": "F",
   "primitives": [

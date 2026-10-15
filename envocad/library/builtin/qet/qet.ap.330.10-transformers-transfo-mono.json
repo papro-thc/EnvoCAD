@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.330.10-transformers-transfo-mono",
-  "name": "Jednofázový transformátor",
-  "category": "QET vícepól/transformers_power_supplies/transformers",
+  "name": "Jednofázový transformátor [vícepól]",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transfo_mono.elmt",
   "iec_ref": "",
   "primitives": [

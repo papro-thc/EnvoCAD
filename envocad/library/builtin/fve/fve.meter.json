@@ -1,7 +1,7 @@
 {
   "id": "fve.meter",
   "name": "Elektroměr",
-  "category": "Obecné/Měření",
+  "category": "Měření",
   "iec_ref": "P",
   "description": "Elektroměr (fakturační / podružný)",
   "primitives": [

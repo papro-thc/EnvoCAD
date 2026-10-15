@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.392.10-generators-gene-tri",
-  "name": "Třífázový generátor",
-  "category": "QET vícepól/generators_sources/generators",
+  "name": "Třífázový generátor [vícepól]",
+  "category": "Zdroje/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; gene_tri.elmt",
   "iec_ref": "",
   "primitives": [

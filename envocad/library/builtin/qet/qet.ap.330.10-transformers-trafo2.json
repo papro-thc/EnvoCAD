@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.330.10-transformers-trafo2",
-  "name": "Trafo se třemi vinutími",
-  "category": "QET vícepól/transformers_power_supplies/transformers",
+  "name": "Trafo se třemi vinutími [vícepól]",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); trafo2.elmt",
   "iec_ref": "",
   "primitives": [

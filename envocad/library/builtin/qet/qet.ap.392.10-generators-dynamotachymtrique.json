@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.392.10-generators-dynamotachymtrique",
-  "name": "Tachodynamo",
-  "category": "QET vícepól/generators_sources/generators",
+  "name": "Tachodynamo [vícepól]",
+  "category": "Zdroje/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; dynamotachymtrique.elmt",
   "iec_ref": "",
   "primitives": [

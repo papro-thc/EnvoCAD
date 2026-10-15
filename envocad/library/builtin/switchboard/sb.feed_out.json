@@ -1,7 +1,7 @@
 {
   "id": "sb.feed_out",
   "name": "Vývod",
-  "category": "Rozvaděč/Propojení",
+  "category": "Svorky a propojení",
   "iec_ref": "X",
   "description": "Vývodní svorky rozvaděče",
   "primitives": [

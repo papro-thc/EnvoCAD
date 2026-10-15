@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.20-disconnecting-switches-interrupteur-sectionneur-biphase",
-  "name": "Odpínač 2P",
-  "category": "QET vícepól/fuses_protective_gears/disconnecting switches",
+  "name": "Odpínač 2P [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; interrupteur_sectionneur_biphase.elmt",
   "iec_ref": "F",
   "primitives": [

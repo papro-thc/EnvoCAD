@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.10-converters-static-freq-converter",
-  "name": "Měnič kmitočtu",
-  "category": "QET vícepól/converters_inverters/converters",
+  "name": "Měnič kmitočtu [vícepól]",
+  "category": "Střídače a měniče/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: Arun Kishore Eswara; static_freq_converter.elmt",
   "iec_ref": "",
   "primitives": [

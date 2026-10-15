@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.10-fuses-sectionneur-3-fusibles",
-  "name": "Pojistkový odpínač 3p",
-  "category": "QET vícepól/fuses_protective_gears/fuses",
+  "name": "Pojistkový odpínač 3p [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; sectionneur_3_fusibles.elmt",
   "iec_ref": "F",
   "primitives": [

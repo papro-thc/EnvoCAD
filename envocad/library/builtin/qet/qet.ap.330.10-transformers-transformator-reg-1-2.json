@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.330.10-transformers-transformator-reg-1-2",
-  "name": "Regulační transformátor",
-  "category": "QET vícepól/transformers_power_supplies/transformers",
+  "name": "Regulační transformátor [vícepól]",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformator_reg_1_2.elmt",
   "iec_ref": "",
   "primitives": [

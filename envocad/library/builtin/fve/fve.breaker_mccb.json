@@ -1,7 +1,7 @@
 {
   "id": "fve.breaker_mccb",
   "name": "Výkonový jistič",
-  "category": "Obecné/Jištění",
+  "category": "Jištění",
   "iec_ref": "Q",
   "description": "Kompaktní výkonový jistič (MCCB)",
   "primitives": [
@@ -118,6 +118,59 @@
       "show": false
     }
   ],
+  "multipole": {
+    "pole": [
+      {
+        "type": "line",
+        "x1": -7.5,
+        "y1": 0,
+        "x2": -2.5,
+        "y2": 0
+      },
+      {
+        "type": "line",
+        "x1": -2.5,
+        "y1": 0,
+        "x2": 2,
+        "y2": 4
+      },
+      {
+        "type": "line",
+        "x1": 2.5,
+        "y1": 0,
+        "x2": 7.5,
+        "y2": 0
+      },
+      {
+        "type": "line",
+        "x1": -3.5,
+        "y1": -1,
+        "x2": -1.5,
+        "y2": 1
+      },
+      {
+        "type": "line",
+        "x1": -3.5,
+        "y1": 1,
+        "x2": -1.5,
+        "y2": -1
+      }
+    ],
+    "common": [
+      {
+        "type": "rect",
+        "x": -5,
+        "y": -3.5,
+        "w": 10,
+        "h": 7
+      }
+    ],
+    "link": true,
+    "link_at": [
+      0,
+      2
+    ]
+  },
   "label_pos": {
     "x": -5,
     "y": -7

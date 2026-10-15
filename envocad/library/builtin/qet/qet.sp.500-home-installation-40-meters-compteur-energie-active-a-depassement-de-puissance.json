@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-40-meters-compteur-energie-active-a-depassement-de-puissance",
   "name": "Měřič překročení maxima",
-  "category": "QET jednopól/home installation/meters",
+  "category": "Měření/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; compteur_energie_active_a_depassement_de_puissance.elmt",
   "iec_ref": "",
   "primitives": [

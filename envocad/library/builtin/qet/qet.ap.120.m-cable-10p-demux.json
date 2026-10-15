@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.120.m-cable-10p-demux",
-  "name": "Vícežilový kabel 10-pólový Demux",
-  "category": "QET vícepól/cables_wiring",
+  "name": "Vícežilový kabel 10-pólový Demux [vícepól]",
+  "category": "Kabely/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: Moritz Scholjegerdes; m_cable_10p_demux.elmt",
   "iec_ref": "",
   "primitives": [

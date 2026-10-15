@@ -1,7 +1,7 @@
 {
   "id": "fve.load",
   "name": "Spotřeba objektu",
-  "category": "FVE/Síť",
+  "category": "Síť a zátěž",
   "iec_ref": "",
   "description": "Stávající rozvod / spotřeba objektu",
   "primitives": [

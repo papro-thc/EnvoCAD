@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.03-contacts-act-a-semi-cond-no",
-  "name": "Elektronicky řízený kontakt (NO)",
-  "category": "QET vícepól/relays_contactors_contacts/contacts",
+  "name": "Elektronicky řízený kontakt (NO) [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; act_a_semi_cond_no.elmt",
   "iec_ref": "",
   "primitives": [

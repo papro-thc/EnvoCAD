@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.10-fuses-poj-odpinac",
-  "name": "Pojistkový odpínač",
-  "category": "QET vícepól/fuses_protective_gears/fuses",
+  "name": "Pojistkový odpínač [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); poj_odpinac.elmt",
   "iec_ref": "",
   "primitives": [

@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.110.terre",
-  "name": "Uzemnění",
-  "category": "QET vícepól/network_supplies",
+  "name": "Uzemnění [vícepól]",
+  "category": "Síť a zátěž/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; terre.elmt",
   "iec_ref": "",
   "primitives": [

@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.130.95-terminals-spring-box-wire-connector-8-port",
-  "name": "Svorka 8 vodičů",
-  "category": "QET vícepól/terminals_terminal_strips/terminals spring box",
+  "name": "Svorka 8 vodičů [vícepól]",
+  "category": "Svorky a propojení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); wire-connector-8-port.elmt",
   "iec_ref": "",
   "primitives": [

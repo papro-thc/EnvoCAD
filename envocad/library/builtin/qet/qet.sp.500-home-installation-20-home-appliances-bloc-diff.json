@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-20-home-appliances-bloc-diff",
   "name": "Diferenciální blok",
-  "category": "QET jednopól/home installation/home appliances",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); bloc_diff.elmt",
   "iec_ref": "",
   "primitives": [

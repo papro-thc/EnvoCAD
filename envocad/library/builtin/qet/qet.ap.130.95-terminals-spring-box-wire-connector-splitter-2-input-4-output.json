@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.130.95-terminals-spring-box-wire-connector-splitter-2-input-4-output",
-  "name": "Rozbočovací svorka 2 vstupy, 4 výstupy",
-  "category": "QET vícepól/terminals_terminal_strips/terminals spring box",
+  "name": "Rozbočovací svorka 2 vstupy, 4 výstupy [vícepól]",
+  "category": "Svorky a propojení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); wire-connector-splitter-2-input-4-output.elmt",
   "iec_ref": "",
   "primitives": [

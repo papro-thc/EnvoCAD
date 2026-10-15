@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.20-current-tansformers-tore3",
-  "name": "Třípólový proudový transformátor",
-  "category": "QET vícepól/converters_inverters/current tansformers",
+  "name": "Třípólový proudový transformátor [vícepól]",
+  "category": "Měření/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; tore3.elmt",
   "iec_ref": "",
   "primitives": [

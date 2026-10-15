@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.392.10-generators-generatrice-dc",
-  "name": "Dynamo",
-  "category": "QET vícepól/generators_sources/generators",
+  "name": "Dynamo [vícepól]",
+  "category": "Zdroje/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; generatrice_dc.elmt",
   "iec_ref": "",
   "primitives": [

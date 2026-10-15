@@ -40,6 +40,16 @@ def attr(key, label, default="", show=False):
     return {"key": key, "label": label, "default": default, "show": show}
 
 
+CONTACT = [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0)]          # spínací kontakt (jeden pól)
+TRIP_X = [L(-3.5, -1, -1.5, 1), L(-3.5, 1, -1.5, -1)]                            # nadproudová spoušť (x)
+DISC_BAR = [L(2.5, -1.5, 2.5, 1.5)]                                              # značka odpínače
+
+
+def MP(pole, common=None, link=True, link_at=(0, 2)):
+    """Vícepólová podoba: `pole` se opakuje pro každý pól, `common` se kreslí jednou, `link` = vazba pólů."""
+    return {"pole": pole, "common": common or [], "link": link, "link_at": list(link_at)}
+
+
 REF = attr("ref", "Označení", "", True)
 TYPE = attr("type", "Typ", "", True)
 MFR = attr("manufacturer", "Výrobce")
@@ -49,7 +59,7 @@ PLOSS = attr("p_loss_w", "Ztrátový výkon při In [W]")
 
 SYMBOLS = [
     {
-        "id": "fve.pv_string", "name": "FV string", "category": "FVE/Zdroje", "iec_ref": "G",
+        "id": "fve.pv_string", "name": "FV string", "category": "Zdroje", "iec_ref": "G",
         "description": "Řetězec FV modulů (jednopólově)",
         "primitives": [
             R(-10, -7.5, 15, 15), L(-10, -7.5, 5, 7.5),
@@ -65,36 +75,39 @@ SYMBOLS = [
         "label_pos": {"x": -10, "y": 10},
     },
     {
-        "id": "fve.dc_disconnect", "name": "Odpínač DC", "category": "FVE/DC strana", "iec_ref": "Q",
+        "id": "fve.dc_disconnect", "name": "Odpínač DC", "category": "Spínání", "iec_ref": "Q",
         "description": "Odpínač DC (např. v DC rozvaděči nebo ve střídači)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0), L(2.5, -1.5, 2.5, 1.5),
                        L(-2.5, -1.5, -2.5, 1.5), T(0, 6, "DC", 2)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("un", "Un [V DC]"), attr("in_", "In [A]", "", True),
                        attr("poles", "Póly", "2"), attr("modules", "Šířka [moduly]", "2")],
+        "multipole": MP(CONTACT + DISC_BAR, [T(0, 6, "DC", 2)]),
         "label_pos": {"x": -5, "y": -6},
     },
     {
-        "id": "fve.fuse", "name": "Pojistka", "category": "Obecné/Jištění", "iec_ref": "F",
+        "id": "fve.fuse", "name": "Pojistka", "category": "Jištění", "iec_ref": "F",
         "description": "Pojistka (gPV / gG)",
         "primitives": [R(-5, -2.5, 10, 5), L(-7.5, 0, 7.5, 0)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "gPV"),
                        attr("poles", "Póly", "1"), attr("modules", "Šířka [moduly]", "1"), PLOSS],
+        "multipole": MP([R(-5, -2.5, 10, 5), L(-7.5, 0, 7.5, 0)], link=False),
         "label_pos": {"x": -5, "y": 4},
     },
     {
-        "id": "fve.spd", "name": "Svodič přepětí (SPD)", "category": "Obecné/Jištění", "iec_ref": "F",
+        "id": "fve.spd", "name": "Svodič přepětí (SPD)", "category": "Jištění", "iec_ref": "F",
         "description": "Svodič přepětí, typ 1/2, DC nebo AC",
         "primitives": [R(-2.5, -5, 5, 10), L(0, 5, 0, 7.5), L(0, -5, 0, -7.5), L(-2, -3.5, 2, 3.5),
                        L(1, 3.5, 2, 3.5), L(2, 2.5, 2, 3.5)],
         "ports": [P("L", 0, 7.5, "N"), P("PE", 0, -7.5, "S")],
         "attributes": [REF, TYPE, MFR, attr("spd_type", "Typ SPD", "T2", True), attr("uc", "Uc [V]"),
                        POLES, attr("modules", "Šířka [moduly]", "4")],
+        "multipole": MP([R(-2.5, -5, 5, 10), L(0, 5, 0, 7.5), L(0, -5, 0, -7.5), L(-2, -3.5, 2, 3.5), L(1, 3.5, 2, 3.5), L(2, 2.5, 2, 3.5)], link=False),
         "label_pos": {"x": 4, "y": 2},
     },
     {
-        "id": "fve.inverter", "name": "Střídač", "category": "FVE/Střídače", "iec_ref": "T",
+        "id": "fve.inverter", "name": "Střídač", "category": "Střídače a měniče", "iec_ref": "T",
         "description": "Síťový střídač DC/AC",
         "primitives": [R(-10, -10, 20, 20), L(-10, -10, 10, 10), T(-5, 0.5, "DC", 2.5), T(5, -6, "AC", 2.5),
                        L(-5.5, 6, -1.5, 6), L(-5.5, 4.5, -3.5, 4.5), L(-2.5, 4.5, -1.5, 4.5),
@@ -105,7 +118,7 @@ SYMBOLS = [
         "label_pos": {"x": -10, "y": 16},
     },
     {
-        "id": "fve.inverter_hybrid", "name": "Hybridní střídač", "category": "FVE/Střídače", "iec_ref": "T",
+        "id": "fve.inverter_hybrid", "name": "Hybridní střídač", "category": "Střídače a měniče", "iec_ref": "T",
         "description": "Hybridní střídač s bateriovým vstupem",
         "primitives": [R(-10, -10, 20, 20), L(-10, -10, 10, 10), T(-5, 0.5, "DC", 2.5), T(5, -6, "AC", 2.5),
                        L(-5.5, 6, -1.5, 6), L(-5.5, 4.5, -3.5, 4.5), L(-2.5, 4.5, -1.5, 4.5),
@@ -116,7 +129,7 @@ SYMBOLS = [
         "label_pos": {"x": -10, "y": 16},
     },
     {
-        "id": "fve.battery", "name": "Bateriové úložiště", "category": "FVE/Zdroje", "iec_ref": "G",
+        "id": "fve.battery", "name": "Bateriové úložiště", "category": "Zdroje", "iec_ref": "G",
         "description": "Akumulátor / BESS",
         "primitives": [L(0, 7.5, 0, 5), L(-5, 5, 5, 5), L(-2.5, 3, 2.5, 3), L(-5, 1, 5, 1), L(-2.5, -1, 2.5, -1),
                        L(0, -1, 0, -2.5), R(-7.5, -7.5, 15, 17.5), T(0, -6, "BESS", 2)],
@@ -125,43 +138,47 @@ SYMBOLS = [
         "label_pos": {"x": 9, "y": 2},
     },
     {
-        "id": "fve.breaker_mcb", "name": "Jistič", "category": "Obecné/Jištění", "iec_ref": "F",
+        "id": "fve.breaker_mcb", "name": "Jistič", "category": "Jištění", "iec_ref": "F",
         "description": "Jistič (MCB)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0),
                        L(-3.5, -1, -1.5, 1), L(-3.5, 1, -1.5, -1)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "B"),
                        POLES, MOD, attr("icu", "Icu [kA]", "6"), PLOSS],
+        "multipole": MP(CONTACT + TRIP_X),
         "label_pos": {"x": -5, "y": -6},
     },
     {
-        "id": "fve.breaker_mccb", "name": "Výkonový jistič", "category": "Obecné/Jištění", "iec_ref": "Q",
+        "id": "fve.breaker_mccb", "name": "Výkonový jistič", "category": "Jištění", "iec_ref": "Q",
         "description": "Kompaktní výkonový jistič (MCCB)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0),
                        L(-3.5, -1, -1.5, 1), L(-3.5, 1, -1.5, -1), R(-5, -3.5, 10, 7)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("ir", "Ir [A]"), POLES,
                        attr("modules", "Šířka [moduly]", "6"), attr("icu", "Icu [kA]"), PLOSS],
+        "multipole": MP(CONTACT + TRIP_X, [R(-5, -3.5, 10, 7)]),
         "label_pos": {"x": -5, "y": -7},
     },
     {
-        "id": "fve.switch_disconnector", "name": "Odpínač", "category": "Obecné/Spínání", "iec_ref": "Q",
+        "id": "fve.switch_disconnector", "name": "Odpínač", "category": "Spínání", "iec_ref": "Q",
         "description": "Odpínač AC (hlavní vypínač, odpínač FVE)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0), L(2.5, -1.5, 2.5, 1.5)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS],
+        "multipole": MP(CONTACT + DISC_BAR),
         "label_pos": {"x": -5, "y": -6},
     },
     {
-        "id": "fve.contactor", "name": "Stykač", "category": "Obecné/Spínání", "iec_ref": "K",
+        "id": "fve.contactor", "name": "Stykač", "category": "Spínání", "iec_ref": "K",
         "description": "Stykač (např. pro odpojení FVE od DS – NS)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0), A(3.5, 0, 1, 90, 270)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS],
+        "multipole": MP(CONTACT + [A(3.5, 0, 1, 90, 270)]),
         "label_pos": {"x": -5, "y": -6},
     },
     {
-        "id": "fve.meter", "name": "Elektroměr", "category": "Obecné/Měření", "iec_ref": "P",
+        "id": "fve.meter", "name": "Elektroměr", "category": "Měření", "iec_ref": "P",
         "description": "Elektroměr (fakturační / podružný)",
         "primitives": [C(0, 0, 5), T(0, -1, "kWh", 2), L(-7.5, 0, -5, 0), L(5, 0, 7.5, 0)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
@@ -169,7 +186,7 @@ SYMBOLS = [
         "label_pos": {"x": -5, "y": 6.5},
     },
     {
-        "id": "fve.grid", "name": "Distribuční síť", "category": "FVE/Síť", "iec_ref": "",
+        "id": "fve.grid", "name": "Distribuční síť", "category": "Síť a zátěž", "iec_ref": "",
         "description": "Přípojka k distribuční soustavě",
         "primitives": [L(-7.5, 0, -2.5, 0), C(2.5, 0, 5), L(-1, 3.5, 6, -3.5), L(-1, -3.5, 6, 3.5),
                        T(2.5, 7, "DS", 2.5)],
@@ -178,7 +195,7 @@ SYMBOLS = [
         "label_pos": {"x": -5, "y": -8},
     },
     {
-        "id": "fve.load", "name": "Spotřeba objektu", "category": "FVE/Síť", "iec_ref": "",
+        "id": "fve.load", "name": "Spotřeba objektu", "category": "Síť a zátěž", "iec_ref": "",
         "description": "Stávající rozvod / spotřeba objektu",
         "primitives": [L(-7.5, 0, -5, 0), R(-5, -5, 15, 10), T(2.5, -1, "Spotřeba", 2)],
         "ports": [P("1", -7.5, 0, "W")],
@@ -186,7 +203,7 @@ SYMBOLS = [
         "label_pos": {"x": -5, "y": 6.5},
     },
     {
-        "id": "fve.transformer", "name": "Transformátor", "category": "Obecné/Síť", "iec_ref": "T",
+        "id": "fve.transformer", "name": "Transformátor", "category": "Síť a zátěž", "iec_ref": "T",
         "description": "Transformátor VN/NN",
         "primitives": [L(-10, 0, -7.5, 0), C(-2.5, 0, 5), C(2.5, 0, 5), L(7.5, 0, 10, 0)],
         "ports": [P("1", -10, 0, "W"), P("2", 10, 0, "E")],
@@ -194,7 +211,7 @@ SYMBOLS = [
         "label_pos": {"x": -7.5, "y": 6.5},
     },
     {
-        "id": "fve.terminal", "name": "Uzel / svorka", "category": "Obecné/Propojení", "iec_ref": "X",
+        "id": "fve.terminal", "name": "Uzel / svorka", "category": "Svorky a propojení", "iec_ref": "X",
         "description": "Spojovací uzel – větvení vodičů",
         "primitives": [C(0, 0, 1)],
         "ports": [P("N", 0, 2.5, "N"), P("E", 2.5, 0, "E"), P("S", 0, -2.5, "S"), P("W", -2.5, 0, "W")],
@@ -202,7 +219,7 @@ SYMBOLS = [
         "label_pos": {"x": 2, "y": 2},
     },
     {
-        "id": "fve.earth", "name": "Uzemnění", "category": "Obecné/Propojení", "iec_ref": "",
+        "id": "fve.earth", "name": "Uzemnění", "category": "Svorky a propojení", "iec_ref": "",
         "description": "Zemnicí svorka / PE",
         "primitives": [L(0, 5, 0, 0), L(-4, 0, 4, 0), L(-2.5, -1.5, 2.5, -1.5), L(-1, -3, 1, -3)],
         "ports": [P("PE", 0, 5, "N")],
@@ -210,7 +227,7 @@ SYMBOLS = [
         "label_pos": {"x": 5, "y": 0},
     },
     {
-        "id": "fve.switchboard", "name": "Rozvaděč (blok)", "category": "FVE/Rozvaděče", "iec_ref": "R",
+        "id": "fve.switchboard", "name": "Rozvaděč (blok)", "category": "Rozvaděče", "iec_ref": "R",
         "description": "Rozvaděč jako blok (odkaz na samostatný list)",
         "primitives": [R(-15, -10, 30, 20), T(0, 11.5, "ROZVADĚČ", 2)],
         "ports": [P("1", -15, 0, "W"), P("2", 15, 0, "E"), P("3", 0, 10, "N"), P("4", 0, -10, "S")],
@@ -218,36 +235,39 @@ SYMBOLS = [
         "label_pos": {"x": -15, "y": -13},
     },
     {
-        "id": "sb.rcd", "name": "Proudový chránič", "category": "Obecné/Jištění", "iec_ref": "F",
+        "id": "sb.rcd", "name": "Proudový chránič", "category": "Jištění", "iec_ref": "F",
         "description": "Proudový chránič (RCD)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0),
                        {"type": "polyline", "points": [[-1, -2], [1, -2], [0, -4.5]], "closed": True}],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("idn", "IΔn [mA]", "30", True),
                        attr("rcd_type", "Typ", "A"), attr("poles", "Póly", "4"), attr("modules", "Šířka [moduly]", "4"), PLOSS],
+        "multipole": MP(CONTACT, [{"type": "polyline", "points": [[-1, -2], [1, -2], [0, -4.5]], "closed": True}]),
         "label_pos": {"x": -5, "y": -7},
     },
     {
-        "id": "sb.rcbo", "name": "Jistič s chráničem", "category": "Obecné/Jištění", "iec_ref": "F",
+        "id": "sb.rcbo", "name": "Jistič s chráničem", "category": "Jištění", "iec_ref": "F",
         "description": "Proudový chránič s nadproudovou ochranou (RCBO)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0), L(-3.5, -1, -1.5, 1), L(-3.5, 1, -1.5, -1),
                        {"type": "polyline", "points": [[0, -2], [2, -2], [1, -4.5]], "closed": True}],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "B"),
                        attr("idn", "IΔn [mA]", "30", True), attr("poles", "Póly", "2"), attr("modules", "Šířka [moduly]", "2"), PLOSS],
+        "multipole": MP(CONTACT + TRIP_X, [{"type": "polyline", "points": [[0, -2], [2, -2], [1, -4.5]], "closed": True}]),
         "label_pos": {"x": -5, "y": -7},
     },
     {
-        "id": "sb.main_switch", "name": "Hlavní vypínač", "category": "Obecné/Spínání", "iec_ref": "Q",
+        "id": "sb.main_switch", "name": "Hlavní vypínač", "category": "Spínání", "iec_ref": "Q",
         "description": "Hlavní vypínač rozvaděče",
         "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0), L(2.5, -1.5, 2.5, 1.5),
                        C(-2.5, 0, 0.8), T(0, 6, "HV", 2)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS],
+        "multipole": MP(CONTACT + DISC_BAR, [C(-2.5, 0, 0.8), T(0, 6, "HV", 2)]),
         "label_pos": {"x": -5, "y": -6},
     },
     {
-        "id": "sb.busbar", "name": "Sběrnice", "category": "Rozvaděč/Propojení", "iec_ref": "X",
+        "id": "sb.busbar", "name": "Sběrnice", "category": "Svorky a propojení", "iec_ref": "X",
         "description": "Sběrnice – 1 vstup, 10 vývodů dolů po 15 mm",
         "primitives": [{"type": "polyline", "points": [[-75, 0], [75, 0]], "closed": False},
                        {"type": "polyline", "points": [[-75, 1], [75, 1]], "closed": False}],
@@ -256,7 +276,7 @@ SYMBOLS = [
         "label_pos": {"x": -75, "y": 7.5},
     },
     {
-        "id": "sb.feed_in", "name": "Přívod", "category": "Rozvaděč/Propojení", "iec_ref": "X",
+        "id": "sb.feed_in", "name": "Přívod", "category": "Svorky a propojení", "iec_ref": "X",
         "description": "Přívodní svorky rozvaděče (vazba na nadřazený list)",
         "primitives": [{"type": "polyline", "points": [[-5, 5], [0, 0], [5, 5]], "closed": False}, L(0, 0, 0, -5),
                        T(0, 7.5, "PŘÍVOD", 2)],
@@ -265,7 +285,7 @@ SYMBOLS = [
         "label_pos": {"x": 7, "y": 0},
     },
     {
-        "id": "sb.feed_out", "name": "Vývod", "category": "Rozvaděč/Propojení", "iec_ref": "X",
+        "id": "sb.feed_out", "name": "Vývod", "category": "Svorky a propojení", "iec_ref": "X",
         "description": "Vývodní svorky rozvaděče",
         "primitives": [L(0, 5, 0, 0), {"type": "polyline", "points": [[-5, -5], [0, 0], [5, -5]], "closed": False},
                        T(0, -9, "VÝVOD", 2)],
@@ -274,15 +294,16 @@ SYMBOLS = [
         "label_pos": {"x": 7, "y": 0},
     },
     {
-        "id": "sb.terminal_block", "name": "Svorkovnice", "category": "Rozvaděč/Propojení", "iec_ref": "X",
+        "id": "sb.terminal_block", "name": "Svorkovnice", "category": "Svorky a propojení", "iec_ref": "X",
         "description": "Řadová svorkovnice – 1 svorka (vícenásobná = více prvků)",
         "primitives": [C(0, 0, 1.5), L(0, 5, 0, 1.5), L(0, -1.5, 0, -5)],
         "ports": [P("1", 0, 5, "N"), P("2", 0, -5, "S")],
         "attributes": [REF, attr("terminal", "Svorka č.", "", True), attr("cross", "Průřez [mm²]"), attr("modules", "Šířka [moduly]", "0.35")],
+        "multipole": MP([C(0, 0, 1.5), L(0, 5, 0, 1.5), L(0, -1.5, 0, -5)], link=False),
         "label_pos": {"x": 2.5, "y": 1},
     },
     {
-        "id": "sb.pe_bar", "name": "PE/N můstek", "category": "Rozvaděč/Propojení", "iec_ref": "X",
+        "id": "sb.pe_bar", "name": "PE/N můstek", "category": "Svorky a propojení", "iec_ref": "X",
         "description": "Ochranná / nulová sběrnice",
         "primitives": [{"type": "polyline", "points": [[-15, 0], [15, 0]], "closed": False},
                        {"type": "polyline", "points": [[-15, 1.5], [15, 1.5]], "closed": False}, T(17, 0, "PE", 2, "left")],

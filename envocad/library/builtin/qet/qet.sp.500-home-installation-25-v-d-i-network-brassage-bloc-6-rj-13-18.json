@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-25-v-d-i-network-brassage-bloc-6-rj-13-18",
   "name": "Propojovací panel 6 RJ45 13 až 18",
-  "category": "QET jednopól/home installation/V.D.I/network/brassage",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); bloc_6_rj_13_18.elmt",
   "iec_ref": "",
   "primitives": [

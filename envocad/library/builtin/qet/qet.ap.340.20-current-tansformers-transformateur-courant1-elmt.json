@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.20-current-tansformers-transformateur-courant1-elmt",
-  "name": "Proudový nebo impulzní transformátor",
-  "category": "QET vícepól/converters_inverters/current tansformers",
+  "name": "Proudový nebo impulzní transformátor [vícepól]",
+  "category": "Měření/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformateur_courant1.elmt.elmt",
   "iec_ref": "",
   "primitives": [

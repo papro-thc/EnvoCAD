@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.130.90-terminal-strips-diagram-90-10-0111",
-  "name": "Svorka průchozí",
-  "category": "QET vícepól/terminals_terminal_strips/terminal strips diagram",
+  "name": "Svorka průchozí [vícepól]",
+  "category": "Svorky a propojení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); 90-10-0111.elmt",
   "iec_ref": "",
   "primitives": [

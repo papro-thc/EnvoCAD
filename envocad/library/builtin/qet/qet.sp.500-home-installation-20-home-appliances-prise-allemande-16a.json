@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-20-home-appliances-prise-allemande-16a",
   "name": "Německá zásuvka 16 A",
-  "category": "QET jednopól/home installation/home appliances",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); prise_allemande_16a.elmt",
   "iec_ref": "F",
   "primitives": [

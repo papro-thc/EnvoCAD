@@ -173,6 +173,34 @@ def slug(s: str) -> str:
     return s or "x"
 
 
+# Druh prvku (nadpis v panelu knihovny) podle cesty ve stromu QET – pořadí záleží (první shoda vyhrává)
+KIND_RULES = [
+    ("residual", "Jištění"), ("circuit breaker", "Jištění"), ("fuse", "Jištění"), ("overvoltage", "Jištění"),
+    ("thermal relay", "Jištění"), ("disconnect", "Spínání"), ("switch", "Spínání"),
+    ("relays_contactors", "Relé a stykače"), ("relays contactors", "Relé a stykače"),
+    ("generators", "Zdroje"), ("batter", "Zdroje"), ("power unit", "Zdroje"), ("voltage current", "Zdroje"),
+    ("measuring", "Měření"), ("meter", "Měření"), ("current tansformer", "Měření"), ("current transformer", "Měření"),
+    ("converters", "Střídače a měniče"), ("transformer", "Transformátory a napájení"),
+    ("power suppl", "Transformátory a napájení"), ("uninterruptible", "Transformátory a napájení"),
+    ("network_supplies", "Síť a zátěž"), ("network supplies", "Síť a zátěž"),
+    ("terminal", "Svorky a propojení"), ("cable", "Kabely"), ("connector", "Konektory"), ("plug", "Konektory"),
+    ("home installation", "Instalace"), ("electronics", "Elektronika"),
+]
+
+
+def kind_for_path(path: str) -> str:
+    low = path.lower()
+    for key, kind in KIND_RULES:
+        if key in low:
+            return kind
+    return "Ostatní"
+
+
+def qet_category(path: str, multipole: bool) -> str:
+    """Kategorie v knihovně: „<Druh>/QET“ – pól se v JPS nerozlišuje, vícepólové značky mají příznak v názvu."""
+    return f"{kind_for_path(path)}/QET"
+
+
 def import_dir(src: Path | str, prefix: str, category: str, out_dir: Path | str, scale: float = SCALE,
                lang: str = "cs", limit: int | None = None) -> list[Path]:
     """Hromadný import složky (rekurzivně). Vrací vytvořené JSON soubory."""
@@ -183,7 +211,7 @@ def import_dir(src: Path | str, prefix: str, category: str, out_dir: Path | str,
         rel = f.relative_to(src)
         sid = f"{prefix}.{slug(str(rel.with_suffix('')).replace('/', '.'))}"
         sub = "/".join(p.split("_", 1)[-1].replace("_", " ") for p in rel.parts[:-1])
-        cat = f"{category}/{sub}" if sub else category
+        cat = qet_category(sub, "ap" in prefix.split("."))
         try:
             sym = parse_elmt(f, sid, cat, scale, lang)
         except Exception as ex:  # noqa: BLE001

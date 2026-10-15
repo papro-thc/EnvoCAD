@@ -7,7 +7,7 @@ a při startu se nahrají do SQLite (`~/.envocad/library.db`), kde přibývají 
 {
   "id": "fve.inverter.3ph",
   "name": "Střídač 3f",
-  "category": "FVE/Střídače",
+  "category": "Střídače a měniče",   // druh prvku = nadpis v panelu; "Druh/QET" = podsložka cizích značek
   "description": "Síťový střídač DC/AC, třífázový",
   "iec_ref": "T",                     // písmeno označení dle ČSN EN IEC 81346 → T1, T2…
   "primitives": [
@@ -19,8 +19,8 @@ a při startu se nahrají do SQLite (`~/.envocad/library.db`), kde přibývají 
     {"type": "text",    "x": 0, "y": 12, "text": "DC", "height": 2.5, "align": "center"}
   ],
   "ports": [
-    {"name": "DC+", "x": -10, "y": 5,  "dir": "W"},
-    {"name": "DC-", "x": -10, "y": -5, "dir": "W"},
+    {"name": "DC1", "x": -10, "y": 5,  "dir": "W"},   // v JPS je čára vždy jednopólová; pár DC+/DC- jsou žíly vodiče
+    {"name": "DC2", "x": -10, "y": -5, "dir": "W"},
     {"name": "AC",  "x": 10,  "y": 0,  "dir": "E"}
   ],
   "attributes": [
@@ -28,9 +28,21 @@ a při startu se nahrají do SQLite (`~/.envocad/library.db`), kde přibývají 
     {"key": "type",  "label": "Typ",       "default": "", "show": true},
     {"key": "p_ac",  "label": "P_AC [kW]", "default": "", "show": false}
   ],
-  "label_pos": {"x": 12, "y": 8}
+  "label_pos": {"x": 12, "y": 8},
+  "multipole": {                      // volitelné – podoba ve vícepólovém schématu (průchozí prvky)
+    "pole": [ ...primitiva jednoho pólu... ],   // kreslí se pro každou spínanou žílu (rozteč 7,5 mm)
+    "common": [ ...kreslí se jednou u 1. pólu... ],  // spoušť, cívka, sumační transformátor…
+    "link": true,                     // čárkovaná mechanická vazba pólů
+    "link_at": [0, 2]                 // bod pólu, kterým vazba prochází
+  }
 }
 ```
+
+Kategorie (`category`) je druh prvku: `Zdroje`, `Střídače a měniče`, `Jištění`, `Spínání`, `Měření`,
+`Svorky a propojení`, `Rozvaděče`, `Síť a zátěž`, `Transformátory a napájení`, `Relé a stykače`, `Kabely`,
+`Konektory`, `Instalace`, `Elektronika`. Tvar `Druh/QET` zařadí značku do sbalené podsložky cizí knihovny.
+Pól se v knihovně nerozlišuje: v JPS je každá značka jednopólová (jedna čára = kabel se všemi žílami) a ve
+vícepólu se rozkreslí podle `multipole` (bez něj se opakuje celá značka).
 
 Pravidla:
 

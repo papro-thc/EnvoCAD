@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-25-v-d-i-terrestrial-reception-antennas-antenne-uhf",
   "name": "UHF anténa",
-  "category": "QET jednopól/home installation/V.D.I/reception/antennas",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); antenne_uhf.elmt",
   "iec_ref": "",
   "primitives": [

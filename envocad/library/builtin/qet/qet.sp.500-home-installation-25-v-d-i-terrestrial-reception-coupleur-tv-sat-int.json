@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-25-v-d-i-terrestrial-reception-coupleur-tv-sat-int",
   "name": "Slučovač TV – SAT",
-  "category": "QET jednopól/home installation/V.D.I/reception",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); coupleur_tv_sat_int.elmt",
   "iec_ref": "",
   "primitives": [

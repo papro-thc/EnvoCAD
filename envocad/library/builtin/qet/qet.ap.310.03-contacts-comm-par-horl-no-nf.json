@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.03-contacts-comm-par-horl-no-nf",
-  "name": "Kontakt NC/NO řízený elektrickými hodinami",
-  "category": "QET vícepól/relays_contactors_contacts/contacts",
+  "name": "Kontakt NC/NO řízený elektrickými hodinami [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; comm_par_horl_no_nf.elmt",
   "iec_ref": "",
   "primitives": [

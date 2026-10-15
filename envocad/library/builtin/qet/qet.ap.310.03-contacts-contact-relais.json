@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.03-contacts-contact-relais",
-  "name": "Kontakt (NO) tepelného jističe",
-  "category": "QET vícepól/relays_contactors_contacts/contacts",
+  "name": "Kontakt (NO) tepelného jističe [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; contact_relais.elmt",
   "iec_ref": "",
   "primitives": [

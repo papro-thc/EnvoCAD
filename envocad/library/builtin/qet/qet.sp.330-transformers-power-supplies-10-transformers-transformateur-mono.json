@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.330-transformers-power-supplies-10-transformers-transformateur-mono",
   "name": "Jednofázový transformátor se stíněním",
-  "category": "QET jednopól/transformers power supplies/transformers",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformateur_mono.elmt",
   "iec_ref": "",
   "primitives": [

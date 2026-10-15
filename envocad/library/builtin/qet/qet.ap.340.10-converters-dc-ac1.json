@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.10-converters-dc-ac1",
-  "name": "Střídač 1f DC/AC",
-  "category": "QET vícepól/converters_inverters/converters",
+  "name": "Střídač 1f DC/AC [vícepól]",
+  "category": "Střídače a měniče/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; dc_ac1.elmt",
   "iec_ref": "",
   "primitives": [

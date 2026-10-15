@@ -1,7 +1,7 @@
 {
   "id": "sb.busbar",
   "name": "Sběrnice",
-  "category": "Rozvaděč/Propojení",
+  "category": "Svorky a propojení",
   "iec_ref": "X",
   "description": "Sběrnice – 1 vstup, 10 vývodů dolů po 15 mm",
   "primitives": [

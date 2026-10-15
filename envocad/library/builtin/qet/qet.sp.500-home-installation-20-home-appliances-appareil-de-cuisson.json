@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-20-home-appliances-appareil-de-cuisson",
   "name": "Kuchyňský spotřebič",
-  "category": "QET jednopól/home installation/home appliances",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; appareil_de_cuisson.elmt",
   "iec_ref": "",
   "primitives": [

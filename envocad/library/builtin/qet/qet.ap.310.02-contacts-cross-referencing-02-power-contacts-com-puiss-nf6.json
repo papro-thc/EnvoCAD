@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.02-contacts-cross-referencing-02-power-contacts-com-puiss-nf6",
-  "name": "Rozpínací silový kontakt 4p",
-  "category": "QET vícepól/relays_contactors_contacts/contacts cross referencing/power contacts",
+  "name": "Rozpínací silový kontakt 4p [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; com_puiss_nf6.elmt",
   "iec_ref": "",
   "primitives": [

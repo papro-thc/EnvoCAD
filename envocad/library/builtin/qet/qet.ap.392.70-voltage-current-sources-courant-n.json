@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.392.70-voltage-current-sources-courant-n",
-  "name": "Zdroj proudu (nový)",
-  "category": "QET vícepól/generators_sources/voltage current sources",
+  "name": "Zdroj proudu (nový) [vícepól]",
+  "category": "Zdroje/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; courant_n.elmt",
   "iec_ref": "",
   "primitives": [

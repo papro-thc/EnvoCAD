@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.20-current-tansformers-tore1",
-  "name": "Jednopólový proudový transformátor",
-  "category": "QET vícepól/converters_inverters/current tansformers",
+  "name": "Jednopólový proudový transformátor [vícepól]",
+  "category": "Měření/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; tore1.elmt",
   "iec_ref": "",
   "primitives": [

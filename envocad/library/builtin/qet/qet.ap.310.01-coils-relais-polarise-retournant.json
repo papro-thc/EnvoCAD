@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.01-coils-relais-polarise-retournant",
-  "name": "Polarizované monostabilní relé",
-  "category": "QET vícepól/relays_contactors_contacts/coils",
+  "name": "Polarizované monostabilní relé [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); relais_polarise_retournant.elmt",
   "iec_ref": "",
   "primitives": [

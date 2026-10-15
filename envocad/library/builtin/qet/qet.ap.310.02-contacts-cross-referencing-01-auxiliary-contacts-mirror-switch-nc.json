@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.02-contacts-cross-referencing-01-auxiliary-contacts-mirror-switch-nc",
-  "name": "Zrcadlový kontakt NC",
-  "category": "QET vícepól/relays_contactors_contacts/contacts cross referencing/auxiliary contacts",
+  "name": "Zrcadlový kontakt NC [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); mirror_switch_nc.elmt",
   "iec_ref": "",
   "primitives": [

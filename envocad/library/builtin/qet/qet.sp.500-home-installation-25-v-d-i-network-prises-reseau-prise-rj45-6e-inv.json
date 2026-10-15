@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-25-v-d-i-network-prises-reseau-prise-rj45-6e-inv",
   "name": "Zásuvka RJ45 Cat 6e",
-  "category": "QET jednopól/home installation/V.D.I/network/reseau",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); prise_rj45_6e_inv.elmt",
   "iec_ref": "",
   "primitives": [

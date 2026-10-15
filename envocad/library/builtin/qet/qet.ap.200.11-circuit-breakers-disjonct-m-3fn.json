@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.11-circuit-breakers-disjonct-m-3fn",
-  "name": "Trojpólový jistič 3p+N",
-  "category": "QET vícepól/fuses_protective_gears/circuit breakers",
+  "name": "Trojpólový jistič 3p+N [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; disjonct-m_3fn.elmt",
   "iec_ref": "F",
   "primitives": [

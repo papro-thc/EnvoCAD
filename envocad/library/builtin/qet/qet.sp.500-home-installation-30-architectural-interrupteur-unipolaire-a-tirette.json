@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-30-architectural-interrupteur-unipolaire-a-tirette",
   "name": "Tahový vypínač",
-  "category": "QET jednopól/home installation/architectural",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); interrupteur_unipolaire_a_tirette.elmt",
   "iec_ref": "",
   "primitives": [

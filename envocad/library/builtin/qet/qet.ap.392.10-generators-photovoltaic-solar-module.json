@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.392.10-generators-photovoltaic-solar-module",
-  "name": "Fotovoltaický solární modul",
-  "category": "QET vícepól/generators_sources/generators",
+  "name": "Fotovoltaický solární modul [vícepól]",
+  "category": "Zdroje/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); photovoltaic_solar_module.elmt",
   "iec_ref": "",
   "primitives": [

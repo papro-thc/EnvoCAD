@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.120.section2conducteurs",
-  "name": "Označení žil 2 vodiče",
-  "category": "QET vícepól/cables_wiring",
+  "name": "Označení žil 2 vodiče [vícepól]",
+  "category": "Kabely/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; section2conducteurs.elmt",
   "iec_ref": "",
   "primitives": [

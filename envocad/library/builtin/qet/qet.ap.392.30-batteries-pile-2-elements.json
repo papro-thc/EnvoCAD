@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.392.30-batteries-pile-2-elements",
-  "name": "Baterie 2 články",
-  "category": "QET vícepól/generators_sources/batteries",
+  "name": "Baterie 2 články [vícepól]",
+  "category": "Zdroje/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; pile_2_elements.elmt",
   "iec_ref": "",
   "primitives": [

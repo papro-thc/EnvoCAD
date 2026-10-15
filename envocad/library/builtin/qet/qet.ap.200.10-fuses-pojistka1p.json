@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.10-fuses-pojistka1p",
-  "name": "Pojistka 1p",
-  "category": "QET vícepól/fuses_protective_gears/fuses",
+  "name": "Pojistka 1p [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); pojistka1p.elmt",
   "iec_ref": "",
   "primitives": [

@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.10-converters-convertisseur-tri-mono",
-  "name": "Měnič třífázový/jednofázový proud",
-  "category": "QET vícepól/converters_inverters/converters",
+  "name": "Měnič třífázový/jednofázový proud [vícepól]",
+  "category": "Střídače a měniče/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; convertisseur_tri_mono.elmt",
   "iec_ref": "",
   "primitives": [

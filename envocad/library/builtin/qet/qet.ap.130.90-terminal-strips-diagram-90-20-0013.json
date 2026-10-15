@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.130.90-terminal-strips-diagram-90-20-0013",
-  "name": "Zařízení (připojení zdola) – konec",
-  "category": "QET vícepól/terminals_terminal_strips/terminal strips diagram",
+  "name": "Zařízení (připojení zdola) – konec [vícepól]",
+  "category": "Svorky a propojení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); 90-20-0013.elmt",
   "iec_ref": "",
   "primitives": [

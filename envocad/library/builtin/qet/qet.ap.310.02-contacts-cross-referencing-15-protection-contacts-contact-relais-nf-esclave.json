@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.02-contacts-cross-referencing-15-protection-contacts-contact-relais-nf-esclave",
-  "name": "Kontakt (NC) tepelného jističe",
-  "category": "QET vícepól/relays_contactors_contacts/contacts cross referencing/protection contacts",
+  "name": "Kontakt (NC) tepelného jističe [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; contact_relais_nf_esclave.elmt",
   "iec_ref": "",
   "primitives": [

@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.120.cable6",
-  "name": "Kabel 3G",
-  "category": "QET vícepól/cables_wiring",
+  "name": "Kabel 3G [vícepól]",
+  "category": "Kabely/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; cable6.elmt",
   "iec_ref": "",
   "primitives": [

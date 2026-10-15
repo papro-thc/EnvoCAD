@@ -1,7 +1,7 @@
 {
   "id": "fve.fuse",
   "name": "Pojistka",
-  "category": "Obecné/Jištění",
+  "category": "Jištění",
   "iec_ref": "F",
   "description": "Pojistka (gPV / gG)",
   "primitives": [
@@ -84,6 +84,30 @@
       "show": false
     }
   ],
+  "multipole": {
+    "pole": [
+      {
+        "type": "rect",
+        "x": -5,
+        "y": -2.5,
+        "w": 10,
+        "h": 5
+      },
+      {
+        "type": "line",
+        "x1": -7.5,
+        "y1": 0,
+        "x2": 7.5,
+        "y2": 0
+      }
+    ],
+    "common": [],
+    "link": false,
+    "link_at": [
+      0,
+      2
+    ]
+  },
   "label_pos": {
     "x": -5,
     "y": 4

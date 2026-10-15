@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.90-filters-schurter-kfs4300",
-  "name": "Filtr KFS 4300",
-  "category": "QET vícepól/converters_inverters/filters/schurter",
+  "name": "Filtr KFS 4300 [vícepól]",
+  "category": "Střídače a měniče/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); kfs4300.elmt",
   "iec_ref": "",
   "primitives": [

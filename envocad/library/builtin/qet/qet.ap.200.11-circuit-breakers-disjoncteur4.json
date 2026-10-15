@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.11-circuit-breakers-disjoncteur4",
-  "name": "Trojpólový jistič",
-  "category": "QET vícepól/fuses_protective_gears/circuit breakers",
+  "name": "Trojpólový jistič [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; disjoncteur4.elmt",
   "iec_ref": "F",
   "primitives": [

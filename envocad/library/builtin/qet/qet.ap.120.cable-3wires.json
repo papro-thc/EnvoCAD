@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.120.cable-3wires",
-  "name": "Kabel 3x",
-  "category": "QET vícepól/cables_wiring",
+  "name": "Kabel 3x [vícepól]",
+  "category": "Kabely/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); cable_3wires.elmt",
   "iec_ref": "",
   "primitives": [

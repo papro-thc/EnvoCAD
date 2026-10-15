@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.12-magneto-thermal-circuit-breakers-fa4202-disjoncteur-moteur-3p",
-  "name": "Motorový spouštěč 3P",
-  "category": "QET vícepól/fuses_protective_gears/magneto thermal circuit breakers",
+  "name": "Motorový spouštěč 3P [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; fa4202_disjoncteur_moteur_3p.elmt",
   "iec_ref": "F",
   "primitives": [

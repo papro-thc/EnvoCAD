@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.330.10-transformers-autotransformateur-triphase-neutre",
-  "name": "Třífázový autotransformátor + neutrál",
-  "category": "QET vícepól/transformers_power_supplies/transformers",
+  "name": "Třífázový autotransformátor + neutrál [vícepól]",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; autotransformateur_triphase_neutre.elmt",
   "iec_ref": "",
   "primitives": [

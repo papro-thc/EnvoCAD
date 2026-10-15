@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.110.src-1pn",
-  "name": "Přípojnice 1f+N",
-  "category": "QET vícepól/network_supplies",
+  "name": "Přípojnice 1f+N [vícepól]",
+  "category": "Síť a zátěž/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; src_1pn.elmt",
   "iec_ref": "",
   "primitives": [

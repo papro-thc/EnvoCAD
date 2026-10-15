@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.11-circuit-breakers-disjonct-m-2f",
-  "name": "Dvoupólový jistič 2 póly chránící",
-  "category": "QET vícepól/fuses_protective_gears/circuit breakers",
+  "name": "Dvoupólový jistič 2 póly chránící [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; disjonct-m_2f.elmt",
   "iec_ref": "F",
   "primitives": [

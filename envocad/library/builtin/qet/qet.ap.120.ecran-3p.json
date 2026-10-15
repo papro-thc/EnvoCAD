@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.120.ecran-3p",
-  "name": "Stínění",
-  "category": "QET vícepól/cables_wiring",
+  "name": "Stínění [vícepól]",
+  "category": "Kabely/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; ecran_3p.elmt",
   "iec_ref": "",
   "primitives": [

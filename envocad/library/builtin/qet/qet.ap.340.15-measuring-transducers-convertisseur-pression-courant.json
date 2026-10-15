@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.15-measuring-transducers-convertisseur-pression-courant",
-  "name": "Tlakově-elektrický převodník",
-  "category": "QET vícepól/converters_inverters/measuring transducers",
+  "name": "Tlakově-elektrický převodník [vícepól]",
+  "category": "Měření/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; convertisseur_pression_courant.elmt",
   "iec_ref": "",
   "primitives": [

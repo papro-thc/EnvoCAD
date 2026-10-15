@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-40-meters-compteur-horaire-08-04-03-en60617",
   "name": "Měřič provozních hodin",
-  "category": "QET jednopól/home installation/meters",
+  "category": "Měření/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); compteur_horaire_08-04-03_en60617.elmt",
   "iec_ref": "",
   "primitives": [

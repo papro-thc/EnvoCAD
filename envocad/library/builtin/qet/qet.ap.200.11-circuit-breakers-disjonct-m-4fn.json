@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.11-circuit-breakers-disjonct-m-4fn",
-  "name": "Čtyřpólový jistič",
-  "category": "QET vícepól/fuses_protective_gears/circuit breakers",
+  "name": "Čtyřpólový jistič [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; disjonct-m_4fn.elmt",
   "iec_ref": "F",
   "primitives": [

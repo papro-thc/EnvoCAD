@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-20-home-appliances-plancher-chauffant-2",
   "name": "Podlahové topení",
-  "category": "QET jednopól/home installation/home appliances",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); plancher_chauffant_2.elmt",
   "iec_ref": "F",
   "primitives": [

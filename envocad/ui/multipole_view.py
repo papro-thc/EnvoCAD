@@ -33,7 +33,10 @@ class PoleItem(QGraphicsItem):
         super().__init__()
         self.ep, self.conductor, self.first = ep, conductor, first
         self.element: Element = ep.element
-        self.symbol: Symbol = ep.symbol
+        self.full_symbol: Symbol = ep.symbol
+        # průchozí prvek ve vícepólu: značka jednoho pólu (+ společná část u prvního pólu)
+        self.symbol: Symbol = ep.symbol.pole_symbol() if conductor else ep.symbol
+        self.common: Symbol | None = ep.symbol.common_symbol() if (conductor and first) else None
         self._path = symbol_path(self.symbol)
         self.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsMovable)
         self.setZValue(10)
@@ -50,7 +53,7 @@ class PoleItem(QGraphicsItem):
         return self.Type
 
     def boundingRect(self) -> QRectF:
-        x0, y0, x1, y1 = self.symbol.bounds()
+        x0, y0, x1, y1 = self.full_symbol.bounds()
         return QRectF(x0, -y1, x1 - x0, y1 - y0).adjusted(-3, -8, 20, 3)
 
     def shape(self) -> QPainterPath:
@@ -63,7 +66,10 @@ class PoleItem(QGraphicsItem):
         painter.setRenderHint(QPainter.Antialiasing)
         c = colors()
         color = c.selection if self.isSelected() else c.ink
-        paint_symbol(painter, self.symbol, QPen(color, LINE_WIDTH, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        pen = QPen(color, LINE_WIDTH, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        paint_symbol(painter, self.symbol, pen)
+        if self.common is not None:
+            paint_symbol(painter, self.common, pen)
         painter.setPen(QPen(c.port, 0.2))
         painter.setBrush(Qt.NoBrush)
         for p in self.symbol.ports:
@@ -101,6 +107,30 @@ class PoleItem(QGraphicsItem):
             draw_text(painter, 0, y, text, h, "left")
             y -= h + 1.0
         painter.restore()
+
+
+class PoleLinkItem(QGraphicsPathItem):
+    """Čárkovaná mechanická vazba pólů (jistič, vypínač, stykač…)."""
+
+    def __init__(self, ep: mp.ElementPoles):
+        super().__init__()
+        from envocad.model.symbol import rotate_point
+        e, sym = ep.element, ep.symbol
+        lx, ly = sym.link_at
+        rx, ry = rotate_point(lx, ly, e.rotation)
+        pts = []
+        for c in ep.switched:
+            ox, oy = ep.pole_offset(c)
+            pts.append((ep.origin[0] + ox + rx, ep.origin[1] + oy + ry))
+        path = QPainterPath(sp(*pts[0]))
+        path.lineTo(sp(*pts[-1]))
+        self.setPath(path)
+        self.setZValue(9)
+        self.setPen(QPen(colors().ink, LINE_WIDTH * 0.8, Qt.DashLine))
+
+    def paint(self, painter, option, widget=None):
+        painter.setPen(QPen(colors().ink, LINE_WIDTH * 0.8, Qt.DashLine))
+        painter.drawPath(self.path())
 
 
 class BypassItem(QGraphicsPathItem):
@@ -234,6 +264,8 @@ class MultipoleScene(QGraphicsScene):
             if ep.through and ep.switched:
                 for i, c in enumerate(ep.switched):
                     self._add(PoleItem(ep, c, first=(i == 0)))
+                if ep.symbol.pole_link and len(ep.switched) > 1:
+                    self._add(PoleLinkItem(ep))
                 for c in ep.bypass:
                     self._add(BypassItem(ep, c))
             else:

@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.20-current-tansformers-tore2",
-  "name": "Dvoupólový proudový transformátor",
-  "category": "QET vícepól/converters_inverters/current tansformers",
+  "name": "Dvoupólový proudový transformátor [vícepól]",
+  "category": "Měření/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; tore2.elmt",
   "iec_ref": "",
   "primitives": [

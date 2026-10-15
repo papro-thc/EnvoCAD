@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-30-architectural-interrupteur-a-temps-de-fermeture-limite",
   "name": "Jednopólový časový spínač",
-  "category": "QET jednopól/home installation/architectural",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); interrupteur_a_temps_de_fermeture_limite.elmt",
   "iec_ref": "",
   "primitives": [

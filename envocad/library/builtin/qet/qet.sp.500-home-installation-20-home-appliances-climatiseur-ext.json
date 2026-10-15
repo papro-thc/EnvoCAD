@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-20-home-appliances-climatiseur-ext",
   "name": "Klimatizace, venkovní jednotka",
-  "category": "QET jednopól/home installation/home appliances",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); climatiseur_ext.elmt",
   "iec_ref": "F",
   "primitives": [

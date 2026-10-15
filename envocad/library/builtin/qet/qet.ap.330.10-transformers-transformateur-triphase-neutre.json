@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.330.10-transformers-transformateur-triphase-neutre",
-  "name": "Třífázový transformátor + neutrál",
-  "category": "QET vícepól/transformers_power_supplies/transformers",
+  "name": "Třífázový transformátor + neutrál [vícepól]",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformateur_triphase_neutre.elmt",
   "iec_ref": "",
   "primitives": [

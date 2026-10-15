@@ -1,7 +1,7 @@
 {
   "id": "fve.contactor",
   "name": "Stykač",
-  "category": "Obecné/Spínání",
+  "category": "Spínání",
   "iec_ref": "K",
   "description": "Stykač (např. pro odpojení FVE od DS – NS)",
   "primitives": [
@@ -93,6 +93,45 @@
       "show": false
     }
   ],
+  "multipole": {
+    "pole": [
+      {
+        "type": "line",
+        "x1": -7.5,
+        "y1": 0,
+        "x2": -2.5,
+        "y2": 0
+      },
+      {
+        "type": "line",
+        "x1": -2.5,
+        "y1": 0,
+        "x2": 2,
+        "y2": 4
+      },
+      {
+        "type": "line",
+        "x1": 2.5,
+        "y1": 0,
+        "x2": 7.5,
+        "y2": 0
+      },
+      {
+        "type": "arc",
+        "cx": 3.5,
+        "cy": 0,
+        "r": 1,
+        "start": 90,
+        "end": 270
+      }
+    ],
+    "common": [],
+    "link": true,
+    "link_at": [
+      0,
+      2
+    ]
+  },
   "label_pos": {
     "x": -5,
     "y": -6

@@ -1,7 +1,7 @@
 {
   "id": "fve.switchboard",
   "name": "Rozvaděč (blok)",
-  "category": "FVE/Rozvaděče",
+  "category": "Rozvaděče",
   "iec_ref": "R",
   "description": "Rozvaděč jako blok (odkaz na samostatný list)",
   "primitives": [

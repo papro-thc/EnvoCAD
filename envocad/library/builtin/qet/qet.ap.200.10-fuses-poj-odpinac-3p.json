@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.10-fuses-poj-odpinac-3p",
-  "name": "Pojistkový odpínač 3p",
-  "category": "QET vícepól/fuses_protective_gears/fuses",
+  "name": "Pojistkový odpínač 3p [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); poj_odpinac_3p.elmt",
   "iec_ref": "",
   "primitives": [

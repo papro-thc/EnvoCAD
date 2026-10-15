@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.330.30-power-supplies-power-supply-1-phase-ac-dc",
-  "name": "Napájecí zdroj AC/DC 24V",
-  "category": "QET vícepól/transformers_power_supplies/power supplies",
+  "name": "Napájecí zdroj AC/DC 24V [vícepól]",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); power_supply_1_phase_ac_dc.elmt",
   "iec_ref": "",
   "primitives": [

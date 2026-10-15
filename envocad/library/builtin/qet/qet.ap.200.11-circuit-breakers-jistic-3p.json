@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.11-circuit-breakers-jistic-3p",
-  "name": "Trojpólový jistič",
-  "category": "QET vícepól/fuses_protective_gears/circuit breakers",
+  "name": "Trojpólový jistič [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; jistic_3p.elmt",
   "iec_ref": "F",
   "primitives": [

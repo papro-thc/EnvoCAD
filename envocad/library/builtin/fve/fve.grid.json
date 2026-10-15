@@ -1,7 +1,7 @@
 {
   "id": "fve.grid",
   "name": "Distribuční síť",
-  "category": "FVE/Síť",
+  "category": "Síť a zátěž",
   "iec_ref": "",
   "description": "Přípojka k distribuční soustavě",
   "primitives": [

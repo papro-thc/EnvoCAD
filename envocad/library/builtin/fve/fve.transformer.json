@@ -1,7 +1,7 @@
 {
   "id": "fve.transformer",
   "name": "Transformátor",
-  "category": "Obecné/Síť",
+  "category": "Síť a zátěž",
   "iec_ref": "T",
   "description": "Transformátor VN/NN",
   "primitives": [

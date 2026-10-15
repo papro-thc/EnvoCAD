@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.10-converters-generic-hybrid-inverter",
-  "name": "Střídač hybrid 2 strings",
-  "category": "QET vícepól/converters_inverters/converters",
+  "name": "Střídač hybrid 2 strings [vícepól]",
+  "category": "Střídače a měniče/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: Marcus Wenzel; generic-hybrid-inverter.elmt",
   "iec_ref": "",
   "primitives": [

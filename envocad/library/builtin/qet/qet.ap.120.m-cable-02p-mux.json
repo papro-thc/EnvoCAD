@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.120.m-cable-02p-mux",
-  "name": "Vícežilový kabel 2-pólový Mux",
-  "category": "QET vícepól/cables_wiring",
+  "name": "Vícežilový kabel 2-pólový Mux [vícepól]",
+  "category": "Kabely/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: Moritz Scholjegerdes; m_cable_02p_mux.elmt",
   "iec_ref": "",
   "primitives": [

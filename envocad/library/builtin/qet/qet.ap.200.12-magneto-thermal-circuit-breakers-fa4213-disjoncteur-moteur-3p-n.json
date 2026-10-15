@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.12-magneto-thermal-circuit-breakers-fa4213-disjoncteur-moteur-3p-n",
-  "name": "Pojistkový odpínač 3p+N",
-  "category": "QET vícepól/fuses_protective_gears/magneto thermal circuit breakers",
+  "name": "Pojistkový odpínač 3p+N [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; fa4213_disjoncteur_moteur_3p_n.elmt",
   "iec_ref": "F",
   "primitives": [

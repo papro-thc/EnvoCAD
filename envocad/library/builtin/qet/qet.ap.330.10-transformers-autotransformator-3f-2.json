@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.330.10-transformers-autotransformator-3f-2",
-  "name": "Třífázový autotransformátor Y, spojený do hvězdy",
-  "category": "QET vícepól/transformers_power_supplies/transformers",
+  "name": "Třífázový autotransformátor Y, spojený do hvězdy [vícepól]",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; autotransformator_3f_2.elmt",
   "iec_ref": "",
   "primitives": [

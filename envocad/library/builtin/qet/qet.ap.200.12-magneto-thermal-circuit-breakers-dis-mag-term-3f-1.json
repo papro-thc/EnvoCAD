@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.12-magneto-thermal-circuit-breakers-dis-mag-term-3f-1",
-  "name": "Motorový spouštěč 3P",
-  "category": "QET vícepól/fuses_protective_gears/magneto thermal circuit breakers",
+  "name": "Motorový spouštěč 3P [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; dis_mag_term_3f-1.elmt",
   "iec_ref": "F",
   "primitives": [

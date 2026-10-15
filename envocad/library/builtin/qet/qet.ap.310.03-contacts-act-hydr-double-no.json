@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.03-contacts-act-hydr-double-no",
-  "name": "Kontakt NO řízený pneumaticky nebo hydraulicky, dvoucestný",
-  "category": "QET vícepól/relays_contactors_contacts/contacts",
+  "name": "Kontakt NO řízený pneumaticky nebo hydraulicky, dvoucestný [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; act_hydr_double_no.elmt",
   "iec_ref": "",
   "primitives": [

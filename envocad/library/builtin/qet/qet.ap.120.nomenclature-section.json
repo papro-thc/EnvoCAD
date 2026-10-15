@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.120.nomenclature-section",
-  "name": "Průřez vodiče",
-  "category": "QET vícepól/cables_wiring",
+  "name": "Průřez vodiče [vícepól]",
+  "category": "Kabely/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; nomenclature_section.elmt",
   "iec_ref": "",
   "primitives": [

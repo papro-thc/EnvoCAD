@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-20-home-appliances-prise-32",
   "name": "Zásuvka 32A 1f",
-  "category": "QET jednopól/home installation/home appliances",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); prise-32.elmt",
   "iec_ref": "F",
   "primitives": [

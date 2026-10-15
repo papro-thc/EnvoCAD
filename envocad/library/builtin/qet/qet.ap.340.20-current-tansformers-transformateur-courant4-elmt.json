@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.20-current-tansformers-transformateur-courant4-elmt",
-  "name": "Proudový transformátor se dvěma sekundárními vinutími na jednom jádru",
-  "category": "QET vícepól/converters_inverters/current tansformers",
+  "name": "Proudový transformátor se dvěma sekundárními vinutími na jednom jádru [vícepól]",
+  "category": "Měření/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; transformateur_courant4.elmt.elmt",
   "iec_ref": "",
   "primitives": [

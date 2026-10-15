@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-30-architectural-interrupteur-gradateur",
   "name": "Stmívač",
-  "category": "QET jednopól/home installation/architectural",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); interrupteur_gradateur.elmt",
   "iec_ref": "",
   "primitives": [

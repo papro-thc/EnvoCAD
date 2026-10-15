@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.01-coils-comm-thermique",
-  "name": "Tepelné relé",
-  "category": "QET vícepól/relays_contactors_contacts/coils",
+  "name": "Tepelné relé [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); comm_thermique.elmt",
   "iec_ref": "",
   "primitives": [

@@ -1,7 +1,7 @@
 {
   "id": "fve.terminal",
   "name": "Uzel / svorka",
-  "category": "Obecné/Propojení",
+  "category": "Svorky a propojení",
   "iec_ref": "X",
   "description": "Spojovací uzel – větvení vodičů",
   "primitives": [

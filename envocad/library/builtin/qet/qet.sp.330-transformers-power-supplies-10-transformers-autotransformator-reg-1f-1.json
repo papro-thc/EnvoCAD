@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.330-transformers-power-supplies-10-transformers-autotransformator-reg-1f-1",
   "name": "Jednofázový autotransformátor, nastavitelný",
-  "category": "QET jednopól/transformers power supplies/transformers",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; autotransformator_reg_1f_1.elmt",
   "iec_ref": "",
   "primitives": [

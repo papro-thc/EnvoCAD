@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.120.m-cable-08p-demux",
-  "name": "Vícežilový kabel 8-pólový Demux",
-  "category": "QET vícepól/cables_wiring",
+  "name": "Vícežilový kabel 8-pólový Demux [vícepól]",
+  "category": "Kabely/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: Moritz Scholjegerdes; m_cable_08p_demux.elmt",
   "iec_ref": "",
   "primitives": [

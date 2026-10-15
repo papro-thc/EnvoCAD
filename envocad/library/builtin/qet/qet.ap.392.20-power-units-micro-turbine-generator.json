@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.392.20-power-units-micro-turbine-generator",
-  "name": "Turbínová elektrocentrála",
-  "category": "QET vícepól/generators_sources/power units",
+  "name": "Turbínová elektrocentrála [vícepól]",
+  "category": "Zdroje/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: Arun Kishore Eswara; micro_turbine_generator.elmt",
   "iec_ref": "",
   "primitives": [

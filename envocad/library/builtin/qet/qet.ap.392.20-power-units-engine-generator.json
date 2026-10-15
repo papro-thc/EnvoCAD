@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.392.20-power-units-engine-generator",
-  "name": "Elektrocentrála",
-  "category": "QET vícepól/generators_sources/power units",
+  "name": "Elektrocentrála [vícepól]",
+  "category": "Zdroje/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: Arun Kishore Eswara; engine_generator.elmt",
   "iec_ref": "",
   "primitives": [

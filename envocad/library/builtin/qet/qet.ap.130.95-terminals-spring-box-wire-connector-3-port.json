@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.130.95-terminals-spring-box-wire-connector-3-port",
-  "name": "Svorka 3 vodiče",
-  "category": "QET vícepól/terminals_terminal_strips/terminals spring box",
+  "name": "Svorka 3 vodiče [vícepól]",
+  "category": "Svorky a propojení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); wire-connector-3-port.elmt",
   "iec_ref": "",
   "primitives": [

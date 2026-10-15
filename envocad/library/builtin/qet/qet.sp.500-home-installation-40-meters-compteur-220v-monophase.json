@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-40-meters-compteur-220v-monophase",
   "name": "Jednofázový elektroměr",
-  "category": "QET jednopól/home installation/meters",
+  "category": "Měření/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; compteur_220v_monophase.elmt",
   "iec_ref": "",
   "primitives": [

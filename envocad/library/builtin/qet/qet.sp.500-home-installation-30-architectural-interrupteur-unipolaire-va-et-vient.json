@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-30-architectural-interrupteur-unipolaire-va-et-vient",
   "name": "Schodišťový přepínač",
-  "category": "QET jednopól/home installation/architectural",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); interrupteur_unipolaire_va_et_vient.elmt",
   "iec_ref": "",
   "primitives": [

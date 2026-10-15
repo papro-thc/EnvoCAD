@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.10-converters-redresseur",
-  "name": "Usměrňovač",
-  "category": "QET vícepól/converters_inverters/converters",
+  "name": "Usměrňovač [vícepól]",
+  "category": "Střídače a měniče/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); redresseur.elmt",
   "iec_ref": "",
   "primitives": [

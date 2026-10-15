@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.10-converters-inverter",
-  "name": "Střídač",
-  "category": "QET vícepól/converters_inverters/converters",
+  "name": "Střídač [vícepól]",
+  "category": "Střídače a měniče/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: Arun Kishore Eswara; inverter.elmt",
   "iec_ref": "",
   "primitives": [

@@ -1,7 +1,7 @@
 {
   "id": "sb.main_switch",
   "name": "Hlavní vypínač",
-  "category": "Obecné/Spínání",
+  "category": "Spínání",
   "iec_ref": "Q",
   "description": "Hlavní vypínač rozvaděče",
   "primitives": [
@@ -106,6 +106,59 @@
       "show": false
     }
   ],
+  "multipole": {
+    "pole": [
+      {
+        "type": "line",
+        "x1": -7.5,
+        "y1": 0,
+        "x2": -2.5,
+        "y2": 0
+      },
+      {
+        "type": "line",
+        "x1": -2.5,
+        "y1": 0,
+        "x2": 2,
+        "y2": 4
+      },
+      {
+        "type": "line",
+        "x1": 2.5,
+        "y1": 0,
+        "x2": 7.5,
+        "y2": 0
+      },
+      {
+        "type": "line",
+        "x1": 2.5,
+        "y1": -1.5,
+        "x2": 2.5,
+        "y2": 1.5
+      }
+    ],
+    "common": [
+      {
+        "type": "circle",
+        "cx": -2.5,
+        "cy": 0,
+        "r": 0.8
+      },
+      {
+        "type": "text",
+        "x": 0,
+        "y": 6,
+        "text": "HV",
+        "height": 2,
+        "align": "center"
+      }
+    ],
+    "link": true,
+    "link_at": [
+      0,
+      2
+    ]
+  },
   "label_pos": {
     "x": -5,
     "y": -6

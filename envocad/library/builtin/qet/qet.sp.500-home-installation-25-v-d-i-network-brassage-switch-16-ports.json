@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-25-v-d-i-network-brassage-switch-16-ports",
   "name": "Ethernetový přepínač 16 portů",
-  "category": "QET jednopól/home installation/V.D.I/network/brassage",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); switch_16_ports.elmt",
   "iec_ref": "",
   "primitives": [

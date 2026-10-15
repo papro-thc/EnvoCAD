@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.392.10-generators-windmill",
-  "name": "Větrný generátor",
-  "category": "QET vícepól/generators_sources/generators",
+  "name": "Větrný generátor [vícepól]",
+  "category": "Zdroje/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: Arun Kishore Eswara; windmill.elmt",
   "iec_ref": "",
   "primitives": [

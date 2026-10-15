@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.330.30-power-supplies-ac2-dc",
-  "name": "Napájecí zdroj AC/DC",
-  "category": "QET vícepól/transformers_power_supplies/power supplies",
+  "name": "Napájecí zdroj AC/DC [vícepól]",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; ac2_dc.elmt",
   "iec_ref": "",
   "primitives": [

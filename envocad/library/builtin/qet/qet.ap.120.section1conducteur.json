@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.120.section1conducteur",
-  "name": "Označení vodiče",
-  "category": "QET vícepól/cables_wiring",
+  "name": "Označení vodiče [vícepól]",
+  "category": "Kabely/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; section1conducteur.elmt",
   "iec_ref": "",
   "primitives": [

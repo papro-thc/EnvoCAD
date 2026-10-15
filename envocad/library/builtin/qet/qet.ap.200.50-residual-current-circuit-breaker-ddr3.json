@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.50-residual-current-circuit-breaker-ddr3",
-  "name": "Proudový chránič 2P",
-  "category": "QET vícepól/fuses_protective_gears/residual current circuit breaker",
+  "name": "Proudový chránič 2P [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; ddr3.elmt",
   "iec_ref": "F",
   "primitives": [

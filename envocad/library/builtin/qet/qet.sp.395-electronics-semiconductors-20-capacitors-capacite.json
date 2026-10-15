@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.395-electronics-semiconductors-20-capacitors-capacite",
   "name": "Kondenzátor",
-  "category": "QET jednopól/electronics semiconductors/capacitors",
+  "category": "Elektronika/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; capacite.elmt",
   "iec_ref": "",
   "primitives": [

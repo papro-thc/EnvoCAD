@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.200-fuses-protective-gears-20-disconnecting-switches-sectionneur1-2",
   "name": "Odpínač",
-  "category": "QET jednopól/fuses protective gears/disconnecting switches",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; sectionneur1-2.elmt",
   "iec_ref": "F",
   "primitives": [

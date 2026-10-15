@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.120.filerie",
-  "name": "Vodič kabelu",
-  "category": "QET vícepól/cables_wiring",
+  "name": "Vodič kabelu [vícepól]",
+  "category": "Kabely/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); filerie.elmt",
   "iec_ref": "",
   "primitives": [

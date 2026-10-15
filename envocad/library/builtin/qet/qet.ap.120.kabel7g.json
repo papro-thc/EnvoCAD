@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.120.kabel7g",
-  "name": "Kabel 7G",
-  "category": "QET vícepól/cables_wiring",
+  "name": "Kabel 7G [vícepól]",
+  "category": "Kabely/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; kabel7g.elmt",
   "iec_ref": "",
   "primitives": [

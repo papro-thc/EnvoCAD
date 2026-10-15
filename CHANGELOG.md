@@ -1,6 +1,8 @@
 # Changelog
 
 ## 0.8.0 – 2026-10-15
+- Vícepólové značky: značka má volitelnou část `multipole` (pól, společná část, mechanická vazba) – ve vícepólu se jistič/odpínač/stykač/chránič rozkreslí po pólech s čárkovanou vazbou a společnou spouští, pojistky a svorky po pólech bez vazby. Vlastní značky mají `multipole` vygenerované (`tools/gen_builtin_fve.py`), QET značky se opakují celé.
+- Panel knihovny: nadpisy jsou druhy prvků (Zdroje, Střídače a měniče, Jištění, Spínání, Měření, Svorky a propojení, Rozvaděče, …), vlastní značky přímo pod nadpisem, cizí (QET, 673 ks) ve sbalené podsložce „QET (n)“ s příznakem „[vícepól]“ v názvu; rozlišení jednopól/vícepól z cest zmizelo (`tools/recategorize_qet.py`).
 - FV string má v JPS jeden port DC (pár DC+/DC- jsou žíly vodiče), střídač má DC vstupy DC1/DC2 (MPPT); staré projekty se zmigrují (formát v5). Rozložení už nekreslí rámeček listu.
 - **Vícepól jako svorkové schéma s vlastním rozmístěním**: automatické rozmístění po sloupcích podle hloubky od zdroje (přívod/FV/baterie), skupiny svorek spojené můstky v jedné řadě, vývody zarovnané pod svými svorkami; prvky jdou ve vícepólu posouvat myší (undo, `Element.mp_pos`, formát projektu v4), `Zobrazit → Vícepól: rozmístit automaticky` vrátí automatiku. List vícepólu se podle potřeby zvětší.
 - **Plán svorkovnice** (`Zobrazit → Plán svorkovnice`, `Ctrl+Shift+M`): kreslený list jako v EPLAN – svorky v řadě, vnější připojení nahoře (navázaný kabel JPS), vnitřní dole, můstky; export PDF. Stejná data jako list xlsx „Plán svorkovnice“. Výkaz materiálu počítá svorky po kusech (skupina = počet žil) a můstky po skupinách.

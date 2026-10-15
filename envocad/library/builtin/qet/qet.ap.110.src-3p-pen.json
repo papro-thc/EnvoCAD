@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.110.src-3p-pen",
-  "name": "Přípojnice 3f+PEN",
-  "category": "QET vícepól/network_supplies",
+  "name": "Přípojnice 3f+PEN [vícepól]",
+  "category": "Síť a zátěž/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; src_3p_pen.elmt",
   "iec_ref": "",
   "primitives": [

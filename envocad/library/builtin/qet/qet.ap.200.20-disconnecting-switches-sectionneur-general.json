@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.200.20-disconnecting-switches-sectionneur-general",
-  "name": "Pojistkový odpínač 3P",
-  "category": "QET vícepól/fuses_protective_gears/disconnecting switches",
+  "name": "Pojistkový odpínač 3P [vícepól]",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; sectionneur_general.elmt",
   "iec_ref": "F",
   "primitives": [

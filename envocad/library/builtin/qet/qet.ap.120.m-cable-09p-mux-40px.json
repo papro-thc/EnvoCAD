@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.120.m-cable-09p-mux-40px",
-  "name": "Vícežilový kabel 9-pólový Mux 40px",
-  "category": "QET vícepól/cables_wiring",
+  "name": "Vícežilový kabel 9-pólový Mux 40px [vícepól]",
+  "category": "Kabely/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: Moritz Scholjegerdes; m_cable_09p_mux_40px.elmt",
   "iec_ref": "",
   "primitives": [

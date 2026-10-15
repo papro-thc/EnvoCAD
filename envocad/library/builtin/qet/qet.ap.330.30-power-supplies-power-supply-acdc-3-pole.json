@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.330.30-power-supplies-power-supply-acdc-3-pole",
-  "name": "Třífázový napájecí zdroj AC/DC",
-  "category": "QET vícepól/transformers_power_supplies/power supplies",
+  "name": "Třífázový napájecí zdroj AC/DC [vícepól]",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); power_supply_acdc_3_pole.elmt",
   "iec_ref": "",
   "primitives": [

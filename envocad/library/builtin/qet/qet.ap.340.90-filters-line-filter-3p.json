@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.340.90-filters-line-filter-3p",
-  "name": "Síťový filtr 3f",
-  "category": "QET vícepól/converters_inverters/filters",
+  "name": "Síťový filtr 3f [vícepól]",
+  "category": "Střídače a měniče/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); line_filter_3p.elmt",
   "iec_ref": "",
   "primitives": [

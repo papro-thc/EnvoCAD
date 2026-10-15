@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.130.borne-21",
-  "name": "Spojovací svorka",
-  "category": "QET vícepól/terminals_terminal_strips",
+  "name": "Spojovací svorka [vícepól]",
+  "category": "Svorky a propojení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; borne_21.elmt",
   "iec_ref": "",
   "primitives": [

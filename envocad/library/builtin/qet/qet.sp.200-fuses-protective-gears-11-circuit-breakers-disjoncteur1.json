@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.200-fuses-protective-gears-11-circuit-breakers-disjoncteur1",
   "name": "Vypínač",
-  "category": "QET jednopól/fuses protective gears/circuit breakers",
+  "category": "Jištění/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; disjoncteur1.elmt",
   "iec_ref": "F",
   "primitives": [

@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.02-contacts-cross-referencing-15-protection-contacts-contact-gv-no",
-  "name": "Kontakt (NO) jističe",
-  "category": "QET vícepól/relays_contactors_contacts/contacts cross referencing/protection contacts",
+  "name": "Kontakt (NO) jističe [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); contact_gv_no.elmt",
   "iec_ref": "",
   "primitives": [

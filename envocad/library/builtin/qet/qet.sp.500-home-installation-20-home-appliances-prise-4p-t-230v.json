@@ -1,7 +1,7 @@
 {
   "id": "qet.sp.500-home-installation-20-home-appliances-prise-4p-t-230v",
   "name": "Zásuvka 3f+N+PE 230 V",
-  "category": "QET jednopól/home installation/home appliances",
+  "category": "Instalace/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); prise-4p-t-230v.elmt",
   "iec_ref": "F",
   "primitives": [

@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.330.10-transformers-trafo3v",
-  "name": "Trafo se třemi vinutími bez odboček",
-  "category": "QET vícepól/transformers_power_supplies/transformers",
+  "name": "Trafo se třemi vinutími bez odboček [vícepól]",
+  "category": "Transformátory a napájení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0); trafo3v.elmt",
   "iec_ref": "",
   "primitives": [

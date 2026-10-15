@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.130.barre-interconnexion-tn",
-  "name": "Propojovací svorka TN",
-  "category": "QET vícepól/terminals_terminal_strips",
+  "name": "Propojovací svorka TN [vícepól]",
+  "category": "Svorky a propojení/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; barre_interconnexion_tn.elmt",
   "iec_ref": "",
   "primitives": [

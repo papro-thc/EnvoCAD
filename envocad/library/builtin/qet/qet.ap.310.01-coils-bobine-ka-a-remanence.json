@@ -1,7 +1,7 @@
 {
   "id": "qet.ap.310.01-coils-bobine-ka-a-remanence",
-  "name": "Bistabilní remanentní relé",
-  "category": "QET vícepól/relays_contactors_contacts/coils",
+  "name": "Bistabilní remanentní relé [vícepól]",
+  "category": "Relé a stykače/QET",
   "description": "Zdroj: QElectroTech (CC BY 3.0), autor: The QElectroTech team; bobine_ka_a_remanence.elmt",
   "iec_ref": "",
   "primitives": [
