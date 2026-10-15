@@ -322,7 +322,7 @@ def test_strip_dialog_and_bridges(app, tmp_path):
     assert len(p.bridge_groups("X2")) == 5
     # výkaz svorkovnice obsahuje můstky a čísla ze skupin svorek
     from envocad.export import reports
-    head, rows = reports.terminals(p, w.library, sb)
+    _, rows = reports.terminals(p, w.library, sb)
     x2 = [r for r in rows if r[0] == "X2"]
     assert any(r[1] == "7" and r[5] == "2-7-12-17" for r in x2), x2[:5]
     w.undo.setClean()

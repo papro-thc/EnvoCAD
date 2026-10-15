@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
+from itertools import pairwise
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QKeyEvent, QMouseEvent, QPainter, QPen, QUndoStack, QWheelEvent
@@ -419,7 +420,7 @@ class SchematicScene(QGraphicsScene):
             for g in groups:
                 els = {owner[(strip, n)].id: owner[(strip, n)] for n in g if (strip, n) in owner}
                 lst = sorted(els.values(), key=lambda e: (e.x, e.y))
-                for a, b in zip(lst, lst[1:]):
+                for a, b in pairwise(lst):
                     pairs.add((a.id, b.id))
         if not pairs:
             return
