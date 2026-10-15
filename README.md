@@ -28,8 +28,9 @@ Build pro Windows se musí dělat na Windows, pro Linux na Linuxu.
 
 ## Stav
 
-v0.2 – jednopólové schéma FVE, listy rozvaděčů (schéma + fyzické rozložení na DIN lištách), šablony rozvaděčů,
-výkazy (xlsx) a protokol kusového ověření (docx), export DXF/PDF, import symbolů z DXF, tmavý režim.
+v0.5 – jednopólové schéma FVE, listy rozvaděčů (schéma + fyzické rozložení na DIN lištách, parametry skříně, odhad oteplení),
+šablony rozvaděčů, výkazy (xlsx) a protokol kusového ověření (docx), export DXF/PDF, knihovna 460 artiklů (OEZ, Eaton,
+Schneider, Hager, SMA, SolaX, Huawei, BMR) + 673 značek QElectroTech, import DXF/EPLAN, pluginy, tmavý režim.
 
 Dokumentace: `docs/ARCHITECTURE.md`, `docs/LIBRARY_FORMAT.md`, `docs/ROADMAP.md`.
 Pokyny pro agenty: `CLAUDE.md`.

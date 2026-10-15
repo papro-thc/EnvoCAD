@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1 – 2026-10-15
+- Knihovna artiklů z PDF katalogů dodaných uživatelem (celkem 460 artiklů): Eaton 253 (xPole PL/PLHT/AZ, PF/PFIM/FRCmM/dRCM, SPD, xComfort skříně), OEZ 143 (Minia LTN/LFN/LFE/OLI/SVBC, 3VA10–3VA24 vč. odpínačů, motorových pohonů MO310/MO320/SEO520 a spínačů do dutin, pojistkové odpínače OPVP/OPVF, rozvodnice RZA), Schneider 35 (skříně S1868), Hager 11, SMA 5, SolaX 6, Huawei 3, BMR 4 (PLA33RXE…). Každý řádek má odkaz na zdroj a stranu katalogu v poznámce.
+- Úklid: staré řádky 3VA v `oez.csv` nahrazeny `oez_3va.csv`, duplicity ze `seed.csv` odstraněny (dřívější chyba: `seed.csv` se načítal jako poslední a přepisoval katalogová data), přiřazení motorových pohonů a spínače EAS k rámům ověřeno proti tabulkám B12/B19 katalogu MO01-2022.
+- Test `tests/test_components_builtin.py`: validace všech vestavěných CSV, zákaz duplicitních id napříč soubory.
+- Známé mezery: ztrátové výkony 3VA (potřeba OEZ „3VA Parametry“), OPVF10 DC (chybějící strany B12–B14 v OPVP PDF), význam přípon BMR C/D/R, montážní desky Schneider.
+
 ## 0.5.0 – 2026-10-15
 - Instalační skripty `scripts/install.ps1|sh`, `run.*`, balení `scripts/build.*` + `envocad.spec` (PyInstaller, ověřeno na Linuxu). Python omezen na 3.11–3.13.
 - Import značek QElectroTech (`library/qet_import.py`): 673 značek IEC 60617 (jednopól + vícepólové jištění, spínání, transformátory, střídače, zdroje, svorky, relé, kabely) v kategoriích „QET …“, s uvedením autorství (CC BY 3.0, `builtin/qet/ATTRIBUTION.md`).

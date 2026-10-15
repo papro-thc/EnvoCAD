@@ -1,8 +1,4 @@
 id;manufacturer;part_number;name;category;symbol_id;footprint_id;datasheet_url;source;price_czk;in_;poles;char;icu_ka;idn_ma;un_v;modules;width_mm;height_mm;depth_mm;p_loss_w;spd_type;uc_v;rows;modules_per_row;ip;ik;material;mounting;door;note
-oez-ltn-16b-3;OEZ;LTN-16B-3;Jistič LTN 16 A B 3p;mcb;fve.breaker_mcb;;https://www.oez.cz;seed;;16;3;B;10;;400;3;52.5;90;70;;;;;;;;;;;seed – ověřit dle katalogu Minia
-oez-ltn-32b-3;OEZ;LTN-32B-3;Jistič LTN 32 A B 3p;mcb;fve.breaker_mcb;;https://www.oez.cz;seed;;32;3;B;10;;400;3;52.5;90;70;;;;;;;;;;;seed – ověřit
-oez-ltn-63c-3;OEZ;LTN-63C-3;Jistič LTN 63 A C 3p;mcb;fve.breaker_mcb;;https://www.oez.cz;seed;;63;3;C;10;;400;3;52.5;90;70;;;;;;;;;;;seed – ověřit
 oez-ofi-40-4-030ac;OEZ;OFI-40-4-030AC;Proudový chránič OFI 40 A 4p 30 mA AC;rcd;sb.rcd;;https://www.oez.cz;seed;;40;4;AC;;30;400;4;70;90;70;;;;;;;;;;;seed – ověřit
 oez-ofi-63-4-030a;OEZ;OFI-63-4-030A;Proudový chránič OFI 63 A 4p 30 mA A;rcd;sb.rcd;;https://www.oez.cz;seed;;63;4;A;;30;400;4;70;90;70;;;;;;;;;;;seed – ověřit
-oez-svbc-12-5-3n-mz;OEZ;SVBC-12,5-3N-MZ;Svodič přepětí T1+T2 3+1;spd;fve.spd;;https://www.oez.cz;seed;;;4;;;;;4;70;90;70;;T1+T2;275;;;;;;;;seed – ověřit
 hager-vu36nc;Hager;VU36NC;Rozvodnice Volta 3×12 modulů, nástěnná, plné dveře;enclosure;;;https://www.hager.cz;seed;;;;;;;;;;;;;;;3;12;IP30;;plast;nástěnná;plné;seed – rozměry doplnit
