@@ -243,6 +243,14 @@ def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None
     return head, rows
 
 
-ALL_REPORTS = [("Výpočty", calculations), ("Přístroje", device_list), ("Výkaz materiálu", bom), ("Kabely", cables),
+def dso_report(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
+    """Data pro žádost o připojení výrobny k DS."""
+    from envocad.export.tz_export import dso_data
+    has_plant = any(e.symbol_id in ("fve.pv_string", "fve.inverter", "fve.inverter_hybrid")
+                    for s in project.sheets for e in s.elements)
+    return ["Údaj", "Hodnota"], ([list(r) for r in dso_data(project, lib)] if has_plant else [])
+
+
+ALL_REPORTS = [("Data pro DS", dso_report), ("Výpočty", calculations), ("Přístroje", device_list), ("Výkaz materiálu", bom), ("Kabely", cables),
                ("Kabelový plán", cable_plan), ("Zapojovací seznam", wiring_list),
                ("Svorkovnice", terminals), ("Plán svorkovnice", terminal_plan_report), ("Štítky", labels)]

@@ -36,3 +36,22 @@ def test_build_requires_inverters():
     import pytest
     with pytest.raises(ValueError):
         build_project(dict(DEFAULT_SPEC))
+
+
+def test_tz_and_dso(tmp_path):
+    from docx import Document
+
+    from envocad.export.reports import dso_report
+    from envocad.export.tz_export import dso_data, export_tz_docx
+    spec = {"name": "FVE TZ", "meta": {"investor": "Inv", "place": "Brno"},
+            "inverters": [{"ref": "T1", "p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "strings": [20, 20]}],
+            "grid": {"dso": "EG.D"}}
+    p = build_project(spec)
+    d = dict(dso_data(p, LibraryStore()))
+    assert d["Distributor"] == "EG.D" and d["Instalovaný výkon FV (DC)"].startswith("18 kWp") and "25 kW" in d["Instalovaný výkon střídačů (AC)"]
+    assert dso_report(p, LibraryStore())[1]
+    out = tmp_path / "tz.docx"
+    export_tz_docx(p, LibraryStore(), out)
+    doc = Document(str(out))
+    text = "\n".join(par.text for par in doc.paragraphs)
+    assert "Technická zpráva" in text and "Kontrola stringů" in text and len(doc.tables) >= 6

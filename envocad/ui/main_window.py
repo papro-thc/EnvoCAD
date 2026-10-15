@@ -188,6 +188,7 @@ class MainWindow(QMainWindow):
         act(m_out, "Výkazy aktuálního listu (xlsx)…", lambda: self.export_xlsx(current_only=True))
         act(m_out, "Výkazy celého projektu (xlsx)…", lambda: self.export_xlsx(current_only=False))
         act(m_out, "Protokol kusového ověření (docx)…", self.export_routine_test)
+        act(m_out, "Technická zpráva (docx)…", self.export_tz)
         m_out.addSeparator()
         act(m_out, "Celá dokumentace (PDF)…", self.export_documentation, "Ctrl+Shift+E", True)
 
@@ -858,6 +859,14 @@ class MainWindow(QMainWindow):
         if path:
             n = export_documentation_pdf(self.project, self.library, path)
             self.statusBar().showMessage(f"Exportováno {n} stran: {path}", 5000)
+
+    def export_tz(self) -> None:
+        from envocad.export.tz_export import export_tz_docx
+        base = self.project.name.replace("/", "-") or "projekt"
+        path, _ = QFileDialog.getSaveFileName(self, "Technická zpráva", f"{base} – TZ.docx", "Word (*.docx)")
+        if path:
+            export_tz_docx(self.project, self.library, path)
+            self.statusBar().showMessage(f"Exportováno: {path}", 3000)
 
     def export_routine_test(self) -> None:
         from envocad.export.docx_export import export_routine_test_docx
