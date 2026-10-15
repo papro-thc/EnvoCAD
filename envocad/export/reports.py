@@ -107,9 +107,10 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
 
 def cables(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Seznam kabelů / vodičů s označením nebo typem kabelu."""
-    from envocad.model.project import wire_xref
+    from envocad.model.project import feed_link_index, wire_xref
     head = ["Označení", "Odkud", "Kam", "Typ kabelu", "Průřez [mm²]", "Žíly", "Délka [m]", "Trasa", "Rozvaděč", "List"]
     rows = []
+    idx = feed_link_index(project)
     for s in _sheets(project, sheet):
         for w in s.wires:
             if not (w.attrs.get("ref") or w.attrs.get("cable")):
@@ -117,7 +118,7 @@ def cables(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> t
             a, b = s.element(w.a.element_id), s.element(w.b.element_id)
             rows.append([w.attrs.get("ref", ""), f"{a.ref or a.symbol_id}:{w.a.port}", f"{b.ref or b.symbol_id}:{w.b.port}",
                          w.attrs.get("cable", ""), w.attrs.get("cross", ""), " ".join(w.conductors) or w.attrs.get("poles", ""),
-                         w.attrs.get("length", ""), w.attrs.get("route", ""), wire_xref(project, w.id).lstrip("→ "), s.name])
+                         w.attrs.get("length", ""), w.attrs.get("route", ""), wire_xref(project, w.id, idx).lstrip("→ "), s.name])
     rows.sort(key=lambda r: (r[9], _ref_key(r[0])))
     return head, rows
 

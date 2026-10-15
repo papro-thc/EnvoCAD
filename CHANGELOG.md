@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.10.1 – 2026-10-15
+- Výkon: vazby přívodů na vodiče JPS se počítají jednou (`feed_link_index`) a drží v cache scény do další změny modelu – výkaz Kabely a DXF u projektu s 800 vodiči z 0,25 s na 3 ms, překreslení JPS ~2× rychlejší; makra se nenačítají jako značky (chybové hlášky při startu).
 - **T-odbočka / vodič z vodiče**: klik na vodič v režimu Vodič ho rozdělí uzlem (`sb.junction`, 4 porty = jeden potenciál), odbočka přebere žíly; `SplitWireCommand` s undo.
 - **Potenciály** (`model/potential.py`): sítě přes vodiče, uzly, průchozí svorky, můstky, PE lištu a vazby přívod/vývod ↔ JPS; názvy potenciálů (`L1 X1`, `DC+ G1`, `N (W3)`), kontrola zkratů L–N / L–PE / DC+–DC− / fáze (u jednopólových přístrojů i přes jednu svorku), uzel bez odbočky; potenciál žil v panelu Vlastnosti, výkaz **Potenciály**.
 - **Makra**: `Úpravy → Uložit výběr jako makro…` (`Ctrl+Shift+S`) do `~/.envocad/macros/` nebo sdílené knihovny (`macros/`), uzel Makra v panelu Knihovna (dvojklik vloží doprostřed pohledu, nová označení), mazání; 3 vestavěná makra (`tools/gen_builtin_macros.py`).

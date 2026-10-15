@@ -379,9 +379,16 @@ class SchematicScene(QGraphicsScene):
             if w.touches(eid) and w.conductors != conds:
                 self.undo.push(commands.SetConductorsCommand(self, w.id, w.conductors, conds))
 
+    _xref_index: dict | None = None   # cache vazeb přívodů na vodiče pro překreslení; ruší se při změně modelu
+
+    def invalidate_xrefs(self) -> None:
+        self._xref_index = None
+
     def wire_xref(self, w: Wire) -> str:
-        from envocad.model.project import wire_xref
-        return wire_xref(self.project, w.id)
+        from envocad.model.project import feed_link_index, wire_xref
+        if self._xref_index is None:
+            self._xref_index = feed_link_index(self.project)
+        return wire_xref(self.project, w.id, self._xref_index)
 
     def element_xref(self, e: Element) -> str:
         from envocad.model.project import element_xref

@@ -634,6 +634,10 @@ class MainWindow(QMainWindow):
         from envocad.model.project import sync_cables, sync_feed_links
         sync_feed_links(self.project)
         sync_cables(self.project)
+        for i in range(self.tabs.count()):
+            sc = self._unwrap(self.tabs.widget(i)).scene()
+            if isinstance(sc, SchematicScene):
+                sc.invalidate_xrefs()
         self._refresh_switchboard_blocks()
 
     def _refresh_switchboard_blocks(self) -> None:

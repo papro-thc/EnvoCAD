@@ -120,11 +120,13 @@ def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Pa
             _text(msp, x0 + 32, y, v, 2.5, "left", 0, layer="TEXTY")
     for e in sheet.elements:
         _draw_symbol(msp, e, element_symbol(project, e, lib))
+    from envocad.model.project import feed_link_index
+    idx = feed_link_index(project)
     for w in sheet.wires:
         pts = _wire_points(project, sheet, lib, w)
         msp.add_lwpolyline(pts, dxfattribs={"layer": "VODICE"})
         label = wire_label(w.attrs, w.conductors)
-        xref = wire_xref(project, w.id) if not sheet.is_switchboard else ""
+        xref = wire_xref(project, w.id, idx) if not sheet.is_switchboard else ""
         if label or xref:
             x, y, align, vertical = wire_label_anchor(pts)
             if w.points and len(pts) >= 2 and abs(pts[1][1] - pts[0][1]) < 1e-6:

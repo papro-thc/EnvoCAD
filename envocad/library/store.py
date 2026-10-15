@@ -92,6 +92,8 @@ class LibraryStore:
 
     def _sync_symbols(self, root: Path, tag: str, seen: dict, rows: list) -> None:
         for f in sorted(root.rglob("*.json")):
+            if "macros" in f.relative_to(root).parts:   # makra nejsou značky
+                continue
             key = f"{tag}:{f.relative_to(root)}"
             mtime = f.stat().st_mtime
             if seen.get(key) == mtime:

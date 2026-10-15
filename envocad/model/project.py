@@ -648,10 +648,25 @@ def wire_label(attrs: dict, conductors: list[str] | None = None) -> str:
     return "  ".join(x for x in parts if x)
 
 
-def wire_xref(project: Project, wire_id: str) -> str:
-    """Text křížového odkazu k vodiči JPS: „→ R1:X1“."""
+def feed_link_index(project: Project) -> dict[str, list[tuple[Sheet, Element]]]:
+    """{id vodiče JPS: [(list rozvaděče, přívod/vývod)…]} – spočítat jednou, pak se ptát za každý vodič
+    (výkazy a překreslení s 800 vodiči by jinak procházely všechny přívody × vodiče pokaždé)."""
+    out: dict[str, list[tuple[Sheet, Element]]] = {}
+    for s in project.sheets:
+        for e in s.elements:
+            if e.symbol_id not in FEED_SYMBOLS:
+                continue
+            hit = linked_wire(project, s, e)
+            if hit is not None:
+                out.setdefault(hit[1].id, []).append((s, e))
+    return out
+
+
+def wire_xref(project: Project, wire_id: str, index: dict[str, list[tuple[Sheet, Element]]] | None = None) -> str:
+    """Text křížového odkazu k vodiči JPS: „→ R1:X1“. `index` = `feed_link_index()` pro hromadné volání."""
     parts = []
-    for s, e in feeds_linked_to(project, wire_id):
+    links = index.get(wire_id, []) if index is not None else feeds_linked_to(project, wire_id)
+    for s, e in links:
         block = project.sheet_of_element(s.parent_element_id) if s.parent_element_id else None
         bname = ""
         if block is not None:
