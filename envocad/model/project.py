@@ -590,6 +590,12 @@ def switchboard_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
     for p in base.ports:  # staré porty, dokud na ně něco vede
         if p.name in used and p.name not in names:
             ports.append(Port(p.name, p.x, p.y if abs(p.y) < half else (half if p.y > 0 else -half), p.dir))
+            names.add(p.name)
+    # vodiče na smazaný/přejmenovaný přívod či vývod: port zůstane dole (nic se nerozpojí), označený „?“
+    for k, name in enumerate(sorted(used - names)):
+        x = round((-10 + k * 10) / 2.5) * 2.5
+        ports.append(Port(name, x, -half, "S"))
+        prims.append({"type": "text", "x": x, "y": -half + 1.0, "text": f"{name}?", "height": 1.8, "align": "center"})
     return Symbol(id=base.id, name=base.name, category=base.category, description=base.description,
                   iec_ref=base.iec_ref, primitives=prims, ports=ports, attributes=base.attributes,
                   label_pos=(-15, -half - 3))
@@ -626,6 +632,13 @@ def sync_feed_links(project: Project) -> int:
                 continue
             cur = f.attrs.get("wire_id", "")
             if cur and linked_wire(project, s, f) is not None and feed_wire_by_port(project, s, f) is None:
+                # ruční vazba (nebo přejmenovaný přívod/vývod): konec vodiče na bloku se přejmenuje na nové označení
+                _, lw = linked_wire(project, s, f)
+                block = s.parent_element_id
+                for end in (lw.a, lw.b):
+                    if end.element_id == block and end.port != f.ref and f.ref:
+                        end.port = f.ref
+                        changed += 1
                 continue
             w = feed_wire_by_port(project, s, f)
             new_id = w.id if w else ""

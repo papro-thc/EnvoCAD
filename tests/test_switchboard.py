@@ -195,3 +195,37 @@ def test_switchboard_block_ports_follow_feeds():
     assert "3" in [pt.name for pt in element_symbol(p, blk, lib).ports]
     s.wires.remove(w_old)
     assert "3" not in [pt.name for pt in element_symbol(p, blk, lib).ports]
+
+
+def test_block_follows_switchboard_edits():
+    """Změny v rozvaděči (nový vývod, přejmenování, smazání) se promítnou do portů bloku v JPS."""
+    from envocad.library.templates import apply_template
+    from envocad.model.project import element_symbol, sync_feed_links
+    lib = LibraryStore()
+    p = Project(name="Edit")
+    s = p.sheets[0]
+    blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
+    load = Element("fve.load", 200, 150, attrs={"ref": "M1"})
+    s.elements += [blk, load]
+    sb = p.create_switchboard_sheet(blk)
+    apply_template(p, sb, "ac_fve")
+    ports = lambda: [pt.name for pt in element_symbol(p, blk, lib).ports]
+    assert ports() == ["X1", "X4", "X5", "X6"]
+    # nový vývod v rozvaděči → nový port
+    sb.elements.append(Element("sb.feed_out", 300, 100, attrs={"ref": "X7", "desc": "vývod 4"}))
+    assert ports() == ["X1", "X4", "X5", "X6", "X7"]
+    # vodič v JPS na X4, pak přejmenování vývodu X4 → X8: konec vodiče se přejmenuje
+    w = Wire(WireEnd(blk.id, "X4"), WireEnd(load.id, "1"), attrs={"ref": "W3"})
+    s.wires.append(w)
+    sync_feed_links(p)
+    x4 = next(e for e in sb.elements if e.ref == "X4")
+    assert x4.attrs["wire_id"] == w.id
+    x4.attrs["ref"] = "X8"
+    sync_feed_links(p)
+    assert w.a.port == "X8" and "X8" in ports() and "X4" not in ports()
+    # smazání vývodu s napojeným vodičem: port zůstane označený otazníkem, nic nespadne
+    sb.elements.remove(x4)
+    sync_feed_links(p)
+    sym = element_symbol(p, blk, lib)
+    assert "X8" in [pt.name for pt in sym.ports] and sym.port("X8").dir == "S"
+    assert any(pr.get("text") == "X8?" for pr in sym.primitives)
