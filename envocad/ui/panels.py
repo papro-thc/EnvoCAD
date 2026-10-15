@@ -1,6 +1,8 @@
 """Dokovací panely: knihovna symbolů a vlastnosti vybraného prvku."""
 from __future__ import annotations
 
+from typing import ClassVar
+
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QFormLayout,
@@ -34,7 +36,7 @@ class LibraryPanel(QWidget):
         self.tree.itemDoubleClicked.connect(self._dbl)
         self.refresh()
 
-    KIND_ORDER = ["Zdroje", "Střídače a měniče", "Jištění", "Spínání", "Měření", "Svorky a propojení", "Rozvaděče",
+    KIND_ORDER: ClassVar[list[str]] = ["Zdroje", "Střídače a měniče", "Jištění", "Spínání", "Měření", "Svorky a propojení", "Rozvaděče",
                   "Síť a zátěž", "Transformátory a napájení", "Relé a stykače", "Kabely", "Konektory", "Instalace",
                   "Elektronika", "Ostatní"]
 
