@@ -122,6 +122,13 @@ pojistky, SPD a svorky po pólech bez vazby. Automatické rozmístění je po sl
 (svorkové schéma); prvky jdou chytit a posunout myší, `Zobrazit → Vícepól: rozmístit automaticky` vrátí
 automatiku. Dvojklik na prvek = parametry, dvojklik na žílu = svorky, `Delete` maže.
 
+**Více stran s odkazy**: když se rozvaděč nevejde na jednu stranu, rozmístění pokračuje na dalších stranách
+(na obrazovce pod sebou, v PDF každá zvlášť, v popisovém poli `2/3`). Prvek nikdy nepřesahuje okraj strany.
+Žíla, která pokračuje jinde, končí na okraji **přerušovacím bodem** se šipkou a odkazem `/3.2.B4` = list 3,
+strana 2, sloupec B, řádek 4 – na druhé straně vstupuje stejně s odkazem zpět. Svorkovnice s můstky
+pokračuje přes strany, PE lišta je na straně, kde má nejvíc sousedů. Ručně posunuté prvky zůstávají tam,
+kam je dáš (i na jiné straně).
+
 Vkládání nových prvků a vodičů do rozvaděče se dělá v záložce `R1 – jednopól (editace)` (`Ctrl+J`, menu
 List → Rozvaděč – jednopólová editace); `Ctrl+M` tě vrátí do vícepólu.
 

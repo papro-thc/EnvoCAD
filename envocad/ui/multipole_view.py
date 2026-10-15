@@ -179,6 +179,29 @@ class BridgeItem(QGraphicsPathItem):
             painter.drawEllipse(sp(x, y), 0.5, 0.5)
 
 
+class PageBreakItem(QGraphicsItem):
+    """Přerušení žíly na okraji strany: šipka a odkaz na pokračování („/3.2.B4“ = list 3, strana 2, sloupec B řádek 4)."""
+
+    def __init__(self, x: float, y: float, outgoing: bool, text: str):
+        super().__init__()
+        self.x_, self.y_, self.outgoing, self.text = x, y, outgoing, text
+        self.setZValue(6)
+        self.setPos(sp(x, y))
+
+    def boundingRect(self) -> QRectF:
+        return QRectF(-40, -6, 80, 12)
+
+    def paint(self, painter, option, widget=None):
+        c = colors().ink if self.scene() is None or self.scene().draw_grid else PRINT.ink
+        painter.setPen(QPen(c, LINE_WIDTH))
+        d = 1.0 if self.outgoing else -1.0
+        # šipka ve směru toku ze strany ven (odchozí) / do strany (příchozí)
+        painter.drawLine(QPointF(0, 0), QPointF(-3 * d, -2))
+        painter.drawLine(QPointF(0, 0), QPointF(-3 * d, 2))
+        painter.setPen(QPen(c, 0.2))
+        draw_text(painter, 1.5 if self.outgoing else -1.5, 1.0, self.text, 1.8, "left" if self.outgoing else "right")
+
+
 class ConductorItem(QGraphicsPathItem):
     """Jedna žíla vodiče mezi póly dvou prvků."""
     Type = QGraphicsItem.UserType + 12
@@ -241,20 +264,57 @@ class MultipoleScene(QGraphicsScene):
         self._items: list[QGraphicsItem] = []
         self._move_start: dict[str, tuple[float, float]] = {}
         self.layout_pos: dict[str, tuple[float, float]] = {}
+        self.pages: list[QRectF] = []          # strany (scénové obdélníky, shora dolů)
+        self.page_of: dict[str, int] = {}      # prvek → index strany
         self.selectionChanged.connect(self._on_selection)
         self.rebuild()
 
-    def _fit_paper(self, poles: dict[str, mp.ElementPoles]) -> None:
-        """List vícepólu: rozměr JPS listu, podle potřeby zvětšený, aby se rozmístění vešlo (s okrajem)."""
+    PAGE_GAP = 20.0   # mezera mezi stranami pod sebou (mm)
+
+    @property
+    def page_pitch(self) -> float:
+        return self.sheet.height + self.PAGE_GAP
+
+    def page_index_at(self, y: float) -> int:
+        """Strana podle modelové souřadnice y (strana 0 = y ∈ [0, H], další pod ní)."""
+        return max(0, int((self.sheet.height - y) // self.page_pitch))
+
+    def page_ref(self, k: int, x: float, y: float) -> str:
+        """Odkaz „/list.strana.sloupecřádek“ na místo na straně k (scénové souřadnice)."""
+        from envocad.model.frame import grid_coord, sheet_number
+        n = sheet_number(self.project, self.sheet).split("/")[0]
+        y_local = y + k * self.page_pitch
+        return f"/{n}.{k + 1}.{grid_coord(self.sheet, x, y_local)}"
+
+    @property
+    def page_w(self) -> float:
+        """Použitelná šířka strany pro rozmístění (bez okrajů rámečku)."""
         from envocad.model.frame import MARGIN, MARGIN_LEFT
-        w, h = self.sheet.width, self.sheet.height
-        for ep in poles.values():
+        return self.sheet.width - MARGIN_LEFT - MARGIN - 30.0
+
+    def _paginate(self, poles: dict[str, mp.ElementPoles]) -> None:
+        """Rozmístění (strany za sebou v x) → strany pod sebou: prvek na straně k se posune o k·šířka doleva
+        a o k·(výška + mezera) dolů. Ruční pozice (`mp_pos`) jsou už scénové – strana se jim jen určí."""
+        from envocad.model.frame import MARGIN_LEFT
+        x0, pw, pitch = 40.0, self.page_w, self.page_pitch
+        self.page_of = {}
+        n_pages = 1
+        for eid, ep in poles.items():
             x, y = ep.origin
-            w = max(w, x + mp.flow_extent(ep) + mp.perp_extent(ep) + MARGIN + 40)
-            h = max(h, (self.sheet.height - y) + mp.perp_extent(ep) + MARGIN + 20)
+            if ep.element.mp_pos:
+                k = self.page_index_at(y)
+            else:
+                k = max(0, int((x - x0) // pw))
+                ep.origin = (x - k * pw, y - k * pitch)
+            self.page_of[eid] = k
+            n_pages = max(n_pages, k + 1)
+        w, h = self.sheet.width, self.sheet.height
+        # strana k: model y ∈ [−k·pitch, h − k·pitch] → scéna y ∈ [k·pitch − h, k·pitch]
+        self.pages = [QRectF(0, k * pitch - h, w, h) for k in range(n_pages)]
         self.paper_size = (w, h)
-        self._paper.setRect(QRectF(0, -h, w, h))
-        self.setSceneRect(QRectF(-50 - MARGIN_LEFT, -h - 50, w + 100, h + 100))
+        total_h = n_pages * pitch - self.PAGE_GAP
+        self._paper.setRect(QRectF(0, -h, w, total_h))
+        self.setSceneRect(QRectF(-50 - MARGIN_LEFT, -h - 50, w + 100, total_h + 100))
 
     # ---- stavba z modelu ----------------------------------------------------
     def rebuild(self) -> None:
@@ -266,10 +326,12 @@ class MultipoleScene(QGraphicsScene):
         for e in self.sheet.elements:
             sym = element_symbol(self.project, e, self.library)
             poles[e.id] = mp.element_poles(self.sheet, e, sym)
-        self.layout_pos = mp.auto_layout(self.sheet, poles, y_top=self.sheet.height - 40.0, bridges=self.sheet.bridges)
+        self._breaks: dict[tuple[int, bool], int] = {}
+        self.layout_pos = mp.auto_layout(self.sheet, poles, y_top=self.sheet.height - 40.0, bridges=self.sheet.bridges,
+                                         page_w=self.page_w)
         for eid, ep in poles.items():
             ep.origin = self.layout_pos.get(eid, (ep.element.x, ep.element.y))
-        self._fit_paper(poles)
+        self._paginate(poles)
         for e in self.sheet.elements:
             ep = poles[e.id]
             if ep.per_pole:
@@ -288,13 +350,37 @@ class MultipoleScene(QGraphicsScene):
                 continue
             da = rotate_dir(ea.symbol.port(w.a.port).dir, ea.element.rotation)
             db = rotate_dir(eb.symbol.port(w.b.port).dir, eb.element.rotation)
+            ka, kb = self.page_of.get(w.a.element_id, 0), self.page_of.get(w.b.element_id, 0)
             for i, c in enumerate(mp.wire_conductors(w)):
                 pa, pb = ea.pole_pos(w.a.port, c), eb.pole_pos(w.b.port, c)
                 # svorka na konci: ruční přiřazení; u svorkového prvku je číslo přímo na pólu
                 ta = "" if mp.is_terminal_block(ea.element) else mp.terminal_text(w, c, "a")
                 tb = "" if mp.is_terminal_block(eb.element) else mp.terminal_text(w, c, "b")
-                self._add(ConductorItem(w, c, i, sp(*pa), da, sp(*pb), db, (ta, tb)))
+                if ka == kb:
+                    self._add(ConductorItem(w, c, i, sp(*pa), da, sp(*pb), db, (ta, tb)))
+                else:
+                    self._add_page_break(w, c, i, pa, da, ka, pb, db, kb, (ta, tb))
         self._add_bridges(poles)
+
+    def _add_page_break(self, w, c, i, pa, da, ka, pb, db, kb, texts) -> None:
+        """Žíla přes hranici stran: na každé straně úsek k okraji s přerušovacím bodem a odkazem na protějšek."""
+        from envocad.model.frame import MARGIN, MARGIN_LEFT
+        right = ka < kb   # pokračování je na pozdější straně → odchod pravým okrajem, příchod levým
+        xa = (self.sheet.width - MARGIN - 6.0) if right else (MARGIN_LEFT + 6.0)
+        xb = (MARGIN_LEFT + 6.0) if right else (self.sheet.width - MARGIN - 6.0)
+        # každé přerušení na daném okraji strany v jiné výšce (řady po 2,5 mm), aby se šipky a odkazy nekryly
+        na = self._breaks.setdefault((ka, right), 0)
+        nb = self._breaks.setdefault((kb, not right), 0)
+        self._breaks[(ka, right)] = na + 1
+        self._breaks[(kb, not right)] = nb + 1
+        ya = pa[1] - 2.5 * na
+        yb = pb[1] - 2.5 * nb
+        ea_pt = (xa, ya)
+        eb_pt = (xb, yb)
+        self._add(ConductorItem(w, c, i, sp(*pa), da, sp(*ea_pt), "W" if right else "E", (texts[0], "")))
+        self._add(ConductorItem(w, c, i, sp(*eb_pt), "E" if right else "W", sp(*pb), db, ("", texts[1])))
+        self._add(PageBreakItem(xa, ya, right, self.page_ref(kb, xb, yb)))
+        self._add(PageBreakItem(xb, yb, not right, self.page_ref(ka, xa, ya)))
 
     def _add_bridges(self, poles: dict[str, mp.ElementPoles]) -> None:
         """Můstky svorkovnic: spojí středy svorek (posunuté k portu 1) se stejným označením X:n na tomto listu."""
@@ -310,16 +396,21 @@ class MultipoleScene(QGraphicsScene):
             for c, num in zip(ep.slots, nums):
                 if num:
                     ox, oy = ep.pole_offset(c)
-                    pos[(e.ref, num)] = (ep.origin[0] + ox, ep.origin[1] + oy, dx / n, dy / n)
+                    pos[(e.ref, num)] = (ep.origin[0] + ox, ep.origin[1] + oy, dx / n, dy / n, self.page_of.get(e.id, 0))
         for strip, groups in self.sheet.bridges.items():
             for gi, g in enumerate(groups):
                 hits = [pos[(strip, n)] for n in g if (strip, n) in pos]
                 if len(hits) < 2:
                     continue
-                # každá skupina můstků v jiné výšce (od 2 mm po 0,6 mm směrem k portu 1), aby se nepřekrývaly
+                # každá skupina můstků v jiné výšce (od 2 mm po 0,6 mm směrem k portu 1), aby se nepřekrývaly;
+                # přes hranici stran se můstek kreslí po stranách zvlášť
                 off = 2.0 + 0.6 * (gi % 6)
-                pts = sorted((x + ux * off, y + uy * off) for x, y, ux, uy in hits)
-                self._add(BridgeItem(strip, g, pts))
+                for k in sorted({h[4] for h in hits}):
+                    part = [h for h in hits if h[4] == k]
+                    if len(part) < 2:
+                        continue
+                    pts = sorted((x + ux * off, y + uy * off) for x, y, ux, uy, _ in part)
+                    self._add(BridgeItem(strip, g, pts))
 
     def _add_fan(self, ep: mp.ElementPoles) -> None:
         """Neprůchozí prvek: od portu vede kolmá sběrná čárka přes všechny sloty."""
@@ -430,12 +521,30 @@ class MultipoleScene(QGraphicsScene):
         from envocad.model.frame import frame_geometry
         c = PRINT if not self.draw_grid else colors()
         w, h = self.paper_size
-        draw_frame(painter, frame_geometry(self.project, self.sheet, w, h, "vícepólové schéma"), c.ink)
+        n = max(1, len(self.pages))
+        for k in range(n):
+            painter.save()
+            painter.translate(0, k * self.page_pitch)
+            page = f"{k + 1}/{n}" if n > 1 else ""
+            draw_frame(painter, frame_geometry(self.project, self.sheet, w, h, "vícepólové schéma", page), c.ink)
+            painter.restore()
+            if k:  # dělicí čára mezi stranami i bez rámečku
+                painter.setPen(QPen(c.grid, 0, Qt.DashLine))
+                painter.drawLine(QPointF(0, -h - k * self.page_pitch + self.PAGE_GAP / 2),
+                                 QPointF(w, -h - k * self.page_pitch + self.PAGE_GAP / 2))
 
 
 class MultipoleView(SchematicView):
     """Stejné ovládání (zoom, posun) jako JPS; obsah je jen pro čtení a výběr."""
 
     def zoom_fit(self) -> None:
-        w, h = self.scene().paper_size
-        self.fitInView(QRectF(0, -h, w, h), Qt.KeepAspectRatio)
+        sc = self.scene()
+        w, h = sc.paper_size
+        pages = getattr(sc, "pages", None)
+        if pages:
+            r = QRectF(pages[0])
+            for p in pages[1:]:
+                r = r.united(p)
+            self.fitInView(r, Qt.KeepAspectRatio)
+        else:
+            self.fitInView(QRectF(0, -h, w, h), Qt.KeepAspectRatio)

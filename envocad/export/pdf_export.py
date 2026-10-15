@@ -21,8 +21,8 @@ def export_scene_pdf(scene, path: Path | str, paper: str | None = None) -> None:
     writer = QPdfWriter(str(path))
     writer.setPageSize(QPageSize(QSizeF(out_w, out_h), QPageSize.Millimeter))
     writer.setPageMargins(QMarginsF(0, 0, 0, 0))
-    writer.setPageLayout(QPageLayout(QPageSize(QSizeF(out_w, out_h), QPageSize.Millimeter),
-                                     QPageLayout.Landscape if out_w > out_h else QPageLayout.Portrait,
+    # rozměr strany už orientaci nese (420×297 = na šířku); Landscape by ji otočil podruhé → strana na výšku
+    writer.setPageLayout(QPageLayout(QPageSize(QSizeF(out_w, out_h), QPageSize.Millimeter), QPageLayout.Portrait,
                                      QMarginsF(0, 0, 0, 0)))
     writer.setResolution(300)
     writer.setTitle(scene.project.name)
@@ -33,8 +33,11 @@ def export_scene_pdf(scene, path: Path | str, paper: str | None = None) -> None:
     scene.draw_grid = False
     prev_dark = theme.is_dark()
     theme._current = theme.PRINT
-    src = QRectF(0, -ph, pw, ph)
-    scene.render(painter, QRectF(0, 0, writer.width(), writer.height()), src, Qt.KeepAspectRatio)
+    pages = getattr(scene, "pages", None) or [QRectF(0, -ph, pw, ph)]   # vícepól může mít víc stran
+    for i, src in enumerate(pages):
+        if i:
+            writer.newPage()
+        scene.render(painter, QRectF(0, 0, writer.width(), writer.height()), src, Qt.KeepAspectRatio)
     painter.end()
     theme._current = theme.DARK if prev_dark else theme.LIGHT
     scene.draw_grid = True

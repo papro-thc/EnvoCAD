@@ -105,10 +105,16 @@ class DocBuilder:
         scene.draw_grid = False
         pw, ph = getattr(scene, "paper_size", (sheet.width, sheet.height))
         painter.resetTransform()
-        # vejít do strany A3 (vícepól může být větší)
+        # vejít do strany A3; vícepól může mít víc stran (každá na vlastní stranu PDF)
         scale = min(writer.width() / pw, writer.height() / ph)
         target = QRectF(0, 0, pw * scale, ph * scale)
-        scene.render(painter, target, QRectF(0, -ph, pw, ph), Qt.KeepAspectRatio)
+        pages = getattr(scene, "pages", None) or [QRectF(0, -ph, pw, ph)]
+        for i, src in enumerate(pages):
+            if i:
+                writer.newPage()
+                _page_painter_setup(painter, writer)
+                painter.resetTransform()
+            scene.render(painter, target, src, Qt.KeepAspectRatio)
         scene.deleteLater()
 
     def _table(self, painter, writer, name: str, head: list[str], rows: list[list], start: int) -> int:

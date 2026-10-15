@@ -69,7 +69,7 @@
 - [ ] Funkční šablony artiklů (střídač → porty podle MPPT, jistič → příslušenství), přiřazení příslušenství k rámu
 - [ ] **Bloky typů střídačů**: každý typ střídače jako blok s vlastními svorkami – DC vstupy, AC, baterie, komunikace (RS485, Ethernet, CAN), DRMS / řízení výkonu (RTU, NS ochrana), měřicí smyčka – z katalogu `inverters.csv`; dnes má střídač jen DC1…DCn, AC (a BAT)
 - [ ] Rozložení jako výkres: montážní deska, žlaby a lišty podle artiklu s délkami, vrtací plán, výkaz montážního materiálu
-- [ ] Vícepatrové svorky, svorkovnice přes více listů, N-odpojovací svorky jako druh
+- [ ] Vícepatrové svorky, N-odpojovací svorky jako druh (svorkovnice přes více stran – hotovo 10/2026 stránkováním vícepólu)
 - [x] Makra (oblíbené sestavy) – hotovo 10/2026; zbývá: kopírování celého listu, hromadné přečíslování, editor značek v GUI
 - [ ] Štítky ve formátu tiskáren (Brady/Partex), výkaz artiklů po dodavatelích s objednacími čísly
 - [ ] Číslování stran celé dokumentace i v rámečku listů (dnes list x/y projektu), logo ENVO v popisovém poli

@@ -172,10 +172,11 @@ def _flow_is_horizontal_for(ep: ElementPoles) -> bool:
 
 
 def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, y_top: float = 250.0,
-                bridges: dict[str, list[list[str]]] | None = None) -> dict[str, tuple[float, float]]:
+                bridges: dict[str, list[list[str]]] | None = None, page_w: float | None = None) -> dict[str, tuple[float, float]]:
     """Automatické rozmístění vícepólu po sloupcích („svorkové schéma“): hloubka od zdroje (přívod, síť, FV)
     určuje sloupec ve směru toku, uvnitř sloupce se prvky řadí podle pozice v JPS a rozestupují podle počtu pólů.
-    Prvky s ruční pozicí (`mp_pos`) zůstávají, kde jsou."""
+    Prvky s ruční pozicí (`mp_pos`) zůstávají, kde jsou. `page_w` (svislý tok): šířka strany – prvek, který by
+    přesáhl hranici strany, začne na další straně (strany jsou v souřadnici x za sebou: strana k = [x0 + k·page_w, …)."""
     if not poles:
         return {}
     horizontal = sum(1 for ep in poles.values() if _flow_is_horizontal_for(ep)) * 2 >= len(poles)
@@ -271,20 +272,33 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
     out: dict[str, tuple[float, float]] = {}
     sign = -1.0 if horizontal else 1.0  # vodorovný tok: prvky ve sloupci jdou dolů; svislý: doprava
 
-    def place(i: str, start: float) -> None:
+    def page_fix(start: float, own: float) -> float:
+        """Začátek prvku; přesáhl-li by hranici strany, posune se na začátek další strany."""
+        if not page_w or horizontal:
+            return start
+        k0 = int((start - x0) // page_w)
+        k1 = int((start + own - x0) // page_w)
+        return start if k1 == k0 else x0 + k1 * page_w
+
+    def place(i: str, start: float) -> float:
+        """Umístí prvek a jeho podstrom; vrátí konec podstromu (kolmo na tok) – kvůli skokům na další stranu."""
         d = depth[i]
+        own = perp_extent(poles[i]) + 8.0
+        start = page_fix(start, own)
         perp = start + sign * 8.0
         fp = flow_pos[d]
         out[i] = (fp + col_w[d] / 2, perp) if horizontal else (perp, fp - col_w[d] / 2)
         cursor = start
+        end = start + sign * own
         for c in children[i]:
-            place(c, cursor)
-            cursor += sign * (width(c) + ROW_GAP)
+            e = place(c, cursor)
+            cursor = e + sign * ROW_GAP
+            end = max(end, e) if sign > 0 else min(end, e)
+        return end
 
     cursor = y_top if horizontal else x0
     for r in roots:
-        place(r, cursor)
-        cursor += sign * (width(r) + ROW_GAP)
+        cursor = place(r, cursor) + sign * ROW_GAP
     for b in bars:
         ns = [n for n in nb[b] if n in out]
         d = max([depth[n] for n in ns], default=depth[b] - 1) + 1   # PE lišta až za svými sousedy (SPD…)
@@ -295,11 +309,21 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
         fp = flow_pos[d]
         if ns:
             vals = [(out[n][1] if horizontal else out[n][0]) for n in ns]
+            if page_w and not horizontal:
+                # sousedé na více stranách: lišta na stranu s nejvíc sousedy (při shodě na dřívější), uprostřed nich
+                from collections import Counter
+                pages = Counter(int((v - x0) // page_w) for v in vals)
+                k = min(pages.items(), key=lambda kv: (-kv[1], kv[0]))[0]
+                vals = [v for v in vals if int((v - x0) // page_w) == k]
             perp = (min(vals) + max(vals)) / 2
         else:
             perp = cursor + sign * 8.0
             cursor += sign * (width(b) + ROW_GAP)
         perp = round(perp / GRID) * GRID
+        if page_w and not horizontal and ns:
+            # lišta zůstává uvnitř své strany (střed by mohl padnout k okraji)
+            k = int((vals[0] - x0) // page_w)
+            perp = min(max(perp, x0 + k * page_w + 8.0), x0 + (k + 1) * page_w - perp_extent(poles[b]) - 8.0)
         out[b] = (fp + col_w[d] / 2, perp) if horizontal else (perp, fp - col_w[d] / 2)
     for i, ep in poles.items():
         if ep.element.mp_pos:

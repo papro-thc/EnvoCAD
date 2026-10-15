@@ -559,3 +559,29 @@ def test_macro_insert_and_branch_gui(app):
     assert len(s.elements) == 2
     w.undo.setClean()
     w.close()
+
+
+def test_multipole_pagination(app):
+    import tempfile
+    from pathlib import Path
+
+    from PySide6.QtGui import QUndoStack
+
+    from envocad.export.pdf_export import export_scene_pdf
+    from envocad.generate import build_project
+    from envocad.ui.multipole_view import MultipoleScene, PageBreakItem
+    spec = {"name": "Velká", "inverters": [{"ref": "T1", "p_ac": 100, "mppt": 6, "u_dc_max": 1100, "u_mppt_min": 200,
+                                           "u_mppt_max": 1000, "i_mppt_max": 30, "strings": [20] * 12}], "dc": {"route_boxes": 0}}
+    p = build_project(spec)
+    sc = MultipoleScene(p, p.sheets[1], LibraryStore(), QUndoStack())
+    assert len(sc.pages) == 3 and set(sc.page_of.values()) == {0, 1, 2}
+    # prvky nepřesahují okraj své strany
+    for e in p.sheets[1].elements:
+        k = sc.page_of[e.id]
+        assert sc.page_index_at(sc.layout_pos[e.id][1] - k * sc.page_pitch) == k
+    breaks = [it for it in sc.items() if isinstance(it, PageBreakItem)]
+    assert breaks and any(it.text.startswith("/2.2.") for it in breaks) and any(it.text.startswith("/2.1.") for it in breaks)
+    with tempfile.TemporaryDirectory() as d:
+        out = Path(d) / "mp.pdf"
+        export_scene_pdf(sc, out)
+        assert out.stat().st_size > 5000
