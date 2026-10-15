@@ -1,6 +1,8 @@
 # Changelog
 
 ## 0.10.1 – 2026-10-15
+- **Značky kontaktů dle IEC 60617 / EPLAN**: kloub pohyblivého kontaktu na straně výstupu (port 2), volný konec u vstupu – ve svislém vícepólu kloub dole, nůž nahoře; spoušť „x“ jističe na volném konci nože, pevný kontakt odpojovače s příčkou na vstupu; pomocné kontakty NO/NC stejně. Pojistkový odpínač má pojistku správně na noži.
+- Vícepól: PE lišta ve vlastním sloupci pod svými sousedy (SPD…), můstky čárkovaně podél řady svorek místo tlusté „sběrnice“, popisek svislých přístrojů vedle prvního pólu, označení skupiny svorek vedle čáry.
 - **Přívod a vývod rozvaděče jsou svorkovnice**: ve vícepólu má každá žíla svorku s číslem (bez zadání 1…n, jinak atribut „Svorka č.“), jsou v plánu svorkovnice, ve výkazu svorkovnice a v BOM (řadové svorky); popisek vývodu pod svorkami.
 - **Můstky patří listu rozvaděče** (`Sheet.bridges`, formát projektu v7 s migrací) – X1 v RDC1 a X1 v RH jsou různé svorkovnice; `SetBridgesCommand`/`bridge_groups`/`set_bridges`/`bridge_of` berou list.
 - **Generátor / průvodce – DC strana jako na stavbě**: ke každému střídači DC rozvaděče **po trase** (`dc.route_boxes`, odpínač DC + SPD na každý string, stringy procházejí odděleně) a **u technologie** (`dc.tech_box`, pojistkové odpínače gPV + SPD DC na každý MPPT); bloky v JPS mají porty X1…Xn (od stringů) a Xn+1… (dál); kabely string → 1. rozvaděč, mezi rozvaděči (`route_length`) a ke střídači (`tech_length`). Starou variantu (jen odpínač v JPS) zapne `dc.disconnect` bez rozvaděčů. Více rozvaděčů po trase rozšíří list JPS.

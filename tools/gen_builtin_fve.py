@@ -40,9 +40,11 @@ def attr(key, label, default="", show=False):
     return {"key": key, "label": label, "default": default, "show": show}
 
 
-CONTACT = [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0)]          # spínací kontakt (jeden pól)
-TRIP_X = [L(-3.5, -1, -1.5, 1), L(-3.5, 1, -1.5, -1)]                            # nadproudová spoušť (x)
-DISC_BAR = [L(2.5, -1.5, 2.5, 1.5)]                                              # značka odpínače
+# Kontakt dle IEC 60617: pohyblivý kontakt (nůž) je kloubem na straně portu 2 (výstup), volný konec u portu 1 –
+# ve svislém kreslení shora dolů (vícepól) tedy kloub dole, nůž nahoře vychýlený do strany, jako v EPLAN.
+CONTACT = [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0)]          # spínací kontakt (jeden pól)
+TRIP_X = [L(-4.3, 4.2, -2.3, 6.2), L(-4.3, 6.2, -2.3, 4.2)]                   # nadproudová spoušť (x) na volném konci nože
+DISC_BAR = [L(-2.5, -1.5, -2.5, 1.5)]                                          # značka odpojovače/odpínače (pevný kontakt)
 
 
 def MP(pole, common=None, link=True, link_at=(0, 2)):
@@ -79,7 +81,7 @@ SYMBOLS = [
     {
         "id": "fve.dc_disconnect", "name": "Odpínač DC", "category": "Spínání", "iec_ref": "Q",
         "description": "Odpínač DC (např. v DC rozvaděči nebo ve střídači)",
-        "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0), L(2.5, -1.5, 2.5, 1.5),
+        "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0), L(-2.5, -1.5, -2.5, 1.5),
                        L(-2.5, -1.5, -2.5, 1.5), T(0, 6, "DC", 2)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("un", "Un [V DC]"), attr("in_", "In [A]", "", True),
@@ -100,14 +102,12 @@ SYMBOLS = [
     {
         "id": "fve.fuse_disconnect", "name": "Pojistkový odpínač", "category": "Jištění", "iec_ref": "F",
         "description": "Pojistkový odpínač (pojistka ve vyklápěcím držáku) – DC rozvaděč u technologie, gPV",
-        "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 4, 4), L(2.5, 0, 7.5, 0), L(2.5, -1.5, 2.5, 1.5),
-                       # pojistka na páce (natočený obdélník)
-                       L(-1.5, -0.5, 3.0, 2.3), L(-0.5, -2.1, 4.0, 0.7), L(-1.5, -0.5, -0.5, -2.1), L(3.0, 2.3, 4.0, 0.7)],
+        "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0), L(-2.5, -1.5, -2.5, 1.5),
+                       {"type": "polyline", "points": [[-1.84, 2.66], [-0.65, 4.00], [2.34, 1.34], [1.15, -0.00]], "closed": True}],  # pojistka na noži
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "gPV"),
                        attr("un", "Un [V DC]", "1000"), attr("poles", "Póly", "2"), attr("modules", "Šířka [moduly]", "2"), PLOSS],
-        "multipole": MP([L(-7.5, 0, -2.5, 0), L(-2.5, 0, 4, 4), L(2.5, 0, 7.5, 0), L(2.5, -1.5, 2.5, 1.5),
-                         L(-1.5, -0.5, 3.0, 2.3), L(-0.5, -2.1, 4.0, 0.7), L(-1.5, -0.5, -0.5, -2.1), L(3.0, 2.3, 4.0, 0.7)]),
+        "multipole": MP([L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0), L(-2.5, -1.5, -2.5, 1.5), {"type": "polyline", "points": [[-1.84, 2.66], [-0.65, 4.00], [2.34, 1.34], [1.15, -0.00]], "closed": True}]),
         "label_pos": {"x": -5, "y": -6},
     },
     {
@@ -159,8 +159,8 @@ SYMBOLS = [
     {
         "id": "fve.breaker_mcb", "name": "Jistič", "category": "Jištění", "iec_ref": "F",
         "description": "Jistič (MCB)",
-        "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0),
-                       L(-3.5, -1, -1.5, 1), L(-3.5, 1, -1.5, -1)],
+        "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0),
+                       L(-4.3, 4.2, -2.3, 6.2), L(-4.3, 6.2, -2.3, 4.2)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "B"),
                        POLES, MOD, attr("icu", "Icu [kA]", "6"), PLOSS],
@@ -170,18 +170,18 @@ SYMBOLS = [
     {
         "id": "fve.breaker_mccb", "name": "Výkonový jistič", "category": "Jištění", "iec_ref": "Q",
         "description": "Kompaktní výkonový jistič (MCCB)",
-        "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0),
-                       L(-3.5, -1, -1.5, 1), L(-3.5, 1, -1.5, -1), R(-5, -3.5, 10, 7)],
+        "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0),
+                       L(-4.3, 4.2, -2.3, 6.2), L(-4.3, 6.2, -2.3, 4.2), R(-6, -3.5, 12, 10.5)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("ir", "Ir [A]"), POLES,
                        attr("modules", "Šířka [moduly]", "6"), attr("icu", "Icu [kA]"), PLOSS],
-        "multipole": MP(CONTACT + TRIP_X, [R(-5, -3.5, 10, 7)]),
+        "multipole": MP(CONTACT + TRIP_X, [R(-6, -3.5, 12, 10.5)]),
         "label_pos": {"x": -5, "y": -7},
     },
     {
         "id": "fve.switch_disconnector", "name": "Odpínač", "category": "Spínání", "iec_ref": "Q",
         "description": "Odpínač AC (hlavní vypínač, odpínač FVE)",
-        "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0), L(2.5, -1.5, 2.5, 1.5)],
+        "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0), L(-2.5, -1.5, -2.5, 1.5)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS],
         "multipole": MP(CONTACT + DISC_BAR),
@@ -190,10 +190,10 @@ SYMBOLS = [
     {
         "id": "fve.contactor", "name": "Stykač", "category": "Spínání", "iec_ref": "K",
         "description": "Stykač (např. pro odpojení FVE od DS – NS)",
-        "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0), A(3.5, 0, 1, 90, 270)],
+        "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0), A(-3.5, 0, 1, -90, 90)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS],
-        "multipole": MP(CONTACT + [A(3.5, 0, 1, 90, 270)]),
+        "multipole": MP(CONTACT + [A(-3.5, 0, 1, -90, 90)]),
         "label_pos": {"x": -5, "y": -6},
     },
     {
@@ -264,7 +264,7 @@ SYMBOLS = [
     {
         "id": "sb.rcd", "name": "Proudový chránič", "category": "Jištění", "iec_ref": "F",
         "description": "Proudový chránič (RCD)",
-        "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0),
+        "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0),
                        {"type": "polyline", "points": [[-1, -2], [1, -2], [0, -4.5]], "closed": True}],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("idn", "IΔn [mA]", "30", True),
@@ -275,7 +275,7 @@ SYMBOLS = [
     {
         "id": "sb.rcbo", "name": "Jistič s chráničem", "category": "Jištění", "iec_ref": "F",
         "description": "Proudový chránič s nadproudovou ochranou (RCBO)",
-        "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0), L(-3.5, -1, -1.5, 1), L(-3.5, 1, -1.5, -1),
+        "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0), L(-4.3, 4.2, -2.3, 6.2), L(-4.3, 6.2, -2.3, 4.2),
                        {"type": "polyline", "points": [[0, -2], [2, -2], [1, -4.5]], "closed": True}],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "B"),
@@ -286,11 +286,11 @@ SYMBOLS = [
     {
         "id": "sb.main_switch", "name": "Hlavní vypínač", "category": "Spínání", "iec_ref": "Q",
         "description": "Hlavní vypínač rozvaděče",
-        "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0), L(2.5, -1.5, 2.5, 1.5),
-                       C(-2.5, 0, 0.8), T(0, 6, "HV", 2)],
+        "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0), L(-2.5, -1.5, -2.5, 1.5),
+                       C(2.5, 0, 0.8), T(0, 6, "HV", 2)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS],
-        "multipole": MP(CONTACT + DISC_BAR, [C(-2.5, 0, 0.8), T(0, 6, "HV", 2)]),
+        "multipole": MP(CONTACT + DISC_BAR, [C(2.5, 0, 0.8), T(0, 6, "HV", 2)]),
         "label_pos": {"x": -5, "y": -6},
     },
     {
@@ -344,7 +344,7 @@ SYMBOLS = [
         "primitives": [{"type": "polyline", "points": [[-15, 0], [15, 0]], "closed": False},
                        {"type": "polyline", "points": [[-15, 1.5], [15, 1.5]], "closed": False}, T(17, 0, "PE", 2, "left")],
         "ports": [P(f"{i + 1}", -12.5 + i * 5, -2.5, "S") for i in range(6)],
-        "attributes": [REF, attr("kind", "Druh", "PE", True)],
+        "attributes": [REF, attr("kind", "Druh", "PE")],
         "label_pos": {"x": -15, "y": 3.5},
     },
 ]
@@ -364,7 +364,7 @@ SYMBOLS += [
     {
         "id": "ctl.contact_no", "name": "Kontakt spínací (NO)", "category": "Relé a stykače", "iec_ref": "",
         "description": "Pomocný spínací kontakt (13/14) – označení = cívka/přístroj, ke kterému patří",
-        "primitives": [L(0, 7.5, 0, 2.5), L(0, 2.5, -3.5, -3), L(0, -2.5, 0, -7.5)],
+        "primitives": [L(0, 7.5, 0, 2.5), L(0, -2.5, -3.5, 3.5), L(0, -2.5, 0, -7.5)],
         "ports": [P("13", 0, 7.5, "N"), P("14", 0, -7.5, "S")],
         "attributes": [attr("ref", "Označení (cívka / přístroj)", "", True), attr("terminals", "Svorky", "13/14", True),
                        attr("desc", "Funkce")],
@@ -373,7 +373,7 @@ SYMBOLS += [
     {
         "id": "ctl.contact_nc", "name": "Kontakt rozpínací (NC)", "category": "Relé a stykače", "iec_ref": "",
         "description": "Pomocný rozpínací kontakt (21/22)",
-        "primitives": [L(0, 7.5, 0, 2.5), L(0, 2.5, -3.5, -3), L(0, -2.5, 0, -7.5), L(0, 2.5, 2, 2.5)],
+        "primitives": [L(0, 7.5, 0, 2.5), L(0, -2.5, 3.5, 3.5), L(0, -2.5, 0, -7.5), L(0, 2.5, 3, 2.5)],
         "ports": [P("21", 0, 7.5, "N"), P("22", 0, -7.5, "S")],
         "attributes": [attr("ref", "Označení (cívka / přístroj)", "", True), attr("terminals", "Svorky", "21/22", True),
                        attr("desc", "Funkce")],
@@ -382,10 +382,10 @@ SYMBOLS += [
     {
         "id": "ctl.contact_power", "name": "Hlavní kontakt (silový)", "category": "Relé a stykače", "iec_ref": "",
         "description": "Silový kontakt stykače (1/2, 3/4, 5/6) pro silové schéma – patří k cívce stejného označení",
-        "primitives": CONTACT + [A(3.5, 0, 1, 90, 270)],
+        "primitives": CONTACT + [A(-3.5, 0, 1, -90, 90)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [attr("ref", "Označení (cívka)", "", True), attr("in_", "In [A]", "", True), POLES, MOD, PLOSS],
-        "multipole": MP(CONTACT + [A(3.5, 0, 1, 90, 270)]),
+        "multipole": MP(CONTACT + [A(-3.5, 0, 1, -90, 90)]),
         "label_pos": {"x": -5, "y": -6},
     },
 ]

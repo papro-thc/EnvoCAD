@@ -98,8 +98,13 @@ class PoleItem(QGraphicsItem):
             y = sum(h + 1.0 for _, h in lines[1:])
             if self.element.symbol_id == "sb.feed_out":
                 lx, ly = x0, y0 - 6.0 - (y + 2.5)
+            elif self.element.rotation == 270 and not mp.is_terminal_block(self.element):
+                # svislý tok (otočení 270°): strana -y je vlevo od prvního pólu – popisek vedle, ne mezi póly
+                lx, ly = x0, y0 - 1.5 - (y + 2.5)
             else:
                 lx, ly = x0, y1 + (7.5 if mp.is_terminal_block(self.element) else 1.5)  # nad můstky
+                if self.element.symbol_id in ("sb.terminal_block", "fve.terminal"):
+                    lx -= 3.5   # vedle svislé čáry svorky, ne přes ni
         else:
             lx, ly = self.symbol.label_pos
             y = 0.0
@@ -152,7 +157,7 @@ class BypassItem(QGraphicsPathItem):
 
 
 class BridgeItem(QGraphicsPathItem):
-    """Můstek (propoj) mezi svorkami jedné svorkovnice – tlustá čára s tečkami na svorkách."""
+    """Můstek (propoj) mezi svorkami jedné svorkovnice – čárkovaná čára podél řady svorek (u portu 1), ne sběrnice."""
 
     def __init__(self, strip: str, group: list[str], points: list[tuple[float, float]]):
         super().__init__()
@@ -163,14 +168,15 @@ class BridgeItem(QGraphicsPathItem):
         self.setPath(path)
         self.setZValue(7)
         self.setToolTip(f"Můstek {strip}: {'-'.join(group)}")
-        self.setPen(QPen(colors().ink, LINE_WIDTH * 1.6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        self.setPen(QPen(colors().ink, LINE_WIDTH * 0.8, Qt.DashLine, Qt.FlatCap, Qt.RoundJoin))
 
     def paint(self, painter, option, widget=None):
-        painter.setPen(QPen(colors().ink, LINE_WIDTH * 1.6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        painter.setPen(QPen(colors().ink, LINE_WIDTH * 0.8, Qt.DashLine, Qt.FlatCap, Qt.RoundJoin))
         painter.drawPath(self.path())
         painter.setBrush(colors().ink)
+        painter.setPen(QPen(colors().ink, LINE_WIDTH))
         for x, y in self.points:
-            painter.drawEllipse(sp(x, y), 0.7, 0.7)
+            painter.drawEllipse(sp(x, y), 0.5, 0.5)
 
 
 class ConductorItem(QGraphicsPathItem):
@@ -310,8 +316,8 @@ class MultipoleScene(QGraphicsScene):
                 hits = [pos[(strip, n)] for n in g if (strip, n) in pos]
                 if len(hits) < 2:
                     continue
-                # každá skupina můstků v jiné výšce (1,5 mm + 0,8 mm na skupinu směrem k portu 1), aby se nepřekrývaly
-                off = 1.0 + 1.0 * (gi % 6)
+                # každá skupina můstků v jiné výšce (od 2 mm po 0,6 mm směrem k portu 1), aby se nepřekrývaly
+                off = 2.0 + 0.6 * (gi % 6)
                 pts = sorted((x + ux * off, y + uy * off) for x, y, ux, uy in hits)
                 self._add(BridgeItem(strip, g, pts))
 

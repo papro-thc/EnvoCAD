@@ -235,9 +235,12 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
     # které patří do uzlu spojeného můstkem, se zavěsí vedle člena uzlu s rodičem; zbytek jsou kořeny
     children: dict[str, list[str]] = {eid: [] for eid in poles}
     parent: dict[str, str] = {}
+    bars = [i for i in poles if poles[i].element.symbol_id == "sb.pe_bar"]   # PE lišta: mimo strom, pod svými sousedy
     for d in sorted(columns):
         for i in sorted(columns[d], key=key):
-            ps = sorted((p for p in nb[i] if depth.get(p) == d - 1), key=key)
+            if i in bars:
+                continue
+            ps = sorted((p for p in nb[i] if depth.get(p) == d - 1 and p not in bars), key=key)
             if ps:
                 parent[i] = ps[0]
                 children[ps[0]].append(i)
@@ -252,7 +255,7 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
                 children[anchor].append(i)
     for c in children.values():
         c.sort(key=key)
-    roots = [i for i in sorted(poles, key=key) if i not in parent]
+    roots = [i for i in sorted(poles, key=key) if i not in parent and i not in bars]
 
     def width(i: str) -> float:
         own = perp_extent(poles[i]) + 8.0
@@ -282,6 +285,22 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
     for r in roots:
         place(r, cursor)
         cursor += sign * (width(r) + ROW_GAP)
+    for b in bars:
+        ns = [n for n in nb[b] if n in out]
+        d = max([depth[n] for n in ns], default=depth[b] - 1) + 1   # PE lišta až za svými sousedy (SPD…)
+        if d not in flow_pos:
+            flow_pos[d] = pos
+            col_w[d] = flow_extent(poles[b])
+            pos = pos + col_w[d] + COL_GAP if horizontal else pos - col_w[d] - COL_GAP
+        fp = flow_pos[d]
+        if ns:
+            vals = [(out[n][1] if horizontal else out[n][0]) for n in ns]
+            perp = (min(vals) + max(vals)) / 2
+        else:
+            perp = cursor + sign * 8.0
+            cursor += sign * (width(b) + ROW_GAP)
+        perp = round(perp / GRID) * GRID
+        out[b] = (fp + col_w[d] / 2, perp) if horizontal else (perp, fp - col_w[d] / 2)
     for i, ep in poles.items():
         if ep.element.mp_pos:
             out[i] = tuple(ep.element.mp_pos)

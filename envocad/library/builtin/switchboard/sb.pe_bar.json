@@ -91,7 +91,7 @@
       "key": "kind",
       "label": "Druh",
       "default": "PE",
-      "show": true
+      "show": false
     }
   ],
   "label_pos": {
