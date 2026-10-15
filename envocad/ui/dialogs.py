@@ -1,8 +1,9 @@
 """Dialogy editoru."""
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
@@ -12,11 +13,14 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QSpinBox,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
-from envocad.model.project import ENCLOSURE_PARAMS, MODULE_WIDTH, Layout, Sheet
+from envocad.model import multipole as mp
+from envocad.model.project import ENCLOSURE_PARAMS, MODULE_WIDTH, Layout, Sheet, Wire
 from envocad.model.symbol import Attribute, Symbol
 
 
@@ -51,6 +55,70 @@ class AttrDialog(QDialog):
 
     def values(self) -> dict[str, str]:
         return {k: e.text().strip() for k, e in self._edits.items()}
+
+
+CONDUCTOR_PRESETS = ["L1 L2 L3 N PE", "L1 L2 L3 PE", "L1 L2 L3 N", "L1 N PE", "L1 N", "L1", "N", "PE",
+                     "DC+ DC-", "DC+", "DC-", "PEN"]
+
+
+class WireDialog(AttrDialog):
+    """Parametry vodiče + seznam žil (pro vícepólový pohled a svorkovnice)."""
+
+    def __init__(self, attrs: dict[str, str], conductors: list[str], parent=None,
+                 title: str = "Vodič", heading: str = ""):
+        from envocad.model.project import WIRE_ATTRIBUTES
+        super().__init__(WIRE_ATTRIBUTES, attrs, parent, title, heading)
+        self.cond = QComboBox()
+        self.cond.setEditable(True)
+        self.cond.addItems(CONDUCTOR_PRESETS)
+        self.cond.setCurrentText(" ".join(conductors))
+        self.cond.setToolTip("Žíly vodiče oddělené mezerou – každá se ve vícepólu kreslí zvlášť")
+        form = self.layout().itemAt(1 if heading else 0).layout()
+        form.addRow("Žíly (vícepól)", self.cond)
+
+    def conductors(self) -> list[str]:
+        return mp.parse_conductors(self.cond.currentText())
+
+
+class TerminalsDialog(QDialog):
+    """Přiřazení svorek žilám vodiče: řádek = žíla, sloupce = svorka u začátku / konce."""
+
+    def __init__(self, sheet: Sheet, wire: Wire, parent=None):
+        super().__init__(parent)
+        self.wire = wire
+        ea, eb = sheet.element(wire.a.element_id), sheet.element(wire.b.element_id)
+        self.setWindowTitle(f"Svorky vodiče {wire.attrs.get('ref', '')}")
+        self.setMinimumWidth(420)
+        lay = QVBoxLayout(self)
+        lay.addWidget(QLabel(f"<b>{wire.attrs.get('ref', 'vodič')}</b>  {ea.ref}:{wire.a.port} → {eb.ref}:{wire.b.port}"
+                             "<br><small>Svorka ve tvaru X1:3 (svorkovnice:číslo) nebo F2:1 (přístroj:svorka).</small>"))
+        conds = mp.wire_conductors(wire)
+        self.table = QTableWidget(len(conds), 3)
+        self.table.setHorizontalHeaderLabels(["Žíla", f"Svorka u {ea.ref or 'A'}", f"Svorka u {eb.ref or 'B'}"])
+        for r, c in enumerate(conds):
+            it = QTableWidgetItem(c)
+            it.setFlags(it.flags() & ~Qt.ItemIsEditable)
+            self.table.setItem(r, 0, it)
+            self.table.setItem(r, 1, QTableWidgetItem(mp.terminal_text(wire, c, "a")))
+            self.table.setItem(r, 2, QTableWidgetItem(mp.terminal_text(wire, c, "b")))
+        self.table.resizeColumnsToContents()
+        self.table.horizontalHeader().setStretchLastSection(True)
+        lay.addWidget(self.table)
+        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        lay.addWidget(bb)
+
+    def values(self) -> dict[str, dict[str, str]]:
+        out: dict[str, dict[str, str]] = {}
+        for r in range(self.table.rowCount()):
+            c = self.table.item(r, 0).text()
+            a = (self.table.item(r, 1).text() if self.table.item(r, 1) else "").strip()
+            b = (self.table.item(r, 2).text() if self.table.item(r, 2) else "").strip()
+            t = {k: v for k, v in (("a", a), ("b", b)) if v}
+            if t:
+                out[c] = t
+        return out
 
 
 class ElementDialog(AttrDialog):

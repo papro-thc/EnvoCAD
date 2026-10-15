@@ -71,7 +71,7 @@ změnit atribut). Model sám o undo neví.
 Nic v modelu není specifické pro FVE – „FVE“ je jen sada symbolů, šablon listů a generátorů výstupů.
 Další obor = další složka v `library/builtin/` + případně vlastní exportní šablony.
 
-## Jednopól ↔ vícepól (návrh)
+## Jednopól ↔ vícepól (implementováno v `model/multipole.py` + `ui/multipole_view.py`)
 
 Jeden model, dva pohledy nad stejnými daty:
 

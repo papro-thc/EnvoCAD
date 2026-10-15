@@ -24,6 +24,7 @@ from envocad.model.project import Project, Sheet
 from envocad.ui import theme
 from envocad.ui.canvas import Mode, SchematicScene, SchematicView
 from envocad.ui.layout_view import LayoutScene, LayoutView
+from envocad.ui.multipole_view import MultipoleScene, MultipoleView
 from envocad.ui.panels import LibraryPanel, PropertiesPanel
 
 FILE_FILTER = "Projekt EnvoCAD (*.ecp)"
@@ -70,12 +71,17 @@ class MainWindow(QMainWindow):
     @property
     def scene(self) -> SchematicScene | None:
         v = self.view
-        return v.scene() if isinstance(v, SchematicView) else None
+        return v.scene() if isinstance(v, SchematicView) and not isinstance(v, MultipoleView) else None
+
+    def _jps_scene(self, sheet: Sheet) -> SchematicScene | None:
+        """JPS scéna listu (i když je aktivní jiná záložka) – příkazy nad vodiči jdou přes ni."""
+        i = self._find_tab(sheet, "schematic")
+        return self._unwrap(self.tabs.widget(i)).scene() if i >= 0 else None
 
     @property
     def current_sheet(self) -> Sheet | None:
         v = self.view
-        return v.scene().sheet if isinstance(v, (SchematicView, LayoutView)) else None
+        return v.scene().sheet if isinstance(v, (SchematicView, LayoutView, MultipoleView)) else None
 
     # ---- sestavení UI --------------------------------------------------------
     def _dock(self, title: str, w, area) -> None:
@@ -126,6 +132,9 @@ class MainWindow(QMainWindow):
         m_edit.addSeparator()
         act(m_edit, "Smazat", lambda: self.scene and self.scene.delete_selected(), "Delete")
         act(m_edit, "Otočit o 90°", lambda: self.scene and self.scene.rotate_selected(), "R")
+        m_edit.addSeparator()
+        act(m_edit, "Svorky vybraného vodiče…", self.edit_wire_terminals, "Ctrl+T")
+        act(m_edit, "Očíslovat svorky automaticky", self.auto_number_terminals)
 
         m_draw = mb.addMenu("&Kreslit")
         tb.addSeparator()
@@ -134,6 +143,8 @@ class MainWindow(QMainWindow):
 
         m_view = mb.addMenu("&Zobrazit")
         act(m_view, "Přizpůsobit list", lambda: self.view and self.view.zoom_fit(), "Home", True)
+        act(m_view, "Vícepólový pohled", self.open_multipole, "Ctrl+M", True)
+        act(m_view, "Jednopólové schéma", self.open_singlepole, "Ctrl+J")
         self.act_dark = QAction("Tmavý režim", self, checkable=True)
         self.act_dark.setShortcut(QKeySequence("Ctrl+D"))
         self.act_dark.setChecked(theme.is_dark())
@@ -224,12 +235,15 @@ class MainWindow(QMainWindow):
     def _find_tab(self, sheet: Sheet, kind: str) -> int:
         for i in range(self.tabs.count()):
             w = self._unwrap(self.tabs.widget(i))
-            if w.scene().sheet is sheet and (kind == "layout") == isinstance(w, LayoutView):
+            if w.scene().sheet is not sheet:
+                continue
+            wk = "layout" if isinstance(w, LayoutView) else ("multipole" if isinstance(w, MultipoleView) else "schematic")
+            if wk == kind:
                 return i
         return -1
 
     def open_sheet(self, sheet: Sheet, kind: str = "schematic") -> None:
-        """Otevře (nebo aktivuje) záložku listu; kind = schematic | layout."""
+        """Otevře (nebo aktivuje) záložku listu; kind = schematic | layout | multipole."""
         log.info("open_sheet %s (%s)", sheet.name, kind)
         i = self._find_tab(sheet, kind)
         if i >= 0:
@@ -248,6 +262,13 @@ class MainWindow(QMainWindow):
                 self._element_item_for(sheet, it.element.id) if it else None))
             view.side_panel = panel
             title = f"{sheet.name} – rozložení"
+        elif kind == "multipole":
+            scene = MultipoleScene(self.project, sheet, self.library, self.undo)
+            view = MultipoleView(scene)
+            scene.selection_info.connect(lambda it: self.props_panel.show_item(
+                self._element_item_for(sheet, it.element.id) if it is not None and hasattr(it, "element") else None))
+            scene.edit_element_requested.connect(lambda eid, sh=sheet: self._edit_element_anywhere(sh, eid))
+            title = f"{sheet.name} – vícepól"
         else:
             scene = SchematicScene(self.project, sheet, self.library, self.undo)
             view = SchematicView(scene)
@@ -277,6 +298,14 @@ class MainWindow(QMainWindow):
         self.tabs.setCurrentIndex(idx)
         view.zoom_fit()
 
+    def _edit_element_anywhere(self, sheet: Sheet, eid: str) -> None:
+        sc = self._jps_scene(sheet)
+        if sc is None:
+            self.open_sheet(sheet, "schematic")
+            sc = self._jps_scene(sheet)
+        if sc is not None:
+            sc.edit_element(eid)
+
     def _element_item_for(self, sheet: Sheet, eid: str):
         i = self._find_tab(sheet, "schematic")
         if i < 0:
@@ -296,6 +325,9 @@ class MainWindow(QMainWindow):
         self.props_panel.show_item(None)
         if self.scene:
             self._show_mode(self.scene.mode)
+        elif isinstance(self.view, MultipoleView):
+            self.statusBar().showMessage("Vícepól – odvozený z JPS; dvojklik na žílu = svorky, Ctrl+T, "
+                                         "Úpravy → Očíslovat svorky")
         else:
             self.statusBar().showMessage("Rozložení – přetahujte přístroje na DIN lišty (snap 0,5 modulu)")
 
@@ -303,8 +335,12 @@ class MainWindow(QMainWindow):
         for i in range(self.tabs.count()):
             w = self._unwrap(self.tabs.widget(i))
             sh = w.scene().sheet
-            self.tabs.setTabText(i, f"{sh.name} – rozložení" if isinstance(w, LayoutView)
-                                 else (f"{sh.name} – schéma" if sh.is_switchboard else sh.name))
+            if isinstance(w, LayoutView):
+                self.tabs.setTabText(i, f"{sh.name} – rozložení")
+            elif isinstance(w, MultipoleView):
+                self.tabs.setTabText(i, f"{sh.name} – vícepól")
+            else:
+                self.tabs.setTabText(i, f"{sh.name} – schéma" if sh.is_switchboard else sh.name)
 
     def new_schematic_sheet(self) -> None:
         name, ok = QInputDialog.getText(self, "Nový list", "Název listu:", text=f"List {len(self.project.sheets) + 1}")
@@ -401,7 +437,7 @@ class MainWindow(QMainWindow):
             self.undo.resetClean()
 
     def _rebuild_sheet_views(self, sheet: Sheet) -> None:
-        for kind in ("schematic", "layout"):
+        for kind in ("schematic", "layout", "multipole"):
             i = self._find_tab(sheet, kind)
             if i >= 0:
                 sc = self._unwrap(self.tabs.widget(i)).scene()
@@ -440,6 +476,54 @@ class MainWindow(QMainWindow):
 
     def _on_undo_changed(self, _value=None) -> None:
         self._update_title()
+        # odvozené pohledy (vícepól) se po každé změně modelu přestaví
+        for i in range(self.tabs.count()):
+            w = self._unwrap(self.tabs.widget(i))
+            if isinstance(w, MultipoleView):
+                w.scene().rebuild()
+
+    # ---- vícepól ---------------------------------------------------------------
+    def open_multipole(self) -> None:
+        sh = self.current_sheet
+        if sh is None:
+            return
+        self.open_sheet(sh, "multipole")
+
+    def open_singlepole(self) -> None:
+        sh = self.current_sheet
+        if sh is None:
+            return
+        self.open_sheet(sh, "schematic")
+
+    def _selected_wire_id(self) -> tuple[Sheet, str] | None:
+        v = self.view
+        sh = self.current_sheet
+        if sh is None or not hasattr(v, "scene"):
+            return None
+        sel = v.scene().selectedItems()
+        if len(sel) == 1 and hasattr(sel[0], "wire"):
+            return sh, sel[0].wire.id
+        return None
+
+    def edit_wire_terminals(self) -> None:
+        hit = self._selected_wire_id()
+        if not hit:
+            QMessageBox.information(self, "Svorky", "Vyberte vodič (ve schématu nebo žílu ve vícepólu).")
+            return
+        sh, wid = hit
+        sc = self._jps_scene(sh) or self.view.scene()
+        sc.edit_terminals(wid)
+
+    def auto_number_terminals(self) -> None:
+        sh = self.current_sheet
+        if sh is None:
+            return
+        sc = self._jps_scene(sh)
+        if sc is None:
+            self.open_sheet(sh, "schematic")
+            sc = self._jps_scene(sh)
+        n = sc.auto_number_terminals()
+        self.statusBar().showMessage(f"Očíslovány svorky u {n} vodičů" if n else "Všechny svorky už jsou přiřazené", 4000)
 
     def _update_title(self) -> None:
         name = self.project.path.name if self.project.path else "nepojmenovaný"
@@ -511,11 +595,12 @@ class MainWindow(QMainWindow):
 
     def export_pdf(self) -> None:
         from envocad.export.pdf_export import export_scene_pdf
-        if not self.scene:
+        sc = self.scene or (self.view.scene() if isinstance(self.view, MultipoleView) else None)
+        if not sc:
             return
         path, _ = QFileDialog.getSaveFileName(self, "Export PDF", "", "PDF (*.pdf)")
         if path:
-            export_scene_pdf(self.scene, path)
+            export_scene_pdf(sc, path)
             self.statusBar().showMessage(f"Exportováno: {path}", 3000)
 
     def export_xlsx(self, current_only: bool) -> None:

@@ -244,3 +244,51 @@ def test_plugins_and_user_library(app, tmp_path, monkeypatch):
     assert "hello" in win.plugins.loaded and "example_counts" in win.plugins.loaded
     titles = [a.text() for m in win.menuBar().findChildren(type(win.menuBar().actions()[0].menu())) for a in m.actions()]
     assert "Ahoj" in titles and "Import X…" in titles and "Statistika projektu" in titles
+
+
+def test_multipole_view_and_terminals(app, tmp_path):
+    from envocad.ui.multipole_view import ConductorItem, MultipoleView, PoleItem
+    p = _project()
+    s = p.sheets[0]
+    s.wires[2].conductors = ["L1", "L2", "L3", "N", "PE"]
+    s.wires[3].conductors = ["L1", "L2", "L3", "N", "PE"]
+    s.element(s.elements[3].id).attrs["poles"] = "3"
+    w = MainWindow(LibraryStore(), p)
+    w.open_multipole()
+    assert isinstance(w.view, MultipoleView)
+    sc = w.view.scene()
+    poles = [it for it in sc.items() if isinstance(it, PoleItem)]
+    conds = [it for it in sc.items() if isinstance(it, ConductorItem)]
+    # F1 (3p) = 3 póly, ostatní prvky po jednom; žíly: 1 + 1 + 5 + 5
+    assert sum(1 for it in poles if it.element.ref == "F1") == 3
+    assert len(conds) == 12
+    # svorky přes příkaz na JPS scéně → vícepól se přestaví a ukáže je
+    jps = w._jps_scene(s)
+    from envocad.ui import commands
+    w.undo.push(commands.SetTerminalsCommand(jps, s.wires[2].id, {}, {"L1": {"a": "T1:L1", "b": "F1:1"}}))
+    assert s.wires[2].terminals["L1"]["b"] == "F1:1"
+    w.undo.undo()
+    assert s.wires[2].terminals == {}
+    w.undo.redo()
+    # změna žil přes příkaz → počet čar se změní
+    w.undo.push(commands.SetConductorsCommand(jps, s.wires[3].id, s.wires[3].conductors, ["L1", "N"]))
+    conds = [it for it in sc.items() if isinstance(it, ConductorItem)]
+    assert len(conds) == 9
+    # automatické číslování na listu rozvaděče ze šablony
+    from envocad.library.templates import apply_template
+    blk = Element("fve.switchboard", 260, 150, attrs={"ref": "R1"})
+    s.elements.append(blk)
+    sb = p.create_switchboard_sheet(blk)
+    apply_template(p, sb, "ac_fve")
+    w.open_sheet(sb, "schematic")
+    n = w.scene.auto_number_terminals()
+    assert n > 0 and any(w_.terminals for w_ in sb.wires)
+    w.open_sheet(sb, "multipole")
+    assert w.tabs.tabText(w.tabs.currentIndex()).endswith("vícepól")
+    # export PDF vícepólu
+    from envocad.export.pdf_export import export_scene_pdf
+    out = tmp_path / "mp.pdf"
+    export_scene_pdf(w.view.scene(), out)
+    assert out.stat().st_size > 500
+    w.undo.setClean()
+    w.close()

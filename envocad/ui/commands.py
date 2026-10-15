@@ -149,3 +149,55 @@ class SetComponentCommand(QUndoCommand):
 
     def undo(self):
         self._set(self.old)
+
+
+def _refresh_wire(scene, wid: str) -> None:
+    """JPS scéna má položky vodičů; odvozené scény (vícepól) se celé přestaví."""
+    items = getattr(scene, "wire_items", None)
+    if items is not None:
+        if wid in items:
+            items[wid].update()
+        scene.attrs_changed.emit(wid)
+    else:
+        scene.rebuild()
+
+
+class SetConductorsCommand(QUndoCommand):
+    """Změna seznamu žil vodiče (vícepól)."""
+
+    def __init__(self, scene, wire_id: str, old: list[str], new: list[str]):
+        super().__init__("Změnit žíly vodiče")
+        self.scene, self.wid, self.old, self.new = scene, wire_id, list(old), list(new)
+
+    def _set(self, v: list[str]):
+        w = next(w for w in self.scene.sheet.wires if w.id == self.wid)
+        w.conductors = list(v)
+        w.terminals = {c: t for c, t in w.terminals.items() if c in w.conductors}
+        _refresh_wire(self.scene, self.wid)
+
+    def redo(self):
+        self._set(self.new)
+
+    def undo(self):
+        self._set(self.old)
+
+
+class SetTerminalsCommand(QUndoCommand):
+    """Přiřazení svorek žilám vodiče (`Wire.terminals`)."""
+
+    def __init__(self, scene, wire_id: str, old: dict, new: dict):
+        super().__init__("Přiřadit svorky")
+        self.scene, self.wid = scene, wire_id
+        self.old = {c: dict(t) for c, t in old.items()}
+        self.new = {c: dict(t) for c, t in new.items()}
+
+    def _set(self, v: dict):
+        w = next(w for w in self.scene.sheet.wires if w.id == self.wid)
+        w.terminals = {c: dict(t) for c, t in v.items()}
+        _refresh_wire(self.scene, self.wid)
+
+    def redo(self):
+        self._set(self.new)
+
+    def undo(self):
+        self._set(self.old)

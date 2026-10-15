@@ -29,7 +29,7 @@ Build pro Windows se musí dělat na Windows, pro Linux na Linuxu.
 ## Stav
 
 v0.5 – jednopólové schéma FVE, listy rozvaděčů (schéma + fyzické rozložení na DIN lištách, parametry skříně, odhad oteplení),
-šablony rozvaděčů, výkazy (xlsx) a protokol kusového ověření (docx), export DXF/PDF, knihovna 460 artiklů (OEZ, Eaton,
+šablony rozvaděčů, výkazy (xlsx) a protokol kusového ověření (docx), export DXF/PDF, vícepólový pohled se svorkami, knihovna 460 artiklů (OEZ, Eaton,
 Schneider, Hager, SMA, SolaX, Huawei, BMR) + 673 značek QElectroTech, import DXF/EPLAN, pluginy, tmavý režim.
 
 Dokumentace: `docs/ARCHITECTURE.md`, `docs/LIBRARY_FORMAT.md`, `docs/ROADMAP.md`.
@@ -51,6 +51,7 @@ Pokyny pro agenty: `CLAUDE.md`.
 | Otevřít rozvaděč | dvojklik na blok ROZVADĚČ (poprvé nabídne šablonu) |
 | Rozložení rozvaděče | `Ctrl+L` na listu rozvaděče; přístroje přetáhnout na DIN lišty; parametry skříně a oteplení v panelu vpravo (`Ctrl+K`) |
 | Výkazy / protokol | menu Výstupy (xlsx, docx) |
+| Vícepól | `Ctrl+M` otevře vícepólový pohled listu (odvozený z JPS, `Ctrl+J` zpět); žíly vodiče se zadávají v dialogu vodiče („Žíly“), dvojklik na žílu / `Ctrl+T` = svorky, Úpravy → Očíslovat svorky |
 | Artikl z knihovny | v dialogu prvku „Vybrat artikl z knihovny…“; menu Knihovna → Prohlížet / Importovat CSV |
 
 ## Když program spadne

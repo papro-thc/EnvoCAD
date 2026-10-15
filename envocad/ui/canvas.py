@@ -9,6 +9,7 @@ from PySide6.QtGui import QKeyEvent, QMouseEvent, QPainter, QPen, QUndoStack, QW
 from PySide6.QtWidgets import QGraphicsPathItem, QGraphicsRectItem, QGraphicsScene, QGraphicsView
 
 from envocad.library.store import LibraryStore
+from envocad.model.multipole import default_conductors
 from envocad.model.project import WIRE_ATTRIBUTES, Element, Project, Sheet, Wire, WireEnd
 from envocad.model.symbol import GRID
 from envocad.ui import commands
@@ -193,6 +194,7 @@ class SchematicScene(QGraphicsScene):
                 self.removeItem(self._wire_preview)
                 if not (a is b and pa == pb):
                     w = Wire(WireEnd(a.element.id, pa), WireEnd(b.element.id, pb))
+                    w.conductors = default_conductors(a.element, pa, b.element, pb)
                     w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}
                     w.attrs["ref"] = self.project.next_ref("W")
                     if self.ask_attributes:
@@ -220,12 +222,13 @@ class SchematicScene(QGraphicsScene):
         self.undo.push(commands.AddElementCommand(self, e))
 
     def _finish_wire(self, w: Wire, heading: str) -> None:
-        from envocad.ui.dialogs import AttrDialog
+        from envocad.ui.dialogs import WireDialog
         log.info("dialog: vložit vodič")
-        dlg = AttrDialog(WIRE_ATTRIBUTES, w.attrs, self._parent_widget(), "Vložit vodič", heading)
-        if dlg.exec() != AttrDialog.Accepted:
+        dlg = WireDialog(w.attrs, w.conductors, self._parent_widget(), "Vložit vodič", heading)
+        if dlg.exec() != WireDialog.Accepted:
             return
         w.attrs = dlg.values()
+        w.conductors = dlg.conductors()
         self.undo.push(commands.AddWireCommand(self, w))
 
     def mouseDoubleClickEvent(self, ev):
@@ -247,12 +250,44 @@ class SchematicScene(QGraphicsScene):
         super().mouseDoubleClickEvent(ev)
 
     def edit_wire(self, wid: str) -> None:
-        from envocad.ui.dialogs import AttrDialog
+        from envocad.ui.dialogs import WireDialog
         w = next(w for w in self.sheet.wires if w.id == wid)
-        dlg = AttrDialog(WIRE_ATTRIBUTES, w.attrs, self._parent_widget(), f"Upravit vodič {w.attrs.get('ref', '')}")
-        if dlg.exec() != AttrDialog.Accepted:
+        dlg = WireDialog(w.attrs, w.conductors, self._parent_widget(), f"Upravit vodič {w.attrs.get('ref', '')}")
+        if dlg.exec() != WireDialog.Accepted:
             return
-        self._apply_attr_changes(wid, True, w.attrs, dlg.values(), f"Upravit {w.attrs.get('ref') or 'vodič'}")
+        label = f"Upravit {w.attrs.get('ref') or 'vodič'}"
+        new, conds = dlg.values(), dlg.conductors()
+        attr_changed = any(w.attrs.get(k, "") != v for k, v in new.items())
+        cond_changed = conds != w.conductors
+        if not (attr_changed or cond_changed):
+            return
+        self.undo.beginMacro(label)
+        if attr_changed:
+            self._apply_attr_changes(wid, True, w.attrs, new, label)
+        if cond_changed:
+            self.undo.push(commands.SetConductorsCommand(self, wid, w.conductors, conds))
+        self.undo.endMacro()
+
+    def edit_terminals(self, wid: str) -> None:
+        from envocad.ui.dialogs import TerminalsDialog
+        w = next(w for w in self.sheet.wires if w.id == wid)
+        dlg = TerminalsDialog(self.sheet, w, self._parent_widget())
+        if dlg.exec() != TerminalsDialog.Accepted:
+            return
+        if dlg.values() != w.terminals:
+            self.undo.push(commands.SetTerminalsCommand(self, wid, w.terminals, dlg.values()))
+
+    def auto_number_terminals(self) -> int:
+        """Automatické číslování svorek na listu; vrací počet změněných vodičů."""
+        from envocad.model.multipole import auto_number_terminals
+        changes = auto_number_terminals(self.sheet)
+        if changes:
+            self.undo.beginMacro("Očíslovat svorky")
+            for wid, new in changes.items():
+                old = next(w for w in self.sheet.wires if w.id == wid).terminals
+                self.undo.push(commands.SetTerminalsCommand(self, wid, old, new))
+            self.undo.endMacro()
+        return len(changes)
 
     def _apply_attr_changes(self, tid: str, is_wire: bool, old: dict, new: dict, label: str) -> None:
         changed = [(k, v) for k, v in new.items() if old.get(k, "") != v]

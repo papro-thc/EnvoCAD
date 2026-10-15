@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0 – 2026-10-15
+- Vícepólový pohled (`Zobrazit → Vícepólový pohled`, `Ctrl+M`): odvozená scéna nad stejným listem – každá žíla vodiče (`Wire.conductors`) je samostatná čára, průchozí prvky (jistič, odpínač, chránič, SPD…) se opakují pro spínané póly, N/PE jdou kolem; neprůchozí prvky (střídač, svorky, sběrnice) mají sběrnou čárku přes žíly. Pozice z JPS roztažené 2×, symboly ve skutečné velikosti. Žádná data se nekopírují – změna v JPS se hned promítne (`Ctrl+J` zpět na JPS).
+- Dialog vodiče má pole „Žíly“ s předvolbami (L1 L2 L3 N PE, DC+ DC-, …); nové vodiče dostanou výchozí žíly podle portů a pólů připojených prvků.
+- Svorky: dvojklik na žílu ve vícepólu nebo `Ctrl+T` otevře tabulku svorek vodiče (X1:3 / F2:1 per žíla a konec), `Úpravy → Očíslovat svorky automaticky` doplní chybějící čísla na svorkovnicích, přívodech, vývodech a PE liště. Vše přes undo.
+- Výkaz svorkovnice a export PDF berou vícepól v úvahu; `tests/test_multipole.py` + GUI smoke test.
+
 ## 0.5.1 – 2026-10-15
 - Knihovna artiklů z PDF katalogů dodaných uživatelem (celkem 460 artiklů): Eaton 253 (xPole PL/PLHT/AZ, PF/PFIM/FRCmM/dRCM, SPD, xComfort skříně), OEZ 143 (Minia LTN/LFN/LFE/OLI/SVBC, 3VA10–3VA24 vč. odpínačů, motorových pohonů MO310/MO320/SEO520 a spínačů do dutin, pojistkové odpínače OPVP/OPVF, rozvodnice RZA), Schneider 35 (skříně S1868), Hager 11, SMA 5, SolaX 6, Huawei 3, BMR 4 (PLA33RXE…). Každý řádek má odkaz na zdroj a stranu katalogu v poznámce.
 - Úklid: staré řádky 3VA v `oez.csv` nahrazeny `oez_3va.csv`, duplicity ze `seed.csv` odstraněny (dřívější chyba: `seed.csv` se načítal jako poslední a přepisoval katalogová data), přiřazení motorových pohonů a spínače EAS k rámům ověřeno proti tabulkám B12/B19 katalogu MO01-2022.

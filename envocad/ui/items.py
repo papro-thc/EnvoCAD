@@ -159,8 +159,9 @@ def wire_label(attrs: dict) -> str:
     return "  ".join(x for x in parts if x)
 
 
-def route(pa: QPointF, da: str, pb: QPointF, db: str, mid: list[QPointF]) -> QPainterPath:
-    """Ortogonální trasa port→port. S ručními body (mid) jde přes ně, jinak jednoduché L/Z vedení."""
+def route(pa: QPointF, da: str, pb: QPointF, db: str, mid: list[QPointF], stagger: float = 0.0) -> QPainterPath:
+    """Ortogonální trasa port→port. S ručními body (mid) jde přes ně, jinak jednoduché L/Z vedení.
+    `stagger` posune lom Z-trasy (vícepól: rovnoběžné žíly se nepřekrývají)."""
     stub = GRID
     va, vb = DIR_VEC[da], DIR_VEC[db]
     sa = QPointF(pa.x() + va[0] * stub, pa.y() - va[1] * stub)
@@ -174,11 +175,11 @@ def route(pa: QPointF, da: str, pb: QPointF, db: str, mid: list[QPointF]) -> QPa
         horizontal_first = da in ("E", "W")
         if horizontal_first and db in ("E", "W") and abs(sa.y() - sb.y()) > 1e-6:
             # Z-trasa: lom uprostřed
-            mx = snap((sa.x() + sb.x()) / 2)
+            mx = snap((sa.x() + sb.x()) / 2) + stagger
             path.lineTo(QPointF(mx, sa.y()))
             path.lineTo(QPointF(mx, sb.y()))
         elif not horizontal_first and db in ("N", "S") and abs(sa.x() - sb.x()) > 1e-6:
-            my = snap((sa.y() + sb.y()) / 2)
+            my = snap((sa.y() + sb.y()) / 2) + stagger
             path.lineTo(QPointF(sa.x(), my))
             path.lineTo(QPointF(sb.x(), my))
         elif horizontal_first:

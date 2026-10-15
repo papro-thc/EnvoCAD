@@ -35,9 +35,12 @@
 - [ ] Rozměry a ztrátové výkony přístrojů z artiklu (ne ručně v atributech `modules`, `p_loss_w`)
 - [ ] Oteplení: přesné tabulky IEC 60890 (k, c, d) místo aproximace; ventilace
 
-## v0.3 – Vícepól
-- [ ] Vícepólový pohled nad stejným listem (přepínání JPS ↔ vícepól), přiřazení svorek per žíla (`Wire.terminals`)
-- [ ] Automatické číslování svorek na svorkovnicích
+## v0.6 – Vícepól  ← hotovo v základu
+- [x] Vícepólový pohled nad stejným listem (Ctrl+M / Ctrl+J), žíly z `Wire.conductors`, přiřazení svorek per žíla (`Wire.terminals`, Ctrl+T)
+- [x] Automatické číslování svorek na svorkovnicích (Úpravy → Očíslovat svorky)
+- [ ] Vlastní rozmístění ve vícepólu (dnes jen roztažené pozice z JPS ×2), ruční lomy žil
+- [ ] Vícepólové značky z knihovny (QET `qet.ap.*`) místo opakování jednopólové značky; společná spoušť/vazba pólů
+- [ ] Export DXF vícepólu (PDF už funguje)
 
 ## v0.4 – Vícelistové projekty a dokumentace
 - [ ] Křížové odkazy mezi listy
