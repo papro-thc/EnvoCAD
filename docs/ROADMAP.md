@@ -56,6 +56,16 @@
 - [ ] Generování částí TZ/DSPS z modelu (šablony)
 - [ ] Sdílená knihovna pro celé ENVO (PostgreSQL nebo sdílený soubor)
 
+## Proti EPLAN (analýza 10/2026) – zbývá
+- [ ] Potenciály: T-odbočka vodiče do vodiče, sledování potenciálu přes svorky a můstky, kontrola N/PE
+- [ ] Funkční šablony artiklů (střídač → porty podle MPPT, jistič → příslušenství), přiřazení příslušenství k rámu
+- [ ] Rozložení jako výkres: montážní deska, žlaby a lišty podle artiklu s délkami, vrtací plán, výkaz montážního materiálu
+- [ ] Vícepatrové svorky, svorkovnice přes více listů, N-odpojovací svorky jako druh
+- [ ] Makra (oblíbené sestavy – vývod s jističem a svorkami), kopírování celého listu, hromadné přečíslování, editor značek v GUI
+- [ ] Štítky ve formátu tiskáren (Brady/Partex), výkaz artiklů po dodavatelích s objednacími čísly
+- [ ] Číslování stran celé dokumentace i v rámečku listů (dnes list x/y projektu), logo ENVO v popisovém poli
+- [ ] Přerušovací body v zapojovacím seznamu jako průchod (potenciál pokračuje), vodič z vodiče
+
 ## Odloženo (analýza 10/2026 – nebrzdí práci)
 - Příkazový řádek (styl ZWCAD/CADCraft) – až bude potřeba ovládat program z agentů
 - BMEcat/ETIM importér – až budou soubory od výrobců

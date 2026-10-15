@@ -1,0 +1,127 @@
+{
+  "id": "ctl.contact_power",
+  "name": "Hlavní kontakt (silový)",
+  "category": "Relé a stykače",
+  "iec_ref": "",
+  "description": "Silový kontakt stykače (1/2, 3/4, 5/6) pro silové schéma – patří k cívce stejného označení",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": 0,
+      "x2": -2.5,
+      "y2": 0
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 0,
+      "x2": 2,
+      "y2": 4
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 0,
+      "x2": 7.5,
+      "y2": 0
+    },
+    {
+      "type": "arc",
+      "cx": 3.5,
+      "cy": 0,
+      "r": 1,
+      "start": 90,
+      "end": 270
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -7.5,
+      "y": 0,
+      "dir": "W"
+    },
+    {
+      "name": "2",
+      "x": 7.5,
+      "y": 0,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení (cívka)",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "in_",
+      "label": "In [A]",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "poles",
+      "label": "Póly",
+      "default": "3",
+      "show": false
+    },
+    {
+      "key": "modules",
+      "label": "Šířka [moduly]",
+      "default": "3",
+      "show": false
+    },
+    {
+      "key": "p_loss_w",
+      "label": "Ztrátový výkon při In [W]",
+      "default": "",
+      "show": false
+    }
+  ],
+  "multipole": {
+    "pole": [
+      {
+        "type": "line",
+        "x1": -7.5,
+        "y1": 0,
+        "x2": -2.5,
+        "y2": 0
+      },
+      {
+        "type": "line",
+        "x1": -2.5,
+        "y1": 0,
+        "x2": 2,
+        "y2": 4
+      },
+      {
+        "type": "line",
+        "x1": 2.5,
+        "y1": 0,
+        "x2": 7.5,
+        "y2": 0
+      },
+      {
+        "type": "arc",
+        "cx": 3.5,
+        "cy": 0,
+        "r": 1,
+        "start": 90,
+        "end": 270
+      }
+    ],
+    "common": [],
+    "link": true,
+    "link_at": [
+      0,
+      2
+    ]
+  },
+  "label_pos": {
+    "x": -5,
+    "y": -6
+  }
+}

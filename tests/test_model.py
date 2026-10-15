@@ -227,3 +227,34 @@ def test_grid_coords_and_interrupt_points():
     w = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "X1"), attrs={"ref": "W2"})
     s1.wires.append(w)
     assert wire_xref(p, w.id).startswith("→ R1:X1 /3.")
+
+
+def test_coil_contacts_mirror():
+    from envocad.export import reports
+    from envocad.library.store import LibraryStore
+    from envocad.model.checks import check_project
+    from envocad.model.multipole import default_conductors
+    from envocad.model.project import Element, Project, Sheet, coil_of, contact_mirror, element_xref
+    p = Project(name="Ovládání")
+    s1 = p.sheets[0]
+    s2 = Sheet(name="Ovládací obvody")
+    p.sheets.append(s2)
+    k1 = Element("ctl.coil", 100, 100, attrs={"ref": "K1", "desc": "NS ochrana"})
+    c_no = Element("ctl.contact_no", 200, 150, attrs={"ref": "K1"})
+    c_pw = Element("ctl.contact_power", 150, 150, attrs={"ref": "K1", "poles": "3"})
+    lone = Element("ctl.contact_nc", 250, 150, attrs={"ref": "K9"})
+    s2.elements.append(k1)
+    s1.elements += [c_no, c_pw, lone]
+    assert coil_of(p, c_no)[1] is k1 and coil_of(p, lone) is None
+    assert contact_mirror(p, k1) == [("1/2", "/1.C3"), ("13/14", "/1.D3")]
+    assert element_xref(p, s2, k1) == "1/2 /1.C3\n13/14 /1.D3"
+    assert element_xref(p, s1, c_no) == "→ /2.B5" and element_xref(p, s1, lone) == "→ ?"
+    assert "K1" in p.used_refs() and p.next_ref("K") == "K2"   # kontakty označení neblokují ani nezdvojují
+    assert default_conductors(k1, "A1", c_no, "14") == ["L"]
+    codes = {(f.code, f.ref) for f in check_project(p, LibraryStore())}
+    assert ("contact_alone", "K9") in codes and not any(c == "dup_ref" for c, _ in codes)
+    _, rows = reports.device_list(p, LibraryStore())
+    k = next(r for r in rows if r[0] == "K1")
+    assert k[5] == "1/2, 13/14"
+    _, bom = reports.bom(p, LibraryStore())
+    assert not any("Kontakt" in r[1] for r in bom)

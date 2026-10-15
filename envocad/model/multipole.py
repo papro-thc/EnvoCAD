@@ -44,6 +44,9 @@ def parse_conductors(text: str) -> list[str]:
 
 def default_conductors(a: Element, pa: str, b: Element, pb: str) -> list[str]:
     """Výchozí žíly nového vodiče podle portů a pólů připojených prvků."""
+    for e in (a, b):
+        if e.symbol_id.startswith("ctl."):  # ovládací obvod: jedna žíla
+            return ["L"]
     for p in (pa, pb):
         up = p.upper()
         if up in ("DC+", "DC-", "+", "-"):

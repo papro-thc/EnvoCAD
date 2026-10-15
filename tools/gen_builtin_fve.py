@@ -322,12 +322,55 @@ SYMBOLS = [
 ]
 
 
+# ---- ovládací obvody: cívka a kontakty (svislý tok shora dolů, číslování svorek dle IEC) -------------------
+SYMBOLS += [
+    {
+        "id": "ctl.coil", "name": "Cívka (stykač / relé)", "category": "Relé a stykače", "iec_ref": "K",
+        "description": "Cívka stykače nebo relé A1–A2; kontakty se k ní vážou označením (zrcadlo kontaktů pod cívkou)",
+        "primitives": [R(-5, -4, 10, 8), L(0, 7.5, 0, 4), L(0, -4, 0, -7.5), T(-6.5, 5, "A1", 1.8, "right"),
+                       T(-6.5, -7, "A2", 1.8, "right")],
+        "ports": [P("A1", 0, 7.5, "N"), P("A2", 0, -7.5, "S")],
+        "attributes": [REF, TYPE, MFR, attr("un", "Un cívky [V]", "230"), attr("desc", "Funkce", "", True), MOD],
+        "label_pos": {"x": 7, "y": 2},
+    },
+    {
+        "id": "ctl.contact_no", "name": "Kontakt spínací (NO)", "category": "Relé a stykače", "iec_ref": "",
+        "description": "Pomocný spínací kontakt (13/14) – označení = cívka/přístroj, ke kterému patří",
+        "primitives": [L(0, 7.5, 0, 2.5), L(0, 2.5, -3.5, -3), L(0, -2.5, 0, -7.5)],
+        "ports": [P("13", 0, 7.5, "N"), P("14", 0, -7.5, "S")],
+        "attributes": [attr("ref", "Označení (cívka / přístroj)", "", True), attr("terminals", "Svorky", "13/14", True),
+                       attr("desc", "Funkce")],
+        "label_pos": {"x": 3, "y": 2},
+    },
+    {
+        "id": "ctl.contact_nc", "name": "Kontakt rozpínací (NC)", "category": "Relé a stykače", "iec_ref": "",
+        "description": "Pomocný rozpínací kontakt (21/22)",
+        "primitives": [L(0, 7.5, 0, 2.5), L(0, 2.5, -3.5, -3), L(0, -2.5, 0, -7.5), L(0, 2.5, 2, 2.5)],
+        "ports": [P("21", 0, 7.5, "N"), P("22", 0, -7.5, "S")],
+        "attributes": [attr("ref", "Označení (cívka / přístroj)", "", True), attr("terminals", "Svorky", "21/22", True),
+                       attr("desc", "Funkce")],
+        "label_pos": {"x": 3, "y": 2},
+    },
+    {
+        "id": "ctl.contact_power", "name": "Hlavní kontakt (silový)", "category": "Relé a stykače", "iec_ref": "",
+        "description": "Silový kontakt stykače (1/2, 3/4, 5/6) pro silové schéma – patří k cívce stejného označení",
+        "primitives": CONTACT + [A(3.5, 0, 1, 90, 270)],
+        "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
+        "attributes": [attr("ref", "Označení (cívka)", "", True), attr("in_", "In [A]", "", True), POLES, MOD, PLOSS],
+        "multipole": MP(CONTACT + [A(3.5, 0, 1, 90, 270)]),
+        "label_pos": {"x": -5, "y": -6},
+    },
+]
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     sb = OUT.parent / "switchboard"
     sb.mkdir(parents=True, exist_ok=True)
+    ctl = OUT.parent / "control"
+    ctl.mkdir(parents=True, exist_ok=True)
     for s in SYMBOLS:
-        folder = sb if s["id"].startswith("sb.") else OUT
+        folder = sb if s["id"].startswith("sb.") else (ctl if s["id"].startswith("ctl.") else OUT)
         (folder / f"{s['id']}.json").write_text(json.dumps(s, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"{len(SYMBOLS)} symbolů → {OUT}")
 

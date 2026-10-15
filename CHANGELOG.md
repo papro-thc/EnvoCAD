@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0 – 2026-10-15 (srovnání s EPLAN)
+- **Kontrola projektu** (`F7`): duplicitní označení, vodiče na neexistující porty, nezapojené porty/prvky, skupiny svorek bez čísel, přívody bez vazby, prvky bez artiklu, vodiče bez kabelu/žil, můstky na neexistující svorky, přerušovací body a kontakty bez protějšku; dvojklik skočí na prvek.
+- **Navigátor** (dok vlevo): listy → prvky a vodiče s filtrem; `Ctrl+F` najde označení kdekoli v projektu a vybere ho.
+- **Kabel jako objekt**: `Project.cables` se žílami (číslo, barva dle ČSN 33 0165: L1 hnědá, L2 černá, L3 šedá, N modrá, PE zelenožlutá, DC+ červená, DC− černá), stíněním, délkou, trasou a artiklem; vzniká z vodiče JPS (označení/typ) a drží s ním krok. `Úpravy → Kabel vybraného vodiče…` (`Ctrl+Shift+K`). Nové výkazy **Kabelový plán** (po žílách odkud–kam) a **Zapojovací seznam** (všechna propojení vč. rozvaděčů, barva, průřez). Katalog kabelů (CYKY, AYKY, H1Z2Z2-K, JYTY, UTP – seed, ověřit).
+- **Souřadnicová síť** A–H × 1–6 v rámečku; odkazy ve tvaru `/list.sloupec` (`/2.B4`) u vodičů na rozvaděč, u přívodů/vývodů; **přerušovací bod** (Svorky a propojení) párovaný podle označení s odkazem na protějšek.
+- **Celá dokumentace do PDF** (`Výstupy → Celá dokumentace`, `Ctrl+Shift+E`): titulní list, obsah, listy JPS, schéma a plán svorkovnice každého rozvaděče, všechny výkazy stránkované, změnový list (`Vlastnosti projektu → Změnový list`).
+- **Ovládací obvody**: cívka (K, A1/A2), kontakty NO 13/14, NC 21/22 a silový kontakt stykače; kontakty nesou označení cívky, pod cívkou se kreslí **zrcadlo kontaktů** (svorky + odkaz), u kontaktu odkaz na cívku; kontakty ve výkazu přístrojů ve sloupci Kontakty, ne jako samostatné položky BOM. Ovládací vodiče mají výchozí jednu žílu.
+- Formát projektu v6 (kabely); starší projekty se načtou a kabely se dopočítají.
+
 ## 0.8.0 – 2026-10-15
 - Blok ROZVADĚČ v JPS má porty podle přívodů a vývodů svého listu (X1 vlevo, X4/X5/X6 vpravo, s popisky) – vodič zakreslený na port X4 se sám naváže na vývod X4 (odkud/kam, kabel, žíly, křížový odkaz). Staré porty 1–4 zůstávají jen dokud na ně něco vede; šablona přejmenuje konec přívodního vodiče na X1.
 - Schéma rozvaděče je vícepólové: dvojklik na blok / „Otevřít rozvaděč (schéma)“ otevře záložku „R – schéma“ jako vícepól (značky po pólech, svorky, můstky); jednopólová podoba je jen editační („R – jednopól (editace)“, `Ctrl+J`, menu List). Delete ve vícepólu maže přes undo.

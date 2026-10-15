@@ -1,0 +1,68 @@
+{
+  "id": "ctl.contact_no",
+  "name": "Kontakt spínací (NO)",
+  "category": "Relé a stykače",
+  "iec_ref": "",
+  "description": "Pomocný spínací kontakt (13/14) – označení = cívka/přístroj, ke kterému patří",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": 7.5,
+      "x2": 0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": 2.5,
+      "x2": -3.5,
+      "y2": -3
+    },
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": -2.5,
+      "x2": 0,
+      "y2": -7.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "13",
+      "x": 0,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "14",
+      "x": 0,
+      "y": -7.5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení (cívka / přístroj)",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "terminals",
+      "label": "Svorky",
+      "default": "13/14",
+      "show": true
+    },
+    {
+      "key": "desc",
+      "label": "Funkce",
+      "default": "",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": 3,
+    "y": 2
+  }
+}

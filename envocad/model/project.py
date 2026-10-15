@@ -368,7 +368,7 @@ class Project:
 
     # ---- označení prvků ---------------------------------------------
     def used_refs(self) -> set[str]:
-        refs = {e.ref for s in self.sheets for e in s.elements if e.ref}
+        refs = {e.ref for s in self.sheets for e in s.elements if e.ref and e.symbol_id not in CONTACT_SYMBOLS}
         refs |= {w.attrs.get("ref", "") for s in self.sheets for w in s.wires if w.attrs.get("ref")}
         return refs
 
@@ -778,10 +778,64 @@ def interrupt_partner(project: Project, e: Element) -> tuple[Sheet, Element] | N
 
 
 def element_xref(project: Project, sheet: Sheet, e: Element) -> str:
-    """Text křížového odkazu kreslený u prvku: přerušovací bod → poloha protějšku („→ /2.C3“)."""
+    """Text křížového odkazu kreslený u prvku: přerušovací bod → poloha protějšku („→ /2.C3“),
+    kontakt → poloha své cívky, cívka → zrcadlo kontaktů (více řádků)."""
+    if is_contact(e):
+        hit = coil_of(project, e)
+        if hit is None:
+            return "→ ?"
+        from envocad.model.frame import position_ref
+        return "→ " + position_ref(project, hit[0], hit[1].x, hit[1].y)
+    if e.symbol_id in COIL_SYMBOLS:
+        return "\n".join(f"{t} {pos}" for t, pos in contact_mirror(project, e))
     hit = interrupt_partner(project, e)
     if hit is None:
         return "" if e.symbol_id != INTERRUPT_SYMBOL else "→ ?"
     s, o = hit
     from envocad.model.frame import position_ref
     return "→ " + position_ref(project, s, o.x, o.y)
+
+
+# ---- cívky a kontakty (ovládací obvody) ---------------------------------------------------------------------
+CONTACT_SYMBOLS = {"ctl.contact_no", "ctl.contact_nc", "ctl.contact_power"}
+COIL_SYMBOLS = {"ctl.coil"}
+
+
+def is_contact(e: Element) -> bool:
+    return e.symbol_id in CONTACT_SYMBOLS
+
+
+def contact_terminals(e: Element) -> str:
+    t = e.attrs.get("terminals", "")
+    if t:
+        return t
+    return {"ctl.contact_no": "13/14", "ctl.contact_nc": "21/22", "ctl.contact_power": "1/2"}.get(e.symbol_id, "")
+
+
+def contacts_of(project: Project, ref: str) -> list[tuple[Sheet, Element]]:
+    """Kontakty (pomocné i silové) patřící k cívce/přístroji s označením `ref`, kdekoli v projektu."""
+    out = []
+    for s in project.sheets:
+        for e in s.elements:
+            if is_contact(e) and e.ref == ref:
+                out.append((s, e))
+    return out
+
+
+def contact_mirror(project: Project, coil: Element) -> list[tuple[str, str]]:
+    """Zrcadlo kontaktů pod cívkou: [(svorky, odkaz /list.sloupec)…] – jako v EPLAN."""
+    from envocad.model.frame import position_ref
+    rows = []
+    for s, e in contacts_of(project, coil.ref):
+        rows.append((contact_terminals(e), position_ref(project, s, e.x, e.y)))
+    rows.sort()
+    return rows
+
+
+def coil_of(project: Project, contact: Element) -> tuple[Sheet, Element] | None:
+    """Cívka nebo přístroj, ke kterému kontakt patří (stejné označení; ne jiný kontakt)."""
+    for s in project.sheets:
+        for e in s.elements:
+            if e.ref == contact.ref and e.id != contact.id and not is_contact(e):
+                return s, e
+    return None

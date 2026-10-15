@@ -8,13 +8,24 @@ from collections import Counter
 from dataclasses import dataclass
 
 from envocad.model import multipole as mp
-from envocad.model.project import FEED_SYMBOLS, Element, Project, Sheet, interrupt_partner, linked_wire
+from envocad.model.project import (
+    FEED_SYMBOLS,
+    Element,
+    Project,
+    Sheet,
+    coil_of,
+    contact_terminals,
+    interrupt_partner,
+    is_contact,
+    linked_wire,
+)
 
 ERROR, WARNING, INFO = "chyba", "varování", "info"
 # prvky, u kterých nevadí nezapojený port (jde o odkazy/bloky/sběrnice s rezervou)
 OPTIONAL_PORT_SYMBOLS = {"fve.switchboard", "sb.pe_bar", "sb.busbar", "fve.terminal", "sb.terminal_block"}
 NO_ARTICLE_SYMBOLS = {"fve.grid", "fve.load", "fve.earth", "fve.terminal", "fve.switchboard", "sb.feed_in",
-                      "sb.feed_out", "sb.pe_bar", "sb.busbar", "fve.pv_string"}
+                      "sb.feed_out", "sb.pe_bar", "sb.busbar", "fve.pv_string", "fve.interrupt",
+                      "ctl.contact_no", "ctl.contact_nc", "ctl.contact_power"}
 
 
 @dataclass
@@ -39,7 +50,7 @@ def check_project(project: Project, lib) -> list[Finding]:
     refs: Counter[str] = Counter()
     for s in project.sheets:
         for e in s.elements:
-            if e.ref and not mp.is_terminal_block(e):
+            if e.ref and not mp.is_terminal_block(e) and not is_contact(e):
                 refs[e.ref] += 1
         for w in s.wires:
             if w.attrs.get("ref"):
@@ -53,7 +64,10 @@ def check_project(project: Project, lib) -> list[Finding]:
                 out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref, f"Neznámá značka {e.symbol_id}", "symbol"))
                 continue
             sym_of[e.id] = sym
-            if e.ref and refs[e.ref] > 1 and not mp.is_terminal_block(e):
+            if is_contact(e) and e.ref and coil_of(project, e) is None:
+                out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
+                                   f"Kontakt {contact_terminals(e)} bez cívky/přístroje {e.ref}", "contact_alone"))
+            if e.ref and refs[e.ref] > 1 and not mp.is_terminal_block(e) and not is_contact(e):
                 out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref, f"Duplicitní označení {e.ref}", "dup_ref"))
             if not e.ref and e.symbol_id not in ("fve.earth", "fve.grid", "fve.load"):
                 out.append(Finding(WARNING, s.id, s.name, e.id, False, "", f"Prvek {sym.name} bez označení", "no_ref"))

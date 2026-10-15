@@ -10,7 +10,8 @@ from envocad.library.store import LibraryStore
 from envocad.model.project import Element, Project, Sheet
 
 # Symboly, které nejsou přístroje k objednání (propojení, odkazy, vnější prvky)
-NON_DEVICE_SYMBOLS = {"fve.terminal", "fve.earth", "fve.grid", "fve.load", "fve.switchboard", "sb.feed_in", "sb.feed_out"}
+NON_DEVICE_SYMBOLS = {"fve.terminal", "fve.earth", "fve.grid", "fve.load", "fve.switchboard", "sb.feed_in", "sb.feed_out",
+                      "fve.interrupt", "ctl.contact_no", "ctl.contact_nc", "ctl.contact_power"}
 TERMINAL_SYMBOLS = {"sb.feed_in", "sb.feed_out", "sb.terminal_block"}
 
 DEVICE_PARAMS = ["in_", "char", "poles", "idn", "spd_type", "uc", "icu", "ir", "p_ac", "e_kwh", "sn"]
@@ -37,7 +38,8 @@ def devices(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> 
 
 def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Seznam přístrojů (každý zvlášť) – pro štítky a kontrolu."""
-    head = ["Označení", "Přístroj", "Typ", "Výrobce", "Parametry", "Moduly", "Řada", "Pozice", "List"]
+    from envocad.model.project import contact_terminals, contacts_of
+    head = ["Označení", "Přístroj", "Typ", "Výrobce", "Parametry", "Kontakty", "Moduly", "Řada", "Pozice", "List"]
     rows = []
     for s in _sheets(project, sheet):
         for e in s.elements:
@@ -45,9 +47,10 @@ def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None)
                 continue
             sym = lib.get_symbol(e.symbol_id)
             pl = s.layout.placement(e.id) if s.is_switchboard else None
+            conts = ", ".join(sorted(contact_terminals(c) for _, c in contacts_of(project, e.ref))) if e.ref else ""
             rows.append([e.ref, sym.name, e.attrs.get("type", ""), e.attrs.get("manufacturer", ""), _param_str(e),
-                         e.modules or "", (pl.row + 1) if pl else "", pl.pos if pl else "", s.name])
-    rows.sort(key=lambda r: (r[8], _ref_key(r[0])))
+                         conts, e.modules or "", (pl.row + 1) if pl else "", pl.pos if pl else "", s.name])
+    rows.sort(key=lambda r: (r[9], _ref_key(r[0])))
     return head, rows
 
 

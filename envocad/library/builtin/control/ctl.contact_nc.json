@@ -1,0 +1,75 @@
+{
+  "id": "ctl.contact_nc",
+  "name": "Kontakt rozpínací (NC)",
+  "category": "Relé a stykače",
+  "iec_ref": "",
+  "description": "Pomocný rozpínací kontakt (21/22)",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": 7.5,
+      "x2": 0,
+      "y2": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": 2.5,
+      "x2": -3.5,
+      "y2": -3
+    },
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": -2.5,
+      "x2": 0,
+      "y2": -7.5
+    },
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": 2.5,
+      "x2": 2,
+      "y2": 2.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "21",
+      "x": 0,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "22",
+      "x": 0,
+      "y": -7.5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení (cívka / přístroj)",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "terminals",
+      "label": "Svorky",
+      "default": "21/22",
+      "show": true
+    },
+    {
+      "key": "desc",
+      "label": "Funkce",
+      "default": "",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": 3,
+    "y": 2
+  }
+}
