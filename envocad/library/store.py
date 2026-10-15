@@ -52,13 +52,58 @@ class LibraryStore:
 
     # ---- symboly ---------------------------------------------------------
     def sync_builtin(self) -> int:
-        """Nahraje/aktualizuje vestavěné symboly z JSON souborů. Vrátí počet."""
+        """Nahraje/aktualizuje vestavěné symboly (JSON) a artikly (CSV). Vrátí počet symbolů."""
         n = 0
         for f in sorted(BUILTIN_DIR.rglob("*.json")):
             sym = Symbol.from_json(f)
             self.put_symbol(sym, builtin=True)
             n += 1
+        comp_dir = BUILTIN_DIR / "components"
+        if comp_dir.exists():
+            from envocad.library.components import read_csv
+            for f in sorted(comp_dir.glob("*.csv")):
+                try:
+                    comps = read_csv(f)
+                except Exception as ex:  # noqa: BLE001 – vadný soubor nesmí shodit start
+                    print(f"[knihovna] {f.name}: {ex}")
+                    continue
+                self.conn.executemany(
+                    "INSERT INTO components(id,manufacturer,part_number,name,symbol_id,params,price,url) "
+                    "VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET manufacturer=excluded.manufacturer,"
+                    "part_number=excluded.part_number,name=excluded.name,symbol_id=excluded.symbol_id,"
+                    "params=excluded.params,price=excluded.price,url=excluded.url",
+                    [(c.id, c.manufacturer, c.part_number, c.name, c.symbol_id or None,
+                      json.dumps(c.to_db_row()["params"], ensure_ascii=False), c.price, c.datasheet_url) for c in comps],
+                )
+            self.conn.commit()
         return n
+
+    # ---- artikly (typované API) -----------------------------------------
+    def component(self, cid: str):
+        from envocad.library.components import Component
+        d = self.get_component(cid)
+        return Component.from_db_row(d) if d else None
+
+    def components(self, symbol_id: str | None = None, category: str | None = None, search: str = ""):
+        """Seznam Component; filtr podle značky, kategorie a textu (výrobce / typ / název)."""
+        from envocad.library.components import Component
+        out = [Component.from_db_row(d) for d in self.list_components(symbol_id)]
+        if category:
+            out = [c for c in out if c.category == category]
+        if search:
+            q = search.lower()
+            out = [c for c in out if q in f"{c.manufacturer} {c.part_number} {c.name}".lower()]
+        return out
+
+    def import_components_csv_v2(self, path: Path | str) -> int:
+        """CSV dle docs/COMPONENTS.md (strukturované sloupce)."""
+        from envocad.library.components import read_csv
+        comps = read_csv(path)
+        for c in comps:
+            r = c.to_db_row()
+            self.put_component(c.id, c.manufacturer, c.part_number, c.name, c.symbol_id or None, r["params"],
+                               c.price, c.datasheet_url)
+        return len(comps)
 
     def put_symbol(self, sym: Symbol, builtin: bool = False) -> None:
         self.conn.execute(
