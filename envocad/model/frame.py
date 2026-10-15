@@ -9,7 +9,18 @@ from envocad.model.project import Project, Sheet
 MARGIN = 10.0        # okraj rámečku
 MARGIN_LEFT = 20.0   # širší okraj pro vazbu
 TB_W, TB_H = 180.0, 32.0  # popisové pole (š × v)
-COMPANY = "ENVO s.r.o."
+COMPANY = "ENVO s.r.o."   # výchozí; přepíše `standard.company` v ~/.envocad/settings.json
+
+
+def company_names() -> tuple[str, str]:
+    """(krátký název do loga, plný název firmy) z firemního standardu."""
+    try:
+        from envocad.settings import load_settings
+        full = (load_settings()["standard"].get("company") or COMPANY).strip()
+    except Exception:  # noqa: BLE001
+        full = COMPANY
+    short = full.split()[0].rstrip(",") if full else "ENVO"
+    return short, full
 COLS = "ABCDEFGH"   # sloupce souřadnicové sítě (zleva doprava)
 ROWS = 6            # řádky 1…6 (shora dolů)
 
@@ -106,8 +117,9 @@ def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, h
     rh = TB_H / len(rows)
     logo_w = 34.0
     g.lines.append((tx0 + logo_w, ty0, tx0 + logo_w, ty1))
-    g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 2.0, "ENVO", 5.0, "center"))
-    g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 6.0, COMPANY, 1.8, "center"))
+    short, full = company_names()
+    g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 2.0, short, 5.0, "center"))
+    g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 6.0, full, 1.8, "center"))
     # QR kód s identifikací výkresu vlevo od popisového pole (projekt | zakázka | list | revize)
     mods = qr_modules(qr_text(project, sheet, view))
     if mods:

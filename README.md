@@ -72,3 +72,18 @@ Pokyny pro agenty: `CLAUDE.md`.
 Log každého běhu je v `~/.envocad/log/envocad.log` (Windows: `C:\Users\<jméno>\.envocad\log\`),
 předchozí běhy `envocad.log.1` … `.5`. Otevře ho menu Nápověda → Otevřít složku s logy.
 Neošetřená chyba se zapíše do logu a zobrazí v dialogu; program většinou běží dál – uložte práci.
+
+## Licence
+
+Kód EnvoCAD je pod licencí **MIT** (viz `LICENSE`). Součástí repozitáře jsou i data třetích stran:
+
+- značky `envocad/library/builtin/qet/` jsou převedené z kolekce QElectroTech, **CC BY 3.0**, autorství viz
+  `envocad/library/builtin/qet/ATTRIBUTION.md`;
+- artikly v `envocad/library/builtin/components/*.csv` jsou technické parametry opsané z veřejných katalogů
+  výrobců (OEZ, Eaton, Schneider, Hager, Weidmüller, Elektro Bečov, ELEMAN, SMA, SolaX, Huawei, BMR) – u každého
+  řádku je zdroj a strana; katalogy samotné v repozitáři nejsou. Hodnoty jsou bez záruky, před použitím v projektu
+  je ověřte u výrobce;
+- tabulky v `envocad/model/thermal.py` a `envocad/model/calc.py` (IEC TR 60890, ČSN 33 2000-5-52) jsou orientační
+  přepisy, ne text norem.
+
+Název firmy v popisovém poli se nastavuje v `~/.envocad/settings.json` (`standard.company`), výchozí je ENVO s.r.o.
