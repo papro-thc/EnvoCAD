@@ -42,6 +42,9 @@ def attr(key, label, default="", show=False):
 
 REF = attr("ref", "Označení", "", True)
 TYPE = attr("type", "Typ", "", True)
+MFR = attr("manufacturer", "Výrobce")
+POLES = attr("poles", "Póly", "3")
+MOD = attr("modules", "Šířka [moduly]", "3")
 
 SYMBOLS = [
     {
@@ -66,7 +69,8 @@ SYMBOLS = [
         "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0), L(2.5, -1.5, 2.5, 1.5),
                        L(-2.5, -1.5, -2.5, 1.5), T(0, 6, "DC", 2)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
-        "attributes": [REF, TYPE, attr("un", "Un [V DC]"), attr("in_", "In [A]")],
+        "attributes": [REF, TYPE, MFR, attr("un", "Un [V DC]"), attr("in_", "In [A]", "", True),
+                       attr("poles", "Póly", "2"), attr("modules", "Šířka [moduly]", "2")],
         "label_pos": {"x": -5, "y": -6},
     },
     {
@@ -74,7 +78,8 @@ SYMBOLS = [
         "description": "Pojistka (gPV / gG)",
         "primitives": [R(-5, -2.5, 10, 5), L(-7.5, 0, 7.5, 0)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
-        "attributes": [REF, TYPE, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "gPV")],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "gPV"),
+                       attr("poles", "Póly", "1"), attr("modules", "Šířka [moduly]", "1")],
         "label_pos": {"x": -5, "y": 4},
     },
     {
@@ -83,7 +88,8 @@ SYMBOLS = [
         "primitives": [R(-2.5, -5, 5, 10), L(0, 5, 0, 7.5), L(0, -5, 0, -7.5), L(-2, -3.5, 2, 3.5),
                        L(1, 3.5, 2, 3.5), L(2, 2.5, 2, 3.5)],
         "ports": [P("L", 0, 7.5, "N"), P("PE", 0, -7.5, "S")],
-        "attributes": [REF, TYPE, attr("spd_type", "Typ SPD", "T2", True), attr("uc", "Uc [V]")],
+        "attributes": [REF, TYPE, MFR, attr("spd_type", "Typ SPD", "T2", True), attr("uc", "Uc [V]"),
+                       POLES, attr("modules", "Šířka [moduly]", "4")],
         "label_pos": {"x": 4, "y": 2},
     },
     {
@@ -123,8 +129,8 @@ SYMBOLS = [
         "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0),
                        L(-3.5, -1, -1.5, 1), L(-3.5, 1, -1.5, -1)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
-        "attributes": [REF, TYPE, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "B"),
-                       attr("poles", "Póly", "3"), attr("icu", "Icu [kA]", "6")],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "B"),
+                       POLES, MOD, attr("icu", "Icu [kA]", "6")],
         "label_pos": {"x": -5, "y": -6},
     },
     {
@@ -133,8 +139,8 @@ SYMBOLS = [
         "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0),
                        L(-3.5, -1, -1.5, 1), L(-3.5, 1, -1.5, -1), R(-5, -3.5, 10, 7)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
-        "attributes": [REF, TYPE, attr("in_", "In [A]", "", True), attr("ir", "Ir [A]"), attr("poles", "Póly", "3"),
-                       attr("icu", "Icu [kA]")],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("ir", "Ir [A]"), POLES,
+                       attr("modules", "Šířka [moduly]", "6"), attr("icu", "Icu [kA]")],
         "label_pos": {"x": -5, "y": -7},
     },
     {
@@ -142,7 +148,7 @@ SYMBOLS = [
         "description": "Odpínač AC (hlavní vypínač, odpínač FVE)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0), L(2.5, -1.5, 2.5, 1.5)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
-        "attributes": [REF, TYPE, attr("in_", "In [A]", "", True), attr("poles", "Póly", "3")],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD],
         "label_pos": {"x": -5, "y": -6},
     },
     {
@@ -150,7 +156,7 @@ SYMBOLS = [
         "description": "Stykač (např. pro odpojení FVE od DS – NS)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0), A(3.5, 0, 1, 90, 270)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
-        "attributes": [REF, TYPE, attr("in_", "In [A]", "", True)],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD],
         "label_pos": {"x": -5, "y": -6},
     },
     {
@@ -158,7 +164,7 @@ SYMBOLS = [
         "description": "Elektroměr (fakturační / podružný)",
         "primitives": [C(0, 0, 5), T(0, -1, "kWh", 2), L(-7.5, 0, -5, 0), L(5, 0, 7.5, 0)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
-        "attributes": [REF, TYPE, attr("kind", "Druh", "fakturační")],
+        "attributes": [REF, TYPE, MFR, attr("kind", "Druh", "fakturační"), attr("modules", "Šířka [moduly]", "4")],
         "label_pos": {"x": -5, "y": 6.5},
     },
     {
@@ -210,13 +216,89 @@ SYMBOLS = [
         "attributes": [REF, attr("desc", "Popis", "", True), attr("sheet", "Odkaz na list")],
         "label_pos": {"x": -15, "y": -13},
     },
+    {
+        "id": "sb.rcd", "name": "Proudový chránič", "category": "Obecné/Jištění", "iec_ref": "F",
+        "description": "Proudový chránič (RCD)",
+        "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0),
+                       {"type": "polyline", "points": [[-1, -2], [1, -2], [0, -4.5]], "closed": True}],
+        "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("idn", "IΔn [mA]", "30", True),
+                       attr("rcd_type", "Typ", "A"), attr("poles", "Póly", "4"), attr("modules", "Šířka [moduly]", "4")],
+        "label_pos": {"x": -5, "y": -7},
+    },
+    {
+        "id": "sb.rcbo", "name": "Jistič s chráničem", "category": "Obecné/Jištění", "iec_ref": "F",
+        "description": "Proudový chránič s nadproudovou ochranou (RCBO)",
+        "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0), L(-3.5, -1, -1.5, 1), L(-3.5, 1, -1.5, -1),
+                       {"type": "polyline", "points": [[0, -2], [2, -2], [1, -4.5]], "closed": True}],
+        "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "B"),
+                       attr("idn", "IΔn [mA]", "30", True), attr("poles", "Póly", "2"), attr("modules", "Šířka [moduly]", "2")],
+        "label_pos": {"x": -5, "y": -7},
+    },
+    {
+        "id": "sb.main_switch", "name": "Hlavní vypínač", "category": "Obecné/Spínání", "iec_ref": "Q",
+        "description": "Hlavní vypínač rozvaděče",
+        "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0), L(2.5, -1.5, 2.5, 1.5),
+                       C(-2.5, 0, 0.8), T(0, 6, "HV", 2)],
+        "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD],
+        "label_pos": {"x": -5, "y": -6},
+    },
+    {
+        "id": "sb.busbar", "name": "Sběrnice", "category": "Rozvaděč/Propojení", "iec_ref": "X",
+        "description": "Sběrnice – 1 vstup, 10 vývodů dolů po 15 mm",
+        "primitives": [{"type": "polyline", "points": [[-75, 0], [75, 0]], "closed": False},
+                       {"type": "polyline", "points": [[-75, 1], [75, 1]], "closed": False}],
+        "ports": [P("IN", -75, 5, "N")] + [P(f"{i + 1}", -67.5 + i * 15, -5, "S") for i in range(10)],
+        "attributes": [REF, attr("desc", "Popis", "", True), attr("in_", "In [A]"), attr("conductors", "Vodiče", "L1 L2 L3 N PE")],
+        "label_pos": {"x": -75, "y": 7.5},
+    },
+    {
+        "id": "sb.feed_in", "name": "Přívod", "category": "Rozvaděč/Propojení", "iec_ref": "X",
+        "description": "Přívodní svorky rozvaděče (vazba na nadřazený list)",
+        "primitives": [{"type": "polyline", "points": [[-5, 5], [0, 0], [5, 5]], "closed": False}, L(0, 0, 0, -5),
+                       T(0, 7.5, "PŘÍVOD", 2)],
+        "ports": [P("1", 0, -5, "S")],
+        "attributes": [REF, attr("desc", "Popis", "", True), attr("from", "Odkud"), attr("cable", "Kabel")],
+        "label_pos": {"x": 7, "y": 0},
+    },
+    {
+        "id": "sb.feed_out", "name": "Vývod", "category": "Rozvaděč/Propojení", "iec_ref": "X",
+        "description": "Vývodní svorky rozvaděče",
+        "primitives": [L(0, 5, 0, 0), {"type": "polyline", "points": [[-5, -5], [0, 0], [5, -5]], "closed": False},
+                       T(0, -9, "VÝVOD", 2)],
+        "ports": [P("1", 0, 5, "N")],
+        "attributes": [REF, attr("desc", "Popis", "", True), attr("to", "Kam"), attr("cable", "Kabel")],
+        "label_pos": {"x": 7, "y": 0},
+    },
+    {
+        "id": "sb.terminal_block", "name": "Svorkovnice", "category": "Rozvaděč/Propojení", "iec_ref": "X",
+        "description": "Řadová svorkovnice – 1 svorka (vícenásobná = více prvků)",
+        "primitives": [C(0, 0, 1.5), L(0, 5, 0, 1.5), L(0, -1.5, 0, -5)],
+        "ports": [P("1", 0, 5, "N"), P("2", 0, -5, "S")],
+        "attributes": [REF, attr("terminal", "Svorka č.", "", True), attr("cross", "Průřez [mm²]"), attr("modules", "Šířka [moduly]", "0.35")],
+        "label_pos": {"x": 2.5, "y": 1},
+    },
+    {
+        "id": "sb.pe_bar", "name": "PE/N můstek", "category": "Rozvaděč/Propojení", "iec_ref": "X",
+        "description": "Ochranná / nulová sběrnice",
+        "primitives": [{"type": "polyline", "points": [[-15, 0], [15, 0]], "closed": False},
+                       {"type": "polyline", "points": [[-15, 1.5], [15, 1.5]], "closed": False}, T(17, 0, "PE", 2, "left")],
+        "ports": [P(f"{i + 1}", -12.5 + i * 5, -2.5, "S") for i in range(6)],
+        "attributes": [REF, attr("kind", "Druh", "PE", True)],
+        "label_pos": {"x": -15, "y": 3.5},
+    },
 ]
 
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
+    sb = OUT.parent / "switchboard"
+    sb.mkdir(parents=True, exist_ok=True)
     for s in SYMBOLS:
-        (OUT / f"{s['id']}.json").write_text(json.dumps(s, ensure_ascii=False, indent=2), encoding="utf-8")
+        folder = sb if s["id"].startswith("sb.") else OUT
+        (folder / f"{s['id']}.json").write_text(json.dumps(s, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"{len(SYMBOLS)} symbolů → {OUT}")
 
 

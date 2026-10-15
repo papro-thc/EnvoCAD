@@ -20,10 +20,16 @@
 - [ ] Výkaz materiálu (.xlsx) a seznam kabelů z modelu
 - [ ] Hromadný import DXF knihoven výrobců (SMA, Huawei, SolarEdge, Eaton, Schneider, OEZ…)
 
-## v0.3 – Rozvaděče
-- [ ] Pohled rozvaděče: DIN lišty, moduly, rozměry přístrojů z artiklu
-- [ ] Svorkovnice generované z vodičů
-- [ ] Štítky, seznam přístrojů
+## v0.2 – Rozvaděče  ← hotovo v základu
+- [x] List rozvaděče z bloku, šablony AC/DC
+- [x] Pohled rozložení: DIN lišty, moduly, přetahování
+- [x] Výkazy xlsx (přístroje, BOM, kabely, svorkovnice, štítky), protokol kusového ověření docx
+- [ ] Šablona ENVO pro protokol (loga, hlavička) – doplnit po dodání .docx
+- [ ] Rozměry přístrojů z artiklu (ne ručně v atributu `modules`)
+
+## v0.3 – Vícepól
+- [ ] Vícepólový pohled nad stejným listem (přepínání JPS ↔ vícepól), přiřazení svorek per žíla (`Wire.terminals`)
+- [ ] Automatické číslování svorek na svorkovnicích
 
 ## v0.4 – Vícelistové projekty a dokumentace
 - [ ] Křížové odkazy mezi listy

@@ -14,8 +14,8 @@ python -m envocad
 
 ## Stav
 
-v0.1 – editor jednopólového schématu: knihovna symbolů FVE, vkládání, vodiče, vlastnosti,
-uložení projektu (`.ecp`), export DXF/PDF, import symbolů z DXF.
+v0.2 – jednopólové schéma FVE, listy rozvaděčů (schéma + fyzické rozložení na DIN lištách), šablony rozvaděčů,
+výkazy (xlsx) a protokol kusového ověření (docx), export DXF/PDF, import symbolů z DXF, tmavý režim.
 
 Dokumentace: `docs/ARCHITECTURE.md`, `docs/LIBRARY_FORMAT.md`, `docs/ROADMAP.md`.
 Pokyny pro agenty: `CLAUDE.md`.
@@ -33,3 +33,6 @@ Pokyny pro agenty: `CLAUDE.md`.
 | Zoom / posun pohledu | kolečko / střední tlačítko |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Y` |
 | Tmavý / světlý režim | `Ctrl+D` |
+| Otevřít rozvaděč | dvojklik na blok ROZVADĚČ (poprvé nabídne šablonu) |
+| Rozložení rozvaděče | `Ctrl+L` na listu rozvaděče; přístroje přetáhnout na DIN lišty |
+| Výkazy / protokol | menu Výstupy (xlsx, docx) |

@@ -1,0 +1,73 @@
+{
+  "id": "sb.terminal_block",
+  "name": "Svorkovnice",
+  "category": "Rozvaděč/Propojení",
+  "iec_ref": "X",
+  "description": "Řadová svorkovnice – 1 svorka (vícenásobná = více prvků)",
+  "primitives": [
+    {
+      "type": "circle",
+      "cx": 0,
+      "cy": 0,
+      "r": 1.5
+    },
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": 5,
+      "x2": 0,
+      "y2": 1.5
+    },
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": -1.5,
+      "x2": 0,
+      "y2": -5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0,
+      "y": 5,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 0,
+      "y": -5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "terminal",
+      "label": "Svorka č.",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "cross",
+      "label": "Průřez [mm²]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "modules",
+      "label": "Šířka [moduly]",
+      "default": "0.35",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": 2.5,
+    "y": 1
+  }
+}

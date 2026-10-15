@@ -70,3 +70,16 @@ změnit atribut). Model sám o undo neví.
 
 Nic v modelu není specifické pro FVE – „FVE“ je jen sada symbolů, šablon listů a generátorů výstupů.
 Další obor = další složka v `library/builtin/` + případně vlastní exportní šablony.
+
+## Jednopól ↔ vícepól (návrh)
+
+Jeden model, dva pohledy nad stejnými daty:
+
+- **Jednopólové schéma (JPS)** – kreslí se první. `Wire` je jedna čára, ale nese `conductors`
+  (např. `["L1","L2","L3","N","PE"]`) a `Element` má `poles`.
+- **Vícepólové schéma** – odvozený pohled: každá žíla z `conductors` se rozkreslí jako samostatná čára
+  mezi póly přístrojů (pól = port + index žíly). Uživatel zde přiřazuje svorky: `Wire.terminals[žíla] =
+  {"a": "X1:3", "b": "F2:1"}`. Nic se nekopíruje – změna typu kabelu v JPS se projeví i ve vícepólu a naopak.
+- Přepínání pohledu = jiný `QGraphicsScene` nad stejným `Sheet`; symboly pro vícepól se generují z jednopólových
+  (N× opakovaný pólový symbol + společná spoušť), vlastní vícepólové symboly v knihovně jsou volitelné.
+- Svorkovnice a seznam kabelů se generují z `Wire.conductors` + `Wire.terminals`.

@@ -69,6 +69,12 @@
       "show": true
     },
     {
+      "key": "manufacturer",
+      "label": "Výrobce",
+      "default": "",
+      "show": false
+    },
+    {
       "key": "in_",
       "label": "In [A]",
       "default": "",
@@ -83,6 +89,12 @@
     {
       "key": "poles",
       "label": "Póly",
+      "default": "3",
+      "show": false
+    },
+    {
+      "key": "modules",
+      "label": "Šířka [moduly]",
       "default": "3",
       "show": false
     },

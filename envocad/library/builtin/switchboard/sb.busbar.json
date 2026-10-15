@@ -1,0 +1,135 @@
+{
+  "id": "sb.busbar",
+  "name": "Sběrnice",
+  "category": "Rozvaděč/Propojení",
+  "iec_ref": "X",
+  "description": "Sběrnice – 1 vstup, 10 vývodů dolů po 15 mm",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -75,
+          0
+        ],
+        [
+          75,
+          0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -75,
+          1
+        ],
+        [
+          75,
+          1
+        ]
+      ],
+      "closed": false
+    }
+  ],
+  "ports": [
+    {
+      "name": "IN",
+      "x": -75,
+      "y": 5,
+      "dir": "N"
+    },
+    {
+      "name": "1",
+      "x": -67.5,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": -52.5,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": -37.5,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "4",
+      "x": -22.5,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "5",
+      "x": -7.5,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "6",
+      "x": 7.5,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "7",
+      "x": 22.5,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "8",
+      "x": 37.5,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "9",
+      "x": 52.5,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "10",
+      "x": 67.5,
+      "y": -5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "desc",
+      "label": "Popis",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "in_",
+      "label": "In [A]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "conductors",
+      "label": "Vodiče",
+      "default": "L1 L2 L3 N PE",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": -75,
+    "y": 7.5
+  }
+}

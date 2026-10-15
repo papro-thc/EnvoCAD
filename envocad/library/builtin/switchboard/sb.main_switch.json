@@ -1,0 +1,107 @@
+{
+  "id": "sb.main_switch",
+  "name": "Hlavní vypínač",
+  "category": "Obecné/Spínání",
+  "iec_ref": "Q",
+  "description": "Hlavní vypínač rozvaděče",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": 0,
+      "x2": -2.5,
+      "y2": 0
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 0,
+      "x2": 2,
+      "y2": 4
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 0,
+      "x2": 7.5,
+      "y2": 0
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": -1.5,
+      "x2": 2.5,
+      "y2": 1.5
+    },
+    {
+      "type": "circle",
+      "cx": -2.5,
+      "cy": 0,
+      "r": 0.8
+    },
+    {
+      "type": "text",
+      "x": 0,
+      "y": 6,
+      "text": "HV",
+      "height": 2,
+      "align": "center"
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -7.5,
+      "y": 0,
+      "dir": "W"
+    },
+    {
+      "name": "2",
+      "x": 7.5,
+      "y": 0,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "manufacturer",
+      "label": "Výrobce",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "in_",
+      "label": "In [A]",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "poles",
+      "label": "Póly",
+      "default": "3",
+      "show": false
+    },
+    {
+      "key": "modules",
+      "label": "Šířka [moduly]",
+      "default": "3",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": -5,
+    "y": -6
+  }
+}

@@ -26,6 +26,7 @@ class SchematicScene(QGraphicsScene):
     selection_info = Signal(object)       # ElementItem | WireItem | None
     attrs_changed = Signal(str)           # id elementu/vodiče
     mode_changed = Signal(object)         # Mode
+    open_switchboard = Signal(str)        # id bloku ROZVADĚČ
 
     def __init__(self, project: Project, sheet: Sheet, library: LibraryStore, undo: QUndoStack):
         super().__init__()
@@ -214,6 +215,9 @@ class SchematicScene(QGraphicsScene):
             return super().mouseDoubleClickEvent(ev)
         it = self._element_at(ev.scenePos())
         if it is not None:
+            if it.symbol.id == "fve.switchboard":
+                self.open_switchboard.emit(it.element.id)
+                return None
             return self.edit_element(it.element.id)
         for w in self.items(ev.scenePos()):
             if isinstance(w, WireItem):

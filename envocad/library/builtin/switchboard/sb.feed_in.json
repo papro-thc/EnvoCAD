@@ -1,0 +1,80 @@
+{
+  "id": "sb.feed_in",
+  "name": "Přívod",
+  "category": "Rozvaděč/Propojení",
+  "iec_ref": "X",
+  "description": "Přívodní svorky rozvaděče (vazba na nadřazený list)",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -5,
+          5
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": 0,
+      "x2": 0,
+      "y2": -5
+    },
+    {
+      "type": "text",
+      "x": 0,
+      "y": 7.5,
+      "text": "PŘÍVOD",
+      "height": 2,
+      "align": "center"
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0,
+      "y": -5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "desc",
+      "label": "Popis",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "from",
+      "label": "Odkud",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "cable",
+      "label": "Kabel",
+      "default": "",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": 7,
+    "y": 0
+  }
+}

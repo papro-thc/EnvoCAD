@@ -76,6 +76,12 @@
       "show": true
     },
     {
+      "key": "manufacturer",
+      "label": "Výrobce",
+      "default": "",
+      "show": false
+    },
+    {
       "key": "spd_type",
       "label": "Typ SPD",
       "default": "T2",
@@ -85,6 +91,18 @@
       "key": "uc",
       "label": "Uc [V]",
       "default": "",
+      "show": false
+    },
+    {
+      "key": "poles",
+      "label": "Póly",
+      "default": "3",
+      "show": false
+    },
+    {
+      "key": "modules",
+      "label": "Šířka [moduly]",
+      "default": "4",
       "show": false
     }
   ],

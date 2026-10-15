@@ -1,0 +1,116 @@
+{
+  "id": "sb.rcd",
+  "name": "Proudový chránič",
+  "category": "Obecné/Jištění",
+  "iec_ref": "F",
+  "description": "Proudový chránič (RCD)",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": 0,
+      "x2": -2.5,
+      "y2": 0
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 0,
+      "x2": 2,
+      "y2": 4
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 0,
+      "x2": 7.5,
+      "y2": 0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -1,
+          -2
+        ],
+        [
+          1,
+          -2
+        ],
+        [
+          0,
+          -4.5
+        ]
+      ],
+      "closed": true
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -7.5,
+      "y": 0,
+      "dir": "W"
+    },
+    {
+      "name": "2",
+      "x": 7.5,
+      "y": 0,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "manufacturer",
+      "label": "Výrobce",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "in_",
+      "label": "In [A]",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "idn",
+      "label": "IΔn [mA]",
+      "default": "30",
+      "show": true
+    },
+    {
+      "key": "rcd_type",
+      "label": "Typ",
+      "default": "A",
+      "show": false
+    },
+    {
+      "key": "poles",
+      "label": "Póly",
+      "default": "4",
+      "show": false
+    },
+    {
+      "key": "modules",
+      "label": "Šířka [moduly]",
+      "default": "4",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": -5,
+    "y": -7
+  }
+}

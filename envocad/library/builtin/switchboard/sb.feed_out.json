@@ -1,0 +1,80 @@
+{
+  "id": "sb.feed_out",
+  "name": "Vývod",
+  "category": "Rozvaděč/Propojení",
+  "iec_ref": "X",
+  "description": "Vývodní svorky rozvaděče",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": 5,
+      "x2": 0,
+      "y2": 0
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -5,
+          -5
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          5,
+          -5
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "text",
+      "x": 0,
+      "y": -9,
+      "text": "VÝVOD",
+      "height": 2,
+      "align": "center"
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0,
+      "y": 5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "desc",
+      "label": "Popis",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "to",
+      "label": "Kam",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "cable",
+      "label": "Kabel",
+      "default": "",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": 7,
+    "y": 0
+  }
+}

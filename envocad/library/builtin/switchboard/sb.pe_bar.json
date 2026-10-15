@@ -1,0 +1,101 @@
+{
+  "id": "sb.pe_bar",
+  "name": "PE/N můstek",
+  "category": "Rozvaděč/Propojení",
+  "iec_ref": "X",
+  "description": "Ochranná / nulová sběrnice",
+  "primitives": [
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -15,
+          0
+        ],
+        [
+          15,
+          0
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "polyline",
+      "points": [
+        [
+          -15,
+          1.5
+        ],
+        [
+          15,
+          1.5
+        ]
+      ],
+      "closed": false
+    },
+    {
+      "type": "text",
+      "x": 17,
+      "y": 0,
+      "text": "PE",
+      "height": 2,
+      "align": "left"
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -12.5,
+      "y": -2.5,
+      "dir": "S"
+    },
+    {
+      "name": "2",
+      "x": -7.5,
+      "y": -2.5,
+      "dir": "S"
+    },
+    {
+      "name": "3",
+      "x": -2.5,
+      "y": -2.5,
+      "dir": "S"
+    },
+    {
+      "name": "4",
+      "x": 2.5,
+      "y": -2.5,
+      "dir": "S"
+    },
+    {
+      "name": "5",
+      "x": 7.5,
+      "y": -2.5,
+      "dir": "S"
+    },
+    {
+      "name": "6",
+      "x": 12.5,
+      "y": -2.5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "kind",
+      "label": "Druh",
+      "default": "PE",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -15,
+    "y": 3.5
+  }
+}

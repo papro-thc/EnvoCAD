@@ -110,3 +110,39 @@ def test_attr_dialog_and_wire_refs(app, tmp_path):
     # číslování vodičů bere v úvahu existující W-označení
     p = _project()
     assert p.next_ref("W") == "W3"
+
+
+def test_switchboard_tabs_and_layout(app, tmp_path):
+    from envocad.library.templates import apply_template
+    from envocad.ui.layout_view import LayoutView, SetPlacementCommand
+    lib = LibraryStore(tmp_path / "lib.db")
+    p = Project(name="SB")
+    block = Element("fve.switchboard", 100, 100, attrs={"ref": "R1", "desc": "AC"})
+    p.sheets[0].elements.append(block)
+    win = MainWindow(library=lib, project=p)
+    win.show()
+    app.processEvents()
+    assert win.tabs.count() == 1
+    # založení listu rozvaděče bez dialogu šablony (šablonu vložíme přímo)
+    sheet = p.create_switchboard_sheet(block)
+    apply_template(p, sheet, "ac_fve", {"n_out": "4"})
+    win.open_sheet(sheet, "schematic")
+    win.open_sheet(sheet, "layout")
+    assert win.tabs.count() == 3 and isinstance(win.view, LayoutView)
+    lsc = win.view.scene()
+    assert lsc.items_by_id
+    # posun přístroje přes undo příkaz
+    eid = next(iter(lsc.items_by_id))
+    old = lsc.sheet.layout.placement(eid)
+    win.undo.push(SetPlacementCommand(lsc, eid, (old.row, old.pos), (1, 2.0)))
+    assert lsc.sheet.layout.placement(eid).row == 1
+    win.undo.undo()
+    assert lsc.sheet.layout.placement(eid).row == old.row
+    # znovuotevření existující záložky nevytvoří novou
+    win.open_sheet(sheet, "layout")
+    assert win.tabs.count() == 3
+    # uložení a načtení zachová list rozvaděče
+    p.path = tmp_path / "sb.ecp"
+    assert win.save_project()
+    q = Project.load(p.path)
+    assert len(q.switchboards()) == 1 and q.switchboards()[0].parent_element_id == block.id

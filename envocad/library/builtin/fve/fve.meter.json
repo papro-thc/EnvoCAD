@@ -62,9 +62,21 @@
       "show": true
     },
     {
+      "key": "manufacturer",
+      "label": "Výrobce",
+      "default": "",
+      "show": false
+    },
+    {
       "key": "kind",
       "label": "Druh",
       "default": "fakturační",
+      "show": false
+    },
+    {
+      "key": "modules",
+      "label": "Šířka [moduly]",
+      "default": "4",
       "show": false
     }
   ],
