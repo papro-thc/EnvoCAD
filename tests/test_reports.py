@@ -89,7 +89,7 @@ def test_cables_as_objects_and_wiring_list(tmp_path):
     p.save(tmp_path / "k.ecp")
     p2 = Project.load(tmp_path / "k.ecp")
     assert p2.cables[0].core("N").color == "světle modrá" and p2.sheets[0].wires[0].attrs["cable_id"] == c.id
-    head, rows = reports.cable_plan(p, lib)
+    _, rows = reports.cable_plan(p, lib)
     assert [r[3] for r in rows] == ["L1", "N", "PE"] and rows[0][6] == "T1:AC" and rows[0][7] == "F1:1"
     _, rows = reports.wiring_list(p, lib)
     assert len(rows) == 3 and rows[0][1] == "W2" and rows[0][3] == "hnědá"
