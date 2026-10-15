@@ -74,6 +74,20 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
                 groups.setdefault(key, []).append(f"{e.ref} ({n})")
                 qty[key] = qty.get(key, 0) + n
                 continue
+            if e.symbol_id == "fve.pv_string":
+                # string = moduly (ks) + optimizéry (ks), ne jeden kus
+                for akey, name, cnt_key in (("type", "FV modul", "n_modules"), ("optimizer", "Optimizér", "n_optimizers")):
+                    try:
+                        n = int(float(str(e.attrs.get(cnt_key) or 0).replace(",", ".")))
+                    except ValueError:
+                        n = 0
+                    if n <= 0:
+                        continue
+                    params = f"{e.attrs['p_module']} Wp" if akey == "type" and e.attrs.get("p_module") else ""
+                    key = (name, e.attrs.get(akey, ""), "", params)
+                    groups.setdefault(key, []).append(f"{e.ref} ({n})")
+                    qty[key] = qty.get(key, 0) + n
+                continue
             key = (lib.get_symbol(e.symbol_id).name, e.attrs.get("type", ""), e.attrs.get("manufacturer", ""), _param_str(e))
             groups.setdefault(key, []).append(e.ref)
             qty[key] = qty.get(key, 0) + 1

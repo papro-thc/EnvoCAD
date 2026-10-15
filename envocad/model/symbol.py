@@ -35,6 +35,10 @@ class Attribute:
     label: str
     default: str = ""
     show: bool = False
+    fmt: str = ""        # formát zobrazené hodnoty ve výkresu, např. "{} modulů" (prázdné = hodnota sama)
+
+    def display(self, value: str) -> str:
+        return self.fmt.format(value) if self.fmt and value else value
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -54,6 +58,10 @@ class Symbol:
     # vícepólová podoba: {"pole": [primitiva jednoho pólu], "common": [primitiva kreslená jednou u 1. pólu],
     #                     "link": True (čárkovaná mechanická vazba pólů), "link_at": [x, y] bod vazby v pólu}
     multipole: dict = field(default_factory=dict)
+
+    def label_lines(self, attrs: dict) -> list[str]:
+        """Řádky popisku prvku ve výkresu (bez označení): zobrazované atributy s formátem."""
+        return [a.display(attrs[a.key]) for a in self.attributes if a.show and a.key != "ref" and attrs.get(a.key)]
 
     def pole_symbol(self) -> Symbol:
         """Značka jednoho pólu pro vícepól (bez vlastní – celá značka)."""

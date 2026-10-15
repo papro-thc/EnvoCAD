@@ -182,7 +182,7 @@ základní selektivita (poměr In po cestě ke zdroji ≥ 1,6). Tabulky Iz jsou 
 ## 7. Nový projekt z průvodce (a pro agenty)
 
 `Ctrl+Shift+N` (Soubor → Nový projekt z průvodce): zadej projekt a investora, modul (typ, Wp, Uoc, Umpp, Isc),
-střídač (typ, P AC, Umax, rozsah MPPT, Imax), stringy po střídačích (`20,20,18; 20,20`), kabely a jištění.
+optimizéry (typ a kusy na modul – prázdné = bez optimizérů), střídač (typ, P AC, Umax, rozsah MPPT, Imax), stringy po střídačích (`20,20,18; 20,20`), kabely a jištění.
 Vygeneruje se JPS (stringy → DC rozvaděče → střídače → AC rozvaděč → síť) a listy všech rozvaděčů včetně
 kabelů a vazeb. Hned potom spusť `F7`.
 

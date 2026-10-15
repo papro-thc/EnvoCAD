@@ -97,10 +97,9 @@ class ElementItem(QGraphicsItem):
         if self.element.ref:
             draw_text(painter, 0, line, self.element.ref, 2.5, "left")
             line -= 3.5
-        for a in self.symbol.attributes:
-            if a.show and a.key != "ref" and self.element.attrs.get(a.key):
-                draw_text(painter, 0, line, self.element.attrs[a.key], 2.0, "left")
-                line -= 3.0
+        for text in self.symbol.label_lines(self.element.attrs):
+            draw_text(painter, 0, line, text, 2.0, "left")
+            line -= 3.0
         sc = self.scene()
         xref = sc.element_xref(self.element) if hasattr(sc, "element_xref") else ""
         for ln in xref.splitlines():  # zrcadlo kontaktů může mít více řádků

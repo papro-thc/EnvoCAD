@@ -36,8 +36,11 @@ def P(name, x, y, d):
     return {"name": name, "x": x, "y": y, "dir": d}
 
 
-def attr(key, label, default="", show=False):
-    return {"key": key, "label": label, "default": default, "show": show}
+def attr(key, label, default="", show=False, fmt=""):
+    d = {"key": key, "label": label, "default": default, "show": show}
+    if fmt:
+        d["fmt"] = fmt
+    return d
 
 
 # Kontakt dle IEC 60617: pohyblivý kontakt (nůž) je kloubem na straně portu 2 (výstup), volný konec u portu 1 –
@@ -72,7 +75,9 @@ SYMBOLS = [
             L(5, 0, 7.5, 0),
         ],
         "ports": [P("DC", 7.5, 0, "E")],  # jednopólově: jedna čára = pár DC+/DC- (žíly vodiče)
-        "attributes": [REF, TYPE, attr("n_modules", "Počet modulů"), attr("p_module", "P modul [Wp]"),
+        "attributes": [REF, TYPE, attr("n_modules", "Počet modulů", "", True, "{}× modul"), attr("p_module", "P modul [Wp]"),
+                       attr("n_optimizers", "Počet optimizérů", "", True, "{}× optimizér"),
+                       attr("optimizer", "Optimizér – typ", "", True),
                        attr("p_string", "P string [kWp]", "", True), attr("voc", "Uoc modulu STC [V]"),
                        attr("vmp", "Umpp modulu STC [V]"), attr("isc", "Isc modulu [A]"),
                        attr("beta_voc", "Tepl. součinitel Uoc [%/K]", "-0.27")],

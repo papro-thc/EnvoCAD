@@ -26,7 +26,8 @@ a při startu se nahrají do SQLite (`~/.envocad/library.db`), kde přibývají 
   "attributes": [
     {"key": "ref",   "label": "Označení",  "default": "", "show": true},
     {"key": "type",  "label": "Typ",       "default": "", "show": true},
-    {"key": "p_ac",  "label": "P_AC [kW]", "default": "", "show": false}
+    {"key": "p_ac",  "label": "P_AC [kW]", "default": "", "show": false},
+    {"key": "n_modules", "label": "Počet modulů", "show": true, "fmt": "{}× modul"}   // fmt = formát zobrazené hodnoty
   ],
   "label_pos": {"x": 12, "y": 8},
   "multipole": {                      // volitelné – podoba ve vícepólovém schématu (průchozí prvky)

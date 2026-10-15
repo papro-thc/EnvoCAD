@@ -88,7 +88,7 @@ class PoleItem(QGraphicsItem):
             return
         lines = [(self.element.ref, 2.5)] if self.element.ref else []
         skip = {"ref", "terminal"} if mp.is_terminal_block(self.element) else {"ref"}  # čísla svorek jsou u pólů
-        lines += [(self.element.attrs[a.key], 2.0) for a in self.symbol.attributes
+        lines += [(a.display(self.element.attrs[a.key]), 2.0) for a in self.symbol.attributes
                   if a.show and a.key not in skip and self.element.attrs.get(a.key)]
         multi = len(self.ep.switched) > 1
         if multi:

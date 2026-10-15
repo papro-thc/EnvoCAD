@@ -72,9 +72,10 @@ def export_tz_docx(project: Project, lib: LibraryStore, path: Path | str, templa
 
     doc.add_heading("2. Fotovoltaické pole", 1)
     strings = [(s, e) for s in project.sheets for e in s.elements if e.symbol_id == "fve.pv_string"]
-    _table(doc, ["String", "Typ modulu", "Modulů", "P [kWp]", "Uoc mod. [V]", "Isc mod. [A]", "List"],
-           [[e.ref, e.attrs.get("type", ""), e.attrs.get("n_modules", ""), e.attrs.get("p_string", ""),
-             e.attrs.get("voc", ""), e.attrs.get("isc", ""), s.name] for s, e in strings])
+    _table(doc, ["String", "Typ modulu", "Modulů", "Optimizéry", "P [kWp]", "Uoc mod. [V]", "Isc mod. [A]", "List"],
+           [[e.ref, e.attrs.get("type", ""), e.attrs.get("n_modules", ""),
+             f"{e.attrs['n_optimizers']}× {e.attrs.get('optimizer', '')}".strip() if e.attrs.get("n_optimizers") else "–",
+             e.attrs.get("p_string", ""), e.attrs.get("voc", ""), e.attrs.get("isc", ""), s.name] for s, e in strings])
     doc.add_paragraph("")
     doc.add_heading("2.1 Kontrola stringů proti střídači", 2)
     sc = calc.check_strings(project)

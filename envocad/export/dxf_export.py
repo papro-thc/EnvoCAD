@@ -50,10 +50,9 @@ def _draw_symbol(msp, e: Element, sym: Symbol) -> None:
     if e.ref:
         _text(msp, lx, ly + line, e.ref, 2.5, "left", 0, layer="TEXTY")
         line -= 3.5
-    for at in sym.attributes:
-        if at.show and at.key != "ref" and e.attrs.get(at.key):
-            _text(msp, lx, ly + line, e.attrs[at.key], 2.0, "left", 0, layer="TEXTY")
-            line -= 3.0
+    for text in sym.label_lines(e.attrs):
+        _text(msp, lx, ly + line, text, 2.0, "left", 0, layer="TEXTY")
+        line -= 3.0
 
 
 def _text(msp, x, y, text, height, align, rot, layer="SYMBOLY"):

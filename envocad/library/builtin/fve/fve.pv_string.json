@@ -94,13 +94,27 @@
       "key": "n_modules",
       "label": "Počet modulů",
       "default": "",
-      "show": false
+      "show": true,
+      "fmt": "{}× modul"
     },
     {
       "key": "p_module",
       "label": "P modul [Wp]",
       "default": "",
       "show": false
+    },
+    {
+      "key": "n_optimizers",
+      "label": "Počet optimizérů",
+      "default": "",
+      "show": true,
+      "fmt": "{}× optimizér"
+    },
+    {
+      "key": "optimizer",
+      "label": "Optimizér – typ",
+      "default": "",
+      "show": true
     },
     {
       "key": "p_string",

@@ -6,6 +6,7 @@ Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
 {
   "name": "FVE Firma s.r.o.", "meta": {"investor": "…", "place": "…", "order": "…", "author": "…"},
   "module": {"p_wp": 450, "voc": 49.5, "vmp": 41.5, "isc": 13.9, "beta_voc": -0.27, "type": "JA Solar …"},
+  "optimizer": {"type": "", "per_module": 1},                        # optimizéry (prázdný typ = bez optimizérů)
   "inverters": [{"ref": "T1", "type": "SMA STP 25-50", "p_ac": 25, "phases": 3, "u_dc_max": 1100,
                  "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30, "strings": [20, 20, 18, 18],
                  "component_id": "sma-stp-25-50"}],
@@ -53,6 +54,7 @@ DEFAULT_SPEC = {
     "name": "Nový projekt FVE",
     "meta": {},
     "module": {"p_wp": 450, "voc": 49.5, "vmp": 41.5, "isc": 13.9, "beta_voc": -0.27, "type": ""},
+    "optimizer": {"type": "", "per_module": 1},
     "dc": {"cable": "H1Z2Z2-K 1x6", "cross": 6, "length": 30, "route_boxes": 1, "route_length": 20,
            "tech_box": True, "tech_length": 5, "spd": "T2", "fuse_in": 15, "disconnect_in": 32, "disconnect": False},
     "ac": {"cable": "CYKY-J 5x16", "cross": 16, "length": 30, "breaker_in": 40, "main_in": 125,
@@ -83,6 +85,8 @@ def build_project(spec: dict) -> Project:
     s = p.sheets[0]
     s.name = "Jednopólové schéma"
     mod, dc, ac = spec["module"], spec["dc"], spec["ac"]
+    opt = spec.get("optimizer") or {}
+    opt_per = float(opt.get("per_module") or 1) if opt.get("type") else 0.0
     # svislé rozestupy řad střídačů podle počtu stringů
     row_h = [max(55.0, 30.0 * max(len(inv.get("strings") or [1]), 1) + 20.0) for inv in invs]
     total_h = sum(row_h)
@@ -126,7 +130,8 @@ def build_project(spec: dict) -> Project:
             g = Element("fve.pv_string", x_str, ys, attrs={
                 "ref": p.next_ref("G"), "type": _s(mod.get("type")), "n_modules": _s(n_mod), "p_module": _s(mod.get("p_wp")),
                 "p_string": f"{p_str:g} kWp", "voc": _s(mod.get("voc")), "vmp": _s(mod.get("vmp")),
-                "isc": _s(mod.get("isc")), "beta_voc": _s(mod.get("beta_voc"))})
+                "isc": _s(mod.get("isc")), "beta_voc": _s(mod.get("beta_voc")),
+                "n_optimizers": _s(round(n_mod * opt_per)) if opt_per else "", "optimizer": _s(opt.get("type")) if opt_per else ""})
             s.elements.append(g)
             gens.append(g)
         # DC rozvaděče: po trase (odpínač + SPD) a u technologie (pojistkové odpínače + SPD); stringy jimi procházejí odděleně

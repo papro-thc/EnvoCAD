@@ -356,6 +356,10 @@ class ProjectWizard(QDialog):
         form.addRow("P modulu [Wp]", self.mod_p)
         form.addRow("Uoc / Umpp modulu [V]", self._pair(self.mod_voc, self.mod_vmp))
         form.addRow("Isc modulu [A]", self.mod_isc)
+        self.opt_type = QLineEdit("")
+        self.opt_per = QLineEdit("1")
+        self.opt_type.setToolTip("Prázdné = bez optimizérů")
+        form.addRow("Optimizér – typ / ks na modul", self._pair(self.opt_type, self.opt_per))
         self.inv_type = QLineEdit()
         self.inv_p = QLineEdit("25")
         self.inv_udc = QLineEdit("1100")
@@ -445,6 +449,7 @@ class ProjectWizard(QDialog):
                      "order": self.order.text().strip(), "author": self.author.text().strip()},
             "module": {"type": self.mod_type.text().strip(), "p_wp": self._num(self.mod_p), "voc": self._num(self.mod_voc),
                        "vmp": self._num(self.mod_vmp), "isc": self._num(self.mod_isc)},
+            "optimizer": {"type": self.opt_type.text().strip(), "per_module": self._num(self.opt_per) or 1},
             "inverters": inverters,
             "dc": {"cable": self.dc_cable.text().strip(), "cross": self._num(self.dc_cross), "length": self._num(self.dc_len),
                    "route_boxes": self._num(self.dc_route_boxes) or 0, "route_length": self._num(self.dc_route_len),

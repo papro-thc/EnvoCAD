@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.10.1 – 2026-10-15
+- String: v JPS se zobrazuje počet modulů a **počet a typ optimizérů** (atributy `n_optimizers`, `optimizer`; generátor/průvodce: `optimizer.type`, `per_module`); BOM počítá moduly a optimizéry v kusech, TZ má sloupec Optimizéry. Atribut značky může mít `fmt` („{}× modul“).
 - Rámeček s popisovým polem a QR je zatím **vypnutý** (nastavení `frame`, přepínač `Zobrazit → Rámeček a popisové pole`); platí pro výkresy, PDF i DXF. Odkazy `/2.B4` fungují dál.
 - **Stringy se v rozvaděči nikdy nespojují**: šablona *DC rozvaděč* i generátor vedou každý string zvlášť (přívod → pojistkový odpínač / odpínač DC → vývod) s vlastním SPD; střídač má DC vstup na každý string (`DC1…DCn` podle `mppt × strings_per_mppt`, značka se roztáhne – `inverter_symbol`), volné DC vstupy nejsou chyba. Paralelní spojení (SolarEdge) = jeden string.
 - **Značky kontaktů dle IEC 60617 / EPLAN**: kloub pohyblivého kontaktu na straně výstupu (port 2), volný konec u vstupu – ve svislém vícepólu kloub dole, nůž nahoře; spoušť „x“ jističe na volném konci nože, pevný kontakt odpojovače s příčkou na vstupu; pomocné kontakty NO/NC stejně. Pojistkový odpínač má pojistku správně na noži.

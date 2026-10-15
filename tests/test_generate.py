@@ -84,3 +84,19 @@ def test_dc_boxes_along_route():
     assert s.width > 420   # dva rozvaděče po trase → širší list
     fs = check_project(p, lib)
     assert not [f for f in fs if f.severity in (ERROR, WARNING)], [f.text for f in fs if f.severity != "info"]
+
+
+def test_string_modules_and_optimizers_in_label_and_bom():
+    from envocad.export.reports import bom
+    spec = {"name": "Opt", "module": {"type": "JA 450", "p_wp": 450}, "optimizer": {"type": "SE S500", "per_module": 1},
+            "inverters": [{"ref": "T1", "p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "strings": [20, 18]}]}
+    p = build_project(spec)
+    lib = LibraryStore()
+    g = next(e for e in p.sheets[0].elements if e.symbol_id == "fve.pv_string")
+    assert g.attrs["n_optimizers"] == "20" and g.attrs["optimizer"] == "SE S500"
+    lines = lib.get_symbol("fve.pv_string").label_lines(g.attrs)
+    assert "20× modul" in lines and "20× optimizér" in lines and "SE S500" in lines
+    rows = bom(p, lib, p.sheets[0])[1]
+    mods = next(r for r in rows if r[1] == "FV modul")
+    opts = next(r for r in rows if r[1] == "Optimizér")
+    assert mods[5] == 38 and mods[2] == "JA 450" and opts[5] == 38 and opts[2] == "SE S500"
