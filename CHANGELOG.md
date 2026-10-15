@@ -1,7 +1,7 @@
 # Changelog
 
 ## 0.10.1 – 2026-10-15
-- AC rozvaděč se sběrnicí: bez vnitřní PE lišty – PE je potenciál sběrnice (1PE), SPD se na něj napojí přímo, uzemnění je vývod `XPE` na ekvipotenciální svorkovnici (HOP) vně rozvaděče; generátor přidá do JPS uzemnění s kabelem (`ac.pe_cable`, výchozí CYA 16).
+- AC rozvaděč se sběrnicí: bez vnitřní PE lišty – PE je potenciál sběrnice (1PE), SPD jde svým PE na vývod `XPE`, stejně jako PE sběrnice; uzemnění je vývod `XPE` na ekvipotenciální svorkovnici (HOP) vně rozvaděče; generátor přidá do JPS uzemnění s kabelem (`ac.pe_cable`, výchozí CYA 16).
 - Přívod a vývod se kreslí jen jako svorky (kroužek s číslem a krátký vnější vývod), bez šipek „Y“ a nápisů ve vícepólu; v JPS kroužek s nápisem.
 - Vícepól: **vývody vždy v dolní řadě** (přívody nahoře → rozvod → přístroje → vývody dole), PE lišta pod nimi s odstupem; rodič prvku = nejbližší soused výš (ne jen o sloupec); popis sběrnice vpravo nad čarami.
 - **Sběrnice potenciálů jako v EPLAN**: prvek `sb.busbar` (porty T1…T10 shora, 1…10 zdola) se ve vícepólu kreslí vodorovnými čarami L1 L2 L3 N PE přes stranu (na každé straně, kde má odbočky) s názvem potenciálu a šipkou na obou koncích (předpona = označení sběrnice: `1L1`), přístroje odbočkou s tečkou; v potenciálech je jeden uzel, názvy sítí `1L1`…; šablona AC rozvaděče, generátor a průvodce mají volbu rozvodu `bus` (výchozí) / `terminals` (svorky s můstky).

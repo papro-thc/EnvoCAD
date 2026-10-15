@@ -114,7 +114,7 @@ string zvlášť: pojistkový odpínač / odpínač DC, SPD, vývod), nebo práz
 *Sběrnice (rozvodný vodič)*; ve vícepólu se kreslí jako v EPLAN vodorovnými čarami L1 L2 L3 N PE přes
 celou stranu (i přes více stran) s názvem potenciálu a šipkou na obou koncích (`1L1`… – označení sběrnice je
 předpona), přístroje se na ni napojují odbočkou s tečkou; porty `T1…T10` shora, `1…10` zdola. PE je potenciál sběrnice (1PE),
-SPD jde přímo na něj a uzemnění je vývod `XPE` na ekvipotenciální svorkovnici (HOP) vně rozvaděče. Nebo
+PE sběrnice i PE svodiče přepětí jdou na vývod `XPE` – ekvipotenciální svorkovnici (HOP) vně rozvaděče. Nebo
 **rozvodné svorky s můstky** (skupiny svorek X2, můstky mezi nimi).
 
 Blok v JPS dostane **porty podle přívodů a vývodů** listu (X1 vlevo, X4, X5… vpravo). Kabel zakreslený na port
