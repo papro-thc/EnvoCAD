@@ -74,9 +74,15 @@ class LayoutScene(QGraphicsScene):
         self.project, self.sheet, self.library, self.undo = project, sheet, library, undo
         self.items_by_id: dict[str, DeviceItem] = {}
         self._drag_start: dict[str, tuple | None] = {}
-        self.selectionChanged.connect(lambda: self.selection_info.emit(
-            self.selectedItems()[0] if len(self.selectedItems()) == 1 else None))
+        self.selectionChanged.connect(self._on_selection)  # vázaná metoda – Qt ji při smazání scény odpojí
         self.rebuild()
+
+    def _on_selection(self) -> None:
+        try:
+            sel = self.selectedItems()
+        except RuntimeError:  # scéna se právě likviduje
+            return
+        self.selection_info.emit(sel[0] if len(sel) == 1 else None)
 
     # ---- geometrie ----------------------------------------------------------
     @property

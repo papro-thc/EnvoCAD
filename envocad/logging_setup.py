@@ -16,6 +16,7 @@ from pathlib import Path
 from envocad import __version__
 
 KEEP = 5
+SHUTTING_DOWN = False
 log = logging.getLogger("envocad")
 
 
@@ -65,7 +66,7 @@ def setup(show_dialog: bool = True) -> Path:
     def hook(exc_type, exc, tb):
         text = "".join(traceback.format_exception(exc_type, exc, tb))
         log.critical("Neošetřená výjimka:\n%s", text)
-        if show_dialog:
+        if show_dialog and not SHUTTING_DOWN:
             try:
                 from PySide6.QtWidgets import QApplication, QMessageBox
                 if QApplication.instance():

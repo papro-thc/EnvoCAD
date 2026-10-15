@@ -26,6 +26,9 @@ def main() -> None:
     log.info("Okno zobrazeno")
     rc = app.exec()
     log.info("Konec, kód %s", rc)
+    from envocad import logging_setup
+    logging_setup.SHUTTING_DOWN = True  # chyby při likvidaci objektů už jen do logu, bez dialogu
+    del win
     sys.exit(rc)
 
 
