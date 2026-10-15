@@ -29,7 +29,7 @@ Build pro Windows se musí dělat na Windows, pro Linux na Linuxu.
 ## Stav
 
 v0.5 – jednopólové schéma FVE, listy rozvaděčů (schéma + fyzické rozložení na DIN lištách, parametry skříně, odhad oteplení),
-šablony rozvaděčů, výkazy (xlsx) a protokol kusového ověření (docx), export DXF/PDF, vícepólový pohled se svorkami, knihovna 460 artiklů (OEZ, Eaton,
+šablony rozvaděčů, výkazy (xlsx) a protokol kusového ověření (docx), export DXF/PDF, vícepól jako svorkové schéma (automatické rozmístění + posun myší), plán svorkovnice, rámeček s popisovým polem, knihovna 460 artiklů (OEZ, Eaton,
 Schneider, Hager, SMA, SolaX, Huawei, BMR) + 673 značek QElectroTech, import DXF/EPLAN, pluginy, tmavý režim.
 
 Dokumentace: `docs/ARCHITECTURE.md`, `docs/LIBRARY_FORMAT.md`, `docs/ROADMAP.md`.
@@ -53,6 +53,9 @@ Pokyny pro agenty: `CLAUDE.md`.
 | Výkazy / protokol | menu Výstupy (xlsx, docx) |
 | Vícepól | `Ctrl+M` otevře vícepólový pohled listu (odvozený z JPS, `Ctrl+J` zpět); žíly vodiče se zadávají v dialogu vodiče („Žíly“), dvojklik na žílu / `Ctrl+T` = svorky, Úpravy → Očíslovat svorky |
 | Svorkovnice a můstky | `Ctrl+Shift+T` – tabulka svorek vybrané svorkovnice, můstky jako „1-6-11“ (jedna skupina na řádek); skupina svorek v JPS = prvek Svorky s čísly v atributu „terminal“ |
+| Plán svorkovnice | `Ctrl+Shift+M` – kreslený plán svorkovnice (export PDF), totéž jako list ve výkazech |
+| Kopírovat / vložit | `Ctrl+C` / `Ctrl+V` – prvky i vodiče mezi nimi, nová označení |
+| Vazba na JPS | u přívodu/vývodu rozvaděče v dialogu „Vodič v JPS“ – přebere kabel a žíly, křížový odkaz u vodiče |
 | Artikl z knihovny | v dialogu prvku „Vybrat artikl z knihovny…“; menu Knihovna → Prohlížet / Importovat CSV |
 
 ## Když program spadne

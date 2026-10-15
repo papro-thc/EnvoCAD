@@ -10,7 +10,7 @@
 - [x] Export DXF, PDF
 - [x] Tmavý režim
 - [x] Dialog parametrů při vložení prvku/vodiče
-- [ ] Rámeček a popisové pole listu (šablona ENVO)
+- [x] Rámeček a popisové pole listu (šablona ENVO) – logo doplnit po dodání
 - [ ] Příkazový řádek (styl ZWCAD/CADCraft): každá akce = příkaz, ovladatelné i z agentů
 - [ ] Automatické číslování označení (T1, F1, Q1…) s kontrolou duplicit
 
@@ -38,19 +38,21 @@
 - [ ] Šablona ENVO pro protokol (loga, hlavička) – doplnit po dodání .docx
 - [x] Parametry skříně v panelu rozložení, odhad oteplení (IEC 60890)
 - [ ] Rozměry a ztrátové výkony přístrojů z artiklu (ne ručně v atributech `modules`, `p_loss_w`)
-- [ ] Oteplení: přesné tabulky IEC 60890 (k, c, d) místo aproximace; ventilace
+- [x] Oteplení: tabulky IEC 60890 (k, c, d) – křivky k a c ověřit proti normě; [ ] ventilace (obr. 5), přepážky v GUI
 
 ## v0.6 – Vícepól  ← hotovo v základu
 - [x] Vícepólový pohled nad stejným listem (Ctrl+M / Ctrl+J), žíly z `Wire.conductors`, přiřazení svorek per žíla (`Wire.terminals`, Ctrl+T)
 - [x] Automatické číslování svorek na svorkovnicích (Úpravy → Očíslovat svorky)
 - [x] Svorkovnice jako v EPLAN: skupiny svorek s čísly, můstky (dialog, vícepól, JPS, výkaz); šablony bez sběrnice
 - [ ] Artikl svorky → šířka v rozložení (svorkovnice na DIN liště podle `width_mm`), můstky jako artikl (ZQV…) do BOM
-- [ ] Vlastní rozmístění ve vícepólu (dnes jen roztažené pozice z JPS ×2), ruční lomy žil
+- [x] Vlastní rozmístění ve vícepólu: automatické svorkové schéma + posun myší
+- [ ] Ruční lomy žil ve vícepólu, zalomení dlouhých řad svorek na další list
 - [ ] Vícepólové značky z knihovny (QET `qet.ap.*`) místo opakování jednopólové značky; společná spoušť/vazba pólů
 - [ ] Export DXF vícepólu (PDF už funguje)
 
 ## v0.4 – Vícelistové projekty a dokumentace
-- [ ] Křížové odkazy mezi listy
+- [x] Vazba přívod/vývod rozvaděče ↔ vodič JPS (křížový odkaz, kabel jen jednou)
+- [ ] Křížové odkazy potenciálů mezi listy JPS
 - [ ] Generování částí TZ/DSPS z modelu (šablony)
 - [ ] Sdílená knihovna pro celé ENVO (PostgreSQL nebo sdílený soubor)
 

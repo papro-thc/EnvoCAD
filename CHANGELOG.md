@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0 – 2026-10-15
+- **Vícepól jako svorkové schéma s vlastním rozmístěním**: automatické rozmístění po sloupcích podle hloubky od zdroje (přívod/FV/baterie), skupiny svorek spojené můstky v jedné řadě, vývody zarovnané pod svými svorkami; prvky jdou ve vícepólu posouvat myší (undo, `Element.mp_pos`, formát projektu v4), `Zobrazit → Vícepól: rozmístit automaticky` vrátí automatiku. List vícepólu se podle potřeby zvětší.
+- **Plán svorkovnice** (`Zobrazit → Plán svorkovnice`, `Ctrl+Shift+M`): kreslený list jako v EPLAN – svorky v řadě, vnější připojení nahoře (navázaný kabel JPS), vnitřní dole, můstky; export PDF. Stejná data jako list xlsx „Plán svorkovnice“. Výkaz materiálu počítá svorky po kusech (skupina = počet žil) a můstky po skupinách.
+- **Rámeček s popisovým polem ENVO** na všech listech (JPS, rozvaděč, vícepól, rozložení, plán svorkovnice) i v DXF/PDF: projekt, zakázka, investor, místo, list x/y, zpracoval, datum, revize, formát (`Soubor → Vlastnosti projektu`).
+- **Vazba rozvaděč ↔ JPS**: přívod/vývod má v dialogu výběr „Vodič v JPS“; převezme kabel, průřez a žíly, zobrazí „W2 T1:AC“, u vodiče v JPS se vykreslí křížový odkaz „→ R1:X1“, seznam kabelů má sloupec Rozvaděč. Šablony vážou přívod automaticky na vodič k bloku.
+- Kopírování prvků `Ctrl+C` / `Ctrl+V` (včetně vodičů mezi nimi, nová označení, posun 10 mm), varování na duplicitní označení v dialogu, panel vlastností ukazuje žíly a svorky vodiče.
+- Oteplení dle IEC TR 60890: k, c, d a x z tabulek/křivek normy (hodnoty křivek k a c jsou přepsané z paměti – označené „orientační“, ověřit proti normě), parametry `partitions` a `vents`; činitelé b podle tab. 3 (nástěnná zadní stěna 0,5).
+- Odvozené pohledy se přestavují jen když jsou vidět (ostatní při přepnutí záložky).
+- Testy: 54 (nově `tests/test_gui_mouse.py` – vkládání, vodiče, tažení, dvojklik a výběr skutečnými událostmi myši; `tests/test_thermal.py`).
+
 ## 0.7.0 – 2026-10-15
 - Svorky jako v EPLAN místo sběrnice: prvek `sb.terminal_block` je skupina svorek jedné svorkovnice (atribut `terminal` = čísla „1 2 3 4 5“ nebo první číslo), ve vícepólu má každá žíla vlastní svorku s číslem. Šablony AC/DC už sběrnici nepoužívají – napájení vývodů jde přes rozvodné svorky X2 a můstky.
 - Můstky (propoje) svorkovnic: `Úpravy → Svorkovnice a můstky…` (`Ctrl+Shift+T`) – tabulka svorek svorkovnice (vnitřní/vnější strana, můstek) a editace můstků „1-6-11“; uloženo v projektu (`bridges`, formát v3 s migrací). Ve vícepólu se kreslí jako čáry s tečkami, v JPS čárkovaně mezi skupinami, ve výkazu svorkovnice sloupec „Můstek“.
