@@ -38,7 +38,7 @@ def test_checks_switchboard_template_is_mostly_clean():
     blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
     s.elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve")
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
     fs = [x for x in check_project(p, lib) if x.sheet_id == sb.id]
     assert not any(x.severity == ERROR for x in fs), [x.text for x in fs if x.severity == ERROR]
     # vývody bez vazby na JPS jsou jen informace

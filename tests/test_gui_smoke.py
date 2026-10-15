@@ -125,7 +125,7 @@ def test_switchboard_tabs_and_layout(app, tmp_path):
     assert win.tabs.count() == 1
     # založení listu rozvaděče bez dialogu šablony (šablonu vložíme přímo)
     sheet = p.create_switchboard_sheet(block)
-    apply_template(p, sheet, "ac_fve", {"n_out": "4"})
+    apply_template(p, sheet, "ac_fve", {"n_out": "4", "distribution": "terminals"})
     win.open_sheet(sheet, "schematic")
     win.open_sheet(sheet, "layout")
     assert win.tabs.count() == 3 and isinstance(win.view, LayoutView)
@@ -279,7 +279,7 @@ def test_multipole_view_and_terminals(app, tmp_path):
     blk = Element("fve.switchboard", 260, 150, attrs={"ref": "R1"})
     s.elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve")
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
     w.open_sheet(sb, "schematic")
     n = w.scene.auto_number_terminals()
     assert n > 0 and any(w_.terminals for w_ in sb.wires)
@@ -303,7 +303,7 @@ def test_strip_dialog_and_bridges(app, tmp_path):
     blk = Element("fve.switchboard", 100, 150, attrs={"ref": "R1"})
     s.elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve")
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
     assert "X2" in sb.bridges and len(sb.bridges["X2"]) == 5
     w = MainWindow(LibraryStore(), p)
     w.open_sheet(sb, "schematic")
@@ -340,7 +340,7 @@ def test_terminal_plan_view_and_pdf(app, tmp_path):
     s.wires.append(Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "1"), attrs={"ref": "W2", "cable": "CYKY-J 5x16"},
                         conductors=["L1", "L2", "L3", "N", "PE"]))
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve")
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
     w = MainWindow(LibraryStore(), p)
     w.open_sheet(sb, "terminals")
     assert isinstance(w.view, TerminalPlanView)
@@ -363,7 +363,7 @@ def test_multipole_move_and_reset(app, tmp_path):
     blk = Element("fve.switchboard", 100, 150, attrs={"ref": "R1"})
     s.elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve")
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
     w = MainWindow(LibraryStore(), p)
     w.open_sheet(sb, "multipole")
     sc = w.view.scene()
@@ -396,7 +396,7 @@ def test_switchboard_opens_as_multipole_and_delete(app, tmp_path, monkeypatch):
     s.elements.append(blk)
     w = MainWindow(LibraryStore(), p)
     monkeypatch.setattr(MainWindow, "_choose_template", lambda self, sheet: (
-        __import__("envocad.library.templates", fromlist=["apply_template"]).apply_template(p, sheet, "ac_fve") or True))
+        __import__("envocad.library.templates", fromlist=["apply_template"]).apply_template(p, sheet, "ac_fve", {"distribution": "terminals"}) or True))
     w._open_switchboard_now(blk.id, "schematic")
     assert isinstance(w.view, MultipoleView) and w.tabs.tabText(w.tabs.currentIndex()) == "RH – schéma"
     sb = w.view.scene().sheet
@@ -427,7 +427,7 @@ def test_block_ports_refresh_without_moving(app, tmp_path, monkeypatch):
     jps = w.scene
     assert [pt.name for pt in jps.element_items[blk.id].symbol.ports] == ["1", "2", "3", "4"]
     monkeypatch.setattr(MainWindow, "_choose_template", lambda self, sheet: (
-        __import__("envocad.library.templates", fromlist=["apply_template"]).apply_template(p, sheet, "ac_fve"),
+        __import__("envocad.library.templates", fromlist=["apply_template"]).apply_template(p, sheet, "ac_fve", {"distribution": "terminals"}),
         self._rebuild_sheet_views(sheet))[1] or True)
     w._open_switchboard_now(blk.id, "schematic")
     assert [pt.name for pt in jps.element_items[blk.id].symbol.ports] == ["X1", "X4", "X5", "X6"]
@@ -466,7 +466,7 @@ def test_documentation_pdf(app, tmp_path):
     blk = Element("fve.switchboard", 260, 150, attrs={"ref": "R1"})
     s.elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve")
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
     b = DocBuilder(p, LibraryStore())
     b.plan()
     kinds = [k for k, _, _ in b.pages]

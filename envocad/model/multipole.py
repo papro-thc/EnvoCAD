@@ -144,8 +144,13 @@ class ElementPoles:
         return (ox * k * POLE_PITCH, oy * k * POLE_PITCH)
 
 
+BUS_SYMBOL = "sb.busbar"
+
+
 def perp_extent(ep: ElementPoles) -> float:
     """Rozměr prvku kolmo na směr toku včetně všech pólů (mm)."""
+    if ep.element.symbol_id == BUS_SYMBOL:
+        return POLE_PITCH   # sběrnice se kreslí přes celou stranu, v rozmístění nezabírá místo
     x0, y0, x1, y1 = ep.symbol.bounds()
     horizontal = ep.through is None or rotate_dir(ep.symbol.port(ep.through[0]).dir, ep.element.rotation) in ("E", "W")
     if ep.through is None and ep.symbol.ports:
@@ -158,6 +163,8 @@ def perp_extent(ep: ElementPoles) -> float:
 
 
 def flow_extent(ep: ElementPoles) -> float:
+    if ep.element.symbol_id == BUS_SYMBOL:
+        return 5.0 * max(len(ep.slots), 1) + 5.0   # čáry potenciálů pod sebou
     x0, y0, x1, y1 = ep.symbol.bounds()
     w, h = (x1 - x0, y1 - y0) if ep.element.rotation in (0, 180) else (y1 - y0, x1 - x0)
     return w if _flow_is_horizontal_for(ep) else h

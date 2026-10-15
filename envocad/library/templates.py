@@ -101,38 +101,53 @@ def _bridge_groups(first_numbers: list[int], n: int) -> list[list[str]]:
 
 
 def build_ac_fve(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
-    """AC rozvaděč FVE: přívod od střídače → hlavní vypínač → rozvodné svorky X2 s můstky → SPD, vývody s jističi."""
+    """AC rozvaděč FVE: přívod od střídače → hlavní vypínač → rozvod → SPD, vývody s jističi.
+    Rozvod = sběrnice potenciálů (vodič, jako v EPLAN; `bus`) nebo rozvodné svorky X2 s můstky (`terminals`)."""
     n_out = max(1, min(int(p.get("n_out", "3")), 9))
     i_main = p.get("i_main", "80")
     i_out = p.get("i_out", "32")
+    use_bus = (p.get("distribution", "bus") or "bus").strip().lower().startswith("b")
     y = 200.0
     x0 = 60.0
     nc = len(AC_CONDUCTORS)
     feed = _el(project, sheet, "sb.feed_in", x0, y + 20, "X", desc=p.get("feed_desc", "od střídače"))
     q = _el(project, sheet, "sb.main_switch", x0, y, "Q", rot=270, in_=i_main, poles="4", modules="4")
-    strip = project.next_ref("X")
-    # skupina 0 = napájení (od Q) + SPD, skupiny 1…n = vývody; napájení přes můstky
-    firsts: list[int] = []
     groups: list[Element] = []
-    for i in range(n_out + 1):
-        first = 1 + i * nc
-        firsts.append(first)
-        groups.append(_terminal_group(project, sheet, x0 + i * GROUP_PITCH, y - 30, strip, first, nc,
-                                      "napájení" if i == 0 else f"vývod {i}"))
-    project.set_bridges(strip, _bridge_groups(firsts, nc), sheet)
+    bus = None
+    if use_bus:
+        bus = _el(project, sheet, "sb.busbar", x0 + 60, y - 25, "", desc="rozvod", in_=i_main, conductors=" ".join(AC_CONDUCTORS))
+        bus.attrs["ref"] = "1"
+    else:
+        strip = project.next_ref("X")
+        # skupina 0 = napájení (od Q) + SPD, skupiny 1…n = vývody; napájení přes můstky
+        firsts: list[int] = []
+        for i in range(n_out + 1):
+            first = 1 + i * nc
+            firsts.append(first)
+            groups.append(_terminal_group(project, sheet, x0 + i * GROUP_PITCH, y - 30, strip, first, nc,
+                                          "napájení" if i == 0 else f"vývod {i}"))
+        project.set_bridges(strip, _bridge_groups(firsts, nc), sheet)
     spd = _el(project, sheet, "fve.spd", x0, y - 60, "F", spd_type="T1+T2", poles="4", modules="4")
     pe = _el(project, sheet, "sb.pe_bar", x0, y - 90, "X", kind="PE")
     _wire(project, sheet, feed, "1", q, "1", AC_CONDUCTORS)
-    _wire(project, sheet, q, "2", groups[0], "1", AC_CONDUCTORS)
-    _wire(project, sheet, groups[0], "2", spd, "L", AC_CONDUCTORS[:4])
-    _wire(project, sheet, groups[0], "2", pe, "2", ["PE"])   # PE svorka skupiny → PE lišta
+    if use_bus:
+        _wire(project, sheet, q, "2", bus, "T1", AC_CONDUCTORS)
+        _wire(project, sheet, bus, "1", spd, "L", AC_CONDUCTORS[:4])
+        _wire(project, sheet, bus, "2", pe, "2", ["PE"])
+    else:
+        _wire(project, sheet, q, "2", groups[0], "1", AC_CONDUCTORS)
+        _wire(project, sheet, groups[0], "2", spd, "L", AC_CONDUCTORS[:4])
+        _wire(project, sheet, groups[0], "2", pe, "2", ["PE"])   # PE svorka skupiny → PE lišta
     _wire(project, sheet, spd, "PE", pe, "1", ["PE"])
     outs: list[Element] = []
     for i in range(1, n_out + 1):
         x = x0 + i * GROUP_PITCH
         f = _el(project, sheet, "fve.breaker_mcb", x, y - 60, "F", rot=270, in_=i_out, char="B", poles="3", modules="3")
         out = _el(project, sheet, "sb.feed_out", x, y - 95, "X", desc=f"vývod {i}")
-        _wire(project, sheet, groups[i], "2", f, "1", AC_CONDUCTORS)
+        if use_bus:
+            _wire(project, sheet, bus, str(i + 2), f, "1", AC_CONDUCTORS)
+        else:
+            _wire(project, sheet, groups[i], "2", f, "1", AC_CONDUCTORS)
         _wire(project, sheet, f, "2", out, "1", AC_CONDUCTORS)
         outs.append(f)
     _auto_link_feed(project, sheet, feed, "1")
@@ -181,9 +196,10 @@ def build_dc(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
 
 
 TEMPLATES: list[Template] = [
-    Template("ac_fve", "AC rozvaděč FVE", "Přívod od střídače, hlavní vypínač, rozvodné svorky s můstky, SPD, vývody s jističi",
+    Template("ac_fve", "AC rozvaděč FVE", "Přívod od střídače, hlavní vypínač, rozvod (sběrnice potenciálů nebo svorky s můstky), SPD, vývody s jističi",
              [TemplateParam("n_out", "Počet vývodů", "3"), TemplateParam("i_main", "In hlavního vypínače [A]", "80"),
-              TemplateParam("i_out", "In jističů vývodů [A]", "32"), TemplateParam("feed_desc", "Přívod od", "od střídače")],
+              TemplateParam("i_out", "In jističů vývodů [A]", "32"), TemplateParam("feed_desc", "Přívod od", "od střídače"),
+              TemplateParam("distribution", "Rozvod (bus = sběrnice / terminals = svorky)", "bus")],
              build_ac_fve),
     Template("dc", "DC rozvaděč", "Každý string zvlášť: pojistkový odpínač (u technologie) nebo odpínač DC (po trase), SPD na string, vývod",
              [TemplateParam("n_strings", "Počet stringů", "4"), TemplateParam("kind", "Druh (tech / trasa)", "tech"),

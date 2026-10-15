@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.10.1 – 2026-10-15
+- **Sběrnice potenciálů jako v EPLAN**: prvek `sb.busbar` (porty T1…T10 shora, 1…10 zdola) se ve vícepólu kreslí vodorovnými čarami L1 L2 L3 N PE přes stranu (na každé straně, kde má odbočky) s názvem potenciálu a šipkou na obou koncích (předpona = označení sběrnice: `1L1`), přístroje odbočkou s tečkou; v potenciálech je jeden uzel, názvy sítí `1L1`…; šablona AC rozvaděče, generátor a průvodce mají volbu rozvodu `bus` (výchozí) / `terminals` (svorky s můstky).
 - **Rozvaděč na více stran s odkazy**: vícepól se automaticky stránkuje (prvek nepřesáhne okraj strany – `auto_layout(page_w)`), strany pod sebou na obrazovce a každá zvlášť v PDF (`export_scene_pdf` i celá dokumentace, popisové pole `k/n`); žíla přes hranici stran končí přerušovacím bodem s odkazem `/list.strana.sloupecřádek` a na druhé straně pokračuje s odkazem zpět; můstky po stranách, PE lišta na straně s nejvíc sousedy. PDF stran už není otočené na výšku.
 - Výkon: vazby přívodů na vodiče JPS se počítají jednou (`feed_link_index`) a drží v cache scény do další změny modelu – výkaz Kabely a DXF u projektu s 800 vodiči z 0,25 s na 3 ms, překreslení JPS ~2× rychlejší; makra se nenačítají jako značky (chybové hlášky při startu).
 - **T-odbočka / vodič z vodiče**: klik na vodič v režimu Vodič ho rozdělí uzlem (`sb.junction`, 4 porty = jeden potenciál), odbočka přebere žíly; `SplitWireCommand` s undo.

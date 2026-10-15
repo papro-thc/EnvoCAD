@@ -47,7 +47,6 @@ def test_templates_build_and_place(tmp_path):
         for strip, groups in s.bridges.items():
             for g in groups:
                 assert all((strip, n) in terms for n in g), (t.id, strip, g)
-        assert not any(e.symbol_id == "sb.busbar" for e in s.elements)
         # přístroje s moduly jsou rozmístěné
         placed = {pl.element_id for pl in s.layout.placements}
         for e in s.elements:
@@ -147,7 +146,7 @@ def test_feed_link_to_jps_wire():
     s.wires.append(w)
     sb = p.create_switchboard_sheet(blk)
     assert [c[0] for c in wire_choices(p, sb)] == [w.id]
-    apply_template(p, sb, "ac_fve")
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
     feed = next(e for e in sb.elements if e.symbol_id == "sb.feed_in")
     assert feed.attrs["wire_id"] == w.id and feed.attrs["from"].startswith("W2 T1:AC /1.") and feed.attrs["cable"] == "CYKY-J 5x16 16"
     assert linked_wire(p, sb, feed)[1] is w
@@ -174,7 +173,7 @@ def test_switchboard_block_ports_follow_feeds():
     s.wires.append(w_in)
     assert [pt.name for pt in element_symbol(p, blk, lib).ports] == ["1", "2", "3", "4"]  # bez listu základní
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve")
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
     sym = element_symbol(p, blk, lib)
     assert [pt.name for pt in sym.ports] == ["X1", "X4", "X5", "X6"]   # přívod vlevo, vývody vpravo
     assert w_in.b.port == "X1"                                           # vodič přejmenovaný na port přívodu
@@ -208,7 +207,7 @@ def test_block_follows_switchboard_edits():
     load = Element("fve.load", 200, 150, attrs={"ref": "M1"})
     s.elements += [blk, load]
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve")
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
     ports = lambda: [pt.name for pt in element_symbol(p, blk, lib).ports]
     assert ports() == ["X1", "X4", "X5", "X6"]
     # nový vývod v rozvaděči → nový port

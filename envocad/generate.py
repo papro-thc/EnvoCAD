@@ -16,7 +16,8 @@ Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
          "spd": "T2", "fuse_in": 15, "disconnect_in": 32,
          "disconnect": false},                                        # jen samostatný odpínač v JPS bez DC rozvaděčů (stará varianta)
   "ac": {"cable": "CYKY-J 5x16", "cross": 16, "length": 30, "breaker_in": 40, "main_in": 125,
-         "grid_cable": "CYKY-J 5x35", "grid_cross": 35, "grid_length": 20, "spd": "T1+T2", "enclosure": ""},
+         "grid_cable": "CYKY-J 5x35", "grid_cross": 35, "grid_length": 20, "spd": "T1+T2", "enclosure": "",
+         "distribution": "bus"},                                      # rozvod v AC rozvaděči: "bus" (sběrnice potenciálů) | "terminals" (svorky s můstky)
   "switchboard": {"ref": "RH", "desc": "AC rozvaděč FVE"},
   "grid": {"dso": "ČEZ Distribuce", "voltage": "3×400 V"},
   "battery": {"e_kwh": 10, "p_kw": 5, "type": "…"}        # volitelné, jen u hybridního střídače
@@ -58,7 +59,8 @@ DEFAULT_SPEC = {
     "dc": {"cable": "H1Z2Z2-K 1x6", "cross": 6, "length": 30, "route_boxes": 1, "route_length": 20,
            "tech_box": True, "tech_length": 5, "spd": "T2", "fuse_in": 15, "disconnect_in": 32, "disconnect": False},
     "ac": {"cable": "CYKY-J 5x16", "cross": 16, "length": 30, "breaker_in": 40, "main_in": 125,
-           "grid_cable": "CYKY-J 5x35", "grid_cross": 35, "grid_length": 20, "spd": "T1+T2", "enclosure": ""},
+           "grid_cable": "CYKY-J 5x35", "grid_cross": 35, "grid_length": 20, "spd": "T1+T2", "enclosure": "",
+           "distribution": "bus"},
     "switchboard": {"ref": "RH", "desc": "AC rozvaděč FVE"},
     "grid": {"dso": "", "voltage": "3×400 V"},
 }
@@ -211,50 +213,64 @@ def build_project(spec: dict) -> Project:
 
 
 def _build_ac_switchboard(project: Project, sheet: Sheet, invs: list[dict], ac: dict, spec: dict) -> None:
-    """AC rozvaděč FVE: přívody od střídačů (X1…Xn) → jističe → rozvodné svorky s můstky → hlavní vypínač → vývod do HDS;
-    SPD na rozvodných svorkách, PE lišta."""
+    """AC rozvaděč FVE: přívody od střídačů (X1…Xn) → jističe → rozvod → hlavní vypínač → vývod do HDS; SPD, PE lišta.
+    Rozvod podle `ac.distribution`: "bus" = sběrnice potenciálů (vodič, jako v EPLAN), "terminals" = rozvodné svorky s můstky."""
     nc = len(AC_CONDUCTORS)
     y = 200.0
     x0 = 60.0
     n = len(invs)
+    use_bus = (ac.get("distribution") or "bus") == "bus"
     strip = "X" + str(n + 1)
     feeds: list[Element] = []
     breakers: list[Element] = []
     groups: list[Element] = []
     firsts: list[int] = []
+    bus = None
+    if use_bus:
+        bus = _el(project, sheet, "sb.busbar", x0 + 60, y - 25, "", desc="rozvod AC", in_=str(ac.get("main_in") or 125),
+                  conductors=" ".join(AC_CONDUCTORS))
+        bus.attrs["ref"] = "1"   # předpona potenciálů: 1L1, 1L2, 1L3, 1N, 1PE
     for i, inv in enumerate(invs):
         x = x0 + i * GROUP_PITCH
         feed = _el(project, sheet, "sb.feed_in", x, y + 40, "", desc=f"od {inv.get('ref') or f'T{i + 1}'}")
         feed.attrs["ref"] = f"X{i + 1}"
         f = _el(project, sheet, "fve.breaker_mcb", x, y + 10, "F", rot=270, in_=str(ac.get("breaker_in") or 40),
                 char="B", poles="3", modules="3")
-        first = 1 + i * nc
-        firsts.append(first)
-        grp = _terminal_group(project, sheet, x, y - 30, strip, first, nc, f"střídač {i + 1}")
         _wire(project, sheet, feed, "1", f, "1", AC_CONDUCTORS)
-        _wire(project, sheet, f, "2", grp, "1", AC_CONDUCTORS)
+        if use_bus:
+            _wire(project, sheet, f, "2", bus, f"T{i + 1}", AC_CONDUCTORS)   # shora (od jističů)
+        else:
+            first = 1 + i * nc
+            firsts.append(first)
+            grp = _terminal_group(project, sheet, x, y - 30, strip, first, nc, f"střídač {i + 1}")
+            _wire(project, sheet, f, "2", grp, "1", AC_CONDUCTORS)
+            groups.append(grp)
         feeds.append(feed)
         breakers.append(f)
-        groups.append(grp)
-    # skupina pro SPD a skupina pro hlavní vypínač / vývod
     x_spd = x0 + n * GROUP_PITCH
-    first = 1 + n * nc
-    firsts.append(first)
-    g_spd = _terminal_group(project, sheet, x_spd, y - 30, strip, first, nc, "SPD")
     x_out = x0 + (n + 1) * GROUP_PITCH
-    first = 1 + (n + 1) * nc
-    firsts.append(first)
-    g_out = _terminal_group(project, sheet, x_out, y - 30, strip, first, nc, "vývod")
-    project.set_bridges(strip, _bridge_groups(firsts, nc), sheet)
     spd = _el(project, sheet, "fve.spd", x_spd, y - 60, "F", spd_type=_s(ac.get("spd") or "T1+T2"), poles="4", modules="4")
     pe = _el(project, sheet, "sb.pe_bar", x_spd, y - 90, "X", kind="PE")
-    _wire(project, sheet, g_spd, "2", spd, "L", AC_CONDUCTORS[:4])
-    _wire(project, sheet, g_spd, "2", pe, "2", ["PE"])   # PE svorka skupiny → PE lišta
-    _wire(project, sheet, spd, "PE", pe, "1", ["PE"])
     q = _el(project, sheet, "sb.main_switch", x_out, y - 60, "Q", rot=270, in_=str(ac.get("main_in") or 125), poles="4", modules="4")
     out = _el(project, sheet, "sb.feed_out", x_out, y - 95, "", desc="do HDS / DS")
     out.attrs["ref"] = "XOUT"
-    _wire(project, sheet, g_out, "2", q, "1", AC_CONDUCTORS)
+    if use_bus:
+        _wire(project, sheet, bus, "1", spd, "L", AC_CONDUCTORS[:4])   # zdola (vývody)
+        _wire(project, sheet, bus, "2", pe, "2", ["PE"])              # PE potenciál sběrnice → PE lišta
+        _wire(project, sheet, bus, "3", q, "1", AC_CONDUCTORS)
+    else:
+        # skupina pro SPD a skupina pro hlavní vypínač / vývod
+        first = 1 + n * nc
+        firsts.append(first)
+        g_spd = _terminal_group(project, sheet, x_spd, y - 30, strip, first, nc, "SPD")
+        first = 1 + (n + 1) * nc
+        firsts.append(first)
+        g_out = _terminal_group(project, sheet, x_out, y - 30, strip, first, nc, "vývod")
+        project.set_bridges(strip, _bridge_groups(firsts, nc), sheet)
+        _wire(project, sheet, g_spd, "2", spd, "L", AC_CONDUCTORS[:4])
+        _wire(project, sheet, g_spd, "2", pe, "2", ["PE"])   # PE svorka skupiny → PE lišta
+        _wire(project, sheet, g_out, "2", q, "1", AC_CONDUCTORS)
+    _wire(project, sheet, spd, "PE", pe, "1", ["PE"])
     _wire(project, sheet, q, "2", out, "1", AC_CONDUCTORS)
     _place_sequential(sheet, [q, spd, *breakers])
     if ac.get("enclosure"):

@@ -299,12 +299,16 @@ SYMBOLS = [
         "label_pos": {"x": -5, "y": -6},
     },
     {
-        "id": "sb.busbar", "name": "Sběrnice", "category": "Svorky a propojení", "iec_ref": "X",
-        "description": "Sběrnice – 1 vstup, 10 vývodů dolů po 15 mm",
+        "id": "sb.busbar", "name": "Sběrnice (rozvodný vodič)", "category": "Svorky a propojení", "iec_ref": "",
+        "description": "Rozvod potenciálů vodičem jako v EPLAN: ve vícepólu vodorovné čáry L1 L2 L3 N PE přes stranu "
+                       "s názvy potenciálů na koncích, přístroje se na ně napojují odbočkou; 1 vstup, 10 vývodů",
         "primitives": [{"type": "polyline", "points": [[-75, 0], [75, 0]], "closed": False},
                        {"type": "polyline", "points": [[-75, 1], [75, 1]], "closed": False}],
-        "ports": [P("IN", -75, 5, "N")] + [P(f"{i + 1}", -67.5 + i * 15, -5, "S") for i in range(10)],
-        "attributes": [REF, attr("desc", "Popis", "", True), attr("in_", "In [A]"), attr("conductors", "Vodiče", "L1 L2 L3 N PE")],
+        # porty: IN vlevo nahoře, T1…T10 shora (přívody, jističe od střídačů), 1…10 zdola (vývody)
+        "ports": [P("IN", -75, 5, "N")] + [P(f"T{i + 1}", -60 + i * 15, 5, "N") for i in range(10)]
+                 + [P(f"{i + 1}", -67.5 + i * 15, -5, "S") for i in range(10)],
+        "attributes": [attr("ref", "Označení (předpona potenciálů, např. 1 → 1L1)", "", True), attr("desc", "Popis", "", True),
+                       attr("in_", "In [A]"), attr("conductors", "Vodiče", "L1 L2 L3 N PE")],
         "label_pos": {"x": -75, "y": 7.5},
     },
     {

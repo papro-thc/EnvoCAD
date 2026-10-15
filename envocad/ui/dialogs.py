@@ -395,6 +395,9 @@ class ProjectWizard(QDialog):
         self.ac_breaker = QLineEdit("40")
         self.ac_main = QLineEdit("125")
         form.addRow("In jističe střídače / hlavního vypínače [A]", self._pair(self.ac_breaker, self.ac_main))
+        self.ac_bus = QCheckBox("Rozvod v AC rozvaděči sběrnicí potenciálů (vodič jako v EPLAN); jinak svorky s můstky")
+        self.ac_bus.setChecked(True)
+        form.addRow("", self.ac_bus)
         self.grid_cable = QLineEdit(str(std.get("grid_cable") or "CYKY-J 5x35"))
         self.grid_cross = QLineEdit(str(std.get("grid_cross") or "35"))
         self.grid_len = QLineEdit("20")
@@ -459,7 +462,7 @@ class ProjectWizard(QDialog):
             "ac": {"cable": self.ac_cable.text().strip(), "cross": self._num(self.ac_cross), "length": self._num(self.ac_len),
                    "breaker_in": self._num(self.ac_breaker), "main_in": self._num(self.ac_main),
                    "grid_cable": self.grid_cable.text().strip(), "grid_cross": self._num(self.grid_cross),
-                   "grid_length": self._num(self.grid_len)},
+                   "grid_length": self._num(self.grid_len), "distribution": "bus" if self.ac_bus.isChecked() else "terminals"},
             "grid": {"dso": self.dso.text().strip()},
         }
 

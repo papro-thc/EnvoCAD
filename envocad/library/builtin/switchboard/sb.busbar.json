@@ -1,9 +1,9 @@
 {
   "id": "sb.busbar",
-  "name": "Sběrnice",
+  "name": "Sběrnice (rozvodný vodič)",
   "category": "Svorky a propojení",
-  "iec_ref": "X",
-  "description": "Sběrnice – 1 vstup, 10 vývodů dolů po 15 mm",
+  "iec_ref": "",
+  "description": "Rozvod potenciálů vodičem jako v EPLAN: ve vícepólu vodorovné čáry L1 L2 L3 N PE přes stranu s názvy potenciálů na koncích, přístroje se na ně napojují odbočkou; 1 vstup, 10 vývodů",
   "primitives": [
     {
       "type": "polyline",
@@ -38,6 +38,66 @@
     {
       "name": "IN",
       "x": -75,
+      "y": 5,
+      "dir": "N"
+    },
+    {
+      "name": "T1",
+      "x": -60,
+      "y": 5,
+      "dir": "N"
+    },
+    {
+      "name": "T2",
+      "x": -45,
+      "y": 5,
+      "dir": "N"
+    },
+    {
+      "name": "T3",
+      "x": -30,
+      "y": 5,
+      "dir": "N"
+    },
+    {
+      "name": "T4",
+      "x": -15,
+      "y": 5,
+      "dir": "N"
+    },
+    {
+      "name": "T5",
+      "x": 0,
+      "y": 5,
+      "dir": "N"
+    },
+    {
+      "name": "T6",
+      "x": 15,
+      "y": 5,
+      "dir": "N"
+    },
+    {
+      "name": "T7",
+      "x": 30,
+      "y": 5,
+      "dir": "N"
+    },
+    {
+      "name": "T8",
+      "x": 45,
+      "y": 5,
+      "dir": "N"
+    },
+    {
+      "name": "T9",
+      "x": 60,
+      "y": 5,
+      "dir": "N"
+    },
+    {
+      "name": "T10",
+      "x": 75,
       "y": 5,
       "dir": "N"
     },
@@ -105,7 +165,7 @@
   "attributes": [
     {
       "key": "ref",
-      "label": "Označení",
+      "label": "Označení (předpona potenciálů, např. 1 → 1L1)",
       "default": "",
       "show": true
     },

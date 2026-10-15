@@ -202,6 +202,52 @@ class PageBreakItem(QGraphicsItem):
         draw_text(painter, 1.5 if self.outgoing else -1.5, 1.0, self.text, 1.8, "left" if self.outgoing else "right")
 
 
+BUS = "sb.busbar"
+BUS_PITCH = 5.0   # rozteč čar potenciálů sběrnice (mm)
+
+
+class BusItem(QGraphicsItem):
+    """Sběrnice potenciálů na jedné straně jako v EPLAN: vodorovná čára na každou žílu přes šířku strany,
+    název potenciálu (1L1…) se šipkou na obou koncích, tečky v místech odboček."""
+
+    def __init__(self, element: Element, conductors: list[str], x0: float, x1: float, ys: dict[str, float],
+                 taps: list[tuple[float, float]], first: bool, prefix: str):
+        super().__init__()
+        self.element, self.conductors, self.x0, self.x1, self.ys, self.taps, self.first, self.prefix = \
+            element, conductors, x0, x1, ys, taps, first, prefix
+        self.setFlag(QGraphicsItem.ItemIsSelectable, True)
+        self.setZValue(4)
+
+    def boundingRect(self) -> QRectF:
+        ys = list(self.ys.values()) or [0.0]
+        return QRectF(self.x0 - 20, -max(ys) - 8, self.x1 - self.x0 + 40, max(ys) - min(ys) + 16)
+
+    def paint(self, painter, option, widget=None):
+        c = colors()
+        ink = c.selection if self.isSelected() else c.ink
+        pen = QPen(ink, LINE_WIDTH * 1.5, Qt.SolidLine, Qt.FlatCap)
+        for cond in self.conductors:
+            y = self.ys[cond]
+            painter.setPen(pen)
+            painter.drawLine(sp(self.x0, y), sp(self.x1, y))
+            # šipky potenciálu na koncích + název (předpona sběrnice + žíla)
+            name = f"{self.prefix}{cond}"
+            for x, d in ((self.x0, -1.0), (self.x1, 1.0)):
+                painter.drawLine(sp(x, y), sp(x - 2.5 * d, y + 1.2))
+                painter.drawLine(sp(x, y), sp(x - 2.5 * d, y - 1.2))
+            painter.setPen(QPen(ink, 0.2))
+            draw_text(painter, self.x0 - 1.5, y - 0.8, name, 2.0, "right")
+            draw_text(painter, self.x1 + 1.5, y - 0.8, name, 2.0, "left")
+        painter.setBrush(ink)
+        painter.setPen(QPen(ink, LINE_WIDTH))
+        for x, y in self.taps:
+            painter.drawEllipse(sp(x, y), 0.7, 0.7)
+        if self.first and (self.element.ref or self.element.attrs.get("desc")):
+            painter.setPen(QPen(ink, 0.2))
+            top = max(self.ys.values())
+            draw_text(painter, self.x0, top + 2.0, f"{self.element.ref} {self.element.attrs.get('desc', '')}".strip(), 2.5, "left")
+
+
 class ConductorItem(QGraphicsPathItem):
     """Jedna žíla vodiče mezi póly dvou prvků."""
     Type = QGraphicsItem.UserType + 12
@@ -327,6 +373,7 @@ class MultipoleScene(QGraphicsScene):
             sym = element_symbol(self.project, e, self.library)
             poles[e.id] = mp.element_poles(self.sheet, e, sym)
         self._breaks: dict[tuple[int, bool], int] = {}
+        bus_taps: dict[tuple[str, int], list[tuple[float, float]]] = {}
         self.layout_pos = mp.auto_layout(self.sheet, poles, y_top=self.sheet.height - 40.0, bridges=self.sheet.bridges,
                                          page_w=self.page_w)
         for eid, ep in poles.items():
@@ -334,6 +381,8 @@ class MultipoleScene(QGraphicsScene):
         self._paginate(poles)
         for e in self.sheet.elements:
             ep = poles[e.id]
+            if e.symbol_id == BUS:
+                continue   # sběrnice se kreslí jako čáry potenciálů až podle odboček (níže)
             if ep.per_pole:
                 for i, c in enumerate(ep.switched):
                     self._add(PoleItem(ep, c, first=(i == 0)))
@@ -351,6 +400,9 @@ class MultipoleScene(QGraphicsScene):
             da = rotate_dir(ea.symbol.port(w.a.port).dir, ea.element.rotation)
             db = rotate_dir(eb.symbol.port(w.b.port).dir, eb.element.rotation)
             ka, kb = self.page_of.get(w.a.element_id, 0), self.page_of.get(w.b.element_id, 0)
+            if ea.element.symbol_id == BUS or eb.element.symbol_id == BUS:
+                self._add_bus_taps(w, ea, da, ka, eb, db, kb, bus_taps)
+                continue
             for i, c in enumerate(mp.wire_conductors(w)):
                 pa, pb = ea.pole_pos(w.a.port, c), eb.pole_pos(w.b.port, c)
                 # svorka na konci: ruční přiřazení; u svorkového prvku je číslo přímo na pólu
@@ -361,6 +413,43 @@ class MultipoleScene(QGraphicsScene):
                 else:
                     self._add_page_break(w, c, i, pa, da, ka, pb, db, kb, (ta, tb))
         self._add_bridges(poles)
+        self._add_buses(poles, bus_taps)
+
+    def _bus_y(self, ep: mp.ElementPoles, c: str, page: int) -> float:
+        """Výška čáry potenciálu `c` sběrnice na dané straně (žíly pod sebou po BUS_PITCH)."""
+        k0 = self.page_of.get(ep.element.id, 0)
+        base = ep.origin[1] + k0 * self.page_pitch   # výška v „nestránkovaných“ souřadnicích
+        return base - ep.slot(c) * BUS_PITCH - page * self.page_pitch
+
+    def _add_bus_taps(self, w, ea, da, ka, eb, db, kb, bus_taps) -> None:
+        """Vodič mezi přístrojem a sběrnicí: každá žíla svisle od pólu přístroje k čáře potenciálu na téže straně."""
+        if ea.element.symbol_id == BUS and eb.element.symbol_id == BUS:
+            return
+        dev, ddir, kd, bus, dport = (eb, db, kb, ea, w.b.port) if ea.element.symbol_id == BUS else (ea, da, ka, eb, w.a.port)
+        side = "b" if dev is eb else "a"
+        for c in mp.wire_conductors(w):
+            if c not in bus.slots:
+                continue
+            px, py = dev.pole_pos(dport, c)
+            y = self._bus_y(bus, c, kd)
+            tap = (px, y)
+            t = "" if mp.is_terminal_block(dev.element) else mp.terminal_text(w, c, side)
+            self._add(ConductorItem(w, c, 0, sp(px, py), ddir, sp(*tap), "S" if y > py else "N", (t, "")))
+            bus_taps.setdefault((bus.element.id, kd), []).append(tap)
+
+    def _add_buses(self, poles, bus_taps) -> None:
+        """Čáry potenciálů sběrnice na každé straně, kde má odbočky (a na své vlastní)."""
+        from envocad.model.frame import MARGIN, MARGIN_LEFT
+        x0, x1 = MARGIN_LEFT + 14.0, self.sheet.width - MARGIN - 14.0
+        for e in self.sheet.elements:
+            if e.symbol_id != BUS:
+                continue
+            ep = poles[e.id]
+            conds = list(ep.slots) or mp.parse_conductors(e.attrs.get("conductors", "")) or ["L1"]
+            pages = sorted({self.page_of.get(e.id, 0)} | {k for (bid, k) in bus_taps if bid == e.id})
+            for k in pages:
+                ys = {c: (self._bus_y(ep, c, k) if c in ep.slots else ep.origin[1] - i * BUS_PITCH) for i, c in enumerate(conds)}
+                self._add(BusItem(e, conds, x0, x1, ys, bus_taps.get((e.id, k), []), k == pages[0], e.ref))
 
     def _add_page_break(self, w, c, i, pa, da, ka, pb, db, kb, texts) -> None:
         """Žíla přes hranici stran: na každé straně úsek k okraji s přerušovacím bodem a odkazem na protějšek."""

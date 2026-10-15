@@ -106,9 +106,15 @@ kontaktu odkaz na cívku. Kontakty nejsou samostatné položky ve výkazu materi
 
 ### Založení
 V JPS vlož **Rozvaděč (blok)** (R1), zapoj do něj kabely a dvakrát na něj klikni. Poprvé program nabídne
-**šablonu**: *AC rozvaděč FVE* (přívod, hlavní vypínač, rozvodné svorky s můstky, SPD, vývody s jističi),
-*DC rozvaděč* (stringy s pojistkami, svorky, SPD DC, odpínač DC), nebo prázdný list. Otevře se záložka
+**šablonu**: *AC rozvaděč FVE* (přívod, hlavní vypínač, rozvod, SPD, vývody s jističi), *DC rozvaděč* (každý
+string zvlášť: pojistkový odpínač / odpínač DC, SPD, vývod), nebo prázdný list. Otevře se záložka
 `R1 – schéma` – vícepólové schéma rozvaděče.
+
+**Rozvod** v rozvaděči jde dvěma způsoby (parametr šablony i průvodce): **sběrnice potenciálů** – prvek
+*Sběrnice (rozvodný vodič)*; ve vícepólu se kreslí jako v EPLAN vodorovnými čarami L1 L2 L3 N PE přes
+celou stranu (i přes více stran) s názvem potenciálu a šipkou na obou koncích (`1L1`… – označení sběrnice je
+předpona), přístroje se na ni napojují odbočkou s tečkou; porty `T1…T10` shora, `1…10` zdola. Nebo
+**rozvodné svorky s můstky** (skupiny svorek X2, můstky mezi nimi).
 
 Blok v JPS dostane **porty podle přívodů a vývodů** listu (X1 vlevo, X4, X5… vpravo). Kabel zakreslený na port
 X4 se sám naváže na vývod X4: vývod převezme kabel, žíly a text „kam“, u kabelu v JPS se objeví křížový odkaz

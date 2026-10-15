@@ -13,6 +13,7 @@ from envocad.model import multipole as mp
 from envocad.model.project import FEED_SYMBOLS, Element, Project, Sheet, Wire, WireEnd, linked_wire
 
 JUNCTION = "sb.junction"
+BUS = "sb.busbar"
 SOURCE_ORDER = ("fve.grid", "fve.pv_string", "fve.battery", "fve.inverter", "fve.inverter_hybrid")
 LIVE = {"L1", "L2", "L3", "L", "DC+", "DC-", "DC−", "BAT+", "BAT-"}
 
@@ -89,7 +90,7 @@ def nets(project: Project, lib) -> list[Net]:
         for e in s.elements:
             sym = lib.get_symbol(e.symbol_id) if lib else None
             slots = _slots(s, e)
-            if e.symbol_id == JUNCTION or e.symbol_id == "sb.pe_bar":
+            if e.symbol_id in (JUNCTION, BUS, "sb.pe_bar"):
                 ports = [p.name for p in (sym.ports if sym else [])] or ["N", "E", "S", "W"]
                 for c in slots:
                     for p in ports[1:]:
@@ -149,6 +150,9 @@ def nets(project: Project, lib) -> list[Net]:
 
 def _net_name(net: Net) -> str:
     conds = sorted(net.conductors, key=mp.canon_key)
+    bus = next((e for _, e, _, _ in net.members if e.symbol_id == BUS), None)
+    if bus is not None and len(conds) == 1:
+        return f"{bus.ref}{conds[0]}"   # potenciál sběrnice: předpona + žíla (1L1)
     src = None
     for kind in SOURCE_ORDER:
         src = next((e for _, e, _, _ in net.members if e.symbol_id == kind and e.ref), None)
