@@ -69,10 +69,10 @@ def build_project(spec: dict) -> Project:
     s.name = "Jednopólové schéma"
     mod, dc, ac = spec["module"], spec["dc"], spec["ac"]
     # svislé rozestupy řad střídačů podle počtu stringů
-    row_h = [max(45.0, 25.0 * max(len(inv.get("strings") or [1]), 1) + 15.0) for inv in invs]
+    row_h = [max(55.0, 30.0 * max(len(inv.get("strings") or [1]), 1) + 20.0) for inv in invs]
     total_h = sum(row_h)
     y_top = min(250.0, 150.0 + total_h / 2)
-    x_str, x_dc, x_inv, x_blk, x_grid = 40.0, 105.0, 160.0, 290.0, 370.0
+    x_str, x_dc, x_inv, x_blk, x_grid = 40.0, 130.0, 200.0, 300.0, 395.0
     p_total = 0.0
     blk = Element("fve.switchboard", x_blk, 150.0, attrs={"ref": spec["switchboard"]["ref"], "desc": spec["switchboard"]["desc"]})
     s.elements.append(blk)
@@ -91,7 +91,7 @@ def build_project(spec: dict) -> Project:
         s.elements.append(t)
         inverter_elements.append(t)
         for k, n_mod in enumerate(strings):
-            ys = y - 12.5 - k * 25.0
+            ys = y - 15.0 - k * 30.0
             p_str = round(n_mod * float(mod.get("p_wp") or 0) / 1000, 2)
             p_total += p_str
             g = Element("fve.pv_string", x_str, ys, attrs={

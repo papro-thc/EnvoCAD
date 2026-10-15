@@ -74,7 +74,7 @@ SYMBOLS = [
                        attr("p_string", "P string [kWp]", "", True), attr("voc", "Uoc modulu STC [V]"),
                        attr("vmp", "Umpp modulu STC [V]"), attr("isc", "Isc modulu [A]"),
                        attr("beta_voc", "Tepl. součinitel Uoc [%/K]", "-0.27")],
-        "label_pos": {"x": -10, "y": 10},
+        "label_pos": {"x": 10, "y": 9},
     },
     {
         "id": "fve.dc_disconnect", "name": "Odpínač DC", "category": "Spínání", "iec_ref": "Q",
@@ -119,7 +119,7 @@ SYMBOLS = [
                        attr("mppt", "Počet MPPT"), attr("phases", "Fáze", "3"), attr("u_dc_max", "U DC max [V]"),
                        attr("u_mppt_min", "U MPPT min [V]"), attr("u_mppt_max", "U MPPT max [V]"),
                        attr("i_mppt_max", "I max na MPPT [A]"), attr("strings_per_mppt", "Stringů na MPPT")],
-        "label_pos": {"x": -10, "y": 16},
+        "label_pos": {"x": -10, "y": 20},
     },
     {
         "id": "fve.inverter_hybrid", "name": "Hybridní střídač", "category": "Střídače a měniče", "iec_ref": "T",
@@ -132,7 +132,7 @@ SYMBOLS = [
                        attr("mppt", "Počet MPPT"), attr("phases", "Fáze", "3"), attr("u_dc_max", "U DC max [V]"),
                        attr("u_mppt_min", "U MPPT min [V]"), attr("u_mppt_max", "U MPPT max [V]"),
                        attr("i_mppt_max", "I max na MPPT [A]"), attr("strings_per_mppt", "Stringů na MPPT")],
-        "label_pos": {"x": -10, "y": 16},
+        "label_pos": {"x": -10, "y": 20},
     },
     {
         "id": "fve.battery", "name": "Bateriové úložiště", "category": "Zdroje", "iec_ref": "G",
