@@ -151,12 +151,12 @@ def test_feed_link_to_jps_wire():
     feed = next(e for e in sb.elements if e.symbol_id == "sb.feed_in")
     assert feed.attrs["wire_id"] == w.id and feed.attrs["from"].startswith("W2 T1:AC /1.") and feed.attrs["cable"] == "CYKY-J 5x16 16"
     assert linked_wire(p, sb, feed)[1] is w
-    assert wire_xref(p, w.id) == "→ R1:X1"
+    assert wire_xref(p, w.id) .startswith("→ R1:X1 /2.")
     assert feed_link_attrs(p, sb, feed, "") == {"wire_id": "", "from": "", "to": "", "cable": ""}
     # seznam kabelů celého projektu: kabel je jen jednou (W2 v JPS) a má odkaz na rozvaděč
     from envocad.export import reports
     _, rows = reports.cables(p, LibraryStore())
-    assert [r[0] for r in rows] == ["W2"] and rows[0][8] == "R1:X1"
+    assert [r[0] for r in rows] == ["W2"] and rows[0][8].startswith("R1:X1 /2.")
 
 
 def test_switchboard_block_ports_follow_feeds():
@@ -185,7 +185,7 @@ def test_switchboard_block_ports_follow_feeds():
     s.wires.append(w_out)
     x4 = next(e for e in sb.elements if e.ref == "X4")
     assert linked_wire(p, sb, x4)[1] is w_out
-    assert wire_xref(p, w_out.id) == "→ R1:X4" and [e.ref for _, e in feeds_linked_to(p, w_out.id)] == ["X4"]
+    assert wire_xref(p, w_out.id).startswith("→ R1:X4 /2.") and [e.ref for _, e in feeds_linked_to(p, w_out.id)] == ["X4"]
     assert sync_feed_links(p) >= 1
     assert x4.attrs["to"].startswith("W3 M1:1 /1.") and x4.attrs["cable"] == "CYKY-J 5x6 6" and x4.attrs["wire_id"] == w_out.id
     assert sync_feed_links(p) == 0
