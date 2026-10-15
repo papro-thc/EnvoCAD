@@ -185,6 +185,8 @@ class MainWindow(QMainWindow):
         act(m_out, "Výkazy aktuálního listu (xlsx)…", lambda: self.export_xlsx(current_only=True))
         act(m_out, "Výkazy celého projektu (xlsx)…", lambda: self.export_xlsx(current_only=False))
         act(m_out, "Protokol kusového ověření (docx)…", self.export_routine_test)
+        m_out.addSeparator()
+        act(m_out, "Celá dokumentace (PDF)…", self.export_documentation, "Ctrl+Shift+E", True)
 
         m_lib = mb.addMenu("&Knihovna")
         act(m_lib, "Importovat symbol z DXF…", self.import_dxf_symbol)
@@ -750,9 +752,13 @@ class MainWindow(QMainWindow):
 
     def edit_project_meta(self) -> None:
         for key, label in [("name", "Název projektu"), ("investor", "Investor"), ("order", "Číslo zakázky"),
-                           ("place", "Místo"), ("author", "Zpracoval"), ("date", "Datum"), ("revision", "Revize")]:
+                           ("place", "Místo"), ("author", "Zpracoval"), ("date", "Datum"), ("revision", "Revize"),
+                           ("changes", "Změnový list (řádek = revize | datum | popis | zpracoval)")]:
             cur = self.project.name if key == "name" else self.project.meta.get(key, "")
-            val, ok = QInputDialog.getText(self, "Vlastnosti projektu", label, text=cur)
+            if key == "changes":
+                val, ok = QInputDialog.getMultiLineText(self, "Vlastnosti projektu", label, cur)
+            else:
+                val, ok = QInputDialog.getText(self, "Vlastnosti projektu", label, text=cur)
             if not ok:
                 return
             if key == "name":
@@ -788,6 +794,14 @@ class MainWindow(QMainWindow):
         if path:
             export_reports_xlsx(self.project, self.library, path, sh)
             self.statusBar().showMessage(f"Exportováno: {path}", 3000)
+
+    def export_documentation(self) -> None:
+        from envocad.export.doc_pdf import export_documentation_pdf
+        base = self.project.name.replace("/", "-") or "dokumentace"
+        path, _ = QFileDialog.getSaveFileName(self, "Celá dokumentace", f"{base} – dokumentace.pdf", "PDF (*.pdf)")
+        if path:
+            n = export_documentation_pdf(self.project, self.library, path)
+            self.statusBar().showMessage(f"Exportováno {n} stran: {path}", 5000)
 
     def export_routine_test(self) -> None:
         from envocad.export.docx_export import export_routine_test_docx

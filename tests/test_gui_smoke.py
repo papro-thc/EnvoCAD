@@ -455,3 +455,22 @@ def test_navigator_and_goto(app, tmp_path):
     assert dlg.tree.topLevelItemCount() >= 1
     w.undo.setClean()
     w.close()
+
+
+def test_documentation_pdf(app, tmp_path):
+    from envocad.export.doc_pdf import DocBuilder, export_documentation_pdf
+    from envocad.library.templates import apply_template
+    p = _project()
+    p.meta.update(investor="Investor a.s.", order="2026-042", changes="0 | 15.10.2026 | první vydání | PR")
+    s = p.sheets[0]
+    blk = Element("fve.switchboard", 260, 150, attrs={"ref": "R1"})
+    s.elements.append(blk)
+    sb = p.create_switchboard_sheet(blk)
+    apply_template(p, sb, "ac_fve")
+    b = DocBuilder(p, LibraryStore())
+    b.plan()
+    kinds = [k for k, _, _ in b.pages]
+    assert kinds[:2] == ["title", "toc"] and kinds[-1] == "changes" and kinds.count("sheet") == 3
+    out = tmp_path / "dok.pdf"
+    n = export_documentation_pdf(p, LibraryStore(), out)
+    assert n >= len(b.pages) and out.stat().st_size > 5000

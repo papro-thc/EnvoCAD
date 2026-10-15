@@ -45,7 +45,7 @@ def sheet_number(project: Project, sheet: Sheet) -> str:
     return f"{i}/{len(ids)}"
 
 
-def title_rows(project: Project, sheet: Sheet, view: str = "") -> list[list[tuple[str, str]]]:
+def title_rows(project: Project, sheet: Sheet, view: str = "", page: str = "") -> list[list[tuple[str, str]]]:
     """Řádky popisového pole jako [(popisek, hodnota), …] – vlevo doleva, vpravo doprava."""
     m = project.meta
     date = m.get("date") or _date.today().strftime("%d.%m.%Y")  # noqa: DTZ011
@@ -53,14 +53,14 @@ def title_rows(project: Project, sheet: Sheet, view: str = "") -> list[list[tupl
     return [
         [("Projekt", project.name), ("Zakázka", m.get("order", ""))],
         [("Investor", m.get("investor", "")), ("Místo", m.get("place", ""))],
-        [("List", name), ("Číslo listu", sheet_number(project, sheet))],
+        [("List", name), ("Číslo listu", page or sheet_number(project, sheet))],
         [("Zpracoval", m.get("author", "")), ("Datum", date), ("Revize", m.get("revision", "")),
          ("Formát", sheet.paper)],
     ]
 
 
 def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, height: float | None = None,
-                   view: str = "") -> FrameGeometry:
+                   view: str = "", page: str = "") -> FrameGeometry:
     """Rámeček s popisovým polem vpravo dole. Pro odvozené pohledy (vícepól) lze zadat jiný rozměr listu."""
     w = width or sheet.width
     h = height or sheet.height
@@ -85,7 +85,7 @@ def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, h
     tx0, ty0 = x1 - TB_W, y0
     tx1, ty1 = x1, y0 + TB_H
     g.lines += [(tx0, ty0, tx0, ty1), (tx0, ty1, tx1, ty1)]
-    rows = title_rows(project, sheet, view)
+    rows = title_rows(project, sheet, view, page)
     rh = TB_H / len(rows)
     logo_w = 34.0
     g.lines.append((tx0 + logo_w, ty0, tx0 + logo_w, ty1))
