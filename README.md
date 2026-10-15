@@ -36,3 +36,9 @@ Pokyny pro agenty: `CLAUDE.md`.
 | Otevřít rozvaděč | dvojklik na blok ROZVADĚČ (poprvé nabídne šablonu) |
 | Rozložení rozvaděče | `Ctrl+L` na listu rozvaděče; přístroje přetáhnout na DIN lišty |
 | Výkazy / protokol | menu Výstupy (xlsx, docx) |
+
+## Když program spadne
+
+Log každého běhu je v `~/.envocad/log/envocad.log` (Windows: `C:\Users\<jméno>\.envocad\log\`),
+předchozí běhy `envocad.log.1` … `.5`. Otevře ho menu Nápověda → Otevřít složku s logy.
+Neošetřená chyba se zapíše do logu a zobrazí v dialogu; program většinou běží dál – uložte práci.

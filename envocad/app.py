@@ -7,6 +7,9 @@ from PySide6.QtWidgets import QApplication
 
 
 def main() -> None:
+    from envocad.logging_setup import log, setup
+
+    log_path = setup()
     app = QApplication(sys.argv)
     app.setApplicationName("EnvoCAD")
     app.setOrganizationName("ENVO")
@@ -18,8 +21,12 @@ def main() -> None:
 
     project = Project.load(sys.argv[1]) if len(sys.argv) > 1 else None
     win = MainWindow(project=project)
+    win.statusBar().showMessage(f"Log: {log_path}", 5000)
     win.show()
-    sys.exit(app.exec())
+    log.info("Okno zobrazeno")
+    rc = app.exec()
+    log.info("Konec, kód %s", rc)
+    sys.exit(rc)
 
 
 if __name__ == "__main__":

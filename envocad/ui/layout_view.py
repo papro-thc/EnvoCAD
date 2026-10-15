@@ -25,14 +25,10 @@ class SetPlacementCommand(QUndoCommand):
 
     def _apply(self, v):
         self.scene.sheet.layout.set_placement(self.eid, *(v or (None, None)))
-        self.scene.rebuild()
+        self.scene.sync_positions()
 
     def redo(self):
-        if self._first:  # posun už proběhl interaktivně
-            self._first = False
-            self.scene.sheet.layout.set_placement(self.eid, *(self.new or (None, None)))
-            self.scene.rebuild()
-            return
+        self._first = False
         self._apply(self.new)
 
     def undo(self):
@@ -105,7 +101,26 @@ class LayoutScene(QGraphicsScene):
         return (max(0, min(row, lay.rows - 1)), pos)
 
     # ---- sestavení ----------------------------------------------------------
+    def sync_positions(self) -> None:
+        """Přesune existující položky podle layoutu (bez mazání – bezpečné i během obsluhy myši)."""
+        lay = self.sheet.layout
+        unplaced_y = MARGIN
+        ux = MARGIN + self.enclosure_w + UNPLACED_X_GAP
+        for e in self.sheet.elements:
+            it = self.items_by_id.get(e.id)
+            if it is None:
+                continue
+            pl = lay.placement(e.id)
+            it.placed = pl is not None
+            if pl:
+                it.setPos(self.pos_to_scene(pl.row, pl.pos))
+            else:
+                it.setPos(ux, unplaced_y)
+                unplaced_y += DEV_H + 8
+            it.update()
+
     def rebuild(self) -> None:
+        """Úplná přestavba – volat jen mimo obsluhu událostí myši (po šabloně, změně skříně, tématu)."""
         self.clear()
         self.items_by_id.clear()
         lay = self.sheet.layout
@@ -155,16 +170,22 @@ class LayoutScene(QGraphicsScene):
 
     def mouseReleaseEvent(self, ev):
         super().mouseReleaseEvent(ev)
+        moves = []
         for eid, old in self._drag_start.items():
             it = self.items_by_id.get(eid)
-            if not it:
+            if it is None:
                 continue
             new = self.scene_to_placement(it.pos(), it.element.modules)
             if new != old:
-                self.undo.push(SetPlacementCommand(self, eid, old, new))
-            else:
-                self.rebuild()
+                moves.append((eid, old, new))
         self._drag_start = {}
+        if moves:
+            self.undo.beginMacro("Umístit přístroje") if len(moves) > 1 else None
+            for eid, old, new in moves:
+                self.undo.push(SetPlacementCommand(self, eid, old, new))
+            self.undo.endMacro() if len(moves) > 1 else None
+        else:
+            self.sync_positions()  # přitáhnout zpět na mřížku
 
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
         c = colors()

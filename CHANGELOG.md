@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 – 2026-10-15
+- Logování do `~/.envocad/log/` (rotace 5 běhů), dialog při chybě, `crash.log` pro nativní pády (faulthandler).
+- Oprava pravděpodobného pádu v pohledu rozložení (přestavba scény během obsluhy myši); otevření rozvaděče z dvojkliku je odložené mimo obsluhu události.
+
 ## 0.2.0 – 2026-10-15
 - Rozvaděče: dvojklik na blok ROZVADĚČ založí/otevře jeho list (schéma) – šablony AC rozvaděč FVE, DC rozvaděč, prázdný.
 - Pohled rozložení (Ctrl+L): řady DIN lišt, přístroje v modulech (17,5 mm), přetahování se snapem 0,5 modulu, undo.

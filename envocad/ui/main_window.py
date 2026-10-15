@@ -150,6 +150,7 @@ class MainWindow(QMainWindow):
         act(m_lib, "Importovat symbol z DXF…", self.import_dxf_symbol)
 
         m_help = mb.addMenu("&Nápověda")
+        act(m_help, "Otevřít složku s logy", self.open_log_dir)
         act(m_help, "O programu", lambda: QMessageBox.about(
             self, "EnvoCAD", f"EnvoCAD {__version__}\nInterní nástroj ENVO pro elektro-dokumentaci FVE."))
 
@@ -213,7 +214,9 @@ class MainWindow(QMainWindow):
     def _close_tab(self, index: int) -> None:
         if self.tabs.count() <= 1:
             return
+        w = self.tabs.widget(index)
         self.tabs.removeTab(index)
+        w.deleteLater()
 
     def _tab_changed(self, _index: int) -> None:
         self.props_panel.show_item(None)
@@ -264,6 +267,11 @@ class MainWindow(QMainWindow):
 
     # ---- rozvaděče -------------------------------------------------------------
     def open_switchboard_from_block(self, block_id: str, kind: str = "schematic") -> None:
+        # signál přichází z obsluhy dvojkliku ve scéně – dialogy a přepínání záložek odložit až po ní
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, lambda: self._open_switchboard_now(block_id, kind))
+
+    def _open_switchboard_now(self, block_id: str, kind: str) -> None:
         sheet_of_block = self.project.sheet_of_element(block_id)
         if not sheet_of_block:
             return
@@ -484,6 +492,13 @@ class MainWindow(QMainWindow):
         self.lib_panel.refresh()
         QMessageBox.information(self, "Import DXF", f"Symbol {sid} importován ({len(sym.primitives)} primitiv).\n"
                                 "Porty zatím doplňte v JSON (viz docs/LIBRARY_FORMAT.md).")
+
+    def open_log_dir(self) -> None:
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        from envocad.logging_setup import log_dir
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(log_dir())))
 
     def closeEvent(self, ev) -> None:
         if self._confirm_discard():
