@@ -138,8 +138,30 @@ def check_project(project: Project, lib) -> list[Finding]:
                                        f"Můstek {strip}:{'-'.join(g)} odkazuje na neexistující svorky {', '.join(missing)}",
                                        "bridge_missing"))
     out += calc_findings(project)
+    out += potential_findings(project, lib)
     order = {ERROR: 0, WARNING: 1, INFO: 2}
     out.sort(key=lambda f: (order[f.severity], f.sheet_name, f.ref))
+    return out
+
+
+def potential_findings(project: Project, lib) -> list[Finding]:
+    """Potenciály: nepřípustně spojené potenciály v jedné síti (L–N, L–PE, DC+–DC−, fáze), uzel odbočky bez odbočky."""
+    from envocad.model.potential import JUNCTION, nets
+    out: list[Finding] = []
+    for net in nets(project, lib):
+        issue = net.short_issue()
+        if issue:
+            s, w, _ = net.wires[0] if net.wires else (net.members[0][0], None, "")
+            tid, is_wire = (w.id, True) if w is not None else (net.members[0][1].id, False)
+            out.append(Finding(ERROR, s.id, s.name, tid, is_wire, w.attrs.get("ref", "") if w else net.members[0][1].ref,
+                               f"Potenciál {net.name}: {issue}", "pot_short"))
+    for s in project.sheets:
+        for e in s.elements:
+            if e.symbol_id == JUNCTION:
+                n = sum(1 for w in s.wires for end in (w.a, w.b) if end.element_id == e.id)
+                if n < 3:
+                    out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref or "uzel",
+                                       f"Uzel odbočky má jen {n} vodič(e) – odbočka chybí", "junction_free"))
     return out
 
 

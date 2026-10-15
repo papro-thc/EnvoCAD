@@ -56,6 +56,10 @@ def paint_symbol(painter: QPainter, sym: Symbol, pen: QPen | None = None) -> Non
     for p in sym.primitives:
         if p["type"] == "text":
             draw_text(painter, p["x"], p["y"], p["text"], p.get("height", 2.5), p.get("align", "center"))
+        elif p["type"] == "circle" and p.get("filled"):   # vyplněný bod (uzel odbočky)
+            painter.setBrush((pen or QPen(Qt.black)).color())
+            painter.drawEllipse(sp(p["cx"], p["cy"]), p["r"], p["r"])
+            painter.setBrush(Qt.NoBrush)
     painter.restore()
 
 

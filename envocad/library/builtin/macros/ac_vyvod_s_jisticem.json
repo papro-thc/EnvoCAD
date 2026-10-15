@@ -1,0 +1,96 @@
+{
+ "name": "AC vývod s jističem",
+ "description": "Skupina rozvodných svorek X2 → jistič 3p → vývod X3 (rozvaděč)",
+ "fragment": {
+  "elements": [
+   {
+    "id": "ce699d636748",
+    "symbol_id": "sb.terminal_block",
+    "x": 60,
+    "y": 200,
+    "rotation": 0,
+    "attrs": {
+     "ref": "X2",
+     "terminal": "1 2 3 4 5",
+     "desc": "vývod"
+    },
+    "component_id": null
+   },
+   {
+    "id": "734c357cf6ab",
+    "symbol_id": "fve.breaker_mcb",
+    "x": 60,
+    "y": 170,
+    "rotation": 270,
+    "attrs": {
+     "ref": "F1",
+     "in_": "16",
+     "char": "B",
+     "poles": "3",
+     "modules": "3"
+    },
+    "component_id": null
+   },
+   {
+    "id": "e036747c0bf1",
+    "symbol_id": "sb.feed_out",
+    "x": 60,
+    "y": 140,
+    "rotation": 0,
+    "attrs": {
+     "ref": "X3",
+     "desc": "vývod"
+    },
+    "component_id": null
+   }
+  ],
+  "wires": [
+   {
+    "id": "29b435e7cabc",
+    "a": {
+     "element_id": "ce699d636748",
+     "port": "2"
+    },
+    "b": {
+     "element_id": "734c357cf6ab",
+     "port": "1"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "L1",
+     "L2",
+     "L3",
+     "N",
+     "PE"
+    ],
+    "terminals": {}
+   },
+   {
+    "id": "1a0fd6636a7b",
+    "a": {
+     "element_id": "734c357cf6ab",
+     "port": "2"
+    },
+    "b": {
+     "element_id": "e036747c0bf1",
+     "port": "1"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "L1",
+     "L2",
+     "L3",
+     "N",
+     "PE"
+    ],
+    "terminals": {}
+   }
+  ]
+ }
+}

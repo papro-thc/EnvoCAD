@@ -1,0 +1,63 @@
+{
+ "name": "String → střídač",
+ "description": "FV string s kabelem H1Z2Z2-K na DC vstup střídače (JPS)",
+ "fragment": {
+  "elements": [
+   {
+    "id": "42f71e3e3a55",
+    "symbol_id": "fve.pv_string",
+    "x": 40,
+    "y": 200,
+    "rotation": 0,
+    "attrs": {
+     "ref": "G1",
+     "n_modules": "20",
+     "p_module": "450",
+     "p_string": "9 kWp"
+    },
+    "component_id": null
+   },
+   {
+    "id": "65edd0793ae7",
+    "symbol_id": "fve.inverter",
+    "x": 160.0,
+    "y": 200,
+    "rotation": 0,
+    "attrs": {
+     "ref": "T1",
+     "p_ac": "25",
+     "phases": "3",
+     "mppt": "2",
+     "strings_per_mppt": "2"
+    },
+    "component_id": null
+   }
+  ],
+  "wires": [
+   {
+    "id": "ac5006c3e797",
+    "a": {
+     "element_id": "42f71e3e3a55",
+     "port": "DC"
+    },
+    "b": {
+     "element_id": "65edd0793ae7",
+     "port": "DC1"
+    },
+    "points": [],
+    "attrs": {
+     "ref": "W1",
+     "cable": "H1Z2Z2-K 1x6",
+     "cross": "6",
+     "length": "30",
+     "method": "E"
+    },
+    "conductors": [
+     "DC+",
+     "DC-"
+    ],
+    "terminals": {}
+   }
+  ]
+ }
+}

@@ -110,6 +110,36 @@ class AddWireCommand(QUndoCommand):
         self.scene.remove_wire_item(self.wire.id)
 
 
+class SplitWireCommand(QUndoCommand):
+    """T-odbočka: vodič se rozdělí uzlem (sb.junction) na dva díly; z volného portu uzlu pak vede odbočka."""
+
+    def __init__(self, scene, wire_id: str, junction: Element, w1: Wire, w2: Wire):
+        super().__init__("Odbočka na vodiči")
+        self.scene = scene
+        self.old = next(w for w in scene.sheet.wires if w.id == wire_id)
+        self.junction, self.w1, self.w2 = junction, w1, w2
+
+    def redo(self):
+        s = self.scene.sheet
+        s.wires = [w for w in s.wires if w.id != self.old.id]
+        self.scene.remove_wire_item(self.old.id)
+        s.elements.append(self.junction)
+        self.scene.add_element_item(self.junction)
+        for w in (self.w1, self.w2):
+            s.wires.append(w)
+            self.scene.add_wire_item(w)
+
+    def undo(self):
+        s = self.scene.sheet
+        s.wires = [w for w in s.wires if w.id not in (self.w1.id, self.w2.id)]
+        for w in (self.w1, self.w2):
+            self.scene.remove_wire_item(w.id)
+        s.elements = [e for e in s.elements if e.id != self.junction.id]
+        self.scene.remove_element_item(self.junction.id)
+        s.wires.append(self.old)
+        self.scene.add_wire_item(self.old)
+
+
 class SetAttrCommand(QUndoCommand):
     def __init__(self, scene, target_id: str, is_wire: bool, key: str, old: str, new: str):
         super().__init__(f"Změnit {key}")

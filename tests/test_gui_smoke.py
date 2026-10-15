@@ -525,3 +525,37 @@ def test_wizard_spec_dc_boxes(app):
     p = build_project(spec)
     assert len([s for s in p.sheets if s.is_switchboard]) == 1
     assert any(e.symbol_id == "fve.dc_disconnect" for e in p.sheets[0].elements)
+
+
+def test_macro_insert_and_branch_gui(app):
+    from PySide6.QtCore import QPointF
+
+    from envocad.library.macros import list_macros
+    from envocad.model.project import Element, Project, Wire, WireEnd
+    from envocad.ui.canvas import Mode
+    from envocad.ui.main_window import MainWindow
+    p = Project(name="Makra")
+    s = p.sheets[0]
+    a = Element("fve.breaker_mcb", 100, 200, attrs={"ref": "F1"})
+    b = Element("fve.breaker_mcb", 200, 200, attrs={"ref": "F2"})
+    s.elements += [a, b]
+    s.wires.append(Wire(WireEnd(a.id, "2"), WireEnd(b.id, "1"), conductors=["L1", "N", "PE"], attrs={"ref": "W1"}))
+    w = MainWindow(LibraryStore(), p)
+    w.open_sheet(s, "schematic")
+    sc = w.view.scene()
+    # T-odbočka: klik na vodič v režimu kreslení vodiče rozdělí vodič uzlem
+    sc.set_mode(Mode.WIRE)
+    hit = sc._branch_at(QPointF(150, -200))
+    assert hit is not None and hit[0].element.symbol_id == "sb.junction"
+    assert len(s.wires) == 2 and any(e.symbol_id == "sb.junction" for e in s.elements)
+    w.undo.undo()
+    assert len(s.wires) == 1 and not any(e.symbol_id == "sb.junction" for e in s.elements)
+    # makro z knihovny se vloží doprostřed pohledu
+    sc.set_mode(Mode.SELECT)
+    m = next(x for x in list_macros() if x.name.startswith("String"))
+    w.insert_macro(str(m.path))
+    assert len(s.elements) == 4 and len(s.wires) == 2
+    w.undo.undo()
+    assert len(s.elements) == 2
+    w.undo.setClean()
+    w.close()

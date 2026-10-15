@@ -344,6 +344,14 @@ SYMBOLS = [
         "label_pos": {"x": 2.5, "y": 1},
     },
     {
+        "id": "sb.junction", "name": "Odbočka (uzel)", "category": "Svorky a propojení", "iec_ref": "",
+        "description": "T-odbočka: uzel na vodiči, všechny porty mají stejný potenciál (vodič z vodiče)",
+        "primitives": [{"type": "circle", "cx": 0, "cy": 0, "r": 0.8, "filled": True}],
+        "ports": [P("N", 0, 2.5, "N"), P("E", 2.5, 0, "E"), P("S", 0, -2.5, "S"), P("W", -2.5, 0, "W")],
+        "attributes": [attr("ref", "Označení", "", False)],
+        "label_pos": {"x": 2, "y": 2},
+    },
+    {
         "id": "sb.pe_bar", "name": "PE/N můstek", "category": "Svorky a propojení", "iec_ref": "X",
         "description": "Ochranná / nulová sběrnice",
         # porty nahoře (N): vodiče přicházejí od přístrojů shora, lišta je dole a nic přes ni nevede

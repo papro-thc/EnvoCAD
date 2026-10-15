@@ -1,0 +1,125 @@
+{
+ "name": "DC string v rozvaděči",
+ "description": "Přívod X1 → pojistkový odpínač gPV → vývod X2, SPD T2 DC na string (rozvaděč)",
+ "fragment": {
+  "elements": [
+   {
+    "id": "e76dfa104db1",
+    "symbol_id": "sb.feed_in",
+    "x": 60,
+    "y": 240,
+    "rotation": 0,
+    "attrs": {
+     "ref": "X1",
+     "desc": "od stringu"
+    },
+    "component_id": null
+   },
+   {
+    "id": "8b6f2cd0d590",
+    "symbol_id": "fve.fuse_disconnect",
+    "x": 60,
+    "y": 210,
+    "rotation": 270,
+    "attrs": {
+     "ref": "F1",
+     "in_": "15",
+     "char": "gPV",
+     "un": "1000",
+     "poles": "2",
+     "modules": "2"
+    },
+    "component_id": null
+   },
+   {
+    "id": "922ffde3d0d2",
+    "symbol_id": "sb.feed_out",
+    "x": 60,
+    "y": 170,
+    "rotation": 0,
+    "attrs": {
+     "ref": "X2",
+     "desc": "dál"
+    },
+    "component_id": null
+   },
+   {
+    "id": "03e0dae42eb7",
+    "symbol_id": "fve.spd",
+    "x": 72.5,
+    "y": 180,
+    "rotation": 0,
+    "attrs": {
+     "ref": "F1",
+     "spd_type": "T2 DC",
+     "uc": "1000",
+     "poles": "3",
+     "modules": "3"
+    },
+    "component_id": null
+   }
+  ],
+  "wires": [
+   {
+    "id": "a38b58e70476",
+    "a": {
+     "element_id": "e76dfa104db1",
+     "port": "1"
+    },
+    "b": {
+     "element_id": "8b6f2cd0d590",
+     "port": "1"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "DC+",
+     "DC-"
+    ],
+    "terminals": {}
+   },
+   {
+    "id": "93c2fe4987d9",
+    "a": {
+     "element_id": "8b6f2cd0d590",
+     "port": "2"
+    },
+    "b": {
+     "element_id": "922ffde3d0d2",
+     "port": "1"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "DC+",
+     "DC-"
+    ],
+    "terminals": {}
+   },
+   {
+    "id": "086eec828980",
+    "a": {
+     "element_id": "8b6f2cd0d590",
+     "port": "2"
+    },
+    "b": {
+     "element_id": "03e0dae42eb7",
+     "port": "L"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "DC+",
+     "DC-"
+    ],
+    "terminals": {}
+   }
+  ]
+ }
+}

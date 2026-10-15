@@ -71,13 +71,24 @@ kabelu, průřez, délka, trasa/uložení a **žíly** (např. `L1 L2 L3 N PE`, 
 seznamu). Výchozí žíly se odvodí z portů a pólů (DC port → `DC+ DC-`, 3pólový prvek → `L1 L2 L3 N PE`).
 
 V JPS je každá čára jednopólová – jedna čára = jeden kabel se všemi žílami. FV string má jeden port DC,
-střídač vstupy DC1/DC2 (MPPT) a AC.
+střídač vstupy DC1…DCn (jeden na string) a AC.
+
+**T-odbočka (vodič z vodiče)**: v režimu Vodič klikni místo na port rovnou **na vodič** – vodič se v tom místě
+rozdělí uzlem (tečka, značka *Odbočka*) a z volného portu uzlu kreslíš dál; odbočka přebere žíly původního
+vodiče. Stejně jde vodič na jiném vodiči i ukončit. Uzel má čtyři porty, všechny jsou jeden potenciál.
 
 ### Úpravy
 Dvojklik na prvek nebo vodič otevře dialog s parametry, panel Vlastnosti upravuje jednotlivé atributy přímo.
 Tažení myší posouvá (snap 2,5 mm), `R` otáčí, `Delete` maže, `Ctrl+Z`/`Ctrl+Y` vrací. `Ctrl+C`/`Ctrl+V`
 kopíruje vybrané prvky včetně vodičů mezi nimi – kopie dostanou nová označení a posun 10 mm. Výběr více prvků
 tažením rámečku v prázdné ploše. Kolečko zoomuje, střední tlačítko posouvá pohled, `Home` přizpůsobí list.
+
+### Makra (sestavy)
+Vyber prvky (vodiče mezi nimi se přiberou) a `Úpravy → Uložit výběr jako makro…` (`Ctrl+Shift+S`): makro se
+uloží do `~/.envocad/macros/` nebo – když je nastavená sdílená knihovna – na dotaz do `<sdílená>/macros/`
+pro všechny. V panelu Knihovna je dole uzel **Makra**; dvojklik vloží sestavu doprostřed pohledu s novými
+označeními. Vestavěná makra: *AC vývod s jističem*, *DC string v rozvaděči*, *String → střídač*.
+`Úpravy → Smazat makro…` maže vlastní a sdílená.
 
 ### Přerušovací body
 Prvek **Přerušovací bod** (Svorky a propojení) přenese potenciál jinam – dva body se stejným označením se
@@ -165,7 +176,10 @@ Výkazy **Kabely** (přehled), **Kabelový plán** (po žílách odkud–kam, i 
 - chyby: duplicitní označení, vodič na neexistující port, vodič na smazaný prvek, string mimo rozsah střídače,
   kabel přetížený (I > Iz) nebo nechráněný (In jističe > Iz);
 - varování: nezapojené porty/prvky, skupiny svorek bez čísel, rozvaděč bez listu, můstky na neexistující
-  svorky, přerušovací bod nebo kontakt bez protějšku, úbytek napětí přes mez;
+  svorky, přerušovací bod nebo kontakt bez protějšku, úbytek napětí přes mez, uzel odbočky bez odbočky;
+- **potenciály**: program sleduje, co je vodivě spojené přes vodiče, uzly, svorky, můstky, PE lištu i přes
+  přívody/vývody rozvaděčů. Spojení L–N, L–PE, DC+–DC− nebo dvou fází v jedné síti je chyba. Panel Vlastnosti
+  ukazuje u vodiče potenciál každé žíly (`L1 X1`, `DC+ G1`, `N (W3)`), výkaz **Potenciály** vypíše všechny sítě;
 - informace: přívod bez vazby na JPS, prvek bez artiklu, vodič bez kabelu/žil, selektivita nejistá.
 
 Výpočty (`model/calc.py`, výkaz **Výpočty**): kontrola stringu proti střídači (Uoc při −10 °C vs. Umax,
@@ -261,6 +275,7 @@ v projektu je ověř u výrobce.
 | `Delete` | smazat |
 | `Ctrl+Z` / `Ctrl+Y` | zpět / znovu |
 | `Ctrl+C` / `Ctrl+V` | kopírovat / vložit kopii |
+| `Ctrl+Shift+S` | uložit výběr jako makro |
 | `Ctrl+F` | najít označení |
 | `F7` | kontrola projektu |
 | `Ctrl+M` / `Ctrl+J` | vícepól / jednopól |

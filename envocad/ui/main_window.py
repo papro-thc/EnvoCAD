@@ -151,6 +151,8 @@ class MainWindow(QMainWindow):
         m_edit.addSeparator()
         act(m_edit, "Kopírovat", lambda: self.scene and self.scene.copy_selected())
         act(m_edit, "Vložit kopii", lambda: self.scene and self.scene.paste())
+        act(m_edit, "Uložit výběr jako makro…", self.save_macro, "Ctrl+Shift+S")
+        act(m_edit, "Smazat makro…", self.delete_macro)
         act(m_edit, "Smazat", lambda: self.scene and self.scene.delete_selected(), "Delete")
         act(m_edit, "Otočit o 90°", lambda: self.scene and self.scene.rotate_selected(), "R")
         m_edit.addSeparator()
@@ -269,6 +271,7 @@ class MainWindow(QMainWindow):
         self._scenes.clear()
         if not self._panels_wired:
             self.lib_panel.symbol_chosen.connect(lambda sid: self.scene and self.scene.start_place(sid))
+            self.lib_panel.macro_chosen.connect(self.insert_macro)
             self.props_panel.attr_edited.connect(lambda *a: self.scene and self.scene.set_attr(*a))
             self._panels_wired = True
         for sheet in project.sheets:
@@ -758,6 +761,64 @@ class MainWindow(QMainWindow):
             if st.get("author"):
                 p.meta.setdefault("author", st["author"])
             self._load_project(p)
+
+    def _active_schematic(self) -> SchematicScene | None:
+        """Scéna JPS / jednopólové editace v aktivní záložce (ne vícepól, rozložení…)."""
+        v = self.view
+        sc = v.scene() if v is not None and hasattr(v, "scene") else None
+        return sc if isinstance(sc, SchematicScene) else None
+
+    def save_macro(self) -> None:
+        """Vybrané prvky + vodiče mezi nimi uloží jako makro (~/.envocad/macros, nebo do sdílené knihovny)."""
+        from envocad.library.macros import save_macro, shared_dir
+        from envocad.model.project import copy_fragment
+        sc = self._active_schematic()
+        eids = [it.element.id for it in sc.selectedItems() if hasattr(it, "element")] if sc else []
+        if not eids:
+            QMessageBox.information(self, "Makro", "Vyberte prvky (a vodiče mezi nimi), které má makro obsahovat.")
+            return
+        from PySide6.QtWidgets import QInputDialog
+        name, ok = QInputDialog.getText(self, "Uložit makro", "Název makra:")
+        if not ok or not name.strip():
+            return
+        desc, _ = QInputDialog.getText(self, "Uložit makro", "Popis (volitelný):")
+        shared = False
+        if shared_dir() is not None:
+            shared = QMessageBox.question(self, "Makro", "Uložit do sdílené knihovny (pro všechny)?",
+                                          QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes
+        p = save_macro(name.strip(), desc.strip(), copy_fragment(sc.sheet, eids), shared)
+        self.lib_panel.refresh()
+        self.statusBar().showMessage(f"Makro uloženo: {p}", 5000)
+
+    def delete_macro(self) -> None:
+        from PySide6.QtWidgets import QInputDialog
+
+        from envocad.library.macros import delete_macro, list_macros
+        ms = [m for m in list_macros() if m.source != "vestavěné"]
+        if not ms:
+            QMessageBox.information(self, "Makro", "Žádná vlastní ani sdílená makra.")
+            return
+        name, ok = QInputDialog.getItem(self, "Smazat makro", "Makro:", [m.name for m in ms], 0, False)
+        if ok and delete_macro(next(m for m in ms if m.name == name)):
+            self.lib_panel.refresh()
+
+    def insert_macro(self, path: str) -> None:
+        """Dvojklik na makro v knihovně: vloží sestavu doprostřed viditelné části listu."""
+        import json
+        from pathlib import Path
+        sc = self._active_schematic()
+        if sc is None:
+            QMessageBox.information(self, "Makro", "Makro jde vložit jen do schématu (JPS nebo jednopólová editace rozvaděče).")
+            return
+        try:
+            data = json.loads(Path(path).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            QMessageBox.warning(self, "Makro", f"Makro se nepodařilo načíst: {path}")
+            return
+        c = self.view.mapToScene(self.view.viewport().rect().center()) if self.view else None
+        at = (c.x(), -c.y()) if c is not None else None
+        n = sc.insert_fragment(data.get("fragment", {}), at)
+        self.statusBar().showMessage(f"Vloženo makro {data.get('name', '')} ({n} prvků)", 4000)
 
     def set_shared_library(self) -> None:
         from envocad.settings import load_settings, save_settings

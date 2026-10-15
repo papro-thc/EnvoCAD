@@ -21,6 +21,7 @@ from envocad.ui.items import ElementItem, WireItem
 
 class LibraryPanel(QWidget):
     symbol_chosen = Signal(str)
+    macro_chosen = Signal(str)   # cesta k souboru makra
 
     def __init__(self, library: LibraryStore):
         super().__init__()
@@ -73,13 +74,29 @@ class LibraryPanel(QWidget):
             parent.addChild(it)
         for parent in kinds.values():
             parent.setExpanded(True)
+        # makra (sestavy prvků) – vlastní, sdílená, vestavěná
+        from envocad.library.macros import list_macros
+        q = self.search.text().lower()
+        macros = [m for m in list_macros() if not q or q in m.name.lower() or q in m.description.lower()]
+        if macros:
+            top = QTreeWidgetItem(["Makra"])
+            top.setFlags(top.flags() & ~Qt.ItemIsSelectable)
+            self.tree.addTopLevelItem(top)
+            for m in macros:
+                it = QTreeWidgetItem([f"{m.name} ({m.size})"])
+                it.setData(0, Qt.UserRole, "macro:" + str(m.path))
+                it.setToolTip(0, f"{m.description or m.name}\n{m.source}: {m.path}")
+                top.addChild(it)
+            top.setExpanded(True)
         for (kind, sub), holder in subs.items():
             holder.setText(0, f"{sub} ({holder.childCount()})")
             holder.setExpanded(searching)
 
     def _dbl(self, item: QTreeWidgetItem, _col: int) -> None:
         sid = item.data(0, Qt.UserRole)
-        if sid:
+        if sid and str(sid).startswith("macro:"):
+            self.macro_chosen.emit(str(sid)[6:])
+        elif sid:
             self.symbol_chosen.emit(sid)
 
 
@@ -130,6 +147,13 @@ class PropertiesPanel(QWidget):
             terms = "<br>".join(f"{c}: {t.get('a', '')} → {t.get('b', '')}" for c, t in w.terminals.items()) or "–"
             self.form.addRow("Žíly", QLabel(conds))
             self.form.addRow("Svorky", QLabel(f"<small>{terms}</small>"))
+            sc = item.scene()
+            if sc is not None and hasattr(sc, "project") and self._library is not None:
+                from envocad.model.potential import net_of_wire
+                pots = net_of_wire(sc.project, self._library, w.id)
+                txt = "<br>".join(f"{c}: {n.name}" + (f" <span style='color:#c33'>({n.short_issue()})</span>" if n.short_issue() else "")
+                                  for c, n in pots.items()) or "–"
+                self.form.addRow("Potenciál", QLabel(f"<small>{txt}</small>"))
         else:
             self._target = None
             self.form.addRow(QLabel("<i>Nic není vybráno</i>"))

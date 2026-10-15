@@ -38,6 +38,9 @@ def _draw_symbol(msp, e: Element, sym: Symbol) -> None:
             msp.add_lwpolyline(pts, close=True, dxfattribs=a)
         elif t == "circle":
             msp.add_circle(_tr(e, p["cx"], p["cy"]), p["r"], dxfattribs=a)
+            if p.get("filled"):
+                h = msp.add_hatch(color=7, dxfattribs=a)
+                h.paths.add_edge_path().add_arc(_tr(e, p["cx"], p["cy"]), p["r"], 0, 360)
         elif t == "arc":
             msp.add_arc(_tr(e, p["cx"], p["cy"]), p["r"], p["start"] + rot, p["end"] + rot, dxfattribs=a)
         elif t == "polyline":

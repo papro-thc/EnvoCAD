@@ -265,6 +265,23 @@ def dso_report(project: Project, lib: LibraryStore, sheet: Sheet | None = None) 
     return ["Údaj", "Hodnota"], ([list(r) for r in dso_data(project, lib)] if has_plant else [])
 
 
+def potentials(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
+    """Potenciály (sítě): název, žíly, počet spojů, vodiče, prvky:porty, stav (zkrat)."""
+    from envocad.model.potential import nets
+    head = ["Potenciál", "Žíly", "Spojů", "Vodiče", "Prvky", "Stav"]
+    rows = []
+    for n in nets(project, lib):
+        if sheet is not None and not any(s.id == sheet.id for s, _, _, _ in n.members):
+            continue
+        wires = sorted({w.attrs.get("ref") or w.attrs.get("cable", "") for _, w, _ in n.wires if w.attrs.get("ref") or w.attrs.get("cable")},
+                       key=_ref_key)
+        members = sorted({f"{e.ref or e.symbol_id}:{p}" for _, e, p, _ in n.members if e.symbol_id != "sb.junction"}, key=_ref_key)
+        rows.append([n.name, " ".join(sorted(n.conductors, key=lambda c: c)), len(n.members), ", ".join(wires), ", ".join(members),
+                     n.short_issue() or "OK"])
+    rows.sort(key=lambda r: _ref_key(r[0]))
+    return head, rows
+
+
 ALL_REPORTS = [("Data pro DS", dso_report), ("Výpočty", calculations), ("Přístroje", device_list), ("Výkaz materiálu", bom), ("Kabely", cables),
                ("Kabelový plán", cable_plan), ("Zapojovací seznam", wiring_list),
-               ("Svorkovnice", terminals), ("Plán svorkovnice", terminal_plan_report), ("Štítky", labels)]
+               ("Svorkovnice", terminals), ("Plán svorkovnice", terminal_plan_report), ("Potenciály", potentials), ("Štítky", labels)]

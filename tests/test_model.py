@@ -258,3 +258,66 @@ def test_coil_contacts_mirror():
     assert k[5] == "1/2, 13/14"
     _, bom = reports.bom(p, LibraryStore())
     assert not any("Kontakt" in r[1] for r in bom)
+
+
+def test_potentials_and_branch():
+    from envocad.library.store import LibraryStore
+    from envocad.model.checks import ERROR, check_project
+    from envocad.model.potential import junction_free_port, net_of_wire, nets, split_wire
+    from envocad.model.project import Element, Project, Wire, WireEnd
+    p = Project()
+    s = p.sheets[0]
+    lib = LibraryStore()
+    feed = Element("sb.feed_in", 50, 200, attrs={"ref": "X1"})
+    f1 = Element("fve.breaker_mcb", 100, 200, attrs={"ref": "F1", "poles": "1"})
+    f2 = Element("fve.breaker_mcb", 100, 150, attrs={"ref": "F2", "poles": "1"})
+    s.elements += [feed, f1, f2]
+    w = Wire(WireEnd(feed.id, "1"), WireEnd(f1.id, "1"), conductors=["L1", "N", "PE"], attrs={"ref": "W1", "cable": "CYKY-J 3x2.5"})
+    s.wires.append(w)
+    # T-odbočka: vodič se rozdělí uzlem, z uzlu vede druhý vodič k F2
+    j, w1, w2 = split_wire(s, w, 75, 200)
+    s.wires.remove(w)
+    s.elements.append(j)
+    s.wires += [w1, w2]
+    assert w1.attrs["ref"] == "W1" and w2.attrs["ref"] == "" and w1.conductors == w2.conductors == ["L1", "N", "PE"]
+    port = junction_free_port(s, j, (100, 150))
+    assert port and port not in (w1.b.port, w2.a.port)
+    wb = Wire(WireEnd(j.id, port), WireEnd(f2.id, "1"), conductors=["L1", "N", "PE"], attrs={"ref": "W2"})
+    s.wires.append(wb)
+    ns = nets(p, lib)
+    l1 = next(n for n in ns if "L1" in n.conductors)
+    assert {e.ref for _, e, _, _ in l1.members} >= {"X1", "F1", "F2"} and l1.name == "L1 (W1)"
+    assert net_of_wire(p, lib, wb.id)["N"].name == next(n for n in ns if "N" in n.conductors).name == "N (W1)"
+    assert not [f for f in check_project(p, lib) if f.code in ("pot_short", "junction_free")]
+    # zkrat potenciálů: N spojené s L1 přes další uzel
+    bad = Wire(WireEnd(f1.id, "2"), WireEnd(f2.id, "2"), conductors=["L1"], attrs={"ref": "W3"})
+    s.wires.append(bad)
+    bad2 = Wire(WireEnd(f1.id, "2"), WireEnd(f2.id, "2"), conductors=["N"], attrs={"ref": "W4"})
+    s.wires.append(bad2)
+    fs = [f for f in check_project(p, lib) if f.code == "pot_short"]
+    assert fs and fs[0].severity == ERROR and "N spojeno s L1" in fs[0].text
+
+
+def test_macros_roundtrip(tmp_path, monkeypatch):
+    from envocad.library import macros
+    from envocad.library.store import LibraryStore
+    from envocad.model.project import Element, Project, Wire, WireEnd, copy_fragment, paste_fragment
+    monkeypatch.setattr(macros, "user_dir", lambda: tmp_path / "m")
+    monkeypatch.setattr(macros, "shared_dir", lambda: None)
+    builtin = macros.list_macros()
+    assert len(builtin) >= 3 and all(m.source == "vestavěné" for m in builtin)
+    p = Project()
+    s = p.sheets[0]
+    a = Element("fve.breaker_mcb", 100, 100, attrs={"ref": "F1", "in_": "16"})
+    b = Element("sb.terminal_block", 100, 70, attrs={"ref": "X2", "terminal": "1 2 3"})
+    s.elements += [a, b]
+    s.wires.append(Wire(WireEnd(a.id, "2"), WireEnd(b.id, "1"), conductors=["L1", "N", "PE"]))
+    path = macros.save_macro("Můj vývod", "test", copy_fragment(s, [a.id, b.id]))
+    assert path.exists() and path.parent == tmp_path / "m"
+    mine = next(m for m in macros.list_macros() if m.name == "Můj vývod")
+    assert mine.source == "vlastní" and mine.size == 2
+    lib = LibraryStore()
+    els, wires = paste_fragment(p, mine.fragment, lambda sid: lib.get_symbol(sid).iec_ref, 50, 0)
+    assert [e.ref for e in els] == ["F2", "X2"] and len(wires) == 1 and els[0].x == 150
+    assert macros.delete_macro(mine) and not path.exists()
+    assert not macros.delete_macro(builtin[0]) and builtin[0].path.exists()

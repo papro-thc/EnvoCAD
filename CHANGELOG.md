@@ -1,6 +1,9 @@
 # Changelog
 
 ## 0.10.1 – 2026-10-15
+- **T-odbočka / vodič z vodiče**: klik na vodič v režimu Vodič ho rozdělí uzlem (`sb.junction`, 4 porty = jeden potenciál), odbočka přebere žíly; `SplitWireCommand` s undo.
+- **Potenciály** (`model/potential.py`): sítě přes vodiče, uzly, průchozí svorky, můstky, PE lištu a vazby přívod/vývod ↔ JPS; názvy potenciálů (`L1 X1`, `DC+ G1`, `N (W3)`), kontrola zkratů L–N / L–PE / DC+–DC− / fáze (u jednopólových přístrojů i přes jednu svorku), uzel bez odbočky; potenciál žil v panelu Vlastnosti, výkaz **Potenciály**.
+- **Makra**: `Úpravy → Uložit výběr jako makro…` (`Ctrl+Shift+S`) do `~/.envocad/macros/` nebo sdílené knihovny (`macros/`), uzel Makra v panelu Knihovna (dvojklik vloží doprostřed pohledu, nová označení), mazání; 3 vestavěná makra (`tools/gen_builtin_macros.py`).
 - String: v JPS se zobrazuje počet modulů a **počet a typ optimizérů** (atributy `n_optimizers`, `optimizer`; generátor/průvodce: `optimizer.type`, `per_module`); BOM počítá moduly a optimizéry v kusech, TZ má sloupec Optimizéry. Atribut značky může mít `fmt` („{}× modul“).
 - Rámeček s popisovým polem a QR je zatím **vypnutý** (nastavení `frame`, přepínač `Zobrazit → Rámeček a popisové pole`); platí pro výkresy, PDF i DXF. Odkazy `/2.B4` fungují dál.
 - **Stringy se v rozvaděči nikdy nespojují**: šablona *DC rozvaděč* i generátor vedou každý string zvlášť (přívod → pojistkový odpínač / odpínač DC → vývod) s vlastním SPD; střídač má DC vstup na každý string (`DC1…DCn` podle `mppt × strings_per_mppt`, značka se roztáhne – `inverter_symbol`), volné DC vstupy nejsou chyba. Paralelní spojení (SolarEdge) = jeden string.

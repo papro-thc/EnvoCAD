@@ -191,7 +191,7 @@ class SchematicScene(QGraphicsScene):
                 self.undo.push(commands.AddElementCommand(self, e))
             return  # zůstáváme v režimu vkládání (Esc / pravé tlačítko ukončí)
         if self.mode == Mode.WIRE and ev.button() == Qt.LeftButton:
-            hit = self._port_near(p)
+            hit = self._port_near(p) or self._branch_at(p)   # port, nebo T-odbočka na vodiči
             if not hit:
                 return
             if self._wire_from is None:
@@ -206,6 +206,12 @@ class SchematicScene(QGraphicsScene):
                 if not (a is b and pa == pb):
                     w = Wire(WireEnd(a.element.id, pa), WireEnd(b.element.id, pb))
                     w.conductors = default_conductors(a.element, pa, b.element, pb)
+                    for j in (a.element, b.element):   # odbočka z uzlu: žíly a kabel podle vodiče, na kterém uzel je
+                        if j.symbol_id == "sb.junction":
+                            src = next((x for x in self.sheet.wires if x.touches(j.id)), None)
+                            if src is not None:
+                                w.conductors = list(src.conductors)
+                            break
                     w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}
                     w.attrs["ref"] = self.project.next_ref("W")
                     if self.ask_attributes:
@@ -218,6 +224,18 @@ class SchematicScene(QGraphicsScene):
         super().mousePressEvent(ev)
         self._move_start = {it.element.id: (it.element.x, it.element.y)
                             for it in self.selectedItems() if isinstance(it, ElementItem)}
+
+    def _branch_at(self, pos: QPointF) -> tuple[ElementItem, str] | None:
+        """Klik na vodič v režimu kreslení: vodič se rozdělí uzlem odbočky a vrátí se jeho volný port."""
+        from envocad.model.potential import junction_free_port, split_wire
+        wit = next((it for it in self.items(pos) if isinstance(it, WireItem)), None)
+        if wit is None:
+            return None
+        x, y = snap(pos.x()), -snap(pos.y())
+        j, w1, w2 = split_wire(self.sheet, wit.wire, x, y)
+        self.undo.push(commands.SplitWireCommand(self, wit.wire.id, j, w1, w2))
+        port = junction_free_port(self.sheet, j)
+        return (self.element_items[j.id], port) if port else None
 
     def _used_refs_for(self, symbol_id: str) -> set[str]:
         """Označení pro kontrolu duplicit; skupiny svorek sdílejí označení svorkovnice, ty se nekontrolují."""
@@ -419,6 +437,20 @@ class SchematicScene(QGraphicsScene):
         d = 10.0 * clip["n"]
         els, wires = paste_fragment(self.project, clip["fragment"],
                                     lambda sid: self.library.get_symbol(sid).iec_ref, d, -d)
+        if not els:
+            return 0
+        self.undo.push(commands.PasteCommand(self, els, wires))
+        return len(els)
+
+    def insert_fragment(self, fragment: dict, at: tuple[float, float] | None = None) -> int:
+        """Vloží výřez (makro) se středem v bodě `at` (model mm); bez bodu doprostřed listu. Označení se přečíslují."""
+        from envocad.library.macros import fragment_bounds
+        from envocad.model.project import paste_fragment
+        x0, y0, x1, y1 = fragment_bounds(fragment)
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        tx, ty = at if at is not None else (self.sheet.width / 2, self.sheet.height / 2)
+        dx, dy = snap(tx - cx), snap(ty - cy)
+        els, wires = paste_fragment(self.project, fragment, lambda sid: self.library.get_symbol(sid).iec_ref, dx, dy)
         if not els:
             return 0
         self.undo.push(commands.PasteCommand(self, els, wires))
