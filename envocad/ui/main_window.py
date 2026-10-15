@@ -44,6 +44,7 @@ class MainWindow(QMainWindow):
         self.tabs.currentChanged.connect(self._tab_changed)
         self.setCentralWidget(self.tabs)
         self._panels_wired = False
+        self._scenes: list = []
 
         self.lib_panel = LibraryPanel(self.library)
         self.props_panel = PropertiesPanel()
@@ -161,7 +162,10 @@ class MainWindow(QMainWindow):
         self.project = project
         self.undo.clear()
         while self.tabs.count():
+            w = self.tabs.widget(0)
             self.tabs.removeTab(0)
+            w.deleteLater()
+        self._scenes.clear()
         if not self._panels_wired:
             self.lib_panel.symbol_chosen.connect(lambda sid: self.scene and self.scene.start_place(sid))
             self.props_panel.attr_edited.connect(lambda *a: self.scene and self.scene.set_attr(*a))
@@ -203,7 +207,8 @@ class MainWindow(QMainWindow):
             scene.mode_changed.connect(self._show_mode)
             scene.open_switchboard.connect(self.open_switchboard_from_block)
             title = sheet.name if not sheet.is_switchboard else f"{sheet.name} – schéma"
-        scene.setParent(view)  # jinak by scénu sebral garbage collector
+        self._scenes.append(scene)  # držet referenci – scéna musí přežít stejně dlouho jako pohled
+        view._scene_ref = scene
         idx = self.tabs.addTab(view, title)
         self.tabs.setCurrentIndex(idx)
         view.zoom_fit()
