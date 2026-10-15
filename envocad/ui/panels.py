@@ -1,7 +1,7 @@
 """Dokovací panely: knihovna symbolů a vlastnosti vybraného prvku."""
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QFormLayout,
     QLabel,
@@ -67,8 +67,18 @@ class PropertiesPanel(QWidget):
         self.show_item(None)
 
     def _clear(self) -> None:
+        # removeRow() maže widgety okamžitě – kdyby zrovna QLineEdit vysílal editingFinished, Qt by
+        # po návratu sahalo do smazané paměti (access violation). Proto takeRow + deleteLater.
         while self.form.rowCount():
-            self.form.removeRow(0)
+            row = self.form.takeRow(0)
+            for item in (row.labelItem, row.fieldItem):
+                if item is None:
+                    continue
+                w = item.widget()
+                if w is not None:
+                    w.hide()
+                    w.setParent(None)
+                    w.deleteLater()
 
     def show_item(self, item) -> None:
         self._clear()
@@ -94,5 +104,8 @@ class PropertiesPanel(QWidget):
         self.form.addRow(label, ed)
 
     def _commit(self, key: str, value: str) -> None:
-        if self._target:
-            self.attr_edited.emit(self._target[0], self._target[1], key, value)
+        if not self._target:
+            return
+        tid, is_wire = self._target
+        # změna modelu až po doběhnutí signálu editingFinished (jinak se panel přestaví uvnitř emitu)
+        QTimer.singleShot(0, lambda: self.attr_edited.emit(tid, is_wire, key, value))

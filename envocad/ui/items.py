@@ -5,6 +5,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QStyleOptionGraphicsItem, QWidget
 
+from envocad.model.geometry import wire_label_anchor
 from envocad.model.project import Element, Wire
 from envocad.model.symbol import GRID, Symbol, rotate_dir
 from envocad.ui.render import LINE_WIDTH, draw_text, paint_symbol, sp, symbol_path
@@ -135,9 +136,18 @@ class WireItem(QGraphicsPathItem):
         painter.drawPath(self.path())
         label = wire_label(self.wire.attrs)
         if label:
-            c = self.path().pointAtPercent(0.5)
+            pts = path_points(self.path())
+            x, y, align, vertical = wire_label_anchor(pts)
             painter.setPen(QPen(pen.color(), 0.2))
-            draw_text(painter, c.x(), -c.y() + 1.5, label, 2.0, "center")
+            draw_text(painter, x, y, label, 2.0, align)
+            if vertical:  # značka na vodiči jako v EPLAN (krátká šikmá čárka u popisku)
+                painter.setPen(QPen(pen.color(), 0.3))
+                painter.drawLine(sp(x - 1.5 - 1.2, y + 1.0 - 1.2), sp(x - 1.5 + 1.2, y + 1.0 + 1.2))
+
+
+def path_points(path: QPainterPath) -> list[tuple[float, float]]:
+    """Body lomené čáry z QPainterPath převedené do souřadnic modelu (Y nahoru)."""
+    return [(path.elementAt(i).x, -path.elementAt(i).y) for i in range(path.elementCount())]
 
 
 def wire_label(attrs: dict) -> str:

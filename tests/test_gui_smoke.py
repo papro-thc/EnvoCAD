@@ -166,3 +166,25 @@ def test_deferred_place_dialog(app, tmp_path, monkeypatch):
     for _ in range(5):
         app.processEvents()
     assert len(sc.sheet.elements) == 1 and sc.sheet.elements[0].ref == "F1"
+
+
+def test_properties_panel_edit_during_focus_loss(app, tmp_path):
+    """Úprava v panelu + okamžitá přestavba panelu nesmí sahat na smazané widgety."""
+    from PySide6.QtWidgets import QLineEdit
+    lib = LibraryStore(tmp_path / "lib.db")
+    win = MainWindow(library=lib, project=_project())
+    win.show()
+    app.processEvents()
+    sc = win.scene
+    t = next(it for it in sc.element_items.values() if it.element.ref == "T1")
+    t.setSelected(True)
+    app.processEvents()
+    edits = win.props_panel.findChildren(QLineEdit)
+    assert edits
+    ed = edits[1]  # "type"
+    ed.setText("STP 50")
+    ed.editingFinished.emit()      # simulace ztráty fokusu
+    win.props_panel.show_item(None)  # a okamžitá přestavba panelu (jako při přepnutí záložky)
+    for _ in range(5):
+        app.processEvents()
+    assert sc.sheet.element(t.element.id).attrs["type"] == "STP 50"

@@ -6,6 +6,7 @@ from pathlib import Path
 import ezdxf
 
 from envocad.library.store import LibraryStore
+from envocad.model.geometry import wire_label_anchor
 from envocad.model.project import Element, Project, Sheet
 from envocad.model.symbol import GRID, Symbol, rotate_dir, rotate_point
 
@@ -112,8 +113,9 @@ def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Pa
         msp.add_lwpolyline(pts, dxfattribs={"layer": "VODICE"})
         label = wire_label(w.attrs)
         if label:
-            i = len(pts) // 2 - 1
-            mx, my = (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2
-            _text(msp, mx, my + 1.5, label, 2.0, "center", 0, layer="TEXTY")
+            x, y, align, vertical = wire_label_anchor(pts)
+            _text(msp, x, y, label, 2.0, align, 0, layer="TEXTY")
+            if vertical:
+                msp.add_line((x - 2.7, y - 0.2), (x - 0.3, y + 2.2), dxfattribs={"layer": "VODICE"})
     doc.saveas(str(path))
 

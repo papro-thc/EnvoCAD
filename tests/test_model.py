@@ -97,3 +97,14 @@ def test_dxf_import_export(tmp_path):
     types = [e.dxftype() for e in d.modelspace()]
     assert "LWPOLYLINE" in types and "TEXT" in types and "LINE" in types
     assert Path(out).stat().st_size > 1000
+
+
+def test_wire_label_anchor():
+    from envocad.model.geometry import longest_segment, wire_label_anchor
+    horiz = [(0, 0), (2.5, 0), (40, 0), (40, 5), (42.5, 5)]
+    assert longest_segment(horiz) == ((2.5, 0), (40, 0))
+    x, y, align, vert = wire_label_anchor(horiz)
+    assert (x, align, vert) == (21.25, "center", False) and y > 0
+    vert_pts = [(10, 0), (10, -2.5), (10, -60), (12.5, -60)]
+    x, y, align, vert = wire_label_anchor(vert_pts)
+    assert align == "left" and vert and x > 10

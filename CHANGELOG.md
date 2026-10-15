@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.4 – 2026-10-15
+- Oprava pádu (access violation): panel Vlastnosti mazal editační pole uvnitř jeho vlastního signálu `editingFinished` (při ztrátě fokusu – klik jinam, přepnutí záložky). Mazání i zápis do modelu jsou odložené.
+- Popisky vodičů ve stylu EPLAN: vodorovný úsek → nad čarou, svislý → vodorovně vedle čáry se šikmou značkou. Stejně v DXF.
+
 ## 0.2.2 – 2026-10-15
 - Dialogy parametrů (vložení prvku, vodiče, dvojklik) se otevírají až po doběhnutí události myši – oprava pádu na Windows.
 - Do logu se zapisují akce (režim, dialogy, záložky), aby šel pád dohledat.
