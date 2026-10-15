@@ -63,16 +63,27 @@ class PoleItem(QGraphicsItem):
         painter.setBrush(Qt.NoBrush)
         for p in self.symbol.ports:
             painter.drawEllipse(sp(p.x, p.y), PORT_R, PORT_R)
+        if self.conductor and mp.is_terminal_block(self.element):
+            # číslo svorky vedle značky (vždy vodorovně)
+            num = mp.terminal_numbers(self.element, len(self.ep.slots))[self.ep.slot(self.conductor)] or "?"
+            painter.save()
+            x0, y0, x1, _y1 = self.symbol.bounds()
+            painter.translate(sp(x1 + 1.0, y0 + 1.0))
+            painter.rotate(self.element.rotation)
+            painter.setPen(QPen(color, 0.2))
+            draw_text(painter, 0, 0, num, 2.0, "left")
+            painter.restore()
         if not self.first:
             return
         lines = [(self.element.ref, 2.5)] if self.element.ref else []
+        skip = {"ref", "terminal"} if mp.is_terminal_block(self.element) else {"ref"}  # čísla svorek jsou u pólů
         lines += [(self.element.attrs[a.key], 2.0) for a in self.symbol.attributes
-                  if a.show and a.key != "ref" and self.element.attrs.get(a.key)]
+                  if a.show and a.key not in skip and self.element.attrs.get(a.key)]
         multi = len(self.ep.switched) > 1
         if multi:
             # vícepólový prvek: popisek nad prvním pólem, řádky skládané nahoru (pod ním jsou další póly)
             x0, _y0, _x1, y1 = self.symbol.bounds()
-            lx, ly = x0, y1 + 1.5
+            lx, ly = x0, y1 + (7.5 if mp.is_terminal_block(self.element) else 1.5)  # nad můstky
             y = sum(h + 1.0 for _, h in lines[1:])
         else:
             lx, ly = self.symbol.label_pos
@@ -101,13 +112,37 @@ class BypassItem(QGraphicsPathItem):
         self.setPen(QPen(colors().wire, LINE_WIDTH * 1.5, Qt.SolidLine, Qt.RoundCap))
 
 
+class BridgeItem(QGraphicsPathItem):
+    """Můstek (propoj) mezi svorkami jedné svorkovnice – tlustá čára s tečkami na svorkách."""
+
+    def __init__(self, strip: str, group: list[str], points: list[tuple[float, float]]):
+        super().__init__()
+        self.strip, self.group, self.points = strip, group, points
+        path = QPainterPath(sp(*points[0]))
+        for pt in points[1:]:
+            path.lineTo(sp(*pt))
+        self.setPath(path)
+        self.setZValue(7)
+        self.setToolTip(f"Můstek {strip}: {'-'.join(group)}")
+        self.setPen(QPen(colors().ink, LINE_WIDTH * 1.6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+
+    def paint(self, painter, option, widget=None):
+        painter.setPen(QPen(colors().ink, LINE_WIDTH * 1.6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        painter.drawPath(self.path())
+        painter.setBrush(colors().ink)
+        for x, y in self.points:
+            painter.drawEllipse(sp(x, y), 0.7, 0.7)
+
+
 class ConductorItem(QGraphicsPathItem):
     """Jedna žíla vodiče mezi póly dvou prvků."""
     Type = QGraphicsItem.UserType + 12
 
-    def __init__(self, wire: Wire, conductor: str, idx: int, pa: QPointF, da: str, pb: QPointF, db: str):
+    def __init__(self, wire: Wire, conductor: str, idx: int, pa: QPointF, da: str, pb: QPointF, db: str,
+                 end_text: tuple[str, str] = ("", "")):
         super().__init__()
         self.wire, self.conductor, self.idx = wire, conductor, idx
+        self.end_text = end_text
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.setZValue(5)
         self.setPen(QPen(colors().wire, LINE_WIDTH * 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
@@ -137,8 +172,7 @@ class ConductorItem(QGraphicsPathItem):
             text = f"{lbl}  {text}" if lbl else text
         draw_text(painter, x, y, text, 1.8, align)
         # svorky na koncích
-        for side, (px, py), d in (("a", pts[0], self._da), ("b", pts[-1], self._db)):
-            t = mp.terminal_text(self.wire, self.conductor, side)
+        for t, (px, py), d in ((self.end_text[0], pts[0], self._da), (self.end_text[1], pts[-1], self._db)):
             if not t:
                 continue
             dx, dy = {"E": (1.5, 0.8), "W": (-1.5, 0.8), "N": (0.8, 1.5), "S": (0.8, -3.0)}[d]
@@ -191,7 +225,36 @@ class MultipoleScene(QGraphicsScene):
             db = rotate_dir(eb.symbol.port(w.b.port).dir, eb.element.rotation)
             for i, c in enumerate(mp.wire_conductors(w)):
                 pa, pb = ea.pole_pos(w.a.port, c), eb.pole_pos(w.b.port, c)
-                self._add(ConductorItem(w, c, i, sp(*pa), da, sp(*pb), db))
+                # svorka na konci: ruční přiřazení; u svorkového prvku je číslo přímo na pólu
+                ta = "" if mp.is_terminal_block(ea.element) else mp.terminal_text(w, c, "a")
+                tb = "" if mp.is_terminal_block(eb.element) else mp.terminal_text(w, c, "b")
+                self._add(ConductorItem(w, c, i, sp(*pa), da, sp(*pb), db, (ta, tb)))
+        self._add_bridges(poles)
+
+    def _add_bridges(self, poles: dict[str, mp.ElementPoles]) -> None:
+        """Můstky svorkovnic: spojí středy svorek (posunuté k portu 1) se stejným označením X:n na tomto listu."""
+        pos: dict[tuple[str, str], tuple[float, float, float, float]] = {}  # (střed x, y, směr k portu 1)
+        for ep in poles.values():
+            e = ep.element
+            if not mp.is_terminal_block(e) or not ep.through:
+                continue
+            nums = mp.terminal_numbers(e, len(ep.slots))
+            px, py = e.port_pos(ep.symbol, ep.through[0])
+            dx, dy = px - e.x, py - e.y
+            n = (dx * dx + dy * dy) ** 0.5 or 1.0
+            for c, num in zip(ep.slots, nums):
+                if num:
+                    ox, oy = ep.pole_offset(c)
+                    pos[(e.ref, num)] = (e.x * mp.SCALE + ox, e.y * mp.SCALE + oy, dx / n, dy / n)
+        for strip, groups in self.project.bridges.items():
+            for gi, g in enumerate(groups):
+                hits = [pos[(strip, n)] for n in g if (strip, n) in pos]
+                if len(hits) < 2:
+                    continue
+                # každá skupina můstků v jiné výšce (1,5 mm + 0,8 mm na skupinu směrem k portu 1), aby se nepřekrývaly
+                off = 1.0 + 1.0 * (gi % 6)
+                pts = sorted((x + ux * off, y + uy * off) for x, y, ux, uy in hits)
+                self._add(BridgeItem(strip, g, pts))
 
     def _add_fan(self, ep: mp.ElementPoles) -> None:
         """Neprůchozí prvek: od portu vede kolmá sběrná čárka přes všechny sloty."""

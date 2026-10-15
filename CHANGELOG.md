@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0 – 2026-10-15
+- Svorky jako v EPLAN místo sběrnice: prvek `sb.terminal_block` je skupina svorek jedné svorkovnice (atribut `terminal` = čísla „1 2 3 4 5“ nebo první číslo), ve vícepólu má každá žíla vlastní svorku s číslem. Šablony AC/DC už sběrnici nepoužívají – napájení vývodů jde přes rozvodné svorky X2 a můstky.
+- Můstky (propoje) svorkovnic: `Úpravy → Svorkovnice a můstky…` (`Ctrl+Shift+T`) – tabulka svorek svorkovnice (vnitřní/vnější strana, můstek) a editace můstků „1-6-11“; uloženo v projektu (`bridges`, formát v3 s migrací). Ve vícepólu se kreslí jako čáry s tečkami, v JPS čárkovaně mezi skupinami, ve výkazu svorkovnice sloupec „Můstek“.
+- `Očíslovat svorky automaticky` čísluje i skupiny svorek (pokračuje za nejvyšším číslem svorkovnice).
+- Knihovna: 254 artiklů řadových svorek z PDF katalogů – Weidmüller Klippon Connect (A2C/A2T push-in, WDU/WPE šroubové, ZDU/ZPE pružinové, můstky ZQV/WQV), Elektro Bečov (RSA, RSA PE, EB, RSP, PYK, PS, UTB, DTS/DTB distribuční bloky, EPS), ELEMAN (RKA, UK, HLAK, PVB/PDB). Nové sloupce `terminal_kind`, `connection`, `cross_mm2`, `cross_max_mm2`, `color`, `levels` (`docs/COMPONENTS.md`).
+
 ## 0.6.0 – 2026-10-15
 - Vícepólový pohled (`Zobrazit → Vícepólový pohled`, `Ctrl+M`): odvozená scéna nad stejným listem – každá žíla vodiče (`Wire.conductors`) je samostatná čára, průchozí prvky (jistič, odpínač, chránič, SPD…) se opakují pro spínané póly, N/PE jdou kolem; neprůchozí prvky (střídač, svorky, sběrnice) mají sběrnou čárku přes žíly. Pozice z JPS roztažené 2×, symboly ve skutečné velikosti. Žádná data se nekopírují – změna v JPS se hned promítne (`Ctrl+J` zpět na JPS).
 - Dialog vodiče má pole „Žíly“ s předvolbami (L1 L2 L3 N PE, DC+ DC-, …); nové vodiče dostanou výchozí žíly podle portů a pólů připojených prvků.

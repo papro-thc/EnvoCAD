@@ -19,6 +19,8 @@ SCALE = 2.0  # roztažení pozic z JPS, aby se vedle sebe vešly póly
 CANON = ["L1", "L2", "L3", "N", "PE", "PEN", "DC+", "DC-", "+", "-", "L+", "L-"]
 NEVER_SWITCHED = {"PE", "PEN"}
 TERMINAL_SYMBOLS = {"sb.feed_in", "sb.feed_out", "sb.terminal_block", "fve.terminal", "sb.pe_bar"}
+# řadové svorky: prvek v JPS = skupina svorek (jedna na žílu), čísla v atributu `terminal` ("1 2 3 4 5" nebo "1")
+TERMINAL_BLOCK_SYMBOLS = {"sb.terminal_block", "fve.terminal"}
 
 OPPOSITE = {"N": "S", "S": "N", "E": "W", "W": "E"}
 # kolmý směr pro řazení pólů (model, Y nahoru): vodorovný tok → póly dolů, svislý tok → póly doprava
@@ -54,6 +56,30 @@ def default_conductors(a: Element, pa: str, b: Element, pb: str) -> list[str]:
         except ValueError:
             pass
     return ["L1", "L2", "L3", "N", "PE"] if poles >= 3 else ["L1", "N", "PE"]
+
+
+def is_terminal_block(e: Element) -> bool:
+    return e.symbol_id in TERMINAL_BLOCK_SYMBOLS
+
+
+def terminal_numbers(e: Element, n: int) -> list[str]:
+    """Čísla svorek skupiny pro n žil z atributu `terminal`: seznam („1 2 3 N PE“) nebo první číslo („6“ → 6, 7, 8…).
+    Bez atributu vrací prázdné řetězce."""
+    toks = parse_conductors(e.attrs.get("terminal", ""))
+    if not toks:
+        return [""] * n
+    if len(toks) == 1 and toks[0].isdigit() and n > 1:
+        k = int(toks[0])
+        return [str(k + i) for i in range(n)]
+    return (toks + [""] * n)[:n]
+
+
+def terminal_designation(e: Element, slots: list[str], conductor: str) -> str:
+    """„X2:7“ pro žílu na svorkovém prvku (prázdné, když číslo chybí)."""
+    nums = terminal_numbers(e, len(slots))
+    i = slots.index(conductor) if conductor in slots else -1
+    num = nums[i] if i >= 0 else ""
+    return f"{e.ref}:{num}" if num else ""
 
 
 def wire_conductors(w: Wire) -> list[str]:
@@ -114,7 +140,9 @@ def element_poles(sheet: Sheet, e: Element, sym: Symbol) -> ElementPoles:
     thr = through_ports(sym, e.rotation)
     switched: list[str] = []
     bypass: list[str] = []
-    if thr:
+    if thr and is_terminal_block(e):
+        switched = list(slots)  # každá žíla má svou svorku
+    elif thr:
         n = e.poles
         for c in slots:
             if c not in NEVER_SWITCHED and len(switched) < n:
@@ -128,6 +156,48 @@ def element_poles(sheet: Sheet, e: Element, sym: Symbol) -> ElementPoles:
 
 def terminal_text(w: Wire, conductor: str, side: str) -> str:
     return (w.terminals.get(conductor) or {}).get(side, "")
+
+
+def wire_end_terminal(sheet: Sheet, w: Wire, conductor: str, side: str) -> str:
+    """Svorka na konci žíly: ruční z `Wire.terminals`, jinak odvozená z čísel svorkového prvku."""
+    t = terminal_text(w, conductor, side)
+    if t:
+        return t
+    end = w.a if side == "a" else w.b
+    try:
+        e = sheet.element(end.element_id)
+    except KeyError:
+        return ""
+    if not is_terminal_block(e):
+        return ""
+    slots = sorted({c for ww in sheet.wires for end2 in (ww.a, ww.b) if end2.element_id == e.id
+                    for c in wire_conductors(ww)}, key=canon_key)
+    return terminal_designation(e, slots, conductor)
+
+
+def auto_number_terminal_blocks(sheet: Sheet) -> dict[str, str]:
+    """Doplní čísla svorek skupinám (prvky sb.terminal_block / fve.terminal) bez atributu `terminal`:
+    v každé svorkovnici (ref) pokračuje za nejvyšším použitým číslem. Vrací {element_id: "1 2 3 4 5"}."""
+    highest: dict[str, int] = {}
+    groups: list[tuple[Element, list[str]]] = []
+    for e in sheet.elements:
+        if not is_terminal_block(e) or not e.ref:
+            continue
+        slots = sorted({c for w in sheet.wires for end in (w.a, w.b) if end.element_id == e.id
+                        for c in wire_conductors(w)}, key=canon_key) or ["L1"]
+        nums = terminal_numbers(e, len(slots))
+        if any(nums):
+            for x in nums:
+                if x.isdigit():
+                    highest[e.ref] = max(highest.get(e.ref, 0), int(x))
+        else:
+            groups.append((e, slots))
+    out: dict[str, str] = {}
+    for e, slots in groups:
+        start = highest.get(e.ref, 0) + 1
+        out[e.id] = " ".join(str(start + i) for i in range(len(slots)))
+        highest[e.ref] = start + len(slots) - 1
+    return out
 
 
 def auto_number_terminals(sheet: Sheet) -> dict[str, dict[str, dict[str, str]]]:
@@ -150,7 +220,7 @@ def auto_number_terminals(sheet: Sheet) -> dict[str, dict[str, dict[str, str]]]:
                 el = sheet.element(end.element_id)
             except KeyError:
                 continue
-            if el.symbol_id not in TERMINAL_SYMBOLS or not el.ref:
+            if el.symbol_id not in TERMINAL_SYMBOLS or is_terminal_block(el) or not el.ref:
                 continue
             for c in wire_conductors(w):
                 if new.get(c, {}).get(side):

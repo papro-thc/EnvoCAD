@@ -58,19 +58,40 @@ def test_rotated_element_poles_go_right():
 def test_auto_number_terminals():
     s = Sheet(kind="switchboard")
     x1 = Element("sb.terminal_block", attrs={"ref": "X1"})
+    x1b = Element("sb.terminal_block", attrs={"ref": "X1", "terminal": "7"})  # explicitní start
     f = Element("sb.rcbo", attrs={"ref": "F1", "poles": "1"})
     out = Element("sb.feed_out", attrs={"ref": "X2"})
-    s.elements += [x1, f, out]
-    w1 = Wire(WireEnd(x1.id, "2"), WireEnd(f.id, "1"), conductors=["L1", "N", "PE"],
-              terminals={"PE": {"a": "X1:9"}})
+    s.elements += [x1, x1b, f, out]
+    w1 = Wire(WireEnd(x1.id, "2"), WireEnd(f.id, "1"), conductors=["L1", "N", "PE"])
     w2 = Wire(WireEnd(f.id, "2"), WireEnd(out.id, "1"), conductors=["L1", "N", "PE"])
-    s.wires += [w1, w2]
+    w3 = Wire(WireEnd(x1b.id, "2"), WireEnd(f.id, "1"), conductors=["L1", "N"])
+    s.wires += [w1, w2, w3]
+    # skupiny svorek: X1b má 7, 8 → X1 bez čísel pokračuje od 9
+    assert mp.terminal_numbers(x1b, 2) == ["7", "8"]
+    blocks = mp.auto_number_terminal_blocks(s)
+    assert blocks == {x1.id: "9 10 11"}
+    x1.attrs["terminal"] = blocks[x1.id]
+    assert mp.terminal_designation(x1, ["L1", "N", "PE"], "N") == "X1:10"
+    assert mp.wire_end_terminal(s, w1, "PE", "a") == "X1:11"
+    assert mp.wire_end_terminal(s, w1, "PE", "b") == ""  # F1 není svorka
+    assert mp.auto_number_terminal_blocks(s) == {}
+    # přívody/vývody: číslování per žíla přes Wire.terminals
     res = mp.auto_number_terminals(s)
-    assert res[w1.id]["L1"]["a"] == "X1:1" and res[w1.id]["N"]["a"] == "X1:2"
-    assert res[w1.id]["PE"]["a"] == "X1:9"           # ruční přiřazení zůstává
-    assert "b" not in res[w1.id]["L1"]               # F1 není svorkovnice
+    assert w1.id not in res                              # svorkový prvek má čísla sám
     assert res[w2.id]["L1"]["b"] == "X2:1" and res[w2.id]["PE"]["b"] == "X2:3"
-    # opakované volání nic nemění
     for wid, t in res.items():
         next(w for w in s.wires if w.id == wid).terminals = t
     assert mp.auto_number_terminals(s) == {}
+
+
+def test_bridges_roundtrip(tmp_path):
+    from envocad.model.project import Project
+    p = Project()
+    p.set_bridges("X2", [["1", "6", "11"], ["2", "7"], ["3"]])
+    assert p.bridge_groups("X2") == [["1", "6", "11"], ["2", "7"]]
+    assert p.bridge_of("X2", "7") == ["2", "7"] and p.bridge_of("X2", "3") == []
+    p.save(tmp_path / "b.ecp")
+    p2 = Project.load(tmp_path / "b.ecp")
+    assert p2.bridges == {"X2": [["1", "6", "11"], ["2", "7"]]}
+    p2.set_bridges("X2", [])
+    assert "X2" not in p2.bridges

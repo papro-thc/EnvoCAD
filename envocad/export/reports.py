@@ -85,21 +85,25 @@ def cables(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> t
 
 def terminals(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Svorkovnice: každá žíla každého vodiče napojeného na svorku/přívod/vývod + ruční přiřazení z Wire.terminals."""
-    head = ["Svorkovnice", "Svorka", "Žíla", "Kabel", "Připojeno na", "Popis", "List"]
+    from envocad.model.multipole import wire_end_terminal
+    head = ["Svorkovnice", "Svorka", "Žíla", "Kabel", "Připojeno na", "Můstek", "Popis", "List"]
     rows = []
     for s in _sheets(project, sheet):
         for w in s.wires:
             a, b = s.element(w.a.element_id), s.element(w.b.element_id)
-            for end, other, other_port in ((a, b, w.b.port), (b, a, w.a.port)):
+            for side, end, other, other_port in (("a", a, b, w.b.port), ("b", b, a, w.a.port)):
                 if end.symbol_id not in TERMINAL_SYMBOLS:
                     continue
                 conds = w.conductors or [""]
                 for i, c in enumerate(conds, start=1):
-                    t = (w.terminals.get(c, {}) if c else {})
-                    term = t.get("a" if end is a else "b") or end.attrs.get("terminal") or (str(i) if c else "")
+                    desig = wire_end_terminal(s, w, c, side) if c else ""
+                    strip, _, num = desig.partition(":")
+                    term = num or end.attrs.get("terminal") or (str(i) if c else "")
+                    bridge = project.bridge_of(strip or end.ref, term)
                     rows.append([end.ref, term, c, w.attrs.get("ref") or w.attrs.get("cable", ""),
-                                 f"{other.ref or other.symbol_id}:{other_port}", end.attrs.get("desc", ""), s.name])
-    rows.sort(key=lambda r: (r[6], _ref_key(r[0]), _ref_key(str(r[1]))))
+                                 f"{other.ref or other.symbol_id}:{other_port}",
+                                 "-".join(bridge) if bridge else "", end.attrs.get("desc", ""), s.name])
+    rows.sort(key=lambda r: (r[7], _ref_key(r[0]), _ref_key(str(r[1]))))
     return head, rows
 
 

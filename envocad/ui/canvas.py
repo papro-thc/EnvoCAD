@@ -279,15 +279,19 @@ class SchematicScene(QGraphicsScene):
 
     def auto_number_terminals(self) -> int:
         """Automatické číslování svorek na listu; vrací počet změněných vodičů."""
-        from envocad.model.multipole import auto_number_terminals
+        from envocad.model.multipole import auto_number_terminal_blocks, auto_number_terminals
+        blocks = auto_number_terminal_blocks(self.sheet)
         changes = auto_number_terminals(self.sheet)
-        if changes:
+        if blocks or changes:
             self.undo.beginMacro("Očíslovat svorky")
+            for eid, nums in blocks.items():
+                self.undo.push(commands.SetAttrCommand(self, eid, False, "terminal",
+                                                       self.sheet.element(eid).attrs.get("terminal", ""), nums))
             for wid, new in changes.items():
                 old = next(w for w in self.sheet.wires if w.id == wid).terminals
                 self.undo.push(commands.SetTerminalsCommand(self, wid, old, new))
             self.undo.endMacro()
-        return len(changes)
+        return len(blocks) + len(changes)
 
     def _apply_attr_changes(self, tid: str, is_wire: bool, old: dict, new: dict, label: str) -> None:
         changed = [(k, v) for k, v in new.items() if old.get(k, "") != v]
@@ -374,7 +378,8 @@ class SchematicScene(QGraphicsScene):
         self.update()
 
     def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
-        """Informační blok s parametry rozvaděče (jen na listu rozvaděče) – vlevo nahoře na listu."""
+        """Můstky mezi skupinami svorek (čárkovaně) a informační blok s parametry rozvaděče (list rozvaděče)."""
+        self._draw_bridges(painter)
         if not self.sheet.is_switchboard:
             return
         from envocad.model.project import switchboard_header
@@ -394,6 +399,35 @@ class SchematicScene(QGraphicsScene):
             painter.setPen(QPen(c.ink, 0.2))
             draw_text(painter, x0, y, k, 2.5, "left")
             draw_text(painter, x0 + 32, y, v, 2.5, "left")
+
+    def _draw_bridges(self, painter: QPainter) -> None:
+        """Skupiny svorek jedné svorkovnice spojené můstkem: čárkovaná čára mezi prvky (JPS nemá jednotlivé svorky)."""
+        if not self.project.bridges:
+            return
+        from envocad.model.multipole import is_terminal_block, terminal_numbers, wire_conductors
+        owner: dict[tuple[str, str], Element] = {}
+        for e in self.sheet.elements:
+            if not is_terminal_block(e) or not e.ref:
+                continue
+            n = len({c for w in self.sheet.wires for end in (w.a, w.b) if end.element_id == e.id
+                     for c in wire_conductors(w)}) or 1
+            for num in terminal_numbers(e, n):
+                if num:
+                    owner[(e.ref, num)] = e
+        pairs: set[tuple[str, str]] = set()
+        for strip, groups in self.project.bridges.items():
+            for g in groups:
+                els = {owner[(strip, n)].id: owner[(strip, n)] for n in g if (strip, n) in owner}
+                lst = sorted(els.values(), key=lambda e: (e.x, e.y))
+                for a, b in zip(lst, lst[1:]):
+                    pairs.add((a.id, b.id))
+        if not pairs:
+            return
+        c = PRINT if not self.draw_grid else colors()
+        painter.setPen(QPen(c.wire, 0.3, Qt.DashLine))
+        for aid, bid in pairs:
+            a, b = self.sheet.element(aid), self.sheet.element(bid)
+            painter.drawLine(sp(a.x, a.y), sp(b.x, b.y))
 
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
         c = PRINT if not self.draw_grid else colors()

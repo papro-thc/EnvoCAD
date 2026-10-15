@@ -37,9 +37,17 @@ def test_templates_build_and_place(tmp_path):
             lib.get_symbol(ea.symbol_id).port(w.a.port)
             lib.get_symbol(eb.symbol_id).port(w.b.port)
             assert w.poles >= 1
-        # označení bez duplicit
-        refs = [e.ref for e in s.elements if e.ref]
+        # označení bez duplicit (skupiny svorek jedné svorkovnice sdílejí ref – ty se liší čísly svorek)
+        refs = [e.ref for e in s.elements if e.ref and e.symbol_id != "sb.terminal_block"]
         assert len(refs) == len(set(refs)), t.id
+        terms = [(e.ref, n) for e in s.elements if e.symbol_id == "sb.terminal_block"
+                 for n in e.attrs["terminal"].split()]
+        assert len(terms) == len(set(terms)), t.id
+        # můstky odkazují jen na existující svorky
+        for strip, groups in p.bridges.items():
+            for g in groups:
+                assert all((strip, n) in terms for n in g), (t.id, strip, g)
+        assert not any(e.symbol_id == "sb.busbar" for e in s.elements)
         # přístroje s moduly jsou rozmístěné
         placed = {pl.element_id for pl in s.layout.placements}
         for e in s.elements:

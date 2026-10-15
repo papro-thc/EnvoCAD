@@ -11,11 +11,6 @@ from dataclasses import dataclass
 from envocad.model.project import Element, Project, Sheet, Wire, WireEnd
 
 AC_CONDUCTORS = ["L1", "L2", "L3", "N", "PE"]
-BUS_X0, BUS_PITCH, BUS_IN_X = -67.5, 15.0, -75.0  # porty sběrnice sb.busbar (relativně k jejímu počátku)
-
-
-def bus_port_x(bus_x: float, port_index: int) -> float:
-    return bus_x + BUS_X0 + BUS_PITCH * (port_index - 1)
 DC_CONDUCTORS = ["DC+", "DC-"]
 
 
@@ -65,67 +60,103 @@ def _place_sequential(sheet: Sheet, elements: list[Element]) -> None:
 
 
 # ---------------------------------------------------------------------------
+GROUP_PITCH = 30.0  # rozteč skupin svorek (mm) – ve vícepólu se roztáhne 2×, aby se vešlo 5 svorek po 7,5 mm
+
+
+def _terminal_group(project: Project, sheet: Sheet, x: float, y: float, strip: str, first: int, n: int,
+                    desc: str = "") -> Element:
+    """Skupina n svorek svorkovnice `strip` s čísly first…first+n-1 (prvek sb.terminal_block)."""
+    e = Element(symbol_id="sb.terminal_block", x=x, y=y)
+    e.attrs = {"ref": strip, "terminal": " ".join(str(first + i) for i in range(n)), "desc": desc}
+    sheet.elements.append(e)
+    return e
+
+
+def _bridge_groups(first_numbers: list[int], n: int) -> list[list[str]]:
+    """Můstky mezi skupinami: žíla i spojuje svorky first+i všech skupin."""
+    return [[str(f + i) for f in first_numbers] for i in range(n)]
+
+
 def build_ac_fve(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
-    """AC rozvaděč FVE: přívod od střídače → hlavní vypínač → SPD → sběrnice → vývody."""
-    n_out = max(1, int(p.get("n_out", "3")))
+    """AC rozvaděč FVE: přívod od střídače → hlavní vypínač → rozvodné svorky X2 s můstky → SPD, vývody s jističi."""
+    n_out = max(1, min(int(p.get("n_out", "3")), 9))
     i_main = p.get("i_main", "80")
     i_out = p.get("i_out", "32")
     y = 200.0
-    bx = 120.0
-    fx = bx + BUS_IN_X  # x vstupu sběrnice
-    feed = _el(project, sheet, "sb.feed_in", fx, y + 20, "X", desc=p.get("feed_desc", "od střídače"))
-    q = _el(project, sheet, "sb.main_switch", fx, y, "Q", rot=270, in_=i_main, poles="4", modules="4")
-    bus = _el(project, sheet, "sb.busbar", bx, y - 30, "X", desc="hlavní sběrnice", in_=i_main)
-    spd = _el(project, sheet, "fve.spd", bus_port_x(bx, 1), y - 55, "F", spd_type="T1+T2", poles="4", modules="4")
-    pe = _el(project, sheet, "sb.pe_bar", bus_port_x(bx, 1), y - 80, "X", kind="PE")
+    x0 = 60.0
+    nc = len(AC_CONDUCTORS)
+    feed = _el(project, sheet, "sb.feed_in", x0, y + 20, "X", desc=p.get("feed_desc", "od střídače"))
+    q = _el(project, sheet, "sb.main_switch", x0, y, "Q", rot=270, in_=i_main, poles="4", modules="4")
+    strip = project.next_ref("X")
+    # skupina 0 = napájení (od Q) + SPD, skupiny 1…n = vývody; napájení přes můstky
+    firsts: list[int] = []
+    groups: list[Element] = []
+    for i in range(n_out + 1):
+        first = 1 + i * nc
+        firsts.append(first)
+        groups.append(_terminal_group(project, sheet, x0 + i * GROUP_PITCH, y - 30, strip, first, nc,
+                                      "napájení" if i == 0 else f"vývod {i}"))
+    project.set_bridges(strip, _bridge_groups(firsts, nc))
+    spd = _el(project, sheet, "fve.spd", x0, y - 60, "F", spd_type="T1+T2", poles="4", modules="4")
+    pe = _el(project, sheet, "sb.pe_bar", x0, y - 90, "X", kind="PE")
     _wire(project, sheet, feed, "1", q, "1", AC_CONDUCTORS)
-    _wire(project, sheet, q, "2", bus, "IN", AC_CONDUCTORS)
-    _wire(project, sheet, bus, "1", spd, "L", AC_CONDUCTORS[:4])
+    _wire(project, sheet, q, "2", groups[0], "1", AC_CONDUCTORS)
+    _wire(project, sheet, groups[0], "2", spd, "L", AC_CONDUCTORS[:4])
     _wire(project, sheet, spd, "PE", pe, "1", ["PE"])
     outs: list[Element] = []
-    for i in range(min(n_out, 9)):
-        port = str(i + 2)
-        x = bus_port_x(bx, i + 2)
+    for i in range(1, n_out + 1):
+        x = x0 + i * GROUP_PITCH
         f = _el(project, sheet, "fve.breaker_mcb", x, y - 60, "F", rot=270, in_=i_out, char="B", poles="3", modules="3")
-        out = _el(project, sheet, "sb.feed_out", x, y - 95, "X", desc=f"vývod {i + 1}")
-        _wire(project, sheet, bus, port, f, "1", AC_CONDUCTORS[:3])
-        _wire(project, sheet, f, "2", out, "1", AC_CONDUCTORS[:3])
+        out = _el(project, sheet, "sb.feed_out", x, y - 95, "X", desc=f"vývod {i}")
+        _wire(project, sheet, groups[i], "2", f, "1", AC_CONDUCTORS)
+        _wire(project, sheet, f, "2", out, "1", AC_CONDUCTORS)
         outs.append(f)
     _place_sequential(sheet, [q, spd, *outs])
 
 
 def build_dc(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
-    """DC rozvaděč: stringy → pojistky → sběrnice → SPD DC → odpínač DC → vývod ke střídači."""
-    n_str = max(1, int(p.get("n_strings", "4")))
+    """DC rozvaděč: stringy → pojistky → svorky X s můstky → SPD DC → odpínač DC → vývod ke střídači."""
+    n_str = max(1, min(int(p.get("n_strings", "4")), 9))
     i_fuse = p.get("i_fuse", "15")
     y = 200.0
-    bx = 120.0
-    bus = _el(project, sheet, "sb.busbar", bx, y - 40, "X", desc="sběrnice DC", conductors="DC+ DC-")
+    x0 = 60.0
+    nc = len(DC_CONDUCTORS)
+    strip = project.next_ref("X")
+    firsts: list[int] = []
+    groups: list[Element] = []
     fuses: list[Element] = []
-    for i in range(min(n_str, 9)):
-        x = bus_port_x(bx, i + 1)
+    for i in range(n_str + 2):  # stringy, SPD, odpínač
+        first = 1 + i * nc
+        firsts.append(first)
+        desc = f"string {i + 1}" if i < n_str else ("SPD" if i == n_str else "ke střídači")
+        groups.append(_terminal_group(project, sheet, x0 + i * GROUP_PITCH, y - 40, strip, first, nc, desc))
+    project.set_bridges(strip, _bridge_groups(firsts, nc))
+    for i in range(n_str):
+        x = x0 + i * GROUP_PITCH
         feed = _el(project, sheet, "sb.feed_in", x, y + 10, "X", desc=f"string {i + 1}")
         f = _el(project, sheet, "fve.fuse", x, y - 15, "F", rot=270, in_=i_fuse, char="gPV", poles="2", modules="2")
         _wire(project, sheet, feed, "1", f, "1", DC_CONDUCTORS)
-        _wire(project, sheet, f, "2", bus, str(i + 1), DC_CONDUCTORS)
+        _wire(project, sheet, f, "2", groups[i], "1", DC_CONDUCTORS)
         fuses.append(f)
-    spd = _el(project, sheet, "fve.spd", bx + BUS_IN_X, y - 70, "F", spd_type="T1+T2 DC", poles="3", modules="3", uc="1000")
-    pe = _el(project, sheet, "sb.pe_bar", bx + BUS_IN_X, y - 95, "X", kind="PE")
-    q = _el(project, sheet, "fve.dc_disconnect", bus_port_x(bx, 10), y - 80, "Q", rot=270, in_=p.get("i_dc", "32"), poles="2", modules="2")
-    out = _el(project, sheet, "sb.feed_out", bus_port_x(bx, 10), y - 110, "X", desc="ke střídači")
-    _wire(project, sheet, bus, "IN", spd, "L", DC_CONDUCTORS)
+    xs = x0 + n_str * GROUP_PITCH
+    spd = _el(project, sheet, "fve.spd", xs, y - 70, "F", spd_type="T1+T2 DC", poles="3", modules="3", uc="1000")
+    pe = _el(project, sheet, "sb.pe_bar", xs, y - 95, "X", kind="PE")
+    xq = x0 + (n_str + 1) * GROUP_PITCH
+    q = _el(project, sheet, "fve.dc_disconnect", xq, y - 70, "Q", rot=270, in_=p.get("i_dc", "32"), poles="2", modules="2")
+    out = _el(project, sheet, "sb.feed_out", xq, y - 100, "X", desc="ke střídači")
+    _wire(project, sheet, groups[n_str], "2", spd, "L", DC_CONDUCTORS)
     _wire(project, sheet, spd, "PE", pe, "1", ["PE"])
-    _wire(project, sheet, bus, "10", q, "1", DC_CONDUCTORS)
+    _wire(project, sheet, groups[n_str + 1], "2", q, "1", DC_CONDUCTORS)
     _wire(project, sheet, q, "2", out, "1", DC_CONDUCTORS)
     _place_sequential(sheet, [*fuses, spd, q])
 
 
 TEMPLATES: list[Template] = [
-    Template("ac_fve", "AC rozvaděč FVE", "Přívod od střídače, hlavní vypínač, SPD, sběrnice, vývody s jističi",
+    Template("ac_fve", "AC rozvaděč FVE", "Přívod od střídače, hlavní vypínač, rozvodné svorky s můstky, SPD, vývody s jističi",
              [TemplateParam("n_out", "Počet vývodů", "3"), TemplateParam("i_main", "In hlavního vypínače [A]", "80"),
               TemplateParam("i_out", "In jističů vývodů [A]", "32"), TemplateParam("feed_desc", "Přívod od", "od střídače")],
              build_ac_fve),
-    Template("dc", "DC rozvaděč", "Stringy s pojistkami, sběrnice, SPD DC, odpínač DC, vývod ke střídači",
+    Template("dc", "DC rozvaděč", "Stringy s pojistkami, svorky s můstky, SPD DC, odpínač DC, vývod ke střídači",
              [TemplateParam("n_strings", "Počet stringů", "4"), TemplateParam("i_fuse", "In pojistek [A]", "15"),
               TemplateParam("i_dc", "In odpínače DC [A]", "32")],
              build_dc),

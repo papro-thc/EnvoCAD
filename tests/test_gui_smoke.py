@@ -292,3 +292,38 @@ def test_multipole_view_and_terminals(app, tmp_path):
     assert out.stat().st_size > 500
     w.undo.setClean()
     w.close()
+
+
+def test_strip_dialog_and_bridges(app, tmp_path):
+    from envocad.library.templates import apply_template
+    from envocad.ui.dialogs import StripDialog
+    from envocad.ui.multipole_view import BridgeItem
+    p = Project(name="Svorky")
+    s = p.sheets[0]
+    blk = Element("fve.switchboard", 100, 150, attrs={"ref": "R1"})
+    s.elements.append(blk)
+    sb = p.create_switchboard_sheet(blk)
+    apply_template(p, sb, "ac_fve")
+    assert "X2" in p.bridges and len(p.bridges["X2"]) == 5
+    w = MainWindow(LibraryStore(), p)
+    w.open_sheet(sb, "schematic")
+    dlg = StripDialog(p, sb, w, "X2")
+    assert dlg.strip.currentText() == "X2" and dlg.table.rowCount() == 20
+    assert dlg.table.item(0, 4).text() == "1-6-11-16"
+    dlg.bridges.setPlainText("1-6\n2-7-12")
+    strip, groups = dlg.values()
+    assert strip == "X2" and groups == [["1", "6"], ["2", "7", "12"]]
+    from envocad.ui import commands
+    w.undo.push(commands.SetBridgesCommand(p, strip, p.bridge_groups(strip), groups))
+    assert p.bridge_groups("X2") == groups
+    w.open_sheet(sb, "multipole")
+    assert len([it for it in w.view.scene().items() if isinstance(it, BridgeItem)]) == 2
+    w.undo.undo()
+    assert len(p.bridge_groups("X2")) == 5
+    # výkaz svorkovnice obsahuje můstky a čísla ze skupin svorek
+    from envocad.export import reports
+    head, rows = reports.terminals(p, w.library, sb)
+    x2 = [r for r in rows if r[0] == "X2"]
+    assert any(r[1] == "7" and r[5] == "2-7-12-17" for r in x2), x2[:5]
+    w.undo.setClean()
+    w.close()

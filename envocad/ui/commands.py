@@ -201,3 +201,23 @@ class SetTerminalsCommand(QUndoCommand):
 
     def undo(self):
         self._set(self.old)
+
+
+class SetBridgesCommand(QUndoCommand):
+    """Můstky jedné svorkovnice (`Project.bridges[strip]`)."""
+
+    def __init__(self, project, strip: str, old: list[list[str]], new: list[list[str]], on_change=None):
+        super().__init__(f"Můstky {strip}")
+        self.project, self.strip = project, strip
+        self.old, self.new, self.on_change = [list(g) for g in old], [list(g) for g in new], on_change
+
+    def _set(self, v):
+        self.project.set_bridges(self.strip, v)
+        if self.on_change:
+            self.on_change()
+
+    def redo(self):
+        self._set(self.new)
+
+    def undo(self):
+        self._set(self.old)

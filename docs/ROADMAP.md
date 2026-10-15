@@ -38,6 +38,8 @@
 ## v0.6 – Vícepól  ← hotovo v základu
 - [x] Vícepólový pohled nad stejným listem (Ctrl+M / Ctrl+J), žíly z `Wire.conductors`, přiřazení svorek per žíla (`Wire.terminals`, Ctrl+T)
 - [x] Automatické číslování svorek na svorkovnicích (Úpravy → Očíslovat svorky)
+- [x] Svorkovnice jako v EPLAN: skupiny svorek s čísly, můstky (dialog, vícepól, JPS, výkaz); šablony bez sběrnice
+- [ ] Artikl svorky → šířka v rozložení (svorkovnice na DIN liště podle `width_mm`), můstky jako artikl (ZQV…) do BOM
 - [ ] Vlastní rozmístění ve vícepólu (dnes jen roztažené pozice z JPS ×2), ruční lomy žil
 - [ ] Vícepólové značky z knihovny (QET `qet.ap.*`) místo opakování jednopólové značky; společná spoušť/vazba pólů
 - [ ] Export DXF vícepólu (PDF už funguje)

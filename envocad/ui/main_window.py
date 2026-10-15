@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 from envocad import __version__
 from envocad.library.store import LibraryStore
 from envocad.model.project import Project, Sheet
-from envocad.ui import theme
+from envocad.ui import commands, theme
 from envocad.ui.canvas import Mode, SchematicScene, SchematicView
 from envocad.ui.layout_view import LayoutScene, LayoutView
 from envocad.ui.multipole_view import MultipoleScene, MultipoleView
@@ -135,6 +135,7 @@ class MainWindow(QMainWindow):
         m_edit.addSeparator()
         act(m_edit, "Svorky vybraného vodiče…", self.edit_wire_terminals, "Ctrl+T")
         act(m_edit, "Očíslovat svorky automaticky", self.auto_number_terminals)
+        act(m_edit, "Svorkovnice a můstky…", self.edit_strip, "Ctrl+Shift+T")
 
         m_draw = mb.addMenu("&Kreslit")
         tb.addSeparator()
@@ -513,6 +514,25 @@ class MainWindow(QMainWindow):
         sh, wid = hit
         sc = self._jps_scene(sh) or self.view.scene()
         sc.edit_terminals(wid)
+
+    def edit_strip(self) -> None:
+        sh = self.current_sheet
+        if sh is None:
+            return
+        from envocad.ui.dialogs import StripDialog
+        strip = ""
+        it = self._selected_item() if self.scene else None
+        if it is not None and hasattr(it, "element"):
+            strip = it.element.ref
+        dlg = StripDialog(self.project, sh, self, strip)
+        if dlg.strip.count() == 0:
+            QMessageBox.information(self, "Svorkovnice", "Na listu nejsou žádné svorky (X…).")
+            return
+        if dlg.exec() != StripDialog.Accepted:
+            return
+        strip, groups = dlg.values()
+        if strip and groups != self.project.bridge_groups(strip):
+            self.undo.push(commands.SetBridgesCommand(self.project, strip, self.project.bridge_groups(strip), groups))
 
     def auto_number_terminals(self) -> None:
         sh = self.current_sheet

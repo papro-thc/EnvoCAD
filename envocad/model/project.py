@@ -17,7 +17,7 @@ WIRE_ATTRIBUTES = [
     Attribute("route", "Trasa / uložení"),
 ]
 
-FORMAT_VERSION = 2
+FORMAT_VERSION = 3
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 SHEET_KINDS = ("schematic", "switchboard")
@@ -271,7 +271,28 @@ class Project:
     name: str = "Nový projekt"
     meta: dict[str, str] = field(default_factory=dict)  # investor, číslo zakázky, místo, zpracoval…
     sheets: list[Sheet] = field(default_factory=lambda: [Sheet()])
+    # můstky (propoje) svorkovnic: {"X2": [["1", "6", "11"], ["2", "7", "12"]]} – čísla svorek spojená můstkem
+    bridges: dict[str, list[list[str]]] = field(default_factory=dict)
     path: Path | None = None
+
+    # ---- svorkovnice -------------------------------------------------
+    def bridge_groups(self, strip: str) -> list[list[str]]:
+        return [list(g) for g in self.bridges.get(strip, [])]
+
+    def set_bridges(self, strip: str, groups: list[list[str]]) -> None:
+        groups = [[str(x).strip() for x in g if str(x).strip()] for g in groups]
+        groups = [g for g in groups if len(g) >= 2]
+        if groups:
+            self.bridges[strip] = groups
+        else:
+            self.bridges.pop(strip, None)
+
+    def bridge_of(self, strip: str, number: str) -> list[str]:
+        """Skupina svorek propojených můstkem se svorkou `strip:number` (včetně ní), nebo []."""
+        for g in self.bridges.get(strip, []):
+            if number in g:
+                return list(g)
+        return []
 
     # ---- označení prvků ---------------------------------------------
     def used_refs(self) -> set[str]:
@@ -322,6 +343,7 @@ class Project:
         return {
             "format": "envocad-project", "format_version": FORMAT_VERSION,
             "name": self.name, "meta": self.meta, "sheets": [s.to_dict() for s in self.sheets],
+            "bridges": self.bridges,
         }
 
     @classmethod
@@ -333,7 +355,8 @@ class Project:
             raise ValueError(f"Projekt je z novější verze programu (formát {ver})")
         d = migrate(d, ver)
         return cls(name=d.get("name", ""), meta=dict(d.get("meta", {})),
-                   sheets=[Sheet.from_dict(s) for s in d.get("sheets", [])] or [Sheet()])
+                   sheets=[Sheet.from_dict(s) for s in d.get("sheets", [])] or [Sheet()],
+                   bridges={k: [[str(x) for x in g] for g in v] for k, v in d.get("bridges", {}).items()})
 
     def save(self, path: Path | str | None = None) -> None:
         p = Path(path) if path else self.path
@@ -356,6 +379,8 @@ def migrate(d: dict, ver: int) -> dict:
         # v1: listy bez kind/layout, vodiče bez conductors – doplní se výchozí hodnoty při from_dict
         for s in d.get("sheets", []):
             s.setdefault("kind", "schematic")
+    if ver < 3:
+        d.setdefault("bridges", {})  # v3: můstky svorkovnic
     d["format_version"] = FORMAT_VERSION
     return d
 

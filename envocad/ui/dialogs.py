@@ -121,6 +121,109 @@ class TerminalsDialog(QDialog):
         return out
 
 
+class StripDialog(QDialog):
+    """Svorkovnice: přehled svorek jedné svorkovnice na listu a editace můstků (propojů)."""
+
+    def __init__(self, project, sheet: Sheet, parent=None, strip: str = ""):
+        super().__init__(parent)
+        self.project, self.sheet = project, sheet
+        self.setWindowTitle("Svorkovnice a můstky")
+        self.setMinimumSize(640, 460)
+        lay = QVBoxLayout(self)
+        top = QHBoxLayout()
+        top.addWidget(QLabel("Svorkovnice:"))
+        self.strip = QComboBox()
+        strips = sorted({e.ref for e in sheet.elements if e.symbol_id in mp.TERMINAL_SYMBOLS and e.ref},
+                        key=lambda r: (len(r), r))
+        self.strip.addItems(strips)
+        if strip in strips:
+            self.strip.setCurrentText(strip)
+        top.addWidget(self.strip, 1)
+        lay.addLayout(top)
+        self.table = QTableWidget(0, 5)
+        self.table.setHorizontalHeaderLabels(["Svorka", "Žíla", "Vnitřní strana", "Vnější strana", "Můstek"])
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        lay.addWidget(self.table, 1)
+        lay.addWidget(QLabel("Můstky – jedna skupina na řádek, čísla svorek oddělená pomlčkou (např. <b>1-6-11</b>):"))
+        from PySide6.QtWidgets import QPlainTextEdit
+        self.bridges = QPlainTextEdit()
+        self.bridges.setMaximumHeight(110)
+        lay.addWidget(self.bridges)
+        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        lay.addWidget(bb)
+        self._shown = ""
+        self.strip.currentTextChanged.connect(self._load)
+        self._load(self.strip.currentText())
+
+    def _rows(self, strip: str) -> list[list[str]]:
+        rows: list[list[str]] = []
+        s = self.sheet
+        for e in s.elements:
+            if e.ref != strip or e.symbol_id not in mp.TERMINAL_SYMBOLS:
+                continue
+            ends: dict[str, list[tuple]] = {}  # port → [(wire, side)]
+            for w in s.wires:
+                for side, end in (("a", w.a), ("b", w.b)):
+                    if end.element_id == e.id:
+                        ends.setdefault(end.port, []).append((w, side))
+            slots = sorted({c for lst in ends.values() for w, _ in lst for c in mp.wire_conductors(w)}, key=mp.canon_key)
+            nums = mp.terminal_numbers(e, len(slots)) if mp.is_terminal_block(e) else [""] * len(slots)
+            ports = [p.name for p in self._symbol_ports(e)]
+            for c, num in zip(slots, nums):
+                conn = []
+                for port in ports[:2]:
+                    txt = []
+                    for w, side in ends.get(port, []):
+                        if c in mp.wire_conductors(w):
+                            other = w.b if side == "a" else w.a
+                            try:
+                                oe = s.element(other.element_id)
+                                txt.append(f"{oe.ref or oe.symbol_id}:{other.port}" + (f" ({w.attrs['ref']})" if w.attrs.get("ref") else ""))
+                            except KeyError:
+                                pass
+                    conn.append(", ".join(txt))
+                if not mp.is_terminal_block(e):
+                    # přívod/vývod/PE lišta: číslo z ručního přiřazení na vodiči
+                    for w, side in [x for lst in ends.values() for x in lst]:
+                        t = mp.terminal_text(w, c, side)
+                        if t:
+                            num = t.partition(":")[2] or t
+                            break
+                bridge = self.project.bridge_of(strip, num) if num else []
+                rows.append([num, c, conn[0] if conn else "", conn[1] if len(conn) > 1 else "",
+                             "-".join(bridge) if bridge else ""])
+        rows.sort(key=lambda r: (not r[0].isdigit(), int(r[0]) if r[0].isdigit() else 0, r[0]))
+        return rows
+
+    def _symbol_ports(self, e):
+        from envocad.library.store import LibraryStore
+        try:
+            lib = self.parent().library if self.parent() is not None and hasattr(self.parent(), "library") else LibraryStore()
+            return lib.get_symbol(e.symbol_id).ports
+        except Exception:  # noqa: BLE001
+            return []
+
+    def _load(self, strip: str) -> None:
+        rows = self._rows(strip) if strip else []
+        self.table.setRowCount(len(rows))
+        for r, row in enumerate(rows):
+            for c, v in enumerate(row):
+                self.table.setItem(r, c, QTableWidgetItem(v))
+        self.table.resizeColumnsToContents()
+        self.bridges.setPlainText("\n".join("-".join(g) for g in self.project.bridge_groups(strip)))
+        self._shown = strip
+
+    def values(self) -> tuple[str, list[list[str]]]:
+        groups = []
+        for line in self.bridges.toPlainText().splitlines():
+            toks = [t.strip() for t in line.replace(",", "-").replace(" ", "-").split("-") if t.strip()]
+            if len(toks) >= 2:
+                groups.append(toks)
+        return self._shown, groups
+
+
 class ElementDialog(AttrDialog):
     def __init__(self, symbol: Symbol, attrs: dict[str, str], parent=None, title: str | None = None,
                  library=None, component_id: str | None = None):
