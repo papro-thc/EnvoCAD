@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.1 – 2026-10-15
+- List rozvaděče má vlevo nahoře informační blok s parametry skříně (skříň, rozměry, moduly, Un, In, Icw, síť, IP/IK, montáž, materiál) – živě z panelu skříně, stejně v PDF i DXF.
+
 ## 0.3.0 – 2026-10-15
 - Oprava chybového dialogu při zavírání programu (signál výběru na likvidované scéně rozložení).
 - Panel skříně přímo v záložce rozložení: označení, řady, moduly, rozměry (š/v/h), rozteč řad, IP/IK, montáž, materiál, dveře, Un/In/Icw, síť, rezerva, teplota okolí, RDF. Změny se projeví hned; dvojklik do prázdné plochy skočí do panelu; `Ctrl+K` otevře totéž jako dialog.

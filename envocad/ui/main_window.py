@@ -203,7 +203,8 @@ class MainWindow(QMainWindow):
             scene = LayoutScene(self.project, sheet, self.library, self.undo)
             view = LayoutView(scene)
             panel = EnclosurePanel(sheet)
-            panel.changed.connect(lambda sc=scene: (sc.rebuild(), self._refresh_tab_titles(), self.undo.resetClean()))
+            panel.changed.connect(lambda sc=scene, sh=sheet: (sc.rebuild(), self._rebuild_sheet_views(sh),
+                                                            self._refresh_tab_titles(), self.undo.resetClean()))
             scene.layout_changed.connect(panel.refresh)
             scene.enclosure_requested.connect(lambda p=panel: p.name.setFocus())
             scene.selection_info.connect(lambda it: self.props_panel.show_item(
@@ -366,7 +367,9 @@ class MainWindow(QMainWindow):
         for kind in ("schematic", "layout"):
             i = self._find_tab(sheet, kind)
             if i >= 0:
-                self._unwrap(self.tabs.widget(i)).scene().rebuild()
+                sc = self._unwrap(self.tabs.widget(i)).scene()
+                sc.rebuild()
+                sc.update()
 
     def edit_enclosure(self) -> None:
         sh = self.current_sheet

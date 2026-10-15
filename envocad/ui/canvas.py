@@ -13,7 +13,7 @@ from envocad.model.project import WIRE_ATTRIBUTES, Element, Project, Sheet, Wire
 from envocad.model.symbol import GRID
 from envocad.ui import commands
 from envocad.ui.items import ElementItem, WireItem, route, snap
-from envocad.ui.render import sp
+from envocad.ui.render import draw_text, sp
 from envocad.ui.theme import PRINT, colors
 
 log = logging.getLogger("envocad.ui")
@@ -333,6 +333,28 @@ class SchematicScene(QGraphicsScene):
         for it in self.wire_items.values():
             it.setPen(QPen(colors().wire, it.pen().widthF(), Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
         self.update()
+
+    def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
+        """Informační blok s parametry rozvaděče (jen na listu rozvaděče) – vlevo nahoře na listu."""
+        if not self.sheet.is_switchboard:
+            return
+        from envocad.model.project import switchboard_header
+        rows = switchboard_header(self.project, self.sheet)
+        if not rows:
+            return
+        c = PRINT if not self.draw_grid else colors()
+        x0, y0 = 10.0, self.sheet.height - 10.0  # model (Y nahoru)
+        lh = 4.0
+        w, h = 95.0, lh * len(rows) + 3
+        painter.setPen(QPen(c.ink, 0.25))
+        painter.setBrush(Qt.NoBrush)
+        painter.drawRect(QRectF(x0 - 2, -(y0 + 2), w, h))
+        painter.drawLine(sp(x0 + 30, y0 + 2), sp(x0 + 30, y0 + 2 - h))
+        for i, (k, v) in enumerate(rows):
+            y = y0 - 2.5 - i * lh
+            painter.setPen(QPen(c.ink, 0.2))
+            draw_text(painter, x0, y, k, 2.5, "left")
+            draw_text(painter, x0 + 32, y, v, 2.5, "left")
 
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
         c = PRINT if not self.draw_grid else colors()

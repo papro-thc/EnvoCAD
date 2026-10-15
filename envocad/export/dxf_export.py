@@ -106,6 +106,18 @@ def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Pa
     msp.add_lwpolyline([(0, 0), (sheet.width, 0), (sheet.width, sheet.height), (0, sheet.height)],
                        close=True, dxfattribs={"layer": "RAMECEK"})
     _text(msp, 5, 5, f"{project.name}  –  {sheet.name}", 3.5, "left", 0, layer="RAMECEK")
+    if sheet.is_switchboard:
+        from envocad.model.project import switchboard_header
+        rows = switchboard_header(project, sheet)
+        x0, y0, lh = 10.0, sheet.height - 10.0, 4.0
+        w, h = 95.0, lh * len(rows) + 3
+        msp.add_lwpolyline([(x0 - 2, y0 + 2), (x0 - 2 + w, y0 + 2), (x0 - 2 + w, y0 + 2 - h), (x0 - 2, y0 + 2 - h)],
+                           close=True, dxfattribs={"layer": "RAMECEK"})
+        msp.add_line((x0 + 30, y0 + 2), (x0 + 30, y0 + 2 - h), dxfattribs={"layer": "RAMECEK"})
+        for i, (k, v) in enumerate(rows):
+            y = y0 - 2.5 - i * lh
+            _text(msp, x0, y, k, 2.5, "left", 0, layer="TEXTY")
+            _text(msp, x0 + 32, y, v, 2.5, "left", 0, layer="TEXTY")
     for e in sheet.elements:
         _draw_symbol(msp, e, lib.get_symbol(e.symbol_id))
     for w in sheet.wires:

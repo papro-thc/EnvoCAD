@@ -358,3 +358,26 @@ def migrate(d: dict, ver: int) -> dict:
             s.setdefault("kind", "schematic")
     d["format_version"] = FORMAT_VERSION
     return d
+
+
+def switchboard_header(project: Project, sheet: Sheet) -> list[tuple[str, str]]:
+    """Dvojice (popisek, hodnota) pro informační blok na listu rozvaděče – jen vyplněné položky."""
+    lay = sheet.layout
+    p = lay.params
+    enclosure = " ".join(x for x in (p.get("manufacturer", ""), p.get("type", "")) if x) or lay.enclosure
+    dims = f"{lay.width_mm:g} × {lay.height_mm:g}" + (f" × {lay.depth_mm:g}" if lay.depth_mm else "") + " mm"
+    rows = [
+        ("Rozvaděč", sheet.name),
+        ("Zakázka", " ".join(x for x in (project.name, project.meta.get("order", "")) if x)),
+        ("Skříň", enclosure),
+        ("Rozměry", dims if p.get("width_mm") or p.get("height_mm") else ""),
+        ("Moduly", f"{lay.rows} × {lay.modules_per_row} = {lay.total_modules} M"),
+        ("Un", p.get("un", "")),
+        ("In", f"{p['in_']} A" if p.get("in_") else ""),
+        ("Icw / Ipk", f"{p['icw']} kA" if p.get("icw") else ""),
+        ("Síť", p.get("network", "")),
+        ("Krytí", " / ".join(x for x in (p.get("ip", ""), p.get("ik", "")) if x)),
+        ("Montáž", p.get("mounting", "")),
+        ("Materiál / dveře", " / ".join(x for x in (p.get("material", ""), p.get("door", "")) if x)),
+    ]
+    return [(k, v) for k, v in rows if v]

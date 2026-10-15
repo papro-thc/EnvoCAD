@@ -112,3 +112,15 @@ def test_thermal(tmp_path):
     big.layout.params = {"width_mm": "1200", "height_mm": "2000", "depth_mm": "400"}
     big.elements = list(s.elements)
     assert temperature_rise(big).dt_top_k < r.dt_top_k  # větší skříň → menší oteplení
+
+
+def test_switchboard_header():
+    from envocad.model.project import switchboard_header
+    p = Project(name="FVE Test", meta={"order": "Z-1"})
+    s = Sheet(name="R1 – AC", kind="switchboard")
+    s.layout.params = {"manufacturer": "Hager", "type": "VU36", "ip": "IP 44", "ik": "IK 08", "network": "TN-S",
+                       "in_": "80", "width_mm": "550", "height_mm": "650"}
+    rows = dict(switchboard_header(p, s))
+    assert rows["Skříň"] == "Hager VU36" and rows["Krytí"] == "IP 44 / IK 08" and rows["In"] == "80 A"
+    assert rows["Síť"] == "TN-S" and rows["Rozměry"].startswith("550 × 650")
+    assert "Icw / Ipk" not in rows  # nevyplněné se vynechá
