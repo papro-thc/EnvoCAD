@@ -64,6 +64,12 @@ class MainWindow(QMainWindow):
         self._load_plugins()
         self._load_project(self.project)
         self.resize(1400, 900)
+        # automatické ukládání rozpracovaného projektu (obnova po pádu)
+        self._autosave_timer = QTimer(self)
+        self._autosave_timer.setInterval(120_000)
+        self._autosave_timer.timeout.connect(self.autosave)
+        self._autosave_timer.start()
+        QTimer.singleShot(0, self.offer_recovery)
 
     # ---- aktuální záložka ----------------------------------------------------
     @staticmethod
@@ -118,11 +124,14 @@ class MainWindow(QMainWindow):
         act(m_file, "Nový projekt z průvodce…", self.new_project_wizard, "Ctrl+Shift+N")
         act(m_file, "Nový projekt ze specifikace (JSON)…", self.new_project_from_spec)
         act(m_file, "&Otevřít…", self.open_project, "Ctrl+O", True)
+        self.m_recent = m_file.addMenu("Poslední projekty")
+        self._refresh_recent_menu()
         act(m_file, "&Uložit", self.save_project, "Ctrl+S", True)
         act(m_file, "Uložit &jako…", self.save_project_as, "Ctrl+Shift+S")
         m_file.addSeparator()
         act(m_file, "Export &DXF…", self.export_dxf)
         act(m_file, "Export &PDF…", self.export_pdf)
+        act(m_file, "Export PDF na A4 (zmenšeno)…", lambda: self.export_pdf("A4"))
         m_file.addSeparator()
         act(m_file, "Vlastnosti projektu…", self.edit_project_meta)
         act(m_file, "Porovnat s revizí (.ecp)…", self.compare_revision)
@@ -189,6 +198,7 @@ class MainWindow(QMainWindow):
         act(m_out, "Výkazy celého projektu (xlsx)…", lambda: self.export_xlsx(current_only=False))
         act(m_out, "Protokol kusového ověření (docx)…", self.export_routine_test)
         act(m_out, "Technická zpráva (docx)…", self.export_tz)
+        act(m_out, "Štítky pro tiskárnu (CSV)…", self.export_labels_csv)
         m_out.addSeparator()
         act(m_out, "Celá dokumentace (PDF)…", self.export_documentation, "Ctrl+Shift+E", True)
 
@@ -795,8 +805,103 @@ class MainWindow(QMainWindow):
         self.project.save()
         self.undo.setClean()
         self._update_title()
+        self._add_recent(self.project.path)
+        self._clear_autosave()
         self.statusBar().showMessage(f"Uloženo: {self.project.path}", 3000)
         return True
+
+    # ---- poslední projekty, autosave ------------------------------------------
+    @staticmethod
+    def _settings():
+        from PySide6.QtCore import QSettings
+        return QSettings("ENVO", "EnvoCAD")
+
+    def _recent(self) -> list[str]:
+        v = self._settings().value("files/recent", [])
+        return [str(x) for x in (v if isinstance(v, list) else [v] if v else [])]
+
+    def _add_recent(self, path) -> None:
+        lst = [str(path)] + [x for x in self._recent() if x != str(path)]
+        self._settings().setValue("files/recent", lst[:10])
+        self._refresh_recent_menu()
+
+    def _refresh_recent_menu(self) -> None:
+        if not hasattr(self, "m_recent"):
+            return
+        self.m_recent.clear()
+        for p in self._recent():
+            a = self.m_recent.addAction(p)
+            a.triggered.connect(lambda _c=False, p=p: self.open_path(p))
+        if self.m_recent.isEmpty():
+            self.m_recent.addAction("(zatím nic)").setEnabled(False)
+
+    def open_path(self, path: str) -> None:
+        if not self._confirm_discard():
+            return
+        try:
+            self._load_project(Project.load(path))
+            self._add_recent(path)
+        except Exception as ex:  # noqa: BLE001
+            QMessageBox.critical(self, "Chyba", f"Projekt nelze otevřít:\n{ex}")
+
+    def _autosave_path(self) -> Path:
+        from envocad.library.store import home_dir
+        d = home_dir() / "autosave"
+        d.mkdir(parents=True, exist_ok=True)
+        name = (self.project.path.stem if self.project.path else "nepojmenovany") + ".autosave.ecp"
+        return d / name
+
+    def autosave(self) -> None:
+        if self.undo.isClean():
+            return
+        try:
+            p = self._autosave_path()
+            orig = self.project.path
+            self.project.path = p
+            self.project.save()
+            self.project.path = orig
+            (p.with_suffix(".orig")).write_text(str(orig or ""), encoding="utf-8")
+            self._last_autosave = p
+            log.info("autosave %s", p)
+        except Exception as ex:  # noqa: BLE001
+            log.warning("autosave selhal: %s", ex)
+
+    def _clear_autosave(self) -> None:
+        for p in {self._autosave_path(), getattr(self, "_last_autosave", None)}:
+            if p is None:
+                continue
+            try:
+                p.unlink(missing_ok=True)
+                p.with_suffix(".orig").unlink(missing_ok=True)
+            except OSError:
+                pass
+
+    def offer_recovery(self) -> None:
+        """Po startu: pokud existuje automaticky uložená kopie, nabídne její obnovení."""
+        from envocad.library.store import home_dir
+        d = home_dir() / "autosave"
+        if not d.exists():
+            return
+        files = sorted(d.glob("*.autosave.ecp"), key=lambda f: f.stat().st_mtime, reverse=True)
+        if not files:
+            return
+        f = files[0]
+        orig_file = f.with_suffix(".orig")
+        orig = orig_file.read_text(encoding="utf-8").strip() if orig_file.exists() else ""
+        r = QMessageBox.question(self, "Obnova rozpracované práce",
+                                 f"Byla nalezena automaticky uložená kopie projektu\n{orig or '(nepojmenovaný)'}.\n"
+                                 "Obnovit ji? (Ne = kopie se smaže)", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+        if r == QMessageBox.Yes:
+            try:
+                proj = Project.load(f)
+                proj.path = Path(orig) if orig else None
+                self._load_project(proj)
+                self.undo.resetClean()
+            except Exception as ex:  # noqa: BLE001
+                QMessageBox.warning(self, "Obnova", f"Kopii nejde načíst: {ex}")
+        for x in files:
+            x.unlink(missing_ok=True)
+            x.with_suffix(".orig").unlink(missing_ok=True)
 
     def save_project_as(self) -> bool:
         path, _ = QFileDialog.getSaveFileName(self, "Uložit projekt", "", FILE_FILTER)
@@ -833,14 +938,14 @@ class MainWindow(QMainWindow):
             export_sheet_dxf(self.project, self.scene.sheet, self.library, path)
             self.statusBar().showMessage(f"Exportováno: {path}", 3000)
 
-    def export_pdf(self) -> None:
+    def export_pdf(self, paper: str = "") -> None:
         from envocad.export.pdf_export import export_scene_pdf
         sc = self.scene or (self.view.scene() if isinstance(self.view, DERIVED_VIEWS) else None)
         if not sc:
             return
         path, _ = QFileDialog.getSaveFileName(self, "Export PDF", "", "PDF (*.pdf)")
         if path:
-            export_scene_pdf(sc, path)
+            export_scene_pdf(sc, path, paper=paper or None)
             self.statusBar().showMessage(f"Exportováno: {path}", 3000)
 
     def export_xlsx(self, current_only: bool) -> None:
@@ -859,6 +964,21 @@ class MainWindow(QMainWindow):
         if path:
             n = export_documentation_pdf(self.project, self.library, path)
             self.statusBar().showMessage(f"Exportováno {n} stran: {path}", 5000)
+
+    def export_labels_csv(self) -> None:
+        """Štítky pro Brady/Partex apod.: CSV se středníkem, UTF-8 s BOM (Excel/tiskárna to otevře přímo)."""
+        import csv
+
+        from envocad.export import reports
+        path, _ = QFileDialog.getSaveFileName(self, "Štítky", "stitky.csv", "CSV (*.csv)")
+        if not path:
+            return
+        head, rows = reports.labels(self.project, self.library, None)
+        with open(path, "w", encoding="utf-8-sig", newline="") as f:
+            w = csv.writer(f, delimiter=";")
+            w.writerow(head)
+            w.writerows(rows)
+        self.statusBar().showMessage(f"Exportováno {len(rows)} štítků: {path}", 3000)
 
     def export_tz(self) -> None:
         from envocad.export.tz_export import export_tz_docx

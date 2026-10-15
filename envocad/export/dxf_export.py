@@ -110,6 +110,8 @@ def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Pa
     for x, y, text, h, align in g.texts:
         if text:
             _text(msp, x, y, text, h, align, 0, layer="RAMECEK")
+    for x, y, w, h in g.rects:  # QR kód jako vyplněné čtverce
+        msp.add_solid([(x, y), (x + w, y), (x, y + h), (x + w, y + h)], dxfattribs={"layer": "RAMECEK"})
     if sheet.is_switchboard:
         from envocad.model.project import switchboard_header
         rows = switchboard_header(project, sheet)

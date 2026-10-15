@@ -87,4 +87,9 @@ def draw_frame(painter: QPainter, geom, color) -> None:
     for x, y, text, h, align in geom.texts:
         if text:
             draw_text(painter, x, y, text, h, align)
+    if geom.rects:
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(color)
+        for x, y, w, h in geom.rects:
+            painter.drawRect(QRectF(x, -(y + h), w, h))
     painter.restore()

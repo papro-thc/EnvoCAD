@@ -19,6 +19,7 @@ class FrameGeometry:
     lines: list[tuple[float, float, float, float]] = field(default_factory=list)      # x1, y1, x2, y2
     texts: list[tuple[float, float, str, float, str]] = field(default_factory=list)  # x, y, text, výška, zarovnání
     inner: tuple[float, float, float, float] = (0, 0, 0, 0)                           # x0, y0, x1, y1 kreslicí plochy
+    rects: list[tuple[float, float, float, float]] = field(default_factory=list)      # vyplněné obdélníky (QR): x, y, w, h
 
 
 def grid_coord(sheet: Sheet, x: float, y: float, width: float | None = None, height: float | None = None) -> str:
@@ -37,6 +38,22 @@ def position_ref(project: Project, sheet: Sheet, x: float, y: float) -> str:
     """Odkaz na místo ve výkresu jako v EPLAN: „/3.B4“ = list 3, sloupec B, řádek 4."""
     n = sheet_number(project, sheet).split("/")[0]
     return f"/{n}.{grid_coord(sheet, x, y)}"
+
+
+def qr_modules(text: str) -> list[list[bool]] | None:
+    """Matice QR kódu (True = tmavý modul) přes `segno`; None, když knihovna chybí."""
+    try:
+        import segno
+    except ImportError:
+        return None
+    q = segno.make(text, error="m")
+    return [[bool(v) for v in row] for row in q.matrix]
+
+
+def qr_text(project: Project, sheet: Sheet, view: str = "") -> str:
+    m = project.meta
+    parts = [project.name, m.get("order", ""), sheet.name + (f" – {view}" if view else ""), f"rev. {m.get('revision', '') or '0'}"]
+    return " | ".join(x for x in parts if x)
 
 
 def sheet_number(project: Project, sheet: Sheet) -> str:
@@ -91,6 +108,17 @@ def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, h
     g.lines.append((tx0 + logo_w, ty0, tx0 + logo_w, ty1))
     g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 2.0, "ENVO", 5.0, "center"))
     g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 6.0, COMPANY, 1.8, "center"))
+    # QR kód s identifikací výkresu vlevo od popisového pole (projekt | zakázka | list | revize)
+    mods = qr_modules(qr_text(project, sheet, view))
+    if mods:
+        n = len(mods)
+        size = TB_H - 6.0
+        cell = size / n
+        qx0, qy0 = tx0 - size - 4.0, ty0 + 3.0
+        for r, row in enumerate(mods):
+            for c, dark in enumerate(row):
+                if dark:
+                    g.rects.append((qx0 + c * cell, qy0 + size - (r + 1) * cell, cell, cell))
     cx0 = tx0 + logo_w
     cw = TB_W - logo_w
     for r, cells in enumerate(rows):

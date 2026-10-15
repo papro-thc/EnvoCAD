@@ -474,3 +474,35 @@ def test_documentation_pdf(app, tmp_path):
     out = tmp_path / "dok.pdf"
     n = export_documentation_pdf(p, LibraryStore(), out)
     assert n >= len(b.pages) and out.stat().st_size > 5000
+
+
+def test_autosave_recent_and_a4(app, tmp_path, monkeypatch):
+    import os
+    monkeypatch.setenv("ENVOCAD_HOME", str(tmp_path / "home"))
+    p = _project()
+    w = MainWindow(LibraryStore(), p)
+    w._settings().setValue("files/recent", [])
+    # autosave jen když je co ukládat
+    w.autosave()
+    assert not list((tmp_path / "home").glob("autosave/*.ecp"))
+    f1 = next(e for e in p.sheets[0].elements if e.ref == "F1")
+    w.scene.set_attr(f1.id, False, "in_", "63")
+    w.autosave()
+    files = list((tmp_path / "home" / "autosave").glob("*.autosave.ecp"))
+    assert len(files) == 1 and p.path is None
+    # uložení projekt → autosave pryč, poslední projekty
+    p.path = tmp_path / "proj.ecp"
+    assert w.save_project()
+    assert not list((tmp_path / "home" / "autosave").glob("*.autosave.ecp"))
+    assert w._recent()[0].endswith("proj.ecp") and not w.m_recent.isEmpty()
+    # PDF na A4
+    from envocad.export.pdf_export import export_scene_pdf
+    out = tmp_path / "a4.pdf"
+    export_scene_pdf(w.scene, out, paper="A4")
+    assert out.stat().st_size > 500
+    # QR v rámečku
+    from envocad.model.frame import frame_geometry
+    assert frame_geometry(p, p.sheets[0]).rects
+    w.undo.setClean()
+    w.close()
+    os.environ.pop("ENVOCAD_HOME", None)
