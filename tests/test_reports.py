@@ -23,7 +23,7 @@ def _proj():
 def test_reports_content(tmp_path):
     lib = LibraryStore(tmp_path / "lib.db")
     p, s = _proj()
-    head, rows = reports.bom(p, lib, s)
+    _, rows = reports.bom(p, lib, s)
     jistice = [r for r in rows if r[1] == "Jistič"]
     assert len(jistice) == 1 and jistice[0][5] == 3 and "F2" in jistice[0][6]
     _, rows = reports.cables(p, lib, s)
