@@ -85,6 +85,12 @@
       "label": "Šířka [moduly]",
       "default": "3",
       "show": false
+    },
+    {
+      "key": "p_loss_w",
+      "label": "Ztrátový výkon při In [W]",
+      "default": "",
+      "show": false
     }
   ],
   "label_pos": {

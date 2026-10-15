@@ -188,3 +188,17 @@ def test_properties_panel_edit_during_focus_loss(app, tmp_path):
     for _ in range(5):
         app.processEvents()
     assert sc.sheet.element(t.element.id).attrs["type"] == "STP 50"
+
+
+def test_enclosure_dialog(app, tmp_path):
+    from envocad.model.project import Sheet
+    from envocad.ui.dialogs import EnclosureDialog
+    s = Sheet(kind="switchboard")
+    d = EnclosureDialog(s)
+    d.name.setText("Hager Volta VU48")
+    d.rows.setValue(4)
+    d._edits["width_mm"].setText("550")
+    d._edits["ip"].setText("IP 44")
+    lay = d.apply()
+    assert lay.rows == 4 and lay.enclosure == "Hager Volta VU48" and lay.params["ip"] == "IP 44" and lay.width_mm == 550
+    assert "modulů" in d.info.text()

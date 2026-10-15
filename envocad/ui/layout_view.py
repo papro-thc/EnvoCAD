@@ -26,6 +26,7 @@ class SetPlacementCommand(QUndoCommand):
     def _apply(self, v):
         self.scene.sheet.layout.set_placement(self.eid, *(v or (None, None)))
         self.scene.sync_positions()
+        self.scene.layout_changed.emit()
 
     def redo(self):
         self._first = False
@@ -65,6 +66,8 @@ class DeviceItem(QGraphicsRectItem):
 
 class LayoutScene(QGraphicsScene):
     selection_info = Signal(object)
+    enclosure_requested = Signal()  # dvojklik do prázdné plochy → fokus do panelu skříně
+    layout_changed = Signal()       # po umístění přístroje (přepočet obsazenosti)
 
     def __init__(self, project: Project, sheet: Sheet, library: LibraryStore, undo: QUndoStack):
         super().__init__()
@@ -80,11 +83,15 @@ class LayoutScene(QGraphicsScene):
     def enclosure_w(self) -> float:
         return self.sheet.layout.modules_per_row * MODULE_WIDTH
 
+    @property
+    def row_h(self) -> float:
+        return self.sheet.layout.row_pitch_mm
+
     def row_rect(self, row: int) -> QRectF:
-        return QRectF(MARGIN, MARGIN + row * ROW_H, self.enclosure_w, ROW_H)
+        return QRectF(MARGIN, MARGIN + row * self.row_h, self.enclosure_w, self.row_h)
 
     def rail_y(self, row: int) -> float:
-        return MARGIN + row * ROW_H + (ROW_H - DEV_H) / 2
+        return MARGIN + row * self.row_h + (self.row_h - DEV_H) / 2
 
     def pos_to_scene(self, row: int, pos: float) -> QPointF:
         return QPointF(MARGIN + pos * MODULE_WIDTH, self.rail_y(row))
@@ -93,9 +100,9 @@ class LayoutScene(QGraphicsScene):
         """Bod levého horního rohu přístroje → (řada, pozice) nebo None (mimo skříň)."""
         lay = self.sheet.layout
         cy = p.y() + DEV_H / 2
-        if p.x() < MARGIN - MODULE_WIDTH or p.x() > MARGIN + self.enclosure_w or cy < MARGIN or cy > MARGIN + lay.rows * ROW_H:
+        if p.x() < MARGIN - MODULE_WIDTH or p.x() > MARGIN + self.enclosure_w or cy < MARGIN or cy > MARGIN + lay.rows * self.row_h:
             return None
-        row = int((cy - MARGIN) // ROW_H)
+        row = int((cy - MARGIN) // self.row_h)
         pos = round((p.x() - MARGIN) / MODULE_WIDTH / SNAP) * SNAP
         pos = max(0.0, min(pos, lay.modules_per_row - width_modules))
         return (max(0, min(row, lay.rows - 1)), pos)
@@ -125,7 +132,11 @@ class LayoutScene(QGraphicsScene):
         self.items_by_id.clear()
         lay = self.sheet.layout
         c = colors()
-        encl = QGraphicsRectItem(MARGIN - 10, MARGIN - 10, self.enclosure_w + 20, lay.rows * ROW_H + 20)
+        # obrys skříně ve skutečných rozměrech (DIN lišty vycentrované uvnitř)
+        inner_w, inner_h = self.enclosure_w, lay.rows * self.row_h
+        ew, eh = max(lay.width_mm, inner_w + 20), max(lay.height_mm, inner_h + 20)
+        self._encl_rect = QRectF(MARGIN - (ew - inner_w) / 2, MARGIN - (eh - inner_h) / 2, ew, eh)
+        encl = QGraphicsRectItem(self._encl_rect)
         encl.setPen(QPen(c.paper, 0.8))
         encl.setZValue(-2)
         self.addItem(encl)
@@ -157,7 +168,8 @@ class LayoutScene(QGraphicsScene):
             self.items_by_id[e.id] = it
         label = self.addSimpleText("")
         label.setZValue(-1)
-        self.setSceneRect(QRectF(0, 0, ux + 6 * MODULE_WIDTH + MARGIN, max(lay.rows * ROW_H, unplaced_y) + 2 * MARGIN))
+        self.setSceneRect(self._encl_rect.united(QRectF(0, 0, ux + 6 * MODULE_WIDTH + MARGIN,
+                                                         max(lay.rows * self.row_h, unplaced_y) + 2 * MARGIN)).adjusted(-10, -25, 10, 10))
 
     # ---- interakce -----------------------------------------------------------
     def mousePressEvent(self, ev):
@@ -187,20 +199,26 @@ class LayoutScene(QGraphicsScene):
         else:
             self.sync_positions()  # přitáhnout zpět na mřížku
 
+    def mouseDoubleClickEvent(self, ev):
+        if not any(isinstance(it, DeviceItem) for it in self.items(ev.scenePos())):
+            self.enclosure_requested.emit()
+            return
+        super().mouseDoubleClickEvent(ev)
+
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
         c = colors()
+        lay = self.sheet.layout
         painter.fillRect(rect, c.background)
         painter.setPen(QPen(c.ink, 0.2))
-        draw_text(painter, MARGIN, -(MARGIN - 13), f"{self.sheet.name}   skříň: {self.sheet.layout.enclosure or '–'}   "
-                  f"{self.sheet.layout.rows} řady × {self.sheet.layout.modules_per_row} modulů", 3.5, "left")
+        top = self._encl_rect.top() if hasattr(self, "_encl_rect") else MARGIN
+        dims = f"{lay.width_mm:g} × {lay.height_mm:g}" + (f" × {lay.depth_mm:g}" if lay.depth_mm else "") + " mm"
+        used, total = lay.used_modules(self.sheet), lay.total_modules
+        line1 = f"{self.sheet.name}   skříň: {lay.enclosure or '– (dvojklik = nastavení)'}   {dims}   {lay.params.get('ip', '')}"
+        line2 = (f"{lay.rows} řad × {lay.modules_per_row} modulů = {total} M, obsazeno {used:g} M "
+                 f"({(used / total * 100) if total else 0:.0f} %), rezerva {total - used:g} M")
+        draw_text(painter, self._encl_rect.left() if hasattr(self, "_encl_rect") else MARGIN, -(top - 13), line1, 3.5, "left")
+        draw_text(painter, self._encl_rect.left() if hasattr(self, "_encl_rect") else MARGIN, -(top - 7), line2, 2.5, "left")
         draw_text(painter, MARGIN + self.enclosure_w + UNPLACED_X_GAP, -(MARGIN - 6), "Nerozmístěno", 3.0, "left")
-
-    def used_modules(self) -> dict[int, float]:
-        out: dict[int, float] = {}
-        for pl in self.sheet.layout.placements:
-            e = self.sheet.element(pl.element_id)
-            out[pl.row] = out.get(pl.row, 0) + e.modules
-        return out
 
 
 class LayoutView(QGraphicsView):

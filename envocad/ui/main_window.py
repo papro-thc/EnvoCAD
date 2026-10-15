@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction, QKeySequence, QUndoStack
 from PySide6.QtWidgets import (
     QDockWidget,
@@ -56,9 +56,14 @@ class MainWindow(QMainWindow):
         self.resize(1400, 900)
 
     # ---- aktuální záložka ----------------------------------------------------
+    @staticmethod
+    def _unwrap(w):
+        """Záložka rozložení je QSplitter(pohled, panel) – vrátí vlastní pohled."""
+        return getattr(w, "_view", w)
+
     @property
     def view(self):
-        return self.tabs.currentWidget()
+        return self._unwrap(self.tabs.currentWidget())
 
     @property
     def scene(self) -> SchematicScene | None:
@@ -141,7 +146,7 @@ class MainWindow(QMainWindow):
         act(m_sheet, "Otevřít rozvaděč (schéma)", lambda: self._open_selected_switchboard("schematic"))
         act(m_sheet, "Otevřít rozvaděč (rozložení)", lambda: self._open_selected_switchboard("layout"))
         act(m_sheet, "Rozložení aktuálního rozvaděče", self.open_current_layout, "Ctrl+L", True)
-        act(m_sheet, "Nastavení skříně…", self.edit_enclosure)
+        self.act_enclosure = act(m_sheet, "Skříň rozvaděče (rozměry a parametry)…", self.edit_enclosure, "Ctrl+K", True)
         act(m_sheet, "Vložit šablonu rozvaděče…", self.insert_template)
 
         m_out = mb.addMenu("&Výstupy")
@@ -181,7 +186,7 @@ class MainWindow(QMainWindow):
     # ---- listy / záložky -------------------------------------------------------
     def _find_tab(self, sheet: Sheet, kind: str) -> int:
         for i in range(self.tabs.count()):
-            w = self.tabs.widget(i)
+            w = self._unwrap(self.tabs.widget(i))
             if w.scene().sheet is sheet and (kind == "layout") == isinstance(w, LayoutView):
                 return i
         return -1
@@ -194,10 +199,16 @@ class MainWindow(QMainWindow):
             self.tabs.setCurrentIndex(i)
             return
         if kind == "layout":
+            from envocad.ui.dialogs import EnclosurePanel
             scene = LayoutScene(self.project, sheet, self.library, self.undo)
             view = LayoutView(scene)
+            panel = EnclosurePanel(sheet)
+            panel.changed.connect(lambda sc=scene: (sc.rebuild(), self._refresh_tab_titles(), self.undo.resetClean()))
+            scene.layout_changed.connect(panel.refresh)
+            scene.enclosure_requested.connect(lambda p=panel: p.name.setFocus())
             scene.selection_info.connect(lambda it: self.props_panel.show_item(
                 self._element_item_for(sheet, it.element.id) if it else None))
+            view.side_panel = panel
             title = f"{sheet.name} – rozložení"
         else:
             scene = SchematicScene(self.project, sheet, self.library, self.undo)
@@ -209,7 +220,22 @@ class MainWindow(QMainWindow):
             title = sheet.name if not sheet.is_switchboard else f"{sheet.name} – schéma"
         self._scenes.append(scene)  # držet referenci – scéna musí přežít stejně dlouho jako pohled
         view._scene_ref = scene
-        idx = self.tabs.addTab(view, title)
+        widget = view
+        if getattr(view, "side_panel", None) is not None:
+            from PySide6.QtWidgets import QScrollArea, QSplitter
+            widget = QSplitter()
+            widget.addWidget(view)
+            sa = QScrollArea()
+            sa.setWidget(view.side_panel)
+            sa.setWidgetResizable(True)
+            sa.setMinimumWidth(300)
+            widget.addWidget(sa)
+            widget.setStretchFactor(0, 1)
+            widget.setSizes([900, 340])
+            widget.scene = view.scene  # záložka se chová jako pohled
+            widget.zoom_fit = view.zoom_fit
+            widget._view = view
+        idx = self.tabs.addTab(widget, title)
         self.tabs.setCurrentIndex(idx)
         view.zoom_fit()
 
@@ -217,7 +243,7 @@ class MainWindow(QMainWindow):
         i = self._find_tab(sheet, "schematic")
         if i < 0:
             return None
-        return self.tabs.widget(i).scene().element_items.get(eid)
+        return self._unwrap(self.tabs.widget(i)).scene().element_items.get(eid)
 
     def _close_tab(self, index: int) -> None:
         log.info("close_tab %s", index)
@@ -237,7 +263,7 @@ class MainWindow(QMainWindow):
 
     def _refresh_tab_titles(self) -> None:
         for i in range(self.tabs.count()):
-            w = self.tabs.widget(i)
+            w = self._unwrap(self.tabs.widget(i))
             sh = w.scene().sheet
             self.tabs.setTabText(i, f"{sh.name} – rozložení" if isinstance(w, LayoutView)
                                  else (f"{sh.name} – schéma" if sh.is_switchboard else sh.name))
@@ -278,7 +304,6 @@ class MainWindow(QMainWindow):
     # ---- rozvaděče -------------------------------------------------------------
     def open_switchboard_from_block(self, block_id: str, kind: str = "schematic") -> None:
         # signál přichází z obsluhy dvojkliku ve scéně – dialogy a přepínání záložek odložit až po ní
-        from PySide6.QtCore import QTimer
         QTimer.singleShot(0, lambda: self._open_switchboard_now(block_id, kind))
 
     def _open_switchboard_now(self, block_id: str, kind: str) -> None:
@@ -341,33 +366,27 @@ class MainWindow(QMainWindow):
         for kind in ("schematic", "layout"):
             i = self._find_tab(sheet, kind)
             if i >= 0:
-                self.tabs.widget(i).scene().rebuild()
+                self._unwrap(self.tabs.widget(i)).scene().rebuild()
 
     def edit_enclosure(self) -> None:
         sh = self.current_sheet
         if not sh or not sh.is_switchboard:
             QMessageBox.information(self, "Skříň", "Otevřete list rozvaděče.")
             return
-        lay = sh.layout
-        name, ok = QInputDialog.getText(self, "Skříň", "Typ skříně:", text=lay.enclosure)
-        if not ok:
+        from envocad.ui.dialogs import EnclosureDialog
+        dlg = EnclosureDialog(sh, self)
+        if dlg.exec() != EnclosureDialog.Accepted:
             return
-        rows, ok = QInputDialog.getInt(self, "Skříň", "Počet řad DIN lišt:", lay.rows, 1, 12)
-        if not ok:
-            return
-        mods, ok = QInputDialog.getInt(self, "Skříň", "Modulů v řadě:", lay.modules_per_row, 4, 96)
-        if not ok:
-            return
-        lay.enclosure, lay.rows, lay.modules_per_row = name, rows, mods
-        lay.placements = [p for p in lay.placements if p.row < rows]
+        dlg.apply()
         self._rebuild_sheet_views(sh)
+        self._refresh_tab_titles()
         self.undo.resetClean()
 
     def set_dark(self, dark: bool) -> None:
         log.info("set_dark %s", dark)
         theme.apply(dark)
         for i in range(self.tabs.count()):
-            sc = self.tabs.widget(i).scene()
+            sc = self._unwrap(self.tabs.widget(i)).scene()
             sc.retheme() if isinstance(sc, SchematicScene) else sc.rebuild()
 
     def _selected_item(self):

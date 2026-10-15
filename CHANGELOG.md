@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 – 2026-10-15
+- Panel skříně přímo v záložce rozložení: označení, řady, moduly, rozměry (š/v/h), rozteč řad, IP/IK, montáž, materiál, dveře, Un/In/Icw, síť, rezerva, teplota okolí, RDF. Změny se projeví hned; dvojklik do prázdné plochy skočí do panelu; `Ctrl+K` otevře totéž jako dialog.
+- Rozložení kreslí skříň ve skutečných rozměrech a ukazuje obsazenost/rezervu modulů.
+- Odhad oteplení dle IEC 60890 (ČSN EN 61439-1 čl. 10.10.4.3): ΣPv přístrojů (atribut `p_loss_w`, jinak odhad z In a pólů) × RDF², chladicí plocha Ae podle montáže, Δt střed/horní část, hodnocení. Orientační – viz `envocad/model/thermal.py`.
+- Protokol kusového ověření přebírá parametry skříně.
+
 ## 0.2.4 – 2026-10-15
 - Oprava pádu (access violation): panel Vlastnosti mazal editační pole uvnitř jeho vlastního signálu `editingFinished` (při ztrátě fokusu – klik jinam, přepnutí záložky). Mazání i zápis do modelu jsou odložené.
 - Popisky vodičů ve stylu EPLAN: vodorovný úsek → nad čarou, svislý → vodorovně vedle čáry se šikmou značkou. Stejně v DXF.

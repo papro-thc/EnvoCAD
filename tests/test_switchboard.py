@@ -72,3 +72,43 @@ def test_layout_roundtrip_and_migration(tmp_path):
     f1.write_text(json.dumps(old), encoding="utf-8")
     o = Project.load(f1)
     assert o.sheets[0].kind == "schematic" and o.to_dict()["format_version"] == FORMAT_VERSION
+
+
+def test_layout_params(tmp_path):
+    from envocad.model.project import Layout
+    lay = Layout(rows=3, modules_per_row=24, params={"width_mm": "600", "height_mm": "1000", "depth_mm": "250,5", "row_pitch_mm": ""})
+    assert (lay.width_mm, lay.height_mm, lay.depth_mm) == (600, 1000, 250.5)
+    assert lay.row_pitch_mm == (1000 - 50) / 3 and lay.total_modules == 72
+    s = Sheet(kind="switchboard")
+    s.layout = lay
+    e = Element("fve.breaker_mcb", attrs={"ref": "F1", "modules": "3"})
+    s.elements.append(e)
+    lay.set_placement(e.id, 0, 0)
+    assert lay.used_modules(s) == 3
+    d = Layout.from_dict(lay.to_dict())
+    assert d.params["depth_mm"] == "250,5" and d.placements[0].element_id == e.id
+    empty = Layout()
+    assert empty.width_mm == 24 * 17.5 + 50 and empty.row_pitch_mm >= 100
+
+
+def test_thermal(tmp_path):
+    from envocad.library.templates import apply_template
+    from envocad.model.thermal import cooling_area, device_power_loss, temperature_rise
+    p = Project()
+    s = Sheet(kind="switchboard")
+    p.sheets.append(s)
+    apply_template(p, s, "ac_fve", {"n_out": "6", "i_out": "32", "i_main": "100"})
+    f = next(e for e in s.elements if e.symbol_id == "fve.breaker_mcb")
+    assert device_power_loss(f, rdf=1.0) == round(0.09 * 32 * 3, 2)
+    f.attrs["p_loss_w"] = "9"
+    assert device_power_loss(f, rdf=0.5) == 2.25
+    a_wall = cooling_area(600, 1000, 250, "nástěnná")
+    a_free = cooling_area(600, 1000, 250, "volně stojící")
+    assert 0 < a_wall < a_free
+    s.layout.params = {"width_mm": "550", "height_mm": "800", "depth_mm": "160", "mounting": "nástěnná", "material": "plast"}
+    r = temperature_rise(s)
+    assert r.p_total_w > r.p_devices_w > 0 and r.dt_top_k > r.dt_mid_k > 0 and r.verdict()
+    big = Sheet(kind="switchboard")
+    big.layout.params = {"width_mm": "1200", "height_mm": "2000", "depth_mm": "400"}
+    big.elements = list(s.elements)
+    assert temperature_rise(big).dt_top_k < r.dt_top_k  # větší skříň → menší oteplení

@@ -25,7 +25,9 @@
 - [x] Pohled rozložení: DIN lišty, moduly, přetahování
 - [x] Výkazy xlsx (přístroje, BOM, kabely, svorkovnice, štítky), protokol kusového ověření docx
 - [ ] Šablona ENVO pro protokol (loga, hlavička) – doplnit po dodání .docx
-- [ ] Rozměry přístrojů z artiklu (ne ručně v atributu `modules`)
+- [x] Parametry skříně v panelu rozložení, odhad oteplení (IEC 60890)
+- [ ] Rozměry a ztrátové výkony přístrojů z artiklu (ne ručně v atributech `modules`, `p_loss_w`)
+- [ ] Oteplení: přesné tabulky IEC 60890 (k, c, d) místo aproximace; ventilace
 
 ## v0.3 – Vícepól
 - [ ] Vícepólový pohled nad stejným listem (přepínání JPS ↔ vícepól), přiřazení svorek per žíla (`Wire.terminals`)

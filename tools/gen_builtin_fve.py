@@ -45,6 +45,7 @@ TYPE = attr("type", "Typ", "", True)
 MFR = attr("manufacturer", "Výrobce")
 POLES = attr("poles", "Póly", "3")
 MOD = attr("modules", "Šířka [moduly]", "3")
+PLOSS = attr("p_loss_w", "Ztrátový výkon při In [W]")
 
 SYMBOLS = [
     {
@@ -79,7 +80,7 @@ SYMBOLS = [
         "primitives": [R(-5, -2.5, 10, 5), L(-7.5, 0, 7.5, 0)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "gPV"),
-                       attr("poles", "Póly", "1"), attr("modules", "Šířka [moduly]", "1")],
+                       attr("poles", "Póly", "1"), attr("modules", "Šířka [moduly]", "1"), PLOSS],
         "label_pos": {"x": -5, "y": 4},
     },
     {
@@ -130,7 +131,7 @@ SYMBOLS = [
                        L(-3.5, -1, -1.5, 1), L(-3.5, 1, -1.5, -1)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "B"),
-                       POLES, MOD, attr("icu", "Icu [kA]", "6")],
+                       POLES, MOD, attr("icu", "Icu [kA]", "6"), PLOSS],
         "label_pos": {"x": -5, "y": -6},
     },
     {
@@ -140,7 +141,7 @@ SYMBOLS = [
                        L(-3.5, -1, -1.5, 1), L(-3.5, 1, -1.5, -1), R(-5, -3.5, 10, 7)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("ir", "Ir [A]"), POLES,
-                       attr("modules", "Šířka [moduly]", "6"), attr("icu", "Icu [kA]")],
+                       attr("modules", "Šířka [moduly]", "6"), attr("icu", "Icu [kA]"), PLOSS],
         "label_pos": {"x": -5, "y": -7},
     },
     {
@@ -148,7 +149,7 @@ SYMBOLS = [
         "description": "Odpínač AC (hlavní vypínač, odpínač FVE)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0), L(2.5, -1.5, 2.5, 1.5)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
-        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS],
         "label_pos": {"x": -5, "y": -6},
     },
     {
@@ -156,7 +157,7 @@ SYMBOLS = [
         "description": "Stykač (např. pro odpojení FVE od DS – NS)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0), A(3.5, 0, 1, 90, 270)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
-        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS],
         "label_pos": {"x": -5, "y": -6},
     },
     {
@@ -223,7 +224,7 @@ SYMBOLS = [
                        {"type": "polyline", "points": [[-1, -2], [1, -2], [0, -4.5]], "closed": True}],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("idn", "IΔn [mA]", "30", True),
-                       attr("rcd_type", "Typ", "A"), attr("poles", "Póly", "4"), attr("modules", "Šířka [moduly]", "4")],
+                       attr("rcd_type", "Typ", "A"), attr("poles", "Póly", "4"), attr("modules", "Šířka [moduly]", "4"), PLOSS],
         "label_pos": {"x": -5, "y": -7},
     },
     {
@@ -233,7 +234,7 @@ SYMBOLS = [
                        {"type": "polyline", "points": [[0, -2], [2, -2], [1, -4.5]], "closed": True}],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "B"),
-                       attr("idn", "IΔn [mA]", "30", True), attr("poles", "Póly", "2"), attr("modules", "Šířka [moduly]", "2")],
+                       attr("idn", "IΔn [mA]", "30", True), attr("poles", "Póly", "2"), attr("modules", "Šířka [moduly]", "2"), PLOSS],
         "label_pos": {"x": -5, "y": -7},
     },
     {
@@ -242,7 +243,7 @@ SYMBOLS = [
         "primitives": [L(-7.5, 0, -2.5, 0), L(-2.5, 0, 2, 4), L(2.5, 0, 7.5, 0), L(2.5, -1.5, 2.5, 1.5),
                        C(-2.5, 0, 0.8), T(0, 6, "HV", 2)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
-        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS],
         "label_pos": {"x": -5, "y": -6},
     },
     {

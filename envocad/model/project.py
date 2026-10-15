@@ -137,6 +137,33 @@ class Layout:
     modules_per_row: int = 24
     enclosure: str = ""  # typ skříně (artikl / popis)
     placements: list[Placement] = field(default_factory=list)
+    # parametry skříně (volné textové/číselné hodnoty – klíče viz ENCLOSURE_PARAMS)
+    params: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def width_mm(self) -> float:
+        return _num(self.params.get("width_mm")) or self.modules_per_row * MODULE_WIDTH + 2 * 25
+
+    @property
+    def height_mm(self) -> float:
+        return _num(self.params.get("height_mm")) or self.rows * 150 + 2 * 25
+
+    @property
+    def depth_mm(self) -> float:
+        return _num(self.params.get("depth_mm"))
+
+    @property
+    def row_pitch_mm(self) -> float:
+        """Rozteč řad DIN lišt (mm) – zadaná, nebo odvozená z výšky skříně."""
+        return _num(self.params.get("row_pitch_mm")) or max(100.0, (self.height_mm - 50) / max(self.rows, 1))
+
+    @property
+    def total_modules(self) -> int:
+        return self.rows * self.modules_per_row
+
+    def used_modules(self, sheet: Sheet) -> float:
+        return sum(sheet.element(pl.element_id).modules for pl in self.placements
+                   if any(e.id == pl.element_id for e in sheet.elements))
 
     def placement(self, eid: str) -> Placement | None:
         return next((p for p in self.placements if p.element_id == eid), None)
@@ -148,14 +175,46 @@ class Layout:
 
     def to_dict(self) -> dict:
         return {"rows": self.rows, "modules_per_row": self.modules_per_row, "enclosure": self.enclosure,
-                "placements": [p.to_dict() for p in self.placements]}
+                "params": self.params, "placements": [p.to_dict() for p in self.placements]}
 
     @classmethod
     def from_dict(cls, d: dict | None) -> Layout:
         d = d or {}
         return cls(rows=int(d.get("rows", 3)), modules_per_row=int(d.get("modules_per_row", 24)),
-                   enclosure=d.get("enclosure", ""),
+                   enclosure=d.get("enclosure", ""), params=dict(d.get("params", {})),
                    placements=[Placement(**p) for p in d.get("placements", [])])
+
+
+def _num(v) -> float:
+    try:
+        return float(str(v).replace(",", ".")) if v not in (None, "") else 0.0
+    except ValueError:
+        return 0.0
+
+
+# Parametry skříně pro dialog a protokol: (klíč, popisek, výchozí)
+ENCLOSURE_PARAMS = [
+    ("manufacturer", "Výrobce", ""),
+    ("type", "Typ / objednací číslo", ""),
+    ("width_mm", "Šířka [mm]", ""),
+    ("height_mm", "Výška [mm]", ""),
+    ("depth_mm", "Hloubka [mm]", ""),
+    ("row_pitch_mm", "Rozteč řad [mm]", "150"),
+    ("ip", "Krytí IP", "IP 40"),
+    ("ik", "Odolnost IK", ""),
+    ("mounting", "Montáž", "nástěnná"),
+    ("material", "Materiál", "plast"),
+    ("door", "Dveře", "plné"),
+    ("un", "Jmenovité napětí Un", "3×400/230 V, 50 Hz"),
+    ("in_", "Jmenovitý proud In [A]", ""),
+    ("icw", "Zkrat. odolnost [kA]", ""),
+    ("network", "Síť / uzemnění", "TN-S"),
+    ("reserve_pct", "Požadovaná rezerva [%]", "20"),
+    ("t_ambient", "Teplota okolí [°C]", "35"),
+    ("rdf", "RDF (Ib/In)", "0,8"),
+    ("note", "Poznámka", ""),
+]
+
 
 
 @dataclass
