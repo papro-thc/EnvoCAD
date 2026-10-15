@@ -1,0 +1,76 @@
+{
+  "id": "fve.grid",
+  "name": "Distribuční síť",
+  "category": "FVE/Síť",
+  "iec_ref": "",
+  "description": "Přípojka k distribuční soustavě",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": 0,
+      "x2": -2.5,
+      "y2": 0
+    },
+    {
+      "type": "circle",
+      "cx": 2.5,
+      "cy": 0,
+      "r": 5
+    },
+    {
+      "type": "line",
+      "x1": -1,
+      "y1": 3.5,
+      "x2": 6,
+      "y2": -3.5
+    },
+    {
+      "type": "line",
+      "x1": -1,
+      "y1": -3.5,
+      "x2": 6,
+      "y2": 3.5
+    },
+    {
+      "type": "text",
+      "x": 2.5,
+      "y": 7,
+      "text": "DS",
+      "height": 2.5,
+      "align": "center"
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -7.5,
+      "y": 0,
+      "dir": "W"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "voltage",
+      "label": "Napětí",
+      "default": "3×400 V, 50 Hz",
+      "show": true
+    },
+    {
+      "key": "dso",
+      "label": "Provozovatel DS",
+      "default": "",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": -5,
+    "y": -8
+  }
+}

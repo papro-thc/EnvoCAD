@@ -1,0 +1,79 @@
+{
+  "id": "fve.transformer",
+  "name": "Transformátor",
+  "category": "Obecné/Síť",
+  "iec_ref": "T",
+  "description": "Transformátor VN/NN",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -10,
+      "y1": 0,
+      "x2": -7.5,
+      "y2": 0
+    },
+    {
+      "type": "circle",
+      "cx": -2.5,
+      "cy": 0,
+      "r": 5
+    },
+    {
+      "type": "circle",
+      "cx": 2.5,
+      "cy": 0,
+      "r": 5
+    },
+    {
+      "type": "line",
+      "x1": 7.5,
+      "y1": 0,
+      "x2": 10,
+      "y2": 0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -10,
+      "y": 0,
+      "dir": "W"
+    },
+    {
+      "name": "2",
+      "x": 10,
+      "y": 0,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "sn",
+      "label": "Sn [kVA]",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "ratio",
+      "label": "Převod",
+      "default": "",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": -7.5,
+    "y": 6.5
+  }
+}

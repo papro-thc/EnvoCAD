@@ -1,0 +1,96 @@
+"""Smoke test GUI – běží s QT_QPA_PLATFORM=offscreen."""
+import os
+
+import pytest
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+from PySide6.QtCore import QPointF, Qt
+from PySide6.QtWidgets import QApplication
+
+from envocad.library.store import LibraryStore
+from envocad.model.project import Element, Project, Wire, WireEnd
+from envocad.ui.canvas import Mode
+from envocad.ui.main_window import MainWindow
+
+
+@pytest.fixture(scope="module")
+def app():
+    return QApplication.instance() or QApplication([])
+
+
+def _project():
+    p = Project(name="Smoke")
+    s = p.sheets[0]
+    g = Element("fve.pv_string", 30, 150, attrs={"ref": "G1", "p_string": "20 kWp"})
+    q = Element("fve.dc_disconnect", 70, 152.5, attrs={"ref": "Q1"})
+    t = Element("fve.inverter", 120, 150, attrs={"ref": "T1", "p_ac": "50 kW"})
+    f = Element("fve.breaker_mcb", 170, 150, attrs={"ref": "F1", "in_": "80 A"})
+    n = Element("fve.grid", 220, 150, attrs={"ref": ""})
+    s.elements += [g, q, t, f, n]
+    s.wires += [
+        Wire(WireEnd(g.id, "DC+"), WireEnd(q.id, "1"), attrs={"ref": "W1"}),
+        Wire(WireEnd(q.id, "2"), WireEnd(t.id, "DC+")),
+        Wire(WireEnd(t.id, "AC"), WireEnd(f.id, "1"), attrs={"ref": "W2"}),
+        Wire(WireEnd(f.id, "2"), WireEnd(n.id, "1")),
+    ]
+    return p
+
+
+def test_window_and_commands(app, tmp_path):
+    lib = LibraryStore(tmp_path / "lib.db")
+    win = MainWindow(library=lib, project=_project())
+    win.show()
+    app.processEvents()
+    sc = win.scene
+    assert len(sc.element_items) == 5 and len(sc.wire_items) == 4
+
+    # vložení symbolu přes režim PLACE
+    sc.start_place("fve.meter")
+    assert sc.mode == Mode.PLACE
+    from PySide6.QtGui import QMouseEvent
+    from PySide6.QtWidgets import QGraphicsSceneMouseEvent
+    ev = QGraphicsSceneMouseEvent(QGraphicsSceneMouseEvent.GraphicsSceneMousePress)
+    ev.setScenePos(QPointF(200, -100))
+    ev.setButton(Qt.LeftButton)
+    sc.mousePressEvent(ev)
+    assert len(sc.sheet.elements) == 6
+    new = sc.sheet.elements[-1]
+    assert new.ref == "P1" and (new.x, new.y) == (200, 100)
+    sc.set_mode(Mode.SELECT)
+
+    # rotace + undo
+    sc.element_items[new.id].setSelected(True)
+    sc.rotate_selected()
+    assert new.rotation == 90
+    win.undo.undo()
+    assert new.rotation == 0
+    win.undo.undo()  # vrátí vložení
+    assert len(sc.sheet.elements) == 5
+    win.undo.redo()
+    assert len(sc.sheet.elements) == 6
+
+    # změna atributu přes panel
+    sc.set_attr(new.id, False, "type", "DTS 353")
+    assert sc.sheet.element(new.id).attrs["type"] == "DTS 353"
+
+    # smazání včetně vodičů
+    sc.clearSelection()
+    t = next(e for e in sc.sheet.elements if e.ref == "T1")
+    sc.element_items[t.id].setSelected(True)
+    sc.delete_selected()
+    assert len(sc.sheet.wires) == 2 and len(sc.wire_items) == 2
+    win.undo.undo()
+    assert len(sc.sheet.wires) == 4 and len(sc.wire_items) == 4
+
+    # export PDF
+    from envocad.export.pdf_export import export_scene_pdf
+    out = tmp_path / "s.pdf"
+    export_scene_pdf(sc, out)
+    assert out.stat().st_size > 1000 and out.read_bytes()[:4] == b"%PDF"
+
+    # uložení
+    win.project.path = tmp_path / "s.ecp"
+    assert win.save_project()
+    assert {e.ref for e in Project.load(tmp_path / "s.ecp").sheets[0].elements} >= {"P1", "T1", "G1"}
+    del QMouseEvent

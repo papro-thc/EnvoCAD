@@ -1,0 +1,76 @@
+{
+  "id": "fve.contactor",
+  "name": "Stykač",
+  "category": "Obecné/Spínání",
+  "iec_ref": "K",
+  "description": "Stykač (např. pro odpojení FVE od DS – NS)",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": 0,
+      "x2": -2.5,
+      "y2": 0
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 0,
+      "x2": 2,
+      "y2": 4
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 0,
+      "x2": 7.5,
+      "y2": 0
+    },
+    {
+      "type": "arc",
+      "cx": 3.5,
+      "cy": 0,
+      "r": 1,
+      "start": 90,
+      "end": 270
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -7.5,
+      "y": 0,
+      "dir": "W"
+    },
+    {
+      "name": "2",
+      "x": 7.5,
+      "y": 0,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "in_",
+      "label": "In [A]",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -5,
+    "y": -6
+  }
+}

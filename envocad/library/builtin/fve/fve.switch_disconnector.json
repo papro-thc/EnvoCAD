@@ -1,0 +1,81 @@
+{
+  "id": "fve.switch_disconnector",
+  "name": "Odpínač",
+  "category": "Obecné/Spínání",
+  "iec_ref": "Q",
+  "description": "Odpínač AC (hlavní vypínač, odpínač FVE)",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": 0,
+      "x2": -2.5,
+      "y2": 0
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 0,
+      "x2": 2,
+      "y2": 4
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 0,
+      "x2": 7.5,
+      "y2": 0
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": -1.5,
+      "x2": 2.5,
+      "y2": 1.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -7.5,
+      "y": 0,
+      "dir": "W"
+    },
+    {
+      "name": "2",
+      "x": 7.5,
+      "y": 0,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "in_",
+      "label": "In [A]",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "poles",
+      "label": "Póly",
+      "default": "3",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": -5,
+    "y": -6
+  }
+}

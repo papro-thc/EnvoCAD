@@ -1,0 +1,57 @@
+{
+  "id": "fve.earth",
+  "name": "Uzemnění",
+  "category": "Obecné/Propojení",
+  "iec_ref": "",
+  "description": "Zemnicí svorka / PE",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": 5,
+      "x2": 0,
+      "y2": 0
+    },
+    {
+      "type": "line",
+      "x1": -4,
+      "y1": 0,
+      "x2": 4,
+      "y2": 0
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -1.5,
+      "x2": 2.5,
+      "y2": -1.5
+    },
+    {
+      "type": "line",
+      "x1": -1,
+      "y1": -3,
+      "x2": 1,
+      "y2": -3
+    }
+  ],
+  "ports": [
+    {
+      "name": "PE",
+      "x": 0,
+      "y": 5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": 5,
+    "y": 0
+  }
+}

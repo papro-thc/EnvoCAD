@@ -1,0 +1,57 @@
+{
+  "id": "fve.load",
+  "name": "Spotřeba objektu",
+  "category": "FVE/Síť",
+  "iec_ref": "",
+  "description": "Stávající rozvod / spotřeba objektu",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": 0,
+      "x2": -5,
+      "y2": 0
+    },
+    {
+      "type": "rect",
+      "x": -5,
+      "y": -5,
+      "w": 15,
+      "h": 10
+    },
+    {
+      "type": "text",
+      "x": 2.5,
+      "y": -1,
+      "text": "Spotřeba",
+      "height": 2,
+      "align": "center"
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -7.5,
+      "y": 0,
+      "dir": "W"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "desc",
+      "label": "Popis",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -5,
+    "y": 6.5
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "id": "fve.meter",
+  "name": "Elektroměr",
+  "category": "Obecné/Měření",
+  "iec_ref": "P",
+  "description": "Elektroměr (fakturační / podružný)",
+  "primitives": [
+    {
+      "type": "circle",
+      "cx": 0,
+      "cy": 0,
+      "r": 5
+    },
+    {
+      "type": "text",
+      "x": 0,
+      "y": -1,
+      "text": "kWh",
+      "height": 2,
+      "align": "center"
+    },
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": 0,
+      "x2": -5,
+      "y2": 0
+    },
+    {
+      "type": "line",
+      "x1": 5,
+      "y1": 0,
+      "x2": 7.5,
+      "y2": 0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -7.5,
+      "y": 0,
+      "dir": "W"
+    },
+    {
+      "name": "2",
+      "x": 7.5,
+      "y": 0,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "kind",
+      "label": "Druh",
+      "default": "fakturační",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": -5,
+    "y": 6.5
+  }
+}

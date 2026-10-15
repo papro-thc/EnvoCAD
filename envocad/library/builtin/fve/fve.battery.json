@@ -1,0 +1,104 @@
+{
+  "id": "fve.battery",
+  "name": "Bateriové úložiště",
+  "category": "FVE/Zdroje",
+  "iec_ref": "G",
+  "description": "Akumulátor / BESS",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": 7.5,
+      "x2": 0,
+      "y2": 5
+    },
+    {
+      "type": "line",
+      "x1": -5,
+      "y1": 5,
+      "x2": 5,
+      "y2": 5
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": 3,
+      "x2": 2.5,
+      "y2": 3
+    },
+    {
+      "type": "line",
+      "x1": -5,
+      "y1": 1,
+      "x2": 5,
+      "y2": 1
+    },
+    {
+      "type": "line",
+      "x1": -2.5,
+      "y1": -1,
+      "x2": 2.5,
+      "y2": -1
+    },
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": -1,
+      "x2": 0,
+      "y2": -2.5
+    },
+    {
+      "type": "rect",
+      "x": -7.5,
+      "y": -7.5,
+      "w": 15,
+      "h": 17.5
+    },
+    {
+      "type": "text",
+      "x": 0,
+      "y": -6,
+      "text": "BESS",
+      "height": 2,
+      "align": "center"
+    }
+  ],
+  "ports": [
+    {
+      "name": "DC",
+      "x": 0,
+      "y": 10,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "e_kwh",
+      "label": "Kapacita [kWh]",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "p_kw",
+      "label": "Výkon [kW]",
+      "default": "",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": 9,
+    "y": 2
+  }
+}

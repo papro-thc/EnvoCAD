@@ -1,0 +1,136 @@
+{
+  "format": "envocad-project",
+  "format_version": 1,
+  "name": "Ukázka FVE 50 kW",
+  "meta": {
+    "investor": "ENVO s.r.o.",
+    "author": "Patrik"
+  },
+  "sheets": [
+    {
+      "id": "5931d86e3673",
+      "name": "Jednopólové schéma",
+      "paper": "A3",
+      "width": 420.0,
+      "height": 297.0,
+      "elements": [
+        {
+          "id": "1481d1bd62ec",
+          "symbol_id": "fve.pv_string",
+          "x": 30,
+          "y": 150,
+          "rotation": 0,
+          "attrs": {
+            "ref": "G1",
+            "p_string": "20 kWp"
+          },
+          "component_id": null
+        },
+        {
+          "id": "797220fc8a01",
+          "symbol_id": "fve.dc_disconnect",
+          "x": 70,
+          "y": 152.5,
+          "rotation": 0,
+          "attrs": {
+            "ref": "Q1"
+          },
+          "component_id": null
+        },
+        {
+          "id": "a858fa1a041a",
+          "symbol_id": "fve.inverter",
+          "x": 120,
+          "y": 150,
+          "rotation": 0,
+          "attrs": {
+            "ref": "T1",
+            "p_ac": "50 kW"
+          },
+          "component_id": null
+        },
+        {
+          "id": "465fa4cef6d1",
+          "symbol_id": "fve.breaker_mcb",
+          "x": 170,
+          "y": 150,
+          "rotation": 0,
+          "attrs": {
+            "ref": "F1",
+            "in_": "80 A"
+          },
+          "component_id": null
+        },
+        {
+          "id": "ee68ab078546",
+          "symbol_id": "fve.grid",
+          "x": 220,
+          "y": 150,
+          "rotation": 0,
+          "attrs": {
+            "ref": ""
+          },
+          "component_id": null
+        }
+      ],
+      "wires": [
+        {
+          "id": "a6c544346d36",
+          "a": {
+            "element_id": "1481d1bd62ec",
+            "port": "DC+"
+          },
+          "b": {
+            "element_id": "797220fc8a01",
+            "port": "1"
+          },
+          "points": [],
+          "attrs": {
+            "ref": "W1"
+          }
+        },
+        {
+          "id": "c77430c6d753",
+          "a": {
+            "element_id": "797220fc8a01",
+            "port": "2"
+          },
+          "b": {
+            "element_id": "a858fa1a041a",
+            "port": "DC+"
+          },
+          "points": [],
+          "attrs": {}
+        },
+        {
+          "id": "b3aed958129f",
+          "a": {
+            "element_id": "a858fa1a041a",
+            "port": "AC"
+          },
+          "b": {
+            "element_id": "465fa4cef6d1",
+            "port": "1"
+          },
+          "points": [],
+          "attrs": {
+            "ref": "W2"
+          }
+        },
+        {
+          "id": "a653878d8292",
+          "a": {
+            "element_id": "465fa4cef6d1",
+            "port": "2"
+          },
+          "b": {
+            "element_id": "ee68ab078546",
+            "port": "1"
+          },
+          "points": [],
+          "attrs": {}
+        }
+      ]
+    }
+  ]
+}

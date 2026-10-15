@@ -1,0 +1,173 @@
+"""QGraphicsItem obaly nad modelem (Element, Wire). Nemění model samy – to dělají příkazy v commands.py."""
+from __future__ import annotations
+
+from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
+from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QStyleOptionGraphicsItem, QWidget
+
+from envocad.model.project import Element, Wire
+from envocad.model.symbol import GRID, Symbol, rotate_dir
+from envocad.ui.render import LINE_WIDTH, draw_text, paint_symbol, sp, symbol_path
+
+PORT_R = 0.8
+COLOR_SEL = QColor(0, 120, 215)
+COLOR_PORT = QColor(200, 0, 0)
+COLOR_WIRE = QColor(0, 0, 0)
+
+DIR_VEC = {"N": (0, 1), "E": (1, 0), "S": (0, -1), "W": (-1, 0)}
+
+
+def snap(v: float) -> float:
+    return round(v / GRID) * GRID
+
+
+class ElementItem(QGraphicsItem):
+    Type = QGraphicsItem.UserType + 1
+
+    def __init__(self, element: Element, symbol: Symbol):
+        super().__init__()
+        self.element = element
+        self.symbol = symbol
+        self._path = symbol_path(symbol)
+        self.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsMovable
+                      | QGraphicsItem.ItemSendsGeometryChanges)
+        self.setAcceptHoverEvents(True)
+        self.setZValue(10)
+        self.sync_from_model()
+
+    def type(self) -> int:
+        return self.Type
+
+    # ---- model ↔ item ----------------------------------------------------
+    def sync_from_model(self) -> None:
+        self.setPos(sp(self.element.x, self.element.y))
+        self.setRotation(-self.element.rotation)  # Qt otáčí po směru hod. ručiček
+        self.prepareGeometryChange()
+        self.update()
+
+    def itemChange(self, change, value):
+        if change == QGraphicsItem.ItemPositionChange and self.scene():
+            return QPointF(snap(value.x()), snap(value.y()))
+        if change == QGraphicsItem.ItemPositionHasChanged and self.scene():
+            self.scene().element_moved(self)
+        return super().itemChange(change, value)
+
+    # ---- geometrie --------------------------------------------------------
+    def boundingRect(self) -> QRectF:
+        x0, y0, x1, y1 = self.symbol.bounds()
+        r = QRectF(x0, -y1, x1 - x0, y1 - y0).adjusted(-3, -8, 20, 3)
+        return r
+
+    def shape(self) -> QPainterPath:
+        x0, y0, x1, y1 = self.symbol.bounds()
+        p = QPainterPath()
+        p.addRect(QRectF(x0, -y1, x1 - x0, y1 - y0).adjusted(-1, -1, 1, 1))
+        return p
+
+    def port_scene_pos(self, name: str) -> QPointF:
+        p = self.symbol.port(name)
+        return self.mapToScene(sp(p.x, p.y))
+
+    def port_dir(self, name: str) -> str:
+        return rotate_dir(self.symbol.port(name).dir, self.element.rotation)
+
+    def port_at(self, scene_pos: QPointF, tol: float = 2.0) -> str | None:
+        for p in self.symbol.ports:
+            if (self.port_scene_pos(p.name) - scene_pos).manhattanLength() <= tol:
+                return p.name
+        return None
+
+    # ---- kreslení ---------------------------------------------------------
+    def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: QWidget | None = None) -> None:
+        painter.setRenderHint(QPainter.Antialiasing)
+        color = COLOR_SEL if self.isSelected() else QColor(0, 0, 0)
+        paint_symbol(painter, self.symbol, QPen(color, LINE_WIDTH, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        # porty
+        painter.setPen(QPen(COLOR_PORT, 0.2))
+        painter.setBrush(Qt.NoBrush)
+        for p in self.symbol.ports:
+            painter.drawEllipse(sp(p.x, p.y), PORT_R, PORT_R)
+        # popisky – vždy vodorovně, proto se při otočení kompenzuje rotace
+        painter.save()
+        lx, ly = self.symbol.label_pos
+        painter.translate(sp(lx, ly))
+        painter.rotate(self.element.rotation)
+        painter.setPen(QPen(color, 0.2))
+        line = 0.0
+        if self.element.ref:
+            draw_text(painter, 0, line, self.element.ref, 2.5, "left")
+            line -= 3.5
+        for a in self.symbol.attributes:
+            if a.show and a.key != "ref" and self.element.attrs.get(a.key):
+                draw_text(painter, 0, line, self.element.attrs[a.key], 2.0, "left")
+                line -= 3.0
+        painter.restore()
+
+
+class WireItem(QGraphicsPathItem):
+    Type = QGraphicsItem.UserType + 2
+
+    def __init__(self, wire: Wire):
+        super().__init__()
+        self.wire = wire
+        self.setFlags(QGraphicsItem.ItemIsSelectable)
+        self.setZValue(5)
+        self.setPen(QPen(COLOR_WIRE, LINE_WIDTH * 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+
+    def type(self) -> int:
+        return self.Type
+
+    def shape(self) -> QPainterPath:
+        from PySide6.QtGui import QPainterPathStroker
+        s = QPainterPathStroker()
+        s.setWidth(2.5)
+        return s.createStroke(self.path())
+
+    def update_route(self, a: ElementItem, b: ElementItem) -> None:
+        pa, pb = a.port_scene_pos(self.wire.a.port), b.port_scene_pos(self.wire.b.port)
+        da, db = a.port_dir(self.wire.a.port), b.port_dir(self.wire.b.port)
+        self.setPath(route(pa, da, pb, db, [sp(x, y) for x, y in self.wire.points]))
+
+    def paint(self, painter, option, widget=None):
+        pen = QPen(self.pen())
+        if self.isSelected():
+            pen.setColor(COLOR_SEL)
+        painter.setPen(pen)
+        painter.setBrush(Qt.NoBrush)
+        painter.drawPath(self.path())
+        ref = self.wire.attrs.get("ref")
+        if ref:
+            c = self.path().pointAtPercent(0.5)
+            painter.setPen(QPen(pen.color(), 0.2))
+            draw_text(painter, c.x(), -c.y() + 1.5, ref, 2.0, "center")
+
+
+def route(pa: QPointF, da: str, pb: QPointF, db: str, mid: list[QPointF]) -> QPainterPath:
+    """Ortogonální trasa port→port. S ručními body (mid) jde přes ně, jinak jednoduché L/Z vedení."""
+    stub = GRID
+    va, vb = DIR_VEC[da], DIR_VEC[db]
+    sa = QPointF(pa.x() + va[0] * stub, pa.y() - va[1] * stub)
+    sb = QPointF(pb.x() + vb[0] * stub, pb.y() - vb[1] * stub)
+    path = QPainterPath(pa)
+    path.lineTo(sa)
+    if mid:
+        for m in mid:
+            path.lineTo(m)
+    else:
+        horizontal_first = da in ("E", "W")
+        if horizontal_first and db in ("E", "W") and abs(sa.y() - sb.y()) > 1e-6:
+            # Z-trasa: lom uprostřed
+            mx = snap((sa.x() + sb.x()) / 2)
+            path.lineTo(QPointF(mx, sa.y()))
+            path.lineTo(QPointF(mx, sb.y()))
+        elif not horizontal_first and db in ("N", "S") and abs(sa.x() - sb.x()) > 1e-6:
+            my = snap((sa.y() + sb.y()) / 2)
+            path.lineTo(QPointF(sa.x(), my))
+            path.lineTo(QPointF(sb.x(), my))
+        elif horizontal_first:
+            path.lineTo(QPointF(sb.x(), sa.y()))
+        else:
+            path.lineTo(QPointF(sa.x(), sb.y()))
+    path.lineTo(sb)
+    path.lineTo(pb)
+    return path
