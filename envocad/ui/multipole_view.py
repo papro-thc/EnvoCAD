@@ -86,6 +86,12 @@ class PoleItem(QGraphicsItem):
             painter.restore()
         if not self.first:
             return
+        if self.element.symbol_id in ("sb.feed_in", "sb.feed_out"):
+            # přívod/vývod: jen označení svorkovnice vlevo u svorek; kabel je ve štítku (CableTagItem)
+            painter.setPen(QPen(color, 0.2))
+            cy = -2.5 if self.element.symbol_id == "sb.feed_in" else 2.5
+            draw_text(painter, -2.5, cy - 0.8, self.element.ref, 2.5, "right")
+            return
         lines = [(self.element.ref, 2.5)] if self.element.ref else []
         skip = {"ref", "terminal"} if mp.is_terminal_block(self.element) else {"ref"}  # čísla svorek jsou u pólů
         lines += [(a.display(self.element.attrs[a.key]), 2.0) for a in self.symbol.attributes
@@ -248,6 +254,72 @@ class BusItem(QGraphicsItem):
             draw_text(painter, self.x1, top + 4.5, self.element.attrs.get("desc", ""), 2.0, "right")
 
 
+class CableTagItem(QGraphicsItem):
+    """Štítek kabelu na hraně rozvaděče (styl ENVO/EPLAN): rámeček se třemi řádky – označení kabelu, název
+    (odkud/kam), typ kabelu; žíly přívodu/vývodu do něj vstupují."""
+
+    ROW = 3.2
+
+    def __init__(self, x0: float, x1: float, y_edge: float, rows: list[str], up: bool):
+        super().__init__()
+        self.rows = [r for r in rows if r] or ["?"]
+        w = max(x1 - x0 + 4.0, max(len(r) for r in self.rows) * 1.25 + 3.0)
+        cx = (x0 + x1) / 2
+        self.x0, self.x1 = cx - w / 2, cx + w / 2
+        self.y_edge, self.up = y_edge, up
+        self.h = self.ROW * len(self.rows)
+        self.setZValue(6)
+
+    def _rect(self) -> QRectF:
+        top = self.y_edge + self.h if self.up else self.y_edge
+        return QRectF(sp(self.x0, top), sp(self.x1, top - self.h)).normalized()
+
+    def boundingRect(self) -> QRectF:
+        return self._rect().adjusted(-1, -1, 1, 1)
+
+    def paint(self, painter, option, widget=None):
+        ink = colors().ink if self.scene() is None or self.scene().draw_grid else PRINT.ink
+        painter.setPen(QPen(ink, LINE_WIDTH))
+        painter.setBrush(Qt.NoBrush)
+        painter.drawRect(self._rect())
+        top = self.y_edge + self.h if self.up else self.y_edge
+        for i, text in enumerate(self.rows):
+            y = top - (i + 1) * self.ROW
+            if i:
+                painter.setPen(QPen(ink, LINE_WIDTH * 0.6))
+                painter.drawLine(sp(self.x0, y + self.ROW), sp(self.x1, y + self.ROW))
+            painter.setPen(QPen(ink, 0.2))
+            draw_text(painter, (self.x0 + self.x1) / 2, y + 0.8, text, 2.0 if i == 0 else 1.7, "center")
+
+
+class TitleItem(QGraphicsItem):
+    """Hlavička rozvaděče svisle v levém okraji strany (označení, soustava, skříň) – jako na výkresech ENVO."""
+
+    def __init__(self, x: float, y_mid: float, lines: list[str]):
+        super().__init__()
+        self.lines = lines
+        self.setPos(sp(x, y_mid))
+        self.setZValue(3)
+
+    def boundingRect(self) -> QRectF:
+        return QRectF(-2, -120, 20, 240)
+
+    def paint(self, painter, option, widget=None):
+        ink = colors().ink if self.scene() is None or self.scene().draw_grid else PRINT.ink
+        painter.save()
+        painter.rotate(-90)
+        painter.setPen(QPen(ink, 0.25))
+        y = 0.0
+        for i, text in enumerate(self.lines):
+            h = 5.0 if i == 0 else 3.2
+            draw_text(painter, 0, -y, text, h, "center")
+            if i == 0:
+                w = len(text) * h * 0.75
+                painter.drawLine(sp(-w / 2, -y - 1.0), sp(w / 2, -y - 1.0))
+            y += h + 1.5
+        painter.restore()
+
+
 class ConductorItem(QGraphicsPathItem):
     """Jedna žíla vodiče mezi póly dvou prvků."""
     Type = QGraphicsItem.UserType + 12
@@ -316,6 +388,7 @@ class MultipoleScene(QGraphicsScene):
         self.rebuild()
 
     PAGE_GAP = 20.0   # mezera mezi stranami pod sebou (mm)
+    X0 = 62.5         # začátek rozmístění – vlevo hlavička rozvaděče a názvy potenciálů sběrnice
 
     @property
     def page_pitch(self) -> float:
@@ -335,14 +408,14 @@ class MultipoleScene(QGraphicsScene):
     @property
     def page_w(self) -> float:
         """Použitelná šířka strany pro rozmístění (bez okrajů rámečku)."""
-        from envocad.model.frame import MARGIN, MARGIN_LEFT
-        return self.sheet.width - MARGIN_LEFT - MARGIN - 30.0
+        from envocad.model.frame import MARGIN
+        return self.sheet.width - self.X0 - MARGIN - 10.0
 
     def _paginate(self, poles: dict[str, mp.ElementPoles]) -> None:
         """Rozmístění (strany za sebou v x) → strany pod sebou: prvek na straně k se posune o k·šířka doleva
         a o k·(výška + mezera) dolů. Ruční pozice (`mp_pos`) jsou už scénové – strana se jim jen určí."""
         from envocad.model.frame import MARGIN_LEFT
-        x0, pw, pitch = 40.0, self.page_w, self.page_pitch
+        x0, pw, pitch = self.X0, self.page_w, self.page_pitch
         self.page_of = {}
         n_pages = 1
         for eid, ep in poles.items():
@@ -374,8 +447,8 @@ class MultipoleScene(QGraphicsScene):
             poles[e.id] = mp.element_poles(self.sheet, e, sym)
         self._breaks: dict[tuple[int, bool], int] = {}
         bus_taps: dict[tuple[str, int], list[tuple[float, float]]] = {}
-        self.layout_pos = mp.auto_layout(self.sheet, poles, y_top=self.sheet.height - 40.0, bridges=self.sheet.bridges,
-                                         page_w=self.page_w)
+        self.layout_pos = mp.auto_layout(self.sheet, poles, x0=self.X0, y_top=self.sheet.height - 40.0,
+                                         bridges=self.sheet.bridges, page_w=self.page_w)
         for eid, ep in poles.items():
             ep.origin = self.layout_pos.get(eid, (ep.element.x, ep.element.y))
         self._paginate(poles)
@@ -414,6 +487,38 @@ class MultipoleScene(QGraphicsScene):
                     self._add_page_break(w, c, i, pa, da, ka, pb, db, kb, (ta, tb))
         self._add_bridges(poles)
         self._add_buses(poles, bus_taps)
+        self._add_cable_tags(poles)
+        self._add_title()
+
+    def _add_title(self) -> None:
+        from envocad.model.frame import MARGIN, MARGIN_LEFT
+        from envocad.model.project import switchboard_title
+        lines = switchboard_title(self.project, self.sheet)
+        if lines:
+            self._add(TitleItem(MARGIN_LEFT + 6.0, (self.sheet.height - MARGIN + MARGIN) / 2 + 20.0, lines))
+
+    def _add_cable_tags(self, poles) -> None:
+        """Štítky kabelů u přívodů a vývodů: označení kabelu (W2), název (od G1 / k HOP), typ (2× H1Z2Z2-K 1x6 mm²)."""
+        from envocad.model.project import linked_wire
+        for e in self.sheet.elements:
+            if e.symbol_id not in ("sb.feed_in", "sb.feed_out"):
+                continue
+            ep = poles.get(e.id)
+            if ep is None or not ep.switched:
+                continue
+            xs = [ep.origin[0] + ep.pole_offset(c)[0] for c in ep.switched]
+            hit = linked_wire(self.project, self.sheet, e)
+            w = hit[1] if hit else None
+            ref = (w.attrs.get("ref") if w else "") or e.ref
+            name = e.attrs.get("desc", "")
+            cable = ""
+            if w is not None:
+                cable = wire_label({k: v for k, v in w.attrs.items() if k != "ref"}, w.conductors)
+            elif e.attrs.get("cable"):
+                cable = e.attrs["cable"]
+            up = e.symbol_id == "sb.feed_in"
+            y_edge = ep.origin[1] + (3.0 if up else -3.0)
+            self._add(CableTagItem(min(xs), max(xs), y_edge, [ref, name, cable], up))
 
     def _bus_y(self, ep: mp.ElementPoles, c: str, page: int) -> float:
         """Výška čáry potenciálu `c` sběrnice na dané straně (žíly pod sebou po BUS_PITCH)."""
@@ -440,7 +545,7 @@ class MultipoleScene(QGraphicsScene):
     def _add_buses(self, poles, bus_taps) -> None:
         """Čáry potenciálů sběrnice na každé straně, kde má odbočky (a na své vlastní)."""
         from envocad.model.frame import MARGIN, MARGIN_LEFT
-        x0, x1 = MARGIN_LEFT + 14.0, self.sheet.width - MARGIN - 14.0
+        x0, x1 = MARGIN_LEFT + 32.0, self.sheet.width - MARGIN - 14.0   # vlevo místo pro hlavičku rozvaděče
         for e in self.sheet.elements:
             if e.symbol_id != BUS:
                 continue

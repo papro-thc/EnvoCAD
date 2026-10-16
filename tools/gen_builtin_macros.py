@@ -36,9 +36,11 @@ def dc_string_in() -> dict:
     feed = _el(p, s, "sb.feed_in", 60, 240, "", desc="od {string}")
     feed.attrs["ref"] = "X{k}"
     d = _el(p, s, "fve.fuse_disconnect", 60, 210, "F", rot=270, in_="{fuse_in}", char="gPV", un="1000", poles="2", modules="2")
+    d.attrs["ref"] = "FU{i}.{j}"   # číslování ENVO: střídač.string
     out = _el(p, s, "sb.feed_out", 60, 170, "", desc="{string} dál")
     out.attrs["ref"] = "X{nk}"
     spd = _el(p, s, "fve.spd", 72.5, 180, "F", spd_type="{spd} DC", uc="1000", poles="3", modules="3", desc="string {string}")
+    spd.attrs["ref"] = "SPD-DC{i}.{j}"
     xpe = _el(p, s, "sb.feed_out", 40, 150, "", desc="k HOP", shared="1")
     xpe.attrs["ref"] = "XPE"
     _wire(p, s, feed, "1", d, "1", DC_CONDUCTORS)
@@ -54,9 +56,11 @@ def dc_string_route() -> dict:
     feed = _el(p, s, "sb.feed_in", 60, 240, "", desc="od {string}")
     feed.attrs["ref"] = "X{k}"
     d = _el(p, s, "fve.dc_disconnect", 60, 210, "Q", rot=270, in_="{disc_in}", un="1000", poles="2", modules="2")
+    d.attrs["ref"] = "QS{i}.{j}"
     out = _el(p, s, "sb.feed_out", 60, 170, "", desc="{string} dál")
     out.attrs["ref"] = "X{nk}"
     spd = _el(p, s, "fve.spd", 72.5, 180, "F", spd_type="{spd} DC", uc="1000", poles="3", modules="3", desc="string {string}")
+    spd.attrs["ref"] = "SPD-DC{i}.{j}"
     xpe = _el(p, s, "sb.feed_out", 40, 150, "", desc="k HOP", shared="1")
     xpe.attrs["ref"] = "XPE"
     _wire(p, s, feed, "1", d, "1", DC_CONDUCTORS)
@@ -109,8 +113,8 @@ def jps_string_chain() -> dict:
 
 MACROS = [
     ("AC vývod s jističem", "Skupina rozvodných svorek X2 → jistič 3p → vývod X3 (rozvaděč)", ac_outlet),
-    ("DC string v rozvaděči", "Generátor (u technologie): X{k} → pojistkový odpínač {fuse_in} → X{nk}, SPD {spd} DC, PE → XPE; proměnné k, nk, string, fuse_in, spd", dc_string_in),
-    ("DC string po trase", "Generátor (po trase): X{k} → odpínač DC {disc_in} → X{nk}, SPD {spd} DC, PE → XPE; proměnné k, nk, string, disc_in, spd", dc_string_route),
+    ("DC string v rozvaděči", "Generátor (u technologie): X{k} → pojistkový odpínač FU{i}.{j} {fuse_in} → X{nk}, SPD-DC{i}.{j} {spd} DC, PE → XPE; proměnné k, nk, i, j, string, inverter, fuse_in, spd", dc_string_in),
+    ("DC string po trase", "Generátor (po trase): X{k} → odpínač DC QS{i}.{j} {disc_in} → X{nk}, SPD-DC{i}.{j} {spd} DC, PE → XPE; proměnné k, nk, i, j, string, inverter, disc_in, spd", dc_string_route),
     ("AC přívod střídače", "Generátor: X{k} od {inverter} → jistič {breaker_in} → sběrnice 1 port T{k}; proměnné k, inverter, breaker_in, main_in", ac_feed),
     ("AC jádro rozvaděče", "Generátor: sběrnice 1 → SPD {spd} → XPE (k HOP), sběrnice → hlavní vypínač {main_in} → XOUT", ac_core),
     ("String → střídač", "FV string s kabelem H1Z2Z2-K na DC vstup střídače (JPS)", jps_string_chain),

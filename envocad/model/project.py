@@ -517,6 +517,24 @@ def switchboard_header(project: Project, sheet: Sheet) -> list[tuple[str, str]]:
     return [(k, v) for k, v in rows if v]
 
 
+def switchboard_title(project: Project, sheet: Sheet) -> list[str]:
+    """Hlavička rozvaděče na schématu (styl ENVO): označení, soustava/napětí/proud/zkrat, skříň a krytí."""
+    p = sheet.layout.params
+    block = project.sheet_of_element(sheet.parent_element_id) if sheet.parent_element_id else None
+    ref = block.element(sheet.parent_element_id).ref if block is not None else ""
+    lines = [ref or sheet.name]
+    sysline = ", ".join(x for x in (p.get("network", ""), p.get("un", ""),
+                                    f"In = {p['in_']} A" if p.get("in_") else "",
+                                    f"Ik'' = {p['icw']} kA" if p.get("icw") else "") if x)
+    if sysline:
+        lines.append(sysline)
+    enc = ", ".join(x for x in (p.get("material", "") or " ".join(x for x in (p.get("manufacturer", ""), p.get("type", "")) if x),
+                                p.get("mounting", ""), "/".join(x for x in (p.get("ip", ""), p.get("ik", "")) if x)) if x)
+    if enc:
+        lines.append(enc)
+    return lines
+
+
 def copy_fragment(sheet: Sheet, element_ids: list[str]) -> dict:
     """Výřez listu pro schránku: vybrané prvky + vodiče mezi nimi (čistá data, přenositelná mezi listy)."""
     ids = set(element_ids)
@@ -638,7 +656,7 @@ def wire_label(attrs: dict, conductors: list[str] | None = None) -> str:
     obsahuje („1x6“); u jednožilového kabelu s více žílami (string DC+/DC−) se doplní počet: „2× H1Z2Z2-K 1x6“."""
     parts = [attrs.get("ref", "")]
     cable, cross = attrs.get("cable", ""), attrs.get("cross", "")
-    if cross and re.search(rf"[x×]\s*{re.escape(cross)}(\b|$)", cable):
+    if cross and re.search(rf"([x×]\s*|\s){re.escape(cross)}(\b|$)", cable):
         cross = ""          # průřez už je v typu („1x6“) – jen se doplní jednotka
     if cable and conductors and len(conductors) > 1 and re.search(r"(^|\s)1\s*[x×]\s*\d", cable):
         cable = f"{len(conductors)}× {cable}"

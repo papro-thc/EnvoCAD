@@ -96,7 +96,8 @@ označeními. `Úpravy → Smazat makro…` maže vlastní a sdílená.
 stačí tedy nakreslit svou verzi, uložit ji pod tím jménem a generátor ji začne používat.
 
 Parametrické makro používá v atributech, označeních a názvech portů **proměnné** `{k}` (pořadí instance),
-`{nk}` (n + k – pro vývod X{nk}), `{n}`, `{string}` / `{inverter}` (označení z JPS), `{fuse_in}`, `{disc_in}`,
+`{nk}` (n + k – pro vývod X{nk}), `{n}`, `{i}` / `{j}` (číslo střídače / stringu u něj – číslování ENVO
+`FU{i}.{j}`, `SPD-DC{i}.{j}`), `{string}` / `{inverter}` (označení z JPS), `{fuse_in}`, `{disc_in}`,
 `{breaker_in}`, `{main_in}`, `{spd}`. Označení s proměnnou se dosadí a nepřečísluje (`X{k}` → X3), ostatní
 (F1, W1) dostanou další volné číslo. Prvek s atributem **`shared` = 1** (sběrnice, vývod XPE k HOP) se vloží
 jen jednou a další instance se na něj napojí; do portu sběrnice se dá psát `T{k}`. Rozteč instancí určuje

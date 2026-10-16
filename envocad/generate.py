@@ -115,7 +115,7 @@ def build_project(spec: dict) -> Project:
     s.elements.append(blk)
     y = y_top
     inverter_elements: list[Element] = []
-    dc_boxes: list[tuple[Element, list[Element], str]] = []   # (blok, stringy, druh) – listy se dostaví po JPS
+    dc_boxes: list[tuple[Element, list[Element], str, int, str]] = []   # (blok, stringy, druh, č. střídače, střídač)
     for i, inv in enumerate(invs):
         strings = inv.get("strings") or [1]
         y_mid = y - row_h[i] / 2
@@ -149,7 +149,7 @@ def build_project(spec: dict) -> Project:
             b = Element("fve.switchboard", x_boxes[j], y_mid, attrs={"ref": p.next_ref("RDC"), "desc": desc})
             s.elements.append(b)
             boxes.append(b)
-            dc_boxes.append((b, gens, kind))
+            dc_boxes.append((b, gens, kind, i + 1, ref_t))
         n_str = len(gens)
         # porty bloku DC rozvaděče (viz switchboard_symbol): rozteč PORT_PITCH, shora dolů
         half = max(20.0, n_str * PORT_PITCH + PORT_PITCH) / 2
@@ -215,13 +215,18 @@ def build_project(spec: dict) -> Project:
     p.meta.setdefault("p_installed_kwp", f"{p_total:g}")
     # listy DC rozvaděčů a AC rozvaděče
     macros = spec.get("macros") or {}
-    for b, gens, kind in dc_boxes:
+    for b, gens, kind, inv_no, inv_ref in dc_boxes:
         sheet = p.create_switchboard_sheet(b)
+        sheet.layout.params.setdefault("network", "DC IT")
+        sheet.layout.params.setdefault("un", "max. 1000 V DC")
         name = macros.get("dc_tech" if kind == "tech" else "dc_route", "")
-        if not _dc_box_from_macro(p, sheet, [g.ref for g in gens], name, dc):
+        if not _dc_box_from_macro(p, sheet, [g.ref for g in gens], name, dc, inv_no, inv_ref):
             build_dc_strings(p, sheet, [g.ref for g in gens], kind, _s(dc.get("fuse_in") or 15),
                              _s(dc.get("disconnect_in") or 32), _s(dc.get("spd") or "T2"))
     sb = p.create_switchboard_sheet(blk)
+    sb.layout.params.setdefault("network", "3NPE, 50 Hz")
+    sb.layout.params.setdefault("un", "230/400 V")
+    sb.layout.params.setdefault("in_", _s(ac.get("main_in") or 125))
     if not _ac_box_from_macros(p, sb, invs, ac, macros):
         _build_ac_switchboard(p, sb, invs, ac, spec)
     sync_feed_links(p)
@@ -234,8 +239,11 @@ def _macro_vars(dc: dict, ac: dict) -> dict:
             "breaker_in": _s(ac.get("breaker_in") or 40), "main_in": _s(ac.get("main_in") or 125), "ac_spd": _s(ac.get("spd") or "T1+T2")}
 
 
-def _dc_box_from_macro(project: Project, sheet: Sheet, strings: list[str], name: str, dc: dict) -> bool:
-    """DC rozvaděč složený z makra na string (proměnné k, nk, string, fuse_in, disc_in, spd). False = makro chybí."""
+def _dc_box_from_macro(project: Project, sheet: Sheet, strings: list[str], name: str, dc: dict,
+                       inv_no: int = 1, inv_ref: str = "") -> bool:
+    """DC rozvaděč složený z makra na string. Proměnné: k (pořadí v rozvaděči), nk (n + k), n, string (G3),
+    i (číslo střídače), j (string u střídače) – ENVO číslování FU{i}.{j}, XS{i}.{j}, STRING {i}.{j} –, inverter,
+    fuse_in, disc_in, spd. False = makro chybí."""
     from envocad.library.macros import find_macro, instantiate, macro_pitch
     from envocad.library.store import LibraryStore
     m = find_macro(name) if name else None
@@ -246,7 +254,7 @@ def _dc_box_from_macro(project: Project, sheet: Sheet, strings: list[str], name:
     pitch = macro_pitch(m)
     devices = []
     for k, g in enumerate(strings, start=1):
-        vars_ = {**_macro_vars(dc, {}), "k": k, "nk": n + k, "n": n, "string": g}
+        vars_ = {**_macro_vars(dc, {}), "k": k, "nk": n + k, "n": n, "string": g, "i": inv_no, "j": k, "inverter": inv_ref}
         els, _ = instantiate(project, sheet, m.fragment, vars_, dx=(k - 1) * pitch, ref_prefix_of=lambda sid: lib.get_symbol(sid).iec_ref)
         devices += [e for e in els if e.modules > 0 and e.symbol_id not in ("sb.feed_in", "sb.feed_out", "sb.busbar")]
     _place_sequential(sheet, devices)
@@ -266,7 +274,7 @@ def _ac_box_from_macros(project: Project, sheet: Sheet, invs: list[dict], ac: di
     base = _macro_vars({}, ac)
     base["spd"] = base["ac_spd"]
     for k, inv in enumerate(invs, start=1):
-        vars_ = {**base, "k": k, "inverter": inv.get("ref") or f"T{k}"}
+        vars_ = {**base, "k": k, "i": k, "inverter": inv.get("ref") or f"T{k}"}
         els, _ = instantiate(project, sheet, mf.fragment, vars_, dx=(k - 1) * pitch, ref_prefix_of=lambda sid: lib.get_symbol(sid).iec_ref)
         devices += [e for e in els if e.modules > 0 and e.symbol_id not in ("sb.feed_in", "sb.feed_out", "sb.busbar")]
     els, _ = instantiate(project, sheet, mc.fragment, base, dx=len(invs) * pitch, ref_prefix_of=lambda sid: lib.get_symbol(sid).iec_ref)

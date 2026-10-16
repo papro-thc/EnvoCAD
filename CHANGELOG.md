@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.10.1 – 2026-10-15
+- **Styl ENVO podle vzorů** (`docs/ENVO_STYL.md`): ve vícepólu štítky kabelů na přívodech/vývodech (rámeček: označení kabelu / název / typ), označení svorek vlevo u svorek, svislá hlavička rozvaděče v levém okraji (`switchboard_title`: označení, soustava, Un, In, Ik'', skříň, montáž, krytí); generátor vyplní soustavu DC IT / 3NPE; proměnné maker `{i}`, `{j}` (střídač.string) – vestavěná DC makra číslují `FU{i}.{j}`, `QS{i}.{j}`, `SPD-DC{i}.{j}`; rozmístění vícepólu začíná vpravo od hlavičky.
 - **Generátor skládá rozvaděče z maker** (`spec["macros"]`: `dc_tech`, `dc_route`, `ac_feed`, `ac_core`): parametrická makra s proměnnými `{k}`, `{nk}`, `{string}`, `{inverter}`, `{fuse_in}`… v atributech, označeních i portech, prvek `shared=1` se vloží jednou (sběrnice, XPE), `pitch` = rozteč instancí; vlastní makro stejného názvu má přednost před vestavěným – projektant ladí výkres, program opakuje. Porty bloku rozvaděče v přirozeném pořadí (X4, X5…, XOUT, XPE).
 - Vícepól: dítě se zarovná pod pól rodiče, ze kterého vede spojovací žíla (vývod PE pod PE svodiče, ne pod L1 – PE už nevede skrz svodič).
 - AC rozvaděč se sběrnicí: bez vnitřní PE lišty – PE je potenciál sběrnice (1PE), SPD jde svým PE na vývod `XPE`, stejně jako PE sběrnice; uzemnění je vývod `XPE` na ekvipotenciální svorkovnici (HOP) vně rozvaděče; generátor přidá do JPS uzemnění s kabelem (`ac.pe_cable`, výchozí CYA 16).

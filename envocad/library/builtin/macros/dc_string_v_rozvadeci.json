@@ -1,10 +1,10 @@
 {
  "name": "DC string v rozvaděči",
- "description": "Generátor (u technologie): X{k} → pojistkový odpínač {fuse_in} → X{nk}, SPD {spd} DC, PE → XPE; proměnné k, nk, string, fuse_in, spd",
+ "description": "Generátor (u technologie): X{k} → pojistkový odpínač FU{i}.{j} {fuse_in} → X{nk}, SPD-DC{i}.{j} {spd} DC, PE → XPE; proměnné k, nk, i, j, string, inverter, fuse_in, spd",
  "fragment": {
   "elements": [
    {
-    "id": "98e219a42d0e",
+    "id": "f4ff492e6681",
     "symbol_id": "sb.feed_in",
     "x": 60,
     "y": 240,
@@ -16,13 +16,13 @@
     "component_id": null
    },
    {
-    "id": "3292771ded18",
+    "id": "58677c680642",
     "symbol_id": "fve.fuse_disconnect",
     "x": 60,
     "y": 210,
     "rotation": 270,
     "attrs": {
-     "ref": "F1",
+     "ref": "FU{i}.{j}",
      "in_": "{fuse_in}",
      "char": "gPV",
      "un": "1000",
@@ -32,7 +32,7 @@
     "component_id": null
    },
    {
-    "id": "9fb50a44764e",
+    "id": "add6103434b1",
     "symbol_id": "sb.feed_out",
     "x": 60,
     "y": 170,
@@ -44,13 +44,13 @@
     "component_id": null
    },
    {
-    "id": "169d87ec241a",
+    "id": "e3bf002ccbcc",
     "symbol_id": "fve.spd",
     "x": 72.5,
     "y": 180,
     "rotation": 0,
     "attrs": {
-     "ref": "F1",
+     "ref": "SPD-DC{i}.{j}",
      "spd_type": "{spd} DC",
      "uc": "1000",
      "poles": "3",
@@ -60,7 +60,7 @@
     "component_id": null
    },
    {
-    "id": "a7dec15ad1d4",
+    "id": "214e9c29ac27",
     "symbol_id": "sb.feed_out",
     "x": 40,
     "y": 150,
@@ -75,33 +75,13 @@
   ],
   "wires": [
    {
-    "id": "d2d4e1cb0b00",
+    "id": "9c1f3733c35d",
     "a": {
-     "element_id": "98e219a42d0e",
+     "element_id": "f4ff492e6681",
      "port": "1"
     },
     "b": {
-     "element_id": "3292771ded18",
-     "port": "1"
-    },
-    "points": [],
-    "attrs": {
-     "ref": ""
-    },
-    "conductors": [
-     "DC+",
-     "DC-"
-    ],
-    "terminals": {}
-   },
-   {
-    "id": "807feede9532",
-    "a": {
-     "element_id": "3292771ded18",
-     "port": "2"
-    },
-    "b": {
-     "element_id": "9fb50a44764e",
+     "element_id": "58677c680642",
      "port": "1"
     },
     "points": [],
@@ -115,13 +95,33 @@
     "terminals": {}
    },
    {
-    "id": "19d8e987d0d8",
+    "id": "ebbad583ef2d",
     "a": {
-     "element_id": "3292771ded18",
+     "element_id": "58677c680642",
      "port": "2"
     },
     "b": {
-     "element_id": "169d87ec241a",
+     "element_id": "add6103434b1",
+     "port": "1"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "DC+",
+     "DC-"
+    ],
+    "terminals": {}
+   },
+   {
+    "id": "871178602ba1",
+    "a": {
+     "element_id": "58677c680642",
+     "port": "2"
+    },
+    "b": {
+     "element_id": "e3bf002ccbcc",
      "port": "L"
     },
     "points": [],
@@ -135,13 +135,13 @@
     "terminals": {}
    },
    {
-    "id": "1d311070d144",
+    "id": "8eb975807dc6",
     "a": {
-     "element_id": "169d87ec241a",
+     "element_id": "e3bf002ccbcc",
      "port": "PE"
     },
     "b": {
-     "element_id": "a7dec15ad1d4",
+     "element_id": "214e9c29ac27",
      "port": "1"
     },
     "points": [],
