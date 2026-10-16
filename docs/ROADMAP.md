@@ -75,6 +75,19 @@
 - [ ] Číslování stran celé dokumentace i v rámečku listů (dnes list x/y projektu), logo ENVO v popisovém poli
 - [ ] Přerušovací body v zapojovacím seznamu jako průchod (potenciál pokračuje), vodič z vodiče
 
+## Z rešerše EPLAN 2026 (10/2026)
+Pořadí = priorita. Body 1, 2 a 5 jsou nejlevnější start.
+- [ ] **Strukturní označení IEC 81346** (`=` funkce, `+` umístění, `-` přístroj): centrální správa jako v EPLAN, plné označení `+RS1-F3` ve výkazech a štítcích – změna formátu (návrh `architekt`, `FORMAT_VERSION` + migrace)
+- [ ] **Kontrola označení vs. funkce** (EPLAN P017003): `function_class` (F, Q, T…) v JSON symbolu, pravidlo v `model/checks.py`, kontrola délky a povolených znaků; podklad pro automatické číslování
+- [ ] **Zrcadlení kontaktů** cívka ↔ kontakty (tabulka pod cívkou s odkazem list/sloupec), křížové odkazy přerušovacích bodů hvězda/řetěz – NS ochrana, stykače řízení výkonu, RTU
+- [ ] **Makra se zástupnými proměnnými** (`#In`, `#typ_stridace`, `#pocet_MPPT`) a sadami hodnot; průvodce skládá schéma z maker (EPLAN eBuild) – řeší i „Funkční šablony artiklů“
+- [ ] **Revize ve výkresu**: označení změn z `model/diff.py` přímo v listu (obláček/trojúhelník s číslem revize), revize v popisovém poli, uzavření revize listu
+- [ ] **Připomínkování (redlining)**: vrstva poznámek v projektu se stavem otevřeno/vyřešeno, export jako anotace do PDF (EPLAN eVIEW)
+- [ ] **Výrobní data rozvaděče**: zapojovací seznam s délkami z rozložení, barvou, průřezem, koncovkou/dutinkou (xlsx); formáty strojů (Komax, Steinhauer…) až při sériové výrobě
+- [ ] **Parametry artiklů pojmenovat podle ETIM/eCl@ss** – BMEcat importér pak jen mapuje sloupce
+- [ ] Databáze FV modulů a střídačů pro výběr v průvodci (jako SurgePV/PVcase)
+- Nedělat: předprojekt / P&ID (Preplanning), cloud (eVIEW/eManage) – stačí JPS, průvodce a sdílená knihovna
+
 ## Odloženo (analýza 10/2026 – nebrzdí práci)
 - Příkazový řádek (styl ZWCAD/CADCraft) – až bude potřeba ovládat program z agentů
 - BMEcat/ETIM importér – až budou soubory od výrobců
