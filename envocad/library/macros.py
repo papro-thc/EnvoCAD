@@ -28,6 +28,8 @@ BUILTIN_DIR = Path(__file__).parent / "builtin" / "macros"
 MACRO_VERSION = 2
 RESERVED = frozenset({"k", "n", "nk", "i", "j", "string", "inverter"})   # kontext dodává generátor / opakování
 MAX_REPEAT = 100
+# kontextové názvy, které dosazuje opakování makra v každé iteraci (n = počet – to se zadává, viz `repeat_context_names`)
+REPEAT_CONTEXT = frozenset({"k", "n", "nk"})
 VAR_TYPES = ("text", "number", "choice", "component")
 FALSE_VALUES = frozenset({"", "0", "ne", "no", "false", "off"})
 
@@ -36,6 +38,8 @@ _NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _WHEN = re.compile(r"^\s*(!?)\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?:(!?=)(.*))?$")
 # prvky, kterým se při vložení nepřečíslovává označení (svorkovnice, přívody/vývody, sběrnice)
 _KEEP_REF = ("sb.terminal_block", "fve.terminal", "sb.feed_in", "sb.feed_out", "sb.busbar")
+_TERMINAL_SYMBOLS = ("sb.terminal_block", "fve.terminal")
+_FEED_SYMBOLS = ("sb.feed_in", "sb.feed_out")
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -339,6 +343,9 @@ def validate_macro(data: dict) -> list[str]:
         else:
             if declared and rep["count"] not in declared:
                 errs.append(f"Opakování: proměnná počtu „{rep['count']}“ není deklarovaná.")
+            cmax = declared.get(rep["count"], {}).get("max")
+            if cmax is not None and _is_number(cmax) and float(cmax) > MAX_REPEAT:
+                errs.append(f"Opakování: „max“ proměnné počtu „{rep['count']}“ ({_str(cmax)}) je větší než {MAX_REPEAT}.")
             if rep.get("pitch") is not None and (not _is_number(rep["pitch"]) or float(rep["pitch"]) <= 0):
                 errs.append("Opakování: „pitch“ musí být kladné číslo.")
     # fragment: podmínky, odkazy vodičů, nedeklarované zástupné symboly
@@ -480,15 +487,59 @@ def _component_param(comp, param: str) -> str:
     return _str((getattr(comp, "params", None) or {}).get(param, ""))
 
 
+def repeat_context_names(m: Macro) -> frozenset[str]:
+    """Názvy, které při opakování makra dosazuje `expand` v každé iteraci (k, nk; n, pokud počet není proměnná `n`).
+    Bez `repeat` prázdná množina."""
+    if m.repeat is None:
+        return frozenset()
+    return REPEAT_CONTEXT - {m.repeat.count}
+
+
+def repeat_limit(m: Macro) -> int:
+    """Nejvyšší povolený počet opakování: menší z `max` proměnné počtu a MAX_REPEAT."""
+    cv = m.variable(m.repeat.count) if m.repeat else None
+    if cv is not None and cv.max is not None:
+        return max(0, min(math.floor(cv.max), MAX_REPEAT))
+    return MAX_REPEAT
+
+
+def _count_errors(m: Macro, vals: dict, where: str) -> list[str]:
+    """Kontrola počtu opakování: celé číslo v rozsahu max(0, min)…`repeat_limit`; prázdné = chyba. Normalizuje vals."""
+    name = m.repeat.count
+    cv = m.variable(name)
+    title = cv.title if cv else name
+    raw = str(vals.get(name, "")).strip()
+    if not raw:
+        return [f"{where}{title}: počet opakování je povinný."]
+    num = _norm_number(raw)
+    if num is None or not float(num).is_integer():
+        return [f"{where}{title}: „{raw}“ není celé číslo (počet opakování)."]
+    vals[name] = num
+    n = int(float(num))
+    lo = max(0, math.ceil(cv.min)) if cv is not None and cv.min is not None else 0
+    hi = repeat_limit(m)
+    if n < lo:
+        return [f"{where}{title}: {n} je menší než {lo}."]
+    if n > hi:
+        return [f"{where}{title}: {n} je větší než {hi}."]
+    return []
+
+
 def resolve_values(m: Macro, given: dict | None = None, value_set=None, components: ComponentLookup | None = None,
-                   context: dict | None = None, base: dict | None = None) -> tuple[dict[str, str], list[str]]:
+                   context: dict | None = None, base: dict | None = None,
+                   repeat: bool = True) -> tuple[dict[str, str], list[str]]:
     """Hodnoty proměnných makra a chyby (česky; prázdný seznam = OK).
 
     Pořadí (pozdější vyhrává): `default` < `base` (základ volajícího, např. specifikace generátoru) < artikl (`from`)
     < sada hodnot `value_set` (název nebo ValueSet) < `given` (zadané uživatelem / specifikací) < `context`
     (k, n, i, string… od volajícího). Výchozí hodnoty smí skládat text z jiných proměnných (`"T{i}"`, jeden průchod;
     rezervované názvy jen z `given`/`context`, jinak je dosadí až `expand`). Čísla se normalizují („15,0“ → „15“).
-    Výsledek obsahuje i nedeklarované klíče z `base`/`given`/`context`."""
+    Výsledek obsahuje i nedeklarované klíče z `base`/`given`/`context`.
+
+    Má-li makro `repeat` a volající nepředá `repeat=False` (generátor si opakování drží sám), názvy opakování
+    (`repeat_context_names`: k, nk) se z `given` do výchozích hodnot nedosazují – dosadí je `expand` v každé iteraci
+    (jinak by `j = "{k}"` dostalo u všech opakování stejné číslo). Počet opakování musí být celé číslo
+    0…min(max proměnné, MAX_REPEAT); prázdný = chyba. Hodnoty z `context` se kontrolují jen jako čísla (bez min/max)."""
     given = {k: _str(v) for k, v in (given or {}).items()}
     context = {k: _str(v) for k, v in (context or {}).items()}
     base = {k: _str(v) for k, v in (base or {}).items()}
@@ -531,9 +582,16 @@ def resolve_values(m: Macro, given: dict | None = None, value_set=None, componen
                 from_vals[v.name] = val
     vals = {**defaults, **base, **from_vals, **upper}
     # skládání textu z jiných proměnných (jeden průchod); k, n, nk… až od opakování / kontextu
-    src = {k: v for k, v in vals.items() if k not in RESERVED or k in given or k in context}
+    repeating = repeat and m.repeat is not None
+    per_run = repeat_context_names(m) if repeating else frozenset()
+    src = {k: v for k, v in vals.items()
+           if (k not in RESERVED or k in given or k in context) and (k not in per_run or k in context)}
     vals = {k: subst(v, src) for k, v in vals.items()}
+    if repeating:
+        errs += _count_errors(m, vals, where)
     for v in m.variables:
+        if repeating and v.name == m.repeat.count:
+            continue   # zkontroloval _count_errors
         val = vals.get(v.name, "")
         if not val.strip():
             if v.required:
@@ -547,6 +605,8 @@ def resolve_values(m: Macro, given: dict | None = None, value_set=None, componen
                 errs.append(f"{where}{v.title}: „{val}“ není číslo.")
                 continue
             vals[v.name] = num
+            if v.name in context:
+                continue   # kontext volajícího (generátor: n = počet stringů v rozvaděči) – min/max platí pro zadání
             f = float(num)
             if v.min is not None and f < v.min:
                 errs.append(f"{where}{v.title}: {num} je menší než {_str(v.min)}.")
@@ -580,7 +640,8 @@ def condition(expr, values: dict) -> bool:
 
 
 def _expand_once(project, sheet, fragment: dict, values: dict, dx: float, dy: float, ref_prefix_of,
-                 components: ComponentLookup | None, used: set[str], created: list) -> tuple[list, list]:
+                 components: ComponentLookup | None, used: set[str], created: list,
+                 copy: bool = False) -> tuple[list, list]:
     from envocad.model.project import Element, Wire, WireEnd
     idmap: dict[str, str] = {}
     els: list[Element] = []
@@ -608,8 +669,14 @@ def _expand_once(project, sheet, fragment: dict, values: dict, dx: float, dy: fl
             if comp is not None:
                 comp.apply_to(new)   # parametry artiklu → atributy (mppt, strings_per_mppt → DC vstupy střídače)
         prefix = ref_prefix_of(src.symbol_id) if ref_prefix_of else ""
+        keep = _KEEP_REF
+        if copy and not shared:
+            # kopie jako `paste_fragment`: čísla svorek se vymažou, přívody/vývody se přečíslují (bez zástupných symbolů)
+            keep = tuple(s for s in _KEEP_REF if s not in _FEED_SYMBOLS)
+            if src.symbol_id in _TERMINAL_SYMBOLS and not _placeholders_in(src.attrs.get("terminal")):
+                new.attrs["terminal"] = ""
         if "{" not in str(src.attrs.get("ref", "")) and src.attrs.get("ref") and prefix and not shared \
-                and src.symbol_id not in _KEEP_REF:
+                and src.symbol_id not in keep:
             n = 1
             while f"{prefix}{n}" in used:
                 n += 1
@@ -647,7 +714,8 @@ def _grid(v: float, step: float = 2.5) -> float:
 
 
 def repeat_count(m: Macro, values: dict) -> int:
-    """Počet opakování makra (1 bez `repeat`). ValueError, je-li počet neplatný nebo větší než MAX_REPEAT."""
+    """Počet opakování makra (1 bez `repeat`). ValueError, je-li počet neplatný nebo větší než `repeat_limit`
+    (menší z `max` proměnné počtu a MAX_REPEAT)."""
     if m.repeat is None:
         return 1
     raw = _str(values.get(m.repeat.count, "")).strip()
@@ -655,13 +723,15 @@ def repeat_count(m: Macro, values: dict) -> int:
     if num is None or not float(num).is_integer():
         raise ValueError(f"Makro „{m.name}“: počet opakování „{raw}“ ({m.repeat.count}) není celé číslo.")
     n = int(float(num))
-    if n < 0 or n > MAX_REPEAT:
-        raise ValueError(f"Makro „{m.name}“: počet opakování {n} je mimo rozsah 0–{MAX_REPEAT}.")
+    hi = repeat_limit(m)
+    if n < 0 or n > hi:
+        raise ValueError(f"Makro „{m.name}“: počet opakování {n} je mimo rozsah 0–{hi}.")
     return n
 
 
 def expand(project, sheet, m: Macro | dict, values: dict, dx: float = 0.0, dy: float = 0.0, ref_prefix_of=None,
-           components: ComponentLookup | None = None, repeat: bool = True) -> tuple[list, list]:
+           components: ComponentLookup | None = None, repeat: bool = True,
+           copy: bool | None = None) -> tuple[list, list]:
     """Rozvine makro: dosadí `{proměnné}` (atributy, označení, artikl, porty a atributy vodičů), vynechá prvky/vodiče
     s nesplněnou podmínkou `when` (i vodiče vynechaných prvků), prvky s `shared` sloučí s existujícím prvkem stejné
     značky a označení (na listu nebo z dřívějšího opakování), ostatní označení bez proměnných přečísluje (F1 → další
@@ -669,7 +739,14 @@ def expand(project, sheet, m: Macro | dict, values: dict, dx: float = 0.0, dy: f
     `components`). S `repeat` a `m.repeat` se makro vloží N× (k = 1…N, n = N, nk = N + k, posun (k−1)·rozteč na mřížce).
 
     List se NEMĚNÍ: vrací (nové prvky, nové vodiče) k vložení jedním undo příkazem (vodiče smí odkazovat na sloučené
-    `shared` prvky, které už v listu jsou). `values` = výsledek `resolve_values`. `m` smí být i holý fragment (dict)."""
+    `shared` prvky, které už v listu jsou). `values` = výsledek `resolve_values`. `m` smí být i holý fragment (dict).
+
+    `copy` = vložit jako kopii výřezu (jako dřívější `paste_fragment`): nesdíleným skupinám svorek se vymaže číslo
+    svorky (`terminal`), přívody/vývody (`sb.feed_in`/`sb.feed_out`) se přečíslují – obojí jen bez zástupného symbolu.
+    Výchozí None = kopie u makra bez proměnných a opakování (`not m.has_parameters`, uživatelské výřezy); parametrická
+    makra (vestavěná, generátor) si označení svorek a přívodů drží. Holý fragment (`instantiate`) = bez kopie."""
+    if copy is None:
+        copy = isinstance(m, Macro) and not m.has_parameters
     if isinstance(m, dict):
         m = Macro(name="", description="", fragment=m, path=Path(), source="")
     used = project.used_refs(sheet)
@@ -686,7 +763,8 @@ def expand(project, sheet, m: Macro | dict, values: dict, dx: float = 0.0, dy: f
     for ctx, off in runs:
         vals = {**base, **ctx}
         vals = {k: subst(v, vals) for k, v in vals.items()}   # např. j = „{k}“, string = „G{k}“
-        els, wires = _expand_once(project, sheet, m.fragment, vals, dx + off, dy, ref_prefix_of, components, used, created)
+        els, wires = _expand_once(project, sheet, m.fragment, vals, dx + off, dy, ref_prefix_of, components, used, created,
+                                  copy)
         all_els += els
         all_wires += wires
     return all_els, all_wires

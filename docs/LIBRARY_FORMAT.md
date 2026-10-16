@@ -149,8 +149,8 @@ Makro = pojmenovaná sestava prvků a vodičů (výřez listu) k opakovanému vk
     {"name": "n", "label": "Počet stringů", "type": "number", "default": "1", "min": 1, "max": 50, "auto": true},
     {"name": "j", "label": "Číslo stringu u střídače", "type": "number", "default": "{k}", "auto": true},
     {"name": "fuse_in", "label": "In pojistky", "type": "number", "unit": "A", "default": "15", "required": true},
-    {"name": "spd", "label": "Svodič přepětí DC (typ)", "type": "choice", "choices": ["", "T1", "T2", "T1+T2"],
-     "default": "T2", "help": "prázdné = bez svodiče"}
+    {"name": "spd", "label": "Svodič přepětí DC (typ)", "default": "T2",
+     "help": "Doporučené hodnoty: T1, T2, T1+T2 (smí být i jiný text, např. T1+T2+T3). Prázdné = bez svodiče."}
   ],
   "value_sets": [{"name": "Pojistka 20 A gPV, SPD T1+T2", "values": {"fuse_in": "20", "spd": "T1+T2"}}],
   "repeat": {"count": "n", "pitch": 40},
@@ -168,6 +168,8 @@ Makro = pojmenovaná sestava prvků a vodičů (výřez listu) k opakovanému vk
 Zástupný symbol `{název}` smí být v hodnotách atributů prvků a vodičů, v `component_id` prvku a v portech vodičů.
 Dosazuje se regulárním výrazem `\{[A-Za-z_][A-Za-z0-9_]*\}` – bez výrazů a formátovacích specifikací; neznámé `{x}`,
 `{}`, `{0}`, `{a.b}` zůstanou beze změny. Bez aritmetiky (`nk = n + k` dodá opakování nebo generátor).
+**`{{` se v makrech v2 neescapuje** – zůstává doslova (`{{a}}` s `a = X` dá `{X}`), na rozdíl od dřívějšího
+`str.format_map`, kde `{{` znamenalo jednu složenou závorku. Doslovné `{název}` v makru tedy zapsat nejde.
 
 | klíč | povinný | význam |
 |---|---|---|
@@ -184,6 +186,12 @@ Dosazuje se regulárním výrazem `\{[A-Za-z_][A-Za-z0-9_]*\}` – bez výrazů 
 
 Rezervované kontextové názvy (dodává generátor / opakování): `k` (pořadí), `n` (počet), `nk` (n + k), `i` (číslo
 střídače), `j` (string u střídače), `string` (označení stringu), `inverter` (označení střídače).
+U makra s `repeat` dosazuje `k` a `nk` (a `n`, pokud počet není proměnná `n`) až `expand` v každém opakování –
+`resolve_values` je ze zadaných hodnot do výchozích nedosazuje (`j = "{k}"` zůstane `{k}`); dialog tato pole zakáže.
+
+Typ svodiče (`spd`) je ve vestavěných makrech volný text (doporučené T1, T2, T1+T2; projde i „T1+T2+T3“, „Typ 2“);
+In přístrojů (`fuse_in`, `disc_in`, `breaker_in`, `main_in`) jsou čísla v A – „C40“ je chyba (charakteristika
+jističe je samostatný atribut prvku).
 
 Pořadí hodnot (pozdější vyhrává): `default` < základ volajícího (generátor: hodnoty ze specifikace `dc`/`ac`) <
 artikl (`from`) < sada hodnot < zadané (uživatel / `values` ve specifikaci) < kontext.
@@ -206,11 +214,22 @@ AC jádro u svodiče.
 Jen na úrovni makra: `count` = název proměnné s počtem, `pitch` = rozteč v mm (bez ní `fragment.pitch`, jinak šířka
 + 10 mm). Makro se vloží N× s `k = 1…N`, `n = N`, `nk = N + k`, posun `(k − 1) · pitch` zaokrouhlený na mřížku 2,5 mm.
 Prvky s `"shared": "1"` (sběrnice, vývod XPE) se vloží jen jednou a další instance se na ně napojí (hledá se na listu
-i mezi nově vytvořenými prvky). `N > 100` (`MAX_REPEAT`) je chyba. Generátor u DC rozvaděčů drží vlastní smyčku
-a `repeat` nepoužívá; slouží vkládání z GUI.
+i mezi nově vytvořenými prvky). Počet musí být celé číslo 0…min(`max` proměnné počtu, 100 = `MAX_REPEAT`); prázdný,
+desetinný nebo větší počet je chyba už v `resolve_values` (a `expand` ho odmítne `ValueError`). `max` proměnné počtu
+nad `MAX_REPEAT` hlásí `validate_macro`. Generátor u DC rozvaděčů drží vlastní smyčku (`resolve_values(...,
+repeat=False)`, `expand(..., repeat=False)`), `repeat` ani `max` počtu ho neomezují; slouží vkládání z GUI.
+
+### Makro bez proměnných (kopie výřezu)
+Makro bez proměnných a bez `repeat` (typicky „Uložit výběr jako makro…“ bez `{x}`) se vkládá jako kopie výřezu, jako
+dřív `paste_fragment`: nesdíleným skupinám svorek se vymaže číslo svorky (`terminal`, doplní automatické číslování),
+přívody/vývody `sb.feed_in`/`sb.feed_out` dostanou další volné označení; obojí jen tam, kde ref/terminal neobsahuje
+zástupný symbol. Ostatní pravidla (`shared`, přečíslování F1 → další volné) platí stejně. Parametrická makra (a tedy
+generátor, který navíc předává `copy=False`) označení svorek a přívodů z makra drží – jinak by se změnil např. vývod
+XOUT AC jádra. V API `expand(..., copy=None)`: None = kopie právě u `not m.has_parameters`.
 
 ### Rozhraní (`envocad/library/macros.py`)
 `load_macro(path)` / `parse_macro(data, path, source)` → `Macro`; `validate_macro(data)` → chyby česky;
 `resolve_values(m, given, value_set, components, context, base)` → `(hodnoty, chyby)`;
-`expand(project, sheet, m, values, dx, dy, ref_prefix_of, components, repeat)` → `(nové prvky, nové vodiče)` – list
+`resolve_values(..., repeat=True)`; `repeat_context_names(m)`, `repeat_limit(m)`;
+`expand(project, sheet, m, values, dx, dy, ref_prefix_of, components, repeat, copy)` → `(nové prvky, nové vodiče)` – list
 nemění (GUI je vloží jedním undo příkazem); `instantiate` = `expand` bez opakování + vložení do listu.

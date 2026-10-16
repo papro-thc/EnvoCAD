@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from envocad.library.macros import MACRO_VERSION, validate_macro
@@ -117,9 +118,6 @@ def jps_string_chain() -> dict:
 
 
 # ---- proměnné a sady hodnot (formát makra v2, docs/LIBRARY_FORMAT.md „Formát makra“) ----------------------------
-_SPD_CHOICES = ["", "T1", "T2", "T1+T2"]
-
-
 def _num(name: str, label: str, default: str, unit: str = "", **kw) -> dict:
     d = {"name": name, "label": label, "type": "number", "default": default}
     if unit:
@@ -148,8 +146,9 @@ _DC_AUTO = [
     _auto("string", "Označení stringu", "G{k}", typ="text"),
     _auto("inverter", "Střídač", "T{i}", typ="text"),
 ]
-_DC_SPD = {"name": "spd", "label": "Svodič přepětí DC (typ)", "type": "choice", "choices": _SPD_CHOICES, "default": "T2",
-           "help": "prázdné = bez svodiče"}
+# typ svodiče je volný text (specifikace a starší projekty mají i „T1+T2+T3“, „Typ 2“); doporučené hodnoty v nápovědě
+_SPD_HELP = "Doporučené hodnoty: T1, T2, T1+T2 (smí být i jiný text, např. T1+T2+T3). Prázdné = bez svodiče."
+_DC_SPD = {"name": "spd", "label": "Svodič přepětí DC (typ)", "default": "T2", "help": _SPD_HELP}
 
 META = {
     "DC string v rozvaděči": {
@@ -191,8 +190,7 @@ META = {
     "AC jádro rozvaděče": {
         "role": "ac_core",
         "variables": [
-            {"name": "spd", "label": "Svodič přepětí AC (typ)", "type": "choice", "choices": _SPD_CHOICES,
-             "default": "T1+T2", "help": "prázdné = bez svodiče"},
+            {"name": "spd", "label": "Svodič přepětí AC (typ)", "default": "T1+T2", "help": _SPD_HELP},
             _num("main_in", "In hlavního vypínače", "125", "A", required=True, min=1),
         ],
         "value_sets": [
@@ -224,11 +222,29 @@ def macro_data(name: str, desc: str, fragment: dict) -> dict:
     return data
 
 
+_ID = re.compile(r"\b[0-9a-f]{12}\b")
+
+
+def _canon_ids(fragment: dict) -> str:
+    """Fragment jako text s náhodnými id nahrazenými pořadovými značkami (porovnání bez ohledu na id)."""
+    ids: dict[str, str] = {}
+    return _ID.sub(lambda m: ids.setdefault(m.group(0), f"#{len(ids) + 1}"), json.dumps(fragment, sort_keys=False))
+
+
+def _keep_ids(path: Path, fragment: dict) -> dict:
+    """Beze změny obsahu ponechá fragment s id z existujícího souboru – přegenerování nemění diff kvůli náhodným id."""
+    try:
+        old = json.loads(path.read_text(encoding="utf-8")).get("fragment")
+    except (OSError, ValueError, AttributeError):
+        return fragment
+    return old if isinstance(old, dict) and _canon_ids(old) == _canon_ids(fragment) else fragment
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     for name, desc, fn in MACROS:
         slug = name.lower().replace(" → ", "_").replace(" ", "_").replace("í", "i").replace("č", "c").replace("ř", "r").replace("ě", "e").replace("ý", "y").replace("á", "a")
-        data = macro_data(name, desc, fn())
+        data = macro_data(name, desc, _keep_ids(OUT / f"{slug}.json", fn()))
         errs = validate_macro(data)
         if errs:
             raise SystemExit(f"{name}: " + "; ".join(errs))

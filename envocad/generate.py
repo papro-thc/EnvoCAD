@@ -26,7 +26,8 @@ Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
 }
 Položka `macros` smí být i objekt {"name": "DC string v rozvaděči", "value_set": "Pojistka 20 A gPV, SPD T1+T2",
 "values": {"fuse_in": 25}} – sada hodnot a hodnoty proměnných makra přebijí základ ze `dc`/`ac` (docs/LIBRARY_FORMAT.md,
-„Formát makra“). Neplatná hodnota → ValueError s názvem makra. Artikl střídače (`component_id`) doplní atributy,
+„Formát makra“). Neplatná hodnota → ValueError s názvem makra. In (`fuse_in`, `disconnect_in`, `breaker_in`, `main_in`)
+jsou čísla v A (ne „C40“), `spd` je text (T1, T2, T1+T2, T1+T2+T3…). Artikl střídače (`component_id`) doplní atributy,
 které specifikace nezadala (typ, výrobce, mppt…).
 """
 from __future__ import annotations
@@ -311,7 +312,8 @@ def _macro_values(m, entry: tuple[str, str | None, dict], base: dict, context: d
     """Hodnoty proměnných makra pro generátor; chyba → ValueError s názvem makra."""
     from envocad.library.macros import resolve_values
     _, value_set, given = entry
-    vals, errs = resolve_values(m, given=given, value_set=value_set, components=components, context=context, base=base)
+    vals, errs = resolve_values(m, given=given, value_set=value_set, components=components, context=context, base=base,
+                                repeat=False)   # smyčku stringů drží generátor (počet není omezen max makra)
     if errs:
         raise ValueError(f"Makro „{m.name}“: " + "; ".join(e.removeprefix(f"Makro „{m.name}“: ") for e in errs))
     return vals
@@ -321,7 +323,7 @@ def _insert_macro(project: Project, sheet: Sheet, m, values: dict, dx: float, li
     """Rozvine makro (bez opakování – smyčku drží generátor) a vloží ho do listu; vrací nové přístroje pro rozmístění."""
     from envocad.library.macros import expand, insert
     els, wires = expand(project, sheet, m, values, dx=dx, ref_prefix_of=lambda sid: lib.get_symbol(sid).iec_ref,
-                        components=lib.component, repeat=False)
+                        components=lib.component, repeat=False, copy=False)   # označení z makra beze změny
     insert(sheet, els, wires)
     return [e for e in els if e.modules > 0 and e.symbol_id not in ("sb.feed_in", "sb.feed_out", "sb.busbar")]
 

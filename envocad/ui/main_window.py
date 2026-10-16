@@ -923,6 +923,9 @@ class MainWindow(QMainWindow):
         except ValueError as ex:
             QMessageBox.warning(self, "Makro", str(ex))
             return
+        if n == 0:
+            self.statusBar().showMessage("Makro nevložilo žádné prvky (počet 0)", 5000)
+            return
         self.statusBar().showMessage(f"Vloženo makro {m.name} ({n} prvků)", 4000)
 
     def set_shared_library(self) -> None:

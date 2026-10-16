@@ -21,10 +21,30 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from envocad.library.macros import resolve_values
+from envocad.library.macros import repeat_context_names, resolve_values
 from envocad.model import multipole as mp
 from envocad.model.project import ENCLOSURE_PARAMS, MODULE_WIDTH, Layout, Project, Sheet, Wire
 from envocad.model.symbol import Attribute, Symbol
+
+_CZECH_BUTTONS = (
+    (QDialogButtonBox.Ok, "OK"), (QDialogButtonBox.Cancel, "Zrušit"), (QDialogButtonBox.Yes, "Ano"),
+    (QDialogButtonBox.No, "Ne"), (QDialogButtonBox.Close, "Zavřít"), (QDialogButtonBox.Apply, "Použít"),
+    (QDialogButtonBox.Save, "Uložit"), (QDialogButtonBox.Discard, "Neukládat"),
+)
+
+
+def czech_buttons(bb: QDialogButtonBox) -> QDialogButtonBox:
+    """Česky popíše standardní tlačítka (OK/Zrušit/Ano/Ne/Zavřít/Použít…) – Qt bez překladů ukazuje anglické texty."""
+    for which, text in _CZECH_BUTTONS:
+        b = bb.button(which)
+        if b is not None:
+            b.setText(text)
+    return bb
+
+
+def button_box(buttons) -> QDialogButtonBox:
+    """QDialogButtonBox se standardními tlačítky popsanými česky."""
+    return czech_buttons(QDialogButtonBox(buttons))
 
 
 class AttrDialog(QDialog):
@@ -51,7 +71,7 @@ class AttrDialog(QDialog):
             form.addRow(a.label + (" *" if a.show else ""), ed)
         lay.addLayout(form)
         lay.addWidget(QLabel("<small>* zobrazí se ve výkresu</small>"))
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
@@ -122,7 +142,7 @@ class TerminalsDialog(QDialog):
         self.table.resizeColumnsToContents()
         self.table.horizontalHeader().setStretchLastSection(True)
         lay.addWidget(self.table)
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
@@ -167,7 +187,7 @@ class StripDialog(QDialog):
         self.bridges = QPlainTextEdit()
         self.bridges.setMaximumHeight(110)
         lay.addWidget(self.bridges)
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
@@ -289,7 +309,7 @@ class CableDialog(QDialog):
             self.table.setItem(r, 2, QTableWidgetItem(c.color))
         self.table.horizontalHeader().setStretchLastSection(True)
         lay.addWidget(self.table)
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
@@ -407,7 +427,7 @@ class ProjectWizard(QDialog):
         self.dso = QLineEdit("")
         form.addRow("Distributor (DSO)", self.dso)
         lay.addLayout(form)
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
@@ -672,7 +692,7 @@ class EnclosureDialog(QDialog):
         self.panel = EnclosurePanel(sheet, library=library, project=project)
         lay = QVBoxLayout(self)
         lay.addWidget(self.panel)
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
@@ -698,7 +718,7 @@ class SheetPropsDialog(QDialog):
         form.addRow("Název:", self.name)
         form.addRow("Funkce (=):", self.func)
         form.addRow("Umístění (+):", self.loc)
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         form.addRow(bb)
@@ -735,7 +755,7 @@ class StructuresDialog(QDialog):
         row.addWidget(b_del)
         row.addStretch()
         lay.addLayout(row)
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self._accept)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
@@ -792,6 +812,9 @@ class MacroValuesDialog(QDialog):
         self.macro, self.library, self.context = macro, library, dict(context or {})
         self.errors: list[str] = []
         self._fields: dict[str, QWidget] = {}
+        self._loaded: dict[str, str] = {}   # hodnota pole nastavená dialogem (výchozí, kontext, sada) – ne uživatelem
+        # názvy opakování (k, nk) doplní při vložení každá instance zvlášť → pole zakázaná
+        self._per_run = repeat_context_names(macro) - set(self.context)
         self.setWindowTitle(f"Makro – {macro.name}")
         self.setMinimumWidth(460)
         root = QVBoxLayout(self)
@@ -839,7 +862,7 @@ class MacroValuesDialog(QDialog):
         self.error_label.setWordWrap(True)
         self.error_label.setVisible(False)
         root.addWidget(self.error_label)
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         root.addWidget(bb)
@@ -886,6 +909,11 @@ class MacroValuesDialog(QDialog):
         if v.help:
             w.setToolTip(v.help)
         self._fields[v.name] = w
+        if v.name in self._per_run:
+            w.setEnabled(False)
+            if isinstance(w, QLineEdit):
+                w.setPlaceholderText("doplní se automaticky")
+            w.setToolTip("Doplní se automaticky při opakování makra (každá instance zvlášť).")
         return w
 
     def _get(self, name: str) -> str:
@@ -898,18 +926,19 @@ class MacroValuesDialog(QDialog):
 
     def _set(self, name: str, value: str) -> None:
         w = self._fields.get(name)
-        if w is None:
+        if w is None or name in self._per_run:
             return
         if isinstance(w, QComboBox):
             key = value.replace(" ", "").lower()
             for i in range(w.count()):
                 if str(w.itemData(i)).replace(" ", "").lower() == key:
                     w.setCurrentIndex(i)
-                    return
+                    break
         elif isinstance(w, QLineEdit):
             w.setText(value)
         else:
             w.edit.setText(value)
+        self._loaded[name] = self._get(name)
 
     def _load_defaults(self) -> None:
         for v in self.macro.variables:
@@ -953,7 +982,12 @@ class MacroValuesDialog(QDialog):
         return self.set_combo.currentText() if self.set_combo.currentIndex() > 0 else None
 
     def _resolve(self) -> tuple[dict, list[str]]:
-        given = {name: self._get(name) for name in self._fields}
+        # automatická pole pošle jen změněná uživatelem (jinak by výchozí „1“ u k přebilo číslování opakování),
+        # pole opakování (k, nk) nikdy – doplní je `expand` v každé instanci
+        auto = {v.name for v in self.macro.variables if v.auto}
+        given = {name: self._get(name) for name in self._fields
+                 if name not in self._per_run
+                 and (name not in auto or self._get(name) != self._loaded.get(name, ""))}
         return resolve_values(self.macro, given=given, value_set=self.value_set(),
                               components=self.library.component, context=self.context)
 

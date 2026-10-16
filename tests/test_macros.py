@@ -355,3 +355,172 @@ def test_generator_macro_errors_name_the_macro():
         build_project({**base, "macros": {"dc_tech": {"name": "DC string v rozvaděči", "values": {"fuse_in": "x"}}}})
     with pytest.raises(ValueError, match="AC jádro rozvaděče.*neznámá sada"):
         build_project({**base, "macros": {"ac_core": {"name": "AC jádro rozvaděče", "value_set": "Nic"}}})
+
+
+# ---- opravy z review (makra v2) ---------------------------------------------------------------------------------
+def test_repeat_given_k_does_not_freeze_numbering(lib):
+    """Nález 1: dialog posílal k="1" do given → j = „{k}“ se dosadilo předem a všechna opakování měla číslo 1.
+    S opakováním se k, nk z given do výchozích hodnot nedosazují; dosadí je expand v každé iteraci."""
+    m = find_macro("DC string v rozvaděči")
+    assert macros.repeat_context_names(m) == {"k", "nk"}          # n je počet – ten se zadává
+    given = {"n": "3", "k": "1", "nk": "", "j": "{k}", "string": "G{k}", "i": "1", "inverter": "T{i}"}
+    vals, errs = resolve_values(m, given=given, components=lib.component)
+    assert not errs and vals["j"] == "{k}" and vals["string"] == "G{k}" and vals["inverter"] == "T1"
+    els, _ = expand(Project(), Sheet(), m, vals, ref_prefix_of=_prefix(lib), components=lib.component)
+    assert sorted(e.ref for e in els if e.ref.startswith("FU")) == ["FU1.1", "FU1.2", "FU1.3"]
+    assert sorted(e.attrs["desc"] for e in els if e.symbol_id == "sb.feed_in") == ["od G1", "od G2", "od G3"]
+    # bez opakování (generátor) a s kontextem se k dosazuje jako dřív
+    assert resolve_values(m, given=given, repeat=False)[0]["j"] == "1"
+    assert resolve_values(m, given={"n": "3"}, context={"k": "2"})[0]["j"] == "2"
+    # makro bez repeat: k z given se dosazuje
+    m2 = _m([{"name": "k", "default": "1"}, {"name": "j", "default": "{k}"}])
+    assert macros.repeat_context_names(m2) == frozenset()
+    assert resolve_values(m2, given={"k": "4"})[0]["j"] == "4"
+
+
+def test_repeat_context_names_when_count_is_not_n():
+    m = _m([{"name": "pocet", "type": "number", "default": "2"}], repeat={"count": "pocet"})
+    assert macros.repeat_context_names(m) == {"k", "n", "nk"}
+
+
+@pytest.mark.parametrize("raw, msg", [("", "povinný"), ("2.5", "celé číslo"), ("abc", "celé číslo"),
+                                      ("{x}", "celé číslo"), ("51", "větší než 50"), ("-1", "menší než")])
+def test_resolve_values_repeat_count_must_be_integer_in_range(raw, msg):
+    """Nález 6: počet opakování = celé číslo 0…min(max proměnné, MAX_REPEAT); prázdný = chyba."""
+    m = find_macro("DC string v rozvaděči")
+    _, errs = resolve_values(m, given={"n": raw})
+    assert len([e for e in errs if "Počet stringů" in e]) == 1 and msg in errs[0], errs
+    if raw == "":   # bez opakování (generátor) prázdný počet nevadí – proměnná není povinná
+        assert resolve_values(m, given={"n": raw}, repeat=False)[1] == []
+
+
+def test_resolve_values_repeat_count_limits():
+    var = {"name": "n", "type": "number", "default": "0", "min": 0}
+    m = _m([var], repeat={"count": "n"})
+    assert resolve_values(m)[1] == []                                   # 0 smí (nic se nevloží)
+    assert resolve_values(m, given={"n": "3,0"})[0]["n"] == "3"          # normalizace
+    assert resolve_values(m, given={"n": str(MAX_REPEAT)})[1] == []
+    assert "větší než" in resolve_values(m, given={"n": str(MAX_REPEAT + 1)})[1][0]
+    m = _m([{**var, "max": 5}], repeat={"count": "n"})
+    assert macros.repeat_limit(m) == 5 and "větší než 5" in resolve_values(m, given={"n": "6"})[1][0]
+    # makro s repeat, ale proměnná počtu nedeklarovaná a nezadaná → chyba (prázdné)
+    m = _m([{"name": "x"}], repeat={"count": "n"})
+    assert "povinný" in resolve_values(m)[1][0]
+
+
+def test_validate_macro_count_max_over_limit():
+    """Nález 10: max proměnné počtu > MAX_REPEAT hlásí validate_macro."""
+    data = {"version": 2, "name": "X", "repeat": {"count": "n"}, "fragment": {"elements": [], "wires": []},
+            "variables": [{"name": "n", "type": "number", "max": MAX_REPEAT + 1}]}
+    assert any("MAX" in e or str(MAX_REPEAT) in e for e in validate_macro(data))
+    data["variables"][0]["max"] = MAX_REPEAT
+    assert validate_macro(data) == []
+
+
+def test_expand_respects_count_variable_max(lib):
+    """Nález 10: expand respektuje max proměnné počtu (dřív vložil 51 stringů přes max 50)."""
+    m = find_macro("DC string v rozvaděči")
+    vals, _ = resolve_values(m, given={"n": "51"})
+    with pytest.raises(ValueError, match="mimo rozsah 0–50"):
+        expand(Project(), Sheet(), m, vals, ref_prefix_of=_prefix(lib))
+    vals, _ = resolve_values(m, given={"n": "50"})
+    assert expand(Project(), Sheet(), m, vals, ref_prefix_of=_prefix(lib))[0]
+
+
+_V1_FRAG = {"elements": [
+    {"id": "a", "symbol_id": "fve.terminal", "x": 0, "y": 0, "attrs": {"ref": "X1", "terminal": "1"}},
+    {"id": "b", "symbol_id": "fve.breaker_mcb", "x": 20, "y": 0, "attrs": {"ref": "F1", "in_": "16"}},
+    {"id": "c", "symbol_id": "sb.feed_out", "x": 40, "y": 0, "attrs": {"ref": "X5", "sheet": "3"}}], "wires": []}
+
+
+def test_macro_without_parameters_expands_as_copy(lib):
+    """Nález 3 (scénář v1_compat): makro bez proměnných se vloží jako kopie výřezu (paste_fragment) – číslo svorky
+    se vymaže, přívod/vývod se přečísluje, jistič dostane další volné F."""
+    m = parse_macro({"name": "v1", "fragment": _V1_FRAG})
+    assert not m.has_parameters
+    p = Project()
+    s = p.sheets[0]
+    for _ in range(2):
+        vals, errs = resolve_values(m, components=lib.component)
+        assert not errs
+        els, w = expand(p, s, m, vals, ref_prefix_of=_prefix(lib), components=lib.component)
+        macros.insert(s, els, w)
+    got = [(e.symbol_id, e.ref, e.attrs.get("terminal")) for e in s.elements]
+    assert got[0] == ("fve.terminal", "X1", "") and got[3] == ("fve.terminal", "X1", "")   # skupina svorek X1
+    assert [e.ref for e in s.elements if e.symbol_id == "fve.breaker_mcb"] == ["F1", "F2"]
+    feeds = [e.ref for e in s.elements if e.symbol_id == "sb.feed_out"]
+    assert len(set(feeds)) == 2 and "X5" not in feeds and "X1" not in feeds   # přečíslované, bez kolize se svorkovnicí
+    assert not any("sheet" in e.attrs for e in s.elements)
+
+
+def test_copy_keeps_placeholders_and_shared(lib):
+    """Kopie nemění ref/terminal se zástupným symbolem ani sdílené prvky; parametrická makra a holý fragment
+    (instantiate, generátor) kopií nejsou."""
+    frag = {"elements": [
+        {"id": "a", "symbol_id": "fve.terminal", "x": 0, "y": 0, "attrs": {"ref": "X1", "terminal": "{t}"}},
+        {"id": "c", "symbol_id": "sb.feed_out", "x": 40, "y": 0, "attrs": {"ref": "X{t}"}},
+        {"id": "d", "symbol_id": "sb.feed_out", "x": 60, "y": 0, "attrs": {"ref": "XPE", "shared": "1"}},
+        {"id": "e", "symbol_id": "fve.terminal", "x": 80, "y": 0, "attrs": {"ref": "X9", "terminal": "4", "shared": "1"}}],
+        "wires": []}
+    m = parse_macro({"name": "p", "fragment": frag})
+    assert m.has_parameters
+    vals = {"t": "7"}
+    for copy in (True, None):
+        els, _ = expand(Project(), Sheet(), m, vals, ref_prefix_of=_prefix(lib), copy=copy)
+        assert [(e.ref, e.attrs.get("terminal")) for e in els] == [("X1", "7"), ("X7", None), ("XPE", None), ("X9", "4")]
+    p = Project()
+    els, _ = instantiate(p, p.sheets[0], _V1_FRAG, {}, ref_prefix_of=_prefix(lib))
+    assert [(e.ref, e.attrs.get("terminal")) for e in els if e.symbol_id != "fve.breaker_mcb"] == [("X1", "1"), ("X5", None)]
+
+
+def test_builtin_macro_without_variables_is_copy(lib):
+    """Vestavěné „AC vývod s jističem“ (bez proměnných) se v GUI vkládá jako kopie – čísla svorek doplní číslování."""
+    m = find_macro("AC vývod s jističem")
+    assert not m.has_parameters
+    els, _ = expand(Project(), Sheet(), m, {}, ref_prefix_of=_prefix(lib))
+    assert all(e.attrs.get("terminal") == "" for e in els if e.symbol_id == "sb.terminal_block")
+    assert "X3" not in [e.ref for e in els if e.symbol_id == "sb.feed_out"]
+
+
+@pytest.mark.parametrize("extra, sym, expect", [
+    ({"dc": {"spd": "T1+T2+T3", "route_boxes": 0}}, "fve.spd", "T1+T2+T3 DC"),
+    ({"dc": {"spd": "Typ 2", "route_boxes": 0}}, "fve.spd", "Typ 2 DC"),
+    ({"ac": {"spd": "T2+T3"}}, "fve.spd", "T2+T3"),
+])
+def test_generator_spd_is_free_text(extra, sym, expect):
+    """Nález 2: typ svodiče ve vestavěných makrech je text (dřív choice odmítl hodnoty ze starších specifikací)."""
+    for name in ("DC string v rozvaděči", "DC string po trase", "AC jádro rozvaděče"):
+        assert find_macro(name).variable("spd").type == "text"
+        assert "T1+T2" in find_macro(name).variable("spd").help
+    p = build_project({"inverters": [{"ref": "T1", "p_ac": 25, "strings": [20, 20]}], **extra})
+    types = {e.attrs.get("spd_type") for s in p.sheets for e in s.elements if e.symbol_id == sym}
+    assert expect in types
+
+
+def test_generator_breaker_in_is_number_and_normalized():
+    """breaker_in zůstává číslo v A (dokumentace MANUAL.md); „40.0“ → „40“ (nález 8 – normalizace nic nerozbíjí)."""
+    base = {"inverters": [{"ref": "T1", "p_ac": 25, "strings": [20]}]}
+    p = build_project({**base, "ac": {"breaker_in": 40.0}, "dc": {"fuse_in": "15.0"}})
+    ins = {e.attrs["in_"] for s in p.sheets for e in s.elements if e.symbol_id in ("fve.breaker_mcb", "fve.fuse_disconnect")}
+    assert ins == {"40", "15"}
+    with pytest.raises(ValueError, match="In jističe.*není číslo"):
+        build_project({**base, "ac": {"breaker_in": "C40"}})
+
+
+def test_generator_does_not_apply_macro_repeat_max():
+    """Generátor drží smyčku sám (resolve_values repeat=False): víc stringů v rozvaděči, než je max proměnné počtu
+    (50), nevadí a k z kontextu se dosazuje."""
+    from envocad.generate import _macro_values
+    m = find_macro("DC string v rozvaděči")
+    ctx = {"k": 60, "nk": 120, "n": 60, "string": "G60", "i": 1, "j": 60, "inverter": "T1"}
+    vals = _macro_values(m, ("", None, {}), {"fuse_in": "15", "spd": "T2"}, ctx, None)
+    assert vals["n"] == "60" and vals["j"] == "60"
+    # celý generátor: 60 stringů u jednoho střídače (v c2be108 padalo na „60 je větší než 50“)
+    p = build_project({"inverters": [{"ref": "T1", "p_ac": 100, "strings": [20] * 60}], "dc": {"route_boxes": 0}})
+    assert sum(e.symbol_id == "fve.fuse_disconnect" for s in p.sheets for e in s.elements) == 60
+
+
+def test_subst_double_brace_is_not_escape():
+    """Nález 9: `{{` se v makrech v2 neescapuje (na rozdíl od dřívějšího format_map)."""
+    assert subst("{{a}}", {"a": "X"}) == "{X}"
+    assert subst("{{b}}", {"a": "X"}) == "{{b}}"

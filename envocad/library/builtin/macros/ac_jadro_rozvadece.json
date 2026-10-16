@@ -7,15 +7,8 @@
   {
    "name": "spd",
    "label": "Svodič přepětí AC (typ)",
-   "type": "choice",
-   "choices": [
-    "",
-    "T1",
-    "T2",
-    "T1+T2"
-   ],
    "default": "T1+T2",
-   "help": "prázdné = bez svodiče"
+   "help": "Doporučené hodnoty: T1, T2, T1+T2 (smí být i jiný text, např. T1+T2+T3). Prázdné = bez svodiče."
   },
   {
    "name": "main_in",
