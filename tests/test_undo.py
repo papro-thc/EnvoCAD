@@ -179,7 +179,7 @@ def test_conductors_terminals_bridges(jps):
 
 
 def test_set_cable(jps):
-    p, sc, undo = jps
+    p, _sc, undo = jps
     c = Cable(ref="WC1")
     p.cables.append(c)
     old = c.to_dict()
