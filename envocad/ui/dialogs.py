@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from envocad.model import multipole as mp
-from envocad.model.project import ENCLOSURE_PARAMS, MODULE_WIDTH, Layout, Sheet, Wire
+from envocad.model.project import ENCLOSURE_PARAMS, MODULE_WIDTH, Layout, Project, Sheet, Wire
 from envocad.model.symbol import Attribute, Symbol
 
 
@@ -540,9 +540,10 @@ class EnclosurePanel(QWidget):
 
     changed = Signal()
 
-    def __init__(self, sheet: Sheet, parent=None, library=None):
+    def __init__(self, sheet: Sheet, parent=None, library=None, project: Project | None = None):
         super().__init__(parent)
         self._sheet = sheet
+        self._project = project   # bez projektu se skupiny přístrojů (cívka × stykač) hledají jen na listu
         lay = sheet.layout
         root = QVBoxLayout(self)
         root.setContentsMargins(6, 6, 6, 6)
@@ -605,7 +606,7 @@ class EnclosurePanel(QWidget):
         from envocad.model.thermal import temperature_rise
         lay = self._sheet.layout
         total = lay.total_modules
-        used = lay.used_modules(self._sheet)
+        used = lay.used_modules(self._sheet, self._project)
         pct = (used / total * 100) if total else 0
         self.info.setText(f"{total} modulů celkem, obsazeno {used:g} ({pct:.0f} %), rezerva {total - used:g} M; "
                           f"užitná šířka řady {lay.modules_per_row * MODULE_WIDTH:g} mm, "
@@ -615,7 +616,7 @@ class EnclosurePanel(QWidget):
             t_amb = float((lay.params.get("t_ambient") or "35").replace(",", "."))
         except ValueError:
             rdf, t_amb = 0.8, 35.0
-        r = temperature_rise(self._sheet, rdf=rdf, t_ambient_c=t_amb)
+        r = temperature_rise(self._sheet, rdf=rdf, t_ambient_c=t_amb, project=self._project)
         txt = (f"Ztráty přístrojů ΣPv = {r.p_devices_w:g} W, celkem s vodiči {r.p_total_w:g} W\n"
                f"Účinná chladicí plocha Ae = {r.ae_m2:g} m²\n"
                f"Oteplení: střed Δt = {r.dt_mid_k:g} K, horní část Δt = {r.dt_top_k:g} K "
@@ -663,11 +664,11 @@ class EnclosurePanel(QWidget):
 class EnclosureDialog(QDialog):
     """Totéž jako panel, ale modálně (z menu List)."""
 
-    def __init__(self, sheet: Sheet, parent=None, library=None):
+    def __init__(self, sheet: Sheet, parent=None, library=None, project: Project | None = None):
         super().__init__(parent)
         self.setWindowTitle(f"Skříň rozvaděče – {sheet.name}")
         self.setMinimumWidth(480)
-        self.panel = EnclosurePanel(sheet, library=library)
+        self.panel = EnclosurePanel(sheet, library=library, project=project)
         lay = QVBoxLayout(self)
         lay.addWidget(self.panel)
         bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)

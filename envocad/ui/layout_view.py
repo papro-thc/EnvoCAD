@@ -189,9 +189,7 @@ class LayoutScene(QGraphicsScene):
         # přístroje
         unplaced_y = MARGIN
         ux = MARGIN + self.enclosure_w + UNPLACED_X_GAP
-        for e in self.sheet.elements:
-            if e.modules <= 0:
-                continue
+        for e in self.sheet.layout.devices(self.sheet, self.project):
             sym = self.library.get_symbol(e.symbol_id)
             pl = lay.placement(e.id)
             fp, kind = None, ""
@@ -258,7 +256,7 @@ class LayoutScene(QGraphicsScene):
         painter.setPen(QPen(c.ink, 0.2))
         top = self._encl_rect.top() if hasattr(self, "_encl_rect") else MARGIN
         dims = f"{lay.width_mm:g} × {lay.height_mm:g}" + (f" × {lay.depth_mm:g}" if lay.depth_mm else "") + " mm"
-        used, total = lay.used_modules(self.sheet), lay.total_modules
+        used, total = lay.used_modules(self.sheet, self.project), lay.total_modules
         line1 = f"{self.sheet.name}   skříň: {lay.enclosure or '– (dvojklik = nastavení)'}   {dims}   {lay.params.get('ip', '')}"
         line2 = (f"{lay.rows} řad × {lay.modules_per_row} modulů = {total} M, obsazeno {used:g} M "
                  f"({(used / total * 100) if total else 0:.0f} %), rezerva {total - used:g} M")

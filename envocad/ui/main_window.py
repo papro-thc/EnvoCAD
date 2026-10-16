@@ -323,7 +323,7 @@ class MainWindow(QMainWindow):
             from envocad.ui.dialogs import EnclosurePanel
             scene = LayoutScene(self.project, sheet, self.library, self.undo)
             view = LayoutView(scene)
-            panel = EnclosurePanel(sheet, library=self.library)
+            panel = EnclosurePanel(sheet, library=self.library, project=self.project)
             panel.changed.connect(lambda sc=scene, sh=sheet: (sc.rebuild(), self._rebuild_sheet_views(sh),
                                                             self._refresh_tab_titles(), self.undo.resetClean()))
             scene.layout_changed.connect(panel.refresh)
@@ -623,7 +623,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Skříň", "Otevřete list rozvaděče.")
             return
         from envocad.ui.dialogs import EnclosureDialog
-        dlg = EnclosureDialog(sh, self, library=self.library)
+        dlg = EnclosureDialog(sh, self, library=self.library, project=self.project)
         if dlg.exec() != EnclosureDialog.Accepted:
             return
         dlg.apply()

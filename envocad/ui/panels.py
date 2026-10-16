@@ -5,6 +5,7 @@ from typing import ClassVar
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFormLayout,
     QLabel,
     QLineEdit,
@@ -100,6 +101,7 @@ class LibraryPanel(QWidget):
             self.symbol_chosen.emit(sid)
 
 
+CONTACTS_HINT = "1/2 3/4 5/6 13/14 21/22, NO:11/14 NC:11/12"
 DESIGNATION_KEYS = ("func", "loc")    # override aspektů prvku – kód A–Z, 0–9, _
 
 
@@ -139,7 +141,12 @@ class PropertiesPanel(QWidget):
                 comp = f"<br><small>Artikl: {c.label}</small>" if c else ""
             self.form.addRow(QLabel(f"<b>{sym.name}</b><br><small>{sym.id}</small>{comp}"))
             for a in sym.attributes:
-                self._add_field(a.key, a.label, e.attrs.get(a.key, ""))
+                if sym.id == "fve.interrupt" and a.key == "star_source":
+                    self._add_check(a.key, "Zdroj hvězdy", e.attrs.get(a.key, "") == "1",
+                                    "Bod se stejným označením, ze kterého vede hvězda k ostatním bodům "
+                                    "(jinak se body řetězí)")
+                else:
+                    self._add_field(a.key, a.label, e.attrs.get(a.key, ""))
             sc = item.scene()
             sheet = getattr(sc, "sheet", None)
             self._add_field("func", "Funkce (=)", e.attrs.get("func", ""), getattr(sheet, "func", ""))
@@ -170,8 +177,20 @@ class PropertiesPanel(QWidget):
         if inherited is not None:   # prázdné = dědí z listu; placeholder ukáže zděděnou hodnotu
             ed.setPlaceholderText(inherited or "(z listu)")
             ed.setToolTip("Prázdné pole = hodnota se zděďí z listu")
+        if key == "contacts":
+            ed.setPlaceholderText(CONTACTS_HINT)
+            ed.setToolTip("Kontaktní obraz přístroje, páry svorek oddělené mezerou.\n"
+                          f"Příklad: {CONTACTS_HINT}\nBez předpony druhu se určí podle čísel svorek (IEC 60947-5-1).")
         ed.editingFinished.connect(lambda k=key, w=ed: self._commit(k, w.text()))
         self.form.addRow(label, ed)
+
+    def _add_check(self, key: str, label: str, checked: bool, tip: str = "") -> None:
+        """Zaškrtávátko pro příznakový atribut (hodnota "1" / "")."""
+        cb = QCheckBox(label)
+        cb.setChecked(checked)
+        cb.setToolTip(tip)
+        cb.toggled.connect(lambda on, k=key: self._commit(k, "1" if on else ""))
+        self.form.addRow(cb)
 
     @staticmethod
     def normalize(key: str, value: str) -> str:

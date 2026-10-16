@@ -833,3 +833,88 @@ def test_revision_labels_panel_codes_and_structures_note(app, monkeypatch):
     finally:
         w.undo.setClean()
         w.close()
+
+
+def _mirror_project():
+    p = Project(name="Zrcadlo")
+    s = p.sheets[0]
+    coil = Element("ctl.coil", 100, 150, attrs={"ref": "K1", "contacts": "1/2 3/4 5/6 13/14 21/22"})
+    pw = Element("fve.contactor", 100, 100, attrs={"ref": "K1", "modules": "3"})
+    no = Element("ctl.contact_no", 200, 150, attrs={"ref": "K1"})
+    nc = Element("ctl.contact_nc", 250, 150, attrs={"ref": "K1"})
+    s.elements += [coil, pw, no, nc]
+    return p, coil
+
+
+def test_contact_mirror_drawn_and_pdf(app, tmp_path):
+    from PySide6.QtGui import QImage, QPainter, QUndoStack
+    from PySide6.QtPrintSupport import QPrinter
+
+    from envocad.ui.canvas import SchematicScene
+    p, coil = _mirror_project()
+    lib = LibraryStore(tmp_path / "lib.db")
+    sc = SchematicScene(p, p.sheets[0], lib, QUndoStack())
+    mirrors = sc.text_layout().mirrors
+    assert coil.id in mirrors and mirrors[coil.id].lines
+    r = sc.sceneRect()
+    img = QImage(int(r.width() * 4), int(r.height() * 4), QImage.Format_ARGB32)
+    img.fill(Qt.white)
+    ptr = QPainter(img)
+    sc.render(ptr)
+    ptr.end()
+    assert not img.isNull()
+    # PDF: zrcadlo se kreslí v drawForeground → scene.render ho zahrne; počet kreslených čar roste s ním
+    pdf = tmp_path / "m.pdf"
+    pr = QPrinter(QPrinter.HighResolution)
+    pr.setOutputFormat(QPrinter.PdfFormat)
+    pr.setOutputFileName(str(pdf))
+    ptr = QPainter(pr)
+    sc.render(ptr)
+    ptr.end()
+    assert pdf.exists() and pdf.stat().st_size > 500
+    text = "13/14"
+    assert any(text in t[2] for t in mirrors[coil.id].texts)
+
+
+def test_star_source_checkbox_undo(app, tmp_path):
+    from PySide6.QtWidgets import QCheckBox
+    p = Project(name="Hvezda")
+    s = p.sheets[0]
+    ip = Element("fve.interrupt", 50, 50, attrs={"ref": "A"})
+    s.elements.append(ip)
+    win = MainWindow(library=LibraryStore(tmp_path / "lib.db"), project=p)
+    win.show()
+    app.processEvents()
+    sc = win.scene
+    sc.element_items[ip.id].setSelected(True)
+    app.processEvents()
+    cb = next(c for c in win.props_panel.findChildren(QCheckBox) if c.text() == "Zdroj hvězdy")
+    cb.setChecked(True)
+    for _ in range(5):
+        app.processEvents()
+    assert sc.sheet.element(ip.id).attrs.get("star_source") == "1"
+    sc.undo.undo()
+    assert sc.sheet.element(ip.id).attrs.get("star_source", "") == ""
+    sc.undo.redo()
+    assert sc.sheet.element(ip.id).attrs.get("star_source") == "1"
+
+
+def test_contacts_hint_and_layout_hides_coil(app, tmp_path):
+    from PySide6.QtGui import QUndoStack
+    from PySide6.QtWidgets import QLineEdit
+
+    from envocad.ui.layout_view import LayoutScene
+    p, coil = _mirror_project()
+    lib = LibraryStore(tmp_path / "lib.db")
+    coil.attrs["modules"] = "1"
+    sw = p.sheets[0]
+    sw.kind = "switchboard"
+    ls = LayoutScene(p, sw, lib, QUndoStack())
+    mods = {it.element.id for it in ls.items() if hasattr(it, "element")}
+    assert coil.id not in mods and any(e.symbol_id == "fve.contactor" and e.id in mods for e in sw.elements)
+    win = MainWindow(library=lib, project=p)
+    win.show()
+    app.processEvents()
+    win.scene.element_items[coil.id].setSelected(True)
+    app.processEvents()
+    assert any("NO:11/14" in e.placeholderText() for e in win.props_panel.findChildren(QLineEdit))
