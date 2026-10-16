@@ -252,3 +252,58 @@ def test_rubber_band_select_and_delete(app, win):
     w.undo.undo()
     assert len(sc.sheet.elements) == 2 and len(sc.sheet.wires) == 1
     assert len(sc.element_items) == 2 and len(sc.wire_items) == 1
+
+
+def test_bends_follow_moved_element_and_segment_drag(app, win):
+    from envocad.model.routing import wire_route
+    p, a, b = two_elements()
+    b.y = 120.0
+    s = p.sheets[0]
+    wire = Wire(WireEnd(a.id, "2"), WireEnd(b.id, "1"), points=[(110.0, 150.0), (110.0, 120.0)])
+    s.wires.append(wire)
+    w = win(p)
+    sc, view = w.scene, w.view
+    port = view.viewport()
+    start, end = vp(w, a.x, a.y), vp(w, a.x, a.y + 20)
+    QTest.mousePress(port, Qt.LeftButton, Qt.NoModifier, start)
+    QTest.mouseMove(port, vp(w, a.x, a.y + 10))
+    QTest.mouseMove(port, end)
+    QTest.mouseRelease(port, Qt.LeftButton, Qt.NoModifier, end)
+    # lom u posunutého konce šel s prvkem nahoru, trasa je dál pravoúhlá
+    assert wire.points[0] == pytest.approx((110.0, a.y)) and a.y == pytest.approx(170, abs=1.5)
+    pts = wire_route(p, s, w.library, wire)
+    assert all(abs(x1 - x2) < 1e-6 or abs(y1 - y2) < 1e-6 for (x1, y1), (x2, y2) in __import__("itertools").pairwise(pts))
+    w.undo.undo()
+    assert wire.points == [(110.0, 150.0), (110.0, 120.0)]
+    # svislý úsek x=110 chytit a posunout doprava o 10 mm
+    pts = wire_route(p, s, w.library, wire)
+    i = next(k for k, (q, r) in enumerate(__import__("itertools").pairwise(pts)) if abs(q[0] - 110) < 1e-6 and abs(r[0] - 110) < 1e-6)
+    y_mid = (pts[i][1] + pts[i + 1][1]) / 2
+    n0 = w.undo.index()
+    QTest.mousePress(port, Qt.LeftButton, Qt.NoModifier, vp(w, 110, y_mid))
+    QTest.mouseMove(port, vp(w, 115, y_mid))
+    QTest.mouseMove(port, vp(w, 120, y_mid))
+    QTest.mouseRelease(port, Qt.LeftButton, Qt.NoModifier, vp(w, 120, y_mid))
+    assert w.undo.index() == n0 + 1 and (a.x, a.y) == (60, 150)
+    assert type(w.undo.command(n0)).__name__ == "SetWirePointsCommand"
+    assert any(abs(x - 120) < 1e-6 for x, _ in wire.points)
+    sc.clearSelection()
+    sc.wire_items[wire.id].setSelected(True)
+    assert sc.straighten_selected() == 1 and wire.points == []
+
+
+def test_parallel_auto_wires_keep_distance():
+    from envocad.library.store import LibraryStore
+    from envocad.model.routing import route_sheet, wire_overlaps
+    lib = LibraryStore()
+    p = Project()
+    s = p.sheets[0]
+    # jako RDC1 → RDC2 posunutý nahoru: Z-trasy se stejným lomem by vedly přes sebe
+    srcs = [Element("fve.breaker_mcb", 50, 150 - 10 * k, attrs={"ref": f"A{k}"}) for k in range(4)]
+    dsts = [Element("fve.breaker_mcb", 120, 170 - 10 * k, attrs={"ref": f"B{k}"}) for k in range(4)]
+    s.elements += srcs + dsts
+    pa, pb = "2", "1"
+    for a_, b_ in zip(srcs, dsts):
+        s.wires.append(Wire(WireEnd(a_.id, pa), WireEnd(b_.id, pb)))
+    routes = route_sheet(p, s, lib)
+    assert not wire_overlaps(s, routes)

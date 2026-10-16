@@ -138,6 +138,13 @@ class WireItem(QGraphicsPathItem):
         s.setWidth(2.5)
         return s.createStroke(self.path())
 
+    def set_points(self, pts: list[tuple[float, float]]) -> None:
+        """Trasa z modelu (souřadnice listu, Y nahoru) – viz model/routing.py."""
+        path = QPainterPath(sp(*pts[0]))
+        for x, y in pts[1:]:
+            path.lineTo(sp(x, y))
+        self.setPath(path)
+
     def update_route(self, a: ElementItem, b: ElementItem) -> None:
         pa, pb = a.port_scene_pos(self.wire.a.port), b.port_scene_pos(self.wire.b.port)
         da, db = a.port_dir(self.wire.a.port), b.port_dir(self.wire.b.port)

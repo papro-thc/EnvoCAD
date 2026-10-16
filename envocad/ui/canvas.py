@@ -76,6 +76,10 @@ class SchematicScene(QGraphicsScene):
             self.add_element_item(e)
         for w in self.sheet.wires:
             self.add_wire_item(w)
+        from envocad.model.routing import route_sheet
+        for wid, pts in route_sheet(self.project, self.sheet, self.library).items():   # stejné trasy jako PDF/DXF
+            if wid in self.wire_items:
+                self.wire_items[wid].set_points(pts)
         self.invalidate_text_layout()
 
     def add_element_item(self, e: Element) -> ElementItem:
@@ -102,10 +106,18 @@ class SchematicScene(QGraphicsScene):
             self.removeItem(it)
 
     def _route(self, it: WireItem) -> None:
-        a = self.element_items.get(it.wire.a.element_id)
-        b = self.element_items.get(it.wire.b.element_id)
-        if a and b:
-            it.update_route(a, b)
+        """Trasa z modelu (model/routing.py): ruční lomy, jinak Z-trasa s odstupem od ostatních vodičů."""
+        from envocad.model.routing import _inner_segments, best_route, ends
+        from envocad.ui.items import path_points
+        others = [(ends(o.wire), _inner_segments(path_points(o.path()))) for o in self.wire_items.values()
+                  if o is not it and o.path().elementCount() > 1]
+        try:
+            it.set_points(best_route(self.project, self.sheet, self.library, it.wire, others))
+        except (KeyError, ValueError, AttributeError, StopIteration):
+            a = self.element_items.get(it.wire.a.element_id)
+            b = self.element_items.get(it.wire.b.element_id)
+            if a and b:
+                it.update_route(a, b)
         self.invalidate_text_layout()
 
     # ---- rozmístění popisků (model/textlayout) – počítá se líně při kreslení, ruší se při změně geometrie
@@ -140,9 +152,30 @@ class SchematicScene(QGraphicsScene):
             if it.wire.touches(eid):
                 self._route(it)
 
+    _dragging = False
+    _seg = None
+    _move_wire_pts: ClassVar[dict] = {}   # při stisku se nahradí vlastním slovníkem instance
+
     def element_moved(self, it: ElementItem) -> None:
         it.element.x, it.element.y = it.pos().x(), -it.pos().y()
+        if self._dragging and it.element.id in self._move_start:
+            self._follow_bends(it.element.id)
         self.update_wires_of(it.element.id)
+
+    def _follow_bends(self, eid: str) -> None:
+        """Ruční lomy vodičů jdou s posouvanými prvky (oba konce → celý vodič, jeden → lom u něj)."""
+        from envocad.model.routing import follow_points, port_geometry
+        for w in self.sheet.wires:
+            orig = self._move_wire_pts.get(w.id)
+            if orig is None or not w.touches(eid):
+                continue
+            ends = []
+            for end in (w.a, w.b):
+                e = self.sheet.element(end.element_id)
+                _, d = port_geometry(self.project, self.sheet, self.library, e, end.port)
+                st = self._move_start.get(end.element_id)
+                ends.append((d, (e.x - st[0], e.y - st[1]) if st else (0.0, 0.0)))
+            w.points = follow_points(orig, ends[0][0], ends[0][1], ends[1][0], ends[1][1])
 
     # ---- režimy -------------------------------------------------------------
     def set_mode(self, mode: Mode) -> None:
@@ -201,6 +234,15 @@ class SchematicScene(QGraphicsScene):
                 end, d = QPointF(snap(p.x()), snap(p.y())), "W"
             self._wire_preview.setPath(route(a.port_scene_pos(port), a.port_dir(port), end, d, []))
             return
+        if self.mode == Mode.SELECT and self._seg is not None:
+            from envocad.model.routing import drag_segment
+            it, idx, start, pts, _old = self._seg
+            a, b = pts[idx], pts[idx + 1]
+            off = snap(-p.y() - start[1]) if abs(a[1] - b[1]) < 1e-6 else snap(p.x() - start[0])
+            new = drag_segment(pts, idx, off) if off else None
+            it.wire.points = new if new is not None else list(_old)
+            self._route(it)
+            return
         super().mouseMoveEvent(ev)
 
     def mousePressEvent(self, ev):
@@ -249,10 +291,31 @@ class SchematicScene(QGraphicsScene):
                     else:
                         self.undo.push(commands.AddWireCommand(self, w))
             return
+        # SELECT: úsek vodiče se dá chytit a posunout kolmo (vodorovný nahoru/dolů, svislý do stran)
+        self._seg = None
+        if ev.button() == Qt.LeftButton:
+            from PySide6.QtGui import QTransform
+
+            from envocad.model.routing import nearest_segment
+            from envocad.ui.items import path_points
+            top = self.itemAt(p, QTransform())
+            if isinstance(top, WireItem):
+                pts = path_points(top.path())
+                idx = nearest_segment(pts, p.x(), -p.y(), tol=2.5)
+                if idx is not None and 0 < idx < len(pts) - 2:
+                    self._seg = (top, idx, (p.x(), -p.y()), pts, [tuple(x) for x in top.wire.points])
         # SELECT: zapamatovat výchozí pozice pro undo posunu
         super().mousePressEvent(ev)
+        if self._seg is not None:
+            self.clearSelection()
+            self._seg[0].setSelected(True)
+            self._move_start = {}
+            return
         self._move_start = {it.element.id: (it.element.x, it.element.y)
                             for it in self.selectedItems() if isinstance(it, ElementItem)}
+        self._move_wire_pts = {w.id: [tuple(x) for x in w.points] for w in self.sheet.wires if w.points and
+                               (w.a.element_id in self._move_start or w.b.element_id in self._move_start)}
+        self._dragging = bool(self._move_start)
 
     def _branch_at(self, pos: QPointF) -> tuple[ElementItem, str] | None:
         """Klik na vodič v režimu kreslení: vodič se rozdělí uzlem odbočky a vrátí se jeho volný port."""
@@ -426,6 +489,14 @@ class SchematicScene(QGraphicsScene):
 
     def mouseReleaseEvent(self, ev):
         super().mouseReleaseEvent(ev)
+        if self._seg is not None:
+            it, _idx, _start, _pts, old = self._seg
+            self._seg = None
+            new = [tuple(x) for x in it.wire.points]
+            if new != old:
+                self.undo.push(commands.SetWirePointsCommand(self, {it.wire.id: (old, new)}))
+            return
+        self._dragging = False
         if self.mode == Mode.SELECT and self._move_start:
             moves = {}
             for eid, old in self._move_start.items():
@@ -433,8 +504,14 @@ class SchematicScene(QGraphicsScene):
                 if it and (it.element.x, it.element.y) != old:
                     moves[eid] = (old, (it.element.x, it.element.y))
             if moves:
-                self.undo.push(commands.MoveElementsCommand(self, moves))
+                wp = {}
+                for wid, old_pts in self._move_wire_pts.items():
+                    w = next((x for x in self.sheet.wires if x.id == wid), None)
+                    if w is not None and [tuple(x) for x in w.points] != old_pts:
+                        wp[wid] = (old_pts, [tuple(x) for x in w.points])
+                self.undo.push(commands.MoveElementsCommand(self, moves, wp))
             self._move_start = {}
+            self._move_wire_pts = {}
 
     def keyPressEvent(self, ev: QKeyEvent):
         if ev.key() == Qt.Key_Escape:
@@ -446,6 +523,8 @@ class SchematicScene(QGraphicsScene):
             self.rotate_selected()
         elif ev.key() == Qt.Key_W:
             self.start_wire()
+        elif ev.key() == Qt.Key_N:
+            self.straighten_selected()
         elif ev.matches(QKeySequence.Copy):
             self.copy_selected()
         elif ev.matches(QKeySequence.Paste):
@@ -455,6 +534,14 @@ class SchematicScene(QGraphicsScene):
 
     # ---- akce ---------------------------------------------------------------
     CLIPBOARD: ClassVar[dict] = {}  # sdílená schránka všech scén (výřez listu + počet vložení pro posun)
+
+    def straighten_selected(self) -> int:
+        """Zruší ruční lomy vybraných vodičů – trasa se znovu spočítá automaticky (s odstupem od ostatních)."""
+        ch = {it.wire.id: ([tuple(x) for x in it.wire.points], []) for it in self.selectedItems()
+              if isinstance(it, WireItem) and it.wire.points}
+        if ch:
+            self.undo.push(commands.SetWirePointsCommand(self, ch, "Narovnat vodič"))
+        return len(ch)
 
     def copy_selected(self) -> int:
         from envocad.model.project import copy_fragment

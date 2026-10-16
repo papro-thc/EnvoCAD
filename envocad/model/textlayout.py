@@ -11,7 +11,7 @@ from itertools import pairwise
 
 from envocad.model.geometry import Point, wire_label_anchor
 from envocad.model.project import Element, Project, Sheet, element_symbol, element_xref, wire_label, wire_xref
-from envocad.model.symbol import GRID, rotate_dir, rotate_point
+from envocad.model.symbol import rotate_point
 
 Box = tuple[float, float, float, float]   # x1, y1, x2, y2 (x1<x2, y1<y2)
 DIR_VEC = {"N": (0, 1), "E": (1, 0), "S": (0, -1), "W": (-1, 0)}
@@ -67,31 +67,8 @@ def symbol_box(e: Element, sym) -> Box:
 
 
 def wire_route(project: Project, sheet: Sheet, lib, w) -> list[Point]:
-    """Trasa vodiče v souřadnicích modelu (stejná logika jako editor bez staggeru)."""
-    from envocad.model.geometry import orthogonalize
-    ea, eb = sheet.element(w.a.element_id), sheet.element(w.b.element_id)
-    sa, sb = element_symbol(project, ea, lib), element_symbol(project, eb, lib)
-    pa, pb = ea.port_pos(sa, w.a.port), eb.port_pos(sb, w.b.port)
-    da, db = rotate_dir(sa.port(w.a.port).dir, ea.rotation), rotate_dir(sb.port(w.b.port).dir, eb.rotation)
-    va, vb = DIR_VEC[da], DIR_VEC[db]
-    s1 = (pa[0] + va[0] * GRID, pa[1] + va[1] * GRID)
-    s2 = (pb[0] + vb[0] * GRID, pb[1] + vb[1] * GRID)
-    if w.points:
-        return [pa, *orthogonalize([s1, *w.points, s2], end_horizontal=db in ("E", "W")), pb]
-    pts = [pa, s1]
-    snap = lambda v: round(v / GRID) * GRID
-    hor = da in ("E", "W")
-    if hor and db in ("E", "W") and abs(s1[1] - s2[1]) > 1e-6:
-        mx = snap((s1[0] + s2[0]) / 2)
-        pts += [(mx, s1[1]), (mx, s2[1])]
-    elif not hor and db in ("N", "S") and abs(s1[0] - s2[0]) > 1e-6:
-        my = snap((s1[1] + s2[1]) / 2)
-        pts += [(s1[0], my), (s2[0], my)]
-    elif hor:
-        pts.append((s2[0], s1[1]))
-    else:
-        pts.append((s1[0], s2[1]))
-    return pts + [s2, pb]
+    from envocad.model.routing import wire_route as _wr
+    return _wr(project, sheet, lib, w)
 
 
 @dataclass
@@ -318,12 +295,8 @@ def compute_layout(project: Project, sheet: Sheet, lib, routes: dict[str, list[P
     """Rozmístí popisky prvků (výchozí poloha značky, když je volná, jinak vpravo/vlevo/nad/pod) a pak popisky
     vodičů. `routes` = trasy z editoru (jinak `wire_route`); `auto=False` = jen výchozí polohy (pro kontrolu)."""
     if routes is None:
-        routes = {}
-        for w in sheet.wires:
-            try:
-                routes[w.id] = wire_route(project, sheet, lib, w)
-            except (KeyError, ValueError, AttributeError):
-                continue
+        from envocad.model.routing import route_sheet
+        routes = route_sheet(project, sheet, lib)
     if xref_of is None:
         if sheet.is_switchboard:
             xref_of = lambda w: ""

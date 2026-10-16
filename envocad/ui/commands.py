@@ -57,21 +57,53 @@ class RemoveItemsCommand(QUndoCommand):
 class MoveElementsCommand(QUndoCommand):
     """Posun už proběhl interaktivně; první redo() se přeskočí."""
 
-    def __init__(self, scene, moves: dict[str, tuple[tuple[float, float], tuple[float, float]]]):
+    def __init__(self, scene, moves: dict[str, tuple[tuple[float, float], tuple[float, float]]],
+                 wire_points: dict[str, tuple[list, list]] | None = None):
         super().__init__("Posunout")
         self.scene, self.moves, self._first = scene, moves, True
+        self.wire_points = wire_points or {}   # ruční lomy vodičů, které se posunuly s prvky: {id: (před, po)}
 
     def _apply(self, idx: int):
+        sc = self.scene
+        sc._dragging = False
+        for wid, pair in self.wire_points.items():
+            w = next((x for x in sc.sheet.wires if x.id == wid), None)
+            if w is not None:
+                w.points = [tuple(p) for p in pair[idx]]
         for eid, pair in self.moves.items():
-            e = self.scene.sheet.element(eid)
+            e = sc.sheet.element(eid)
             e.x, e.y = pair[idx]
-            self.scene.element_items[eid].sync_from_model()
-            self.scene.update_wires_of(eid)
+            sc.element_items[eid].sync_from_model()
+            sc.update_wires_of(eid)
 
     def redo(self):
         if self._first:
             self._first = False
             return
+        self._apply(1)
+
+    def undo(self):
+        self._apply(0)
+
+
+class SetWirePointsCommand(QUndoCommand):
+    """Ruční lomy vodičů (posun úseku, narovnání): {id vodiče: (staré body, nové body)}."""
+
+    def __init__(self, scene, changes: dict[str, tuple[list, list]], text: str = "Upravit trasu vodiče"):
+        super().__init__(text)
+        self.scene, self.changes = scene, changes
+
+    def _apply(self, idx: int):
+        for wid, pair in self.changes.items():
+            w = next((x for x in self.scene.sheet.wires if x.id == wid), None)
+            if w is None:
+                continue
+            w.points = [tuple(p) for p in pair[idx]]
+            it = self.scene.wire_items.get(wid)
+            if it is not None:
+                self.scene._route(it)
+
+    def redo(self):
         self._apply(1)
 
     def undo(self):

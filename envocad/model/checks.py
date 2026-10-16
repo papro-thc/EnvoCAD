@@ -146,15 +146,22 @@ def check_project(project: Project, lib) -> list[Finding]:
 
 
 def text_findings(project: Project, lib) -> list[Finding]:
-    """Překrývající se texty na listech (po automatickém rozmístění popisků) – text přes text, vodič nebo značku."""
-    from envocad.model.textlayout import text_overlaps
+    """Překrývající se vodiče a texty na listech (po automatickém rozmístění popisků) – text přes text, vodič nebo značku."""
+    from envocad.model.routing import wire_overlaps
+    from envocad.model.textlayout import compute_layout, text_overlaps
     out: list[Finding] = []
     for s in project.sheets:
         try:
-            hits = text_overlaps(project, s, lib)
+            lay = compute_layout(project, s, lib)
+            hits = text_overlaps(project, s, lib, lay)
         except (KeyError, ValueError, AttributeError):
             continue
         wires = {w.id: w for w in s.wires}
+        for a, b in wire_overlaps(s, lay.routes):
+            ra, rb = wires[a].attrs.get("ref") or "vodič", wires[b].attrs.get("ref") or "vodič"
+            out.append(Finding(WARNING, s.id, s.name, a, True, wires[a].attrs.get("ref", ""),
+                               f"Vodiče {ra} a {rb} vedou přes sebe (souběh blíž než 5 mm) – posuň úsek vodiče "
+                               "(chytit a táhnout) nebo prvek", "wire_overlap"))
         for a, _b, text in hits:
             w = wires.get(a)
             ref = (w.attrs.get("ref", "") if w else s.element(a).ref) or ""
