@@ -70,13 +70,13 @@ def _auto_link_feed(project: Project, sheet: Sheet, feed: Element, port_hint: st
 
 def _place_sequential(sheet: Sheet, elements: list[Element]) -> None:
     """Rozmístí přístroje za sebou po řadách DIN lišt podle jejich šířky v modulech. Cívka stykače, jehož položkou
-    výkazu je stykač (`xref.DeviceIndex.is_bom_device`), se nerozmísťuje."""
+    výkazu je stykač na stejném listu (`xref.DeviceIndex.is_bom_device`), se nerozmísťuje."""
     from envocad.model.xref import DeviceIndex
     idx = DeviceIndex.for_sheets([sheet])
     row, pos = 0, 0.0
     for e in elements:
         m = e.modules
-        if m <= 0 or not idx.is_bom_device(e):
+        if m <= 0 or not idx.is_bom_device(e, sheet):
             continue
         if pos + m > sheet.layout.modules_per_row:
             row, pos = row + 1, 0.0

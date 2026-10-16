@@ -918,3 +918,45 @@ def test_contacts_hint_and_layout_hides_coil(app, tmp_path):
     win.scene.element_items[coil.id].setSelected(True)
     app.processEvents()
     assert any("NO:11/14" in e.placeholderText() for e in win.props_panel.findChildren(QLineEdit))
+
+
+def test_mirror_checkbox_undo(app, tmp_path):
+    """Zaškrtávátko „Zobrazit zrcadlo kontaktů“ jen u hostitele zrcadla; přepíná atribut mirror ("0" / "") přes undo
+    a zrcadlo zmizí/objeví se ve scéně."""
+    from PySide6.QtWidgets import QCheckBox
+    p = Project(name="Zrcadlo")
+    s = p.sheets[0]
+    coil = Element("ctl.coil", 100, 200, attrs={"ref": "K1"})
+    contact = Element("ctl.contact_no", 250, 100, attrs={"ref": "K1"})
+    lone = Element("fve.breaker_mcb", 300, 200, attrs={"ref": "F1"})
+    s.elements += [coil, contact, lone]
+    win = MainWindow(library=LibraryStore(tmp_path / "lib.db"), project=p)
+    win.show()
+    app.processEvents()
+    sc = win.scene
+
+    def boxes(eid):
+        sc.clearSelection()
+        sc.element_items[eid].setSelected(True)
+        app.processEvents()
+        return [c for c in win.props_panel.findChildren(QCheckBox) if c.text() == "Zobrazit zrcadlo kontaktů"]
+
+    assert not boxes(lone.id) and not boxes(contact.id)          # jistič bez kontaktů, kontakt = bez zrcadla
+    (cb,) = boxes(coil.id)
+    assert cb.isChecked() and coil.id in sc.text_layout().mirrors
+    cb.setChecked(False)
+    for _ in range(5):
+        app.processEvents()
+    assert sc.sheet.element(coil.id).attrs.get("mirror") == "0"
+    assert coil.id not in sc.text_layout().mirrors
+    (cb,) = boxes(coil.id)                                        # zrcadlo potlačené, zaškrtávátko zůstává
+    assert not cb.isChecked()
+    sc.undo.undo()
+    assert sc.sheet.element(coil.id).attrs.get("mirror", "") == ""
+    assert coil.id in sc.text_layout().mirrors
+    sc.undo.redo()
+    assert sc.sheet.element(coil.id).attrs.get("mirror") == "0"
+    # obraz bez kontaktů stačí (jistič s kontaktním obrazem = hostitel)
+    lone.attrs["contacts"] = "13/14"
+    sc.invalidate_text_layout()
+    assert boxes(lone.id)

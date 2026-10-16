@@ -134,19 +134,23 @@ kontaktu odkaz na cívku. Kontakty nejsou samostatné položky ve výkazu materi
 Řádek = pár svorek a odkaz na kontakt: `13/14 /3.B4` = svorky 13/14, kontakt na listu 3, pozice B4. Odkaz
 na jiné umístění předřadí aspekt (`+RDC1/3.B4`). Silový kontakt s `poles` = 3 dá tři řádky (1/2, 3/4, 5/6).
 Rezerva je pár z kontaktního obrazu, ke kterému zatím není kontakt; řádek má jen pár, bez odkazu. Zrcadlo
-potlačíš atributem `mirror` = `0` na prvku (nepovinný atribut; panel ho nenabízí – viz `docs/LIBRARY_FORMAT.md`).
+potlačíš v panelu Vlastnosti zrušením zaškrtávátka **Zobrazit zrcadlo kontaktů** (je jen u přístroje, který zrcadlo má –
+hostitel s kontakty nebo kontaktním obrazem; jde přes undo). Zaškrtávátko zapisuje atribut `mirror` = `0`
+(prázdné = zobrazit; viz `docs/LIBRARY_FORMAT.md`).
 
 **Kontaktní obraz** (atribut `contacts`) je seznam párů svorek přístroje: `1/2 3/4 5/6 13/14 21/22`. Zadáš ho
 v panelu Vlastnosti nebo sloupcem `contacts` v CSV artiklů; výchozí značky `ctl.coil` a `fve.contactor` mají
 pole prázdné. Druh kontaktu se pozná z předpony nebo z čísel svorek:
 - bez předpony podle IEC 60947-5-1: jednomístné liché/sudé (1/2, 3/4) = silový; dvoumístné s funkční číslicí
   3/4 nebo 7/8 = NO, 1/2 nebo 5/6 = NC; ostatní jsou chyba (`contact_image_syntax`);
-- s předponou `NO:`, `NC:` nebo `P:` (silový), např. `NO:11/14 NC:11/12`, `NO:DO1 NO:DO2`.
+- s předponou `NO:`, `NC:` nebo `P:` / `PWR:` / `HL:` (silový, hlavní kontakt), např. `NO:11/14 NC:11/12`, `NO:DO1 NO:DO2`.
 
 Obraz je nepovinný. Bez něj se nekreslí rezervy a nedělají se kontroly `contact_count` a `contact_unknown`.
 
 **Stykač v JPS a cívka** se stejným označením (např. K1) tvoří jeden přístroj. Výkaz materiálu a rozložení
-mají stykač, cívka se do nich nedává. Silové kontakty stykače jsou v zrcadle cívky jako silový sloupec.
+mají stykač, cívka se do nich nedává. Výjimka: je-li stykač nakreslen na jiném listu (silové schéma se stejným
+umístěním), zůstává cívka položkou svého listu rozvaděče (rozložení, oteplení, výkaz a štítky toho listu);
+v celoprojektovém výkazu je jen stykač. Silové kontakty stykače jsou v zrcadle cívky jako silový sloupec.
 Stykač bez cívky je sám hostitelem zrcadla. Kontakty (`ctl.contact_*`) patří přístroji se stejným označením
 ve stejném prostoru označení (funkce a umístění).
 

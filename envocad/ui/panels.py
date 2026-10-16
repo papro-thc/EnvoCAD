@@ -149,6 +149,10 @@ class PropertiesPanel(QWidget):
                     self._add_field(a.key, a.label, e.attrs.get(a.key, ""))
             sc = item.scene()
             sheet = getattr(sc, "sheet", None)
+            if self._is_mirror_host(sc, sheet, e):
+                self._add_check("mirror", "Zobrazit zrcadlo kontaktů", str(e.attrs.get("mirror", "")).strip() != "0",
+                                "Tabulka kontaktů s odkazy pod přístrojem (cívka, jistič, relé…)",
+                                on_value="", off_value="0")
             self._add_field("func", "Funkce (=)", e.attrs.get("func", ""), getattr(sheet, "func", ""))
             self._add_field("loc", "Umístění (+)", e.attrs.get("loc", ""), getattr(sheet, "loc", ""))
         elif isinstance(item, WireItem):
@@ -184,12 +188,26 @@ class PropertiesPanel(QWidget):
         ed.editingFinished.connect(lambda k=key, w=ed: self._commit(k, w.text()))
         self.form.addRow(label, ed)
 
-    def _add_check(self, key: str, label: str, checked: bool, tip: str = "") -> None:
-        """Zaškrtávátko pro příznakový atribut (hodnota "1" / "")."""
+    @staticmethod
+    def _is_mirror_host(sc, sheet, e) -> bool:
+        """Prvek je hostitelem zrcadla kontaktů (skupina s kontakty nebo kontaktním obrazem) – jen ve schématu."""
+        project = getattr(sc, "project", None)
+        if project is None or sheet is None:
+            return False
+        from envocad.model.xref import is_mirror_host
+        index = sc.device_index() if hasattr(sc, "device_index") else None
+        try:
+            return is_mirror_host(project, sheet, e, index)
+        except Exception:  # noqa: BLE001 – panel nesmí spadnout na neúplném modelu
+            return False
+
+    def _add_check(self, key: str, label: str, checked: bool, tip: str = "", on_value: str = "1",
+                   off_value: str = "") -> None:
+        """Zaškrtávátko pro příznakový atribut (výchozí hodnoty "1" / "")."""
         cb = QCheckBox(label)
         cb.setChecked(checked)
         cb.setToolTip(tip)
-        cb.toggled.connect(lambda on, k=key: self._commit(k, "1" if on else ""))
+        cb.toggled.connect(lambda on, k=key: self._commit(k, on_value if on else off_value))
         self.form.addRow(cb)
 
     @staticmethod

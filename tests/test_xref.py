@@ -154,6 +154,64 @@ def test_contactor_coil_layout_and_thermal():
     assert temperature_rise(sb, rdf=1.0).p_devices_w == pytest.approx(50.0)
 
 
+def test_coil_on_switchboard_with_contactor_on_other_sheet(lib):
+    """Regrese: cívka K1 na listu rozvaděče +RH a stykač K1 na silovém listu se stejným umístěním (jeden přístroj).
+    Cívka zůstává položkou listu rozvaděče (rozložení, teplo, výkaz/štítky listu); celoprojektový výkaz ji nemá."""
+    from envocad.library.templates import _place_sequential
+    from envocad.model.designation import scope_key
+    from envocad.model.thermal import temperature_rise
+    p = Project()
+    blk = Element("fve.switchboard", attrs={"ref": "RH"})
+    p.sheets[0].elements.append(blk)
+    sb = p.create_switchboard_sheet(blk)
+    coil = Element("ctl.coil", attrs={"ref": "K1", "modules": "3", "p_loss_w": "50"})
+    sb.elements.append(coil)
+    power = Sheet(name="Silové RH", loc="RH")
+    km = Element("fve.contactor", attrs={"ref": "K1", "modules": "3", "p_loss_w": "4", "poles": "3"})
+    power.elements.append(km)
+    p.sheets.append(power)
+    assert scope_key(sb, coil) == scope_key(power, km)
+    assert X.DeviceIndex.build(p).group_of(coil).device[1] is km
+    _place_sequential(sb, [coil])
+    assert sb.layout.placement(coil.id) is not None
+    assert [e.id for e in sb.layout.devices(sb, p)] == [coil.id] == [e.id for e in sb.layout.devices(sb)]
+    assert sb.layout.used_modules(sb, p) == 3 == sb.layout.used_modules(sb)
+    assert temperature_rise(sb, rdf=1.0, project=p).p_devices_w == pytest.approx(50.0)
+    assert temperature_rise(sb, rdf=1.0).p_devices_w == pytest.approx(50.0)
+    assert [e.id for e in reports.devices(p, lib, sb)] == [coil.id]
+    assert [r[0] for r in reports.device_list(p, lib, sb)[1]] == [r[0] for r in reports.labels(p, lib, sb)[1]]
+    assert len(reports.labels(p, lib, sb)[1]) == 1
+    # celý projekt: jedna položka K1 (stykač), cívka ne
+    assert [e.id for e in reports.devices(p, lib) if e.ref == "K1"] == [km.id]
+    assert sum(1 for r in reports.labels(p, lib)[1] if r[0].endswith("K1")) == 1
+    # stykač na stejném listu → cívka se vynechá i z položek listu
+    power.elements.remove(km)
+    sb.elements.append(km)
+    sb.layout.set_placement(km.id, 1, 0)
+    assert [e.id for e in sb.layout.devices(sb, p)] == [km.id]
+    assert temperature_rise(sb, rdf=1.0, project=p).p_devices_w == pytest.approx(4.0)
+    assert [e.id for e in reports.devices(p, lib, sb)] == [km.id]
+
+
+def test_docx_routine_test_counts_coil_with_contactor_elsewhere(lib, tmp_path):
+    pytest.importorskip("docx")
+    from docx import Document
+
+    from envocad.export.docx_export import export_routine_test_docx
+    p = Project()
+    blk = Element("fve.switchboard", attrs={"ref": "RH"})
+    p.sheets[0].elements.append(blk)
+    sb = p.create_switchboard_sheet(blk)
+    coil = Element("ctl.coil", attrs={"ref": "K1", "modules": "3"})
+    sb.elements.append(coil)
+    sb.layout.set_placement(coil.id, 0, 0)
+    p.sheets.append(Sheet(name="Silové RH", loc="RH", elements=[Element("fve.contactor", attrs={"ref": "K1"})]))
+    out = tmp_path / "kusova.docx"
+    export_routine_test_docx(p, lib, sb, out)
+    text = "\n".join(c.text for t in Document(str(out)).tables for r in t.rows for c in r.cells)
+    assert "obsazeno 3 M" in text
+
+
 def test_dup_ref_rules(lib):
     def dups(*elements):
         p = Project()
@@ -188,6 +246,28 @@ def test_dup_ref_rules(lib):
     w = Wire(WireEnd(f1.id, "2"), WireEnd(f2.id, "1"), attrs={"ref": "K1"})
     sb.wires.append(w)
     assert {f.target_id for f in _codes(check_project(p, lib), "dup_ref")} == {coil.id, w.id}
+
+
+def test_interrupt_ref_collides_with_device_or_wire(lib):
+    """Regrese: přerušovací body se stejným ref jako přístroj (F1) nebo vodič (W1) v prostoru → dup_ref; body
+    mezi sebou (dvojice L1) duplicitou nejsou."""
+    from envocad.model.project import Wire, WireEnd
+    p = Project()
+    blk = Element("fve.switchboard", attrs={"ref": "RH"})
+    p.sheets[0].elements.append(blk)
+    sb = p.create_switchboard_sheet(blk)
+    f1, f2 = Element("fve.breaker_mcb", attrs={"ref": "F1"}), Element("fve.breaker_mcb", 50, attrs={"ref": "F2"})
+    i1, i2 = Element("fve.interrupt", 100, attrs={"ref": "F1"}), Element("fve.interrupt", 150, attrs={"ref": "W1"})
+    l1a, l1b = Element("fve.interrupt", 200, attrs={"ref": "L1"}), Element("fve.interrupt", 250, attrs={"ref": "L1"})
+    sb.elements += [f1, f2, i1, i2, l1a, l1b]
+    w = Wire(WireEnd(f1.id, "2"), WireEnd(f2.id, "1"), attrs={"ref": "W1"})
+    sb.wires.append(w)
+    dup = _codes(check_project(p, lib), "dup_ref")
+    assert {f.target_id for f in dup} == {f1.id, i1.id, i2.id, w.id}
+    assert all(f.severity == ERROR for f in dup)
+    # jiný prostor (list bez umístění rozvaděče) → bez kolize
+    i1.attrs["loc"] = "RDC1"
+    assert i1.id not in {f.target_id for f in _codes(check_project(p, lib), "dup_ref")}
 
 
 # ---- odkaz na místo --------------------------------------------------------------------------------------------
@@ -292,6 +372,54 @@ def test_layout_reserves_mirror(lib):
     assert compute_layout(p, s, lib).mirrors == {}
 
 
+def test_text_overlaps_mirror_lines_and_host_label(lib):
+    """Regrese: cizí popisek přes čáru tabulky zrcadla se hlásí; popisek hostitele přes vlastní zrcadlo (texty
+    i čáry) se hlásí; zrcadlo vs. vlastní značka a vlastní čáry tabulky se nehlásí."""
+    from envocad.model.textlayout import ElementLabel, compute_layout, text_overlaps
+    p = Project()
+    s = p.sheets[0]
+    coil = Element("ctl.coil", 100, 200, attrs={"ref": "K1"})
+    f1 = Element("fve.breaker_mcb", 300, 50, attrs={"ref": "F1"})
+    s.elements += [coil, f1, Element("ctl.contact_no", 300, 150, attrs={"ref": "K1"}),
+                   Element("ctl.contact_nc", 350, 150, attrs={"ref": "K1"})]
+    lay = compute_layout(p, s, lib)
+    assert not text_overlaps(p, s, lib, lay)
+    m = lay.mirrors[coil.id]
+    x0, top = coil.x, m.bounds[3]
+    # popisek F1 v hlavičce tabulky přes osu (čáry), mimo texty zrcadla
+    head_box = (x0 - 1.0, top - 2.0, x0 + 1.0, top - 1.0)
+    assert not any(b[3] > head_box[1] for b in m.boxes)
+    lay.elements[f1.id] = ElementLabel(x0, top, "center", boxes=[head_box])
+    hits = text_overlaps(p, s, lib, lay)
+    assert (f1.id, coil.id, "text F1 přes zrcadlo kontaktů K1") in hits
+    # popisek hostitele přes texty vlastního zrcadla
+    lay = compute_layout(p, s, lib)
+    lay.elements[coil.id] = ElementLabel(0, 0, "left", boxes=[lay.mirrors[coil.id].boxes[0]])
+    hits = text_overlaps(p, s, lib, lay)
+    assert (coil.id, coil.id, "text K1 přes zrcadlo kontaktů K1") in hits
+    assert (coil.id, coil.id, "text K1 přes vlastní zrcadlo kontaktů") not in hits     # box textu nekříží osu
+    # popisek hostitele přes čáry vlastního zrcadla
+    lay = compute_layout(p, s, lib)
+    lay.elements[coil.id] = ElementLabel(0, 0, "left", boxes=[head_box])
+    assert (coil.id, coil.id, "text K1 přes vlastní zrcadlo kontaktů") in text_overlaps(p, s, lib, lay)
+
+
+def test_is_mirror_host():
+    p = Project()
+    s = p.sheets[0]
+    coil = Element("ctl.coil", 100, 200, attrs={"ref": "K1"})
+    km = Element("fve.contactor", 50, 50, attrs={"ref": "K1"})
+    c = Element("ctl.contact_no", 300, 100, attrs={"ref": "K1"})
+    f1 = Element("fve.breaker_mcb", 200, 200, attrs={"ref": "F1"})
+    s.elements += [coil, km, c, f1]
+    assert X.is_mirror_host(p, s, coil)
+    assert not X.is_mirror_host(p, s, km) and not X.is_mirror_host(p, s, c) and not X.is_mirror_host(p, s, f1)
+    coil.attrs["mirror"] = "0"                                   # potlačené zrcadlo – hostitelem zůstává
+    assert X.is_mirror_host(p, s, coil)
+    f1.attrs["contacts"] = "13/14"
+    assert X.is_mirror_host(p, s, f1)
+
+
 def test_dxf_mirror_in_texts_layer(lib, tmp_path):
     from envocad.export.dxf_export import export_sheet_dxf
     p = Project()
@@ -316,7 +444,8 @@ def test_contact_checks(lib):
     s.elements += [coil, a, b]
     fs = check_project(p, lib)
     dup = _codes(fs, "contact_dup")
-    assert len(dup) == 1 and dup[0].target_id == b.id and dup[0].severity == WARNING and "13/14" in dup[0].text
+    assert len(dup) == 1 and dup[0].target_id == b.id and dup[0].severity == WARNING
+    assert dup[0].text == "K1: svorky 13/14 jsou u více kontaktů"
     assert not _codes(fs, "contact_count") and not _codes(fs, "contact_unknown")      # obraz nezadán
     b.attrs["terminals"] = "23/24"
     coil.attrs["contacts"] = "13/14 21/22"
@@ -325,7 +454,7 @@ def test_contact_checks(lib):
     unk = _codes(fs, "contact_unknown")
     assert len(unk) == 1 and unk[0].target_id == b.id and unk[0].text == "Kontakt 23/24 není v kontaktním obrazu K1"
     cnt = _codes(fs, "contact_count")
-    assert len(cnt) == 1 and cnt[0].text == "K1: použito 2 NO, kontaktní obraz má 1 NO" and cnt[0].target_id == coil.id
+    assert len(cnt) == 1 and cnt[0].text == "K1: použity 2 spínací kontakty, kontaktní obraz má 1" and cnt[0].target_id == coil.id
     coil.attrs["contacts"] = "13/14 23/24 xx/yy"
     fs = check_project(p, lib)
     syn = _codes(fs, "contact_image_syntax")
@@ -335,7 +464,15 @@ def test_contact_checks(lib):
     km = Element("fve.contactor", 50, 50, attrs={"ref": "K1", "poles": "3", "contacts": "1/2 3/4 13/14 23/24"})
     s.elements.append(km)
     cnt = _codes(check_project(p, lib), "contact_count")
-    assert [f.text for f in cnt] == ["K1: použito 3 silových, kontaktní obraz má 2 silových"]
+    assert [f.text for f in cnt] == ["K1: použity 3 silové kontakty, kontaktní obraz má 2"]
+
+
+def test_contact_count_czech_words():
+    assert X.count_words(1, "nc") == "použit 1 rozpínací kontakt"
+    assert X.count_words(4, "power") == "použity 4 silové kontakty"
+    assert X.count_words(5, "no") == "použito 5 spínacích kontaktů"
+    assert X.count_words(12, "power") == "použito 12 silových kontaktů"
+    assert set(X.KIND_WORD) == set(X.COLUMN_ORDER)
 
 
 def test_contact_alone_and_ambiguous_via_index(lib):
@@ -422,6 +559,21 @@ def test_interrupt_star(lib):
     multi = _codes(check_project(p, lib), "interrupt_star_multi")
     assert [f.target_id for f in multi] == [pts[4].id] and multi[0].severity == WARNING
     assert X.interrupt_link(p, p.sheets[4], pts[4]).mode == "star_target"
+
+
+def test_interrupt_pair_across_locations():
+    """Dvojice přerušovacích bodů na listech s různým umístěním: odkaz do jiného umístění předřadí aspekty cíle
+    (`→ +RH/2.D3`, jako EPLAN); stejné umístění → jen `/n.XY`."""
+    p = Project(sheets=[Sheet(name="A", loc="RDC1"), Sheet(name="B", loc="RH")])
+    a = Element("fve.interrupt", 100, 100, attrs={"ref": "L1"})
+    b = Element("fve.interrupt", 200, 150, attrs={"ref": "L1"})
+    p.sheets[0].elements.append(a)
+    p.sheets[1].elements.append(b)
+    assert X.interrupt_link(p, p.sheets[0], a).mode == "pair"
+    assert element_xref(p, p.sheets[0], a) == "→ +RH" + _pos(p, 1, b)
+    assert element_xref(p, p.sheets[1], b) == "→ +RDC1" + _pos(p, 0, a)
+    p.sheets[1].loc = "RDC1"
+    assert element_xref(p, p.sheets[0], a) == "→ " + _pos(p, 1, b)
 
 
 def test_interrupt_alone(lib):

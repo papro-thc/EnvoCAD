@@ -85,8 +85,8 @@ Některé klíče v `attrs` prvku nastavuje program a značka by je neměla pou�
 | `wire_id` | přívod/vývod rozvaděče: id navázaného vodiče JPS |
 | `cable_id` | vodič: id kabelu (`Project.cables`) |
 | `sheet` | blok rozvaděče: název listu rozvaděče |
-| `contacts` | kontaktní obraz přístroje (cívka, stykač, jistič, relé…): páry svorek oddělené mezerou/čárkou, volitelně s předponou druhu – `1/2 3/4 5/6 13/14 21/22`, `NO:11/14 NC:11/12`, `NO:DO1 NO:DO2` (předpony `NO`, `NC`, `P` = silový). Bez předpony dle IEC 60947-5-1: jednomístné liché/sudé = silový, dvoumístné s funkční číslicí 3/4 nebo 7/8 = NO, 1/2 nebo 5/6 = NC. Prázdné = nezadán (bez rezerv v zrcadle a bez kontrol `contact_count`/`contact_unknown`). Plní ho i artikl (sloupec `contacts`). |
-| `mirror` | `"0"` potlačí zrcadlo kontaktů pod hostitelem; jinak (prázdné) se kreslí, má-li přístroj kontakty nebo obraz |
+| `contacts` | kontaktní obraz přístroje (cívka, stykač, jistič, relé…): páry svorek oddělené mezerou/čárkou, volitelně s předponou druhu – `1/2 3/4 5/6 13/14 21/22`, `NO:11/14 NC:11/12`, `NO:DO1 NO:DO2` (předpony `NO`, `NC`; `P`, `PWR` a `HL` = silový/hlavní kontakt; velikost písmen nerozhoduje). Bez předpony dle IEC 60947-5-1: jednomístné liché/sudé = silový, dvoumístné s funkční číslicí 3/4 nebo 7/8 = NO, 1/2 nebo 5/6 = NC. Prázdné = nezadán (bez rezerv v zrcadle a bez kontrol `contact_count`/`contact_unknown`). Plní ho i artikl (sloupec `contacts`). |
+| `mirror` | `"0"` potlačí zrcadlo kontaktů pod hostitelem; jinak (prázdné) se kreslí, má-li přístroj kontakty nebo obraz. V GUI zaškrtávátko „Zobrazit zrcadlo kontaktů“ v panelu Vlastnosti |
 | `star_source` | přerušovací bod: `"1"` = zdroj hvězdy (ostatní body se stejným označením jsou cíle); bez něj se body řetězí v pořadí list, x, −y |
 | `terminals` | kontakt: páry svorek (`13/14`, i víc párů `13/14 23/24`); prázdné = výchozí podle druhu, silový kontakt/stykač pár na každý pól (1/2, 3/4, 5/6) |
 

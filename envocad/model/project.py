@@ -225,10 +225,10 @@ class Layout:
 
     def devices(self, sheet: Sheet, project: Project | None = None) -> list[Element]:
         """Přístroje listu pro rozložení: šířka > 0 a položka výkazu (cívka stykače se nepočítá, když skupina má
-        stykač – `xref.DeviceIndex.is_bom_device`). Bez `project` se skupiny hledají jen na listu."""
+        stykač na stejném listu – `xref.DeviceIndex.is_bom_device`). Bez `project` se skupiny hledají jen na listu."""
         from envocad.model.xref import DeviceIndex
         idx = DeviceIndex.build(project) if project is not None else DeviceIndex.for_sheets([sheet])
-        return [e for e in sheet.elements if e.modules > 0 and idx.is_bom_device(e)]
+        return [e for e in sheet.elements if e.modules > 0 and idx.is_bom_device(e, sheet)]
 
     def used_modules(self, sheet: Sheet, project: Project | None = None) -> float:
         devs = {e.id: e for e in self.devices(sheet, project)}

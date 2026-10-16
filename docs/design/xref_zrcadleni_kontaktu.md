@@ -94,7 +94,7 @@ Kontroly (`checks.py`):
 | kód | závažnost | kdy |
 |---|---|---|
 | `contact_dup` | varování | dva kontakty/póly téhož přístroje se stejným párem (vždy) |
-| `contact_count` | varování | použito víc kontaktů druhu X než v obrazu („K1: použito 2 NC, kontaktní obraz má 1 NC“) |
+| `contact_count` | varování | použito víc kontaktů druhu X než v obrazu („K1: použity 2 rozpínací kontakty, kontaktní obraz má 1“) |
 | `contact_unknown` | varování | pár není v obrazu („Kontakt 33/34 není v kontaktním obrazu K1“) |
 | `contact_image_syntax` | varování | nečitelný token v `contacts` |
 
@@ -149,13 +149,15 @@ def interrupt_xref(project, sheet, e, groups=None) -> str
 
 | režim | text |
 |---|---|
-| pair | `→ /2.C3` u obou (beze změny) |
+| pair | `→ /2.C3` u obou; do jiného umístění/funkce se předřadí aspekty cíle (`→ +RH/2.D3`, jako EPLAN) |
 | chain | `← /1.A2` a `→ /4.C1` na samostatných řádcích; krajní jen jeden |
 | star_source | `→ /2.A2, /3.B1, /4.C5`, max 3 na řádek, další řádky odsazené 2 mezerami |
 | star_target | `← /1.F3` |
 | alone | `→ ?` |
 
-Odkazy přes `place_ref`. Kontroly: `interrupt_alone` zůstává; nový `interrupt_star_multi` (varování).
+Odkazy přes `place_ref` (u všech režimů: cíl v jiném umístění/funkci → `+RH/2.D3`, anonymní rozvaděč jen `/2.D3`).
+`dup_ref`: body se stejným `ref` v prostoru jsou jedna položka (mezi sebou duplicitou nejsou), kolize s přístrojem
+nebo vodičem téhož prostoru je duplicita. Kontroly: `interrupt_alone` zůstává; nový `interrupt_star_multi` (varování).
 Zamítnuto: režim v settings (výkres by se lišil podle PC), v `meta` (YAGNI), seskupení podle scope, `xref_mode` na bodu.
 
 ## 5. Formát

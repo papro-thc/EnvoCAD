@@ -65,12 +65,18 @@ def check_project(project: Project, lib) -> list[Finding]:
     # musí být označení jedinečné, mezi umístěními se smí opakovat (X1 v +RDC1 i v +RH). Listy se stejným
     # umístěním sdílejí prostor, list rozvaděče bez umístění má vlastní, vodiče JPS (kabely) jeden společný.
     # Prvky se stejným označením v prostoru tvoří přístroj (`xref.DeviceGroup`): smí v něm být cívka a stykač
-    # (silové kontakty cívky), jinak jen jeden prvek. Kontakty, svorky a přerušovací body se nepočítají.
+    # (silové kontakty cívky), jinak jen jeden prvek. Kontakty a svorky se nepočítají. Přerušovací body se stejným
+    # označením v prostoru jsou jedna položka (dvojice/řetěz/hvězda – mezi sebou duplicitou nejsou), kolize jejich
+    # označení s přístrojem nebo vodičem téhož prostoru je ale duplicita.
     refs: Counter[tuple[str, str, str]] = Counter()      # vodiče
+    irefs: set[tuple[str, str, str]] = set()             # přerušovací body
     for s in project.sheets:
         for w in s.wires:
             if w.attrs.get("ref"):
                 refs[(*scope_key(s, w), w.attrs["ref"])] += 1
+        for e in s.elements:
+            if e.symbol_id == INTERRUPT_SYMBOL and e.ref:
+                irefs.add((*scope_key(s, e), e.ref))
     for s in project.sheets:
         sym_of = {}
         for e in s.elements:
@@ -84,8 +90,10 @@ def check_project(project: Project, lib) -> list[Finding]:
             if is_contact(e) and e.ref and group is None:
                 out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                    f"Kontakt {contact_terminals(e)} bez cívky/přístroje {e.ref}", "contact_alone"))
-            if (group is not None and not is_contact(e)
-                    and (group.dup or refs[(*scope_key(s, e), e.ref)] > 0)):
+            key = (*scope_key(s, e), e.ref)
+            if group is not None and not is_contact(e) and (group.dup or refs[key] > 0 or key in irefs):
+                out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref, f"Duplicitní označení {e.ref}", "dup_ref"))
+            if e.symbol_id == INTERRUPT_SYMBOL and e.ref and (key in idx.groups or refs[key] > 0):
                 out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref, f"Duplicitní označení {e.ref}", "dup_ref"))
             if not e.ref and e.symbol_id not in ("fve.earth", "fve.grid", "fve.load"):
                 out.append(Finding(WARNING, s.id, s.name, e.id, False, "", f"Prvek {sym.name} bez označení", "no_ref"))
@@ -128,7 +136,8 @@ def check_project(project: Project, lib) -> list[Finding]:
                 if sym is not None and not any(p.name == end.port for p in sym.ports):
                     out.append(Finding(ERROR, s.id, s.name, w.id, True, ref,
                                        f"Vodič na neexistující port {e.ref or e.symbol_id}:{end.port}", "bad_port"))
-            if ref and (refs[(*scope_key(s, w), ref)] > 1 or (*scope_key(s, w), ref) in idx.groups):
+            wkey = (*scope_key(s, w), ref)
+            if ref and (refs[wkey] > 1 or wkey in idx.groups or wkey in irefs):
                 out.append(Finding(ERROR, s.id, s.name, w.id, True, ref, f"Duplicitní označení {ref}", "dup_ref"))
             if not s.is_switchboard and not (w.attrs.get("cable") or w.attrs.get("cross")):
                 out.append(Finding(INFO, s.id, s.name, w.id, True, ref, "Vodič bez typu kabelu / průřezu", "no_cable"))
@@ -271,7 +280,7 @@ def _contact_findings(project: Project, index=None) -> list[Finding]:
 def contact_findings(project: Project, index=None) -> list[Finding]:
     """Kontakty přístroje: stejný pár svorek dvakrát (`contact_dup`), víc kontaktů druhu než v kontaktním obrazu
     (`contact_count`), pár mimo obraz (`contact_unknown`), nečitelný obraz (`contact_image_syntax`)."""
-    from envocad.model.xref import KIND_WORD, DeviceIndex, contact_image, parse_contact_image
+    from envocad.model.xref import KIND_WORD, DeviceIndex, contact_image, count_words, parse_contact_image
     idx = index or DeviceIndex.build(project)
     out: list[Finding] = []
     for s in project.sheets:
@@ -292,7 +301,7 @@ def contact_findings(project: Project, index=None) -> list[Finding]:
             for pair in pairs:
                 if pair in seen:
                     out.append(Finding(WARNING, s.id, s.name, c.id, False, c.ref,
-                                       f"{g.ref}: svorky {pair} má víc kontaktů – oprav svorky kontaktu", "contact_dup"))
+                                       f"{g.ref}: svorky {pair} jsou u více kontaktů", "contact_dup"))
                 else:
                     seen[pair] = c
         image = contact_image(g)
@@ -305,12 +314,12 @@ def contact_findings(project: Project, index=None) -> list[Finding]:
                     out.append(Finding(WARNING, s.id, s.name, c.id, False, c.ref,
                                        f"Kontakt {pair} není v kontaktním obrazu {g.ref}", "contact_unknown"))
         hs, h = g.host
-        for kind, word in KIND_WORD.items():
+        for kind in KIND_WORD:
             used = sum(len(pairs) for _, k, pairs in items if k == kind)
             have = sum(1 for slot in image if slot.kind == kind)
             if used > have:
                 out.append(Finding(WARNING, hs.id, hs.name, h.id, False, g.ref,
-                                   f"{g.ref}: použito {used} {word}, kontaktní obraz má {have} {word}", "contact_count"))
+                                   f"{g.ref}: {count_words(used, kind)}, kontaktní obraz má {have}", "contact_count"))
     return out
 
 

@@ -63,10 +63,11 @@ def _index(project: Project):
 
 
 def devices(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> list[Element]:
-    """Přístroje k objednání; cívka stykače se vynechá, když položkou výkazu je stykač (`is_bom_device`)."""
+    """Přístroje k objednání; cívka stykače se vynechá, když položkou výkazu je stykač (`is_bom_device`). U výkazu
+    jednoho listu (`sheet`) jen tehdy, když stykač leží na stejném listu."""
     idx = _index(project)
     return [e for s in _sheets(project, sheet) for e in s.elements
-            if e.symbol_id not in NON_DEVICE_SYMBOLS and idx.is_bom_device(e)]
+            if e.symbol_id not in NON_DEVICE_SYMBOLS and idx.is_bom_device(e, sheet)]
 
 
 def _contacts_text(idx, e: Element) -> str:
@@ -85,7 +86,7 @@ def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None)
     keyed: list[tuple[tuple, list]] = []
     for s in _sheets(project, sheet):
         for e in s.elements:
-            if e.symbol_id in NON_DEVICE_SYMBOLS or not idx.is_bom_device(e):
+            if e.symbol_id in NON_DEVICE_SYMBOLS or not idx.is_bom_device(e, sheet):
                 continue
             sym = lib.get_symbol(e.symbol_id)
             pl = s.layout.placement(e.id) if s.is_switchboard else None
@@ -108,7 +109,7 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
     idx = _index(project)
     for s in _sheets(project, sheet):
         for e in s.elements:
-            if (e.symbol_id in NON_DEVICE_SYMBOLS and not is_terminal_block(e)) or not idx.is_bom_device(e):
+            if (e.symbol_id in NON_DEVICE_SYMBOLS and not is_terminal_block(e)) or not idx.is_bom_device(e, sheet):
                 continue
             if is_terminal_block(e):
                 # skupina svorek (i přívod/vývod) = tolik kusů svorky, kolik má žil; parametr = průřez/druh z artiklu
@@ -200,7 +201,7 @@ def labels(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> t
     idx = _index(project)
     for s in _sheets(project, sheet):
         for e in s.elements:
-            if not e.ref or not idx.is_bom_device(e):      # cívka stykače = jeden štítek se stykačem
+            if not e.ref or not idx.is_bom_device(e, sheet):   # cívka stykače = jeden štítek se stykačem
                 continue
             sym = lib.get_symbol(e.symbol_id)
             desc = e.attrs.get("desc") or " ".join(x for x in (sym.name, e.attrs.get("in_", "") and e.attrs["in_"] + " A") if x)

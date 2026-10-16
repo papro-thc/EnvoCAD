@@ -30,13 +30,27 @@ from envocad.model.symbol import GRID
 
 KIND_POWER, KIND_NO, KIND_NC = "power", "no", "nc"
 COLUMN_ORDER = (KIND_POWER, KIND_NO, KIND_NC)        # vlevo → vpravo; osa mezi NO a NC
-KIND_WORD = {KIND_POWER: "silových", KIND_NO: "NO", KIND_NC: "NC"}
+# druh kontaktu česky pro hlášky: (1 kontakt, 2–4 kontakty, 5+ kontaktů)
+KIND_WORD = {KIND_POWER: ("silový kontakt", "silové kontakty", "silových kontaktů"),
+             KIND_NO: ("spínací kontakt", "spínací kontakty", "spínacích kontaktů"),
+             KIND_NC: ("rozpínací kontakt", "rozpínací kontakty", "rozpínacích kontaktů")}
 DEFAULT_PAIR = {KIND_NO: "13/14", KIND_NC: "21/22", KIND_POWER: "1/2"}
 IMAGE_PREFIX = {"NO": KIND_NO, "NC": KIND_NC, "P": KIND_POWER, "PWR": KIND_POWER, "HL": KIND_POWER}
 
 Placed = tuple[Sheet, Element]
 Box = tuple[float, float, float, float]
 _SPLIT = re.compile(r"[\s,;]+")
+
+
+def count_words(n: int, kind: str) -> str:
+    """„použit 1 silový kontakt“, „použity 3 spínací kontakty“, „použito 5 rozpínacích kontaktů“ (česká shoda
+    číslovky se slovesem a podstatným jménem)."""
+    one, few, many = KIND_WORD[kind]
+    if n == 1:
+        return f"použit 1 {one}"
+    if 2 <= n <= 4:
+        return f"použity {n} {few}"
+    return f"použito {n} {many}"
 
 
 # ---- páry svorek a kontaktní obraz --------------------------------------------------------------------------
@@ -208,12 +222,18 @@ class DeviceIndex:
     def group_of(self, e: Element) -> DeviceGroup | None:
         return self.by_element.get(e.id)
 
-    def is_bom_device(self, e: Element) -> bool:
-        """False pro cívku, když skupina má jinou položku výkazu (stykač); jinak True."""
+    def is_bom_device(self, e: Element, sheet: Sheet | None = None) -> bool:
+        """False pro cívku, když skupina má jinou položku výkazu (stykač); jinak True.
+
+        Se `sheet` (položky jednoho listu – rozložení, teplo, výkaz/štítky listu) se cívka vynechá jen tehdy, když
+        položka výkazu skupiny leží na **stejném** listu; stykač kreslený na jiném listu (silové schéma) cívku
+        z listu rozvaděče neodstraní."""
         if e.symbol_id not in COIL_SYMBOLS:
             return True
         g = self.by_element.get(e.id)
-        return g is None or g.device[1] is e or g.device[1].symbol_id in COIL_SYMBOLS
+        if g is None or g.device[1] is e or g.device[1].symbol_id in COIL_SYMBOLS:
+            return True
+        return sheet is not None and g.device[0] is not sheet
 
     def is_secondary(self, e: Element) -> bool:
         g = self.by_element.get(e.id)
@@ -397,6 +417,16 @@ def mirror_geometry(e: Element, sym, mirror: ContactMirror) -> MirrorGeometry:
 def mirror_enabled(e: Element) -> bool:
     """`attrs["mirror"] == "0"` zrcadlo potlačí."""
     return str(e.attrs.get("mirror", "")).strip() != "0"
+
+
+def is_mirror_host(project: Project, sheet: Sheet, e: Element, index: DeviceIndex | None = None) -> bool:
+    """Je prvek hostitelem zrcadla kontaktů (hostitel skupiny s ≥1 kontaktem nebo zadaným kontaktním obrazem)?
+    Nezávisí na `mirror` – podle toho panel Vlastnosti nabídne zaškrtávátko „Zobrazit zrcadlo kontaktů“."""
+    idx = index or DeviceIndex.build(project)
+    g = idx.group_of(e)
+    if g is None or g.host[1] is not e:
+        return False
+    return not contact_table(project, sheet, e, idx).empty
 
 
 def sheet_mirrors(project: Project, sheet: Sheet, lib, index: DeviceIndex | None = None,
