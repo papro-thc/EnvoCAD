@@ -131,3 +131,86 @@ python -m envocad.library.dxf_import pohled_LTN.dxf --id fp.oez.ltn-3p --name "L
 ```
 
 Bez footprintu se kreslí generický modulový přístroj (páčky podle pólů, svorky) o šířce `modules` × 17,5 mm.
+
+## Formát makra
+
+Makro = pojmenovaná sestava prvků a vodičů (výřez listu) k opakovanému vkládání – `envocad/library/macros.py`
+(bez Qt), návrh `docs/design/makra_promenne.md`. Soubory `*.json` ve `builtin/macros/` (vestavěná, generuje je
+`tools/gen_builtin_macros.py`), `<sdílená knihovna>/macros/` a `~/.envocad/macros/` (stejné jméno přepíše dřívější).
+**Formát projektu se kvůli makrům nemění** – makro se při vložení rozvine na obyčejné prvky a vodiče.
+
+```json
+{
+  "version": 2,
+  "name": "DC string v rozvaděči",
+  "description": "…",
+  "role": "dc_tech",                       // role v generátoru: dc_tech | dc_route | ac_feed | ac_core | ""
+  "variables": [
+    {"name": "n", "label": "Počet stringů", "type": "number", "default": "1", "min": 1, "max": 50, "auto": true},
+    {"name": "j", "label": "Číslo stringu u střídače", "type": "number", "default": "{k}", "auto": true},
+    {"name": "fuse_in", "label": "In pojistky", "type": "number", "unit": "A", "default": "15", "required": true},
+    {"name": "spd", "label": "Svodič přepětí DC (typ)", "type": "choice", "choices": ["", "T1", "T2", "T1+T2"],
+     "default": "T2", "help": "prázdné = bez svodiče"}
+  ],
+  "value_sets": [{"name": "Pojistka 20 A gPV, SPD T1+T2", "values": {"fuse_in": "20", "spd": "T1+T2"}}],
+  "repeat": {"count": "n", "pitch": 40},
+  "fragment": {"elements": [ … ], "wires": [ … ], "pitch": 40}   // formát schránky (copy_fragment)
+}
+```
+
+### Verze
+- Bez `version` = v1 (`name`, `description`, `fragment`); v1 je podmnožina v2, migrace není potřeba.
+- Makro s `version` vyšší než `MACRO_VERSION` (2) se nenačte (záznam v logu, v seznamu maker chybí).
+- Makro bez `variables` dostane implicitní textovou proměnnou za každý zástupný symbol ve fragmentu.
+  `save_macro` („Uložit výběr jako makro…“) zapisuje v2 s těmito proměnnými.
+
+### Proměnné a zástupné symboly
+Zástupný symbol `{název}` smí být v hodnotách atributů prvků a vodičů, v `component_id` prvku a v portech vodičů.
+Dosazuje se regulárním výrazem `\{[A-Za-z_][A-Za-z0-9_]*\}` – bez výrazů a formátovacích specifikací; neznámé `{x}`,
+`{}`, `{0}`, `{a.b}` zůstanou beze změny. Bez aritmetiky (`nk = n + k` dodá opakování nebo generátor).
+
+| klíč | povinný | význam |
+|---|---|---|
+| `name` | ano | `^[A-Za-z_][A-Za-z0-9_]*$` (anglicky, snake_case), jedinečné v makru |
+| `label`, `help`, `unit` | ne | texty dialogu (česky) |
+| `type` | ne (`text`) | `text`, `number`, `choice`, `component` |
+| `default` | ne | řetězec; smí skládat text z jiných proměnných (`"T{i}"`, jeden průchod) |
+| `required` | ne | prázdná výsledná hodnota = chyba |
+| `choices` | u `choice` | seznam řetězců (porovnává se bez mezer a velikosti písmen, uloží se tvar z nabídky) |
+| `min`, `max` | ne | u `number`; čísla se normalizují („15,0“ → „15“) |
+| `category` | u `component` | kategorie artiklu (`inverter`, `mcb`…) |
+| `from` | ne | `"<proměnná component>.<parametr artiklu>"` – `part_number`, `manufacturer`, `name` nebo klíč `params` (`p_ac_kw`…) |
+| `auto` | ne | hodnotu dodává volající (generátor, opakování); GUI ji sbalí pod „Další“ |
+
+Rezervované kontextové názvy (dodává generátor / opakování): `k` (pořadí), `n` (počet), `nk` (n + k), `i` (číslo
+střídače), `j` (string u střídače), `string` (označení stringu), `inverter` (označení střídače).
+
+Pořadí hodnot (pozdější vyhrává): `default` < základ volajícího (generátor: hodnoty ze specifikace `dc`/`ac`) <
+artikl (`from`) < sada hodnot < zadané (uživatel / `values` ve specifikaci) < kontext.
+
+### Sady hodnot (`value_sets`)
+Pojmenované předvolby (`name`, `values`, volitelně `description`); smí být neúplné – zbytek z `default`. V generátoru
+se vybírají položkou `"macros": {"dc_tech": {"name": "…", "value_set": "…", "values": {…}}}`.
+
+### Artikl v makru
+Proměnná `type: component` nese id artiklu; prvek fragmentu smí mít `"component_id": "{inv}"`. Po dosazení se zavolá
+`Component.apply_to` – parametry artiklu se propíší do atributů (u střídače `mppt`, `strings_per_mppt` → DC1…DCn).
+
+### Podmínky (`when`)
+Atribut `when` prvku nebo vodiče: `NÁZEV`, `!NÁZEV`, `NÁZEV=HODNOTA`, `NÁZEV!=HODNOTA` (porovnání přesné, po oříznutí
+mezer). Nepravda je `""`, `0`, `ne`, `no`, `false`, `off` (bez ohledu na velikost písmen). Vynechaný prvek vyřadí i
+své vodiče; `when` se z atributů po rozvinutí odstraní. Vestavěná DC makra mají `"when": "spd"` u svodiče a vývodu XPE,
+AC jádro u svodiče.
+
+### Opakování (`repeat`)
+Jen na úrovni makra: `count` = název proměnné s počtem, `pitch` = rozteč v mm (bez ní `fragment.pitch`, jinak šířka
++ 10 mm). Makro se vloží N× s `k = 1…N`, `n = N`, `nk = N + k`, posun `(k − 1) · pitch` zaokrouhlený na mřížku 2,5 mm.
+Prvky s `"shared": "1"` (sběrnice, vývod XPE) se vloží jen jednou a další instance se na ně napojí (hledá se na listu
+i mezi nově vytvořenými prvky). `N > 100` (`MAX_REPEAT`) je chyba. Generátor u DC rozvaděčů drží vlastní smyčku
+a `repeat` nepoužívá; slouží vkládání z GUI.
+
+### Rozhraní (`envocad/library/macros.py`)
+`load_macro(path)` / `parse_macro(data, path, source)` → `Macro`; `validate_macro(data)` → chyby česky;
+`resolve_values(m, given, value_set, components, context, base)` → `(hodnoty, chyby)`;
+`expand(project, sheet, m, values, dx, dy, ref_prefix_of, components, repeat)` → `(nové prvky, nové vodiče)` – list
+nemění (GUI je vloží jedním undo příkazem); `instantiate` = `expand` bez opakování + vložení do listu.

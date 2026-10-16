@@ -24,6 +24,10 @@ Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
   "macros": {"dc_tech": "DC string v rozvaděči", "dc_route": "DC string po trase",   # rozvaděče se skládají z maker
              "ac_feed": "AC přívod střídače", "ac_core": "AC jádro rozvaděče"}       # (knihovna → Makra); "" = kód
 }
+Položka `macros` smí být i objekt {"name": "DC string v rozvaděči", "value_set": "Pojistka 20 A gPV, SPD T1+T2",
+"values": {"fuse_in": 25}} – sada hodnot a hodnoty proměnných makra přebijí základ ze `dc`/`ac` (docs/LIBRARY_FORMAT.md,
+„Formát makra“). Neplatná hodnota → ValueError s názvem makra. Artikl střídače (`component_id`) doplní atributy,
+které specifikace nezadala (typ, výrobce, mppt…).
 """
 from __future__ import annotations
 
@@ -129,6 +133,7 @@ def build_project(spec: dict) -> Project:
             "u_dc_max": _s(inv.get("u_dc_max")), "u_mppt_min": _s(inv.get("u_mppt_min")),
             "u_mppt_max": _s(inv.get("u_mppt_max")), "i_mppt_max": _s(inv.get("i_mppt_max")),
             "p_dc_max": _s(inv.get("p_dc_max"))}, component_id=inv.get("component_id"))
+        _apply_inverter_component(t, inv)
         s.elements.append(t)
         inverter_elements.append(t)
         gens: list[Element] = []
@@ -221,8 +226,8 @@ def build_project(spec: dict) -> Project:
         sheet = p.create_switchboard_sheet(b)
         sheet.layout.params.setdefault("network", "DC IT")
         sheet.layout.params.setdefault("un", "max. 1000 V DC")
-        name = macros.get("dc_tech" if kind == "tech" else "dc_route", "")
-        if not _dc_box_from_macro(p, sheet, [g.ref for g in gens], name, dc, inv_no, inv_ref):
+        entry = macros.get("dc_tech" if kind == "tech" else "dc_route", "")
+        if not _dc_box_from_macro(p, sheet, [g.ref for g in gens], entry, dc, inv_no, inv_ref):
             build_dc_strings(p, sheet, [g.ref for g in gens], kind, _s(dc.get("fuse_in") or 15),
                              _s(dc.get("disconnect_in") or 32), _s(dc.get("spd") or "T2"))
     sb = p.create_switchboard_sheet(blk)
@@ -235,6 +240,24 @@ def build_project(spec: dict) -> Project:
     sync_cables(p)
     _align_bends(p)
     return p
+
+
+def _apply_inverter_component(t: Element, inv: dict) -> None:
+    """Artikl střídače (`component_id`) doplní atributy, které specifikace nezadala (chybí nebo jsou prázdné) –
+    např. typ, výrobce, `mppt` (→ počet DC vstupů), p_dc_max. Zadané hodnoty specifikace mají přednost.
+    Neznámý artikl se ignoruje (prvek si `component_id` ponechá, kontrola projektu ho nahlásí)."""
+    cid = inv.get("component_id")
+    if not cid:
+        return
+    from envocad.library.store import LibraryStore
+    comp = LibraryStore().component(cid)
+    if comp is None:
+        return
+    probe = Element(t.symbol_id, t.x, t.y, attrs=dict(t.attrs))
+    for key, val in comp.apply_to(probe).items():
+        if inv.get(key) in (None, ""):
+            t.attrs[key] = val
+    t.component_id = comp.id
 
 
 def _align_bends(project: Project) -> None:
@@ -271,37 +294,69 @@ def _align_bends(project: Project) -> None:
 
 
 def _macro_vars(dc: dict, ac: dict) -> dict:
+    """Základ hodnot proměnných maker ze specifikace (v `resolve_values` hned za výchozími hodnotami makra)."""
     return {"fuse_in": _s(dc.get("fuse_in") or 15), "disc_in": _s(dc.get("disconnect_in") or 32), "spd": _s(dc.get("spd") or "T2"),
             "breaker_in": _s(ac.get("breaker_in") or 40), "main_in": _s(ac.get("main_in") or 125), "ac_spd": _s(ac.get("spd") or "T1+T2")}
 
 
-def _dc_box_from_macro(project: Project, sheet: Sheet, strings: list[str], name: str, dc: dict,
+def _macro_ref(entry) -> tuple[str, str | None, dict]:
+    """Položka `spec["macros"][role]`: název makra (řetězec) nebo {"name", "value_set", "values"} → (název, sada, hodnoty)."""
+    if isinstance(entry, dict):
+        return (_s(entry.get("name")).strip(), _s(entry.get("value_set")).strip() or None,
+                {str(k): _s(v) for k, v in (entry.get("values") or {}).items()})
+    return _s(entry).strip(), None, {}
+
+
+def _macro_values(m, entry: tuple[str, str | None, dict], base: dict, context: dict, components) -> dict:
+    """Hodnoty proměnných makra pro generátor; chyba → ValueError s názvem makra."""
+    from envocad.library.macros import resolve_values
+    _, value_set, given = entry
+    vals, errs = resolve_values(m, given=given, value_set=value_set, components=components, context=context, base=base)
+    if errs:
+        raise ValueError(f"Makro „{m.name}“: " + "; ".join(e.removeprefix(f"Makro „{m.name}“: ") for e in errs))
+    return vals
+
+
+def _insert_macro(project: Project, sheet: Sheet, m, values: dict, dx: float, lib) -> list[Element]:
+    """Rozvine makro (bez opakování – smyčku drží generátor) a vloží ho do listu; vrací nové přístroje pro rozmístění."""
+    from envocad.library.macros import expand, insert
+    els, wires = expand(project, sheet, m, values, dx=dx, ref_prefix_of=lambda sid: lib.get_symbol(sid).iec_ref,
+                        components=lib.component, repeat=False)
+    insert(sheet, els, wires)
+    return [e for e in els if e.modules > 0 and e.symbol_id not in ("sb.feed_in", "sb.feed_out", "sb.busbar")]
+
+
+def _dc_box_from_macro(project: Project, sheet: Sheet, strings: list[str], name, dc: dict,
                        inv_no: int = 1, inv_ref: str = "") -> bool:
-    """DC rozvaděč složený z makra na string. Proměnné: k (pořadí v rozvaděči), nk (n + k), n, string (G3),
-    i (číslo střídače), j (string u střídače) – ENVO číslování FU{i}.{j}, XS{i}.{j}, STRING {i}.{j} –, inverter,
-    fuse_in, disc_in, spd. False = makro chybí."""
-    from envocad.library.macros import find_macro, instantiate, macro_pitch
+    """DC rozvaděč složený z makra na string. Kontext: k (pořadí v rozvaděči), nk (n + k), n, string (G3),
+    i (číslo střídače), j (string u střídače) – ENVO číslování FU{i}.{j}, XS{i}.{j}, STRING {i}.{j} –, inverter;
+    základ ze specifikace fuse_in, disc_in, spd. `name` = položka `spec["macros"]` (název nebo objekt). False = makro chybí."""
+    from envocad.library.macros import find_macro, macro_pitch
     from envocad.library.store import LibraryStore
-    m = find_macro(name) if name else None
+    entry = _macro_ref(name)
+    m = find_macro(entry[0]) if entry[0] else None
     if m is None:
         return False
     lib = LibraryStore()
     n = len(strings)
     pitch = macro_pitch(m)
+    base = _macro_vars(dc, {})
     devices = []
     for k, g in enumerate(strings, start=1):
-        vars_ = {**_macro_vars(dc, {}), "k": k, "nk": n + k, "n": n, "string": g, "i": inv_no, "j": k, "inverter": inv_ref}
-        els, _ = instantiate(project, sheet, m.fragment, vars_, dx=(k - 1) * pitch, ref_prefix_of=lambda sid: lib.get_symbol(sid).iec_ref)
-        devices += [e for e in els if e.modules > 0 and e.symbol_id not in ("sb.feed_in", "sb.feed_out", "sb.busbar")]
+        ctx = {"k": k, "nk": n + k, "n": n, "string": g, "i": inv_no, "j": k, "inverter": inv_ref}
+        vals = _macro_values(m, entry, base, ctx, lib.component)
+        devices += _insert_macro(project, sheet, m, vals, (k - 1) * pitch, lib)
     _place_sequential(sheet, devices)
     return True
 
 
 def _ac_box_from_macros(project: Project, sheet: Sheet, invs: list[dict], ac: dict, macros: dict) -> bool:
-    """AC rozvaděč: makro přívodu na každý střídač (k, inverter, breaker_in, main_in) + makro jádra (spd, main_in)."""
-    from envocad.library.macros import find_macro, instantiate, macro_pitch
+    """AC rozvaděč: makro přívodu na každý střídač (k, i, inverter; breaker_in, main_in) + makro jádra (spd = ac.spd, main_in)."""
+    from envocad.library.macros import find_macro, macro_pitch
     from envocad.library.store import LibraryStore
-    mf, mc = find_macro(macros.get("ac_feed", "") or ""), find_macro(macros.get("ac_core", "") or "")
+    ef, ec = _macro_ref(macros.get("ac_feed", "")), _macro_ref(macros.get("ac_core", ""))
+    mf = find_macro(ef[0]) if ef[0] else None
+    mc = find_macro(ec[0]) if ec[0] else None
     if mf is None or mc is None or (ac.get("distribution") or "bus") != "bus":
         return False
     lib = LibraryStore()
@@ -310,11 +365,9 @@ def _ac_box_from_macros(project: Project, sheet: Sheet, invs: list[dict], ac: di
     base = _macro_vars({}, ac)
     base["spd"] = base["ac_spd"]
     for k, inv in enumerate(invs, start=1):
-        vars_ = {**base, "k": k, "i": k, "inverter": inv.get("ref") or f"T{k}"}
-        els, _ = instantiate(project, sheet, mf.fragment, vars_, dx=(k - 1) * pitch, ref_prefix_of=lambda sid: lib.get_symbol(sid).iec_ref)
-        devices += [e for e in els if e.modules > 0 and e.symbol_id not in ("sb.feed_in", "sb.feed_out", "sb.busbar")]
-    els, _ = instantiate(project, sheet, mc.fragment, base, dx=len(invs) * pitch, ref_prefix_of=lambda sid: lib.get_symbol(sid).iec_ref)
-    devices += [e for e in els if e.modules > 0 and e.symbol_id not in ("sb.feed_in", "sb.feed_out", "sb.busbar")]
+        ctx = {"k": k, "i": k, "inverter": inv.get("ref") or f"T{k}"}
+        devices += _insert_macro(project, sheet, mf, _macro_values(mf, ef, base, ctx, lib.component), (k - 1) * pitch, lib)
+    devices += _insert_macro(project, sheet, mc, _macro_values(mc, ec, base, {}, lib.component), len(invs) * pitch, lib)
     _place_sequential(sheet, devices)
     if ac.get("enclosure"):
         sheet.layout.params["type"] = _s(ac["enclosure"])

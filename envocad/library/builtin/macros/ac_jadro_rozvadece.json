@@ -1,6 +1,48 @@
 {
+ "version": 2,
  "name": "AC jádro rozvaděče",
  "description": "Generátor: sběrnice 1 → SPD {spd} → XPE (k HOP), sběrnice → hlavní vypínač {main_in} → XOUT",
+ "role": "ac_core",
+ "variables": [
+  {
+   "name": "spd",
+   "label": "Svodič přepětí AC (typ)",
+   "type": "choice",
+   "choices": [
+    "",
+    "T1",
+    "T2",
+    "T1+T2"
+   ],
+   "default": "T1+T2",
+   "help": "prázdné = bez svodiče"
+  },
+  {
+   "name": "main_in",
+   "label": "In hlavního vypínače",
+   "type": "number",
+   "default": "125",
+   "unit": "A",
+   "required": true,
+   "min": 1
+  }
+ ],
+ "value_sets": [
+  {
+   "name": "SPD T1+T2, hlavní vypínač 125 A",
+   "values": {
+    "spd": "T1+T2",
+    "main_in": "125"
+   }
+  },
+  {
+   "name": "SPD T2, hlavní vypínač 63 A",
+   "values": {
+    "spd": "T2",
+    "main_in": "63"
+   }
+  }
+ ],
  "fragment": {
   "elements": [
    {
@@ -28,7 +70,8 @@
      "ref": "F1",
      "spd_type": "{spd}",
      "poles": "4",
-     "modules": "4"
+     "modules": "4",
+     "when": "spd"
     },
     "component_id": null
    },
