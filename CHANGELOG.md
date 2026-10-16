@@ -1,6 +1,8 @@
 # Changelog
 
 ## 0.11.0 – 2026-10-16
+- Opravy z rozšířených testů: undo smazání a odbočky vrací prvky a vodiče na původní místo v pořadí; undo nově přidaného atributu ho odebere; zjednodušení lomů vodiče nenechá dva stejné body (trasa tam a zpět); import EPLAN čte ceny s mezerou jako oddělovačem tisíců („1 234,50“); rotace logu na Windows po opakovaném spuštění.
+- Testy: undo/redo všech příkazů, migrace formátu (i skutečný soubor v1), obsah exportů DXF/XLSX/PDF, importéry EPLAN/QET/DXF, property testy (hypothesis); každý test s vlastní `ENVOCAD_HOME`. Pokrytí 81 % → 84 %.
 - Vícepól: **štítek kabelu u přívodu/vývodu jde chytit** – dvojklik otevře parametry přívodu/vývodu, tažení posune celý přívod (všechny svorky); svorku jde chytit i za číslo vedle kroužku.
 - Vícepól, opravy štítku kabelu: klik bez tažení nechá vybraný celý přívod/vývod (Delete funguje), Ctrl+klik ho přepne ve výběru, panel vlastností ukáže prvek i při výběru přes štítek; štítek nejde vybrat sám (obdélníkem) a po tažení pod krok mřížky se vrátí na místo. Plocha pro chycení čísla svorky se otáčí s textem (svorkovnice otočené o 90/270°) a nezasahuje do sousední svorky.
 - Repozitář je veřejně na GitHubu: https://github.com/papro-thc/EnvoCAD (licence MIT).
