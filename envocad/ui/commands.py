@@ -194,6 +194,8 @@ class SetAttrCommand(QUndoCommand):
         else:
             t.attrs[self.key] = v
         (self.scene.wire_items if self.is_wire else self.scene.element_items)[self.tid].update()
+        if hasattr(self.scene, "invalidate_text_layout"):
+            self.scene.invalidate_text_layout()   # popisek (ref / aspekty) se přepočítá
         self.scene.attrs_changed.emit(self.tid)
 
     def redo(self):
@@ -386,6 +388,92 @@ class SetCableCommand(QUndoCommand):
             if c.id == self.cid:
                 self.project.cables[i] = Cable.from_dict(d)
                 return
+
+    def redo(self):
+        self._set(self.new)
+
+    def undo(self):
+        self._set(self.old)
+
+
+class SetSheetDesignationCommand(QUndoCommand):
+    """Strukturní označení listu: dvojice (func, loc) – `Sheet.func` (=) a `Sheet.loc` (+)."""
+
+    def __init__(self, sheet, old: tuple[str, str], new: tuple[str, str], on_change=None):
+        super().__init__("Změnit označení listu")
+        self.sheet, self.old, self.new, self.on_change = sheet, tuple(old), tuple(new), on_change
+
+    def _set(self, v: tuple[str, str]):
+        self.sheet.func, self.sheet.loc = v
+        if self.on_change:
+            self.on_change()
+
+    def redo(self):
+        self._set(self.new)
+
+    def undo(self):
+        self._set(self.old)
+
+
+class RenameStructureCommand(QUndoCommand):
+    """Přejmenování kódu funkce/umístění v celém projektu (registr, listy, override prvků) přes `rename_structure`."""
+
+    def __init__(self, project, aspect: str, old: str, new: str, on_change=None):
+        super().__init__(f"Přejmenovat {aspect}{old} na {aspect}{new}")
+        self.project, self.aspect, self.old, self.new, self.on_change = project, aspect, old, new, on_change
+
+    def _rename(self, a: str, b: str):
+        from envocad.model.project import rename_structure
+        rename_structure(self.project, self.aspect, a, b)
+        if self.on_change:
+            self.on_change()
+
+    def redo(self):
+        self._rename(self.old, self.new)
+
+    def undo(self):
+        self._rename(self.new, self.old)
+
+
+class SetStructuresCommand(QUndoCommand):
+    """Registr strukturního označení projektu (dialog Projekt → Strukturní označení)."""
+
+    def __init__(self, project, old_list: list, new_list: list, on_change=None):
+        super().__init__("Strukturní označení")
+        from envocad.model.project import StructureId
+        self.project, self.on_change = project, on_change
+        self.old = [StructureId(x.aspect, x.code, x.description) for x in old_list]
+        self.new = [StructureId(x.aspect, x.code, x.description) for x in new_list]
+
+    def _set(self, v: list):
+        from envocad.model.project import StructureId
+        self.project.structures = [StructureId(x.aspect, x.code, x.description) for x in v]
+        if self.on_change:
+            self.on_change()
+
+    def redo(self):
+        self._set(self.new)
+
+    def undo(self):
+        self._set(self.old)
+
+
+class ReplaceRevisionsCommand(QUndoCommand):
+    """Nahrazení revizí a metadat (`project.revisions`, `project.meta`) – porovnání s revizí, uzavření revize.
+    `old_state`/`new_state` = `(revize, meta)` z `revision.revisions_state`."""
+
+    def __init__(self, project, old_state, new_state, text: str = "Revize", on_change=None):
+        super().__init__(text)
+        import copy
+        self.project, self.on_change = project, on_change
+        self.old = (copy.deepcopy(old_state[0]), dict(old_state[1]))
+        self.new = (copy.deepcopy(new_state[0]), dict(new_state[1]))
+
+    def _set(self, state):
+        from envocad.model.revision import restore_revisions_state
+        restore_revisions_state(self.project, state)
+        if self.on_change:
+            self.on_change()
 
     def redo(self):
         self._set(self.new)

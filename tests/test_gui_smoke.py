@@ -708,3 +708,73 @@ def test_feed_cable_tag_edit_and_move(app):
     assert len(d) == 1 and d != {(0.0, 0.0)}
     w.undo.setClean()
     w.close()
+
+
+def test_structure_ui_and_revision_flow(app, monkeypatch, tmp_path):
+    shot = tmp_path / "revision.png"
+    from PySide6.QtWidgets import QMessageBox
+
+    from envocad.model.diff import diff_projects
+    from envocad.model.project import StructureId
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: QMessageBox.Ok)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: QMessageBox.Ok)
+    p = _project()
+    s = p.sheets[0]
+    w = MainWindow(LibraryStore(), p)
+    # popisek: bez overridu holý ref, s overridem plné označení; panel vlastností má řádky func/loc
+    f1 = next(e for e in s.elements if e.ref == "F1")
+    from envocad.model.designation import display_designation
+    assert display_designation(s, f1) == "F1"
+    w.goto_target(s.id, f1.id, False)
+    w.props_panel.show_item(w.scene.element_items[f1.id])
+    assert w.props_panel.form.rowCount() >= 3
+    w.scene.set_attr(f1.id, False, "loc", "RS1")
+    assert display_designation(s, f1) == "+RS1-F1"
+    w.undo.undo()
+    assert "loc" not in f1.attrs or not f1.attrs["loc"]
+    # označení listu + registr, undo
+    before = p.to_dict()
+    assert w.set_sheet_designation(s, "AC", "RS1")
+    assert (s.func, s.loc) == ("AC", "RS1") and p.structure("+", "RS1") is not None
+    w.undo.undo()
+    assert p.to_dict() == before
+    w.undo.redo()
+    w.set_structures([StructureId("+", "RS1", "Rozvaděč")])
+    assert p.structure("+", "RS1").description == "Rozvaděč"
+    # přejmenování ref bloku rozvaděče = přejmenování umístění
+    from envocad.model.project import Element
+    blk = Element("fve.switchboard", 300, 150, attrs={"ref": "RS1"})
+    s.elements.append(blk)
+    w.scene.add_element_item(blk)
+    w.scene.set_attr(blk.id, False, "ref", "RS5")
+    assert s.loc == "RS5" and p.structure("+", "RS5") is not None
+    w.undo.undo()
+    assert s.loc == "RS1" and blk.attrs["ref"] == "RS1"
+    # revize: porovnání + uzavření jako undo příkazy, bez resetClean
+    from envocad.model.project import Project as P
+    old = P.from_dict(p.to_dict())
+    f1.attrs["in_"] = "100 A"
+    changes = diff_projects(old, p, w.library)
+    assert changes
+    w.undo.setClean()
+    import copy
+    snap = copy.deepcopy(p.to_dict())
+    w.record_revision(changes, "B", "1.1.2026", "ENVO", "B | 1.1.2026 | test | ENVO")
+    assert p.revisions[-1].label == "B" and p.revisions[-1].marks and not w.undo.isClean()
+    assert w.close_open_revision(None) and p.revisions[-1].closed
+    w.undo.undo()
+    assert not p.revisions[-1].closed
+    w.undo.undo()
+    assert p.to_dict() == snap and w.undo.isClean()
+    assert not w.close_open_revision(None)          # není otevřená revize → hláška, nic se neděje
+    w.undo.redo()
+    # značky ve výkresu: scéna je nakreslí (screenshot)
+    w.scene.invalidate_text_layout()
+    from envocad.model.revision import revision_geometry
+    geom = revision_geometry(p, s, w.library)
+    assert geom.polylines and geom.texts[0][2] == "B"
+    pm = w.view.grab()
+    assert not pm.isNull()
+    assert pm.save(str(shot))
+    w.undo.setClean()
+    w.close()

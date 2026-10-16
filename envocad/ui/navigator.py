@@ -133,12 +133,13 @@ class DiffDialog(QDialog):
         self.tree.setHeaderLabels(["Změna", "List", "Co", "Označení", "Podrobnosti"])
         sheet_ids = {s.name: s.id for s in project.sheets}
         for c in changes:
+            sid = c.sheet_id or sheet_ids.get(c.sheet, "")
             it = QTreeWidgetItem([c.kind, c.sheet, c.what, c.ref, c.detail])
-            it.setData(0, Qt.UserRole, (sheet_ids.get(c.sheet, ""), c.target_id, c.is_wire))
+            it.setData(0, Qt.UserRole, (sid, c.target_id, c.is_wire))
             self.tree.addTopLevelItem(it)
         for i in range(4):
             self.tree.resizeColumnToContents(i)
-        self.tree.itemDoubleClicked.connect(lambda it, _c: it.data(0, Qt.UserRole)[1] and self.goto.emit(*it.data(0, Qt.UserRole)))
+        self.tree.itemDoubleClicked.connect(lambda it, _c: it.data(0, Qt.UserRole)[0] and self.goto.emit(*it.data(0, Qt.UserRole)))
         lay.addWidget(self.tree)
         row = QHBoxLayout()
         row.addWidget(QLabel("Revize:"))

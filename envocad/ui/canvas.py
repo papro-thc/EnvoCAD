@@ -25,7 +25,7 @@ from envocad.model.project import (
 from envocad.model.symbol import GRID
 from envocad.ui import commands
 from envocad.ui.items import ElementItem, WireItem, route, snap
-from envocad.ui.render import draw_frame, draw_text, sp
+from envocad.ui.render import draw_frame, draw_revision_marks, draw_text, sp
 from envocad.ui.theme import PRINT, colors
 
 log = logging.getLogger("envocad.ui")
@@ -600,8 +600,25 @@ class SchematicScene(QGraphicsScene):
             old = next(w for w in self.sheet.wires if w.id == target_id).attrs.get(key, "")
         else:
             old = self.sheet.element(target_id).attrs.get(key, "")
-        if old != value:
+        if old == value:
+            return
+        if key == "ref" and not is_wire and self._renames_location(target_id, old, value):
+            # ref bloku rozvaděče je kód umístění: přejmenuje se i v registru, na listech a v overridech prvků
+            self.undo.beginMacro(f"Přejmenovat umístění {old} na {value}")
             self.undo.push(commands.SetAttrCommand(self, target_id, is_wire, key, old, value))
+            self.undo.push(commands.RenameStructureCommand(self.project, "+", old, value, self.invalidate_xrefs))
+            self.undo.endMacro()
+            return
+        self.undo.push(commands.SetAttrCommand(self, target_id, is_wire, key, old, value))
+
+    def _renames_location(self, element_id: str, old: str, new: str) -> bool:
+        from envocad.model.designation import LOCATION_SYMBOLS
+        if not old or not new or self.sheet.element(element_id).symbol_id not in LOCATION_SYMBOLS:
+            return False
+        p = self.project
+        used = {s.loc for s in p.sheets} | {e.attrs.get("loc", "") for s in p.sheets for e in s.elements}
+        known = lambda code: p.structure("+", code) is not None or code in used
+        return known(old) and not known(new)
 
     def _on_selection(self) -> None:
         sel = self.selectedItems()
@@ -616,11 +633,27 @@ class SchematicScene(QGraphicsScene):
             it.setPen(QPen(colors().wire, it.pen().widthF(), Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
         self.update()
 
+    def _draw_revision_marks(self, painter: QPainter) -> None:
+        """Značky revize (červeně) u změněných míst; trasy vodičů jsou ty, které scéna právě kreslí."""
+        from PySide6.QtGui import QColor
+
+        from envocad.model.revision import revision_geometry
+        from envocad.ui.items import path_points
+        if not self.project.revisions:
+            return
+        routes = {wid: path_points(it.path()) for wid, it in self.wire_items.items()}
+        try:
+            geom = revision_geometry(self.project, self.sheet, self.library, routes)
+        except Exception:  # noqa: BLE001 – značky nesmí shodit kreslení
+            return
+        draw_revision_marks(painter, geom, QColor(204, 0, 0))
+
     def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
         """Rámeček s popisovým polem, můstky mezi skupinami svorek (čárkovaně) a informační blok rozvaděče."""
         from envocad.model.frame import MARGIN, MARGIN_LEFT, frame_geometry
         c = PRINT if not self.draw_grid else colors()
         draw_frame(painter, frame_geometry(self.project, self.sheet), c.ink)
+        self._draw_revision_marks(painter)
         self._draw_bridges(painter)
         if not self.sheet.is_switchboard:
             return

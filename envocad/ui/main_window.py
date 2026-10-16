@@ -142,6 +142,8 @@ class MainWindow(QMainWindow):
         m_file.addSeparator()
         act(m_file, "Vlastnosti projektu…", self.edit_project_meta)
         act(m_file, "Porovnat s revizí (.ecp)…", self.compare_revision)
+        act(m_file, "Uzavřít revizi", self.close_revision_all)
+        act(m_file, "Uzavřít revizi listu", self.close_revision_sheet)
         m_file.addSeparator()
         act(m_file, "Konec", self.close, "Ctrl+Q")
 
@@ -195,9 +197,12 @@ class MainWindow(QMainWindow):
         self.act_frame.toggled.connect(self.set_frame)
         m_view.addAction(self.act_frame)
 
+        m_proj = mb.addMenu("&Projekt")
+        act(m_proj, "Strukturní označení…", self.edit_structures)
+
         m_sheet = mb.addMenu("&List")
         act(m_sheet, "Nový list schématu", self.new_schematic_sheet)
-        act(m_sheet, "Přejmenovat list…", self.rename_sheet)
+        act(m_sheet, "Vlastnosti listu (název, =funkce, +umístění)…", self.rename_sheet)
         act(m_sheet, "Odstranit list", self.delete_sheet)
         m_sheet.addSeparator()
         act(m_sheet, "Otevřít rozvaděč (schéma)", lambda: self._open_selected_switchboard("schematic"))
@@ -453,14 +458,56 @@ class MainWindow(QMainWindow):
         self.undo.resetClean()
 
     def rename_sheet(self) -> None:
+        """Vlastnosti listu: název a strukturní označení (=funkce, +umístění)."""
         sh = self.current_sheet
         if not sh:
             return
-        name, ok = QInputDialog.getText(self, "Přejmenovat list", "Název:", text=sh.name)
-        if ok and name:
+        from envocad.ui.dialogs import SheetPropsDialog
+        dlg = SheetPropsDialog(sh, self)
+        if dlg.exec() != SheetPropsDialog.Accepted:
+            return
+        name, func, loc = dlg.values()
+        if not self.set_sheet_designation(sh, func, loc):
+            return
+        if name and name != sh.name:
             sh.name = name
             self._refresh_tab_titles()
             self.undo.resetClean()
+
+    def set_sheet_designation(self, sh: Sheet, func: str, loc: str) -> bool:
+        """=funkce / +umístění listu přes undo; nový kód se zapíše i do registru. False = neplatný kód."""
+        from envocad.model.designation import FUNC, LOC, validate_code
+        from envocad.model.project import StructureId
+        if (func, loc) == (sh.func, sh.loc):
+            return True
+        for aspect, code in ((FUNC, func), (LOC, loc)):
+            issues = validate_code(code, aspect, f"listu {sh.name}")
+            if issues:
+                QMessageBox.warning(self, "Označení listu", issues[0].text)
+                return False
+        self.undo.beginMacro("Změnit označení listu")
+        self.undo.push(commands.SetSheetDesignationCommand(sh, (sh.func, sh.loc), (func, loc)))
+        old_list = list(self.project.structures)
+        new_list = list(old_list)
+        for aspect, code in ((FUNC, func), (LOC, loc)):
+            if code and self.project.structure(aspect, code) is None:
+                new_list.append(StructureId(aspect, code))
+        if len(new_list) != len(old_list):
+            self.undo.push(commands.SetStructuresCommand(self.project, old_list, new_list))
+        self.undo.endMacro()
+        return True
+
+    def edit_structures(self) -> None:
+        from envocad.ui.dialogs import StructuresDialog
+        dlg = StructuresDialog(self.project.structures, self)
+        if dlg.exec() == StructuresDialog.Accepted:
+            self.set_structures(dlg.values())
+
+    def set_structures(self, new_list: list) -> None:
+        old = self.project.structures
+        key = lambda lst: [(x.aspect, x.code, x.description) for x in lst]
+        if key(old) != key(new_list):
+            self.undo.push(commands.SetStructuresCommand(self.project, old, new_list))
 
     def delete_sheet(self) -> None:
         sh = self.current_sheet
@@ -597,6 +644,10 @@ class MainWindow(QMainWindow):
         self._update_title()
         self._sync_links_and_blocks()
         self.nav_panel._schedule()
+        for sc in self._scenes:   # popisky (označení, aspekty) a značky revize se po změně modelu přepočítají
+            if hasattr(sc, "invalidate_text_layout"):
+                sc.invalidate_text_layout()
+                sc.update()
         # odvozené pohledy (vícepól, plán svorkovnice): viditelný se přestaví hned, ostatní až při přepnutí
         for i in range(self.tabs.count()):
             w = self._unwrap(self.tabs.widget(i))
@@ -901,7 +952,7 @@ class MainWindow(QMainWindow):
         self._load_project(project)
 
     def compare_revision(self) -> None:
-        """Změnový list z porovnání se starší verzí projektu."""
+        """Změnový list a značky revize z porovnání se starší verzí projektu (jeden krok undo)."""
         path, _ = QFileDialog.getOpenFileName(self, "Starší revize projektu", "", "EnvoCAD projekt (*.ecp)")
         if not path:
             return
@@ -912,16 +963,57 @@ class MainWindow(QMainWindow):
         except Exception as ex:  # noqa: BLE001
             QMessageBox.warning(self, "Porovnání", f"Soubor nejde načíst: {ex}")
             return
-        changes = diff_projects(old, self.project)
+        changes = diff_projects(old, self.project, self.library)
         dlg = DiffDialog(changes, self.project, self)
         dlg.goto.connect(self.goto_target)
         if dlg.exec() == DiffDialog.Accepted and changes:
-            text = dlg.change_text()
-            cur = self.project.meta.get("changes", "")
-            self.project.meta["changes"] = (cur + "\n" + text).strip() if cur else text
-            self.project.meta["revision"] = dlg.rev.text().strip()
-            self.undo.resetClean()
+            self.record_revision(changes, dlg.rev.text().strip(), dlg.date.text().strip(),
+                                 dlg.author.text().strip(), dlg.change_text())
             self.statusBar().showMessage(f"Změnový list doplněn o {len(changes)} řádků", 4000)
+
+    def record_revision(self, changes, label: str, date: str, author: str, change_text: str) -> None:
+        """Zapíše porovnání do revize: značky (`apply_changes`) + řádky `meta["changes"]`, jako jeden undo příkaz."""
+        from envocad.model.revision import (
+            apply_changes,
+            open_revision,
+            restore_revisions_state,
+            revisions_state,
+        )
+        before = revisions_state(self.project)
+        rev = open_revision(self.project, label, date, author)
+        apply_changes(self.project, rev, changes)
+        cur = self.project.meta.get("changes", "")
+        self.project.meta["changes"] = (cur + "\n" + change_text).strip() if cur else change_text
+        after = revisions_state(self.project)
+        restore_revisions_state(self.project, before)
+        self.undo.push(commands.ReplaceRevisionsCommand(self.project, before, after, "Porovnání s revizí"))
+
+    def close_revision_all(self) -> bool:
+        return self.close_open_revision(None)
+
+    def close_revision_sheet(self) -> bool:
+        sh = self.current_sheet
+        if sh is None:
+            QMessageBox.information(self, "Uzavřít revizi listu", "Není otevřený žádný list.")
+            return False
+        return self.close_open_revision([sh.id])
+
+    def close_open_revision(self, sheet_ids: list[str] | None) -> bool:
+        """Uzavře otevřenou revizi (celou, nebo jen vybrané listy) jako jeden undo příkaz. False = není co uzavřít."""
+        from envocad.model.revision import close_revision, restore_revisions_state, revisions_state
+        rev = next((r for r in reversed(self.project.revisions) if not r.closed), None)
+        if rev is None:
+            QMessageBox.information(self, "Uzavřít revizi", "Není otevřená žádná revize – nejdřív porovnej projekt "
+                                                            "se starší revizí.")
+            return False
+        before = revisions_state(self.project)
+        close_revision(self.project, next(r for r in self.project.revisions if r.id == rev.id), sheet_ids)
+        after = revisions_state(self.project)
+        restore_revisions_state(self.project, before)
+        text = f"Uzavřít revizi {rev.label}" if sheet_ids is None else f"Uzavřít revizi {rev.label} listu"
+        self.undo.push(commands.ReplaceRevisionsCommand(self.project, before, after, text))
+        self.statusBar().showMessage(f"Revize {rev.label} uzavřena", 4000)
+        return True
 
     def open_project(self) -> None:
         if not self._confirm_discard():

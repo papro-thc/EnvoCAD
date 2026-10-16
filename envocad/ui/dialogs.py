@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QSpinBox,
     QTableWidget,
@@ -679,3 +680,95 @@ class EnclosureDialog(QDialog):
 
     def apply(self) -> Layout:
         return self.panel.apply()
+
+
+class SheetPropsDialog(QDialog):
+    """Vlastnosti listu: název a strukturní označení (=funkce, +umístění)."""
+
+    def __init__(self, sheet: Sheet, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Vlastnosti listu")
+        self.setMinimumWidth(340)
+        form = QFormLayout(self)
+        self.name = QLineEdit(sheet.name)
+        self.func = QLineEdit(sheet.func)
+        self.loc = QLineEdit(sheet.loc)
+        form.addRow("Název:", self.name)
+        form.addRow("Funkce (=):", self.func)
+        form.addRow("Umístění (+):", self.loc)
+        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        form.addRow(bb)
+
+    def values(self) -> tuple[str, str, str]:
+        return self.name.text().strip(), self.func.text().strip().upper(), self.loc.text().strip().upper()
+
+
+class StructuresDialog(QDialog):
+    """Registr strukturního označení projektu: tabulka aspekt (=/+), kód, popis."""
+
+    def __init__(self, structures: list, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Strukturní označení")
+        self.resize(480, 360)
+        lay = QVBoxLayout(self)
+        lay.addWidget(QLabel("Aspekt „=“ je funkce, „+“ umístění. Kód: A–Z, 0–9, _, začíná písmenem."))
+        self.table = QTableWidget(0, 3)
+        self.table.setHorizontalHeaderLabels(["Aspekt", "Kód", "Popis"])
+        self.table.horizontalHeader().setStretchLastSection(True)
+        lay.addWidget(self.table)
+        for x in structures:
+            self._add_row(x.aspect, x.code, x.description)
+        row = QHBoxLayout()
+        b_add = QPushButton("Přidat")
+        b_del = QPushButton("Odebrat")
+        b_add.clicked.connect(lambda: self._add_row("+", "", ""))
+        b_del.clicked.connect(self._remove_row)
+        row.addWidget(b_add)
+        row.addWidget(b_del)
+        row.addStretch()
+        lay.addLayout(row)
+        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.accepted.connect(self._accept)
+        bb.rejected.connect(self.reject)
+        lay.addWidget(bb)
+
+    def _add_row(self, aspect: str, code: str, desc: str) -> None:
+        r = self.table.rowCount()
+        self.table.insertRow(r)
+        combo = QComboBox()
+        combo.addItems(["=", "+"])
+        combo.setCurrentText(aspect if aspect in ("=", "+") else "+")
+        self.table.setCellWidget(r, 0, combo)
+        self.table.setItem(r, 1, QTableWidgetItem(code))
+        self.table.setItem(r, 2, QTableWidgetItem(desc))
+
+    def _remove_row(self) -> None:
+        r = self.table.currentRow()
+        if r >= 0:
+            self.table.removeRow(r)
+
+    def values(self) -> list:
+        from envocad.model.project import StructureId
+        out = []
+        for r in range(self.table.rowCount()):
+            code = (self.table.item(r, 1).text() if self.table.item(r, 1) else "").strip().upper()
+            desc = (self.table.item(r, 2).text() if self.table.item(r, 2) else "").strip()
+            if code:
+                out.append(StructureId(self.table.cellWidget(r, 0).currentText(), code, desc))
+        return out
+
+    def _accept(self) -> None:
+        from envocad.model.designation import validate_code
+        seen = set()
+        for x in self.values():
+            issues = validate_code(x.code, x.aspect)
+            if issues:
+                QMessageBox.warning(self, "Strukturní označení", issues[0].text)
+                return
+            if (x.aspect, x.code) in seen:
+                QMessageBox.warning(self, "Strukturní označení", f"Kód {x.aspect}{x.code} je v tabulce víckrát")
+                return
+            seen.add((x.aspect, x.code))
+        self.accept()

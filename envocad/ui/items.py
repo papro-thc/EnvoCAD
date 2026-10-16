@@ -5,6 +5,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QStyleOptionGraphicsItem, QWidget
 
+from envocad.model.designation import display_designation
 from envocad.model.project import Element, Wire, wire_label
 from envocad.model.symbol import GRID, Symbol, rotate_dir
 from envocad.ui.render import LINE_WIDTH, draw_text, paint_symbol, sp, symbol_path
@@ -55,7 +56,8 @@ class ElementItem(QGraphicsItem):
         x0, y0, x1, y1 = self.symbol.bounds()
         lx, ly = self.symbol.label_pos
         x0, x1, y0, y1 = min(x0, lx), max(x1, lx), min(y0, ly), max(y1, ly)
-        texts = [self.element.ref] + self.symbol.label_lines(self.element.attrs)
+        a = self.element.attrs
+        texts = [self.element.ref + a.get("func", "") + a.get("loc", "") + "=+"] + self.symbol.label_lines(self.element.attrs)
         w = max((len(t) for t in texts), default=0) * 2.5 * 0.75 + 4
         h = 3.5 * len(texts) + 4
         m = max(w, h)   # popisek může být vpravo/vlevo/nad/pod značkou (rozmístění) a prvek otočený
@@ -107,7 +109,9 @@ class ElementItem(QGraphicsItem):
         painter.rotate(self.element.rotation)
         line = 0.0
         if self.element.ref:
-            draw_text(painter, 0, line, self.element.ref, 2.5, "left")
+            sheet = getattr(sc, "sheet", None)
+            ref = display_designation(sheet, self.element) if sheet is not None else self.element.ref
+            draw_text(painter, 0, line, ref, 2.5, "left")
             line -= 3.5
         for text in self.symbol.label_lines(self.element.attrs):
             draw_text(painter, 0, line, text, 2.0, "left")

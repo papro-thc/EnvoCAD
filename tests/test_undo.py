@@ -203,3 +203,54 @@ def test_multipole_commands(app, lib):
     f.mp_pos = (200.0, 150.0)
     _check(p, undo, commands.MultipoleAddCommand(sc, element=f))
     undo.clear()
+
+
+# ---- v8: strukturní označení a revize ---------------------------------------------------------------------
+def _roundtrip(p, make_cmd, mutate_check=None):
+    """Příkaz: redo změní model, undo ho vrátí přesně (to_dict), druhé redo zopakuje výsledek."""
+    undo = QUndoStack()
+    before = p.to_dict()
+    undo.push(make_cmd())
+    after = p.to_dict()
+    assert after != before
+    undo.undo()
+    assert p.to_dict() == before
+    undo.redo()
+    assert p.to_dict() == after
+    undo.undo()
+    assert p.to_dict() == before
+
+
+def test_sheet_designation_and_rename_structure_undo(app):
+    from envocad.model.project import StructureId
+    p = _project()
+    s = p.sheets[0]
+    s.loc = "RS1"
+    s.elements[0].attrs["loc"] = "RS1"
+    p.structures.append(StructureId("+", "RS1", "rozvaděč"))
+    _roundtrip(p, lambda: commands.SetSheetDesignationCommand(s, (s.func, s.loc), ("AC", "RS2")))
+    _roundtrip(p, lambda: commands.RenameStructureCommand(p, "+", "RS1", "RS9"))
+    assert p.structures[0].code == "RS1" and s.elements[0].attrs["loc"] == "RS1"
+    new = [StructureId("=", "AC", "střídavá část"), StructureId("+", "RS1", "jiný popis")]
+    _roundtrip(p, lambda: commands.SetStructuresCommand(p, p.structures, new))
+
+
+def test_replace_revisions_undo_and_record(app):
+    from envocad.model.diff import diff_projects
+    from envocad.model.project import Project as P
+    from envocad.model.revision import apply_changes, open_revision, restore_revisions_state, revisions_state
+    p = _project()
+    old = P.from_dict(p.to_dict())
+    p.sheets[0].elements[0].attrs["ref"] = "G9"
+    changes = diff_projects(old, p)
+    assert changes
+    before = revisions_state(p)
+    rev = open_revision(p, "B", "1.1.2026", "ENVO")
+    apply_changes(p, rev, changes)
+    after = revisions_state(p)
+    restore_revisions_state(p, before)
+    assert p.revisions == [] or p.to_dict()["revisions"] == [r.to_dict() for r in before[0]]
+    _roundtrip(p, lambda: commands.ReplaceRevisionsCommand(p, before, after))
+    undo = QUndoStack()
+    undo.push(commands.ReplaceRevisionsCommand(p, before, after))
+    assert p.revisions[-1].label == "B" and p.meta["revision"] == "B"
