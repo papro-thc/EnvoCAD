@@ -100,3 +100,19 @@ def draw_frame(painter: QPainter, geom, color) -> None:
         for x, y, w, h in geom.rects:
             painter.drawRect(QRectF(x, -(y + h), w, h))
     painter.restore()
+
+
+def draw_revision_marks(painter: QPainter, geom, color) -> None:
+    """Značky revize (trojúhelníky s označením) z `model/revision.py:revision_geometry` – geometrie v mm, Y nahoru."""
+    if not geom.polylines:
+        return
+    painter.save()
+    painter.setBrush(Qt.NoBrush)
+    painter.setPen(QPen(color, 0.35))
+    for pts in geom.polylines:
+        painter.drawPolygon([sp(x, y) for x, y in pts])
+    painter.setPen(QPen(color, 0.2))
+    for x, y, text, h, align in geom.texts:
+        if text:
+            draw_text(painter, x, y, text, h, align)
+    painter.restore()

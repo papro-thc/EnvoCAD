@@ -223,6 +223,38 @@ základní selektivita (poměr In po cestě ke zdroji ≥ 1,6). Tabulky Iz jsou 
 
 `Ctrl+F` najde prvek nebo vodič podle označení kdekoli v projektu; Navigátor umí totéž s filtrem.
 
+### Strukturní označení (IEC 81346)
+
+Označení má tři části: `=` funkce, `+` umístění, `-` přístroj, plné označení např. `=AC+RDC1-F3`.
+Přístroj nesou značky jako `F3` (bez `-`); funkci a umístění dostávají z listu a na listu rozvaděče je
+umístěním jeho blok.
+
+| Kde | Co nastavíš |
+|---|---|
+| `Projekt → Strukturní označení…` | seznam kódů funkce (`=`) a umístění (`+`) s popisem, např. `AC`, `DC`, `RDC1`; ve výkazech a štítcích se pak píše plné označení |
+| `List → Vlastnosti listu (název, =funkce, +umístění)…` | funkce a umístění listu – výchozí pro všechny prvky a vodiče listu |
+| Panel Vlastnosti prvku, pole `Funkce (=)` a `Umístění (+)` | přepis pro jeden prvek; prázdné pole = převzít z listu |
+
+Kódy se píšou bez znaménka, jedna úroveň (`RS1`, ne `=RS1.2`), jen A–Z, 0–9 a `_`, nejvýš 10 znaků. Přejmenování
+bloku rozvaděče (`ref` v panelu Vlastnosti) přejmenuje i jeho umístění v registru, na listech a v overridech prvků.
+
+Kontrola (`F7`) hlásí označení a strukturní údaje:
+
+| Kód | Závažnost | Význam |
+|---|---|---|
+| `ref_syntax` | chyba | v označení je oddělovač aspektů (`=`, `+`, `:`, `/`, mezera) nebo úvodní `-`, např. `=F3` nebo `X1:3` |
+| `ref_chars` | varování | malá písmena, diakritika nebo jiný znak než A–Z, 0–9, `_` |
+| `ref_length` | varování | označení delší než 10 znaků nebo plné označení delší než 32 znaků (štítek) |
+| `ref_class` | varování | písmeno označení neodpovídá třídě značky (značka `function_class`, např. jistič `F` nebo `Q`) |
+| `struct_syntax` | chyba | neplatný kód funkce nebo umístění listu či prvku |
+| `struct_undefined` | info | kód není v `Projekt → Strukturní označení` |
+| `sb_no_loc` | varování | list rozvaděče nemá umístění (`+`) |
+| `loc_mismatch` | info | umístění listu se liší od označení bloku rozvaděče |
+| `contact_ambiguous` | varování | kontakt odpovídá cívkám ve více umístěních – nastav kontaktu umístění v panelu Vlastnosti |
+
+Kontrola `ref_class` se nedělá u kontaktů, přerušovacích bodů a vodičů. Tečka v označení (např. `FU1.1`)
+je firemní číslování ENVO a kontrola ji nehlásí; pomlčka uvnitř označení (`SPD-DC1.1`) se hlásí jen jako info.
+
 ---
 
 ## 7. Nový projekt z průvodce (a pro agenty)
@@ -270,6 +302,18 @@ Soubor → Vlastnosti projektu, název firmy v popisovém poli v nastavení (`st
 Soubor → Vlastnosti projektu: revize, datum, změnový list (řádek = `revize | datum | popis | zpracoval`).
 **Porovnat s revizí (.ecp)** porovná aktuální projekt se starší uloženou verzí (prvky, vodiče, kabely, můstky,
 skříň) a jedním tlačítkem zapíše změny do změnového listu; dvojklik skočí na změněný prvek.
+
+Výkres ukazuje změny trojúhelníky s číslem revize (červeně, také v DXF ve vrstvě `REVIZE`); revize listu se
+objeví v popisovém poli toho listu (když je zapnutý rámeček). Revizi uzavřeš v menu **Soubor**:
+
+| Položka | Co dělá |
+|---|---|
+| `Uzavřít revizi` | uzavře otevřenou revizi pro celý projekt |
+| `Uzavřít revizi listu` | uzavře revizi jen aktuálního listu |
+
+Uzavření je měkký zámek: program si zapamatuje stav listů. Když pak list změníš, kontrola `F7` hlásí
+`rev_closed_changed` (list změněn po uzavření revize). Úpravu neblokuje – porovnej projekt s revizí
+(`Porovnat s revizí (.ecp)…`) a založ novou revizi.
 
 ---
 

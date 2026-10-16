@@ -47,6 +47,15 @@ Zásada: **model nezávisí na UI.** Vše, co lze, se testuje bez spuštění Qt
 - **Wire** – vodič mezi dvěma porty (element.port → element.port), má atributy (průřez, typ kabelu, označení).
 - **Sheet** – list výkresu (formát, rámeček, popisové pole).
 - **Project** – zakázka: metadata (název, investor, číslo zakázky), seznam listů.
+- **Struktura (IEC 81346)** – `=` funkce, `+` umístění, `-` přístroj. Registr kódů `Project.structures`
+  (`StructureId`: aspekt, kód, popis; kód mimo registr je platný, kontrola jen hlásí INFO). `Sheet.func` a
+  `Sheet.loc` jsou výchozí aspekty prvků listu; prvek může přepsat `attrs["func"]` / `attrs["loc"]` (prázdné =
+  dědit). `attrs["ref"]` je jen přístrojová část („F3“). Plné označení („=AC+RDC1-F3“) skládá
+  `model/designation.py` – používají ho výkazy a štítky; list rozvaděče má `+` = označení bloku.
+- **Revize** – `Project.revisions` (`Revision`: označení, datum, zpracoval, otisky listů při uzavření, značky
+  `RevisionMark` na listu, prvku nebo vodiči). Značky vznikají z porovnání `model/diff.py` přes `model/revision.py`;
+  kreslí se v editoru, PDF a DXF (vrstva `REVIZE`) a revizi listu ukazuje popisové pole. **Uzavření revize je měkký
+  zámek**: uloží otisky listů; další změna listu jen hlásí kontrola (`rev_closed_changed`), model ji neblokuje.
 
 Z tohoto modelu se generuje vše ostatní (výkaz materiálu, seznam kabelů, svorkovnice) – to je hlavní
 přidaná hodnota oproti ručnímu kreslení v ZWCAD.
@@ -98,4 +107,5 @@ Tři vrstvy rozšíření, od nejjednodušší:
    rozvaděčů, importéry v menu, vlastní výkazy. Vzor: `envocad/plugins_builtin/example_counts.py`.
    Budoucí obory (HVAC, MaR, silnoproud budov) = balíček knihovny + plugin se šablonami a výkazy, jádro se nemění.
 
-Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace), takže rozšíření modelu nerozbije staré soubory.
+Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **8** – strukturní označení a revize
+v `Project`, `Sheet.func/loc`; migrace v7→v8 v `model/project.py:migrate`), takže rozšíření modelu nerozbije staré soubory.

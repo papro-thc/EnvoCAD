@@ -10,6 +10,7 @@ a při startu se nahrají do SQLite (`~/.envocad/library.db`), kde přibývají 
   "category": "Střídače a měniče",   // druh prvku = nadpis v panelu; "Druh/QET" = podsložka cizích značek
   "description": "Síťový střídač DC/AC, třífázový",
   "iec_ref": "T",                     // písmeno označení dle ČSN EN IEC 81346 → T1, T2…
+  "function_class": ["T"],            // volitelné – povolené třídy označení (viz níže); bez klíče = [iec_ref]
   "primitives": [
     {"type": "rect",    "x": -10, "y": -10, "w": 20, "h": 20},
     {"type": "line",    "x1": -10, "y1": 10, "x2": 10, "y2": -10},
@@ -52,6 +53,41 @@ Pravidla:
 - Atribut `ref` je povinný (označení prvku ve schématu). Program ho při vložení předvyplní
   `iec_ref` + pořadové číslo.
 - Tloušťka čar se neukládá v symbolu – řeší se vrstvou při exportu.
+
+## Třída označení (`function_class`)
+
+`iec_ref` je jen prefix automatického číslování (F → F1, F2…). `function_class` je seznam **povolených tříd**
+označení dle ČSN EN IEC 81346-2 (1–2 velká písmena: třída a podtřída), případně firemní prefix ENVO
+(`docs/ENVO_STYL.md`) až o 3 písmenech. Kontrola projektu (`ref_class`, varování) hlásí prvek, jehož
+písmenný kód označení žádné třídě neodpovídá. Shoda je prefixem: třída „F“ přijme F3, FA1, FC2.
+
+- Klíč chybí → třídy `[iec_ref]`; prázdný `iec_ref` → kontrola třídy se nedělá.
+- `[]` → nekontroluje se (např. blok rozvaděče `fve.switchboard`, jehož označení je umístění).
+- `validate()` vyžaduje třídy `^[A-Z]{1,3}$` a aby jim odpovídal i sám `iec_ref` (`iec_ref` + „1“).
+- Příklad: jistič `fve.breaker_mcb` má `iec_ref` „F“ a `function_class` `["F", "Q"]` – označení Q1 je také v pořádku.
+- Firemní prefix: svodič `fve.spd` má `iec_ref` „F“ a `function_class` `["F", "SPD"]` – firemní číslování
+  `SPD-DC1.1` (`docs/ENVO_STYL.md`) neodpovídá třídě F ani podtřídě FC, a třída „S“ by znamenala ruční ovládání
+  (tlačítka S1). Proto explicitní třípísmenný prefix místo volnějšího „S“.
+- Firemní číslování: tečka (`FU1.1`) je schválený standard ENVO a kontrola ji nehlásí; vnitřní „-“ (`SPD-DC1.1`)
+  je jen informace. Třída, délka a znaky (bez oddělovačů) se kontrolují dál.
+
+Formát symbolu kvůli tomu nemá verzi – nový klíč je nepovinný a starší program ho ignoruje.
+
+## Rezervované atributy prvku
+
+Některé klíče v `attrs` prvku nastavuje program a značka by je neměla používat k jinému účelu:
+
+| klíč | význam |
+|---|---|
+| `ref` | přístrojová část označení („F3“, bez „-“) |
+| `func` | override aspektu funkce (`=`), prázdné = dědit z listu (`Sheet.func`) |
+| `loc` | override aspektu umístění (`+`), prázdné = dědit z listu (`Sheet.loc`) |
+| `wire_id` | přívod/vývod rozvaděče: id navázaného vodiče JPS |
+| `cable_id` | vodič: id kabelu (`Project.cables`) |
+| `sheet` | blok rozvaděče: název listu rozvaděče |
+
+Kódy `func`/`loc` se zadávají bez znaménka („AC“, „RDC1“), jedna úroveň, znaky A–Z, 0–9, _ (max. 10).
+Plné označení prvku je pak `=AC+RDC1-F3` (viz `envocad/model/designation.py`).
 
 ## Import z DXF výrobců
 

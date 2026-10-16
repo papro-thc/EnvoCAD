@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QTreeWidget,
     QTreeWidgetItem,
@@ -133,16 +134,17 @@ class DiffDialog(QDialog):
         self.tree.setHeaderLabels(["Změna", "List", "Co", "Označení", "Podrobnosti"])
         sheet_ids = {s.name: s.id for s in project.sheets}
         for c in changes:
+            sid = c.sheet_id or sheet_ids.get(c.sheet, "")
             it = QTreeWidgetItem([c.kind, c.sheet, c.what, c.ref, c.detail])
-            it.setData(0, Qt.UserRole, (sheet_ids.get(c.sheet, ""), c.target_id, c.is_wire))
+            it.setData(0, Qt.UserRole, (sid, c.target_id, c.is_wire))
             self.tree.addTopLevelItem(it)
         for i in range(4):
             self.tree.resizeColumnToContents(i)
-        self.tree.itemDoubleClicked.connect(lambda it, _c: it.data(0, Qt.UserRole)[1] and self.goto.emit(*it.data(0, Qt.UserRole)))
+        self.tree.itemDoubleClicked.connect(lambda it, _c: it.data(0, Qt.UserRole)[0] and self.goto.emit(*it.data(0, Qt.UserRole)))
         lay.addWidget(self.tree)
         row = QHBoxLayout()
         row.addWidget(QLabel("Revize:"))
-        self.rev = QLineEdit(str(project.meta.get("revision") or "1"))
+        self.rev = QLineEdit(self.default_label(project))
         row.addWidget(self.rev)
         row.addWidget(QLabel("Datum:"))
         self.date = QLineEdit(project.meta.get("date", ""))
@@ -157,6 +159,27 @@ class DiffDialog(QDialog):
         self.btn_write.clicked.connect(self.accept)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
+
+    @staticmethod
+    def default_label(project) -> str:
+        """Předvyplněné označení: otevřená revize, po uzavřené revizi další označení, jinak `meta["revision"]`."""
+        from envocad.model.revision import next_revision_label
+        revs = project.revisions
+        open_rev = next((r for r in reversed(revs) if not r.closed), None)
+        if open_rev is not None:
+            return open_rev.label
+        if revs:
+            return next_revision_label(project)
+        return str(project.meta.get("revision") or "1")
+
+    def accept(self) -> None:
+        from envocad.model.revision import closed_labels
+        label = self.rev.text().strip()
+        if label in closed_labels(self.project):
+            QMessageBox.warning(self, "Porovnání s revizí", f"Revize {label} je už uzavřená – zadej jiné označení "
+                                                            "(změny se zapíší do nové revize).")
+            return
+        super().accept()
 
     def change_text(self) -> str:
         from envocad.model.diff import change_list_text

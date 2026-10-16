@@ -246,6 +246,7 @@ def test_coil_contacts_mirror():
     s2.elements.append(k1)
     s1.elements += [c_no, c_pw, lone]
     assert coil_of(p, c_no)[1] is k1 and coil_of(p, lone) is None
+    assert coil_of(p, c_no, s1)[1] is k1
     assert contact_mirror(p, k1) == [("1/2", "/1.C3"), ("13/14", "/1.D3")]
     assert element_xref(p, s2, k1) == "1/2 /1.C3\n13/14 /1.D3"
     assert element_xref(p, s1, c_no) == "→ /2.B5" and element_xref(p, s1, lone) == "→ ?"
@@ -342,3 +343,72 @@ def test_text_layout_avoids_and_reports_overlaps():
     # bez automatiky se překryv nahlásí
     assert any("Q1" in m and "Q2" in m for _, _, m in text_overlaps(p, s, lib, compute_layout(p, s, lib, auto=False)))
     assert not [m for _, _, m in text_overlaps(p, s, lib) if "Q1" in m and "Q2" in m]
+
+
+def test_symbol_function_class(tmp_path):
+    from envocad.model.symbol import Symbol
+    s = Symbol("x", "X", iec_ref="F")
+    assert s.function_class is None and s.classes == ["F"]
+    assert "function_class" not in s.to_dict()                   # bez klíče = odvodit z iec_ref
+    assert Symbol("y", "Y").classes == []                         # prázdný iec_ref = nekontrolovat
+    s.function_class = ["F", "Q"]
+    d = s.to_dict()
+    assert d["function_class"] == ["F", "Q"] and Symbol.from_dict(d).classes == ["F", "Q"]
+    assert Symbol.from_dict({**d, "function_class": []}).classes == []
+    assert s.validate() == []
+    bad = Symbol("z", "Z", iec_ref="F", function_class=["Q", "fx"])
+    issues = bad.validate()
+    assert any("fx" in i for i in issues) and any("prefix" in i for i in issues)
+    assert Symbol("r", "R", iec_ref="R", function_class=[]).validate() == []
+    # firemní prefix ENVO až 3 písmena (SPD-DC1.1), 4 písmena už ne
+    assert Symbol("s", "S", iec_ref="F", function_class=["F", "SPD"]).validate() == []
+    assert any("SPDX" in i for i in Symbol("s", "S", iec_ref="F", function_class=["F", "SPDX"]).validate())
+    # vestavěné značky dle návrhu v8
+    lib = LibraryStore(tmp_path / "lib.db")
+    expected = {"fve.breaker_mcb": ["F", "Q"], "fve.breaker_mccb": ["Q", "F"], "fve.fuse_disconnect": ["F", "Q"],
+                "fve.contactor": ["K", "Q"], "sb.rcd": ["F", "Q"], "sb.rcbo": ["F", "Q"], "fve.switchboard": [],
+                "fve.spd": ["F", "SPD"]}
+    for sid, cls in expected.items():
+        assert lib.get_symbol(sid).function_class == cls, sid
+    assert lib.get_symbol("fve.inverter").function_class is None and lib.get_symbol("fve.inverter").classes == ["T"]
+
+
+def test_derived_symbols_keep_function_class(tmp_path):
+    from envocad.model.project import element_symbol
+    lib = LibraryStore(tmp_path / "lib.db")
+    p = Project()
+    blk = Element("fve.switchboard", attrs={"ref": "R1"})
+    p.sheets[0].elements.append(blk)
+    sb = p.create_switchboard_sheet(blk)
+    sb.elements.append(Element("sb.feed_in", attrs={"ref": "X1"}))
+    assert element_symbol(p, blk, lib).classes == []              # odvozená značka bloku nezačne kontrolovat „R“
+
+
+def test_coil_of_prefers_contact_scope():
+    """Stejné K1 ve dvou umístěních: kontakt patří cívce ve svém prostoru (func, loc), jinak první; zrcadlo kontaktů
+    a seznam přístrojů to respektují."""
+    from envocad.export import reports
+    from envocad.model.project import coil_of, contact_mirror, contacts_of
+    p = Project(sheets=[Sheet(name="A", loc="RDC1"), Sheet(name="B", loc="RH"), Sheet(name="C")])
+    k1a = Element("ctl.coil", 0, 0, attrs={"ref": "K1"})
+    k1b = Element("ctl.coil", 0, 0, attrs={"ref": "K1"})
+    p.sheets[0].elements.append(k1a)
+    p.sheets[1].elements.append(k1b)
+    c_rh = Element("ctl.contact_nc", 10, 10, attrs={"ref": "K1", "loc": "RH", "terminals": "21/22"})
+    c_free = Element("ctl.contact_no", 20, 10, attrs={"ref": "K1", "terminals": "13/14"})   # list C bez umístění
+    c_same = Element("ctl.contact_no", 30, 10, attrs={"ref": "K1", "terminals": "43/44"})   # list B dědí +RH
+    p.sheets[2].elements += [c_rh, c_free]
+    p.sheets[1].elements.append(c_same)
+    s, e = coil_of(p, c_rh)
+    assert e is k1b and s is p.sheets[1]
+    assert coil_of(p, c_rh, p.sheets[2])[1] is k1b
+    assert coil_of(p, c_same)[1] is k1b
+    assert coil_of(p, c_free)[1] is k1a                       # žádná cívka ve stejném prostoru → první
+    assert {x.id for _, x in contacts_of(p, "K1", k1b)} == {c_rh.id, c_same.id}
+    assert [x.id for _, x in contacts_of(p, "K1", k1a)] == [c_free.id]
+    assert len(contacts_of(p, "K1")) == 3                     # bez cívky = všechny podle ref (jako dřív)
+    assert [t for t, _ in contact_mirror(p, k1b)] == ["21/22", "43/44"]
+    assert [t for t, _ in contact_mirror(p, k1a)] == ["13/14"]
+    head, rows = reports.device_list(p, LibraryStore())
+    conts = {r[head.index("List")]: r[head.index("Kontakty")] for r in rows}
+    assert conts == {"A": "13/14", "B": "21/22, 43/44"}

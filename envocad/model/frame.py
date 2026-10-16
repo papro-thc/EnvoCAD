@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date as _date
+from datetime import datetime as _datetime
 
 from envocad.model.project import Project, Sheet
 
@@ -70,9 +70,17 @@ def qr_modules(text: str) -> list[list[bool]] | None:
     return [[bool(v) for v in row] for row in q.matrix]
 
 
+def sheet_revision_label(project: Project, sheet: Sheet) -> str:
+    """Revize listu do popisového pole a QR: revize listu (`revision.sheet_revision`), jinak `meta["revision"]`."""
+    from envocad.model.revision import sheet_revision
+    rev = sheet_revision(project, sheet)
+    return rev.label if rev is not None else str(project.meta.get("revision", "") or "")
+
+
 def qr_text(project: Project, sheet: Sheet, view: str = "") -> str:
     m = project.meta
-    parts = [project.name, m.get("order", ""), sheet.name + (f" – {view}" if view else ""), f"rev. {m.get('revision', '') or '0'}"]
+    parts = [project.name, m.get("order", ""), sheet.name + (f" – {view}" if view else ""),
+             f"rev. {sheet_revision_label(project, sheet) or '0'}"]
     return " | ".join(x for x in parts if x)
 
 
@@ -85,13 +93,13 @@ def sheet_number(project: Project, sheet: Sheet) -> str:
 def title_rows(project: Project, sheet: Sheet, view: str = "", page: str = "") -> list[list[tuple[str, str]]]:
     """Řádky popisového pole jako [(popisek, hodnota), …] – vlevo doleva, vpravo doprava."""
     m = project.meta
-    date = m.get("date") or _date.today().strftime("%d.%m.%Y")
+    date = m.get("date") or _datetime.now().astimezone().strftime("%d.%m.%Y")   # dnešní datum v místním čase
     name = sheet.name + (f" – {view}" if view else "")
     return [
         [("Projekt", project.name), ("Zakázka", m.get("order", ""))],
         [("Investor", m.get("investor", "")), ("Místo", m.get("place", ""))],
         [("List", name), ("Číslo listu", page or sheet_number(project, sheet))],
-        [("Zpracoval", m.get("author", "")), ("Datum", date), ("Revize", m.get("revision", "")),
+        [("Zpracoval", m.get("author", "")), ("Datum", date), ("Revize", sheet_revision_label(project, sheet)),
          ("Formát", sheet.paper)],
     ]
 

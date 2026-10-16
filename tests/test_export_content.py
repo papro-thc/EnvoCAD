@@ -138,3 +138,24 @@ def qapp():
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication
     return QApplication.instance() or QApplication([])
+
+
+def test_dxf_revision_layer(proj, lib, tmp_path):
+    from envocad.model.project import Revision, RevisionMark
+    s = proj.sheets[0]
+    # bez značek: vrstva existuje, ale je prázdná
+    doc = _check_dxf(proj, s, lib, tmp_path / "bez_revize.dxf")
+    assert "REVIZE" in doc.layers and doc.layers.get("REVIZE").color == 1
+    assert not doc.modelspace().query('*[layer=="REVIZE"]')
+    proj.revisions.append(Revision("B", marks=[RevisionMark(s.id, s.elements[0].id),
+                                               RevisionMark(s.id, s.wires[0].id, is_wire=True),
+                                               RevisionMark(s.id, "", kind="odebráno", x=100.0, y=100.0)]))
+    doc = _check_dxf(proj, s, lib, tmp_path / "revize.dxf")
+    msp = doc.modelspace()
+    tri = [e for e in msp.query("LWPOLYLINE") if e.dxf.layer == "REVIZE"]
+    assert len(tri) == 3 and all(pl.closed and len(pl.get_points()) == 3 for pl in tri)
+    assert _texts(doc, "REVIZE") == ["B", "B", "B"]
+    # jiný list stejného projektu značky nemá
+    other = proj.sheets[1]
+    export_sheet_dxf(proj, other, lib, tmp_path / "jiny.dxf")
+    assert not ezdxf.readfile(tmp_path / "jiny.dxf").modelspace().query('*[layer=="REVIZE"]')

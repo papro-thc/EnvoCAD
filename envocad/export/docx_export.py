@@ -6,7 +6,7 @@ stačí ji předat parametrem `template` – nadpisy, loga a styly se převezmou
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import datetime
 from pathlib import Path
 
 from docx import Document
@@ -78,7 +78,7 @@ def export_routine_test_docx(project: Project, lib: LibraryStore, sheet: Sheet, 
         ["Síť / uzemnění", lay.params.get("network", "TN-S")],
         ["Krytí / IK", " / ".join(x for x in (lay.params.get("ip", ""), lay.params.get("ik", "")) if x)],
         ["Výrobce rozvaděče", "ENVO s.r.o."],
-        ["Datum", date.today().strftime("%d.%m.%Y")],
+        ["Datum", datetime.now().astimezone().strftime("%d.%m.%Y")],   # dnešní datum v místním čase
     ])
 
     doc.add_heading("2. Osazené přístroje", level=2)

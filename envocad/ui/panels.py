@@ -100,6 +100,9 @@ class LibraryPanel(QWidget):
             self.symbol_chosen.emit(sid)
 
 
+DESIGNATION_KEYS = ("func", "loc")    # override aspektů prvku – kód A–Z, 0–9, _
+
+
 class PropertiesPanel(QWidget):
     attr_edited = Signal(str, bool, str, str)  # target_id, is_wire, key, value
 
@@ -137,6 +140,10 @@ class PropertiesPanel(QWidget):
             self.form.addRow(QLabel(f"<b>{sym.name}</b><br><small>{sym.id}</small>{comp}"))
             for a in sym.attributes:
                 self._add_field(a.key, a.label, e.attrs.get(a.key, ""))
+            sc = item.scene()
+            sheet = getattr(sc, "sheet", None)
+            self._add_field("func", "Funkce (=)", e.attrs.get("func", ""), getattr(sheet, "func", ""))
+            self._add_field("loc", "Umístění (+)", e.attrs.get("loc", ""), getattr(sheet, "loc", ""))
         elif isinstance(item, WireItem):
             w = item.wire
             self._target = (w.id, True)
@@ -158,12 +165,21 @@ class PropertiesPanel(QWidget):
             self._target = None
             self.form.addRow(QLabel("<i>Nic není vybráno</i>"))
 
-    def _add_field(self, key: str, label: str, value: str) -> None:
+    def _add_field(self, key: str, label: str, value: str, inherited: str | None = None) -> None:
         ed = QLineEdit(value)
+        if inherited is not None:   # prázdné = dědí z listu; placeholder ukáže zděděnou hodnotu
+            ed.setPlaceholderText(inherited or "(z listu)")
+            ed.setToolTip("Prázdné pole = hodnota se zděďí z listu")
         ed.editingFinished.connect(lambda k=key, w=ed: self._commit(k, w.text()))
         self.form.addRow(label, ed)
 
+    @staticmethod
+    def normalize(key: str, value: str) -> str:
+        """Kód funkce/umístění prvku: ořez a velká písmena (jako dialog Vlastnosti listu); ostatní beze změny."""
+        return value.strip().upper() if key in DESIGNATION_KEYS else value
+
     def _commit(self, key: str, value: str) -> None:
+        value = self.normalize(key, value)
         if not self._target:
             return
         tid, is_wire = self._target

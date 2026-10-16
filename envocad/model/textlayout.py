@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from itertools import pairwise
 
+from envocad.model.designation import display_designation
 from envocad.model.geometry import Point, wire_label_anchor
 from envocad.model.project import Element, Project, Sheet, element_symbol, element_xref, wire_label, wire_xref
 from envocad.model.symbol import rotate_point
@@ -44,7 +45,7 @@ def element_label_lines(project: Project, sheet: Sheet, e: Element, sym) -> list
     out = []
     line = 0.0
     if e.ref:
-        out.append((x, y + line, e.ref, 2.5))
+        out.append((x, y + line, display_designation(sheet, e), 2.5))
         line -= 3.5
     for t in sym.label_lines(e.attrs):
         out.append((x, y + line, t, 2.0))
@@ -234,7 +235,7 @@ def _el_label(x: float, y: float, align: str, texts: list[tuple[str, float]]) ->
 def element_label_texts(project: Project, sheet: Sheet, e: Element, sym, xref: str | None = None) -> list[tuple[str, float]]:
     out = []
     if e.ref:
-        out.append((e.ref, 2.5))
+        out.append((display_designation(sheet, e), 2.5))
     out += [(t, 2.0) for t in sym.label_lines(e.attrs)]
     if xref is None:
         try:
