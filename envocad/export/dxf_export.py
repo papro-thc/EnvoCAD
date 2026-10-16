@@ -74,7 +74,9 @@ def _wire_points(project: Project, sheet: Sheet, lib: LibraryStore, w) -> list[t
     s2 = (pb[0] + vb[0] * GRID, pb[1] + vb[1] * GRID)
     pts = [pa, s1]
     if w.points:
-        pts += list(w.points)
+        from envocad.model.geometry import orthogonalize
+        mid = orthogonalize([s1, *w.points, s2], end_horizontal=db in ("E", "W"))
+        return [pa, *mid, pb]
     else:
         hor = da in ("E", "W")
         if hor and db in ("E", "W") and abs(s1[1] - s2[1]) > 1e-6:

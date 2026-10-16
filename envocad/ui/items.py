@@ -177,8 +177,15 @@ def route(pa: QPointF, da: str, pb: QPointF, db: str, mid: list[QPointF], stagge
     path = QPainterPath(pa)
     path.lineTo(sa)
     if mid:
-        for m in mid:
-            path.lineTo(m)
+        # ruční body: jen svislé/vodorovné úseky (roh se doplní, kdyby bod nebyl v ose portu)
+        from envocad.model.geometry import orthogonalize
+        pts = orthogonalize([(sa.x(), sa.y())] + [(m.x(), m.y()) for m in mid] + [(sb.x(), sb.y())],
+                            end_horizontal=db in ("E", "W"))
+        path = QPainterPath(pa)
+        for x, y in pts:
+            path.lineTo(QPointF(x, y))
+        path.lineTo(pb)
+        return path
     else:
         horizontal_first = da in ("E", "W")
         if horizontal_first and db in ("E", "W") and abs(sa.y() - sb.y()) > 1e-6:

@@ -95,7 +95,7 @@ def build_project(spec: dict) -> Project:
     opt = spec.get("optimizer") or {}
     opt_per = float(opt.get("per_module") or 1) if opt.get("type") else 0.0
     # svislé rozestupy řad střídačů podle počtu stringů
-    row_h = [max(55.0, 30.0 * max(len(inv.get("strings") or [1]), 1) + 20.0) for inv in invs]
+    row_h = [max(60.0, 40.0 * max(len(inv.get("strings") or [1]), 1) + 15.0) for inv in invs]   # 40 mm na string (popisek nad ním)
     total_h = sum(row_h)
     if total_h + 70.0 > s.height:   # hodně stringů → vyšší list
         s.height, s.paper = total_h + 70.0, "vlastní"
@@ -131,7 +131,7 @@ def build_project(spec: dict) -> Project:
         inverter_elements.append(t)
         gens: list[Element] = []
         for k, n_mod in enumerate(strings):
-            ys = y - 15.0 - k * 30.0
+            ys = y - 35.0 - k * 40.0
             p_str = round(n_mod * float(mod.get("p_wp") or 0) / 1000, 2)
             p_total += p_str
             g = Element("fve.pv_string", x_str, ys, attrs={
@@ -207,7 +207,7 @@ def build_project(spec: dict) -> Project:
     s.wires.append(w_grid)
     if (ac.get("distribution") or "bus") == "bus":
         # PE rozvaděče je uzemněný na ekvipotenciální svorkovnici (HOP) vně rozvaděče – vývod XPE → uzemnění
-        earth = Element("fve.earth", x_blk, 150.0 - 60.0, attrs={"ref": "", "desc": "ekvipotenciální svorkovnice (HOP)"})
+        earth = Element("fve.earth", x_blk + 35.0, 150.0 - 40.0, attrs={"ref": "", "desc": "ekvipotenciální svorkovnice (HOP)"})
         s.elements.append(earth)
         s.wires.append(Wire(WireEnd(blk.id, "XPE"), WireEnd(earth.id, "PE"), conductors=["PE"],
                             attrs={"ref": p.next_ref("W"), "cable": _s(ac.get("pe_cable") or "CYA 16"), "cross": _s(ac.get("pe_cross") or 16),
@@ -231,7 +231,28 @@ def build_project(spec: dict) -> Project:
         _build_ac_switchboard(p, sb, invs, ac, spec)
     sync_feed_links(p)
     sync_cables(p)
+    _align_bends(p)
     return p
+
+
+def _align_bends(project: Project) -> None:
+    """Lomy vodičů JPS podle skutečných poloh portů (porty bloků rozvaděčů a střídačů se dopočítají až z listů):
+    svislý úsek [(x, y1), (x, y2)] dostane y1 = port A, y2 = port B – vodič je pak jen vodorovný–svislý–vodorovný."""
+    from envocad.library.store import LibraryStore
+    from envocad.model.project import element_symbol
+    lib = LibraryStore()
+    s = project.sheets[0]
+    for w in s.wires:
+        if len(w.points) != 2 or abs(w.points[0][0] - w.points[1][0]) > 1e-6:
+            continue
+        ea, eb = s.element(w.a.element_id), s.element(w.b.element_id)
+        try:
+            ya = ea.port_pos(element_symbol(project, ea, lib), w.a.port)[1]
+            yb = eb.port_pos(element_symbol(project, eb, lib), w.b.port)[1]
+        except (KeyError, StopIteration, AttributeError):
+            continue
+        x = w.points[0][0]
+        w.points = [(x, ya), (x, yb)]
 
 
 def _macro_vars(dc: dict, ac: dict) -> dict:

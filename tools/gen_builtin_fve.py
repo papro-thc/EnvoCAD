@@ -81,7 +81,7 @@ SYMBOLS = [
                        attr("p_string", "P string [kWp]", "", True), attr("voc", "Uoc modulu STC [V]"),
                        attr("vmp", "Umpp modulu STC [V]"), attr("isc", "Isc modulu [A]"),
                        attr("beta_voc", "Tepl. součinitel Uoc [%/K]", "-0.27")],
-        "label_pos": {"x": 10, "y": 9},
+        "label_pos": {"x": -10, "y": 28},   # popisek nad značkou – vodič vpravo zůstane volný
     },
     {
         "id": "fve.dc_disconnect", "name": "Odpínač DC", "category": "Spínání", "iec_ref": "Q",
