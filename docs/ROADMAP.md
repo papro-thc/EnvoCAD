@@ -77,11 +77,11 @@
 
 ## Z rešerše EPLAN 2026 (10/2026)
 Pořadí = priorita. Body 1, 2 a 5 jsou nejlevnější start.
-- [ ] **Strukturní označení IEC 81346** (`=` funkce, `+` umístění, `-` přístroj): centrální správa jako v EPLAN, plné označení `+RS1-F3` ve výkazech a štítcích – změna formátu (návrh `architekt`, `FORMAT_VERSION` + migrace)
-- [ ] **Kontrola označení vs. funkce** (EPLAN P017003): `function_class` (F, Q, T…) v JSON symbolu, pravidlo v `model/checks.py`, kontrola délky a povolených znaků; podklad pro automatické číslování
+- [x] **Strukturní označení IEC 81346** (`=` funkce, `+` umístění, `-` přístroj): centrální správa jako v EPLAN, plné označení `+RS1-F3` ve výkazech a štítcích – změna formátu (návrh `architekt`, `FORMAT_VERSION` + migrace) – hotovo 10/2026: formát v8, `Project.structures`, `Sheet.func/loc`, override `func/loc` u prvku, dialog Projekt → Strukturní označení, plné označení ve výkazech a štítcích (`model/designation.py`)
+- [x] **Kontrola označení vs. funkce** (EPLAN P017003): `function_class` (F, Q, T…) v JSON symbolu, pravidlo v `model/checks.py`, kontrola délky a povolených znaků; podklad pro automatické číslování – hotovo 10/2026: `function_class` (nepovinný klíč, bez verze symbolu), kódy `ref_syntax`, `ref_chars`, `ref_length`, `ref_class` v kontrole F7; automatické číslování podle tříd zatím ne
 - [ ] **Zrcadlení kontaktů** cívka ↔ kontakty (tabulka pod cívkou s odkazem list/sloupec), křížové odkazy přerušovacích bodů hvězda/řetěz – NS ochrana, stykače řízení výkonu, RTU
 - [ ] **Makra se zástupnými proměnnými** (`#In`, `#typ_stridace`, `#pocet_MPPT`) a sadami hodnot; průvodce skládá schéma z maker (EPLAN eBuild) – řeší i „Funkční šablony artiklů“
-- [ ] **Revize ve výkresu**: označení změn z `model/diff.py` přímo v listu (obláček/trojúhelník s číslem revize), revize v popisovém poli, uzavření revize listu
+- [x] **Revize ve výkresu**: označení změn z `model/diff.py` přímo v listu (obláček/trojúhelník s číslem revize), revize v popisovém poli, uzavření revize listu – hotovo 10/2026: trojúhelníky se značkou revize v editoru, PDF a DXF (vrstva `REVIZE`), revize listu v popisovém poli, uzavření revize = měkký zámek (kontrola `rev_closed_changed`). Záměrně vynechány: obláček a značky ve vícepólu (YAGNI)
 - [ ] **Připomínkování (redlining)**: vrstva poznámek v projektu se stavem otevřeno/vyřešeno, export jako anotace do PDF (EPLAN eVIEW)
 - [ ] **Výrobní data rozvaděče**: zapojovací seznam s délkami z rozložení, barvou, průřezem, koncovkou/dutinkou (xlsx); formáty strojů (Komax, Steinhauer…) až při sériové výrobě
 - [ ] **Parametry artiklů pojmenovat podle ETIM/eCl@ss** – BMEcat importér pak jen mapuje sloupce

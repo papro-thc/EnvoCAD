@@ -1,5 +1,12 @@
 # Changelog
 
+## Nevydáno – 2026-10-16 (formát v8)
+- **Strukturní označení IEC 81346**: `=` funkce, `+` umístění, `-` přístroj. Registr `Projekt → Strukturní označení…` (`Project.structures`), `List → Vlastnosti listu` (`Sheet.func`, `Sheet.loc`), přepis `func`/`loc` v panelu Vlastnosti prvku; plné označení (`=AC+RDC1-F3`) ve výkazech a štítcích (`model/designation.py`). List rozvaděče nese umístění svého bloku; přejmenování bloku přejmenuje umístění všude.
+- **Kontrola označení vs. funkce**: nepovinný klíč `function_class` v JSON symbolu (třídy F, Q, K, T…), kontrola F7 hlásí `ref_syntax`, `ref_chars`, `ref_length`, `ref_class`, u strukturních údajů `struct_syntax`, `struct_undefined`, `sb_no_loc`, `loc_mismatch`, u kontaktů `contact_ambiguous`. Sedm builtin značek má explicitní třídy.
+- **Revize ve výkresu**: `Project.revisions` (`model/revision.py`), značky změn z porovnání s revizí jako trojúhelníky u prvků, vodičů a listů (editor, PDF, DXF vrstva `REVIZE`), revize listu v popisovém poli. Menu Soubor: `Uzavřít revizi`, `Uzavřít revizi listu` – uzavření je měkký zámek, změna listu po uzavření hlásí `rev_closed_changed`. Porovnání s revizí jde přes undo (dřív měnilo meta mimo undo).
+- **Formát projektu v8**: `structures`, `Sheet.func/loc`, `revisions`; migrace v7 → v8 (sheet loc z bloku rozvaděče, revize z řádků změnového listu). Starší verze programu projekt v8 neotevřou (hlásí novější formát).
+- Testy: `tests/test_designation.py`, `tests/test_checks.py`, `tests/test_diff.py`, `tests/test_revision.py`, `tests/test_migration.py`, `tests/test_undo.py`, `tests/test_gui_smoke.py`.
+
 ## 0.11.0 – 2026-10-16
 - Opravy z rozšířených testů: undo smazání a odbočky vrací prvky a vodiče na původní místo v pořadí; undo nově přidaného atributu ho odebere; zjednodušení lomů vodiče nenechá dva stejné body (trasa tam a zpět); import EPLAN čte ceny s mezerou jako oddělovačem tisíců („1 234,50“); rotace logu na Windows po opakovaném spuštění.
 - Testy: undo/redo všech příkazů, migrace formátu (i skutečný soubor v1), obsah exportů DXF/XLSX/PDF, importéry EPLAN/QET/DXF, property testy (hypothesis); každý test s vlastní `ENVOCAD_HOME`. Pokrytí 81 % → 84 %.
