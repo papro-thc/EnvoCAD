@@ -5,6 +5,7 @@ from typing import ClassVar
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFormLayout,
     QLabel,
     QLineEdit,
@@ -100,6 +101,7 @@ class LibraryPanel(QWidget):
             self.symbol_chosen.emit(sid)
 
 
+CONTACTS_HINT = "1/2 3/4 5/6 13/14 21/22, NO:11/14 NC:11/12"
 DESIGNATION_KEYS = ("func", "loc")    # override aspektů prvku – kód A–Z, 0–9, _
 
 
@@ -139,9 +141,18 @@ class PropertiesPanel(QWidget):
                 comp = f"<br><small>Artikl: {c.label}</small>" if c else ""
             self.form.addRow(QLabel(f"<b>{sym.name}</b><br><small>{sym.id}</small>{comp}"))
             for a in sym.attributes:
-                self._add_field(a.key, a.label, e.attrs.get(a.key, ""))
+                if sym.id == "fve.interrupt" and a.key == "star_source":
+                    self._add_check(a.key, "Zdroj hvězdy", e.attrs.get(a.key, "") == "1",
+                                    "Bod se stejným označením, ze kterého vede hvězda k ostatním bodům "
+                                    "(jinak se body řetězí)")
+                else:
+                    self._add_field(a.key, a.label, e.attrs.get(a.key, ""))
             sc = item.scene()
             sheet = getattr(sc, "sheet", None)
+            if self._is_mirror_host(sc, sheet, e):
+                self._add_check("mirror", "Zobrazit zrcadlo kontaktů", str(e.attrs.get("mirror", "")).strip() != "0",
+                                "Tabulka kontaktů s odkazy pod přístrojem (cívka, jistič, relé…)",
+                                on_value="", off_value="0")
             self._add_field("func", "Funkce (=)", e.attrs.get("func", ""), getattr(sheet, "func", ""))
             self._add_field("loc", "Umístění (+)", e.attrs.get("loc", ""), getattr(sheet, "loc", ""))
         elif isinstance(item, WireItem):
@@ -170,8 +181,34 @@ class PropertiesPanel(QWidget):
         if inherited is not None:   # prázdné = dědí z listu; placeholder ukáže zděděnou hodnotu
             ed.setPlaceholderText(inherited or "(z listu)")
             ed.setToolTip("Prázdné pole = hodnota se zděďí z listu")
+        if key == "contacts":
+            ed.setPlaceholderText(CONTACTS_HINT)
+            ed.setToolTip("Kontaktní obraz přístroje, páry svorek oddělené mezerou.\n"
+                          f"Příklad: {CONTACTS_HINT}\nBez předpony druhu se určí podle čísel svorek (IEC 60947-5-1).")
         ed.editingFinished.connect(lambda k=key, w=ed: self._commit(k, w.text()))
         self.form.addRow(label, ed)
+
+    @staticmethod
+    def _is_mirror_host(sc, sheet, e) -> bool:
+        """Prvek je hostitelem zrcadla kontaktů (skupina s kontakty nebo kontaktním obrazem) – jen ve schématu."""
+        project = getattr(sc, "project", None)
+        if project is None or sheet is None:
+            return False
+        from envocad.model.xref import is_mirror_host
+        index = sc.device_index() if hasattr(sc, "device_index") else None
+        try:
+            return is_mirror_host(project, sheet, e, index)
+        except Exception:  # noqa: BLE001 – panel nesmí spadnout na neúplném modelu
+            return False
+
+    def _add_check(self, key: str, label: str, checked: bool, tip: str = "", on_value: str = "1",
+                   off_value: str = "") -> None:
+        """Zaškrtávátko pro příznakový atribut (výchozí hodnoty "1" / "")."""
+        cb = QCheckBox(label)
+        cb.setChecked(checked)
+        cb.setToolTip(tip)
+        cb.toggled.connect(lambda on, k=key: self._commit(k, on_value if on else off_value))
+        self.form.addRow(cb)
 
     @staticmethod
     def normalize(key: str, value: str) -> str:

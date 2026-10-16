@@ -102,6 +102,25 @@ def draw_frame(painter: QPainter, geom, color) -> None:
     painter.restore()
 
 
+def draw_geometry(painter: QPainter, geom, color, width: float = 0.25) -> None:
+    """Geometrie z modelu (čáry, texty, plné obdélníky; mm, Y nahoru) jednotnou tenkou čarou, bez ohledu na rámeček."""
+    painter.save()
+    painter.setBrush(Qt.NoBrush)
+    painter.setPen(QPen(color, width))
+    for x1, y1, x2, y2 in geom.lines:
+        painter.drawLine(sp(x1, y1), sp(x2, y2))
+    painter.setPen(QPen(color, 0.2))
+    for x, y, text, h, align in geom.texts:
+        if text:
+            draw_text(painter, x, y, text, h, align)
+    if geom.rects:
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(color)
+        for x, y, w, h in geom.rects:
+            painter.drawRect(QRectF(x, -(y + h), w, h))
+    painter.restore()
+
+
 def draw_revision_marks(painter: QPainter, geom, color) -> None:
     """Značky revize (trojúhelníky s označením) z `model/revision.py:revision_geometry` – geometrie v mm, Y nahoru."""
     if not geom.polylines:

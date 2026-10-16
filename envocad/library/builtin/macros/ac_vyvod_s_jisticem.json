@@ -1,6 +1,9 @@
 {
+ "version": 2,
  "name": "AC vývod s jističem",
  "description": "Skupina rozvodných svorek X2 → jistič 3p → vývod X3 (rozvaděč)",
+ "role": "",
+ "variables": [],
  "fragment": {
   "elements": [
    {

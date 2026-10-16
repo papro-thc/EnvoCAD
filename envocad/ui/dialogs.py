@@ -21,9 +21,30 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from envocad.library.macros import repeat_context_names, resolve_values
 from envocad.model import multipole as mp
-from envocad.model.project import ENCLOSURE_PARAMS, MODULE_WIDTH, Layout, Sheet, Wire
+from envocad.model.project import ENCLOSURE_PARAMS, MODULE_WIDTH, Layout, Project, Sheet, Wire
 from envocad.model.symbol import Attribute, Symbol
+
+_CZECH_BUTTONS = (
+    (QDialogButtonBox.Ok, "OK"), (QDialogButtonBox.Cancel, "Zrušit"), (QDialogButtonBox.Yes, "Ano"),
+    (QDialogButtonBox.No, "Ne"), (QDialogButtonBox.Close, "Zavřít"), (QDialogButtonBox.Apply, "Použít"),
+    (QDialogButtonBox.Save, "Uložit"), (QDialogButtonBox.Discard, "Neukládat"),
+)
+
+
+def czech_buttons(bb: QDialogButtonBox) -> QDialogButtonBox:
+    """Česky popíše standardní tlačítka (OK/Zrušit/Ano/Ne/Zavřít/Použít…) – Qt bez překladů ukazuje anglické texty."""
+    for which, text in _CZECH_BUTTONS:
+        b = bb.button(which)
+        if b is not None:
+            b.setText(text)
+    return bb
+
+
+def button_box(buttons) -> QDialogButtonBox:
+    """QDialogButtonBox se standardními tlačítky popsanými česky."""
+    return czech_buttons(QDialogButtonBox(buttons))
 
 
 class AttrDialog(QDialog):
@@ -50,7 +71,7 @@ class AttrDialog(QDialog):
             form.addRow(a.label + (" *" if a.show else ""), ed)
         lay.addLayout(form)
         lay.addWidget(QLabel("<small>* zobrazí se ve výkresu</small>"))
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
@@ -121,7 +142,7 @@ class TerminalsDialog(QDialog):
         self.table.resizeColumnsToContents()
         self.table.horizontalHeader().setStretchLastSection(True)
         lay.addWidget(self.table)
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
@@ -166,7 +187,7 @@ class StripDialog(QDialog):
         self.bridges = QPlainTextEdit()
         self.bridges.setMaximumHeight(110)
         lay.addWidget(self.bridges)
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
@@ -288,7 +309,7 @@ class CableDialog(QDialog):
             self.table.setItem(r, 2, QTableWidgetItem(c.color))
         self.table.horizontalHeader().setStretchLastSection(True)
         lay.addWidget(self.table)
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
@@ -406,7 +427,7 @@ class ProjectWizard(QDialog):
         self.dso = QLineEdit("")
         form.addRow("Distributor (DSO)", self.dso)
         lay.addLayout(form)
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
@@ -540,9 +561,10 @@ class EnclosurePanel(QWidget):
 
     changed = Signal()
 
-    def __init__(self, sheet: Sheet, parent=None, library=None):
+    def __init__(self, sheet: Sheet, parent=None, library=None, project: Project | None = None):
         super().__init__(parent)
         self._sheet = sheet
+        self._project = project   # bez projektu se skupiny přístrojů (cívka × stykač) hledají jen na listu
         lay = sheet.layout
         root = QVBoxLayout(self)
         root.setContentsMargins(6, 6, 6, 6)
@@ -605,7 +627,7 @@ class EnclosurePanel(QWidget):
         from envocad.model.thermal import temperature_rise
         lay = self._sheet.layout
         total = lay.total_modules
-        used = lay.used_modules(self._sheet)
+        used = lay.used_modules(self._sheet, self._project)
         pct = (used / total * 100) if total else 0
         self.info.setText(f"{total} modulů celkem, obsazeno {used:g} ({pct:.0f} %), rezerva {total - used:g} M; "
                           f"užitná šířka řady {lay.modules_per_row * MODULE_WIDTH:g} mm, "
@@ -615,7 +637,7 @@ class EnclosurePanel(QWidget):
             t_amb = float((lay.params.get("t_ambient") or "35").replace(",", "."))
         except ValueError:
             rdf, t_amb = 0.8, 35.0
-        r = temperature_rise(self._sheet, rdf=rdf, t_ambient_c=t_amb)
+        r = temperature_rise(self._sheet, rdf=rdf, t_ambient_c=t_amb, project=self._project)
         txt = (f"Ztráty přístrojů ΣPv = {r.p_devices_w:g} W, celkem s vodiči {r.p_total_w:g} W\n"
                f"Účinná chladicí plocha Ae = {r.ae_m2:g} m²\n"
                f"Oteplení: střed Δt = {r.dt_mid_k:g} K, horní část Δt = {r.dt_top_k:g} K "
@@ -663,14 +685,14 @@ class EnclosurePanel(QWidget):
 class EnclosureDialog(QDialog):
     """Totéž jako panel, ale modálně (z menu List)."""
 
-    def __init__(self, sheet: Sheet, parent=None, library=None):
+    def __init__(self, sheet: Sheet, parent=None, library=None, project: Project | None = None):
         super().__init__(parent)
         self.setWindowTitle(f"Skříň rozvaděče – {sheet.name}")
         self.setMinimumWidth(480)
-        self.panel = EnclosurePanel(sheet, library=library)
+        self.panel = EnclosurePanel(sheet, library=library, project=project)
         lay = QVBoxLayout(self)
         lay.addWidget(self.panel)
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
@@ -696,7 +718,7 @@ class SheetPropsDialog(QDialog):
         form.addRow("Název:", self.name)
         form.addRow("Funkce (=):", self.func)
         form.addRow("Umístění (+):", self.loc)
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         form.addRow(bb)
@@ -733,7 +755,7 @@ class StructuresDialog(QDialog):
         row.addWidget(b_del)
         row.addStretch()
         lay.addLayout(row)
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self._accept)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
@@ -776,3 +798,207 @@ class StructuresDialog(QDialog):
                 return
             seen.add((x.aspect, x.code))
         self.accept()
+
+
+class MacroValuesDialog(QDialog):
+    """Hodnoty proměnných makra před vložením: sada hodnot, pole podle typu, artikl s přepočtem `from`.
+
+    `.values()` = výsledné hodnoty (po `resolve_values`), `.value_set()` = zvolená sada nebo None."""
+
+    CUSTOM = "— vlastní —"
+
+    def __init__(self, macro, library, context: dict | None = None, parent=None):
+        super().__init__(parent)
+        self.macro, self.library, self.context = macro, library, dict(context or {})
+        self.errors: list[str] = []
+        self._fields: dict[str, QWidget] = {}
+        self._loaded: dict[str, str] = {}   # hodnota pole nastavená dialogem (výchozí, kontext, sada) – ne uživatelem
+        # názvy opakování (k, nk) doplní při vložení každá instance zvlášť → pole zakázaná
+        self._per_run = repeat_context_names(macro) - set(self.context)
+        self.setWindowTitle(f"Makro – {macro.name}")
+        self.setMinimumWidth(460)
+        root = QVBoxLayout(self)
+        if macro.description:
+            d = QLabel(macro.description)
+            d.setWordWrap(True)
+            root.addWidget(d)
+        self.set_combo = QComboBox()
+        self.set_combo.addItem(self.CUSTOM)
+        for s in macro.value_sets:
+            self.set_combo.addItem(s.name)
+            if s.description:
+                self.set_combo.setItemData(self.set_combo.count() - 1, s.description, Qt.ToolTipRole)
+        top = QFormLayout()
+        if macro.value_sets:
+            top.addRow("Sada hodnot", self.set_combo)
+            self.set_combo.currentIndexChanged.connect(self._apply_set)
+        root.addLayout(top)
+        main = QFormLayout()
+        root.addLayout(main)
+        count = macro.repeat.count if macro.repeat else ""
+        auto = [v for v in macro.variables if v.auto and v.name != count]
+        for v in macro.variables:
+            if v in auto:
+                continue
+            main.addRow(self._label(v), self._make_field(v))
+        self.extra = None
+        if auto:
+            self.extra = QGroupBox("Další (číslování)")
+            self.extra.setCheckable(True)
+            self.extra.setChecked(False)
+            ef = QFormLayout()
+            for v in auto:
+                ef.addRow(self._label(v), self._make_field(v))
+            holder = QWidget()
+            holder.setLayout(ef)
+            lay = QVBoxLayout(self.extra)
+            lay.setContentsMargins(6, 6, 6, 6)
+            lay.addWidget(holder)
+            holder.setVisible(False)
+            self.extra.toggled.connect(holder.setVisible)
+            root.addWidget(self.extra)
+        self.error_label = QLabel()
+        self.error_label.setStyleSheet("color: #c0392b;")
+        self.error_label.setWordWrap(True)
+        self.error_label.setVisible(False)
+        root.addWidget(self.error_label)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        root.addWidget(bb)
+        self._load_defaults()
+
+    # ---- pole ----------------------------------------------------------------
+    def _label(self, v) -> QLabel:
+        text = v.title + (f" [{v.unit}]" if v.unit else "") + (" *" if v.required else "")
+        lab = QLabel(text)
+        if v.required:
+            f = lab.font()
+            f.setBold(True)
+            lab.setFont(f)
+        if v.help:
+            lab.setToolTip(v.help)
+        return lab
+
+    def _make_field(self, v) -> QWidget:
+        if v.type == "choice":
+            w = QComboBox()
+            for c in v.choices:
+                w.addItem(c or "(prázdné)", c)
+        elif v.type == "component":
+            w = QWidget()
+            h = QHBoxLayout(w)
+            h.setContentsMargins(0, 0, 0, 0)
+            edit = QLineEdit(readOnly=True, placeholderText="(bez artiklu)")
+            pick = QPushButton("Vybrat…")
+            clear = QPushButton("×")
+            clear.setMaximumWidth(28)
+            clear.setToolTip("Zrušit výběr artiklu")
+            h.addWidget(edit, 1)
+            h.addWidget(pick)
+            h.addWidget(clear)
+            w.edit = edit
+            pick.clicked.connect(lambda _=False, var=v: self._pick_component(var))
+            clear.clicked.connect(lambda _=False, var=v: self._set_component(var, ""))
+        else:
+            w = QLineEdit()
+            if v.type == "number":
+                from PySide6.QtCore import QRegularExpression
+                from PySide6.QtGui import QRegularExpressionValidator
+                w.setValidator(QRegularExpressionValidator(QRegularExpression(r"^([-+]?[0-9]*[.,]?[0-9]*|\{.*)$")))
+        if v.help:
+            w.setToolTip(v.help)
+        self._fields[v.name] = w
+        if v.name in self._per_run:
+            w.setEnabled(False)
+            if isinstance(w, QLineEdit):
+                w.setPlaceholderText("doplní se automaticky")
+            w.setToolTip("Doplní se automaticky při opakování makra (každá instance zvlášť).")
+        return w
+
+    def _get(self, name: str) -> str:
+        w = self._fields[name]
+        if isinstance(w, QComboBox):
+            return w.currentData() if w.currentData() is not None else w.currentText()
+        if isinstance(w, QLineEdit):
+            return w.text()
+        return w.edit.text()
+
+    def _set(self, name: str, value: str) -> None:
+        w = self._fields.get(name)
+        if w is None or name in self._per_run:
+            return
+        if isinstance(w, QComboBox):
+            key = value.replace(" ", "").lower()
+            for i in range(w.count()):
+                if str(w.itemData(i)).replace(" ", "").lower() == key:
+                    w.setCurrentIndex(i)
+                    break
+        elif isinstance(w, QLineEdit):
+            w.setText(value)
+        else:
+            w.edit.setText(value)
+        self._loaded[name] = self._get(name)
+
+    def _load_defaults(self) -> None:
+        for v in self.macro.variables:
+            self._set(v.name, v.default)
+        for k, val in self.context.items():
+            self._set(k, str(val))
+
+    def _apply_set(self) -> None:
+        vs = self.macro.value_set(self.set_combo.currentText())
+        if vs is None:
+            return
+        for k, val in vs.values.items():
+            self._set(k, val)
+        for v in self.macro.variables:
+            if v.type == "component" and v.name in vs.values:
+                self._refresh_from(v)
+
+    # ---- artikl ----------------------------------------------------------------
+    def _pick_component(self, v) -> None:
+        from envocad.ui.component_picker import ComponentPicker
+        dlg = ComponentPicker(self.library, category=v.category or None, parent=self, title=f"Vybrat artikl – {v.title}")
+        if dlg.exec() and dlg.selected:
+            self._set_component(v, dlg.selected.id)
+
+    def _set_component(self, v, cid: str) -> None:
+        self._set(v.name, cid)
+        self._refresh_from(v)
+
+    def _refresh_from(self, v) -> None:
+        """Po změně artiklu přepočítá pole s `from` odkazujícím na tuto proměnnou."""
+        cid = self._get(v.name).strip()
+        if not cid:
+            return
+        vals, _ = resolve_values(self.macro, given={v.name: cid}, components=self.library.component)
+        for o in self.macro.variables:
+            if o.source.partition(".")[0] == v.name and vals.get(o.name):
+                self._set(o.name, vals[o.name])
+
+    # ---- výsledek ----------------------------------------------------------------
+    def value_set(self) -> str | None:
+        return self.set_combo.currentText() if self.set_combo.currentIndex() > 0 else None
+
+    def _resolve(self) -> tuple[dict, list[str]]:
+        # automatická pole pošle jen změněná uživatelem (jinak by výchozí „1“ u k přebilo číslování opakování),
+        # pole opakování (k, nk) nikdy – doplní je `expand` v každé instanci
+        auto = {v.name for v in self.macro.variables if v.auto}
+        given = {name: self._get(name) for name in self._fields
+                 if name not in self._per_run
+                 and (name not in auto or self._get(name) != self._loaded.get(name, ""))}
+        return resolve_values(self.macro, given=given, value_set=self.value_set(),
+                              components=self.library.component, context=self.context)
+
+    def values(self) -> dict[str, str]:
+        vals, self.errors = self._resolve()
+        return vals
+
+    def accept(self) -> None:
+        self._values, self.errors = self._resolve()
+        if self.errors:
+            self.error_label.setText("\n".join(self.errors))
+            self.error_label.setVisible(True)
+            return
+        super().accept()

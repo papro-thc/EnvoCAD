@@ -95,6 +95,12 @@
       "label": "Ztrátový výkon při In [W]",
       "default": "",
       "show": false
+    },
+    {
+      "key": "contacts",
+      "label": "Kontaktní obraz (např. 1/2 3/4 5/6 13/14)",
+      "default": "",
+      "show": false
     }
   ],
   "multipole": {

@@ -833,3 +833,352 @@ def test_revision_labels_panel_codes_and_structures_note(app, monkeypatch):
     finally:
         w.undo.setClean()
         w.close()
+
+
+def _mirror_project():
+    p = Project(name="Zrcadlo")
+    s = p.sheets[0]
+    coil = Element("ctl.coil", 100, 150, attrs={"ref": "K1", "contacts": "1/2 3/4 5/6 13/14 21/22"})
+    pw = Element("fve.contactor", 100, 100, attrs={"ref": "K1", "modules": "3"})
+    no = Element("ctl.contact_no", 200, 150, attrs={"ref": "K1"})
+    nc = Element("ctl.contact_nc", 250, 150, attrs={"ref": "K1"})
+    s.elements += [coil, pw, no, nc]
+    return p, coil
+
+
+def test_contact_mirror_drawn_and_pdf(app, tmp_path):
+    from PySide6.QtGui import QImage, QPainter, QUndoStack
+    from PySide6.QtPrintSupport import QPrinter
+
+    from envocad.ui.canvas import SchematicScene
+    p, coil = _mirror_project()
+    lib = LibraryStore(tmp_path / "lib.db")
+    sc = SchematicScene(p, p.sheets[0], lib, QUndoStack())
+    mirrors = sc.text_layout().mirrors
+    assert coil.id in mirrors and mirrors[coil.id].lines
+    r = sc.sceneRect()
+    img = QImage(int(r.width() * 4), int(r.height() * 4), QImage.Format_ARGB32)
+    img.fill(Qt.white)
+    ptr = QPainter(img)
+    sc.render(ptr)
+    ptr.end()
+    assert not img.isNull()
+    # PDF: zrcadlo se kreslí v drawForeground → scene.render ho zahrne; počet kreslených čar roste s ním
+    pdf = tmp_path / "m.pdf"
+    pr = QPrinter(QPrinter.HighResolution)
+    pr.setOutputFormat(QPrinter.PdfFormat)
+    pr.setOutputFileName(str(pdf))
+    ptr = QPainter(pr)
+    sc.render(ptr)
+    ptr.end()
+    assert pdf.exists() and pdf.stat().st_size > 500
+    text = "13/14"
+    assert any(text in t[2] for t in mirrors[coil.id].texts)
+
+
+def test_star_source_checkbox_undo(app, tmp_path):
+    from PySide6.QtWidgets import QCheckBox
+    p = Project(name="Hvezda")
+    s = p.sheets[0]
+    ip = Element("fve.interrupt", 50, 50, attrs={"ref": "A"})
+    s.elements.append(ip)
+    win = MainWindow(library=LibraryStore(tmp_path / "lib.db"), project=p)
+    win.show()
+    app.processEvents()
+    sc = win.scene
+    sc.element_items[ip.id].setSelected(True)
+    app.processEvents()
+    cb = next(c for c in win.props_panel.findChildren(QCheckBox) if c.text() == "Zdroj hvězdy")
+    cb.setChecked(True)
+    for _ in range(5):
+        app.processEvents()
+    assert sc.sheet.element(ip.id).attrs.get("star_source") == "1"
+    sc.undo.undo()
+    assert sc.sheet.element(ip.id).attrs.get("star_source", "") == ""
+    sc.undo.redo()
+    assert sc.sheet.element(ip.id).attrs.get("star_source") == "1"
+
+
+def test_contacts_hint_and_layout_hides_coil(app, tmp_path):
+    from PySide6.QtGui import QUndoStack
+    from PySide6.QtWidgets import QLineEdit
+
+    from envocad.ui.layout_view import LayoutScene
+    p, coil = _mirror_project()
+    lib = LibraryStore(tmp_path / "lib.db")
+    coil.attrs["modules"] = "1"
+    sw = p.sheets[0]
+    sw.kind = "switchboard"
+    ls = LayoutScene(p, sw, lib, QUndoStack())
+    mods = {it.element.id for it in ls.items() if hasattr(it, "element")}
+    assert coil.id not in mods and any(e.symbol_id == "fve.contactor" and e.id in mods for e in sw.elements)
+    win = MainWindow(library=lib, project=p)
+    win.show()
+    app.processEvents()
+    win.scene.element_items[coil.id].setSelected(True)
+    app.processEvents()
+    assert any("NO:11/14" in e.placeholderText() for e in win.props_panel.findChildren(QLineEdit))
+
+
+def test_mirror_checkbox_undo(app, tmp_path):
+    """Zaškrtávátko „Zobrazit zrcadlo kontaktů“ jen u hostitele zrcadla; přepíná atribut mirror ("0" / "") přes undo
+    a zrcadlo zmizí/objeví se ve scéně."""
+    from PySide6.QtWidgets import QCheckBox
+    p = Project(name="Zrcadlo")
+    s = p.sheets[0]
+    coil = Element("ctl.coil", 100, 200, attrs={"ref": "K1"})
+    contact = Element("ctl.contact_no", 250, 100, attrs={"ref": "K1"})
+    lone = Element("fve.breaker_mcb", 300, 200, attrs={"ref": "F1"})
+    s.elements += [coil, contact, lone]
+    win = MainWindow(library=LibraryStore(tmp_path / "lib.db"), project=p)
+    win.show()
+    app.processEvents()
+    sc = win.scene
+
+    def boxes(eid):
+        sc.clearSelection()
+        sc.element_items[eid].setSelected(True)
+        app.processEvents()
+        return [c for c in win.props_panel.findChildren(QCheckBox) if c.text() == "Zobrazit zrcadlo kontaktů"]
+
+    assert not boxes(lone.id) and not boxes(contact.id)          # jistič bez kontaktů, kontakt = bez zrcadla
+    (cb,) = boxes(coil.id)
+    assert cb.isChecked() and coil.id in sc.text_layout().mirrors
+    cb.setChecked(False)
+    for _ in range(5):
+        app.processEvents()
+    assert sc.sheet.element(coil.id).attrs.get("mirror") == "0"
+    assert coil.id not in sc.text_layout().mirrors
+    (cb,) = boxes(coil.id)                                        # zrcadlo potlačené, zaškrtávátko zůstává
+    assert not cb.isChecked()
+    sc.undo.undo()
+    assert sc.sheet.element(coil.id).attrs.get("mirror", "") == ""
+    assert coil.id in sc.text_layout().mirrors
+    sc.undo.redo()
+    assert sc.sheet.element(coil.id).attrs.get("mirror") == "0"
+    # obraz bez kontaktů stačí (jistič s kontaktním obrazem = hostitel)
+    lone.attrs["contacts"] = "13/14"
+    sc.invalidate_text_layout()
+    assert boxes(lone.id)
+
+
+def _dc_macro():
+    from envocad.library.macros import list_macros
+    return next(x for x in list_macros() if x.name == "DC string v rozvaděči")
+
+
+def _check_macro_insert(w, sheet, sc, lib, values):
+    """Společná kontrola: žádné „{“, žádné when, jeden XPE, jedno undo = původní stav, redo znovu."""
+    m = _dc_macro()
+    before = sheet.to_dict()
+    n = sc.insert_macro(m, values, (150, 150))
+    assert n > 0
+    for e in sheet.elements:
+        assert "when" not in e.attrs
+        assert not any("{" in str(v) for v in e.attrs.values()), e.attrs
+    for wr in sheet.wires:
+        assert not any("{" in str(v) for v in wr.attrs.values())
+    assert len([e for e in sheet.elements if e.ref == "XPE"]) == 1
+    assert len([e for e in sheet.elements if e.ref.startswith("FU")]) == 2
+    after = sheet.to_dict()
+    assert w.undo.undoText() == f"Vložit makro {m.name}"
+    w.undo.undo()
+    assert sheet.to_dict() == before
+    w.undo.redo()
+    assert sheet.to_dict() == after
+    w.undo.undo()
+    assert sheet.to_dict() == before
+
+
+def test_macro_insert_with_values_undo(app):
+    from envocad.model.project import Element, Project
+    from envocad.ui.main_window import MainWindow
+    lib = LibraryStore()
+    m = _dc_macro()
+    values, errs = __import__("envocad.library.macros", fromlist=["x"]).resolve_values(
+        m, given={"n": "2", "fuse_in": "20"}, components=lib.component)
+    assert not errs
+    p = Project(name="Makro hodnoty")
+    s = p.sheets[0]
+    # XPE už v listu je (sdílený prvek se nesmí zdvojit a undo ho nesmí smazat)
+    s.elements.append(Element("sb.feed_out", 10, 10, attrs={"ref": "XPE"}))
+    w = MainWindow(lib, p)
+    w.open_sheet(s, "schematic")
+    _check_macro_insert(w, s, w.view.scene(), lib, values)
+    assert any(e.ref == "XPE" for e in s.elements)
+    w.undo.setClean()
+    w.close()
+    # bez XPE v listu
+    p2 = Project(name="Makro hodnoty 2")
+    w2 = MainWindow(lib, p2)
+    w2.open_sheet(p2.sheets[0], "schematic")
+    _check_macro_insert(w2, p2.sheets[0], w2.view.scene(), lib, values)
+    w2.undo.setClean()
+    w2.close()
+
+
+def test_macro_insert_in_multipole(app):
+    from envocad.library.macros import resolve_values
+    from envocad.model.project import Project
+    from envocad.ui.main_window import MainWindow
+    lib = LibraryStore()
+    values, _ = resolve_values(_dc_macro(), given={"n": "2", "fuse_in": "20"}, components=lib.component)
+    p = Project(name="Makro vícepól")
+    sb = p.sheets[0]
+    sb.kind = "switchboard"
+    w = MainWindow(lib, p)
+    w.open_sheet(sb, "multipole")
+    sc = w.view.scene()
+    _check_macro_insert(w, sb, sc, lib, values)
+    sc.insert_macro(_dc_macro(), values, (150, 150))
+    assert all(e.mp_pos is not None for e in sb.elements)
+    w.undo.setClean()
+    w.close()
+
+
+def test_macro_values_dialog(app):
+    from envocad.ui.dialogs import MacroValuesDialog
+    lib = LibraryStore()
+    m = _dc_macro()
+    dlg = MacroValuesDialog(m, lib)
+    assert dlg.value_set() is None and dlg.set_combo.count() == len(m.value_sets) + 1
+    dlg.set_combo.setCurrentText("Pojistka 20 A gPV, SPD T1+T2")
+    v = dlg.values()
+    assert dlg.value_set() == "Pojistka 20 A gPV, SPD T1+T2"
+    assert v["fuse_in"] == "20" and v["spd"] == "T1+T2" and not dlg.errors
+    # povinná hodnota chybí → chyba, dialog zůstane otevřený
+    dlg.set_combo.setCurrentIndex(0)
+    dlg._fields["fuse_in"].setText("")
+    dlg.show()
+    dlg.accept()
+    assert dlg.errors and dlg.isVisible() and dlg.error_label.isVisible()
+    assert "povinná" in dlg.error_label.text()
+    dlg._fields["fuse_in"].setText("16,0")
+    dlg.accept()
+    assert not dlg.errors and dlg.result() == 1 and dlg.values()["fuse_in"] == "16"
+
+
+def test_macro_values_dialog_repeat_numbers_each_instance(app):
+    """Nález 1: dialog → values() → insert_macro s n=3 dá FU1.1…FU1.3 a popisy G1…G3 (dřív všude 1);
+    pole k a nk jsou v režimu opakování zakázaná („doplní se automaticky“)."""
+    from envocad.model.project import Project
+    from envocad.ui.dialogs import MacroValuesDialog
+    from envocad.ui.main_window import MainWindow
+    lib = LibraryStore()
+    m = _dc_macro()
+    dlg = MacroValuesDialog(m, lib)
+    from PySide6.QtCore import Qt
+    dlg.extra.setChecked(True)               # skupina „Další (číslování)“ rozbalená
+    for name in ("k", "nk"):
+        f = dlg._fields[name]
+        assert f.testAttribute(Qt.WA_ForceDisabled) and not f.isEnabled()
+        assert f.placeholderText() == "doplní se automaticky" and f.text() == ""
+    assert dlg._fields["j"].isEnabled() and dlg._fields["n"].isEnabled()
+    dlg._fields["n"].setText("3")
+    dlg._fields["nk"].setText("7")          # zakázané pole se nepošle, ani kdyby v něm něco bylo
+    vals = dlg.values()
+    assert not dlg.errors and vals["j"] == "{k}" and vals["string"] == "G{k}"
+    p = Project(name="Makro opakování")
+    s = p.sheets[0]
+    w = MainWindow(lib, p)
+    w.open_sheet(s, "schematic")
+    assert w.view.scene().insert_macro(m, vals, (150, 150)) > 0
+    assert sorted(e.ref for e in s.elements if e.ref.startswith("FU")) == ["FU1.1", "FU1.2", "FU1.3"]
+    descs = sorted(e.attrs["desc"] for e in s.elements if e.symbol_id == "fve.spd")
+    assert descs == ["string G1", "string G2", "string G3"]
+    assert sorted(e.ref for e in s.elements if e.symbol_id == "sb.feed_out" and e.ref != "XPE") == ["X4", "X5", "X6"]
+    # automatické pole změněné uživatelem se pošle (číslo střídače)
+    dlg._fields["i"].setText("2")
+    assert dlg.values()["inverter"] == "T2"
+    w.undo.setClean()
+    w.close()
+
+
+def test_macro_values_dialog_rejects_bad_count(app):
+    """Nález 6: dialog nepustí počet 2.5 ani prázdný."""
+    from envocad.ui.dialogs import MacroValuesDialog
+    dlg = MacroValuesDialog(_dc_macro(), LibraryStore())
+    dlg.show()
+    for raw in ("2.5", ""):
+        dlg._fields["n"].setText(raw)
+        dlg.accept()
+        assert dlg.errors and dlg.isVisible() and "Počet stringů" in dlg.error_label.text()
+    dlg._fields["n"].setText("2")
+    dlg.accept()
+    assert not dlg.errors and dlg.result() == 1
+
+
+def test_czech_dialog_buttons(app):
+    """Nález 4: standardní tlačítka dialogů česky (MacroValuesDialog má „Zrušit“, ne „Cancel“)."""
+    from PySide6.QtWidgets import QDialogButtonBox, QPushButton
+
+    from envocad.ui.dialogs import MacroValuesDialog, button_box
+    dlg = MacroValuesDialog(_dc_macro(), LibraryStore())
+    texts = {b.text() for b in dlg.findChildren(QPushButton)}
+    assert {"OK", "Zrušit"} <= texts and "Cancel" not in texts
+    bb = button_box(QDialogButtonBox.Yes | QDialogButtonBox.No | QDialogButtonBox.Close | QDialogButtonBox.Apply)
+    assert {b.text() for b in bb.buttons()} == {"Ano", "Ne", "Zavřít", "Použít"}
+
+
+def test_insert_macro_count_zero_status_message(app, tmp_path, monkeypatch):
+    """Nález 7: makro s počtem 0 nic nevloží a stavový řádek to řekne."""
+    import json
+
+    from envocad.model.project import Project
+    from envocad.ui import dialogs
+    from envocad.ui.main_window import MainWindow
+    path = tmp_path / "nula.json"
+    path.write_text(json.dumps({
+        "version": 2, "name": "Nula", "repeat": {"count": "n"},
+        "variables": [{"name": "n", "type": "number", "default": "0", "min": 0}],
+        "fragment": {"elements": [{"id": "a", "symbol_id": "fve.breaker_mcb", "x": 0, "y": 0, "attrs": {"ref": "F1"}}],
+                     "wires": []}}), encoding="utf-8")
+
+    class FakeDialog:
+        def __init__(self, macro, library, parent=None):
+            self.macro, self.library = macro, library
+
+        def exec(self):
+            return 1
+
+        def values(self):
+            from envocad.library.macros import resolve_values
+            return resolve_values(self.macro, given={"n": "0"})[0]
+
+    monkeypatch.setattr(dialogs, "MacroValuesDialog", FakeDialog)
+    p = Project(name="Makro nula")
+    w = MainWindow(LibraryStore(), p)
+    w.open_sheet(p.sheets[0], "schematic")
+    w.insert_macro(str(path))
+    assert not p.sheets[0].elements and not w.undo.canUndo()
+    assert w.statusBar().currentMessage() == "Makro nevložilo žádné prvky (počet 0)"
+    w.close()
+
+
+def test_insert_macro_without_parameters_is_copy(app, tmp_path):
+    """Nález 3: uživatelské makro bez proměnných se z knihovny vloží jako kopie výřezu (jako dřív paste_fragment):
+    čísla svorek se vymažou, vývody se přečíslují, jedno undo na vložení."""
+    import json
+
+    from envocad.model.project import Project
+    from envocad.ui.main_window import MainWindow
+    path = tmp_path / "v1.json"
+    path.write_text(json.dumps({"name": "v1", "fragment": {"elements": [
+        {"id": "a", "symbol_id": "fve.terminal", "x": 0, "y": 0, "attrs": {"ref": "X1", "terminal": "1"}},
+        {"id": "b", "symbol_id": "fve.breaker_mcb", "x": 20, "y": 0, "attrs": {"ref": "F1"}},
+        {"id": "c", "symbol_id": "sb.feed_out", "x": 40, "y": 0, "attrs": {"ref": "X5", "sheet": "3"}}],
+        "wires": []}}), encoding="utf-8")
+    p = Project(name="Makro v1")
+    s = p.sheets[0]
+    w = MainWindow(LibraryStore(), p)
+    w.open_sheet(s, "schematic")
+    w.insert_macro(str(path))
+    w.insert_macro(str(path))
+    assert [e.attrs["terminal"] for e in s.elements if e.symbol_id == "fve.terminal"] == ["", ""]
+    assert [e.ref for e in s.elements if e.symbol_id == "fve.breaker_mcb"] == ["F1", "F2"]
+    feeds = [e.ref for e in s.elements if e.symbol_id == "sb.feed_out"]
+    assert len(set(feeds)) == 2 and "X5" not in feeds
+    w.undo.undo()
+    assert len(s.elements) == 3
+    w.undo.setClean()
+    w.close()

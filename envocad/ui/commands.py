@@ -298,8 +298,8 @@ class SetBridgesCommand(QUndoCommand):
 class PasteCommand(QUndoCommand):
     """Vložení kopie prvků a vodičů ze schránky."""
 
-    def __init__(self, scene, elements: list[Element], wires: list[Wire]):
-        super().__init__(f"Vložit kopii ({len(elements)})")
+    def __init__(self, scene, elements: list[Element], wires: list[Wire], text: str | None = None):
+        super().__init__(text or f"Vložit kopii ({len(elements)})")
         self.scene, self.elements, self.wires = scene, elements, wires
 
     def redo(self):
@@ -349,11 +349,11 @@ class MultipoleAddCommand(QUndoCommand):
     """Vložení prvku nebo žíly přímo ve vícepólu (schématu rozvaděče): zapíše se do modelu listu, pohled se přestaví."""
 
     def __init__(self, scene, element: Element | None = None, wire: Wire | None = None,
-                 elements: list[Element] | None = None, wires: list[Wire] | None = None):
+                 elements: list[Element] | None = None, wires: list[Wire] | None = None, text: str | None = None):
         self.elements = ([element] if element is not None else []) + list(elements or [])
         self.wires = ([wire] if wire is not None else []) + list(wires or [])
-        super().__init__("Vložit prvek" if self.elements and len(self.elements) == 1 and not self.wires
-                         else ("Vodič" if not self.elements else f"Vložit ({len(self.elements)})"))
+        super().__init__(text or ("Vložit prvek" if self.elements and len(self.elements) == 1 and not self.wires
+                                  else ("Vodič" if not self.elements else f"Vložit ({len(self.elements)})")))
         self.scene = scene
 
     def redo(self):

@@ -1,6 +1,100 @@
 {
+ "version": 2,
  "name": "DC string po trase",
  "description": "Generátor (po trase): X{k} → odpínač DC QS{i}.{j} {disc_in} → X{nk}, SPD-DC{i}.{j} {spd} DC, PE → XPE; proměnné k, nk, i, j, string, inverter, disc_in, spd",
+ "role": "dc_route",
+ "variables": [
+  {
+   "name": "n",
+   "label": "Počet stringů",
+   "type": "number",
+   "default": "1",
+   "min": 1,
+   "max": 50,
+   "auto": true
+  },
+  {
+   "name": "k",
+   "label": "Pořadí stringu v rozvaděči",
+   "type": "number",
+   "default": "1",
+   "auto": true
+  },
+  {
+   "name": "nk",
+   "label": "Číslo vývodu (n + k)",
+   "type": "number",
+   "auto": true
+  },
+  {
+   "name": "i",
+   "label": "Číslo střídače",
+   "type": "number",
+   "default": "1",
+   "auto": true
+  },
+  {
+   "name": "j",
+   "label": "Číslo stringu u střídače",
+   "type": "number",
+   "default": "{k}",
+   "auto": true
+  },
+  {
+   "name": "string",
+   "label": "Označení stringu",
+   "default": "G{k}",
+   "auto": true
+  },
+  {
+   "name": "inverter",
+   "label": "Střídač",
+   "default": "T{i}",
+   "auto": true
+  },
+  {
+   "name": "disc_in",
+   "label": "In odpínače DC",
+   "type": "number",
+   "default": "32",
+   "unit": "A",
+   "required": true,
+   "min": 1
+  },
+  {
+   "name": "spd",
+   "label": "Svodič přepětí DC (typ)",
+   "default": "T2",
+   "help": "Doporučené hodnoty: T1, T2, T1+T2 (smí být i jiný text, např. T1+T2+T3). Prázdné = bez svodiče."
+  }
+ ],
+ "value_sets": [
+  {
+   "name": "Odpínač 32 A, SPD T2",
+   "values": {
+    "disc_in": "32",
+    "spd": "T2"
+   }
+  },
+  {
+   "name": "Odpínač 32 A, SPD T1+T2",
+   "values": {
+    "disc_in": "32",
+    "spd": "T1+T2"
+   }
+  },
+  {
+   "name": "Odpínač 32 A bez SPD",
+   "values": {
+    "disc_in": "32",
+    "spd": ""
+   }
+  }
+ ],
+ "repeat": {
+  "count": "n",
+  "pitch": 40
+ },
  "fragment": {
   "elements": [
    {
@@ -54,7 +148,8 @@
      "uc": "1000",
      "poles": "3",
      "modules": "3",
-     "desc": "string {string}"
+     "desc": "string {string}",
+     "when": "spd"
     },
     "component_id": null
    },
@@ -67,7 +162,8 @@
     "attrs": {
      "ref": "XPE",
      "desc": "k HOP",
-     "shared": "1"
+     "shared": "1",
+     "when": "spd"
     },
     "component_id": null
    }

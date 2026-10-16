@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 
 from envocad.library.components import Component
 from envocad.library.store import LibraryStore
+from envocad.ui.dialogs import button_box
 
 COLUMNS = [("manufacturer", "Výrobce"), ("part_number", "Typ"), ("name", "Název"), ("in_", "In [A]"),
            ("poles", "Póly"), ("char", "Char."), ("icu_ka", "Icu [kA]"), ("idn_ma", "IΔn [mA]"),
@@ -66,7 +67,7 @@ class ComponentPicker(QDialog):
         self.info.setOpenExternalLinks(True)
         root.addWidget(self.info)
 
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         root.addWidget(bb)

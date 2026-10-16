@@ -67,6 +67,23 @@ def _text(msp, x, y, text, height, align, rot, layer="SYMBOLY"):
     t.set_placement((x, y), align=getattr(ezdxf.enums.TextEntityAlignment, al))
 
 
+def _draw_geometry(msp, g, layer: str) -> None:
+    """Geometrie z modelu (rámeček `FrameGeometry`, revize `RevisionGeometry`, zrcadlo `MirrorGeometry`) do vrstvy:
+    `lines` → LINE, `texts` → TEXT, `rects` → SOLID (QR kód), `polylines` → uzavřená LWPOLYLINE."""
+    if g is None:
+        return
+    a = {"layer": layer}
+    for x1, y1, x2, y2 in getattr(g, "lines", ()):
+        msp.add_line((x1, y1), (x2, y2), dxfattribs=a)
+    for pts in getattr(g, "polylines", ()):
+        msp.add_lwpolyline(pts, close=True, dxfattribs=a)
+    for x, y, w, h in getattr(g, "rects", ()):
+        msp.add_solid([(x, y), (x + w, y), (x, y + h), (x + w, y + h)], dxfattribs=a)
+    for x, y, text, h, align in getattr(g, "texts", ()):
+        if text:
+            _text(msp, x, y, text, h, align, 0, layer=layer)
+
+
 def _wire_points(project: Project, sheet: Sheet, lib: LibraryStore, w) -> list[tuple[float, float]]:
     from envocad.model.textlayout import wire_route
     return wire_route(project, sheet, lib, w)
@@ -79,14 +96,7 @@ def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Pa
         doc.layers.add(name, color=color)
     msp = doc.modelspace()
     from envocad.model.frame import MARGIN, MARGIN_LEFT, frame_enabled, frame_geometry
-    g = frame_geometry(project, sheet) if frame_enabled() else None
-    for x1, y1, x2, y2 in (g.lines if g else []):
-        msp.add_line((x1, y1), (x2, y2), dxfattribs={"layer": "RAMECEK"})
-    for x, y, text, h, align in (g.texts if g else []):
-        if text:
-            _text(msp, x, y, text, h, align, 0, layer="RAMECEK")
-    for x, y, w, h in (g.rects if g else []):  # QR kód jako vyplněné čtverce
-        msp.add_solid([(x, y), (x + w, y), (x, y + h), (x + w, y + h)], dxfattribs={"layer": "RAMECEK"})
+    _draw_geometry(msp, frame_geometry(project, sheet) if frame_enabled() else None, "RAMECEK")
     if sheet.is_switchboard:
         from envocad.model.project import switchboard_header
         rows = switchboard_header(project, sheet)
@@ -103,6 +113,8 @@ def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Pa
     lay = compute_layout(project, sheet, lib)
     for e in sheet.elements:
         _draw_symbol(msp, e, element_symbol(project, e, lib), lay.elements.get(e.id))
+    for m in lay.mirrors.values():           # zrcadla kontaktů pod hostiteli
+        _draw_geometry(msp, m, "TEXTY")
     for w in sheet.wires:
         pts = lay.routes.get(w.id) or _wire_points(project, sheet, lib, w)
         msp.add_lwpolyline(pts, dxfattribs={"layer": "VODICE"})
@@ -116,10 +128,6 @@ def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Pa
             msp.add_line((mx - 1.2, my - 1.2), (mx + 1.2, my + 1.2), dxfattribs={"layer": "VODICE"})
     # značky revize listu (trojúhelník s označením revize) – stejné trasy vodičů jako výše
     from envocad.model.revision import revision_geometry
-    rg = revision_geometry(project, sheet, lib, lay.routes)
-    for pts in rg.polylines:
-        msp.add_lwpolyline(pts, close=True, dxfattribs={"layer": "REVIZE"})
-    for x, y, text, h, align in rg.texts:
-        _text(msp, x, y, text, h, align, 0, layer="REVIZE")
+    _draw_geometry(msp, revision_geometry(project, sheet, lib, lay.routes), "REVIZE")
     doc.saveas(str(path))
 

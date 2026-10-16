@@ -25,7 +25,7 @@ from envocad.model.project import (
 from envocad.model.symbol import GRID
 from envocad.ui import commands
 from envocad.ui.items import ElementItem, WireItem, route, snap
-from envocad.ui.render import draw_frame, draw_revision_marks, draw_text, sp
+from envocad.ui.render import draw_frame, draw_geometry, draw_revision_marks, draw_text, sp
 from envocad.ui.theme import PRINT, colors
 
 log = logging.getLogger("envocad.ui")
@@ -123,7 +123,17 @@ class SchematicScene(QGraphicsScene):
     # ---- rozmístění popisků (model/textlayout) – počítá se líně při kreslení, ruší se při změně geometrie
     _text_layout = None
 
+    _device_index = None
+
+    def device_index(self):
+        """`xref.DeviceIndex` projektu – staví se jednou za přepočet (ruší se s rozmístěním popisků)."""
+        if self._device_index is None:
+            from envocad.model.xref import DeviceIndex
+            self._device_index = DeviceIndex.build(self.project)
+        return self._device_index
+
     def invalidate_text_layout(self) -> None:
+        self._device_index = None
         if self._text_layout is not None:
             self._text_layout = None
             self.update()
@@ -135,7 +145,8 @@ class SchematicScene(QGraphicsScene):
             routes = {wid: path_points(it.path()) for wid, it in self.wire_items.items()}
             try:
                 self._text_layout = compute_layout(self.project, self.sheet, self.library, routes,
-                                                   xref_of=self.wire_xref if not self.sheet.is_switchboard else (lambda w: ""))
+                                                   xref_of=self.wire_xref if not self.sheet.is_switchboard else (lambda w: ""),
+                                                   index=self.device_index())
             except Exception:  # noqa: BLE001 – rozmístění nesmí shodit kreslení
                 from envocad.model.textlayout import SheetTextLayout
                 self._text_layout = SheetTextLayout()
@@ -485,7 +496,7 @@ class SchematicScene(QGraphicsScene):
 
     def element_xref(self, e: Element) -> str:
         from envocad.model.project import element_xref
-        return element_xref(self.project, self.sheet, e)
+        return element_xref(self.project, self.sheet, e, self.device_index())
 
     def mouseReleaseEvent(self, ev):
         super().mouseReleaseEvent(ev)
@@ -580,6 +591,21 @@ class SchematicScene(QGraphicsScene):
         self.undo.push(commands.PasteCommand(self, els, wires))
         return len(els)
 
+    def insert_macro(self, m, values: dict, at: tuple[float, float] | None = None) -> int:
+        """Vloží makro s hodnotami proměnných (`expand`, opakování) jedním undo příkazem. Vrací počet nových prvků
+        (sloučené `shared` prvky nejsou nové)."""
+        from envocad.library.macros import expand, fragment_bounds
+        x0, y0, x1, y1 = fragment_bounds(m.fragment)
+        tx, ty = at if at is not None else (self.sheet.width / 2, self.sheet.height / 2)
+        dx, dy = snap(tx - (x0 + x1) / 2), snap(ty - (y0 + y1) / 2)
+        els, wires = expand(self.project, self.sheet, m, values, dx, dy,
+                            ref_prefix_of=lambda sid: self.library.get_symbol(sid).iec_ref,
+                            components=self.library.component, repeat=True)
+        if not els and not wires:
+            return 0
+        self.undo.push(commands.PasteCommand(self, els, wires, f"Vložit makro {m.name}"))
+        return len(els)
+
     def delete_selected(self) -> None:
         eids = [it.element.id for it in self.selectedItems() if isinstance(it, ElementItem)]
         wids = [it.wire.id for it in self.selectedItems() if isinstance(it, WireItem)]
@@ -653,6 +679,8 @@ class SchematicScene(QGraphicsScene):
         from envocad.model.frame import MARGIN, MARGIN_LEFT, frame_geometry
         c = PRINT if not self.draw_grid else colors()
         draw_frame(painter, frame_geometry(self.project, self.sheet), c.ink)
+        for geom in self.text_layout().mirrors.values():   # zrcadla kontaktů pod hostiteli (PDF jde přes scene.render)
+            draw_geometry(painter, geom, c.ink)
         self._draw_revision_marks(painter)
         self._draw_bridges(painter)
         if not self.sheet.is_switchboard:

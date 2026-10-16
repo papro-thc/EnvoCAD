@@ -27,10 +27,8 @@ from envocad.model.project import (
     Element,
     Project,
     Sheet,
-    coil_of,
     contact_terminals,
     element_symbol,
-    interrupt_partner,
     is_contact,
     linked_wire,
 )
@@ -60,18 +58,25 @@ def _connected_ports(sheet: Sheet, e: Element) -> set[str]:
 
 
 def check_project(project: Project, lib) -> list[Finding]:
+    from envocad.model.xref import DeviceIndex, interrupt_link
     out: list[Finding] = []
+    idx = DeviceIndex.build(project)
     # duplicitní označení: jako v EPLAN je úplné označení „=funkce+umístění-X1“ – v každém prostoru (func, loc)
     # musí být označení jedinečné, mezi umístěními se smí opakovat (X1 v +RDC1 i v +RH). Listy se stejným
     # umístěním sdílejí prostor, list rozvaděče bez umístění má vlastní, vodiče JPS (kabely) jeden společný.
-    refs: Counter[tuple[str, str, str]] = Counter()
+    # Prvky se stejným označením v prostoru tvoří přístroj (`xref.DeviceGroup`): smí v něm být cívka a stykač
+    # (silové kontakty cívky), jinak jen jeden prvek. Kontakty a svorky se nepočítají. Přerušovací body se stejným
+    # označením v prostoru jsou jedna položka (dvojice/řetěz/hvězda – mezi sebou duplicitou nejsou), kolize jejich
+    # označení s přístrojem nebo vodičem téhož prostoru je ale duplicita.
+    refs: Counter[tuple[str, str, str]] = Counter()      # vodiče
+    irefs: set[tuple[str, str, str]] = set()             # přerušovací body
     for s in project.sheets:
-        for e in s.elements:
-            if e.ref and not mp.is_terminal_block(e) and not is_contact(e):
-                refs[(*scope_key(s, e), e.ref)] += 1
         for w in s.wires:
             if w.attrs.get("ref"):
                 refs[(*scope_key(s, w), w.attrs["ref"])] += 1
+        for e in s.elements:
+            if e.symbol_id == INTERRUPT_SYMBOL and e.ref:
+                irefs.add((*scope_key(s, e), e.ref))
     for s in project.sheets:
         sym_of = {}
         for e in s.elements:
@@ -81,10 +86,14 @@ def check_project(project: Project, lib) -> list[Finding]:
                 out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref, f"Neznámá značka {e.symbol_id}", "symbol"))
                 continue
             sym_of[e.id] = sym
-            if is_contact(e) and e.ref and coil_of(project, e, s) is None:
+            group = idx.group_of(e)
+            if is_contact(e) and e.ref and group is None:
                 out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                    f"Kontakt {contact_terminals(e)} bez cívky/přístroje {e.ref}", "contact_alone"))
-            if e.ref and refs[(*scope_key(s, e), e.ref)] > 1 and not mp.is_terminal_block(e) and not is_contact(e):
+            key = (*scope_key(s, e), e.ref)
+            if group is not None and not is_contact(e) and (group.dup or refs[key] > 0 or key in irefs):
+                out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref, f"Duplicitní označení {e.ref}", "dup_ref"))
+            if e.symbol_id == INTERRUPT_SYMBOL and e.ref and (key in idx.groups or refs[key] > 0):
                 out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref, f"Duplicitní označení {e.ref}", "dup_ref"))
             if not e.ref and e.symbol_id not in ("fve.earth", "fve.grid", "fve.load"):
                 out.append(Finding(WARNING, s.id, s.name, e.id, False, "", f"Prvek {sym.name} bez označení", "no_ref"))
@@ -108,9 +117,9 @@ def check_project(project: Project, lib) -> list[Finding]:
                 out.append(Finding(INFO, s.id, s.name, e.id, False, e.ref,
                                    "Přívod/vývod bez vazby na vodič v JPS", "feed_unlinked"))
             if (e.symbol_id not in NO_ARTICLE_SYMBOLS and not e.component_id and not e.attrs.get("type")
-                    and not mp.is_terminal_block(e)):
+                    and not mp.is_terminal_block(e) and idx.is_bom_device(e)):
                 out.append(Finding(INFO, s.id, s.name, e.id, False, e.ref, "Bez artiklu / typu", "no_article"))
-            if e.symbol_id == "fve.interrupt" and interrupt_partner(project, e) is None:
+            if e.symbol_id == INTERRUPT_SYMBOL and interrupt_link(project, s, e, idx.interrupts).mode == "alone":
                 out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                    "Přerušovací bod bez protějšku (stejné označení jinde)", "interrupt_alone"))
             if e.symbol_id == "fve.switchboard" and project.switchboard_sheet(e.id) is None:
@@ -127,7 +136,8 @@ def check_project(project: Project, lib) -> list[Finding]:
                 if sym is not None and not any(p.name == end.port for p in sym.ports):
                     out.append(Finding(ERROR, s.id, s.name, w.id, True, ref,
                                        f"Vodič na neexistující port {e.ref or e.symbol_id}:{end.port}", "bad_port"))
-            if ref and refs[(*scope_key(s, w), ref)] > 1:
+            wkey = (*scope_key(s, w), ref)
+            if ref and (refs[wkey] > 1 or wkey in idx.groups or wkey in irefs):
                 out.append(Finding(ERROR, s.id, s.name, w.id, True, ref, f"Duplicitní označení {ref}", "dup_ref"))
             if not s.is_switchboard and not (w.attrs.get("cable") or w.attrs.get("cross")):
                 out.append(Finding(INFO, s.id, s.name, w.id, True, ref, "Vodič bez typu kabelu / průřezu", "no_cable"))
@@ -148,7 +158,9 @@ def check_project(project: Project, lib) -> list[Finding]:
                     out.append(Finding(WARNING, s.id, s.name, "", False, strip,
                                        f"Můstek {strip}:{'-'.join(g)} odkazuje na neexistující svorky {', '.join(missing)}",
                                        "bridge_missing"))
-    out += designation_findings(project, lib)
+    out += contact_findings(project, idx)
+    out += interrupt_findings(project, idx)
+    out += designation_findings(project, lib, idx)
     out += revision_findings(project)
     out += calc_findings(project)
     out += potential_findings(project, lib)
@@ -174,7 +186,7 @@ def _aspect_word(aspect: str) -> str:
     return "Funkce" if aspect == FUNC else "Umístění"
 
 
-def designation_findings(project: Project, lib) -> list[Finding]:
+def designation_findings(project: Project, lib, index=None) -> list[Finding]:
     """Strukturní označení (IEC 81346): syntaxe a třída označení prvků a vodičů, kódy funkce/umístění,
     umístění listů rozvaděčů, kontakty s cívkami ve více umístěních."""
     out: list[Finding] = []
@@ -233,7 +245,7 @@ def designation_findings(project: Project, lib) -> list[Finding]:
             issues = validate_ref(ref, None, is_wire=True)
             for i in issues:
                 out.append(Finding(_sev(i), s.id, s.name, w.id, True, ref, i.text, i.code))
-    out += _contact_findings(project)
+    out += _contact_findings(project, index)
     return out
 
 
@@ -244,30 +256,84 @@ def _place_text(project: Project, s: Sheet, e: Element) -> str:
     return Designation(d.func, d.loc).aspects or "(bez umístění)"
 
 
-def _contact_findings(project: Project) -> list[Finding]:
-    """Kontakt se páruje s cívkou podle `ref` (napříč projektem, `coil_of`). Má-li stejné označení víc cívek/přístrojů
-    v různých prostorech (K1 v +RDC1 i v +RH), přednost má cívka ve stejném prostoru označení (funkce, umístění) jako
-    kontakt. Nejednoznačné je to, jen když v prostoru kontaktu není právě jedna z nich."""
+def _contact_findings(project: Project, index=None) -> list[Finding]:
+    """Kontakt se páruje s přístrojem podle `ref` (napříč projektem, `xref.DeviceIndex`). Má-li stejné označení víc
+    přístrojů v různých prostorech (K1 v +RDC1 i v +RH), přednost má ten ve stejném prostoru označení (funkce,
+    umístění) jako kontakt. Nejednoznačné je to, jen když v prostoru kontaktu žádný z nich není."""
+    from envocad.model.xref import DeviceIndex
+    idx = index or DeviceIndex.build(project)
     out: list[Finding] = []
-    owners: dict[str, list[tuple[Sheet, Element]]] = {}
-    for s in project.sheets:
-        for e in s.elements:
-            if e.ref and not is_contact(e) and not mp.is_terminal_block(e) and e.symbol_id != INTERRUPT_SYMBOL:
-                owners.setdefault(e.ref, []).append((s, e))
     for s in project.sheets:
         for c in s.elements:
             if not (is_contact(c) and c.ref):
                 continue
-            cands = owners.get(c.ref, [])
-            scopes = {scope_key(os_, o) for os_, o in cands}
-            if len(scopes) < 2:
+            groups = idx.by_ref.get(c.ref, [])
+            if len(groups) < 2 or (*scope_key(s, c), c.ref) in idx.groups:
                 continue
-            if sum(1 for os_, o in cands if scope_key(os_, o) == scope_key(s, c)) == 1:
-                continue
-            places = sorted({_place_text(project, os_, o) for os_, o in cands})
+            places = sorted({_place_text(project, *g.host) for g in groups})
             out.append(Finding(WARNING, s.id, s.name, c.id, False, c.ref,
                                f"Kontakt {c.ref} odpovídá cívkám ve více umístěních ({', '.join(places)}) – "
                                "nastav kontaktu umístění", "contact_ambiguous"))
+    return out
+
+
+def contact_findings(project: Project, index=None) -> list[Finding]:
+    """Kontakty přístroje: stejný pár svorek dvakrát (`contact_dup`), víc kontaktů druhu než v kontaktním obrazu
+    (`contact_count`), pár mimo obraz (`contact_unknown`), nečitelný obraz (`contact_image_syntax`)."""
+    from envocad.model.xref import KIND_WORD, DeviceIndex, contact_image, count_words, parse_contact_image
+    idx = index or DeviceIndex.build(project)
+    out: list[Finding] = []
+    for s in project.sheets:
+        for e in s.elements:
+            text = e.attrs.get("contacts", "")
+            if text and text.strip():
+                _slots, bad = parse_contact_image(text)
+                if bad:
+                    out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
+                                       f"Kontaktní obraz {e.ref}: nečitelné {', '.join(bad)} (páry 13/14, 21/22, 1/2 "
+                                       "nebo s předponou NO:/NC:)", "contact_image_syntax"))
+    for g in idx.groups.values():
+        items = g.contact_items()
+        if not items:
+            continue
+        seen: dict[str, Element] = {}
+        for (s, c), _kind, pairs in items:
+            for pair in pairs:
+                if pair in seen:
+                    out.append(Finding(WARNING, s.id, s.name, c.id, False, c.ref,
+                                       f"{g.ref}: svorky {pair} jsou u více kontaktů", "contact_dup"))
+                else:
+                    seen[pair] = c
+        image = contact_image(g)
+        if image is None:
+            continue
+        known = {slot.pair for slot in image}
+        for (s, c), _kind, pairs in items:
+            for pair in pairs:
+                if pair not in known:
+                    out.append(Finding(WARNING, s.id, s.name, c.id, False, c.ref,
+                                       f"Kontakt {pair} není v kontaktním obrazu {g.ref}", "contact_unknown"))
+        hs, h = g.host
+        for kind in KIND_WORD:
+            used = sum(len(pairs) for _, k, pairs in items if k == kind)
+            have = sum(1 for slot in image if slot.kind == kind)
+            if used > have:
+                out.append(Finding(WARNING, hs.id, hs.name, h.id, False, g.ref,
+                                   f"{g.ref}: {count_words(used, kind)}, kontaktní obraz má {have}", "contact_count"))
+    return out
+
+
+def interrupt_findings(project: Project, index=None) -> list[Finding]:
+    """Přerušovací body: víc zdrojů hvězdy ve skupině (`interrupt_star_multi`) – zdrojem je jen první."""
+    from envocad.model.xref import DeviceIndex, is_star_source
+    idx = index or DeviceIndex.build(project)
+    out: list[Finding] = []
+    for ref, members in idx.interrupts.items():
+        stars = [m for m in members if is_star_source(m[1])]
+        for s, e in stars[1:]:
+            out.append(Finding(WARNING, s.id, s.name, e.id, False, ref,
+                               f"Přerušovací bod {ref}: víc zdrojů hvězdy – zdrojem je jen první "
+                               f"(list {stars[0][0].name})", "interrupt_star_multi"))
     return out
 
 

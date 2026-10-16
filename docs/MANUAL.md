@@ -87,7 +87,8 @@ tažením rámečku v prázdné ploše. Kolečko zoomuje, střední tlačítko p
 Vyber prvky (vodiče mezi nimi se přiberou) a `Úpravy → Uložit výběr jako makro…` (`Ctrl+Shift+S`): makro se
 uloží do `~/.envocad/macros/` nebo – když je nastavená sdílená knihovna – na dotaz do `<sdílená>/macros/`
 pro všechny. V panelu Knihovna je dole uzel **Makra**; dvojklik vloží sestavu doprostřed pohledu s novými
-označeními. `Úpravy → Smazat makro…` maže vlastní a sdílená.
+označeními (makro bez proměnných se vloží jako kopie výřezu: čísla svorek se vymažou a doplní automatické
+číslování, přívody/vývody dostanou další volné X). `Úpravy → Smazat makro…` maže vlastní a sdílená.
 
 **Generátor skládá rozvaděče z maker** – výkres ladí projektant, program ho jen opakuje. Specifikace (`macros`)
 říká, které makro se použije: `dc_tech` (string v DC rozvaděči u technologie), `dc_route` (po trase),
@@ -104,15 +105,82 @@ jen jednou a další instance se na něj napojí; do portu sběrnice se dá psá
 klíč `pitch` v JSON makra (jinak šířka + 10 mm). Nejjednodušší cesta: otevři vestavěné makro
 (`envocad/library/builtin/macros/*.json`), uprav podle sebe a ulož pod stejným názvem do vlastní složky.
 
+### Makra s proměnnými: dialog, sady hodnot, opakování
+Makro, které deklaruje proměnné nebo opakování, se při vložení (dvojklik v panelu Knihovna) nejdřív zeptá na
+hodnoty v dialogu **Makro – název**. Makro bez proměnných se vloží hned jako dřív.
+
+- **Sada hodnot** – nahoře rozbalovací seznam předvoleb (např. „Pojistka 20 A gPV, SPD T1+T2“). Vybraná sada
+  vyplní pole; „— vlastní —“ nechá ruční hodnoty. Hodnoty zadané ručně po výběru sady sadu přebíjejí.
+- **Pole** podle typu: text, číslo (jednotka je v popisku, čárka i tečka se berou), nabídka a **artikl**.
+  Povinná pole jsou označená hvězdičkou a tučně; nápověda je v tooltipu. Při **OK** se hodnoty zkontrolují
+  (povinné, číslo, rozsah min/max, nabídka) a chyby se vypíšou v dialogu – dialog se nezavře.
+- **Vazba na artikl** – pole typu artikl otevře výběr artiklů dané kategorie. Po výběru se přepočítají pole,
+  která si berou hodnotu z parametrů artiklu (např. In pojistky z artiklu), a prvek, který artikl odkazuje,
+  dostane jeho parametry.
+- **Další (číslování)** – sbalená skupina s proměnnými, které jinak dodává generátor nebo opakování
+  (čísla střídače a stringu, označení). Obvykle se nechávají být; pošlou se jen pole, která změníš. U makra
+  s opakováním jsou pole pořadí `k` a vývodu `nk` zakázaná – „doplní se automaticky“ v každé instanci.
+- **Opakování** – makro s klíčem `repeat` se vloží N× (počet je jedna z proměnných, např. „Počet stringů“),
+  instance jsou posunuté o rozteč a očíslované `{k}` = 1…N (FU1.1, FU1.2…, popisy G1, G2…). Sdílené prvky
+  (sběrnice, XPE) se vloží jen jednou, i kdyby už na listu byly – vodiče se napojí na existující. Počet musí být
+  celé číslo do maxima proměnné (vestavěné DC makro 50, nejvíc 100); prázdný nebo desetinný dialog nepustí.
+  Počet 0 nevloží nic (stavový řádek: „Makro nevložilo žádné prvky (počet 0)“).
+- **Typ svodiče** (`spd`) je text – doporučené T1, T2, T1+T2, prázdné = bez svodiče; projde i T1+T2+T3.
+- **Podmínky `when`** – prvek nebo vodič s atributem `when` se vloží jen při splnění podmínky: `spd` (hodnota
+  není prázdná, 0, ne, no, false, off), `!spd`, `spd=T2`, `spd!=T2`. Vestavěné DC makro tak vynechá svodič
+  (i jeho vodiče), když zvolíš „bez SPD“. Atribut `when` se do vložených prvků nepřenáší.
+- **Zpět** – celé vložení (všechna opakování) je jeden krok `Ctrl+Z`; zpět smaže jen nové prvky a vodiče,
+  už existující sdílené prvky zůstanou.
+
 ### Přerušovací body
 Prvek **Přerušovací bod** (Svorky a propojení) přenese potenciál jinam – dva body se stejným označením se
 spárují a každý ukazuje polohu protějšku (`→ /2.C3` = list 2, sloupec C, řádek 3 v síti rámečku). Rámeček
 s popisovým polem je zatím vypnutý – zapne ho `Zobrazit → Rámeček a popisové pole` (platí i pro PDF a DXF).
 
+Body se stejným označením (`ref`) v projektu tvoří skupinu. Zapojení podle stavu skupiny:
+
+| Stav skupiny | Zapojení | Zobrazení |
+|---|---|---|
+| 2 body | dvojice | `→ /2.C3` u obou |
+| 3 a více bodů | řetěz, pořadí list, x, shora dolů | střední bod `← /1.A2` a `→ /4.C1` na samostatných řádcích; první bod jen `→`, poslední jen `←` |
+| zdroj hvězdy (2 a více bodů) | hvězda: zdroj → ostatní body | u zdroje `→ /2.A2, /3.B1, /4.C5` (max. 3 na řádek), u cíle `← /1.F3` |
+
+Zdroj hvězdy označíš zaškrtávátkem **Zdroj hvězdy** v panelu Vlastnosti přerušovacího bodu (atribut
+`star_source` = `1`). Zdroj má být jeden: další zaškrtnutý bod kontrola hlásí jako `interrupt_star_multi`
+a zdrojem zůstane první podle pořadí. Bod bez protějšku ukazuje `→ ?`.
+
 ### Ovládací obvody
 Značky **Cívka** (K, A1/A2), **Kontakt NO** (13/14), **Kontakt NC** (21/22) a **Hlavní kontakt**. Kontakt
 dostane označení své cívky (K1); pod cívkou se automaticky kreslí zrcadlo kontaktů (svorky + poloha) a u
 kontaktu odkaz na cívku. Kontakty nejsou samostatné položky ve výkazu materiálu, patří k cívce.
+
+**Zrcadlo kontaktů** je tabulka pod hostitelem – cívkou, jističem, relé nebo RTU s kontakty. Sloupce:
+- vlevo od osy silové kontakty (1/2, 3/4, 5/6…),
+- u osy vlevo NO (13/14, 33/34…), vpravo NC (21/22…); prázdný sloupec se nekreslí,
+- hlavička s piktogramem druhu.
+
+Řádek = pár svorek a odkaz na kontakt: `13/14 /3.B4` = svorky 13/14, kontakt na listu 3, pozice B4. Odkaz
+na jiné umístění předřadí aspekt (`+RDC1/3.B4`). Silový kontakt s `poles` = 3 dá tři řádky (1/2, 3/4, 5/6).
+Rezerva je pár z kontaktního obrazu, ke kterému zatím není kontakt; řádek má jen pár, bez odkazu. Zrcadlo
+potlačíš v panelu Vlastnosti zrušením zaškrtávátka **Zobrazit zrcadlo kontaktů** (je jen u přístroje, který zrcadlo má –
+hostitel s kontakty nebo kontaktním obrazem; jde přes undo). Zaškrtávátko zapisuje atribut `mirror` = `0`
+(prázdné = zobrazit; viz `docs/LIBRARY_FORMAT.md`).
+
+**Kontaktní obraz** (atribut `contacts`) je seznam párů svorek přístroje: `1/2 3/4 5/6 13/14 21/22`. Zadáš ho
+v panelu Vlastnosti nebo sloupcem `contacts` v CSV artiklů; výchozí značky `ctl.coil` a `fve.contactor` mají
+pole prázdné. Druh kontaktu se pozná z předpony nebo z čísel svorek:
+- bez předpony podle IEC 60947-5-1: jednomístné liché/sudé (1/2, 3/4) = silový; dvoumístné s funkční číslicí
+  3/4 nebo 7/8 = NO, 1/2 nebo 5/6 = NC; ostatní jsou chyba (`contact_image_syntax`);
+- s předponou `NO:`, `NC:` nebo `P:` / `PWR:` / `HL:` (silový, hlavní kontakt), např. `NO:11/14 NC:11/12`, `NO:DO1 NO:DO2`.
+
+Obraz je nepovinný. Bez něj se nekreslí rezervy a nedělají se kontroly `contact_count` a `contact_unknown`.
+
+**Stykač v JPS a cívka** se stejným označením (např. K1) tvoří jeden přístroj. Výkaz materiálu a rozložení
+mají stykač, cívka se do nich nedává. Výjimka: je-li stykač nakreslen na jiném listu (silové schéma se stejným
+umístěním), zůstává cívka položkou svého listu rozvaděče (rozložení, oteplení, výkaz a štítky toho listu);
+v celoprojektovém výkazu je jen stykač. Silové kontakty stykače jsou v zrcadle cívky jako silový sloupec.
+Stykač bez cívky je sám hostitelem zrcadla. Kontakty (`ctl.contact_*`) patří přístroji se stejným označením
+ve stejném prostoru označení (funkce a umístění).
 
 ---
 
@@ -214,6 +282,16 @@ Výkazy **Kabely** (přehled), **Kabelový plán** (po žílách odkud–kam, i 
   ukazuje u vodiče potenciál každé žíly (`L1 X1`, `DC+ G1`, `N (W3)`), výkaz **Potenciály** vypíše všechny sítě;
 - informace: přívod bez vazby na JPS, prvek bez artiklu, vodič bez kabelu/žil, selektivita nejistá.
 
+Kontakty a přerušovací body:
+
+| Kód | Závažnost | Význam |
+|---|---|---|
+| `contact_dup` | varování | dva kontakty nebo póly téhož přístroje mají stejné svorky |
+| `contact_count` | varování | použito víc kontaktů druhu (NO, NC, silové), než kontaktní obraz má |
+| `contact_unknown` | varování | pár svorek kontaktu není v kontaktním obrazu přístroje |
+| `contact_image_syntax` | varování | v atributu `contacts` je nečitelný token |
+| `interrupt_star_multi` | varování | ve skupině přerušovacích bodů jsou dva a více zdrojů hvězdy |
+
 Výpočty (`model/calc.py`, výkaz **Výpočty**): kontrola stringu proti střídači (Uoc při −10 °C vs. Umax,
 Umpp při 70 °C vs. rozsah MPPT, 1,25·Isc vs. Imax vstupu – atributy stringu Uoc/Umpp/Isc modulu a teplotní
 součinitel, atributy střídače Umax, MPPT min/max, Imax), proud kabelem (1,25·Isc, P_AC/√3·U, In),
@@ -273,6 +351,10 @@ jen SolarEdge a kreslí se jako jeden string). Blok DC rozvaděče v JPS má por
 AC rozvaděč má přívody po střídačích, jističe, rozvodné svorky s můstky, SPD, hlavní vypínač a vývod do HDS.
 Označení jsou jedinečná uvnitř každého rozvaděče (jako v EPLAN `+RDC1-X1`), takže X1 smí být v každém
 rozvaděči; listy JPS sdílejí jeden prostor označení.
+
+Jištění ve specifikaci i v průvodci se zadává **číslem v ampérech**: `dc.fuse_in`, `dc.disconnect_in`,
+`ac.breaker_in` (např. `40`, ne „C40“ ani „B40“ – charakteristiku nese prvek jističe) a `ac.main_in`; „40,0“
+i `40.0` se berou jako 40. Typ svodiče `dc.spd` / `ac.spd` je text (T1, T2, T1+T2, i T1+T2+T3).
 
 Totéž umí příkaz `python -m envocad.generate spec.json vystup.ecp` – specifikace je JSON popsaný
 v `envocad/generate.py`. To je cesta pro AI agenty: z poptávky a datasheetů připraví specifikaci, program
