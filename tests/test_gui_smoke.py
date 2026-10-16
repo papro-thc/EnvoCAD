@@ -628,3 +628,44 @@ def test_edit_in_switchboard_schematic(app):
     assert len(sb.wires) == nw
     w.undo.setClean()
     w.close()
+
+
+def test_feed_cable_tag_edit_and_move(app):
+    """Štítek kabelu u přívodu: dvojklik otevře parametry přívodu, tažení posune celý přívod."""
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtTest import QTest
+
+    from envocad.generate import build_project
+    from envocad.ui.main_window import MainWindow
+    from envocad.ui.multipole_view import CableTagItem
+    spec = {"name": "Tag", "inverters": [{"ref": "T1", "p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200,
+                                         "u_mppt_max": 1000, "i_mppt_max": 30, "strings": [20, 20]}]}
+    p = build_project(spec)
+    w = MainWindow(LibraryStore(), p)
+    w.resize(1400, 900)
+    w.show()
+    calls = []
+    w._edit_element_anywhere = lambda sh, eid: calls.append(eid)
+    sb = p.sheets[-1]
+    w.open_sheet(sb, "multipole")
+    app.processEvents()
+    w.view.zoom_fit()
+    app.processEvents()
+    sc = w.view.scene()
+    x1 = next(e for e in sb.elements if e.ref == "X1")
+    tag = next(it for it in sc.items() if isinstance(it, CableTagItem) and it.element_id == x1.id)
+    vp = w.view.viewport()
+    pt = w.view.mapFromScene(tag.sceneBoundingRect().center())
+    QTest.mouseDClick(vp, Qt.LeftButton, Qt.NoModifier, pt)
+    QTest.qWait(30)
+    app.processEvents()
+    assert calls == [x1.id]
+    QTest.mousePress(vp, Qt.LeftButton, Qt.NoModifier, pt)
+    QTest.mouseMove(vp, pt + QPoint(30, 30))
+    QTest.mouseMove(vp, pt + QPoint(60, 60))
+    QTest.mouseRelease(vp, Qt.LeftButton, Qt.NoModifier, pt + QPoint(60, 60))
+    QTest.qWait(30)
+    app.processEvents()
+    assert x1.mp_pos is not None
+    w.undo.setClean()
+    w.close()

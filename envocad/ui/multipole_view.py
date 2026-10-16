@@ -59,7 +59,8 @@ class PoleItem(QGraphicsItem):
     def shape(self) -> QPainterPath:
         x0, y0, x1, y1 = self.symbol.bounds()
         p = QPainterPath()
-        p.addRect(QRectF(x0, -y1, x1 - x0, y1 - y0).adjusted(-1, -1, 1, 1))
+        m = 2.0 if mp.is_terminal_block(self.element) else 1.0   # svorka: chytit jde i za číslo vedle kroužku
+        p.addRect(QRectF(x0, -y1, x1 - x0, y1 - y0).adjusted(-m, -m, m + 2.0 * (m > 1), m))
         return p
 
     def paint(self, painter: QPainter, option, widget=None) -> None:
@@ -260,8 +261,12 @@ class CableTagItem(QGraphicsItem):
 
     ROW = 3.2
 
-    def __init__(self, x0: float, x1: float, y_edge: float, rows: list[str], up: bool):
+    def __init__(self, x0: float, x1: float, y_edge: float, rows: list[str], up: bool, element_id: str = ""):
         super().__init__()
+        self.element_id = element_id   # přívod/vývod, ke kterému štítek patří: dvojklik = parametry, tažení = posun
+        if element_id:
+            self.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsMovable)
+            self.setCursor(Qt.SizeAllCursor)
         self.rows = [r for r in rows if r] or ["?"]
         w = max(x1 - x0 + 4.0, max(len(r) for r in self.rows) * 1.25 + 3.0)
         cx = (x0 + x1) / 2
@@ -279,6 +284,8 @@ class CableTagItem(QGraphicsItem):
 
     def paint(self, painter, option, widget=None):
         ink = colors().ink if self.scene() is None or self.scene().draw_grid else PRINT.ink
+        if self.isSelected():
+            ink = colors().selection
         painter.setPen(QPen(ink, LINE_WIDTH))
         painter.setBrush(Qt.NoBrush)
         painter.drawRect(self._rect())
@@ -648,7 +655,7 @@ class MultipoleScene(QGraphicsScene):
                 cable = e.attrs["cable"]
             up = e.symbol_id == "sb.feed_in"
             y_edge = ep.origin[1] + (3.0 if up else -3.0)
-            self._add(CableTagItem(min(xs), max(xs), y_edge, [ref, name, cable], up))
+            self._add(CableTagItem(min(xs), max(xs), y_edge, [ref, name, cable], up, e.id))
 
     def _bus_y(self, ep: mp.ElementPoles, c: str, page: int) -> float:
         """Výška čáry potenciálu `c` sběrnice na dané straně (žíly pod sebou po BUS_PITCH)."""
@@ -763,6 +770,10 @@ class MultipoleScene(QGraphicsScene):
 
     def mouseDoubleClickEvent(self, ev):
         for it in self.items(ev.scenePos()):
+            if isinstance(it, CableTagItem) and it.element_id:
+                eid = it.element_id
+                QTimer.singleShot(0, lambda eid=eid: self.edit_element_requested.emit(eid))
+                return
             if isinstance(it, PoleItem):
                 eid = it.element.id
                 QTimer.singleShot(0, lambda eid=eid: self.edit_element_requested.emit(eid))
@@ -796,6 +807,17 @@ class MultipoleScene(QGraphicsScene):
         if ev.button() == Qt.LeftButton and self.mode == Mode.WIRE:
             self._wire_click(ev.scenePos())
             return
+        if ev.button() == Qt.LeftButton:
+            # štítek kabelu u přívodu/vývodu: chytit = vybrat celý přívod (všechny svorky) a táhnout ho
+            from PySide6.QtGui import QTransform
+            top = self.itemAt(ev.scenePos(), QTransform())
+            if isinstance(top, CableTagItem) and top.element_id:
+                if not (ev.modifiers() & (Qt.ControlModifier | Qt.ShiftModifier)):
+                    self.clearSelection()
+                top.setSelected(True)
+                for it in self.items():
+                    if isinstance(it, PoleItem) and it.element.id == top.element_id:
+                        it.setSelected(True)
         super().mousePressEvent(ev)
         self._move_start = {it.element.id: it.element_origin() for it in self.selectedItems() if isinstance(it, PoleItem)}
 
