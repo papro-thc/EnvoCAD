@@ -32,8 +32,8 @@ Slouží jako zadání pro makra a generátor – výkresy ladí projektant, pro
   způsob provozu výrobny.
 
 ## Co už EnvoCAD dělá podle toho
-- Štítky kabelů na přívodech/vývodech ve vícepólu (označení / název / typ), svislá hlavička rozvaděče vlevo
-  (`switchboard_title`: označení, soustava, Un, In, Ik'', skříň, montáž, krytí z parametrů skříně).
+- Štítky kabelů na přívodech/vývodech ve vícepólu (označení / název / typ), nadpis výkresu rozvaděče vlevo nahoře
+  na každé straně (`switchboard_title`: označení, soustava, Un, In, Ik'', skříň, montáž, krytí z parametrů skříně).
 - Proměnné maker `{i}` (střídač) a `{j}` (string u střídače) – vestavěná DC makra číslují `FU{i}.{j}`, `SPD-DC{i}.{j}`.
 - PE svodičů na ekvipotenciální svorkovnici, sběrnice potenciálů s názvy na koncích.
 
