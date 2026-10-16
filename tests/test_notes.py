@@ -61,6 +61,30 @@ def test_remove_and_restore_at_index(proj):
     # čísla se nepřečíslovávají: po smazání nejvyšší + 1
     nt.remove_note(proj, ns[0].id)
     assert nt.next_note_no(proj) == 4
+    # ani po smazání nejvyšší: čítač meta["note_seq"] (řetězec) si pamatuje přidělená čísla
+    nt.remove_note(proj, ns[2].id)
+    assert proj.meta["note_seq"] == "3" and nt.next_note_no(proj) == 4
+    n = Note(sid, 0, 0, "nová")
+    nt.put_note(proj, n)
+    assert n.no == 4 and proj.meta["note_seq"] == "4"
+    # explicitní vyšší číslo čítač posune, nižší ne; nečitelný čítač = 0 → next = nejvyšší + 1
+    nt.put_note(proj, Note(sid, 0, 0, "x", no=10))
+    assert proj.meta["note_seq"] == "10" and nt.next_note_no(proj) == 11
+    nt.put_note(proj, Note(sid, 0, 0, "y", no=7))
+    assert proj.meta["note_seq"] == "10"
+    proj.meta["note_seq"] = "nic"
+    assert nt.next_note_no(proj) == 11
+
+
+def test_note_seq_survives_save_load(proj, tmp_path):
+    sid = proj.sheets[0].id
+    for i in range(3):
+        nt.put_note(proj, Note(sid, 0, 0, str(i)))
+    nt.remove_note(proj, proj.notes[-1].id)
+    path = tmp_path / "p.ecp"
+    proj.save(path)
+    back = Project.load(path)
+    assert back.meta["note_seq"] == "3" and nt.next_note_no(back) == 4
 
 
 def test_notes_on_sheet_filter_and_order(proj):
@@ -212,3 +236,12 @@ def test_dxf_notes_layer_only_with_notes(tmp_path):
     assert not any("Vyřešená" in t for t in texts)
     polys = [e for e in ents if e.dxftype() == "LWPOLYLINE"]
     assert len(polys) == 3 and all(pl.closed for pl in polys)   # 2 praporky + obrys obdélníku
+
+
+def test_czech_plural_and_count_label():
+    assert [nt.plural(n, "a", "b", "c") for n in (0, 1, 2, 4, 5, 11, 22)] == ["c", "a", "b", "b", "c", "c", "c"]
+    assert nt.count_label(1) == "1 připomínka" and nt.count_label(3) == "3 připomínky"
+    assert nt.count_label(5) == "5 připomínek" and nt.count_label(0) == "0 připomínek"
+    assert nt.count_label(1, nt.OPEN_NOTE_WORDS) == "1 otevřená připomínka"
+    assert nt.count_label(4, nt.OPEN_NOTE_WORDS) == "4 otevřené připomínky"
+    assert nt.count_label(12, nt.OPEN_NOTE_WORDS) == "12 otevřených připomínek"

@@ -22,12 +22,38 @@ LINE_PITCH = 3.5      # řádkování textu [mm]
 STATUS_LABELS = {"open": "otevřeno", "resolved": "vyřešeno"}
 # barva podle stavu (RGB 0–255, neukládá se): otevřeno purpurová (odlišná od červené revize), vyřešeno šedá
 STATUS_COLORS = {"open": (190, 0, 190), "resolved": (128, 128, 128)}
+NOTE_WORDS = ("připomínka", "připomínky", "připomínek")
+OPEN_NOTE_WORDS = ("otevřená připomínka", "otevřené připomínky", "otevřených připomínek")
+
+
+# ---- čeština --------------------------------------------------------------------------------------
+def plural(n: int, one: str, few: str, many: str) -> str:
+    """Tvar podle počtu: 1 → `one`, 2–4 → `few`, jinak (0, 5 a víc) → `many` („1 připomínka, 3 připomínky,
+    5 připomínek“)."""
+    n = abs(n)
+    return one if n == 1 else few if 2 <= n <= 4 else many
+
+
+def count_label(n: int, words: tuple[str, str, str] = NOTE_WORDS) -> str:
+    """„N připomínka/připomínky/připomínek“; `words` = (1, 2–4, 5+), např. `OPEN_NOTE_WORDS`."""
+    return f"{n} {plural(n, *words)}"
 
 
 # ---- správa seznamu ------------------------------------------------------------------------------
+NOTE_SEQ_KEY = "note_seq"   # project.meta: nejvyšší kdy přidělené číslo připomínky (řetězec; meta je volný slovník)
+
+
+def _note_seq(project: Project) -> int:
+    try:
+        return max(0, int(str(project.meta.get(NOTE_SEQ_KEY, "0") or "0")))
+    except ValueError:
+        return 0
+
+
 def next_note_no(project: Project) -> int:
-    """Další pořadové číslo připomínky = nejvyšší + 1 (čísla se při smazání nepřečíslovávají)."""
-    return max((n.no for n in project.notes), default=0) + 1
+    """Další pořadové číslo připomínky = max(čítač `meta["note_seq"]`, nejvyšší číslo) + 1. Čísla se při smazání
+    nepřečíslovávají a nepoužijí se znovu ani po smazání nejvyšší (čítač si pamatuje i smazané)."""
+    return max(_note_seq(project), max((n.no for n in project.notes), default=0)) + 1
 
 
 def note(project: Project, note_id: str) -> Note | None:
@@ -42,9 +68,13 @@ def notes_on_sheet(project: Project, sheet_id: str, statuses: tuple[str, ...] | 
 
 def put_note(project: Project, n: Note, index: int | None = None) -> int:
     """Vloží připomínku, nebo nahradí existující se stejným `id` na jejím místě. Bez čísla (`no == 0`) dostane
-    další volné. `index` = pozice vložení nové (undo smazání ji vrátí na původní místo). Vrací index v seznamu."""
+    další volné. Čítač `meta["note_seq"]` se posune aspoň na číslo vložené připomínky (undo v GUI ho vrací
+    – `ReplaceNoteCommand`). `index` = pozice vložení nové (undo smazání ji vrátí na původní místo). Vrací index
+    v seznamu."""
     if n.no <= 0:
         n.no = next_note_no(project)
+    if n.no > _note_seq(project):
+        project.meta[NOTE_SEQ_KEY] = str(n.no)
     for i, old in enumerate(project.notes):
         if old.id == n.id:
             project.notes[i] = n
@@ -176,6 +206,29 @@ def notes_geometry(project: Project, sheet: Sheet, statuses: tuple[str, ...] | N
     return [note_shape(n, with_text) for n in notes_on_sheet(project, sheet.id, statuses)]
 
 
-__all__ = ["FLAG_H", "NOTE_STATUSES", "STATUS_COLORS", "STATUS_LABELS", "TEXT_H", "NoteShape", "flag_width", "next_note_no", "note",
-           "note_label", "note_shape", "note_target_label", "notes_geometry", "notes_on_sheet", "orphan_notes",
-           "put_note", "remove_note", "reopen", "resolve"]
+__all__ = [
+    "FLAG_H",
+    "NOTE_SEQ_KEY",
+    "NOTE_STATUSES",
+    "NOTE_WORDS",
+    "OPEN_NOTE_WORDS",
+    "STATUS_COLORS",
+    "STATUS_LABELS",
+    "TEXT_H",
+    "NoteShape",
+    "count_label",
+    "flag_width",
+    "next_note_no",
+    "note",
+    "note_label",
+    "note_shape",
+    "note_target_label",
+    "notes_geometry",
+    "notes_on_sheet",
+    "orphan_notes",
+    "plural",
+    "put_note",
+    "remove_note",
+    "reopen",
+    "resolve",
+]

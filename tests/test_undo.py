@@ -345,6 +345,7 @@ def test_replace_note_command(jps):
     assert (note(p, a.id).x, note(p, a.id).y) == (12.5, 22.5)
 
     # smazání prostřední: undo ji vrátí na původní místo (pořadí), číslo se nemění; nová nepoužije smazané číslo
+    # (čítač meta["note_seq"] – viz test_note_numbers_not_reused_after_deleting_highest)
     mid = note(p, b.id)
     undo.push(commands.ReplaceNoteCommand(p, mid, None, "Smazat"))
     assert [n.no for n in p.notes] == [1, 3]
@@ -362,3 +363,27 @@ def test_replace_note_command(jps):
     undo.push(commands.ReplaceNoteCommand(p, note(p, c.id), None, "Smazat", lambda: calls.append(1)))
     undo.undo()
     assert len(calls) == 2
+
+
+def test_note_numbers_not_reused_after_deleting_highest(jps):
+    """1, 2, 3 → smazat 3 → přidat → 4 (čítač meta["note_seq"]); undo vrátí i čítač."""
+    from envocad.model.project import Note
+    p, _sc, undo = jps
+    sid = p.sheets[0].id
+    for i in range(3):
+        undo.push(commands.ReplaceNoteCommand(p, None, Note(sid, x=10 * i, y=0), "Přidat připomínku"))
+    assert [n.no for n in p.notes] == [1, 2, 3]
+    undo.push(commands.ReplaceNoteCommand(p, p.notes[-1], None, "Smazat"))
+    assert [n.no for n in p.notes] == [1, 2]
+    undo.push(commands.ReplaceNoteCommand(p, None, Note(sid, x=99, y=0), "Přidat připomínku"))
+    assert [n.no for n in p.notes] == [1, 2, 4] and p.meta["note_seq"] == "4"
+    undo.undo()                                   # undo vrátí přesný stav včetně čítače
+    assert [n.no for n in p.notes] == [1, 2] and p.meta["note_seq"] == "3"
+    undo.redo()
+    assert [n.no for n in p.notes] == [1, 2, 4] and p.meta["note_seq"] == "4"
+    undo.undo()
+    undo.undo()                                   # vrátit smazání č. 3
+    assert [n.no for n in p.notes] == [1, 2, 3] and p.meta["note_seq"] == "3"
+    for _ in range(3):
+        undo.undo()
+    assert not p.notes and "note_seq" not in p.meta

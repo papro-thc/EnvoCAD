@@ -1126,9 +1126,11 @@ class MainWindow(QMainWindow):
     def _confirm_close_with_notes(self, n_open: int) -> bool:
         from PySide6.QtWidgets import QDialogButtonBox
 
+        from envocad.model.notes import OPEN_NOTE_WORDS, count_label
         from envocad.ui.dialogs import czech_buttons
-        box = QMessageBox(QMessageBox.Question, "Uzavřít revizi", f"{n_open} otevřených připomínek – přesto uzavřít?",
-                          QMessageBox.Yes | QMessageBox.No, self)
+        box = QMessageBox(QMessageBox.Question, "Uzavřít revizi",
+                          f"{count_label(n_open, OPEN_NOTE_WORDS)} – přesto uzavřít?", QMessageBox.Yes | QMessageBox.No,
+                          self)
         box.setDefaultButton(QMessageBox.No)
         czech_buttons(box.findChild(QDialogButtonBox))
         return box.exec() == QMessageBox.Yes
@@ -1290,7 +1292,8 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getSaveFileName(self, "Export PDF", "", "PDF (*.pdf)")
         if path:
             n = export_scene_pdf(sc, path, paper=paper or None, notes=self._export_notes())
-            self.statusBar().showMessage(f"Exportováno: {path}" + (f" ({n} připomínek)" if n else ""), 3000)
+            from envocad.model.notes import count_label
+            self.statusBar().showMessage(f"Exportováno: {path}" + (f" ({count_label(n)})" if n else ""), 3000)
 
     def export_xlsx(self, current_only: bool) -> None:
         from envocad.export.xlsx_export import export_reports_xlsx

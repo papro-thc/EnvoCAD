@@ -645,8 +645,9 @@ class SchematicScene(QGraphicsScene):
                                                                self.rebuild_notes))
             return
         super().mouseReleaseEvent(ev)
-        self._commit_note_moves()
+        note_moves = self._take_note_moves()
         if self._seg is not None:
+            self._push_note_moves(note_moves)
             it, _idx, _start, _pts, old = self._seg
             self._seg = None
             new = [tuple(x) for x in it.wire.points]
@@ -654,24 +655,30 @@ class SchematicScene(QGraphicsScene):
                 self.undo.push(commands.SetWirePointsCommand(self, {it.wire.id: (old, new)}))
             return
         self._dragging = False
+        moves, wp = {}, {}
         if self.mode == Mode.SELECT and self._move_start:
-            moves = {}
             for eid, old in self._move_start.items():
                 it = self.element_items.get(eid)
                 if it and (it.element.x, it.element.y) != old:
                     moves[eid] = (old, (it.element.x, it.element.y))
             if moves:
-                wp = {}
                 for wid, old_pts in self._move_wire_pts.items():
                     w = next((x for x in self.sheet.wires if x.id == wid), None)
                     if w is not None and [tuple(x) for x in w.points] != old_pts:
                         wp[wid] = (old_pts, [tuple(x) for x in w.points])
-                self.undo.push(commands.MoveElementsCommand(self, moves, wp))
             self._move_start = {}
             self._move_wire_pts = {}
+        both = bool(moves) and bool(note_moves)
+        if both:            # prvky i připomínky jedním tahem = jeden krok zpět
+            self.undo.beginMacro("Posunout")
+        if moves:
+            self.undo.push(commands.MoveElementsCommand(self, moves, wp))
+        self._push_note_moves(note_moves)
+        if both:
+            self.undo.endMacro()
 
-    def _commit_note_moves(self) -> None:
-        """Posun vybraných připomínek (Qt je už přesunul a přichytil) se zapíše jedním příkazem."""
+    def _take_note_moves(self) -> list:
+        """Posuny vybraných připomínek od začátku tahu (Qt je už přesunul a přichytil) jako (stará, nová)."""
         import copy
 
         from envocad.model.notes import note
@@ -686,6 +693,10 @@ class SchematicScene(QGraphicsScene):
                 new = copy.deepcopy(n)
                 new.x, new.y = nx, ny
                 moves.append((n, new))
+        return moves
+
+    def _push_note_moves(self, moves: list) -> None:
+        """Posun připomínek se zapíše jedním příkazem (makrem)."""
         if not moves:
             return
         self.undo.beginMacro("Posunout připomínku" if len(moves) == 1 else "Posunout připomínky")

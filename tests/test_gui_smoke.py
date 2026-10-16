@@ -481,7 +481,7 @@ def test_autosave_recent_and_a4(app, tmp_path, monkeypatch):
     monkeypatch.setenv("ENVOCAD_HOME", str(tmp_path / "home"))
     p = _project()
     w = MainWindow(LibraryStore(), p)
-    w._settings().setValue("files/recent", [])
+    assert w._recent() == []                   # QSettings testu jsou v tmp (conftest) – bez seznamu uživatele
     # autosave jen když je co ukládat
     w.autosave()
     assert not list((tmp_path / "home").glob("autosave/*.ecp"))
@@ -1206,8 +1206,6 @@ def _notes_window(app, tmp_path):
 
 def test_notes_panel_filter_and_goto(app, tmp_path):
     win, p, _s1, s2 = _notes_window(app, tmp_path)
-    settings = win._settings()
-    old = settings.value("view/notes", None)
     try:
         panel = win.notes_panel
         nums = lambda: [panel.tree.topLevelItem(i).text(0) for i in range(panel.tree.topLevelItemCount())]
@@ -1247,7 +1245,6 @@ def test_notes_panel_filter_and_goto(app, tmp_path):
         win.undo.undo()
         assert [n.no for n in p.notes] == [1, 2, 3]
     finally:
-        settings.setValue("view/notes", old if old is not None else False)
         win.undo.setClean()
         win.close()
 
@@ -1264,8 +1261,6 @@ def _note_annots(path) -> list[list]:
 
 def test_notes_export_pdf_from_gui(app, tmp_path):
     win, p, s1, _s2 = _notes_window(app, tmp_path)
-    settings = win.__class__._settings()
-    old = settings.value("export/notes", None)
     try:
         out = tmp_path / "bez.pdf"
         win.act_export_notes.setChecked(False)
@@ -1295,8 +1290,6 @@ def test_notes_export_pdf_from_gui(app, tmp_path):
         export_scene_pdf(win.scene, out2, notes=False)
         assert win.scene.notes_visible and win.scene.note_items
     finally:
-        settings.setValue("export/notes", old if old is not None else False)
-        win.set_notes_visible(False)
         win.undo.setClean()
         win.close()
 
@@ -1323,6 +1316,37 @@ def test_close_revision_asks_about_open_notes(app, tmp_path):
     finally:
         win.undo.setClean()
         win.close()
+
+
+@pytest.mark.parametrize("n, text", [(1, "1 otevřená připomínka – přesto uzavřít?"),
+                                     (3, "3 otevřené připomínky – přesto uzavřít?"),
+                                     (5, "5 otevřených připomínek – přesto uzavřít?")])
+def test_confirm_close_with_notes_czech_plural(app, monkeypatch, n, text):
+    from PySide6.QtWidgets import QMessageBox
+    seen = []
+    monkeypatch.setattr(QMessageBox, "exec", lambda self: seen.append(self.text()) or QMessageBox.No)
+    w = MainWindow(LibraryStore(), Project(name="P"))
+    try:
+        assert not w._confirm_close_with_notes(n) and seen == [text]
+    finally:
+        w.close()
+
+
+@pytest.mark.parametrize("count, suffix", [(1, " (1 připomínka)"), (2, " (2 připomínky)"), (7, " (7 připomínek)"),
+                                           (0, "")])
+def test_export_pdf_status_czech_plural(app, tmp_path, monkeypatch, count, suffix):
+    from PySide6.QtWidgets import QFileDialog
+
+    import envocad.export.pdf_export as pe
+    out = str(tmp_path / "x.pdf")
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *a, **k: (out, ""))
+    monkeypatch.setattr(pe, "export_scene_pdf", lambda *a, **k: count)
+    w = MainWindow(LibraryStore(), Project(name="P"))
+    try:
+        w.export_pdf()
+        assert w.statusBar().currentMessage() == f"Exportováno: {out}{suffix}"
+    finally:
+        w.close()
 
 
 def test_note_dialog_resolve_fills_user(app):

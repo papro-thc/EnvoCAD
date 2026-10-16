@@ -388,20 +388,14 @@ def test_note_items_hidden_by_default_and_shown(app, win):
     p = Project(name="N")
     p.notes.append(Note(p.sheets[0].id, x=50, y=50, text="x"))
     p.notes.append(Note(p.sheets[0].id, x=80, y=50, text="y", status="resolved"))
-    settings = MainWindow._settings()
-    old = settings.value("view/notes", None)
-    settings.setValue("view/notes", False)
-    try:
-        w = win(p)
-        sc = w.scene
-        assert sc.notes_visible is False and not sc.note_items
-        assert not [i for i in sc.items() if isinstance(i, NoteItem)]
-        w.act_notes.setChecked(True)
-        assert len(sc.note_items) == 2 and all(i.scene() is sc for i in sc.note_items.values())
-        w.act_notes.setChecked(False)
-        assert not sc.note_items and not [i for i in sc.items() if isinstance(i, NoteItem)]
-    finally:
-        settings.setValue("view/notes", old if old is not None else False)
+    w = win(p)
+    sc = w.scene
+    assert sc.notes_visible is False and not sc.note_items
+    assert not [i for i in sc.items() if isinstance(i, NoteItem)]
+    w.act_notes.setChecked(True)
+    assert len(sc.note_items) == 2 and all(i.scene() is sc for i in sc.note_items.values())
+    w.act_notes.setChecked(False)
+    assert not sc.note_items and not [i for i in sc.items() if isinstance(i, NoteItem)]
 
 
 def test_note_move_and_delete_via_commands(app, win):
@@ -434,6 +428,49 @@ def test_note_move_and_delete_via_commands(app, win):
     w.undo.undo()
     assert len(p.notes) == 1 and moved.id in sc.note_items
     del it
+
+
+def test_drag_element_with_note_is_one_undo_step(app, win):
+    """Tah s vybraným prvkem i připomínkou = jeden krok zpět, který vrátí obojí."""
+    from envocad.model.project import Note
+    p, a, _b = two_elements()
+    n = Note(p.sheets[0].id, x=a.x + 40, y=a.y + 30, text="x")
+    p.notes.append(n)
+    w = win(p)
+    sc = w.scene
+    sc.set_notes_visible(True)
+    sc.element_items[a.id].setSelected(True)
+    sc.note_items[n.id].setSelected(True)
+    a0, n0x = (a.x, a.y), n.x
+    c0 = w.undo.count()
+    port = w.view.viewport()
+    QTest.mousePress(port, Qt.LeftButton, Qt.ControlModifier, vp(w, a.x, a.y))
+    QTest.mouseMove(port, vp(w, a0[0] + 10, a0[1]))
+    QTest.mouseMove(port, vp(w, a0[0] + 20, a0[1]))
+    QTest.mouseRelease(port, Qt.LeftButton, Qt.ControlModifier, vp(w, a0[0] + 20, a0[1]))
+    assert a.x == pytest.approx(a0[0] + 20, abs=2.6) and p.notes[0].x == pytest.approx(n0x + 20, abs=2.6)
+    assert w.undo.count() == c0 + 1 and w.undo.text(c0) == "Posunout"
+    w.undo.undo()
+    assert (a.x, a.y) == a0 and p.notes[0].x == n0x
+    w.undo.redo()
+    assert a.x != a0[0] and p.notes[0].x != n0x
+
+
+def test_drag_only_element_or_note_keeps_own_step(app, win):
+    """Samotný prvek ani samotná připomínka makro „Posunout“ nedostanou."""
+    from envocad.model.project import Note
+    p, a, _b = two_elements()
+    n = Note(p.sheets[0].id, x=a.x + 40, y=a.y + 30, text="x")
+    p.notes.append(n)
+    w = win(p)
+    sc = w.scene
+    sc.set_notes_visible(True)
+    port = w.view.viewport()
+    c0 = w.undo.count()
+    QTest.mousePress(port, Qt.LeftButton, Qt.NoModifier, vp(w, n.x, n.y))
+    QTest.mouseMove(port, vp(w, n.x + 10, n.y))
+    QTest.mouseRelease(port, Qt.LeftButton, Qt.NoModifier, vp(w, n.x + 20, n.y))
+    assert w.undo.count() == c0 + 1 and w.undo.text(c0) == "Posunout připomínku"
 
 
 def test_note_context_menu_status(app, win):

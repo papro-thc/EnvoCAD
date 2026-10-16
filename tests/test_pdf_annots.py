@@ -35,16 +35,19 @@ def test_pagemap_flips_y():
     assert pm2.to_page_mm(20, 40) == (15.0, 37.0)
 
 
-def test_pagemap_fit_centers_like_keep_aspect():
-    # list 480×297 na A3 (420×297): zmenšit podle šířky, vystředit svisle
-    pm = PageMap.fit(480, 297, 420, 297)
-    assert pm.scale == pytest.approx(420 / 480) and pm.tx == 0
-    assert pm.ty == pytest.approx((297 - 297 * 420 / 480) / 2)
-    # A3 na A4 na šířku: poměr stran se liší → omezí výška, vystředit vodorovně
-    pm = PageMap.fit(420, 297, 297, 210)
-    assert pm.scale == pytest.approx(210 / 297) and pm.ty == 0
-    assert pm.tx == pytest.approx((297 - 420 * 210 / 297) / 2)
-    assert PageMap.fit(480, 297, 420, 297, center=False).ty == 0
+def test_pagemap_fit_top_left_like_scene_render():
+    # QGraphicsScene.render(KeepAspectRatio) nevystředí: list u levého horního rohu strany (ověřeno
+    # rasterizací v test_export_content.py::test_scene_pdf_note_annotations_match_render)
+    pm = PageMap.fit(480, 297, 420, 297)          # list 480×297 na A3: zmenšit podle šířky, dole volno
+    assert pm.scale == pytest.approx(420 / 480) and pm.tx == 0 and pm.ty == 0
+    assert pm.to_page_mm(0, 297) == pytest.approx((0, 0))                  # levý horní roh listu = roh strany
+    assert pm.to_page_mm(480, 0) == pytest.approx((420, 297 * 420 / 480))  # pravý dolní nad spodkem strany
+    pm = PageMap.fit(420, 297, 297, 210)          # A3 na A4: omezí výška, vpravo volno
+    assert pm.scale == pytest.approx(210 / 297) and pm.tx == 0 and pm.ty == 0
+    # vystředění jen na vyžádání (cíl renderu by musel být vystředěný)
+    pm = PageMap.fit(480, 297, 420, 297, center=True)
+    assert pm.tx == 0 and pm.ty == pytest.approx((297 - 297 * 420 / 480) / 2)
+    assert PageMap.fit(420, 297, 297, 210, center=True).tx == pytest.approx((297 - 420 * 210 / 297) / 2)
 
 
 def test_note_rect_pt():

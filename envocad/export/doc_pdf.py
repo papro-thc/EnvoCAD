@@ -8,7 +8,7 @@ from PySide6.QtCore import QMarginsF, QRectF, QSizeF, Qt
 from PySide6.QtGui import QPageLayout, QPageSize, QPainter, QPdfWriter, QPen, QUndoStack
 
 from envocad.export import reports
-from envocad.export.pdf_export import _set_notes_visible
+from envocad.export.pdf_export import set_scene_notes_visible
 from envocad.model.frame import frame_geometry
 from envocad.model.project import Project, Sheet
 from envocad.ui import theme
@@ -115,7 +115,7 @@ class DocBuilder:
             cls = {"schematic": SchematicScene, "multipole": MultipoleScene, "terminals": TerminalPlanScene}[kind]
             scene = cls(self.project, sheet, self.library, undo)
             scene.draw_grid = False
-            _set_notes_visible(scene, False)
+            set_scene_notes_visible(scene, False)
             self._scenes[key] = (scene, undo)
         return self._scenes[key][0]
 

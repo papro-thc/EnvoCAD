@@ -505,7 +505,8 @@ class ReplaceRevisionsCommand(QUndoCommand):
 class ReplaceNoteCommand(QUndoCommand):
     """Přidání (`old=None`), úprava (obě) nebo smazání (`new=None`) připomínky v `project.notes` jedním příkazem.
     Drží hluboké kopie, takže pozdější změny předaných objektů příkaz neovlivní. Undo smazání vrátí připomínku na
-    původní index, číslo nové připomínky se přidělí při prvním redo a pak se zachovává. `on_change` překreslí GUI."""
+    původní index, číslo nové připomínky se přidělí při prvním redo a pak se zachovává; undo vrátí i čítač čísel
+    `meta["note_seq"]`. `on_change` překreslí GUI."""
 
     def __init__(self, project, old, new, text: str = "Připomínka", on_change=None, index: int | None = None):
         super().__init__(text)
@@ -525,7 +526,8 @@ class ReplaceNoteCommand(QUndoCommand):
     def redo(self):
         import copy
 
-        from envocad.model.notes import put_note, remove_note
+        from envocad.model.notes import NOTE_SEQ_KEY, put_note, remove_note
+        self._seq_before = self.project.meta.get(NOTE_SEQ_KEY)   # čítač čísel připomínek; undo ho vrátí
         if self.new is None:
             remove_note(self.project, self.old.id)
         else:
@@ -537,9 +539,13 @@ class ReplaceNoteCommand(QUndoCommand):
     def undo(self):
         import copy
 
-        from envocad.model.notes import put_note, remove_note
+        from envocad.model.notes import NOTE_SEQ_KEY, put_note, remove_note
         if self.old is None:
             remove_note(self.project, self.new.id)
         else:
             put_note(self.project, copy.deepcopy(self.old), self.index)
+        if self._seq_before is None:
+            self.project.meta.pop(NOTE_SEQ_KEY, None)
+        else:
+            self.project.meta[NOTE_SEQ_KEY] = self._seq_before
         self._changed()

@@ -256,6 +256,73 @@ def test_documentation_pdf_note_annotations(proj, lib, tmp_path, qapp):
     assert b.page_starts[idx] - 1 > idx               # posunuto o druhou stranu vícepólu
 
 
+def _red_bbox_pt(path, page: int = 0, px_per_pt: float = 2.0) -> tuple[float, float, float, float]:
+    """Rasterizuje stranu PDF (QtPdf / PDFium) a vrátí obálku čistě červených pixelů v bodech PDF
+    (x0, y0, x1, y1; počátek vlevo dole jako /Rect)."""
+    from PySide6.QtCore import QSize
+    from PySide6.QtGui import QImage
+    from PySide6.QtPdf import QPdfDocument
+    doc = QPdfDocument()
+    assert doc.load(str(path)) == QPdfDocument.Error.None_
+    size_pt = doc.pagePointSize(page)
+    img = doc.render(page, QSize(round(size_pt.width() * px_per_pt), round(size_pt.height() * px_per_pt)))
+    img = img.convertToFormat(QImage.Format_RGB32)
+    w, h, bpl = img.width(), img.height(), img.bytesPerLine()
+    data = bytes(img.constBits())
+    red = b"\x00\x00\xff\xff"                         # 0xFFFF0000 v RGB32 (little-endian BGRA)
+    xs, ys = [], []
+    for row in range(h):
+        line = data[row * bpl:row * bpl + w * 4]
+        i = line.find(red)
+        while i >= 0 and i % 4:
+            i = line.find(red, i + 1)
+        if i < 0:
+            continue
+        j = line.rfind(red)
+        while j >= 0 and j % 4:
+            j = line.rfind(red, 0, j + 3)
+        xs += [i // 4, j // 4 + 1]
+        ys.append(row)
+    assert xs, "na straně není žádná červená značka"
+    k = px_per_pt
+    page_h = h / k
+    return min(xs) / k, page_h - (max(ys) + 1) / k, max(xs) / k, page_h - min(ys) / k
+
+
+@pytest.mark.parametrize("paper", [None, "A3", "A4"])
+def test_scene_pdf_note_annotations_match_render(proj, lib, tmp_path, qapp, paper):
+    """/Rect anotace musí ležet na skutečně vykresleném místě listu: do scény se přidají plné červené obdélníky
+    na místa obdélníkových připomínek (u levého dolního a pravého horního rohu listu), PDF se rasterizuje
+    a obálka červených pixelů se porovná s /Rect. Odhalí vystředění vs. kreslení od rohu i chybné měřítko."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QBrush, QColor, QUndoStack
+    from PySide6.QtWidgets import QGraphicsRectItem
+
+    from envocad.export.pdf_export import export_scene_pdf
+    from envocad.model.project import Note
+    from envocad.ui.canvas import SchematicScene
+    jps = proj.sheets[0]
+    boxes = [(20.0, 15.0, 30.0, 12.0), (jps.width - 60.0, jps.height - 40.0, 30.0, 12.0)]
+    proj.notes = [Note(jps.id, x, y, f"značka {i}", no=i + 1, w=w, h=h) for i, (x, y, w, h) in enumerate(boxes)]
+    sc = SchematicScene(proj, jps, lib, QUndoStack())
+    marks = []
+    for x, y, w, h in boxes:
+        it = QGraphicsRectItem(x, -(y + h), w, h)      # model Y nahoru → scéna Y dolů
+        it.setBrush(QBrush(QColor(255, 0, 0)))
+        it.setPen(Qt.NoPen)
+        it.setZValue(1e6)
+        sc.addItem(it)
+        marks.append(it)
+    for i in range(len(boxes)):
+        out = tmp_path / f"{paper}_{i}.pdf"
+        for j, it in enumerate(marks):        # jedna značka na průchod → obálka červené = jedna anotace
+            it.setVisible(i == j)
+        assert export_scene_pdf(sc, out, paper=paper, notes=True) == 2
+        rect = next(a for a in _pdf_annots(out)[0] if str(a.get("/NM", "")) == f"envocad:{proj.notes[i].id}")
+        got = [float(v) for v in rect["/Rect"]]
+        assert got == pytest.approx(list(_red_bbox_pt(out)), abs=1.5), (paper, i)
+
+
 def test_scene_pdf_note_annotations(proj, lib, tmp_path, qapp):
     import pypdf
     from PySide6.QtGui import QUndoStack
@@ -280,14 +347,7 @@ def test_scene_pdf_note_annotations(proj, lib, tmp_path, qapp):
     assert [float(v) for v in sq["/Rect"]] == pytest.approx(
         [50 * MM_TO_PT, 40 * MM_TO_PT, 70 * MM_TO_PT, 50 * MM_TO_PT], abs=0.5)
     assert "Obdélníková" not in pypdf.PdfReader(out).pages[0].extract_text()
-    # A4: list 480×297 zmenšený na 297×210 se zachováním poměru a vystředěný (KeepAspectRatio)
-    out = tmp_path / "a4.pdf"
-    export_scene_pdf(sc, out, paper="A4", notes=True)
-    sq = _pdf_annots(out)[0][0]
-    s = min(297 / jps.width, 210 / jps.height)
-    ty = (210 - jps.height * s) / 2
-    assert float(sq["/Rect"][0]) == pytest.approx(50 * s * MM_TO_PT, abs=0.5)
-    assert float(sq["/Rect"][1]) == pytest.approx((ty + 40 * s) * MM_TO_PT, abs=0.5)
+    # A4/A3: poloha anotací vůči skutečnému vykreslení listu viz test_scene_pdf_note_annotations_match_render
     # vícepól připomínky nemá
     sb = proj.switchboards()[0]
     proj.notes.append(Note(sb.id, 50.0, 50.0, "x", no=2))

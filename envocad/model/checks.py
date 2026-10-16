@@ -20,6 +20,7 @@ from envocad.model.designation import (
     validate_code,
     validate_ref,
 )
+from envocad.model.notes import OPEN_NOTE_WORDS, count_label
 from envocad.model.project import (
     FEED_SYMBOLS,
     INTERRUPT_SYMBOL,
@@ -186,8 +187,7 @@ def note_findings(project: Project) -> list[Finding]:
     for s in project.sheets:
         n = sum(1 for x in project.notes if x.sheet_id == s.id and x.status == "open")
         if n:
-            word = "otevřená připomínka" if n == 1 else ("otevřené připomínky" if n < 5 else "otevřených připomínek")
-            out.append(Finding(INFO, s.id, s.name, "", False, "", f"{n} {word}", "note_open"))
+            out.append(Finding(INFO, s.id, s.name, "", False, "", count_label(n, OPEN_NOTE_WORDS), "note_open"))
     sheet_ids = {s.id for s in project.sheets}
     for x in project.notes:
         if x.sheet_id not in sheet_ids:

@@ -70,7 +70,8 @@ class PageMap:
 def note_rect_pt(n, pm, page_h_pt) -> tuple[float, float, float, float]
 def add_note_annotations(path, pages: list[tuple[int, PageMap, list[Note]]], project_name="") -> int
 ```
-- `pdf_export.py`: `s = min(out_w/pw, out_h/ph)`, vystředění; `doc_pdf.py`: `tx = ty = 0`. Výška strany z MediaBoxu.
+- `pdf_export.py`: `s = min(out_w/pw, out_h/ph)`, `tx = ty = 0` (`QGraphicsScene.render(KeepAspectRatio)` kreslí od
+  levého horního rohu cíle, nevystředí); `doc_pdf.py`: totéž. Výška strany z MediaBoxu.
 - Bod → `/Text` (Comment), obdélník → `/Square`; `/Contents`, `/T` autor, `/M`, `/Subj` „Připomínka č. N“, `/C`,
   `/F 4`, `/NM envocad:<id>`, `/Popup`; vyřešená + odpověď `/IRT` se `/StateModel /Review /State /Completed`.
 - `DocBuilder`: `self._pdf_page` zvyšovat u každého `newPage()` (oprava počítání stran); připomínky jen u schémat JPS.

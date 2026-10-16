@@ -32,9 +32,11 @@ class PageMap:
         return self.tx + x * self.scale, self.ty + (self.sheet_h - y) * self.scale
 
     @classmethod
-    def fit(cls, src_w: float, src_h: float, page_w: float, page_h: float, center: bool = True) -> PageMap:
-        """Jako `QGraphicsScene.render(..., Qt.KeepAspectRatio)`: list `src_w × src_h` zvětšený do strany
-        `page_w × page_h` (mm) se zachováním poměru, vystředěný (`center=False` = u levého horního rohu)."""
+    def fit(cls, src_w: float, src_h: float, page_w: float, page_h: float, center: bool = False) -> PageMap:
+        """Jako `QGraphicsScene.render(painter, strana, list, Qt.KeepAspectRatio)`: list `src_w × src_h` zvětšený
+        do strany `page_w × page_h` (mm) se zachováním poměru, **u levého horního rohu** – `QGraphicsScene.render`
+        na rozdíl od `QGraphicsView.render` nevystředí, zbytek strany zůstane vpravo/dole prázdný.
+        `center=True` = vystředěný (jen pokud se list kreslí do vystředěného cíle)."""
         s = min(page_w / src_w, page_h / src_h)
         tx = (page_w - src_w * s) / 2 if center else 0.0
         ty = (page_h - src_h * s) / 2 if center else 0.0

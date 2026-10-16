@@ -88,6 +88,9 @@ Pořadí = priorita. Body 1, 2 a 5 jsou nejlevnější start.
 - [ ] Databáze FV modulů a střídačů pro výběr v průvodci (jako SurgePV/PVcase)
 - Nedělat: předprojekt / P&ID (Preplanning), cloud (eVIEW/eManage) – stačí JPS, průvodce a sdílená knihovna
 
+## Chyby k řešení
+- [ ] Generovaný projekt se 4 a více střídači: JPS (~490×850 mm) přetéká list a v PDF se ořízne – rozdělit na více listů nebo zvětšit formát (zjištěno při review 10/2026, i v main)
+
 ## Odloženo (analýza 10/2026 – nebrzdí práci)
 - Příkazový řádek (styl ZWCAD/CADCraft) – až bude potřeba ovládat program z agentů
 - BMEcat/ETIM importér – až budou soubory od výrobců
