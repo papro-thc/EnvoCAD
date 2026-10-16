@@ -1,6 +1,9 @@
 {
+ "version": 2,
  "name": "String → střídač",
  "description": "FV string s kabelem H1Z2Z2-K na DC vstup střídače (JPS)",
+ "role": "",
+ "variables": [],
  "fragment": {
   "elements": [
    {

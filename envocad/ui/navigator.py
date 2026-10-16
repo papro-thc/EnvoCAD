@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from envocad.model.checks import ERROR, WARNING, Finding, summary
+from envocad.ui.dialogs import button_box
 
 
 class NavigatorPanel(QWidget):
@@ -112,7 +113,7 @@ class ChecksDialog(QDialog):
             self.tree.resizeColumnToContents(i)
         self.tree.itemDoubleClicked.connect(lambda it, _c: self.goto.emit(*it.data(0, Qt.UserRole)))
         lay.addWidget(self.tree)
-        bb = QDialogButtonBox(QDialogButtonBox.Close)
+        bb = button_box(QDialogButtonBox.Close)
         bb.rejected.connect(self.reject)
         bb.accepted.connect(self.accept)
         lay.addWidget(bb)
@@ -153,7 +154,7 @@ class DiffDialog(QDialog):
         self.author = QLineEdit(project.meta.get("author", ""))
         row.addWidget(self.author)
         lay.addLayout(row)
-        bb = QDialogButtonBox(QDialogButtonBox.Close)
+        bb = button_box(QDialogButtonBox.Close)
         self.btn_write = QPushButton("Zapsat do změnového listu")
         bb.addButton(self.btn_write, QDialogButtonBox.ActionRole)
         self.btn_write.clicked.connect(self.accept)

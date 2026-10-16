@@ -87,7 +87,8 @@ tažením rámečku v prázdné ploše. Kolečko zoomuje, střední tlačítko p
 Vyber prvky (vodiče mezi nimi se přiberou) a `Úpravy → Uložit výběr jako makro…` (`Ctrl+Shift+S`): makro se
 uloží do `~/.envocad/macros/` nebo – když je nastavená sdílená knihovna – na dotaz do `<sdílená>/macros/`
 pro všechny. V panelu Knihovna je dole uzel **Makra**; dvojklik vloží sestavu doprostřed pohledu s novými
-označeními. `Úpravy → Smazat makro…` maže vlastní a sdílená.
+označeními (makro bez proměnných se vloží jako kopie výřezu: čísla svorek se vymažou a doplní automatické
+číslování, přívody/vývody dostanou další volné X). `Úpravy → Smazat makro…` maže vlastní a sdílená.
 
 **Generátor skládá rozvaděče z maker** – výkres ladí projektant, program ho jen opakuje. Specifikace (`macros`)
 říká, které makro se použije: `dc_tech` (string v DC rozvaděči u technologie), `dc_route` (po trase),
@@ -103,6 +104,33 @@ Parametrické makro používá v atributech, označeních a názvech portů **pr
 jen jednou a další instance se na něj napojí; do portu sběrnice se dá psát `T{k}`. Rozteč instancí určuje
 klíč `pitch` v JSON makra (jinak šířka + 10 mm). Nejjednodušší cesta: otevři vestavěné makro
 (`envocad/library/builtin/macros/*.json`), uprav podle sebe a ulož pod stejným názvem do vlastní složky.
+
+### Makra s proměnnými: dialog, sady hodnot, opakování
+Makro, které deklaruje proměnné nebo opakování, se při vložení (dvojklik v panelu Knihovna) nejdřív zeptá na
+hodnoty v dialogu **Makro – název**. Makro bez proměnných se vloží hned jako dřív.
+
+- **Sada hodnot** – nahoře rozbalovací seznam předvoleb (např. „Pojistka 20 A gPV, SPD T1+T2“). Vybraná sada
+  vyplní pole; „— vlastní —“ nechá ruční hodnoty. Hodnoty zadané ručně po výběru sady sadu přebíjejí.
+- **Pole** podle typu: text, číslo (jednotka je v popisku, čárka i tečka se berou), nabídka a **artikl**.
+  Povinná pole jsou označená hvězdičkou a tučně; nápověda je v tooltipu. Při **OK** se hodnoty zkontrolují
+  (povinné, číslo, rozsah min/max, nabídka) a chyby se vypíšou v dialogu – dialog se nezavře.
+- **Vazba na artikl** – pole typu artikl otevře výběr artiklů dané kategorie. Po výběru se přepočítají pole,
+  která si berou hodnotu z parametrů artiklu (např. In pojistky z artiklu), a prvek, který artikl odkazuje,
+  dostane jeho parametry.
+- **Další (číslování)** – sbalená skupina s proměnnými, které jinak dodává generátor nebo opakování
+  (čísla střídače a stringu, označení). Obvykle se nechávají být; pošlou se jen pole, která změníš. U makra
+  s opakováním jsou pole pořadí `k` a vývodu `nk` zakázaná – „doplní se automaticky“ v každé instanci.
+- **Opakování** – makro s klíčem `repeat` se vloží N× (počet je jedna z proměnných, např. „Počet stringů“),
+  instance jsou posunuté o rozteč a očíslované `{k}` = 1…N (FU1.1, FU1.2…, popisy G1, G2…). Sdílené prvky
+  (sběrnice, XPE) se vloží jen jednou, i kdyby už na listu byly – vodiče se napojí na existující. Počet musí být
+  celé číslo do maxima proměnné (vestavěné DC makro 50, nejvíc 100); prázdný nebo desetinný dialog nepustí.
+  Počet 0 nevloží nic (stavový řádek: „Makro nevložilo žádné prvky (počet 0)“).
+- **Typ svodiče** (`spd`) je text – doporučené T1, T2, T1+T2, prázdné = bez svodiče; projde i T1+T2+T3.
+- **Podmínky `when`** – prvek nebo vodič s atributem `when` se vloží jen při splnění podmínky: `spd` (hodnota
+  není prázdná, 0, ne, no, false, off), `!spd`, `spd=T2`, `spd!=T2`. Vestavěné DC makro tak vynechá svodič
+  (i jeho vodiče), když zvolíš „bez SPD“. Atribut `when` se do vložených prvků nepřenáší.
+- **Zpět** – celé vložení (všechna opakování) je jeden krok `Ctrl+Z`; zpět smaže jen nové prvky a vodiče,
+  už existující sdílené prvky zůstanou.
 
 ### Přerušovací body
 Prvek **Přerušovací bod** (Svorky a propojení) přenese potenciál jinam – dva body se stejným označením se
@@ -323,6 +351,10 @@ jen SolarEdge a kreslí se jako jeden string). Blok DC rozvaděče v JPS má por
 AC rozvaděč má přívody po střídačích, jističe, rozvodné svorky s můstky, SPD, hlavní vypínač a vývod do HDS.
 Označení jsou jedinečná uvnitř každého rozvaděče (jako v EPLAN `+RDC1-X1`), takže X1 smí být v každém
 rozvaděči; listy JPS sdílejí jeden prostor označení.
+
+Jištění ve specifikaci i v průvodci se zadává **číslem v ampérech**: `dc.fuse_in`, `dc.disconnect_in`,
+`ac.breaker_in` (např. `40`, ne „C40“ ani „B40“ – charakteristiku nese prvek jističe) a `ac.main_in`; „40,0“
+i `40.0` se berou jako 40. Typ svodiče `dc.spd` / `ac.spd` je text (T1, T2, T1+T2, i T1+T2+T3).
 
 Totéž umí příkaz `python -m envocad.generate spec.json vystup.ecp` – specifikace je JSON popsaný
 v `envocad/generate.py`. To je cesta pro AI agenty: z poptávky a datasheetů připraví specifikaci, program

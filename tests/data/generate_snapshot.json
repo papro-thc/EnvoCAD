@@ -1,0 +1,10662 @@
+{
+ "default_1inv": {
+  "format": "envocad-project",
+  "format_version": 8,
+  "name": "Nový projekt FVE",
+  "meta": {
+   "p_installed_kwp": "26.1"
+  },
+  "sheets": [
+   {
+    "id": "#1",
+    "name": "Jednopólové schéma",
+    "paper": "vlastní",
+    "width": 485.0,
+    "height": 297.0,
+    "kind": "schematic",
+    "parent_element_id": null,
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {},
+     "placements": []
+    },
+    "elements": [
+     {
+      "id": "#2",
+      "symbol_id": "fve.switchboard",
+      "x": 385.0,
+      "y": 150.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "RH",
+       "desc": "AC rozvaděč FVE",
+       "sheet": "RH – AC rozvaděč FVE"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#3",
+      "symbol_id": "fve.inverter",
+      "x": 275.0,
+      "y": 150.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "T1",
+       "type": "",
+       "p_ac": "25",
+       "phases": "3",
+       "mppt": "2",
+       "strings_per_mppt": "2",
+       "u_dc_max": "1100",
+       "u_mppt_min": "200",
+       "u_mppt_max": "1000",
+       "i_mppt_max": "30",
+       "p_dc_max": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#4",
+      "symbol_id": "fve.pv_string",
+      "x": 35.0,
+      "y": 190.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "G1",
+       "type": "",
+       "n_modules": "20",
+       "p_module": "450",
+       "p_string": "9 kWp",
+       "voc": "49.5",
+       "vmp": "41.5",
+       "isc": "13.9",
+       "beta_voc": "-0.27",
+       "n_optimizers": "",
+       "optimizer": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#5",
+      "symbol_id": "fve.pv_string",
+      "x": 35.0,
+      "y": 145.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "G2",
+       "type": "",
+       "n_modules": "20",
+       "p_module": "450",
+       "p_string": "9 kWp",
+       "voc": "49.5",
+       "vmp": "41.5",
+       "isc": "13.9",
+       "beta_voc": "-0.27",
+       "n_optimizers": "",
+       "optimizer": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#6",
+      "symbol_id": "fve.pv_string",
+      "x": 35.0,
+      "y": 100.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "G3",
+       "type": "",
+       "n_modules": "18",
+       "p_module": "450",
+       "p_string": "8.1 kWp",
+       "voc": "49.5",
+       "vmp": "41.5",
+       "isc": "13.9",
+       "beta_voc": "-0.27",
+       "n_optimizers": "",
+       "optimizer": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#7",
+      "symbol_id": "fve.switchboard",
+      "x": 110.0,
+      "y": 150.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "RDC1",
+       "desc": "DC rozvaděč po trase T1",
+       "sheet": "RDC1 – DC rozvaděč po trase T1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#8",
+      "symbol_id": "fve.switchboard",
+      "x": 195.0,
+      "y": 150.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "RDC2",
+       "desc": "DC rozvaděč u T1",
+       "sheet": "RDC2 – DC rozvaděč u T1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#9",
+      "symbol_id": "fve.grid",
+      "x": 460.0,
+      "y": 150.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "",
+       "voltage": "3×400 V",
+       "dso": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#10",
+      "symbol_id": "fve.earth",
+      "x": 420.0,
+      "y": 110.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "",
+       "desc": "ekvipotenciální svorkovnice (HOP)"
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#11",
+      "a": {
+       "element_id": "#4",
+       "port": "DC"
+      },
+      "b": {
+       "element_id": "#7",
+       "port": "X1"
+      },
+      "points": [
+       [
+        90.0,
+        190.0
+       ],
+       [
+        90.0,
+        170.0
+       ]
+      ],
+      "attrs": {
+       "ref": "W1",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "30",
+       "method": "E",
+       "cable_id": "#12"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#13",
+      "a": {
+       "element_id": "#7",
+       "port": "X4"
+      },
+      "b": {
+       "element_id": "#8",
+       "port": "X1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W2",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "20",
+       "method": "E",
+       "cable_id": "#14"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#15",
+      "a": {
+       "element_id": "#8",
+       "port": "X4"
+      },
+      "b": {
+       "element_id": "#3",
+       "port": "DC1"
+      },
+      "points": [
+       [
+        255.0,
+        170.0
+       ],
+       [
+        255.0,
+        157.5
+       ]
+      ],
+      "attrs": {
+       "ref": "W3",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "5",
+       "method": "E",
+       "cable_id": "#16"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#17",
+      "a": {
+       "element_id": "#5",
+       "port": "DC"
+      },
+      "b": {
+       "element_id": "#7",
+       "port": "X2"
+      },
+      "points": [
+       [
+        80.0,
+        145.0
+       ],
+       [
+        80.0,
+        160.0
+       ]
+      ],
+      "attrs": {
+       "ref": "W4",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "30",
+       "method": "E",
+       "cable_id": "#18"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#19",
+      "a": {
+       "element_id": "#7",
+       "port": "X5"
+      },
+      "b": {
+       "element_id": "#8",
+       "port": "X2"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W5",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "20",
+       "method": "E",
+       "cable_id": "#20"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#21",
+      "a": {
+       "element_id": "#8",
+       "port": "X5"
+      },
+      "b": {
+       "element_id": "#3",
+       "port": "DC2"
+      },
+      "points": [
+       [
+        250.0,
+        160.0
+       ],
+       [
+        250.0,
+        152.5
+       ]
+      ],
+      "attrs": {
+       "ref": "W6",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "5",
+       "method": "E",
+       "cable_id": "#22"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#23",
+      "a": {
+       "element_id": "#6",
+       "port": "DC"
+      },
+      "b": {
+       "element_id": "#7",
+       "port": "X3"
+      },
+      "points": [
+       [
+        85.0,
+        100.0
+       ],
+       [
+        85.0,
+        150.0
+       ]
+      ],
+      "attrs": {
+       "ref": "W7",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "30",
+       "method": "E",
+       "cable_id": "#24"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#25",
+      "a": {
+       "element_id": "#7",
+       "port": "X6"
+      },
+      "b": {
+       "element_id": "#8",
+       "port": "X3"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W8",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "20",
+       "method": "E",
+       "cable_id": "#26"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#27",
+      "a": {
+       "element_id": "#8",
+       "port": "X6"
+      },
+      "b": {
+       "element_id": "#3",
+       "port": "DC3"
+      },
+      "points": [
+       [
+        245.0,
+        150.0
+       ],
+       [
+        245.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": "W9",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "5",
+       "method": "E",
+       "cable_id": "#28"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#29",
+      "a": {
+       "element_id": "#3",
+       "port": "AC"
+      },
+      "b": {
+       "element_id": "#2",
+       "port": "X1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W10",
+       "cable": "CYKY-J 5x16",
+       "cross": "16",
+       "length": "30",
+       "method": "B1",
+       "cable_id": "#30"
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#31",
+      "a": {
+       "element_id": "#2",
+       "port": "XOUT"
+      },
+      "b": {
+       "element_id": "#9",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W11",
+       "cable": "CYKY-J 5x35",
+       "cross": "35",
+       "length": "20",
+       "method": "D",
+       "cable_id": "#32"
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#33",
+      "a": {
+       "element_id": "#2",
+       "port": "XPE"
+      },
+      "b": {
+       "element_id": "#10",
+       "port": "PE"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W12",
+       "cable": "CYA 16",
+       "cross": "16",
+       "length": "5",
+       "cable_id": "#34"
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {},
+    "func": "",
+    "loc": ""
+   },
+   {
+    "id": "#35",
+    "name": "RDC1 – DC rozvaděč po trase T1",
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
+    "kind": "switchboard",
+    "parent_element_id": "#7",
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {
+      "network": "DC IT",
+      "un": "max. 1000 V DC"
+     },
+     "placements": [
+      {
+       "element_id": "#36",
+       "row": 0,
+       "pos": 0.0
+      },
+      {
+       "element_id": "#37",
+       "row": 0,
+       "pos": 2.0
+      },
+      {
+       "element_id": "#38",
+       "row": 0,
+       "pos": 5.0
+      },
+      {
+       "element_id": "#39",
+       "row": 0,
+       "pos": 7.0
+      },
+      {
+       "element_id": "#40",
+       "row": 0,
+       "pos": 10.0
+      },
+      {
+       "element_id": "#41",
+       "row": 0,
+       "pos": 12.0
+      }
+     ]
+    },
+    "elements": [
+     {
+      "id": "#42",
+      "symbol_id": "sb.feed_in",
+      "x": 60.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X1",
+       "desc": "od G1",
+       "wire_id": "#11",
+       "from": "W1 G1:DC /1.A3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#36",
+      "symbol_id": "fve.dc_disconnect",
+      "x": 60.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "QS1.1",
+       "in_": "32",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#43",
+      "symbol_id": "sb.feed_out",
+      "x": 60.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X4",
+       "desc": "G1 dál",
+       "wire_id": "#13",
+       "to": "W2 RDC2:X1 /1.D3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#37",
+      "symbol_id": "fve.spd",
+      "x": 72.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.1",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#44",
+      "symbol_id": "sb.feed_out",
+      "x": 40.0,
+      "y": 130.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "XPE",
+       "desc": "k HOP",
+       "shared": "1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#45",
+      "symbol_id": "sb.feed_in",
+      "x": 100.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X2",
+       "desc": "od G2",
+       "wire_id": "#17",
+       "from": "W4 G2:DC /1.A4",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#38",
+      "symbol_id": "fve.dc_disconnect",
+      "x": 100.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "QS1.2",
+       "in_": "32",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#46",
+      "symbol_id": "sb.feed_out",
+      "x": 100.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X5",
+       "desc": "G2 dál",
+       "wire_id": "#19",
+       "to": "W5 RDC2:X2 /1.D3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#39",
+      "symbol_id": "fve.spd",
+      "x": 112.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.2",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#47",
+      "symbol_id": "sb.feed_in",
+      "x": 140.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X3",
+       "desc": "od G3",
+       "wire_id": "#23",
+       "from": "W7 G3:DC /1.A5",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#40",
+      "symbol_id": "fve.dc_disconnect",
+      "x": 140.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "QS1.3",
+       "in_": "32",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#48",
+      "symbol_id": "sb.feed_out",
+      "x": 140.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X6",
+       "desc": "G3 dál",
+       "wire_id": "#25",
+       "to": "W8 RDC2:X3 /1.D3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#41",
+      "symbol_id": "fve.spd",
+      "x": 152.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.3",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G3"
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#49",
+      "a": {
+       "element_id": "#42",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#36",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#50",
+      "a": {
+       "element_id": "#36",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#43",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#51",
+      "a": {
+       "element_id": "#36",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#37",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#52",
+      "a": {
+       "element_id": "#37",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#44",
+       "port": "1"
+      },
+      "points": [
+       [
+        95.0,
+        170.0
+       ],
+       [
+        95.0,
+        147.5
+       ],
+       [
+        40.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#53",
+      "a": {
+       "element_id": "#45",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#38",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#54",
+      "a": {
+       "element_id": "#38",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#46",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#55",
+      "a": {
+       "element_id": "#38",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#39",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#56",
+      "a": {
+       "element_id": "#39",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#44",
+       "port": "1"
+      },
+      "points": [
+       [
+        135.0,
+        170.0
+       ],
+       [
+        135.0,
+        147.5
+       ],
+       [
+        80.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#57",
+      "a": {
+       "element_id": "#47",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#40",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#58",
+      "a": {
+       "element_id": "#40",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#48",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#59",
+      "a": {
+       "element_id": "#40",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#41",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#60",
+      "a": {
+       "element_id": "#41",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#44",
+       "port": "1"
+      },
+      "points": [
+       [
+        175.0,
+        170.0
+       ],
+       [
+        175.0,
+        147.5
+       ],
+       [
+        120.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {},
+    "func": "",
+    "loc": "RDC1"
+   },
+   {
+    "id": "#61",
+    "name": "RDC2 – DC rozvaděč u T1",
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
+    "kind": "switchboard",
+    "parent_element_id": "#8",
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {
+      "network": "DC IT",
+      "un": "max. 1000 V DC"
+     },
+     "placements": [
+      {
+       "element_id": "#62",
+       "row": 0,
+       "pos": 0.0
+      },
+      {
+       "element_id": "#63",
+       "row": 0,
+       "pos": 2.0
+      },
+      {
+       "element_id": "#64",
+       "row": 0,
+       "pos": 5.0
+      },
+      {
+       "element_id": "#65",
+       "row": 0,
+       "pos": 7.0
+      },
+      {
+       "element_id": "#66",
+       "row": 0,
+       "pos": 10.0
+      },
+      {
+       "element_id": "#67",
+       "row": 0,
+       "pos": 12.0
+      }
+     ]
+    },
+    "elements": [
+     {
+      "id": "#68",
+      "symbol_id": "sb.feed_in",
+      "x": 60.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X1",
+       "desc": "od G1",
+       "wire_id": "#13",
+       "from": "W2 RDC1:X4 /1.B3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#62",
+      "symbol_id": "fve.fuse_disconnect",
+      "x": 60.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "FU1.1",
+       "in_": "15",
+       "char": "gPV",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#69",
+      "symbol_id": "sb.feed_out",
+      "x": 60.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X4",
+       "desc": "G1 dál",
+       "wire_id": "#15",
+       "to": "W3 T1:DC1 /1.E3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#63",
+      "symbol_id": "fve.spd",
+      "x": 72.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.1",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#70",
+      "symbol_id": "sb.feed_out",
+      "x": 40.0,
+      "y": 130.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "XPE",
+       "desc": "k HOP",
+       "shared": "1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#71",
+      "symbol_id": "sb.feed_in",
+      "x": 100.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X2",
+       "desc": "od G2",
+       "wire_id": "#19",
+       "from": "W5 RDC1:X5 /1.B3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#64",
+      "symbol_id": "fve.fuse_disconnect",
+      "x": 100.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "FU1.2",
+       "in_": "15",
+       "char": "gPV",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#72",
+      "symbol_id": "sb.feed_out",
+      "x": 100.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X5",
+       "desc": "G2 dál",
+       "wire_id": "#21",
+       "to": "W6 T1:DC2 /1.E3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#65",
+      "symbol_id": "fve.spd",
+      "x": 112.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.2",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#73",
+      "symbol_id": "sb.feed_in",
+      "x": 140.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X3",
+       "desc": "od G3",
+       "wire_id": "#25",
+       "from": "W8 RDC1:X6 /1.B3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#66",
+      "symbol_id": "fve.fuse_disconnect",
+      "x": 140.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "FU1.3",
+       "in_": "15",
+       "char": "gPV",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#74",
+      "symbol_id": "sb.feed_out",
+      "x": 140.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X6",
+       "desc": "G3 dál",
+       "wire_id": "#27",
+       "to": "W9 T1:DC3 /1.E3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#67",
+      "symbol_id": "fve.spd",
+      "x": 152.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.3",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G3"
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#75",
+      "a": {
+       "element_id": "#68",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#62",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#76",
+      "a": {
+       "element_id": "#62",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#69",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#77",
+      "a": {
+       "element_id": "#62",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#63",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#78",
+      "a": {
+       "element_id": "#63",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#70",
+       "port": "1"
+      },
+      "points": [
+       [
+        95.0,
+        170.0
+       ],
+       [
+        95.0,
+        147.5
+       ],
+       [
+        40.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#79",
+      "a": {
+       "element_id": "#71",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#64",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#80",
+      "a": {
+       "element_id": "#64",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#72",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#81",
+      "a": {
+       "element_id": "#64",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#65",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#82",
+      "a": {
+       "element_id": "#65",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#70",
+       "port": "1"
+      },
+      "points": [
+       [
+        135.0,
+        170.0
+       ],
+       [
+        135.0,
+        147.5
+       ],
+       [
+        80.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#83",
+      "a": {
+       "element_id": "#73",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#66",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#84",
+      "a": {
+       "element_id": "#66",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#74",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#85",
+      "a": {
+       "element_id": "#66",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#67",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#86",
+      "a": {
+       "element_id": "#67",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#70",
+       "port": "1"
+      },
+      "points": [
+       [
+        175.0,
+        170.0
+       ],
+       [
+        175.0,
+        147.5
+       ],
+       [
+        120.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {},
+    "func": "",
+    "loc": "RDC2"
+   },
+   {
+    "id": "#87",
+    "name": "RH – AC rozvaděč FVE",
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
+    "kind": "switchboard",
+    "parent_element_id": "#2",
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {
+      "network": "3NPE, 50 Hz",
+      "un": "230/400 V",
+      "in_": "125"
+     },
+     "placements": [
+      {
+       "element_id": "#88",
+       "row": 0,
+       "pos": 0.0
+      },
+      {
+       "element_id": "#89",
+       "row": 0,
+       "pos": 3.0
+      },
+      {
+       "element_id": "#90",
+       "row": 0,
+       "pos": 7.0
+      }
+     ]
+    },
+    "elements": [
+     {
+      "id": "#91",
+      "symbol_id": "sb.feed_in",
+      "x": 60.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X1",
+       "desc": "od T1",
+       "wire_id": "#29",
+       "from": "W10 T1:AC /1.E3",
+       "cable": "CYKY-J 5x16 16"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#88",
+      "symbol_id": "fve.breaker_mcb",
+      "x": 60.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "F1",
+       "in_": "40",
+       "char": "B",
+       "poles": "3",
+       "modules": "3"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#92",
+      "symbol_id": "sb.busbar",
+      "x": 120.0,
+      "y": 175.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "1",
+       "desc": "rozvod AC",
+       "in_": "125",
+       "conductors": "L1 L2 L3 N PE",
+       "shared": "1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#89",
+      "symbol_id": "fve.spd",
+      "x": 90.0,
+      "y": 140.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "F2",
+       "spd_type": "T1+T2",
+       "poles": "4",
+       "modules": "4"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#93",
+      "symbol_id": "sb.feed_out",
+      "x": 70.0,
+      "y": 105.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "XPE",
+       "desc": "k HOP",
+       "shared": "1",
+       "wire_id": "#33",
+       "to": "W12 fve.earth:PE /1.H4",
+       "cable": "CYA 16 16"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#90",
+      "symbol_id": "sb.main_switch",
+      "x": 150.0,
+      "y": 140.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "Q1",
+       "in_": "125",
+       "poles": "4",
+       "modules": "4"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#94",
+      "symbol_id": "sb.feed_out",
+      "x": 150.0,
+      "y": 105.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "XOUT",
+       "desc": "do HDS / DS",
+       "wire_id": "#31",
+       "to": "W11 fve.grid:1 /1.H3",
+       "cable": "CYKY-J 5x35 35"
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#95",
+      "a": {
+       "element_id": "#91",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#88",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#96",
+      "a": {
+       "element_id": "#88",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#92",
+       "port": "T1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#97",
+      "a": {
+       "element_id": "#92",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#89",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#98",
+      "a": {
+       "element_id": "#89",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#93",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#99",
+      "a": {
+       "element_id": "#92",
+       "port": "4"
+      },
+      "b": {
+       "element_id": "#93",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#100",
+      "a": {
+       "element_id": "#92",
+       "port": "3"
+      },
+      "b": {
+       "element_id": "#90",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#101",
+      "a": {
+       "element_id": "#90",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#94",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {},
+    "func": "",
+    "loc": "RH"
+   }
+  ],
+  "cables": [
+   {
+    "id": "#12",
+    "ref": "W1",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#14",
+    "ref": "W2",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#16",
+    "ref": "W3",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "5",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#18",
+    "ref": "W4",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#20",
+    "ref": "W5",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#22",
+    "ref": "W6",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "5",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#24",
+    "ref": "W7",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#26",
+    "ref": "W8",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#28",
+    "ref": "W9",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "5",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#30",
+    "ref": "W10",
+    "type": "CYKY-J 5x16",
+    "cross": "16",
+    "cores": [
+     {
+      "name": "L1",
+      "number": "1",
+      "color": "hnědá"
+     },
+     {
+      "name": "L2",
+      "number": "2",
+      "color": "černá"
+     },
+     {
+      "name": "L3",
+      "number": "3",
+      "color": "šedá"
+     },
+     {
+      "name": "N",
+      "number": "4",
+      "color": "modrá"
+     },
+     {
+      "name": "PE",
+      "number": "5",
+      "color": "zelenožlutá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#32",
+    "ref": "W11",
+    "type": "CYKY-J 5x35",
+    "cross": "35",
+    "cores": [
+     {
+      "name": "L1",
+      "number": "1",
+      "color": "hnědá"
+     },
+     {
+      "name": "L2",
+      "number": "2",
+      "color": "černá"
+     },
+     {
+      "name": "L3",
+      "number": "3",
+      "color": "šedá"
+     },
+     {
+      "name": "N",
+      "number": "4",
+      "color": "modrá"
+     },
+     {
+      "name": "PE",
+      "number": "5",
+      "color": "zelenožlutá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#34",
+    "ref": "W12",
+    "type": "CYA 16",
+    "cross": "16",
+    "cores": [
+     {
+      "name": "PE",
+      "number": "1",
+      "color": "zelenožlutá"
+     }
+    ],
+    "shield": false,
+    "length": "5",
+    "route": "",
+    "note": "",
+    "component_id": null
+   }
+  ],
+  "structures": [
+   {
+    "aspect": "+",
+    "code": "RDC1",
+    "description": "DC rozvaděč po trase T1"
+   },
+   {
+    "aspect": "+",
+    "code": "RDC2",
+    "description": "DC rozvaděč u T1"
+   },
+   {
+    "aspect": "+",
+    "code": "RH",
+    "description": "AC rozvaděč FVE"
+   }
+  ],
+  "revisions": []
+ },
+ "two_inv": {
+  "format": "envocad-project",
+  "format_version": 8,
+  "name": "FVE Test",
+  "meta": {
+   "investor": "Test s.r.o.",
+   "p_installed_kwp": "44.1"
+  },
+  "sheets": [
+   {
+    "id": "#1",
+    "name": "Jednopólové schéma",
+    "paper": "vlastní",
+    "width": 485.0,
+    "height": 325.0,
+    "kind": "schematic",
+    "parent_element_id": null,
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {},
+     "placements": []
+    },
+    "elements": [
+     {
+      "id": "#2",
+      "symbol_id": "fve.switchboard",
+      "x": 385.0,
+      "y": 150.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "RH",
+       "desc": "AC rozvaděč FVE",
+       "sheet": "RH – AC rozvaděč FVE"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#3",
+      "symbol_id": "fve.inverter",
+      "x": 275.0,
+      "y": 202.5,
+      "rotation": 0,
+      "attrs": {
+       "ref": "T1",
+       "type": "",
+       "p_ac": "25",
+       "phases": "3",
+       "mppt": "2",
+       "strings_per_mppt": "2",
+       "u_dc_max": "1100",
+       "u_mppt_min": "200",
+       "u_mppt_max": "1000",
+       "i_mppt_max": "30",
+       "p_dc_max": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#4",
+      "symbol_id": "fve.pv_string",
+      "x": 35.0,
+      "y": 242.5,
+      "rotation": 0,
+      "attrs": {
+       "ref": "G1",
+       "type": "",
+       "n_modules": "20",
+       "p_module": "450",
+       "p_string": "9 kWp",
+       "voc": "49.5",
+       "vmp": "41.5",
+       "isc": "13.9",
+       "beta_voc": "-0.27",
+       "n_optimizers": "",
+       "optimizer": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#5",
+      "symbol_id": "fve.pv_string",
+      "x": 35.0,
+      "y": 197.5,
+      "rotation": 0,
+      "attrs": {
+       "ref": "G2",
+       "type": "",
+       "n_modules": "20",
+       "p_module": "450",
+       "p_string": "9 kWp",
+       "voc": "49.5",
+       "vmp": "41.5",
+       "isc": "13.9",
+       "beta_voc": "-0.27",
+       "n_optimizers": "",
+       "optimizer": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#6",
+      "symbol_id": "fve.pv_string",
+      "x": 35.0,
+      "y": 152.5,
+      "rotation": 0,
+      "attrs": {
+       "ref": "G3",
+       "type": "",
+       "n_modules": "18",
+       "p_module": "450",
+       "p_string": "8.1 kWp",
+       "voc": "49.5",
+       "vmp": "41.5",
+       "isc": "13.9",
+       "beta_voc": "-0.27",
+       "n_optimizers": "",
+       "optimizer": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#7",
+      "symbol_id": "fve.switchboard",
+      "x": 110.0,
+      "y": 202.5,
+      "rotation": 0,
+      "attrs": {
+       "ref": "RDC1",
+       "desc": "DC rozvaděč po trase T1",
+       "sheet": "RDC1 – DC rozvaděč po trase T1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#8",
+      "symbol_id": "fve.switchboard",
+      "x": 195.0,
+      "y": 202.5,
+      "rotation": 0,
+      "attrs": {
+       "ref": "RDC2",
+       "desc": "DC rozvaděč u T1",
+       "sheet": "RDC2 – DC rozvaděč u T1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#9",
+      "symbol_id": "fve.inverter",
+      "x": 275.0,
+      "y": 75.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "T2",
+       "type": "",
+       "p_ac": "25",
+       "phases": "3",
+       "mppt": "1",
+       "strings_per_mppt": "2",
+       "u_dc_max": "1100",
+       "u_mppt_min": "200",
+       "u_mppt_max": "1000",
+       "i_mppt_max": "30",
+       "p_dc_max": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#10",
+      "symbol_id": "fve.pv_string",
+      "x": 35.0,
+      "y": 92.5,
+      "rotation": 0,
+      "attrs": {
+       "ref": "G4",
+       "type": "",
+       "n_modules": "20",
+       "p_module": "450",
+       "p_string": "9 kWp",
+       "voc": "49.5",
+       "vmp": "41.5",
+       "isc": "13.9",
+       "beta_voc": "-0.27",
+       "n_optimizers": "",
+       "optimizer": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#11",
+      "symbol_id": "fve.pv_string",
+      "x": 35.0,
+      "y": 47.5,
+      "rotation": 0,
+      "attrs": {
+       "ref": "G5",
+       "type": "",
+       "n_modules": "20",
+       "p_module": "450",
+       "p_string": "9 kWp",
+       "voc": "49.5",
+       "vmp": "41.5",
+       "isc": "13.9",
+       "beta_voc": "-0.27",
+       "n_optimizers": "",
+       "optimizer": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#12",
+      "symbol_id": "fve.switchboard",
+      "x": 110.0,
+      "y": 75.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "RDC3",
+       "desc": "DC rozvaděč po trase T2",
+       "sheet": "RDC3 – DC rozvaděč po trase T2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#13",
+      "symbol_id": "fve.switchboard",
+      "x": 195.0,
+      "y": 75.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "RDC4",
+       "desc": "DC rozvaděč u T2",
+       "sheet": "RDC4 – DC rozvaděč u T2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#14",
+      "symbol_id": "fve.grid",
+      "x": 460.0,
+      "y": 150.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "",
+       "voltage": "3×400 V",
+       "dso": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#15",
+      "symbol_id": "fve.earth",
+      "x": 420.0,
+      "y": 110.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "",
+       "desc": "ekvipotenciální svorkovnice (HOP)"
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#16",
+      "a": {
+       "element_id": "#4",
+       "port": "DC"
+      },
+      "b": {
+       "element_id": "#7",
+       "port": "X1"
+      },
+      "points": [
+       [
+        90.0,
+        242.5
+       ],
+       [
+        90.0,
+        222.5
+       ]
+      ],
+      "attrs": {
+       "ref": "W1",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "30",
+       "method": "E",
+       "cable_id": "#17"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#18",
+      "a": {
+       "element_id": "#7",
+       "port": "X4"
+      },
+      "b": {
+       "element_id": "#8",
+       "port": "X1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W2",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "20",
+       "method": "E",
+       "cable_id": "#19"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#20",
+      "a": {
+       "element_id": "#8",
+       "port": "X4"
+      },
+      "b": {
+       "element_id": "#3",
+       "port": "DC1"
+      },
+      "points": [
+       [
+        255.0,
+        222.5
+       ],
+       [
+        255.0,
+        210.0
+       ]
+      ],
+      "attrs": {
+       "ref": "W3",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "5",
+       "method": "E",
+       "cable_id": "#21"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#22",
+      "a": {
+       "element_id": "#5",
+       "port": "DC"
+      },
+      "b": {
+       "element_id": "#7",
+       "port": "X2"
+      },
+      "points": [
+       [
+        80.0,
+        197.5
+       ],
+       [
+        80.0,
+        212.5
+       ]
+      ],
+      "attrs": {
+       "ref": "W4",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "30",
+       "method": "E",
+       "cable_id": "#23"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#24",
+      "a": {
+       "element_id": "#7",
+       "port": "X5"
+      },
+      "b": {
+       "element_id": "#8",
+       "port": "X2"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W5",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "20",
+       "method": "E",
+       "cable_id": "#25"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#26",
+      "a": {
+       "element_id": "#8",
+       "port": "X5"
+      },
+      "b": {
+       "element_id": "#3",
+       "port": "DC2"
+      },
+      "points": [
+       [
+        250.0,
+        212.5
+       ],
+       [
+        250.0,
+        205.0
+       ]
+      ],
+      "attrs": {
+       "ref": "W6",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "5",
+       "method": "E",
+       "cable_id": "#27"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#28",
+      "a": {
+       "element_id": "#6",
+       "port": "DC"
+      },
+      "b": {
+       "element_id": "#7",
+       "port": "X3"
+      },
+      "points": [
+       [
+        85.0,
+        152.5
+       ],
+       [
+        85.0,
+        202.5
+       ]
+      ],
+      "attrs": {
+       "ref": "W7",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "30",
+       "method": "E",
+       "cable_id": "#29"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#30",
+      "a": {
+       "element_id": "#7",
+       "port": "X6"
+      },
+      "b": {
+       "element_id": "#8",
+       "port": "X3"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W8",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "20",
+       "method": "E",
+       "cable_id": "#31"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#32",
+      "a": {
+       "element_id": "#8",
+       "port": "X6"
+      },
+      "b": {
+       "element_id": "#3",
+       "port": "DC3"
+      },
+      "points": [
+       [
+        245.0,
+        202.5
+       ],
+       [
+        245.0,
+        200.0
+       ]
+      ],
+      "attrs": {
+       "ref": "W9",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "5",
+       "method": "E",
+       "cable_id": "#33"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#34",
+      "a": {
+       "element_id": "#3",
+       "port": "AC"
+      },
+      "b": {
+       "element_id": "#2",
+       "port": "X1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W10",
+       "cable": "CYKY-J 5x16",
+       "cross": "16",
+       "length": "30",
+       "method": "B1",
+       "cable_id": "#35"
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#36",
+      "a": {
+       "element_id": "#10",
+       "port": "DC"
+      },
+      "b": {
+       "element_id": "#12",
+       "port": "X1"
+      },
+      "points": [
+       [
+        90.0,
+        92.5
+       ],
+       [
+        90.0,
+        90.0
+       ]
+      ],
+      "attrs": {
+       "ref": "W11",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "30",
+       "method": "E",
+       "cable_id": "#37"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#38",
+      "a": {
+       "element_id": "#12",
+       "port": "X3"
+      },
+      "b": {
+       "element_id": "#13",
+       "port": "X1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W12",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "20",
+       "method": "E",
+       "cable_id": "#39"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#40",
+      "a": {
+       "element_id": "#13",
+       "port": "X3"
+      },
+      "b": {
+       "element_id": "#9",
+       "port": "DC1"
+      },
+      "points": [
+       [
+        250.0,
+        90.0
+       ],
+       [
+        250.0,
+        80.0
+       ]
+      ],
+      "attrs": {
+       "ref": "W13",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "5",
+       "method": "E",
+       "cable_id": "#41"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#42",
+      "a": {
+       "element_id": "#11",
+       "port": "DC"
+      },
+      "b": {
+       "element_id": "#12",
+       "port": "X2"
+      },
+      "points": [
+       [
+        85.0,
+        47.5
+       ],
+       [
+        85.0,
+        80.0
+       ]
+      ],
+      "attrs": {
+       "ref": "W14",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "30",
+       "method": "E",
+       "cable_id": "#43"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#44",
+      "a": {
+       "element_id": "#12",
+       "port": "X4"
+      },
+      "b": {
+       "element_id": "#13",
+       "port": "X2"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W15",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "20",
+       "method": "E",
+       "cable_id": "#45"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#46",
+      "a": {
+       "element_id": "#13",
+       "port": "X4"
+      },
+      "b": {
+       "element_id": "#9",
+       "port": "DC2"
+      },
+      "points": [
+       [
+        245.0,
+        80.0
+       ],
+       [
+        245.0,
+        70.0
+       ]
+      ],
+      "attrs": {
+       "ref": "W16",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "5",
+       "method": "E",
+       "cable_id": "#47"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#48",
+      "a": {
+       "element_id": "#9",
+       "port": "AC"
+      },
+      "b": {
+       "element_id": "#2",
+       "port": "X2"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W17",
+       "cable": "CYKY-J 5x16",
+       "cross": "16",
+       "length": "30",
+       "method": "B1",
+       "cable_id": "#49"
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#50",
+      "a": {
+       "element_id": "#2",
+       "port": "XOUT"
+      },
+      "b": {
+       "element_id": "#14",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W18",
+       "cable": "CYKY-J 5x35",
+       "cross": "35",
+       "length": "20",
+       "method": "D",
+       "cable_id": "#51"
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#52",
+      "a": {
+       "element_id": "#2",
+       "port": "XPE"
+      },
+      "b": {
+       "element_id": "#15",
+       "port": "PE"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W19",
+       "cable": "CYA 16",
+       "cross": "16",
+       "length": "5",
+       "cable_id": "#53"
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {},
+    "func": "",
+    "loc": ""
+   },
+   {
+    "id": "#54",
+    "name": "RDC1 – DC rozvaděč po trase T1",
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
+    "kind": "switchboard",
+    "parent_element_id": "#7",
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {
+      "network": "DC IT",
+      "un": "max. 1000 V DC"
+     },
+     "placements": [
+      {
+       "element_id": "#55",
+       "row": 0,
+       "pos": 0.0
+      },
+      {
+       "element_id": "#56",
+       "row": 0,
+       "pos": 2.0
+      },
+      {
+       "element_id": "#57",
+       "row": 0,
+       "pos": 5.0
+      },
+      {
+       "element_id": "#58",
+       "row": 0,
+       "pos": 7.0
+      },
+      {
+       "element_id": "#59",
+       "row": 0,
+       "pos": 10.0
+      },
+      {
+       "element_id": "#60",
+       "row": 0,
+       "pos": 12.0
+      }
+     ]
+    },
+    "elements": [
+     {
+      "id": "#61",
+      "symbol_id": "sb.feed_in",
+      "x": 60.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X1",
+       "desc": "od G1",
+       "wire_id": "#16",
+       "from": "W1 G1:DC /1.A2",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#55",
+      "symbol_id": "fve.dc_disconnect",
+      "x": 60.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "QS1.1",
+       "in_": "32",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#62",
+      "symbol_id": "sb.feed_out",
+      "x": 60.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X4",
+       "desc": "G1 dál",
+       "wire_id": "#18",
+       "to": "W2 RDC2:X1 /1.D3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#56",
+      "symbol_id": "fve.spd",
+      "x": 72.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.1",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#63",
+      "symbol_id": "sb.feed_out",
+      "x": 40.0,
+      "y": 130.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "XPE",
+       "desc": "k HOP",
+       "shared": "1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#64",
+      "symbol_id": "sb.feed_in",
+      "x": 100.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X2",
+       "desc": "od G2",
+       "wire_id": "#22",
+       "from": "W4 G2:DC /1.A3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#57",
+      "symbol_id": "fve.dc_disconnect",
+      "x": 100.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "QS1.2",
+       "in_": "32",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#65",
+      "symbol_id": "sb.feed_out",
+      "x": 100.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X5",
+       "desc": "G2 dál",
+       "wire_id": "#24",
+       "to": "W5 RDC2:X2 /1.D3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#58",
+      "symbol_id": "fve.spd",
+      "x": 112.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.2",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#66",
+      "symbol_id": "sb.feed_in",
+      "x": 140.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X3",
+       "desc": "od G3",
+       "wire_id": "#28",
+       "from": "W7 G3:DC /1.A4",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#59",
+      "symbol_id": "fve.dc_disconnect",
+      "x": 140.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "QS1.3",
+       "in_": "32",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#67",
+      "symbol_id": "sb.feed_out",
+      "x": 140.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X6",
+       "desc": "G3 dál",
+       "wire_id": "#30",
+       "to": "W8 RDC2:X3 /1.D3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#60",
+      "symbol_id": "fve.spd",
+      "x": 152.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.3",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G3"
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#68",
+      "a": {
+       "element_id": "#61",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#55",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#69",
+      "a": {
+       "element_id": "#55",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#62",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#70",
+      "a": {
+       "element_id": "#55",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#56",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#71",
+      "a": {
+       "element_id": "#56",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#63",
+       "port": "1"
+      },
+      "points": [
+       [
+        95.0,
+        170.0
+       ],
+       [
+        95.0,
+        147.5
+       ],
+       [
+        40.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#72",
+      "a": {
+       "element_id": "#64",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#57",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#73",
+      "a": {
+       "element_id": "#57",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#65",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#74",
+      "a": {
+       "element_id": "#57",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#58",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#75",
+      "a": {
+       "element_id": "#58",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#63",
+       "port": "1"
+      },
+      "points": [
+       [
+        135.0,
+        170.0
+       ],
+       [
+        135.0,
+        147.5
+       ],
+       [
+        80.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#76",
+      "a": {
+       "element_id": "#66",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#59",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#77",
+      "a": {
+       "element_id": "#59",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#67",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#78",
+      "a": {
+       "element_id": "#59",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#60",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#79",
+      "a": {
+       "element_id": "#60",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#63",
+       "port": "1"
+      },
+      "points": [
+       [
+        175.0,
+        170.0
+       ],
+       [
+        175.0,
+        147.5
+       ],
+       [
+        120.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {},
+    "func": "",
+    "loc": "RDC1"
+   },
+   {
+    "id": "#80",
+    "name": "RDC2 – DC rozvaděč u T1",
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
+    "kind": "switchboard",
+    "parent_element_id": "#8",
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {
+      "network": "DC IT",
+      "un": "max. 1000 V DC"
+     },
+     "placements": [
+      {
+       "element_id": "#81",
+       "row": 0,
+       "pos": 0.0
+      },
+      {
+       "element_id": "#82",
+       "row": 0,
+       "pos": 2.0
+      },
+      {
+       "element_id": "#83",
+       "row": 0,
+       "pos": 5.0
+      },
+      {
+       "element_id": "#84",
+       "row": 0,
+       "pos": 7.0
+      },
+      {
+       "element_id": "#85",
+       "row": 0,
+       "pos": 10.0
+      },
+      {
+       "element_id": "#86",
+       "row": 0,
+       "pos": 12.0
+      }
+     ]
+    },
+    "elements": [
+     {
+      "id": "#87",
+      "symbol_id": "sb.feed_in",
+      "x": 60.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X1",
+       "desc": "od G1",
+       "wire_id": "#18",
+       "from": "W2 RDC1:X4 /1.B3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#81",
+      "symbol_id": "fve.fuse_disconnect",
+      "x": 60.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "FU1.1",
+       "in_": "15",
+       "char": "gPV",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#88",
+      "symbol_id": "sb.feed_out",
+      "x": 60.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X4",
+       "desc": "G1 dál",
+       "wire_id": "#20",
+       "to": "W3 T1:DC1 /1.E3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#82",
+      "symbol_id": "fve.spd",
+      "x": 72.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.1",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#89",
+      "symbol_id": "sb.feed_out",
+      "x": 40.0,
+      "y": 130.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "XPE",
+       "desc": "k HOP",
+       "shared": "1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#90",
+      "symbol_id": "sb.feed_in",
+      "x": 100.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X2",
+       "desc": "od G2",
+       "wire_id": "#24",
+       "from": "W5 RDC1:X5 /1.B3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#83",
+      "symbol_id": "fve.fuse_disconnect",
+      "x": 100.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "FU1.2",
+       "in_": "15",
+       "char": "gPV",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#91",
+      "symbol_id": "sb.feed_out",
+      "x": 100.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X5",
+       "desc": "G2 dál",
+       "wire_id": "#26",
+       "to": "W6 T1:DC2 /1.E3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#84",
+      "symbol_id": "fve.spd",
+      "x": 112.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.2",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#92",
+      "symbol_id": "sb.feed_in",
+      "x": 140.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X3",
+       "desc": "od G3",
+       "wire_id": "#30",
+       "from": "W8 RDC1:X6 /1.B3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#85",
+      "symbol_id": "fve.fuse_disconnect",
+      "x": 140.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "FU1.3",
+       "in_": "15",
+       "char": "gPV",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#93",
+      "symbol_id": "sb.feed_out",
+      "x": 140.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X6",
+       "desc": "G3 dál",
+       "wire_id": "#32",
+       "to": "W9 T1:DC3 /1.E3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#86",
+      "symbol_id": "fve.spd",
+      "x": 152.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.3",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G3"
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#94",
+      "a": {
+       "element_id": "#87",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#81",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#95",
+      "a": {
+       "element_id": "#81",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#88",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#96",
+      "a": {
+       "element_id": "#81",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#82",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#97",
+      "a": {
+       "element_id": "#82",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#89",
+       "port": "1"
+      },
+      "points": [
+       [
+        95.0,
+        170.0
+       ],
+       [
+        95.0,
+        147.5
+       ],
+       [
+        40.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#98",
+      "a": {
+       "element_id": "#90",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#83",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#99",
+      "a": {
+       "element_id": "#83",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#91",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#100",
+      "a": {
+       "element_id": "#83",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#84",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#101",
+      "a": {
+       "element_id": "#84",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#89",
+       "port": "1"
+      },
+      "points": [
+       [
+        135.0,
+        170.0
+       ],
+       [
+        135.0,
+        147.5
+       ],
+       [
+        80.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#102",
+      "a": {
+       "element_id": "#92",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#85",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#103",
+      "a": {
+       "element_id": "#85",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#93",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#104",
+      "a": {
+       "element_id": "#85",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#86",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#105",
+      "a": {
+       "element_id": "#86",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#89",
+       "port": "1"
+      },
+      "points": [
+       [
+        175.0,
+        170.0
+       ],
+       [
+        175.0,
+        147.5
+       ],
+       [
+        120.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {},
+    "func": "",
+    "loc": "RDC2"
+   },
+   {
+    "id": "#106",
+    "name": "RDC3 – DC rozvaděč po trase T2",
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
+    "kind": "switchboard",
+    "parent_element_id": "#12",
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {
+      "network": "DC IT",
+      "un": "max. 1000 V DC"
+     },
+     "placements": [
+      {
+       "element_id": "#107",
+       "row": 0,
+       "pos": 0.0
+      },
+      {
+       "element_id": "#108",
+       "row": 0,
+       "pos": 2.0
+      },
+      {
+       "element_id": "#109",
+       "row": 0,
+       "pos": 5.0
+      },
+      {
+       "element_id": "#110",
+       "row": 0,
+       "pos": 7.0
+      }
+     ]
+    },
+    "elements": [
+     {
+      "id": "#111",
+      "symbol_id": "sb.feed_in",
+      "x": 60.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X1",
+       "desc": "od G4",
+       "wire_id": "#36",
+       "from": "W11 G4:DC /1.A5",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#107",
+      "symbol_id": "fve.dc_disconnect",
+      "x": 60.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "QS2.1",
+       "in_": "32",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#112",
+      "symbol_id": "sb.feed_out",
+      "x": 60.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X3",
+       "desc": "G4 dál",
+       "wire_id": "#38",
+       "to": "W12 RDC4:X1 /1.D5",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#108",
+      "symbol_id": "fve.spd",
+      "x": 72.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC2.1",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G4"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#113",
+      "symbol_id": "sb.feed_out",
+      "x": 40.0,
+      "y": 130.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "XPE",
+       "desc": "k HOP",
+       "shared": "1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#114",
+      "symbol_id": "sb.feed_in",
+      "x": 100.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X2",
+       "desc": "od G5",
+       "wire_id": "#42",
+       "from": "W14 G5:DC /1.A6",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#109",
+      "symbol_id": "fve.dc_disconnect",
+      "x": 100.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "QS2.2",
+       "in_": "32",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#115",
+      "symbol_id": "sb.feed_out",
+      "x": 100.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X4",
+       "desc": "G5 dál",
+       "wire_id": "#44",
+       "to": "W15 RDC4:X2 /1.D5",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#110",
+      "symbol_id": "fve.spd",
+      "x": 112.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC2.2",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G5"
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#116",
+      "a": {
+       "element_id": "#111",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#107",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#117",
+      "a": {
+       "element_id": "#107",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#112",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#118",
+      "a": {
+       "element_id": "#107",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#108",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#119",
+      "a": {
+       "element_id": "#108",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#113",
+       "port": "1"
+      },
+      "points": [
+       [
+        95.0,
+        170.0
+       ],
+       [
+        95.0,
+        147.5
+       ],
+       [
+        40.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#120",
+      "a": {
+       "element_id": "#114",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#109",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#121",
+      "a": {
+       "element_id": "#109",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#115",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#122",
+      "a": {
+       "element_id": "#109",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#110",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#123",
+      "a": {
+       "element_id": "#110",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#113",
+       "port": "1"
+      },
+      "points": [
+       [
+        135.0,
+        170.0
+       ],
+       [
+        135.0,
+        147.5
+       ],
+       [
+        80.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {},
+    "func": "",
+    "loc": "RDC3"
+   },
+   {
+    "id": "#124",
+    "name": "RDC4 – DC rozvaděč u T2",
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
+    "kind": "switchboard",
+    "parent_element_id": "#13",
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {
+      "network": "DC IT",
+      "un": "max. 1000 V DC"
+     },
+     "placements": [
+      {
+       "element_id": "#125",
+       "row": 0,
+       "pos": 0.0
+      },
+      {
+       "element_id": "#126",
+       "row": 0,
+       "pos": 2.0
+      },
+      {
+       "element_id": "#127",
+       "row": 0,
+       "pos": 5.0
+      },
+      {
+       "element_id": "#128",
+       "row": 0,
+       "pos": 7.0
+      }
+     ]
+    },
+    "elements": [
+     {
+      "id": "#129",
+      "symbol_id": "sb.feed_in",
+      "x": 60.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X1",
+       "desc": "od G4",
+       "wire_id": "#38",
+       "from": "W12 RDC3:X3 /1.B5",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#125",
+      "symbol_id": "fve.fuse_disconnect",
+      "x": 60.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "FU2.1",
+       "in_": "15",
+       "char": "gPV",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#130",
+      "symbol_id": "sb.feed_out",
+      "x": 60.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X3",
+       "desc": "G4 dál",
+       "wire_id": "#40",
+       "to": "W13 T2:DC1 /1.E5",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#126",
+      "symbol_id": "fve.spd",
+      "x": 72.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC2.1",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G4"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#131",
+      "symbol_id": "sb.feed_out",
+      "x": 40.0,
+      "y": 130.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "XPE",
+       "desc": "k HOP",
+       "shared": "1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#132",
+      "symbol_id": "sb.feed_in",
+      "x": 100.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X2",
+       "desc": "od G5",
+       "wire_id": "#44",
+       "from": "W15 RDC3:X4 /1.B5",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#127",
+      "symbol_id": "fve.fuse_disconnect",
+      "x": 100.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "FU2.2",
+       "in_": "15",
+       "char": "gPV",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#133",
+      "symbol_id": "sb.feed_out",
+      "x": 100.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X4",
+       "desc": "G5 dál",
+       "wire_id": "#46",
+       "to": "W16 T2:DC2 /1.E5",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#128",
+      "symbol_id": "fve.spd",
+      "x": 112.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC2.2",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G5"
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#134",
+      "a": {
+       "element_id": "#129",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#125",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#135",
+      "a": {
+       "element_id": "#125",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#130",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#136",
+      "a": {
+       "element_id": "#125",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#126",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#137",
+      "a": {
+       "element_id": "#126",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#131",
+       "port": "1"
+      },
+      "points": [
+       [
+        95.0,
+        170.0
+       ],
+       [
+        95.0,
+        147.5
+       ],
+       [
+        40.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#138",
+      "a": {
+       "element_id": "#132",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#127",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#139",
+      "a": {
+       "element_id": "#127",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#133",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#140",
+      "a": {
+       "element_id": "#127",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#128",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#141",
+      "a": {
+       "element_id": "#128",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#131",
+       "port": "1"
+      },
+      "points": [
+       [
+        135.0,
+        170.0
+       ],
+       [
+        135.0,
+        147.5
+       ],
+       [
+        80.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {},
+    "func": "",
+    "loc": "RDC4"
+   },
+   {
+    "id": "#142",
+    "name": "RH – AC rozvaděč FVE",
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
+    "kind": "switchboard",
+    "parent_element_id": "#2",
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {
+      "network": "3NPE, 50 Hz",
+      "un": "230/400 V",
+      "in_": "125"
+     },
+     "placements": [
+      {
+       "element_id": "#143",
+       "row": 0,
+       "pos": 0.0
+      },
+      {
+       "element_id": "#144",
+       "row": 0,
+       "pos": 3.0
+      },
+      {
+       "element_id": "#145",
+       "row": 0,
+       "pos": 6.0
+      },
+      {
+       "element_id": "#146",
+       "row": 0,
+       "pos": 10.0
+      }
+     ]
+    },
+    "elements": [
+     {
+      "id": "#147",
+      "symbol_id": "sb.feed_in",
+      "x": 60.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X1",
+       "desc": "od T1",
+       "wire_id": "#34",
+       "from": "W10 T1:AC /1.E3",
+       "cable": "CYKY-J 5x16 16"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#143",
+      "symbol_id": "fve.breaker_mcb",
+      "x": 60.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "F1",
+       "in_": "50",
+       "char": "B",
+       "poles": "3",
+       "modules": "3"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#148",
+      "symbol_id": "sb.busbar",
+      "x": 120.0,
+      "y": 175.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "1",
+       "desc": "rozvod AC",
+       "in_": "125",
+       "conductors": "L1 L2 L3 N PE",
+       "shared": "1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#149",
+      "symbol_id": "sb.feed_in",
+      "x": 90.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X2",
+       "desc": "od T2",
+       "wire_id": "#48",
+       "from": "W17 T2:AC /1.E5",
+       "cable": "CYKY-J 5x16 16"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#144",
+      "symbol_id": "fve.breaker_mcb",
+      "x": 90.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "F2",
+       "in_": "50",
+       "char": "B",
+       "poles": "3",
+       "modules": "3"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#145",
+      "symbol_id": "fve.spd",
+      "x": 120.0,
+      "y": 140.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "F3",
+       "spd_type": "T1+T2",
+       "poles": "4",
+       "modules": "4"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#150",
+      "symbol_id": "sb.feed_out",
+      "x": 100.0,
+      "y": 105.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "XPE",
+       "desc": "k HOP",
+       "shared": "1",
+       "wire_id": "#52",
+       "to": "W19 fve.earth:PE /1.H5",
+       "cable": "CYA 16 16"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#146",
+      "symbol_id": "sb.main_switch",
+      "x": 180.0,
+      "y": 140.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "Q1",
+       "in_": "125",
+       "poles": "4",
+       "modules": "4"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#151",
+      "symbol_id": "sb.feed_out",
+      "x": 180.0,
+      "y": 105.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "XOUT",
+       "desc": "do HDS / DS",
+       "wire_id": "#50",
+       "to": "W18 fve.grid:1 /1.H4",
+       "cable": "CYKY-J 5x35 35"
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#152",
+      "a": {
+       "element_id": "#147",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#143",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#153",
+      "a": {
+       "element_id": "#143",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#148",
+       "port": "T1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#154",
+      "a": {
+       "element_id": "#149",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#144",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#155",
+      "a": {
+       "element_id": "#144",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#148",
+       "port": "T2"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#156",
+      "a": {
+       "element_id": "#148",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#145",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#157",
+      "a": {
+       "element_id": "#145",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#150",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#158",
+      "a": {
+       "element_id": "#148",
+       "port": "4"
+      },
+      "b": {
+       "element_id": "#150",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#159",
+      "a": {
+       "element_id": "#148",
+       "port": "3"
+      },
+      "b": {
+       "element_id": "#146",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#160",
+      "a": {
+       "element_id": "#146",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#151",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {},
+    "func": "",
+    "loc": "RH"
+   }
+  ],
+  "cables": [
+   {
+    "id": "#17",
+    "ref": "W1",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#19",
+    "ref": "W2",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#21",
+    "ref": "W3",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "5",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#23",
+    "ref": "W4",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#25",
+    "ref": "W5",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#27",
+    "ref": "W6",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "5",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#29",
+    "ref": "W7",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#31",
+    "ref": "W8",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#33",
+    "ref": "W9",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "5",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#35",
+    "ref": "W10",
+    "type": "CYKY-J 5x16",
+    "cross": "16",
+    "cores": [
+     {
+      "name": "L1",
+      "number": "1",
+      "color": "hnědá"
+     },
+     {
+      "name": "L2",
+      "number": "2",
+      "color": "černá"
+     },
+     {
+      "name": "L3",
+      "number": "3",
+      "color": "šedá"
+     },
+     {
+      "name": "N",
+      "number": "4",
+      "color": "modrá"
+     },
+     {
+      "name": "PE",
+      "number": "5",
+      "color": "zelenožlutá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#37",
+    "ref": "W11",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#39",
+    "ref": "W12",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#41",
+    "ref": "W13",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "5",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#43",
+    "ref": "W14",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#45",
+    "ref": "W15",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#47",
+    "ref": "W16",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "5",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#49",
+    "ref": "W17",
+    "type": "CYKY-J 5x16",
+    "cross": "16",
+    "cores": [
+     {
+      "name": "L1",
+      "number": "1",
+      "color": "hnědá"
+     },
+     {
+      "name": "L2",
+      "number": "2",
+      "color": "černá"
+     },
+     {
+      "name": "L3",
+      "number": "3",
+      "color": "šedá"
+     },
+     {
+      "name": "N",
+      "number": "4",
+      "color": "modrá"
+     },
+     {
+      "name": "PE",
+      "number": "5",
+      "color": "zelenožlutá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#51",
+    "ref": "W18",
+    "type": "CYKY-J 5x35",
+    "cross": "35",
+    "cores": [
+     {
+      "name": "L1",
+      "number": "1",
+      "color": "hnědá"
+     },
+     {
+      "name": "L2",
+      "number": "2",
+      "color": "černá"
+     },
+     {
+      "name": "L3",
+      "number": "3",
+      "color": "šedá"
+     },
+     {
+      "name": "N",
+      "number": "4",
+      "color": "modrá"
+     },
+     {
+      "name": "PE",
+      "number": "5",
+      "color": "zelenožlutá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#53",
+    "ref": "W19",
+    "type": "CYA 16",
+    "cross": "16",
+    "cores": [
+     {
+      "name": "PE",
+      "number": "1",
+      "color": "zelenožlutá"
+     }
+    ],
+    "shield": false,
+    "length": "5",
+    "route": "",
+    "note": "",
+    "component_id": null
+   }
+  ],
+  "structures": [
+   {
+    "aspect": "+",
+    "code": "RDC1",
+    "description": "DC rozvaděč po trase T1"
+   },
+   {
+    "aspect": "+",
+    "code": "RDC2",
+    "description": "DC rozvaděč u T1"
+   },
+   {
+    "aspect": "+",
+    "code": "RDC3",
+    "description": "DC rozvaděč po trase T2"
+   },
+   {
+    "aspect": "+",
+    "code": "RDC4",
+    "description": "DC rozvaděč u T2"
+   },
+   {
+    "aspect": "+",
+    "code": "RH",
+    "description": "AC rozvaděč FVE"
+   }
+  ],
+  "revisions": []
+ },
+ "route2_terminals": {
+  "format": "envocad-project",
+  "format_version": 8,
+  "name": "Nový projekt FVE",
+  "meta": {
+   "p_installed_kwp": "17.1"
+  },
+  "sheets": [
+   {
+    "id": "#1",
+    "name": "Jednopólové schéma",
+    "paper": "vlastní",
+    "width": 565.0,
+    "height": 297.0,
+    "kind": "schematic",
+    "parent_element_id": null,
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {},
+     "placements": []
+    },
+    "elements": [
+     {
+      "id": "#2",
+      "symbol_id": "fve.switchboard",
+      "x": 465.0,
+      "y": 150.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "RH",
+       "desc": "AC rozvaděč FVE",
+       "sheet": "RH – AC rozvaděč FVE"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#3",
+      "symbol_id": "fve.inverter",
+      "x": 355.0,
+      "y": 150.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "T1",
+       "type": "",
+       "p_ac": "25",
+       "phases": "3",
+       "mppt": "1",
+       "strings_per_mppt": "2",
+       "u_dc_max": "1100",
+       "u_mppt_min": "200",
+       "u_mppt_max": "1000",
+       "i_mppt_max": "30",
+       "p_dc_max": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#4",
+      "symbol_id": "fve.pv_string",
+      "x": 35.0,
+      "y": 167.5,
+      "rotation": 0,
+      "attrs": {
+       "ref": "G1",
+       "type": "",
+       "n_modules": "20",
+       "p_module": "450",
+       "p_string": "9 kWp",
+       "voc": "49.5",
+       "vmp": "41.5",
+       "isc": "13.9",
+       "beta_voc": "-0.27",
+       "n_optimizers": "",
+       "optimizer": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#5",
+      "symbol_id": "fve.pv_string",
+      "x": 35.0,
+      "y": 122.5,
+      "rotation": 0,
+      "attrs": {
+       "ref": "G2",
+       "type": "",
+       "n_modules": "18",
+       "p_module": "450",
+       "p_string": "8.1 kWp",
+       "voc": "49.5",
+       "vmp": "41.5",
+       "isc": "13.9",
+       "beta_voc": "-0.27",
+       "n_optimizers": "",
+       "optimizer": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#6",
+      "symbol_id": "fve.switchboard",
+      "x": 105.0,
+      "y": 150.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "RDC1",
+       "desc": "DC rozvaděč po trase T1 (1)",
+       "sheet": "RDC1 – DC rozvaděč po trase T1 (1)"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#7",
+      "symbol_id": "fve.switchboard",
+      "x": 190.0,
+      "y": 150.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "RDC2",
+       "desc": "DC rozvaděč po trase T1 (2)",
+       "sheet": "RDC2 – DC rozvaděč po trase T1 (2)"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#8",
+      "symbol_id": "fve.switchboard",
+      "x": 275.0,
+      "y": 150.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "RDC3",
+       "desc": "DC rozvaděč u T1",
+       "sheet": "RDC3 – DC rozvaděč u T1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#9",
+      "symbol_id": "fve.grid",
+      "x": 540.0,
+      "y": 150.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "",
+       "voltage": "3×400 V",
+       "dso": ""
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#10",
+      "a": {
+       "element_id": "#4",
+       "port": "DC"
+      },
+      "b": {
+       "element_id": "#6",
+       "port": "X1"
+      },
+      "points": [
+       [
+        85.0,
+        167.5
+       ],
+       [
+        85.0,
+        165.0
+       ]
+      ],
+      "attrs": {
+       "ref": "W1",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "30",
+       "method": "E",
+       "cable_id": "#11"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#12",
+      "a": {
+       "element_id": "#6",
+       "port": "X3"
+      },
+      "b": {
+       "element_id": "#7",
+       "port": "X1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W2",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "20",
+       "method": "E",
+       "cable_id": "#13"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#14",
+      "a": {
+       "element_id": "#7",
+       "port": "X3"
+      },
+      "b": {
+       "element_id": "#8",
+       "port": "X1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W3",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "20",
+       "method": "E",
+       "cable_id": "#15"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#16",
+      "a": {
+       "element_id": "#8",
+       "port": "X3"
+      },
+      "b": {
+       "element_id": "#3",
+       "port": "DC1"
+      },
+      "points": [
+       [
+        330.0,
+        165.0
+       ],
+       [
+        330.0,
+        155.0
+       ]
+      ],
+      "attrs": {
+       "ref": "W4",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "5",
+       "method": "E",
+       "cable_id": "#17"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#18",
+      "a": {
+       "element_id": "#5",
+       "port": "DC"
+      },
+      "b": {
+       "element_id": "#6",
+       "port": "X2"
+      },
+      "points": [
+       [
+        80.0,
+        122.5
+       ],
+       [
+        80.0,
+        155.0
+       ]
+      ],
+      "attrs": {
+       "ref": "W5",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "30",
+       "method": "E",
+       "cable_id": "#19"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#20",
+      "a": {
+       "element_id": "#6",
+       "port": "X4"
+      },
+      "b": {
+       "element_id": "#7",
+       "port": "X2"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W6",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "20",
+       "method": "E",
+       "cable_id": "#21"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#22",
+      "a": {
+       "element_id": "#7",
+       "port": "X4"
+      },
+      "b": {
+       "element_id": "#8",
+       "port": "X2"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W7",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "20",
+       "method": "E",
+       "cable_id": "#23"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#24",
+      "a": {
+       "element_id": "#8",
+       "port": "X4"
+      },
+      "b": {
+       "element_id": "#3",
+       "port": "DC2"
+      },
+      "points": [
+       [
+        325.0,
+        155.0
+       ],
+       [
+        325.0,
+        145.0
+       ]
+      ],
+      "attrs": {
+       "ref": "W8",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "5",
+       "method": "E",
+       "cable_id": "#25"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#26",
+      "a": {
+       "element_id": "#3",
+       "port": "AC"
+      },
+      "b": {
+       "element_id": "#2",
+       "port": "X1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W9",
+       "cable": "CYKY-J 5x16",
+       "cross": "16",
+       "length": "30",
+       "method": "B1",
+       "cable_id": "#27"
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#28",
+      "a": {
+       "element_id": "#2",
+       "port": "XOUT"
+      },
+      "b": {
+       "element_id": "#9",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W10",
+       "cable": "CYKY-J 5x35",
+       "cross": "35",
+       "length": "20",
+       "method": "D",
+       "cable_id": "#29"
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {},
+    "func": "",
+    "loc": ""
+   },
+   {
+    "id": "#30",
+    "name": "RDC1 – DC rozvaděč po trase T1 (1)",
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
+    "kind": "switchboard",
+    "parent_element_id": "#6",
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {
+      "network": "DC IT",
+      "un": "max. 1000 V DC"
+     },
+     "placements": [
+      {
+       "element_id": "#31",
+       "row": 0,
+       "pos": 0.0
+      },
+      {
+       "element_id": "#32",
+       "row": 0,
+       "pos": 2.0
+      },
+      {
+       "element_id": "#33",
+       "row": 0,
+       "pos": 5.0
+      },
+      {
+       "element_id": "#34",
+       "row": 0,
+       "pos": 7.0
+      }
+     ]
+    },
+    "elements": [
+     {
+      "id": "#35",
+      "symbol_id": "sb.feed_in",
+      "x": 60.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X1",
+       "desc": "od G1",
+       "wire_id": "#10",
+       "from": "W1 G1:DC /1.A3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#31",
+      "symbol_id": "fve.dc_disconnect",
+      "x": 60.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "QS1.1",
+       "in_": "25",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#36",
+      "symbol_id": "sb.feed_out",
+      "x": 60.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X3",
+       "desc": "G1 dál",
+       "wire_id": "#12",
+       "to": "W2 RDC2:X1 /1.C3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#32",
+      "symbol_id": "fve.spd",
+      "x": 72.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.1",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#37",
+      "symbol_id": "sb.feed_out",
+      "x": 40.0,
+      "y": 130.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "XPE",
+       "desc": "k HOP",
+       "shared": "1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#38",
+      "symbol_id": "sb.feed_in",
+      "x": 100.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X2",
+       "desc": "od G2",
+       "wire_id": "#18",
+       "from": "W5 G2:DC /1.A4",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#33",
+      "symbol_id": "fve.dc_disconnect",
+      "x": 100.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "QS1.2",
+       "in_": "25",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#39",
+      "symbol_id": "sb.feed_out",
+      "x": 100.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X4",
+       "desc": "G2 dál",
+       "wire_id": "#20",
+       "to": "W6 RDC2:X2 /1.C3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#34",
+      "symbol_id": "fve.spd",
+      "x": 112.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.2",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G2"
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#40",
+      "a": {
+       "element_id": "#35",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#31",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#41",
+      "a": {
+       "element_id": "#31",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#36",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#42",
+      "a": {
+       "element_id": "#31",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#32",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#43",
+      "a": {
+       "element_id": "#32",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#37",
+       "port": "1"
+      },
+      "points": [
+       [
+        95.0,
+        170.0
+       ],
+       [
+        95.0,
+        147.5
+       ],
+       [
+        40.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#44",
+      "a": {
+       "element_id": "#38",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#33",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#45",
+      "a": {
+       "element_id": "#33",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#39",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#46",
+      "a": {
+       "element_id": "#33",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#34",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#47",
+      "a": {
+       "element_id": "#34",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#37",
+       "port": "1"
+      },
+      "points": [
+       [
+        135.0,
+        170.0
+       ],
+       [
+        135.0,
+        147.5
+       ],
+       [
+        80.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {},
+    "func": "",
+    "loc": "RDC1"
+   },
+   {
+    "id": "#48",
+    "name": "RDC2 – DC rozvaděč po trase T1 (2)",
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
+    "kind": "switchboard",
+    "parent_element_id": "#7",
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {
+      "network": "DC IT",
+      "un": "max. 1000 V DC"
+     },
+     "placements": [
+      {
+       "element_id": "#49",
+       "row": 0,
+       "pos": 0.0
+      },
+      {
+       "element_id": "#50",
+       "row": 0,
+       "pos": 2.0
+      },
+      {
+       "element_id": "#51",
+       "row": 0,
+       "pos": 5.0
+      },
+      {
+       "element_id": "#52",
+       "row": 0,
+       "pos": 7.0
+      }
+     ]
+    },
+    "elements": [
+     {
+      "id": "#53",
+      "symbol_id": "sb.feed_in",
+      "x": 60.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X1",
+       "desc": "od G1",
+       "wire_id": "#12",
+       "from": "W2 RDC1:X3 /1.B3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#49",
+      "symbol_id": "fve.dc_disconnect",
+      "x": 60.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "QS1.1",
+       "in_": "25",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#54",
+      "symbol_id": "sb.feed_out",
+      "x": 60.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X3",
+       "desc": "G1 dál",
+       "wire_id": "#14",
+       "to": "W3 RDC3:X1 /1.D3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#50",
+      "symbol_id": "fve.spd",
+      "x": 72.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.1",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#55",
+      "symbol_id": "sb.feed_out",
+      "x": 40.0,
+      "y": 130.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "XPE",
+       "desc": "k HOP",
+       "shared": "1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#56",
+      "symbol_id": "sb.feed_in",
+      "x": 100.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X2",
+       "desc": "od G2",
+       "wire_id": "#20",
+       "from": "W6 RDC1:X4 /1.B3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#51",
+      "symbol_id": "fve.dc_disconnect",
+      "x": 100.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "QS1.2",
+       "in_": "25",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#57",
+      "symbol_id": "sb.feed_out",
+      "x": 100.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X4",
+       "desc": "G2 dál",
+       "wire_id": "#22",
+       "to": "W7 RDC3:X2 /1.D3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#52",
+      "symbol_id": "fve.spd",
+      "x": 112.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.2",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G2"
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#58",
+      "a": {
+       "element_id": "#53",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#49",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#59",
+      "a": {
+       "element_id": "#49",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#54",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#60",
+      "a": {
+       "element_id": "#49",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#50",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#61",
+      "a": {
+       "element_id": "#50",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#55",
+       "port": "1"
+      },
+      "points": [
+       [
+        95.0,
+        170.0
+       ],
+       [
+        95.0,
+        147.5
+       ],
+       [
+        40.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#62",
+      "a": {
+       "element_id": "#56",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#51",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#63",
+      "a": {
+       "element_id": "#51",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#57",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#64",
+      "a": {
+       "element_id": "#51",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#52",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#65",
+      "a": {
+       "element_id": "#52",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#55",
+       "port": "1"
+      },
+      "points": [
+       [
+        135.0,
+        170.0
+       ],
+       [
+        135.0,
+        147.5
+       ],
+       [
+        80.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {},
+    "func": "",
+    "loc": "RDC2"
+   },
+   {
+    "id": "#66",
+    "name": "RDC3 – DC rozvaděč u T1",
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
+    "kind": "switchboard",
+    "parent_element_id": "#8",
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {
+      "network": "DC IT",
+      "un": "max. 1000 V DC"
+     },
+     "placements": [
+      {
+       "element_id": "#67",
+       "row": 0,
+       "pos": 0.0
+      },
+      {
+       "element_id": "#68",
+       "row": 0,
+       "pos": 2.0
+      },
+      {
+       "element_id": "#69",
+       "row": 0,
+       "pos": 5.0
+      },
+      {
+       "element_id": "#70",
+       "row": 0,
+       "pos": 7.0
+      }
+     ]
+    },
+    "elements": [
+     {
+      "id": "#71",
+      "symbol_id": "sb.feed_in",
+      "x": 60.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X1",
+       "desc": "od G1",
+       "wire_id": "#14",
+       "from": "W3 RDC2:X3 /1.C3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#67",
+      "symbol_id": "fve.fuse_disconnect",
+      "x": 60.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "FU1.1",
+       "in_": "20",
+       "char": "gPV",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#72",
+      "symbol_id": "sb.feed_out",
+      "x": 60.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X3",
+       "desc": "G1 dál",
+       "wire_id": "#16",
+       "to": "W4 T1:DC1 /1.F3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#68",
+      "symbol_id": "fve.spd",
+      "x": 72.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.1",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#73",
+      "symbol_id": "sb.feed_out",
+      "x": 40.0,
+      "y": 130.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "XPE",
+       "desc": "k HOP",
+       "shared": "1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#74",
+      "symbol_id": "sb.feed_in",
+      "x": 100.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X2",
+       "desc": "od G2",
+       "wire_id": "#22",
+       "from": "W7 RDC2:X4 /1.C3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#69",
+      "symbol_id": "fve.fuse_disconnect",
+      "x": 100.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "FU1.2",
+       "in_": "20",
+       "char": "gPV",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#75",
+      "symbol_id": "sb.feed_out",
+      "x": 100.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X4",
+       "desc": "G2 dál",
+       "wire_id": "#24",
+       "to": "W8 T1:DC2 /1.F3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#70",
+      "symbol_id": "fve.spd",
+      "x": 112.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.2",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G2"
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#76",
+      "a": {
+       "element_id": "#71",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#67",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#77",
+      "a": {
+       "element_id": "#67",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#72",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#78",
+      "a": {
+       "element_id": "#67",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#68",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#79",
+      "a": {
+       "element_id": "#68",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#73",
+       "port": "1"
+      },
+      "points": [
+       [
+        95.0,
+        170.0
+       ],
+       [
+        95.0,
+        147.5
+       ],
+       [
+        40.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#80",
+      "a": {
+       "element_id": "#74",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#69",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#81",
+      "a": {
+       "element_id": "#69",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#75",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#82",
+      "a": {
+       "element_id": "#69",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#70",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#83",
+      "a": {
+       "element_id": "#70",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#73",
+       "port": "1"
+      },
+      "points": [
+       [
+        135.0,
+        170.0
+       ],
+       [
+        135.0,
+        147.5
+       ],
+       [
+        80.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {},
+    "func": "",
+    "loc": "RDC3"
+   },
+   {
+    "id": "#84",
+    "name": "RH – AC rozvaděč FVE",
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
+    "kind": "switchboard",
+    "parent_element_id": "#2",
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {
+      "network": "3NPE, 50 Hz",
+      "un": "230/400 V",
+      "in_": "125"
+     },
+     "placements": [
+      {
+       "element_id": "#85",
+       "row": 0,
+       "pos": 0.0
+      },
+      {
+       "element_id": "#86",
+       "row": 0,
+       "pos": 4.0
+      },
+      {
+       "element_id": "#87",
+       "row": 0,
+       "pos": 8.0
+      }
+     ]
+    },
+    "elements": [
+     {
+      "id": "#88",
+      "symbol_id": "sb.feed_in",
+      "x": 60.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X1",
+       "desc": "od T1",
+       "wire_id": "#26",
+       "from": "W9 T1:AC /1.F3",
+       "cable": "CYKY-J 5x16 16"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#87",
+      "symbol_id": "fve.breaker_mcb",
+      "x": 60.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "F1",
+       "in_": "40",
+       "char": "B",
+       "poles": "3",
+       "modules": "3"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#89",
+      "symbol_id": "sb.terminal_block",
+      "x": 60.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X2",
+       "terminal": "1 2 3 4 5",
+       "desc": "střídač 1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#86",
+      "symbol_id": "fve.spd",
+      "x": 90.0,
+      "y": 140.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "F2",
+       "spd_type": "T2",
+       "poles": "4",
+       "modules": "4"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#85",
+      "symbol_id": "sb.main_switch",
+      "x": 120.0,
+      "y": 140.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "Q1",
+       "in_": "125",
+       "poles": "4",
+       "modules": "4"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#90",
+      "symbol_id": "sb.feed_out",
+      "x": 120.0,
+      "y": 105.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "XOUT",
+       "desc": "do HDS / DS",
+       "wire_id": "#28",
+       "to": "W10 fve.grid:1 /1.H3",
+       "cable": "CYKY-J 5x35 35"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#91",
+      "symbol_id": "sb.pe_bar",
+      "x": 90.0,
+      "y": 110.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X5",
+       "kind": "PE"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#92",
+      "symbol_id": "sb.terminal_block",
+      "x": 90.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X2",
+       "terminal": "6 7 8 9 10",
+       "desc": "SPD"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#93",
+      "symbol_id": "sb.terminal_block",
+      "x": 120.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X2",
+       "terminal": "11 12 13 14 15",
+       "desc": "vývod"
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#94",
+      "a": {
+       "element_id": "#88",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#87",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#95",
+      "a": {
+       "element_id": "#87",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#89",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#96",
+      "a": {
+       "element_id": "#92",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#86",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#97",
+      "a": {
+       "element_id": "#92",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#91",
+       "port": "2"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#98",
+      "a": {
+       "element_id": "#93",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#85",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#99",
+      "a": {
+       "element_id": "#86",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#91",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#100",
+      "a": {
+       "element_id": "#85",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#90",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {
+     "X2": [
+      [
+       "1",
+       "6",
+       "11"
+      ],
+      [
+       "2",
+       "7",
+       "12"
+      ],
+      [
+       "3",
+       "8",
+       "13"
+      ],
+      [
+       "4",
+       "9",
+       "14"
+      ],
+      [
+       "5",
+       "10",
+       "15"
+      ]
+     ]
+    },
+    "func": "",
+    "loc": "RH"
+   }
+  ],
+  "cables": [
+   {
+    "id": "#11",
+    "ref": "W1",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#13",
+    "ref": "W2",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#15",
+    "ref": "W3",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#17",
+    "ref": "W4",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "5",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#19",
+    "ref": "W5",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#21",
+    "ref": "W6",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#23",
+    "ref": "W7",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#25",
+    "ref": "W8",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "5",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#27",
+    "ref": "W9",
+    "type": "CYKY-J 5x16",
+    "cross": "16",
+    "cores": [
+     {
+      "name": "L1",
+      "number": "1",
+      "color": "hnědá"
+     },
+     {
+      "name": "L2",
+      "number": "2",
+      "color": "černá"
+     },
+     {
+      "name": "L3",
+      "number": "3",
+      "color": "šedá"
+     },
+     {
+      "name": "N",
+      "number": "4",
+      "color": "modrá"
+     },
+     {
+      "name": "PE",
+      "number": "5",
+      "color": "zelenožlutá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#29",
+    "ref": "W10",
+    "type": "CYKY-J 5x35",
+    "cross": "35",
+    "cores": [
+     {
+      "name": "L1",
+      "number": "1",
+      "color": "hnědá"
+     },
+     {
+      "name": "L2",
+      "number": "2",
+      "color": "černá"
+     },
+     {
+      "name": "L3",
+      "number": "3",
+      "color": "šedá"
+     },
+     {
+      "name": "N",
+      "number": "4",
+      "color": "modrá"
+     },
+     {
+      "name": "PE",
+      "number": "5",
+      "color": "zelenožlutá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   }
+  ],
+  "structures": [
+   {
+    "aspect": "+",
+    "code": "RDC1",
+    "description": "DC rozvaděč po trase T1 (1)"
+   },
+   {
+    "aspect": "+",
+    "code": "RDC2",
+    "description": "DC rozvaděč po trase T1 (2)"
+   },
+   {
+    "aspect": "+",
+    "code": "RDC3",
+    "description": "DC rozvaděč u T1"
+   },
+   {
+    "aspect": "+",
+    "code": "RH",
+    "description": "AC rozvaděč FVE"
+   }
+  ],
+  "revisions": []
+ },
+ "with_component": {
+  "format": "envocad-project",
+  "format_version": 8,
+  "name": "Nový projekt FVE",
+  "meta": {
+   "p_installed_kwp": "34.2"
+  },
+  "sheets": [
+   {
+    "id": "#1",
+    "name": "Jednopólové schéma",
+    "paper": "vlastní",
+    "width": 490.0,
+    "height": 297.0,
+    "kind": "schematic",
+    "parent_element_id": null,
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {},
+     "placements": []
+    },
+    "elements": [
+     {
+      "id": "#2",
+      "symbol_id": "fve.switchboard",
+      "x": 390.0,
+      "y": 150.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "RH",
+       "desc": "AC rozvaděč FVE",
+       "sheet": "RH – AC rozvaděč FVE"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#3",
+      "symbol_id": "fve.inverter",
+      "x": 280.0,
+      "y": 150.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "T1",
+       "type": "",
+       "p_ac": "25",
+       "phases": "3",
+       "mppt": "3",
+       "strings_per_mppt": "2",
+       "u_dc_max": "1100",
+       "u_mppt_min": "200",
+       "u_mppt_max": "1000",
+       "i_mppt_max": "30",
+       "p_dc_max": ""
+      },
+      "component_id": "sma-stp-25-50"
+     },
+     {
+      "id": "#4",
+      "symbol_id": "fve.pv_string",
+      "x": 35.0,
+      "y": 212.5,
+      "rotation": 0,
+      "attrs": {
+       "ref": "G1",
+       "type": "",
+       "n_modules": "20",
+       "p_module": "450",
+       "p_string": "9 kWp",
+       "voc": "49.5",
+       "vmp": "41.5",
+       "isc": "13.9",
+       "beta_voc": "-0.27",
+       "n_optimizers": "",
+       "optimizer": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#5",
+      "symbol_id": "fve.pv_string",
+      "x": 35.0,
+      "y": 167.5,
+      "rotation": 0,
+      "attrs": {
+       "ref": "G2",
+       "type": "",
+       "n_modules": "20",
+       "p_module": "450",
+       "p_string": "9 kWp",
+       "voc": "49.5",
+       "vmp": "41.5",
+       "isc": "13.9",
+       "beta_voc": "-0.27",
+       "n_optimizers": "",
+       "optimizer": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#6",
+      "symbol_id": "fve.pv_string",
+      "x": 35.0,
+      "y": 122.5,
+      "rotation": 0,
+      "attrs": {
+       "ref": "G3",
+       "type": "",
+       "n_modules": "18",
+       "p_module": "450",
+       "p_string": "8.1 kWp",
+       "voc": "49.5",
+       "vmp": "41.5",
+       "isc": "13.9",
+       "beta_voc": "-0.27",
+       "n_optimizers": "",
+       "optimizer": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#7",
+      "symbol_id": "fve.pv_string",
+      "x": 35.0,
+      "y": 77.5,
+      "rotation": 0,
+      "attrs": {
+       "ref": "G4",
+       "type": "",
+       "n_modules": "18",
+       "p_module": "450",
+       "p_string": "8.1 kWp",
+       "voc": "49.5",
+       "vmp": "41.5",
+       "isc": "13.9",
+       "beta_voc": "-0.27",
+       "n_optimizers": "",
+       "optimizer": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#8",
+      "symbol_id": "fve.switchboard",
+      "x": 115.0,
+      "y": 150.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "RDC1",
+       "desc": "DC rozvaděč po trase T1",
+       "sheet": "RDC1 – DC rozvaděč po trase T1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#9",
+      "symbol_id": "fve.switchboard",
+      "x": 200.0,
+      "y": 150.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "RDC2",
+       "desc": "DC rozvaděč u T1",
+       "sheet": "RDC2 – DC rozvaděč u T1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#10",
+      "symbol_id": "fve.grid",
+      "x": 465.0,
+      "y": 150.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "",
+       "voltage": "3×400 V",
+       "dso": ""
+      },
+      "component_id": null
+     },
+     {
+      "id": "#11",
+      "symbol_id": "fve.earth",
+      "x": 425.0,
+      "y": 110.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "",
+       "desc": "ekvipotenciální svorkovnice (HOP)"
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#12",
+      "a": {
+       "element_id": "#4",
+       "port": "DC"
+      },
+      "b": {
+       "element_id": "#8",
+       "port": "X1"
+      },
+      "points": [
+       [
+        95.0,
+        212.5
+       ],
+       [
+        95.0,
+        175.0
+       ]
+      ],
+      "attrs": {
+       "ref": "W1",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "30",
+       "method": "E",
+       "cable_id": "#13"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#14",
+      "a": {
+       "element_id": "#8",
+       "port": "X5"
+      },
+      "b": {
+       "element_id": "#9",
+       "port": "X1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W2",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "20",
+       "method": "E",
+       "cable_id": "#15"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#16",
+      "a": {
+       "element_id": "#9",
+       "port": "X5"
+      },
+      "b": {
+       "element_id": "#3",
+       "port": "DC1"
+      },
+      "points": [
+       [
+        265.0,
+        175.0
+       ],
+       [
+        265.0,
+        162.5
+       ]
+      ],
+      "attrs": {
+       "ref": "W3",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "5",
+       "method": "E",
+       "cable_id": "#17"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#18",
+      "a": {
+       "element_id": "#5",
+       "port": "DC"
+      },
+      "b": {
+       "element_id": "#8",
+       "port": "X2"
+      },
+      "points": [
+       [
+        90.0,
+        167.5
+       ],
+       [
+        90.0,
+        165.0
+       ]
+      ],
+      "attrs": {
+       "ref": "W4",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "30",
+       "method": "E",
+       "cable_id": "#19"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#20",
+      "a": {
+       "element_id": "#8",
+       "port": "X6"
+      },
+      "b": {
+       "element_id": "#9",
+       "port": "X2"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W5",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "20",
+       "method": "E",
+       "cable_id": "#21"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#22",
+      "a": {
+       "element_id": "#9",
+       "port": "X6"
+      },
+      "b": {
+       "element_id": "#3",
+       "port": "DC2"
+      },
+      "points": [
+       [
+        260.0,
+        165.0
+       ],
+       [
+        260.0,
+        157.5
+       ]
+      ],
+      "attrs": {
+       "ref": "W6",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "5",
+       "method": "E",
+       "cable_id": "#23"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#24",
+      "a": {
+       "element_id": "#6",
+       "port": "DC"
+      },
+      "b": {
+       "element_id": "#8",
+       "port": "X3"
+      },
+      "points": [
+       [
+        80.0,
+        122.5
+       ],
+       [
+        80.0,
+        155.0
+       ]
+      ],
+      "attrs": {
+       "ref": "W7",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "30",
+       "method": "E",
+       "cable_id": "#25"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#26",
+      "a": {
+       "element_id": "#8",
+       "port": "X7"
+      },
+      "b": {
+       "element_id": "#9",
+       "port": "X3"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W8",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "20",
+       "method": "E",
+       "cable_id": "#27"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#28",
+      "a": {
+       "element_id": "#9",
+       "port": "X7"
+      },
+      "b": {
+       "element_id": "#3",
+       "port": "DC3"
+      },
+      "points": [
+       [
+        255.0,
+        155.0
+       ],
+       [
+        255.0,
+        152.5
+       ]
+      ],
+      "attrs": {
+       "ref": "W9",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "5",
+       "method": "E",
+       "cable_id": "#29"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#30",
+      "a": {
+       "element_id": "#7",
+       "port": "DC"
+      },
+      "b": {
+       "element_id": "#8",
+       "port": "X4"
+      },
+      "points": [
+       [
+        85.0,
+        77.5
+       ],
+       [
+        85.0,
+        145.0
+       ]
+      ],
+      "attrs": {
+       "ref": "W10",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "30",
+       "method": "E",
+       "cable_id": "#31"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#32",
+      "a": {
+       "element_id": "#8",
+       "port": "X8"
+      },
+      "b": {
+       "element_id": "#9",
+       "port": "X4"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W11",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "20",
+       "method": "E",
+       "cable_id": "#33"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#34",
+      "a": {
+       "element_id": "#9",
+       "port": "X8"
+      },
+      "b": {
+       "element_id": "#3",
+       "port": "DC4"
+      },
+      "points": [
+       [
+        250.0,
+        145.0
+       ],
+       [
+        250.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": "W12",
+       "cable": "H1Z2Z2-K 1x6",
+       "cross": "6",
+       "length": "5",
+       "method": "E",
+       "cable_id": "#35"
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#36",
+      "a": {
+       "element_id": "#3",
+       "port": "AC"
+      },
+      "b": {
+       "element_id": "#2",
+       "port": "X1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W13",
+       "cable": "CYKY-J 5x16",
+       "cross": "16",
+       "length": "30",
+       "method": "B1",
+       "cable_id": "#37"
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#38",
+      "a": {
+       "element_id": "#2",
+       "port": "XOUT"
+      },
+      "b": {
+       "element_id": "#10",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W14",
+       "cable": "CYKY-J 5x35",
+       "cross": "35",
+       "length": "20",
+       "method": "D",
+       "cable_id": "#39"
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#40",
+      "a": {
+       "element_id": "#2",
+       "port": "XPE"
+      },
+      "b": {
+       "element_id": "#11",
+       "port": "PE"
+      },
+      "points": [],
+      "attrs": {
+       "ref": "W15",
+       "cable": "CYA 16",
+       "cross": "16",
+       "length": "5",
+       "cable_id": "#41"
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {},
+    "func": "",
+    "loc": ""
+   },
+   {
+    "id": "#42",
+    "name": "RDC1 – DC rozvaděč po trase T1",
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
+    "kind": "switchboard",
+    "parent_element_id": "#8",
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {
+      "network": "DC IT",
+      "un": "max. 1000 V DC"
+     },
+     "placements": [
+      {
+       "element_id": "#43",
+       "row": 0,
+       "pos": 0.0
+      },
+      {
+       "element_id": "#44",
+       "row": 0,
+       "pos": 2.0
+      },
+      {
+       "element_id": "#45",
+       "row": 0,
+       "pos": 5.0
+      },
+      {
+       "element_id": "#46",
+       "row": 0,
+       "pos": 7.0
+      },
+      {
+       "element_id": "#47",
+       "row": 0,
+       "pos": 10.0
+      },
+      {
+       "element_id": "#48",
+       "row": 0,
+       "pos": 12.0
+      },
+      {
+       "element_id": "#49",
+       "row": 0,
+       "pos": 15.0
+      },
+      {
+       "element_id": "#50",
+       "row": 0,
+       "pos": 17.0
+      }
+     ]
+    },
+    "elements": [
+     {
+      "id": "#51",
+      "symbol_id": "sb.feed_in",
+      "x": 60.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X1",
+       "desc": "od G1",
+       "wire_id": "#12",
+       "from": "W1 G1:DC /1.A2",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#43",
+      "symbol_id": "fve.dc_disconnect",
+      "x": 60.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "QS1.1",
+       "in_": "32",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#52",
+      "symbol_id": "sb.feed_out",
+      "x": 60.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X5",
+       "desc": "G1 dál",
+       "wire_id": "#14",
+       "to": "W2 RDC2:X1 /1.D3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#44",
+      "symbol_id": "fve.spd",
+      "x": 72.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.1",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#53",
+      "symbol_id": "sb.feed_out",
+      "x": 40.0,
+      "y": 130.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "XPE",
+       "desc": "k HOP",
+       "shared": "1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#54",
+      "symbol_id": "sb.feed_in",
+      "x": 100.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X2",
+       "desc": "od G2",
+       "wire_id": "#18",
+       "from": "W4 G2:DC /1.A3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#45",
+      "symbol_id": "fve.dc_disconnect",
+      "x": 100.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "QS1.2",
+       "in_": "32",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#55",
+      "symbol_id": "sb.feed_out",
+      "x": 100.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X6",
+       "desc": "G2 dál",
+       "wire_id": "#20",
+       "to": "W5 RDC2:X2 /1.D3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#46",
+      "symbol_id": "fve.spd",
+      "x": 112.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.2",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#56",
+      "symbol_id": "sb.feed_in",
+      "x": 140.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X3",
+       "desc": "od G3",
+       "wire_id": "#24",
+       "from": "W7 G3:DC /1.A4",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#47",
+      "symbol_id": "fve.dc_disconnect",
+      "x": 140.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "QS1.3",
+       "in_": "32",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#57",
+      "symbol_id": "sb.feed_out",
+      "x": 140.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X7",
+       "desc": "G3 dál",
+       "wire_id": "#26",
+       "to": "W8 RDC2:X3 /1.D3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#48",
+      "symbol_id": "fve.spd",
+      "x": 152.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.3",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G3"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#58",
+      "symbol_id": "sb.feed_in",
+      "x": 180.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X4",
+       "desc": "od G4",
+       "wire_id": "#30",
+       "from": "W10 G4:DC /1.A5",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#49",
+      "symbol_id": "fve.dc_disconnect",
+      "x": 180.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "QS1.4",
+       "in_": "32",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#59",
+      "symbol_id": "sb.feed_out",
+      "x": 180.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X8",
+       "desc": "G4 dál",
+       "wire_id": "#32",
+       "to": "W11 RDC2:X4 /1.D3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#50",
+      "symbol_id": "fve.spd",
+      "x": 192.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.4",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G4"
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#60",
+      "a": {
+       "element_id": "#51",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#43",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#61",
+      "a": {
+       "element_id": "#43",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#52",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#62",
+      "a": {
+       "element_id": "#43",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#44",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#63",
+      "a": {
+       "element_id": "#44",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#53",
+       "port": "1"
+      },
+      "points": [
+       [
+        95.0,
+        170.0
+       ],
+       [
+        95.0,
+        147.5
+       ],
+       [
+        40.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#64",
+      "a": {
+       "element_id": "#54",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#45",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#65",
+      "a": {
+       "element_id": "#45",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#55",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#66",
+      "a": {
+       "element_id": "#45",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#46",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#67",
+      "a": {
+       "element_id": "#46",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#53",
+       "port": "1"
+      },
+      "points": [
+       [
+        135.0,
+        170.0
+       ],
+       [
+        135.0,
+        147.5
+       ],
+       [
+        80.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#68",
+      "a": {
+       "element_id": "#56",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#47",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#69",
+      "a": {
+       "element_id": "#47",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#57",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#70",
+      "a": {
+       "element_id": "#47",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#48",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#71",
+      "a": {
+       "element_id": "#48",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#53",
+       "port": "1"
+      },
+      "points": [
+       [
+        175.0,
+        170.0
+       ],
+       [
+        175.0,
+        147.5
+       ],
+       [
+        120.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#72",
+      "a": {
+       "element_id": "#58",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#49",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#73",
+      "a": {
+       "element_id": "#49",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#59",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#74",
+      "a": {
+       "element_id": "#49",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#50",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#75",
+      "a": {
+       "element_id": "#50",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#53",
+       "port": "1"
+      },
+      "points": [
+       [
+        215.0,
+        170.0
+       ],
+       [
+        215.0,
+        147.5
+       ],
+       [
+        160.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {},
+    "func": "",
+    "loc": "RDC1"
+   },
+   {
+    "id": "#76",
+    "name": "RDC2 – DC rozvaděč u T1",
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
+    "kind": "switchboard",
+    "parent_element_id": "#9",
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {
+      "network": "DC IT",
+      "un": "max. 1000 V DC"
+     },
+     "placements": [
+      {
+       "element_id": "#77",
+       "row": 0,
+       "pos": 0.0
+      },
+      {
+       "element_id": "#78",
+       "row": 0,
+       "pos": 2.0
+      },
+      {
+       "element_id": "#79",
+       "row": 0,
+       "pos": 5.0
+      },
+      {
+       "element_id": "#80",
+       "row": 0,
+       "pos": 7.0
+      },
+      {
+       "element_id": "#81",
+       "row": 0,
+       "pos": 10.0
+      },
+      {
+       "element_id": "#82",
+       "row": 0,
+       "pos": 12.0
+      },
+      {
+       "element_id": "#83",
+       "row": 0,
+       "pos": 15.0
+      },
+      {
+       "element_id": "#84",
+       "row": 0,
+       "pos": 17.0
+      }
+     ]
+    },
+    "elements": [
+     {
+      "id": "#85",
+      "symbol_id": "sb.feed_in",
+      "x": 60.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X1",
+       "desc": "od G1",
+       "wire_id": "#14",
+       "from": "W2 RDC1:X5 /1.B3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#77",
+      "symbol_id": "fve.fuse_disconnect",
+      "x": 60.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "FU1.1",
+       "in_": "15",
+       "char": "gPV",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#86",
+      "symbol_id": "sb.feed_out",
+      "x": 60.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X5",
+       "desc": "G1 dál",
+       "wire_id": "#16",
+       "to": "W3 T1:DC1 /1.E3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#78",
+      "symbol_id": "fve.spd",
+      "x": 72.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.1",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#87",
+      "symbol_id": "sb.feed_out",
+      "x": 40.0,
+      "y": 130.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "XPE",
+       "desc": "k HOP",
+       "shared": "1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#88",
+      "symbol_id": "sb.feed_in",
+      "x": 100.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X2",
+       "desc": "od G2",
+       "wire_id": "#20",
+       "from": "W5 RDC1:X6 /1.B3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#79",
+      "symbol_id": "fve.fuse_disconnect",
+      "x": 100.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "FU1.2",
+       "in_": "15",
+       "char": "gPV",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#89",
+      "symbol_id": "sb.feed_out",
+      "x": 100.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X6",
+       "desc": "G2 dál",
+       "wire_id": "#22",
+       "to": "W6 T1:DC2 /1.E3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#80",
+      "symbol_id": "fve.spd",
+      "x": 112.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.2",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#90",
+      "symbol_id": "sb.feed_in",
+      "x": 140.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X3",
+       "desc": "od G3",
+       "wire_id": "#26",
+       "from": "W8 RDC1:X7 /1.B3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#81",
+      "symbol_id": "fve.fuse_disconnect",
+      "x": 140.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "FU1.3",
+       "in_": "15",
+       "char": "gPV",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#91",
+      "symbol_id": "sb.feed_out",
+      "x": 140.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X7",
+       "desc": "G3 dál",
+       "wire_id": "#28",
+       "to": "W9 T1:DC3 /1.E3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#82",
+      "symbol_id": "fve.spd",
+      "x": 152.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.3",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G3"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#92",
+      "symbol_id": "sb.feed_in",
+      "x": 180.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X4",
+       "desc": "od G4",
+       "wire_id": "#32",
+       "from": "W11 RDC1:X8 /1.B3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#83",
+      "symbol_id": "fve.fuse_disconnect",
+      "x": 180.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "FU1.4",
+       "in_": "15",
+       "char": "gPV",
+       "un": "1000",
+       "poles": "2",
+       "modules": "2"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#93",
+      "symbol_id": "sb.feed_out",
+      "x": 180.0,
+      "y": 170.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X8",
+       "desc": "G4 dál",
+       "wire_id": "#34",
+       "to": "W12 T1:DC4 /1.E3",
+       "cable": "H1Z2Z2-K 1x6 6"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#84",
+      "symbol_id": "fve.spd",
+      "x": 192.5,
+      "y": 180.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "SPD-DC1.4",
+       "spd_type": "T2 DC",
+       "uc": "1000",
+       "poles": "3",
+       "modules": "3",
+       "desc": "string G4"
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#94",
+      "a": {
+       "element_id": "#85",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#77",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#95",
+      "a": {
+       "element_id": "#77",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#86",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#96",
+      "a": {
+       "element_id": "#77",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#78",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#97",
+      "a": {
+       "element_id": "#78",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#87",
+       "port": "1"
+      },
+      "points": [
+       [
+        95.0,
+        170.0
+       ],
+       [
+        95.0,
+        147.5
+       ],
+       [
+        40.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#98",
+      "a": {
+       "element_id": "#88",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#79",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#99",
+      "a": {
+       "element_id": "#79",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#89",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#100",
+      "a": {
+       "element_id": "#79",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#80",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#101",
+      "a": {
+       "element_id": "#80",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#87",
+       "port": "1"
+      },
+      "points": [
+       [
+        135.0,
+        170.0
+       ],
+       [
+        135.0,
+        147.5
+       ],
+       [
+        80.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#102",
+      "a": {
+       "element_id": "#90",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#81",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#103",
+      "a": {
+       "element_id": "#81",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#91",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#104",
+      "a": {
+       "element_id": "#81",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#82",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#105",
+      "a": {
+       "element_id": "#82",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#87",
+       "port": "1"
+      },
+      "points": [
+       [
+        175.0,
+        170.0
+       ],
+       [
+        175.0,
+        147.5
+       ],
+       [
+        120.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#106",
+      "a": {
+       "element_id": "#92",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#83",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#107",
+      "a": {
+       "element_id": "#83",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#93",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#108",
+      "a": {
+       "element_id": "#83",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#84",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "DC+",
+       "DC-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#109",
+      "a": {
+       "element_id": "#84",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#87",
+       "port": "1"
+      },
+      "points": [
+       [
+        215.0,
+        170.0
+       ],
+       [
+        215.0,
+        147.5
+       ],
+       [
+        160.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {},
+    "func": "",
+    "loc": "RDC2"
+   },
+   {
+    "id": "#110",
+    "name": "RH – AC rozvaděč FVE",
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
+    "kind": "switchboard",
+    "parent_element_id": "#2",
+    "layout": {
+     "rows": 3,
+     "modules_per_row": 24,
+     "enclosure": "",
+     "params": {
+      "network": "3NPE, 50 Hz",
+      "un": "230/400 V",
+      "in_": "125"
+     },
+     "placements": [
+      {
+       "element_id": "#111",
+       "row": 0,
+       "pos": 0.0
+      },
+      {
+       "element_id": "#112",
+       "row": 0,
+       "pos": 3.0
+      },
+      {
+       "element_id": "#113",
+       "row": 0,
+       "pos": 7.0
+      }
+     ]
+    },
+    "elements": [
+     {
+      "id": "#114",
+      "symbol_id": "sb.feed_in",
+      "x": 60.0,
+      "y": 240.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "X1",
+       "desc": "od T1",
+       "wire_id": "#36",
+       "from": "W13 T1:AC /1.E3",
+       "cable": "CYKY-J 5x16 16"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#111",
+      "symbol_id": "fve.breaker_mcb",
+      "x": 60.0,
+      "y": 210.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "F1",
+       "in_": "40",
+       "char": "B",
+       "poles": "3",
+       "modules": "3"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#115",
+      "symbol_id": "sb.busbar",
+      "x": 120.0,
+      "y": 175.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "1",
+       "desc": "rozvod AC",
+       "in_": "125",
+       "conductors": "L1 L2 L3 N PE",
+       "shared": "1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#112",
+      "symbol_id": "fve.spd",
+      "x": 90.0,
+      "y": 140.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "F2",
+       "spd_type": "T1+T2",
+       "poles": "4",
+       "modules": "4"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#116",
+      "symbol_id": "sb.feed_out",
+      "x": 70.0,
+      "y": 105.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "XPE",
+       "desc": "k HOP",
+       "shared": "1",
+       "wire_id": "#40",
+       "to": "W15 fve.earth:PE /1.H4",
+       "cable": "CYA 16 16"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#113",
+      "symbol_id": "sb.main_switch",
+      "x": 150.0,
+      "y": 140.0,
+      "rotation": 270,
+      "attrs": {
+       "ref": "Q1",
+       "in_": "125",
+       "poles": "4",
+       "modules": "4"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#117",
+      "symbol_id": "sb.feed_out",
+      "x": 150.0,
+      "y": 105.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "XOUT",
+       "desc": "do HDS / DS",
+       "wire_id": "#38",
+       "to": "W14 fve.grid:1 /1.H3",
+       "cable": "CYKY-J 5x35 35"
+      },
+      "component_id": null
+     }
+    ],
+    "wires": [
+     {
+      "id": "#118",
+      "a": {
+       "element_id": "#114",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#111",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#119",
+      "a": {
+       "element_id": "#111",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#115",
+       "port": "T1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#120",
+      "a": {
+       "element_id": "#115",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#112",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#121",
+      "a": {
+       "element_id": "#112",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#116",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#122",
+      "a": {
+       "element_id": "#115",
+       "port": "4"
+      },
+      "b": {
+       "element_id": "#116",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#123",
+      "a": {
+       "element_id": "#115",
+       "port": "3"
+      },
+      "b": {
+       "element_id": "#113",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#124",
+      "a": {
+       "element_id": "#113",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#117",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     }
+    ],
+    "bridges": {},
+    "func": "",
+    "loc": "RH"
+   }
+  ],
+  "cables": [
+   {
+    "id": "#13",
+    "ref": "W1",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#15",
+    "ref": "W2",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#17",
+    "ref": "W3",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "5",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#19",
+    "ref": "W4",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#21",
+    "ref": "W5",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#23",
+    "ref": "W6",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "5",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#25",
+    "ref": "W7",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#27",
+    "ref": "W8",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#29",
+    "ref": "W9",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "5",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#31",
+    "ref": "W10",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#33",
+    "ref": "W11",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#35",
+    "ref": "W12",
+    "type": "H1Z2Z2-K 1x6",
+    "cross": "6",
+    "cores": [
+     {
+      "name": "DC+",
+      "number": "1",
+      "color": "červená"
+     },
+     {
+      "name": "DC-",
+      "number": "2",
+      "color": "černá"
+     }
+    ],
+    "shield": false,
+    "length": "5",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#37",
+    "ref": "W13",
+    "type": "CYKY-J 5x16",
+    "cross": "16",
+    "cores": [
+     {
+      "name": "L1",
+      "number": "1",
+      "color": "hnědá"
+     },
+     {
+      "name": "L2",
+      "number": "2",
+      "color": "černá"
+     },
+     {
+      "name": "L3",
+      "number": "3",
+      "color": "šedá"
+     },
+     {
+      "name": "N",
+      "number": "4",
+      "color": "modrá"
+     },
+     {
+      "name": "PE",
+      "number": "5",
+      "color": "zelenožlutá"
+     }
+    ],
+    "shield": false,
+    "length": "30",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#39",
+    "ref": "W14",
+    "type": "CYKY-J 5x35",
+    "cross": "35",
+    "cores": [
+     {
+      "name": "L1",
+      "number": "1",
+      "color": "hnědá"
+     },
+     {
+      "name": "L2",
+      "number": "2",
+      "color": "černá"
+     },
+     {
+      "name": "L3",
+      "number": "3",
+      "color": "šedá"
+     },
+     {
+      "name": "N",
+      "number": "4",
+      "color": "modrá"
+     },
+     {
+      "name": "PE",
+      "number": "5",
+      "color": "zelenožlutá"
+     }
+    ],
+    "shield": false,
+    "length": "20",
+    "route": "",
+    "note": "",
+    "component_id": null
+   },
+   {
+    "id": "#41",
+    "ref": "W15",
+    "type": "CYA 16",
+    "cross": "16",
+    "cores": [
+     {
+      "name": "PE",
+      "number": "1",
+      "color": "zelenožlutá"
+     }
+    ],
+    "shield": false,
+    "length": "5",
+    "route": "",
+    "note": "",
+    "component_id": null
+   }
+  ],
+  "structures": [
+   {
+    "aspect": "+",
+    "code": "RDC1",
+    "description": "DC rozvaděč po trase T1"
+   },
+   {
+    "aspect": "+",
+    "code": "RDC2",
+    "description": "DC rozvaděč u T1"
+   },
+   {
+    "aspect": "+",
+    "code": "RH",
+    "description": "AC rozvaděč FVE"
+   }
+  ],
+  "revisions": []
+ }
+}

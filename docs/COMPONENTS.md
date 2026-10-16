@@ -49,6 +49,7 @@ Volitelné (podle kategorie): viz tabulka. Neznámou hodnotu nechte **prázdnou*
 | `terminal_kind`, `connection`, `cross_mm2`, `cross_max_mm2`, `width_mm`, `in_`, `un_v`, `color`, `levels` | řadové svorky: druh (`prochozi`, `pe`, `n-odpojovaci`, `dvoupatrova`, `pojistkova`, `rozbocovaci`, `distribucni`, `mustek`), připojení (`sroub`, `push-in`, `pruzina`), jmenovitý / max. průřez, rozteč (šířka), In, Un, barva, počet pater | mm², mm, A, V |
 | `cores_n`, `cross_mm2`, `od_mm`, `un_v`, `shield` | kabely: počet žil, průřez, vnější průměr, Un, stínění (`ano`) | ks, mm², mm, V |
 | `contacts` | kontaktní obraz (stykače, relé, jističe s pomocnými kontakty): páry svorek oddělené mezerou, volitelně `NO:`/`NC:`/`P:` – viz `docs/LIBRARY_FORMAT.md` | např. `1/2 3/4 5/6 13/14`, `NO:11/14 NC:11/12` |
+| `macro` | **rezervováno** pro funkční šablonu artiklu: název makra (`docs/LIBRARY_FORMAT.md`, „Formát makra“), které artikl vkládá. Zatím se nevyhodnocuje – sloupec se jen uloží do `params` | |
 | `note` | cokoliv dalšího (např. „DC 1000 V“, „s pomocným kontaktem“) | |
 
 ## Propsání do prvku
