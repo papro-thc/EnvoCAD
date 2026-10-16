@@ -4,7 +4,7 @@
  "fragment": {
   "elements": [
    {
-    "id": "7cca25a1eda9",
+    "id": "7c5557744036",
     "symbol_id": "fve.pv_string",
     "x": 40,
     "y": 200,
@@ -18,7 +18,7 @@
     "component_id": null
    },
    {
-    "id": "ff3a7d8bd51e",
+    "id": "08250c2fc3d3",
     "symbol_id": "fve.inverter",
     "x": 160.0,
     "y": 200,
@@ -35,13 +35,13 @@
   ],
   "wires": [
    {
-    "id": "45347412d1f2",
+    "id": "f25566234444",
     "a": {
-     "element_id": "7cca25a1eda9",
+     "element_id": "7c5557744036",
      "port": "DC"
     },
     "b": {
-     "element_id": "ff3a7d8bd51e",
+     "element_id": "08250c2fc3d3",
      "port": "DC1"
     },
     "points": [],

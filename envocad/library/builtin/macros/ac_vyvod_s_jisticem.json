@@ -4,7 +4,7 @@
  "fragment": {
   "elements": [
    {
-    "id": "60d81802cf43",
+    "id": "711bd71c4a6c",
     "symbol_id": "sb.terminal_block",
     "x": 60,
     "y": 200,
@@ -17,7 +17,7 @@
     "component_id": null
    },
    {
-    "id": "0115b601ee42",
+    "id": "dd1db5b7c927",
     "symbol_id": "fve.breaker_mcb",
     "x": 60,
     "y": 170,
@@ -32,7 +32,7 @@
     "component_id": null
    },
    {
-    "id": "7e5a58782d5b",
+    "id": "91313246624b",
     "symbol_id": "sb.feed_out",
     "x": 60,
     "y": 140,
@@ -46,13 +46,13 @@
   ],
   "wires": [
    {
-    "id": "f50ceae9821c",
+    "id": "84174494a960",
     "a": {
-     "element_id": "60d81802cf43",
+     "element_id": "711bd71c4a6c",
      "port": "2"
     },
     "b": {
-     "element_id": "0115b601ee42",
+     "element_id": "dd1db5b7c927",
      "port": "1"
     },
     "points": [],
@@ -69,13 +69,13 @@
     "terminals": {}
    },
    {
-    "id": "389719807623",
+    "id": "d63007e43d76",
     "a": {
-     "element_id": "0115b601ee42",
+     "element_id": "dd1db5b7c927",
      "port": "2"
     },
     "b": {
-     "element_id": "7e5a58782d5b",
+     "element_id": "91313246624b",
      "port": "1"
     },
     "points": [],

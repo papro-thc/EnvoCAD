@@ -139,8 +139,28 @@ def check_project(project: Project, lib) -> list[Finding]:
                                        "bridge_missing"))
     out += calc_findings(project)
     out += potential_findings(project, lib)
+    out += text_findings(project, lib)
     order = {ERROR: 0, WARNING: 1, INFO: 2}
     out.sort(key=lambda f: (order[f.severity], f.sheet_name, f.ref))
+    return out
+
+
+def text_findings(project: Project, lib) -> list[Finding]:
+    """Překrývající se texty na listech (po automatickém rozmístění popisků) – text přes text, vodič nebo značku."""
+    from envocad.model.textlayout import text_overlaps
+    out: list[Finding] = []
+    for s in project.sheets:
+        try:
+            hits = text_overlaps(project, s, lib)
+        except (KeyError, ValueError, AttributeError):
+            continue
+        wires = {w.id: w for w in s.wires}
+        for a, _b, text in hits:
+            w = wires.get(a)
+            ref = (w.attrs.get("ref", "") if w else s.element(a).ref) or ""
+            out.append(Finding(WARNING, s.id, s.name, a, w is not None, ref,
+                               f"Překryv textu: {text} – posuň prvek / lom vodiče nebo uprav polohu popisku značky",
+                               "text_overlap"))
     return out
 
 

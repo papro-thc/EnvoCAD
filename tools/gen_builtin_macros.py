@@ -41,13 +41,14 @@ def dc_string_in() -> dict:
     out.attrs["ref"] = "X{nk}"
     spd = _el(p, s, "fve.spd", 72.5, 180, "F", spd_type="{spd} DC", uc="1000", poles="3", modules="3", desc="string {string}")
     spd.attrs["ref"] = "SPD-DC{i}.{j}"
-    xpe = _el(p, s, "sb.feed_out", 40, 150, "", desc="k HOP", shared="1")
+    xpe = _el(p, s, "sb.feed_out", 40, 130, "", desc="k HOP", shared="1")
     xpe.attrs["ref"] = "XPE"
     _wire(p, s, feed, "1", d, "1", DC_CONDUCTORS)
     _wire(p, s, d, "2", out, "1", DC_CONDUCTORS)
     _wire(p, s, d, "2", spd, "L", DC_CONDUCTORS)
-    _wire(p, s, spd, "PE", xpe, "1", ["PE"])
-    return _frag(s, 30)
+    pe = _wire(p, s, spd, "PE", xpe, "1", ["PE"])
+    pe.points = [(95.0, 170.0), (95.0, 147.5), (40.0, 147.5)]   # PE vpravo kolem popisků vývodu, ne přes ně
+    return _frag(s, 40)   # rozteč 40 mm: popisky přívodu/SPD se nepřekrývají se sousedním stringem
 
 
 def dc_string_route() -> dict:
@@ -61,13 +62,14 @@ def dc_string_route() -> dict:
     out.attrs["ref"] = "X{nk}"
     spd = _el(p, s, "fve.spd", 72.5, 180, "F", spd_type="{spd} DC", uc="1000", poles="3", modules="3", desc="string {string}")
     spd.attrs["ref"] = "SPD-DC{i}.{j}"
-    xpe = _el(p, s, "sb.feed_out", 40, 150, "", desc="k HOP", shared="1")
+    xpe = _el(p, s, "sb.feed_out", 40, 130, "", desc="k HOP", shared="1")
     xpe.attrs["ref"] = "XPE"
     _wire(p, s, feed, "1", d, "1", DC_CONDUCTORS)
     _wire(p, s, d, "2", out, "1", DC_CONDUCTORS)
     _wire(p, s, d, "2", spd, "L", DC_CONDUCTORS)
-    _wire(p, s, spd, "PE", xpe, "1", ["PE"])
-    return _frag(s, 30)
+    pe = _wire(p, s, spd, "PE", xpe, "1", ["PE"])
+    pe.points = [(95.0, 170.0), (95.0, 147.5), (40.0, 147.5)]   # PE vpravo kolem popisků vývodu, ne přes ně
+    return _frag(s, 40)   # rozteč 40 mm: popisky přívodu/SPD se nepřekrývají se sousedním stringem
 
 
 def ac_feed() -> dict:

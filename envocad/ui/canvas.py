@@ -76,6 +76,7 @@ class SchematicScene(QGraphicsScene):
             self.add_element_item(e)
         for w in self.sheet.wires:
             self.add_wire_item(w)
+        self.invalidate_text_layout()
 
     def add_element_item(self, e: Element) -> ElementItem:
         it = ElementItem(e, element_symbol(self.project, e, self.library))
@@ -105,6 +106,34 @@ class SchematicScene(QGraphicsScene):
         b = self.element_items.get(it.wire.b.element_id)
         if a and b:
             it.update_route(a, b)
+        self.invalidate_text_layout()
+
+    # ---- rozmístění popisků (model/textlayout) – počítá se líně při kreslení, ruší se při změně geometrie
+    _text_layout = None
+
+    def invalidate_text_layout(self) -> None:
+        if self._text_layout is not None:
+            self._text_layout = None
+            self.update()
+
+    def text_layout(self):
+        if self._text_layout is None:
+            from envocad.model.textlayout import compute_layout
+            from envocad.ui.items import path_points
+            routes = {wid: path_points(it.path()) for wid, it in self.wire_items.items()}
+            try:
+                self._text_layout = compute_layout(self.project, self.sheet, self.library, routes,
+                                                   xref_of=self.wire_xref if not self.sheet.is_switchboard else (lambda w: ""))
+            except Exception:  # noqa: BLE001 – rozmístění nesmí shodit kreslení
+                from envocad.model.textlayout import SheetTextLayout
+                self._text_layout = SheetTextLayout()
+        return self._text_layout
+
+    def element_label(self, e: Element):
+        return self.text_layout().elements.get(e.id)
+
+    def wire_label_pos(self, w: Wire):
+        return self.text_layout().wires.get(w.id)
 
     def update_wires_of(self, eid: str) -> None:
         for it in self.wire_items.values():
@@ -383,6 +412,7 @@ class SchematicScene(QGraphicsScene):
 
     def invalidate_xrefs(self) -> None:
         self._xref_index = None
+        self.invalidate_text_layout()
 
     def wire_xref(self, w: Wire) -> str:
         from envocad.model.project import feed_link_index, wire_xref

@@ -321,3 +321,24 @@ def test_macros_roundtrip(tmp_path, monkeypatch):
     assert [e.ref for e in els] == ["F2", "X2"] and len(wires) == 1 and els[0].x == 150
     assert macros.delete_macro(mine) and not path.exists()
     assert not macros.delete_macro(builtin[0]) and builtin[0].path.exists()
+
+
+def test_text_layout_avoids_and_reports_overlaps():
+    from envocad.library.store import LibraryStore
+    from envocad.model.project import Element, Project, Sheet, Wire, WireEnd
+    from envocad.model.textlayout import boxes_overlap, compute_layout, text_overlaps
+    lib = LibraryStore()
+    p, s = Project(), Sheet()
+    p.sheets.append(s)
+    a = Element("fve.dc_disconnect", 60, 100, attrs={"ref": "Q1", "in_": "32"})
+    b = Element("fve.dc_disconnect", 62.5, 100, attrs={"ref": "Q2", "in_": "32"})   # výchozí popisky přes sebe
+    g = Element("fve.pv_string", 20, 60, attrs={"ref": "G1", "n_modules": "18"})
+    t = Element("fve.dc_disconnect", 90, 60, attrs={"ref": "Q3"})
+    s.elements += [a, b, g, t]
+    s.wires.append(Wire(WireEnd(g.id, "DC"), WireEnd(t.id, "1"), conductors=["DC+", "DC-"],
+                        attrs={"ref": "W1", "cable": "H1Z2Z2-K 1x6", "cross": "6"}))
+    lay = compute_layout(p, s, lib)
+    assert not any(boxes_overlap(x, y) for x in lay.elements[a.id].boxes for y in lay.elements[b.id].boxes)
+    # bez automatiky se překryv nahlásí
+    assert any("Q1" in m and "Q2" in m for _, _, m in text_overlaps(p, s, lib, compute_layout(p, s, lib, auto=False)))
+    assert not [m for _, _, m in text_overlaps(p, s, lib) if "Q1" in m and "Q2" in m]

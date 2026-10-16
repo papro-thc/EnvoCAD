@@ -6,9 +6,8 @@ from pathlib import Path
 import ezdxf
 
 from envocad.library.store import LibraryStore
-from envocad.model.geometry import wire_label_anchor
-from envocad.model.project import Element, Project, Sheet, element_symbol, wire_label, wire_xref
-from envocad.model.symbol import GRID, Symbol, rotate_dir, rotate_point
+from envocad.model.project import Element, Project, Sheet, element_symbol
+from envocad.model.symbol import GRID, Symbol, rotate_point
 
 LAYERS = {
     "SYMBOLY": 7, "VODICE": 7, "TEXTY": 7, "RAMECEK": 8, "PORTY": 1,
@@ -25,7 +24,7 @@ def _tr(e: Element, x: float, y: float) -> tuple[float, float]:
     return (e.x + rx, e.y + ry)
 
 
-def _draw_symbol(msp, e: Element, sym: Symbol) -> None:
+def _draw_symbol(msp, e: Element, sym: Symbol, label=None) -> None:
     rot = e.rotation
     for p in sym.primitives:
         t = p["type"]
@@ -48,6 +47,10 @@ def _draw_symbol(msp, e: Element, sym: Symbol) -> None:
         elif t == "text":
             _text(msp, *_tr(e, p["x"], p["y"]), p["text"], p.get("height", 2.5), p.get("align", "center"), rot)
     # popisky
+    if label is not None:
+        for x, y, text, h in label.lines:
+            _text(msp, x, y, text, h, label.align, 0, layer="TEXTY")
+        return
     lx, ly = _tr(e, *sym.label_pos)
     line = 0.0
     if e.ref:
@@ -65,32 +68,8 @@ def _text(msp, x, y, text, height, align, rot, layer="SYMBOLY"):
 
 
 def _wire_points(project: Project, sheet: Sheet, lib: LibraryStore, w) -> list[tuple[float, float]]:
-    ea, eb = sheet.element(w.a.element_id), sheet.element(w.b.element_id)
-    sa, sb = element_symbol(project, ea, lib), element_symbol(project, eb, lib)
-    pa, pb = ea.port_pos(sa, w.a.port), eb.port_pos(sb, w.b.port)
-    da, db = rotate_dir(sa.port(w.a.port).dir, ea.rotation), rotate_dir(sb.port(w.b.port).dir, eb.rotation)
-    va, vb = DIR_VEC[da], DIR_VEC[db]
-    s1 = (pa[0] + va[0] * GRID, pa[1] + va[1] * GRID)
-    s2 = (pb[0] + vb[0] * GRID, pb[1] + vb[1] * GRID)
-    pts = [pa, s1]
-    if w.points:
-        from envocad.model.geometry import orthogonalize
-        mid = orthogonalize([s1, *w.points, s2], end_horizontal=db in ("E", "W"))
-        return [pa, *mid, pb]
-    else:
-        hor = da in ("E", "W")
-        if hor and db in ("E", "W") and abs(s1[1] - s2[1]) > 1e-6:
-            mx = _snap((s1[0] + s2[0]) / 2)
-            pts += [(mx, s1[1]), (mx, s2[1])]
-        elif not hor and db in ("N", "S") and abs(s1[0] - s2[0]) > 1e-6:
-            my = _snap((s1[1] + s2[1]) / 2)
-            pts += [(s1[0], my), (s2[0], my)]
-        elif hor:
-            pts.append((s2[0], s1[1]))
-        else:
-            pts.append((s1[0], s2[1]))
-    pts += [s2, pb]
-    return pts
+    from envocad.model.textlayout import wire_route
+    return wire_route(project, sheet, lib, w)
 
 
 def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Path | str) -> None:
@@ -120,24 +99,20 @@ def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Pa
             y = y0 - 2.5 - i * lh
             _text(msp, x0, y, k, 2.5, "left", 0, layer="TEXTY")
             _text(msp, x0 + 32, y, v, 2.5, "left", 0, layer="TEXTY")
+    from envocad.model.textlayout import compute_layout
+    lay = compute_layout(project, sheet, lib)
     for e in sheet.elements:
-        _draw_symbol(msp, e, element_symbol(project, e, lib))
-    from envocad.model.project import feed_link_index
-    idx = feed_link_index(project)
+        _draw_symbol(msp, e, element_symbol(project, e, lib), lay.elements.get(e.id))
     for w in sheet.wires:
-        pts = _wire_points(project, sheet, lib, w)
+        pts = lay.routes.get(w.id) or _wire_points(project, sheet, lib, w)
         msp.add_lwpolyline(pts, dxfattribs={"layer": "VODICE"})
-        label = wire_label(w.attrs, w.conductors)
-        xref = wire_xref(project, w.id, idx) if not sheet.is_switchboard else ""
-        if label or xref:
-            x, y, align, vertical = wire_label_anchor(pts)
-            if w.points and len(pts) >= 2 and abs(pts[1][1] - pts[0][1]) < 1e-6:
-                x, y, align, vertical = min(pts[0][0], pts[1][0]) + 1.5, pts[0][1] + 1.5, "left", False
-            if label:
-                _text(msp, x, y, label, 2.0, align, 0, layer="TEXTY")
-            if xref:
-                _text(msp, x, y - (3.0 if label else 0.0) - (1.5 if not vertical and label else 0.0), xref, 1.8, align, 0, layer="TEXTY")
-            if vertical:
-                msp.add_line((x - 2.7, y - 0.2), (x - 0.3, y + 2.2), dxfattribs={"layer": "VODICE"})
+        lp = lay.wires.get(w.id)
+        if lp is None:
+            continue
+        for x, y, text, h in lp.lines:
+            _text(msp, x, y, text, h, lp.align, 0, layer="TEXTY")
+        if lp.mark is not None:
+            mx, my = lp.mark
+            msp.add_line((mx - 1.2, my - 1.2), (mx + 1.2, my + 1.2), dxfattribs={"layer": "VODICE"})
     doc.saveas(str(path))
 

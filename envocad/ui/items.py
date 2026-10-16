@@ -5,7 +5,6 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QStyleOptionGraphicsItem, QWidget
 
-from envocad.model.geometry import wire_label_anchor
 from envocad.model.project import Element, Wire, wire_label
 from envocad.model.symbol import GRID, Symbol, rotate_dir
 from envocad.ui.render import LINE_WIDTH, draw_text, paint_symbol, sp, symbol_path
@@ -54,8 +53,13 @@ class ElementItem(QGraphicsItem):
     # ---- geometrie --------------------------------------------------------
     def boundingRect(self) -> QRectF:
         x0, y0, x1, y1 = self.symbol.bounds()
-        r = QRectF(x0, -y1, x1 - x0, y1 - y0).adjusted(-3, -8, 20, 3)
-        return r
+        lx, ly = self.symbol.label_pos
+        x0, x1, y0, y1 = min(x0, lx), max(x1, lx), min(y0, ly), max(y1, ly)
+        texts = [self.element.ref] + self.symbol.label_lines(self.element.attrs)
+        w = max((len(t) for t in texts), default=0) * 2.5 * 0.75 + 4
+        h = 3.5 * len(texts) + 4
+        m = max(w, h)   # popisek může být vpravo/vlevo/nad/pod značkou (rozmístění) a prvek otočený
+        return QRectF(x0, -y1, x1 - x0, y1 - y0).adjusted(-m, -m, m, m)
 
     def shape(self) -> QPainterPath:
         x0, y0, x1, y1 = self.symbol.bounds()
@@ -87,12 +91,20 @@ class ElementItem(QGraphicsItem):
         painter.setBrush(Qt.NoBrush)
         for p in self.symbol.ports:
             painter.drawEllipse(sp(p.x, p.y), PORT_R, PORT_R)
-        # popisky – vždy vodorovně, proto se při otočení kompenzuje rotace
+        # popisky – vždy vodorovně (kompenzuje se rotace); poloha z rozmístění scény (volné místo), jinak výchozí
+        sc = self.scene()
+        lab = sc.element_label(self.element) if hasattr(sc, "element_label") else None
         painter.save()
+        painter.setPen(QPen(color, 0.2))
+        if lab is not None:
+            painter.rotate(self.element.rotation)   # do souřadnic listu (bez otočení prvku), počátek = prvek
+            for x, y, text, h in lab.lines:
+                draw_text(painter, x - self.element.x, y - self.element.y, text, h, lab.align)
+            painter.restore()
+            return
         lx, ly = self.symbol.label_pos
         painter.translate(sp(lx, ly))
         painter.rotate(self.element.rotation)
-        painter.setPen(QPen(color, 0.2))
         line = 0.0
         if self.element.ref:
             draw_text(painter, 0, line, self.element.ref, 2.5, "left")
@@ -100,7 +112,6 @@ class ElementItem(QGraphicsItem):
         for text in self.symbol.label_lines(self.element.attrs):
             draw_text(painter, 0, line, text, 2.0, "left")
             line -= 3.0
-        sc = self.scene()
         xref = sc.element_xref(self.element) if hasattr(sc, "element_xref") else ""
         for ln in xref.splitlines():  # zrcadlo kontaktů může mít více řádků
             draw_text(painter, 0, line, ln, 2.0, "left")
@@ -138,24 +149,22 @@ class WireItem(QGraphicsPathItem):
         painter.setPen(pen)
         painter.setBrush(Qt.NoBrush)
         painter.drawPath(self.path())
-        label = wire_label(self.wire.attrs, self.wire.conductors)
         sc = self.scene()
-        xref = sc.wire_xref(self.wire) if hasattr(sc, "wire_xref") else ""
-        if label or xref:
-            pts = path_points(self.path())
-            x, y, align, vertical = wire_label_anchor(pts)
-            if self.wire.points and len(pts) >= 2 and abs(pts[1][1] - pts[0][1]) < 1e-6:
-                # ručně lomený vodič: popisek u začátku prvního (vodorovného) úseku jako v EPLAN, ne na nejdelším
-                x, y, align, vertical = min(pts[0][0], pts[1][0]) + 1.5, pts[0][1] + 1.5, "left", False
-            painter.setPen(QPen(pen.color(), 0.2))
-            # křížový odkaz na druhý řádek (pod vodorovný vodič / pod popisek u svislého), aby se krátké úseky nepřekrývaly
-            if label:
-                draw_text(painter, x, y, label, 2.0, align)
-            if xref:
-                draw_text(painter, x, y - (3.0 if label else 0.0) - (1.5 if not vertical and label else 0.0), xref, 1.8, align)
-            if vertical:  # značka na vodiči jako v EPLAN (krátká šikmá čárka u popisku)
-                painter.setPen(QPen(pen.color(), 0.3))
-                painter.drawLine(sp(x - 1.5 - 1.2, y + 1.0 - 1.2), sp(x - 1.5 + 1.2, y + 1.0 + 1.2))
+        lp = sc.wire_label_pos(self.wire) if hasattr(sc, "wire_label_pos") else None
+        if lp is None:
+            label = wire_label(self.wire.attrs, self.wire.conductors)
+            xref = sc.wire_xref(self.wire) if hasattr(sc, "wire_xref") else ""
+            if not (label or xref):
+                return
+            from envocad.model.textlayout import _candidates
+            lp = _candidates(path_points(self.path()), bool(self.wire.points), label, xref)[0]
+        painter.setPen(QPen(pen.color(), 0.2))
+        for x, y, text, h in lp.lines:
+            draw_text(painter, x, y, text, h, lp.align)
+        if lp.mark is not None:  # značka na vodiči jako v EPLAN (krátká šikmá čárka u popisku)
+            mx, my = lp.mark
+            painter.setPen(QPen(pen.color(), 0.3))
+            painter.drawLine(sp(mx - 1.2, my - 1.2), sp(mx + 1.2, my + 1.2))
 
 
 def path_points(path: QPainterPath) -> list[tuple[float, float]]:

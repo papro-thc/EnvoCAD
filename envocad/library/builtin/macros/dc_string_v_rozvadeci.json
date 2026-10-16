@@ -4,7 +4,7 @@
  "fragment": {
   "elements": [
    {
-    "id": "f4ff492e6681",
+    "id": "b0e2a6ee3205",
     "symbol_id": "sb.feed_in",
     "x": 60,
     "y": 240,
@@ -16,7 +16,7 @@
     "component_id": null
    },
    {
-    "id": "58677c680642",
+    "id": "da775265e7ed",
     "symbol_id": "fve.fuse_disconnect",
     "x": 60,
     "y": 210,
@@ -32,7 +32,7 @@
     "component_id": null
    },
    {
-    "id": "add6103434b1",
+    "id": "fac71b4548e9",
     "symbol_id": "sb.feed_out",
     "x": 60,
     "y": 170,
@@ -44,7 +44,7 @@
     "component_id": null
    },
    {
-    "id": "e3bf002ccbcc",
+    "id": "d7df4e894121",
     "symbol_id": "fve.spd",
     "x": 72.5,
     "y": 180,
@@ -60,10 +60,10 @@
     "component_id": null
    },
    {
-    "id": "214e9c29ac27",
+    "id": "2fe6316bc102",
     "symbol_id": "sb.feed_out",
     "x": 40,
-    "y": 150,
+    "y": 130,
     "rotation": 0,
     "attrs": {
      "ref": "XPE",
@@ -75,33 +75,13 @@
   ],
   "wires": [
    {
-    "id": "9c1f3733c35d",
+    "id": "00ab2e363936",
     "a": {
-     "element_id": "f4ff492e6681",
+     "element_id": "b0e2a6ee3205",
      "port": "1"
     },
     "b": {
-     "element_id": "58677c680642",
-     "port": "1"
-    },
-    "points": [],
-    "attrs": {
-     "ref": ""
-    },
-    "conductors": [
-     "DC+",
-     "DC-"
-    ],
-    "terminals": {}
-   },
-   {
-    "id": "ebbad583ef2d",
-    "a": {
-     "element_id": "58677c680642",
-     "port": "2"
-    },
-    "b": {
-     "element_id": "add6103434b1",
+     "element_id": "da775265e7ed",
      "port": "1"
     },
     "points": [],
@@ -115,13 +95,33 @@
     "terminals": {}
    },
    {
-    "id": "871178602ba1",
+    "id": "99156b54f118",
     "a": {
-     "element_id": "58677c680642",
+     "element_id": "da775265e7ed",
      "port": "2"
     },
     "b": {
-     "element_id": "e3bf002ccbcc",
+     "element_id": "fac71b4548e9",
+     "port": "1"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "DC+",
+     "DC-"
+    ],
+    "terminals": {}
+   },
+   {
+    "id": "cf3100a77226",
+    "a": {
+     "element_id": "da775265e7ed",
+     "port": "2"
+    },
+    "b": {
+     "element_id": "d7df4e894121",
      "port": "L"
     },
     "points": [],
@@ -135,16 +135,29 @@
     "terminals": {}
    },
    {
-    "id": "8eb975807dc6",
+    "id": "c5160613eebd",
     "a": {
-     "element_id": "e3bf002ccbcc",
+     "element_id": "d7df4e894121",
      "port": "PE"
     },
     "b": {
-     "element_id": "214e9c29ac27",
+     "element_id": "2fe6316bc102",
      "port": "1"
     },
-    "points": [],
+    "points": [
+     [
+      95.0,
+      170.0
+     ],
+     [
+      95.0,
+      147.5
+     ],
+     [
+      40.0,
+      147.5
+     ]
+    ],
     "attrs": {
      "ref": ""
     },
@@ -154,6 +167,6 @@
     "terminals": {}
    }
   ],
-  "pitch": 30
+  "pitch": 40
  }
 }

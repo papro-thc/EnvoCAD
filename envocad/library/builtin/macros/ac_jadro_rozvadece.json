@@ -4,7 +4,7 @@
  "fragment": {
   "elements": [
    {
-    "id": "ca210b5c82f4",
+    "id": "54c61f96c656",
     "symbol_id": "sb.busbar",
     "x": 120,
     "y": 175,
@@ -19,7 +19,7 @@
     "component_id": null
    },
    {
-    "id": "656f1af113ff",
+    "id": "bb16ca1993fd",
     "symbol_id": "fve.spd",
     "x": 60,
     "y": 140,
@@ -33,7 +33,7 @@
     "component_id": null
    },
    {
-    "id": "1a1070fdfc62",
+    "id": "f580ffd604bd",
     "symbol_id": "sb.feed_out",
     "x": 40,
     "y": 105,
@@ -46,7 +46,7 @@
     "component_id": null
    },
    {
-    "id": "fe941e6721a7",
+    "id": "02bb553866d7",
     "symbol_id": "sb.main_switch",
     "x": 120,
     "y": 140,
@@ -60,7 +60,7 @@
     "component_id": null
    },
    {
-    "id": "ff9f817b4bc2",
+    "id": "985f71222a42",
     "symbol_id": "sb.feed_out",
     "x": 120,
     "y": 105,
@@ -74,13 +74,13 @@
   ],
   "wires": [
    {
-    "id": "9dcedfaae596",
+    "id": "8c9f4e1db52a",
     "a": {
-     "element_id": "ca210b5c82f4",
+     "element_id": "54c61f96c656",
      "port": "1"
     },
     "b": {
-     "element_id": "656f1af113ff",
+     "element_id": "bb16ca1993fd",
      "port": "L"
     },
     "points": [],
@@ -96,13 +96,13 @@
     "terminals": {}
    },
    {
-    "id": "2c46ae44f6b0",
+    "id": "548637b27f41",
     "a": {
-     "element_id": "656f1af113ff",
+     "element_id": "bb16ca1993fd",
      "port": "PE"
     },
     "b": {
-     "element_id": "1a1070fdfc62",
+     "element_id": "f580ffd604bd",
      "port": "1"
     },
     "points": [],
@@ -115,13 +115,13 @@
     "terminals": {}
    },
    {
-    "id": "c008df260dc5",
+    "id": "be816803f8f9",
     "a": {
-     "element_id": "ca210b5c82f4",
+     "element_id": "54c61f96c656",
      "port": "4"
     },
     "b": {
-     "element_id": "1a1070fdfc62",
+     "element_id": "f580ffd604bd",
      "port": "1"
     },
     "points": [],
@@ -134,13 +134,13 @@
     "terminals": {}
    },
    {
-    "id": "93ee245d9694",
+    "id": "b652e3f938c2",
     "a": {
-     "element_id": "ca210b5c82f4",
+     "element_id": "54c61f96c656",
      "port": "3"
     },
     "b": {
-     "element_id": "fe941e6721a7",
+     "element_id": "02bb553866d7",
      "port": "1"
     },
     "points": [],
@@ -157,13 +157,13 @@
     "terminals": {}
    },
    {
-    "id": "24ec6e818527",
+    "id": "a4ad311ec01d",
     "a": {
-     "element_id": "fe941e6721a7",
+     "element_id": "02bb553866d7",
      "port": "2"
     },
     "b": {
-     "element_id": "ff9f817b4bc2",
+     "element_id": "985f71222a42",
      "port": "1"
     },
     "points": [],

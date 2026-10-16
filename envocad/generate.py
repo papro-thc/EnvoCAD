@@ -95,19 +95,21 @@ def build_project(spec: dict) -> Project:
     opt = spec.get("optimizer") or {}
     opt_per = float(opt.get("per_module") or 1) if opt.get("type") else 0.0
     # svislé rozestupy řad střídačů podle počtu stringů
-    row_h = [max(60.0, 40.0 * max(len(inv.get("strings") or [1]), 1) + 15.0) for inv in invs]   # 40 mm na string (popisek nad ním)
+    row_h = [max(60.0, 45.0 * max(len(inv.get("strings") or [1]), 1) + 15.0) for inv in invs]   # 45 mm na string (popisek nad ním)
     total_h = sum(row_h)
     if total_h + 70.0 > s.height:   # hodně stringů → vyšší list
         s.height, s.paper = total_h + 70.0, "vlastní"
     y_top = min(s.height - 45.0, 150.0 + total_h / 2)
     n_route = max(0, int(dc.get("route_boxes") or 0))
     n_boxes = n_route + (1 if dc.get("tech_box") else 0)
-    box_pitch = 60.0
+    box_pitch = 85.0            # mezi rozvaděči se vejde popisek kabelu i dvojitý křížový odkaz
     x_str = 35.0
-    x_boxes = [95.0 + j * box_pitch for j in range(n_boxes)]
+    n_max = max(len(inv.get("strings") or [1]) for inv in invs)
+    x_box0 = x_str + 60.0 + 5.0 * n_max   # lomy stringů až za popisky kabelů u stringů
+    x_boxes = [x_box0 + j * box_pitch for j in range(n_boxes)]
     x_dc = 130.0                                                   # samostatný odpínač DC (bez rozvaděčů)
     x_inv = (x_boxes[-1] + 80.0) if n_boxes else 200.0             # před střídačem víc místa: stringy se slévají do DC1/DC2
-    x_blk, x_grid = x_inv + 80.0, x_inv + 155.0
+    x_blk, x_grid = x_inv + 110.0, x_inv + 185.0   # mezi střídačem a rozvaděčem se vejde popisek AC kabelu
     if x_grid + 25.0 > s.width:    # víc DC rozvaděčů po trase → širší list (A2 na výšku A3)
         s.width, s.paper = x_grid + 25.0, "vlastní"
     p_total = 0.0
@@ -131,7 +133,7 @@ def build_project(spec: dict) -> Project:
         inverter_elements.append(t)
         gens: list[Element] = []
         for k, n_mod in enumerate(strings):
-            ys = y - 35.0 - k * 40.0
+            ys = y - 35.0 - k * 45.0
             p_str = round(n_mod * float(mod.get("p_wp") or 0) / 1000, 2)
             p_total += p_str
             g = Element("fve.pv_string", x_str, ys, attrs={
@@ -242,6 +244,7 @@ def _align_bends(project: Project) -> None:
     from envocad.model.project import element_symbol
     lib = LibraryStore()
     s = project.sheets[0]
+    groups: dict[str, list] = {}
     for w in s.wires:
         if len(w.points) != 2 or abs(w.points[0][0] - w.points[1][0]) > 1e-6:
             continue
@@ -253,6 +256,18 @@ def _align_bends(project: Project) -> None:
             continue
         x = w.points[0][0]
         w.points = [(x, ya), (x, yb)]
+        groups.setdefault(w.b.element_id, []).append((w, ya, yb))
+    # svislé úseky vodičů do jednoho prvku bez křížení: vodiče shora dolů – nejvyšší nejdál, zdola nahoru – nejnižší nejdál
+    for items in groups.values():
+        if len(items) < 2:
+            continue
+        xs = sorted({w.points[0][0] for w, _, _ in items}, reverse=True)
+        if len(xs) != len(items):
+            continue
+        down = sorted((it for it in items if it[2] <= it[1]), key=lambda it: -it[1])
+        up = sorted((it for it in items if it[2] > it[1]), key=lambda it: it[1])
+        for (w, ya, yb), x in zip(down + up, xs):
+            w.points = [(x, ya), (x, yb)]
 
 
 def _macro_vars(dc: dict, ac: dict) -> dict:
