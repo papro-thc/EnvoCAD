@@ -13,3 +13,4 @@ build/
 _sync/
 katalogy/
 *.autosave.ecp
+Claude outputs/
