@@ -48,13 +48,14 @@ Volitelné (podle kategorie): viz tabulka. Neznámou hodnotu nechte **prázdnou*
 | `rows`, `modules_per_row`, `ip`, `ik`, `material`, `mounting`, `door` | skříně | |
 | `terminal_kind`, `connection`, `cross_mm2`, `cross_max_mm2`, `width_mm`, `in_`, `un_v`, `color`, `levels` | řadové svorky: druh (`prochozi`, `pe`, `n-odpojovaci`, `dvoupatrova`, `pojistkova`, `rozbocovaci`, `distribucni`, `mustek`), připojení (`sroub`, `push-in`, `pruzina`), jmenovitý / max. průřez, rozteč (šířka), In, Un, barva, počet pater | mm², mm, A, V |
 | `cores_n`, `cross_mm2`, `od_mm`, `un_v`, `shield` | kabely: počet žil, průřez, vnější průměr, Un, stínění (`ano`) | ks, mm², mm, V |
+| `contacts` | kontaktní obraz (stykače, relé, jističe s pomocnými kontakty): páry svorek oddělené mezerou, volitelně `NO:`/`NC:`/`P:` – viz `docs/LIBRARY_FORMAT.md` | např. `1/2 3/4 5/6 13/14`, `NO:11/14 NC:11/12` |
 | `note` | cokoliv dalšího (např. „DC 1000 V“, „s pomocným kontaktem“) | |
 
 ## Propsání do prvku
 
 Při výběru artiklu v dialogu prvku se naplní atributy prvku: `type` ← `part_number`, `manufacturer`,
 `in_`, `poles`, `char`, `icu`, `idn`, `modules`, `p_loss_w`, `spd_type`, `uc`, `p_ac`, `p_dc_max`,
-`mppt`, `phases`, `e_kwh`, `p_kw`, `p_string`… (mapování v `envocad/library/components.py`).
+`mppt`, `phases`, `e_kwh`, `p_kw`, `p_string`, `contacts`… (mapování v `envocad/library/components.py`).
 Atributy, které artikl nezná, zůstanou, jak byly.
 
 ## Checklist pro agenty `data-entry`

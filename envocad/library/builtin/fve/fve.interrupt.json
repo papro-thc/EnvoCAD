@@ -51,6 +51,12 @@
       "label": "Popis",
       "default": "",
       "show": false
+    },
+    {
+      "key": "star_source",
+      "label": "Zdroj hvězdy (1 = ano)",
+      "default": "",
+      "show": false
     }
   ],
   "label_pos": {

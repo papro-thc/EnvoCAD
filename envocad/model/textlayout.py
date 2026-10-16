@@ -272,6 +272,7 @@ class SheetTextLayout:
     elements: dict[str, ElementLabel] = field(default_factory=dict)
     wires: dict[str, LabelPos] = field(default_factory=dict)
     routes: dict[str, list[Point]] = field(default_factory=dict)
+    mirrors: dict = field(default_factory=dict)      # id hostitele → xref.MirrorGeometry (pevná poloha pod značkou)
 
 
 def _score(grid: _Grid, boxes: list[Box], own: str) -> float:
@@ -294,9 +295,14 @@ def _add_line(grid: _Grid, p: Point, q: Point, owner: str) -> None:
 
 
 def compute_layout(project: Project, sheet: Sheet, lib, routes: dict[str, list[Point]] | None = None,
-                   xref_of=None, auto: bool = True) -> SheetTextLayout:
+                   xref_of=None, auto: bool = True, index=None) -> SheetTextLayout:
     """Rozmístí popisky prvků (výchozí poloha značky, když je volná, jinak vpravo/vlevo/nad/pod) a pak popisky
-    vodičů. `routes` = trasy z editoru (jinak `wire_route`); `auto=False` = jen výchozí polohy (pro kontrolu)."""
+    vodičů. `routes` = trasy z editoru (jinak `wire_route`); `auto=False` = jen výchozí polohy (pro kontrolu).
+    Zrcadla kontaktů (`mirrors`) mají pevnou polohu pod hostitelem a jejich místo se rezervuje před popisky.
+    `index` = `xref.DeviceIndex` (jinak se postaví jednou pro celý list)."""
+    from envocad.model.xref import DeviceIndex, sheet_mirrors
+    if index is None:
+        index = DeviceIndex.build(project)
     if routes is None:
         from envocad.model.routing import route_sheet
         routes = route_sheet(project, sheet, lib)
@@ -319,9 +325,19 @@ def compute_layout(project: Project, sheet: Sheet, lib, routes: dict[str, list[P
     for wid, pts in routes.items():
         for a, b in pairwise(pts):
             _add_line(grid, a, b, wid)
+    out.mirrors = sheet_mirrors(project, sheet, lib, index, syms)
+    for hid, m in out.mirrors.items():
+        for x1, y1, x2, y2 in m.lines:
+            _add_line(grid, (x1, y1), (x2, y2), hid + "#mirror")
+        for b in m.boxes:
+            grid.add(b, "text", hid + "#mirror")
     for e in sheet.elements:
         sym = syms[e.id]
-        texts = element_label_texts(project, sheet, e, sym)
+        try:
+            xref = element_xref(project, sheet, e, index)
+        except Exception:  # noqa: BLE001
+            xref = ""
+        texts = element_label_texts(project, sheet, e, sym, xref)
         if not texts:
             continue
         cands = _el_candidates(e, sym, texts) if auto else _el_candidates(e, sym, texts)[:1]
@@ -366,30 +382,52 @@ def layout_wire_labels(project: Project, sheet: Sheet, lib, routes=None, xref_of
 # ---- kontrola ------------------------------------------------------------------------------------------------
 def text_overlaps(project: Project, sheet: Sheet, lib, layout: SheetTextLayout | None = None) -> list[tuple[str, str, str]]:
     """Překryvy textů na listu po automatickém rozmístění: [(id, id druhého, popis)] – text přes text,
-    popisek přes vodič nebo čáru značky."""
+    popisek přes vodič, čáru značky nebo čáru tabulky zrcadla kontaktů. Zrcadlo patří hostiteli: kolize zrcadla
+    s vlastní značkou se nehlásí, kolize s popiskem hostitele ano (id druhého = id hostitele)."""
     lay = layout or compute_layout(project, sheet, lib)
     names: dict[str, str] = {}
-    texts: list[tuple[Box, str]] = []
+    texts: list[tuple[Box, str, bool]] = []          # (obálka, vlastník, je text zrcadla)
     for e in sheet.elements:
         names[e.id] = e.ref or e.symbol_id.split(".")[-1]
         for b in (lay.elements[e.id].boxes if e.id in lay.elements else []):
-            texts.append((b, e.id))
+            texts.append((b, e.id, False))
     for w in sheet.wires:
         names[w.id] = w.attrs.get("ref") or "vodič"
         for b in (lay.wires[w.id].boxes if w.id in lay.wires else []):
-            texts.append((b, w.id))
-    found: dict[tuple[str, str], str] = {}
-    for i, (a, oa) in enumerate(texts):
-        for b, ob in texts[i + 1:]:
-            if oa != ob and boxes_overlap(a, b):
-                found.setdefault(tuple(sorted((oa, ob))), f"text {names[oa]} přes text {names[ob]}")
+            texts.append((b, w.id, False))
+    mirrors = {hid: m for hid, m in lay.mirrors.items() if hid in names}
+    for hid, m in mirrors.items():
+        texts += [(b, hid, True) for b in m.boxes]
+
+    def text_word(owner: str, mirror: bool) -> str:
+        return f"zrcadlo kontaktů {names[owner]}" if mirror else f"text {names[owner]}"
+
+    found: dict[tuple, tuple[str, str, str]] = {}
+    for i, (a, oa, ma) in enumerate(texts):
+        for b, ob, mb in texts[i + 1:]:
+            if (oa, ma) == (ob, mb) or not boxes_overlap(a, b):
+                continue
+            key = frozenset(((oa, ma), (ob, mb)))
+            if key not in found:
+                found[key] = (oa, ob, f"{text_word(oa, ma)} přes {text_word(ob, mb)}")
     lines: list[tuple[Point, Point, str, str]] = [(a, b, wid, "vodič") for wid, pts in lay.routes.items()
                                                   for a, b in pairwise(pts)]
     for e in sheet.elements:
         lines += [(a, b, e.id, "značku") for a, b in symbol_segments(e, element_symbol(project, e, lib))]
-    for box, owner in texts:
+    for hid, m in mirrors.items():
+        lines += [((x1, y1), (x2, y2), hid, "zrcadlo") for x1, y1, x2, y2 in m.lines]
+    for box, owner, mirror in texts:
         for a, b, lo, kind in lines:
-            if (owner, lo) not in found and segment_hits_box(a, b, box):
-                what = f"vodič {names[lo]}" if kind == "vodič" else ("vlastní značku" if lo == owner else f"značku {names[lo]}")
-                found[(owner, lo)] = f"text {names[owner]} přes {what}"
-    return [(a, b, t) for (a, b), t in found.items()]
+            if mirror and lo == owner and kind in ("značku", "zrcadlo"):
+                continue                  # zrcadlo vs. vlastní značka / vlastní čáry tabulky
+            key = ((owner, mirror), lo, kind == "zrcadlo")
+            if key in found or not segment_hits_box(a, b, box):
+                continue
+            if kind == "vodič":
+                what = f"vodič {names[lo]}"
+            elif kind == "zrcadlo":
+                what = "vlastní zrcadlo kontaktů" if lo == owner else f"zrcadlo kontaktů {names[lo]}"
+            else:
+                what = "vlastní značku" if lo == owner else f"značku {names[lo]}"
+            found[key] = (owner, lo, f"{text_word(owner, mirror)} přes {what}")
+    return list(found.values())

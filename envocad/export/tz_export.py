@@ -100,7 +100,7 @@ def export_tz_docx(project: Project, lib: LibraryStore, path: Path | str, templa
         from envocad.model.project import switchboard_header
         _table(doc, ["Parametr", "Hodnota"], [[k, v] for k, v in switchboard_header(project, s) if v])
         try:
-            r = temperature_rise(s)
+            r = temperature_rise(s, project=project)
             doc.add_paragraph(f"Odhad oteplení dle IEC TR 60890: ΣPv = {r.p_total_w:.0f} W, Ae = {r.ae_m2:.2f} m², "
                               f"Δt uprostřed {r.dt_mid_k:.1f} K, v horní části {r.dt_top_k:.1f} K – {r.verdict()}.")
         except Exception:  # noqa: BLE001, S110

@@ -57,22 +57,40 @@ def _port_text(project: Project, s: Sheet, e: Element, port: str, terminal: str 
     return f"{a}-{text}" if a and a != base else text
 
 
+def _index(project: Project):
+    from envocad.model.xref import DeviceIndex
+    return DeviceIndex.build(project)
+
+
 def devices(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> list[Element]:
-    return [e for s in _sheets(project, sheet) for e in s.elements if e.symbol_id not in NON_DEVICE_SYMBOLS]
+    """Přístroje k objednání; cívka stykače se vynechá, když položkou výkazu je stykač (`is_bom_device`). U výkazu
+    jednoho listu (`sheet`) jen tehdy, když stykač leží na stejném listu."""
+    idx = _index(project)
+    return [e for s in _sheets(project, sheet) for e in s.elements
+            if e.symbol_id not in NON_DEVICE_SYMBOLS and idx.is_bom_device(e, sheet)]
+
+
+def _contacts_text(idx, e: Element) -> str:
+    """Sloupec Kontakty: páry kontaktů a pólů stykače (secondary) přístroje, jen u položky výkazu skupiny."""
+    from envocad.model.xref import natural_key
+    g = idx.group_of(e)
+    if g is None or g.device[1] is not e:
+        return ""
+    return ", ".join(sorted(g.used_pairs(), key=natural_key))
 
 
 def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Seznam přístrojů (každý zvlášť) – pro štítky a kontrolu."""
-    from envocad.model.project import contact_terminals, contacts_of
+    idx = _index(project)
     head = ["Označení", "Přístroj", "Typ", "Výrobce", "Parametry", "Kontakty", "Moduly", "Řada", "Pozice", "List"]
     keyed: list[tuple[tuple, list]] = []
     for s in _sheets(project, sheet):
         for e in s.elements:
-            if e.symbol_id in NON_DEVICE_SYMBOLS:
+            if e.symbol_id in NON_DEVICE_SYMBOLS or not idx.is_bom_device(e, sheet):
                 continue
             sym = lib.get_symbol(e.symbol_id)
             pl = s.layout.placement(e.id) if s.is_switchboard else None
-            conts = ", ".join(sorted(contact_terminals(c) for _, c in contacts_of(project, e.ref, e))) if e.ref else ""
+            conts = _contacts_text(idx, e)
             d = designation(s, e)
             keyed.append(((d.func, d.loc, _ref_key(e.ref), s.name),
                           [_tag(project, s, e), sym.name, e.attrs.get("type", ""), e.attrs.get("manufacturer", ""),
@@ -88,9 +106,10 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
     groups: OrderedDict[tuple, list[str]] = OrderedDict()
     from envocad.model.multipole import is_terminal_block, terminal_numbers, wire_conductors
     qty: dict[tuple, int] = {}
+    idx = _index(project)
     for s in _sheets(project, sheet):
         for e in s.elements:
-            if e.symbol_id in NON_DEVICE_SYMBOLS and not is_terminal_block(e):
+            if (e.symbol_id in NON_DEVICE_SYMBOLS and not is_terminal_block(e)) or not idx.is_bom_device(e, sheet):
                 continue
             if is_terminal_block(e):
                 # skupina svorek (i přívod/vývod) = tolik kusů svorky, kolik má žil; parametr = průřez/druh z artiklu
@@ -179,9 +198,10 @@ def labels(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> t
     """Štítky přístrojů a vývodů pro štítkovač: označení + stručný popis."""
     head = ["Štítek", "Popis", "List"]
     keyed: list[tuple[tuple, list]] = []
+    idx = _index(project)
     for s in _sheets(project, sheet):
         for e in s.elements:
-            if not e.ref:
+            if not e.ref or not idx.is_bom_device(e, sheet):   # cívka stykače = jeden štítek se stykačem
                 continue
             sym = lib.get_symbol(e.symbol_id)
             desc = e.attrs.get("desc") or " ".join(x for x in (sym.name, e.attrs.get("in_", "") and e.attrs["in_"] + " A") if x)

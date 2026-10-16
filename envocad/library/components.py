@@ -43,6 +43,7 @@ PARAM_TO_ATTR = {
     "cross_mm2": "cross", "terminal_kind": "kind",
     "u_dc_max_v": "u_dc_max", "u_mppt_min_v": "u_mppt_min", "u_mppt_max_v": "u_mppt_max", "i_mppt_max_a": "i_mppt_max",
     "strings_per_mppt": "strings_per_mppt", "vmp_v": "vmp", "beta_voc": "beta_voc",
+    "contacts": "contacts",   # kontaktní obraz („1/2 3/4 5/6 13/14 21/22“) – zrcadlo kontaktů, kontroly kontaktů
 }
 
 
@@ -174,6 +175,12 @@ def validate(path: Path | str, known_symbols: set[str] | None = None) -> list[st
                 v = (row.get(c) or "").strip()
                 if v and not re.fullmatch(r"-?\d+([.,]\d+)?", v):
                     errors.append(f"řádek {n} ({rid}): '{c}' musí být číslo, je '{v}'")
+            contacts = (row.get("contacts") or "").strip()
+            if contacts:
+                from envocad.model.xref import parse_contact_image
+                bad = parse_contact_image(contacts)[1]
+                if bad:
+                    errors.append(f"řádek {n} ({rid}): nečitelný kontaktní obraz 'contacts': {' '.join(bad)}")
     return errors
 
 

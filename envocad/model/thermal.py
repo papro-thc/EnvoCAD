@@ -166,11 +166,17 @@ def c_factor(ae: float, height_mm: float, width_mm: float, depth_mm: float) -> f
 
 
 def temperature_rise(sheet: Sheet, rdf: float = 0.8, t_ambient_c: float = 35.0, wiring_pct: float = 15.0,
-                     partitions: int = 0, vents: bool = False) -> ThermalResult:
+                     partitions: int = 0, vents: bool = False, project=None) -> ThermalResult:
+    """Oteplení skříně dle IEC TR 60890. Cívka stykače se nezapočítá, když položkou výkazu je stykač na stejném
+    listu (`xref.DeviceIndex.is_bom_device`; bez `project` se skupiny hledají jen na listu)."""
+    from envocad.model.xref import DeviceIndex
+    idx = DeviceIndex.build(project) if project is not None else DeviceIndex.for_sheets([sheet])
     lay = sheet.layout
     notes: list[str] = []
     p_dev = 0.0
     for e in sheet.elements:
+        if not idx.is_bom_device(e, sheet):
+            continue
         p = device_power_loss(e, rdf)
         if p:
             p_dev += p
