@@ -187,8 +187,47 @@ def test_v7_revisions_from_meta_skips_header_and_free_text():
     assert p.revisions[0].description == "List 1: přidáno F1" and p.revisions[0].author == "PR"
 
 
-def test_example_migrates_to_v8():
+def test_example_migrates_to_current():
     p = Project.load(EXAMPLE)
-    assert FORMAT_VERSION == 8
+    assert FORMAT_VERSION == 9
     assert all(s.func == "" and s.loc == "" for s in p.sheets)
-    assert p.structures == [] and p.revisions == []
+    assert p.structures == [] and p.revisions == [] and p.notes == []
+
+
+def test_v8_to_v9_notes():
+    """v8 nemá připomínky → prázdný seznam; ostatní obsah v8 (revize, struktury) beze změny."""
+    d = _v(8, [_sheet("s1", [_el("f", "fve.breaker_mcb", "F1")], func="AC", loc="")],
+           structures=[{"aspect": "=", "code": "AC", "description": "AC část"}],
+           revisions=[{"id": "r1", "label": "A", "closed": True, "marks": [], "fingerprints": {"s1": "x"}}])
+    p = Project.from_dict(copy.deepcopy(d))
+    assert p.notes == []
+    assert p.sheets[0].func == "AC" and p.structures[0].code == "AC"
+    assert p.revisions[0].label == "A" and p.revisions[0].fingerprints == {"s1": "x"}
+    out = p.to_dict()
+    assert out["format_version"] == 9 and out["notes"] == []
+    _roundtrip_stable(p)
+
+
+def test_v9_notes_roundtrip_and_v8_program_rejects():
+    from envocad.model.project import Note
+    p = Project()
+    sid = p.sheets[0].id
+    p.notes = [Note(sid, 10.0, 20.0, "Zkontrolovat průřez", no=1, author="PR", created="2026-10-16T14:05"),
+               Note(sid, 50.0, 50.0, "Obdélník", no=2, w=20.0, h=10.0, target_id="e1", status="resolved",
+                    reply="Opraveno", resolved_by="JN", resolved="2026-10-17T08:00")]
+    d = json.loads(json.dumps(p.to_dict()))
+    q = Project.from_dict(d)
+    assert q.notes == p.notes
+    _roundtrip_stable(q)
+    # neznámý stav se načte jako otevřený
+    d["notes"][0]["status"] = "neco"
+    assert Project.from_dict(copy.deepcopy(d)).notes[0].status == "open"
+    # soubor v9 je pro program s formátem 8 „z novější verze“ (nezahodí tiše připomínky)
+    import envocad.model.project as prj
+    old = prj.FORMAT_VERSION
+    try:
+        prj.FORMAT_VERSION = 8
+        with pytest.raises(ValueError, match="novější"):
+            Project.from_dict(d)
+    finally:
+        prj.FORMAT_VERSION = old

@@ -1,7 +1,7 @@
 {
  "default_1inv": {
   "format": "envocad-project",
-  "format_version": 8,
+  "format_version": 9,
   "name": "Nový projekt FVE",
   "meta": {
    "p_installed_kwp": "26.1"
@@ -2217,11 +2217,12 @@
     "description": "AC rozvaděč FVE"
    }
   ],
-  "revisions": []
+  "revisions": [],
+  "notes": []
  },
  "two_inv": {
   "format": "envocad-project",
-  "format_version": 8,
+  "format_version": 9,
   "name": "FVE Test",
   "meta": {
    "investor": "Test s.r.o.",
@@ -5742,11 +5743,12 @@
     "description": "AC rozvaděč FVE"
    }
   ],
-  "revisions": []
+  "revisions": [],
+  "notes": []
  },
  "route2_terminals": {
   "format": "envocad-project",
-  "format_version": 8,
+  "format_version": 9,
   "name": "Nový projekt FVE",
   "meta": {
    "p_installed_kwp": "17.1"
@@ -7927,11 +7929,12 @@
     "description": "AC rozvaděč FVE"
    }
   ],
-  "revisions": []
+  "revisions": [],
+  "notes": []
  },
  "with_component": {
   "format": "envocad-project",
-  "format_version": 8,
+  "format_version": 9,
   "name": "Nový projekt FVE",
   "meta": {
    "p_installed_kwp": "34.2"
@@ -10657,6 +10660,7 @@
     "description": "AC rozvaděč FVE"
    }
   ],
-  "revisions": []
+  "revisions": [],
+  "notes": []
  }
 }

@@ -20,6 +20,7 @@ from envocad.model.designation import (
     validate_code,
     validate_ref,
 )
+from envocad.model.notes import OPEN_NOTE_WORDS, count_label
 from envocad.model.project import (
     FEED_SYMBOLS,
     INTERRUPT_SYMBOL,
@@ -162,6 +163,7 @@ def check_project(project: Project, lib) -> list[Finding]:
     out += interrupt_findings(project, idx)
     out += designation_findings(project, lib, idx)
     out += revision_findings(project)
+    out += note_findings(project)
     out += calc_findings(project)
     out += potential_findings(project, lib)
     out += text_findings(project, lib)
@@ -176,6 +178,22 @@ def revision_findings(project: Project) -> list[Finding]:
     return [Finding(WARNING, s.id, s.name, "", False, "",
                     f"List změněn po uzavření revize {rev.label} – porovnej s revizí a založ novou", "rev_closed_changed")
             for s, rev in changed_after_close(project)]
+
+
+def note_findings(project: Project) -> list[Finding]:
+    """Připomínky: INFO `note_open` jednou za list s otevřenými připomínkami, INFO `note_orphan` pro připomínky na
+    smazaném listu (jinak by v editoru nebyly vidět)."""
+    out: list[Finding] = []
+    for s in project.sheets:
+        n = sum(1 for x in project.notes if x.sheet_id == s.id and x.status == "open")
+        if n:
+            out.append(Finding(INFO, s.id, s.name, "", False, "", count_label(n, OPEN_NOTE_WORDS), "note_open"))
+    sheet_ids = {s.id for s in project.sheets}
+    for x in project.notes:
+        if x.sheet_id not in sheet_ids:
+            out.append(Finding(INFO, "", "", "", False, f"č. {x.no}",
+                               f"Připomínka č. {x.no} je na smazaném listu: {x.text[:60]}", "note_orphan"))
+    return out
 
 
 def _sev(issue) -> str:

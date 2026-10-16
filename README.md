@@ -97,6 +97,7 @@ Pokyny pro AI agenty: `CLAUDE.md`, `docs/AGENTS.md`.
 | Výpočty | `F7` ukáže i výpočty (stringy, Iz, In ≤ Iz, úbytky, selektivita); výkaz Výpočty; uložení kabelu v atributu „Uložení dle ČSN“ nebo v textu trasy (zem, vzduch, trubka, stěna) |
 | Nový projekt | `Ctrl+Shift+N` průvodce (stringy, střídače, DC rozvaděče po trase a u technologie, kabely) nebo `Soubor → ze specifikace (JSON)`; CLI `python -m envocad.generate spec.json out.ecp` |
 | Revize | `Soubor → Porovnat s revizí` → změnový list; `Soubor → Vlastnosti` revize/datum |
+| Připomínky | `Ctrl+Shift+P` připomínka (klik = bod, tah = oblast); Navigátor → Připomínky (filtr, dvojklik = skok); Zobrazit → Připomínky; Výstupy → Přidávat připomínky do exportu (anotace PDF, vrstva `PRIPOMINKY` v DXF); podrobnosti `docs/MANUAL.md` sekce 9 |
 | TZ / DS | `Výstupy → Technická zpráva (docx)`, výkaz Data pro DS |
 | Artikl z knihovny | v dialogu prvku „Vybrat artikl z knihovny…“; menu Knihovna → Prohlížet / Importovat CSV |
 

@@ -20,7 +20,7 @@ WIRE_ATTRIBUTES = [
     Attribute("method", "Uložení dle ČSN (A1/B1/C/D/E)"),
 ]
 
-FORMAT_VERSION = 8
+FORMAT_VERSION = 9
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 SHEET_KINDS = ("schematic", "switchboard")
@@ -353,6 +353,51 @@ class Revision:
                    id=d.get("id") or _uid())
 
 
+NOTE_STATUSES = ("open", "resolved")          # UI „otevřeno“ / „vyřešeno“
+
+
+@dataclass
+class Note:
+    """Připomínka (redline) – interní poznámka, není součástí dokumentace (diff/otisk ji ignorují).
+    Bod (w = h = 0) má kotvu v (x, y), obdélník má v (x, y) levý dolní roh; mm, Y nahoru, na mřížce."""
+    sheet_id: str
+    x: float = 0.0
+    y: float = 0.0
+    text: str = ""
+    no: int = 0                  # pořadové číslo v projektu, nepřečíslovává se
+    w: float = 0.0               # 0 = bod; > 0 = obdélník
+    h: float = 0.0
+    target_id: str = ""          # informativní (skok, popis), poloha je absolutní
+    is_wire: bool = False
+    author: str = ""
+    created: str = ""            # ISO „2026-10-16T14:05“
+    status: str = "open"         # open | resolved
+    reply: str = ""
+    resolved_by: str = ""
+    resolved: str = ""
+    id: str = field(default_factory=_uid)
+
+    @property
+    def is_rect(self) -> bool:
+        return self.w > 0 and self.h > 0
+
+    def to_dict(self) -> dict:
+        return {"id": self.id, "no": self.no, "sheet_id": self.sheet_id, "x": self.x, "y": self.y, "w": self.w,
+                "h": self.h, "text": self.text, "target_id": self.target_id, "is_wire": self.is_wire,
+                "author": self.author, "created": self.created, "status": self.status, "reply": self.reply,
+                "resolved_by": self.resolved_by, "resolved": self.resolved}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> Note:
+        status = d.get("status", "open")
+        return cls(sheet_id=d.get("sheet_id", ""), x=float(d.get("x") or 0.0), y=float(d.get("y") or 0.0),
+                   text=d.get("text", ""), no=int(d.get("no") or 0), w=float(d.get("w") or 0.0),
+                   h=float(d.get("h") or 0.0), target_id=d.get("target_id", ""), is_wire=bool(d.get("is_wire")),
+                   author=d.get("author", ""), created=d.get("created", ""),
+                   status=status if status in NOTE_STATUSES else "open", reply=d.get("reply", ""),
+                   resolved_by=d.get("resolved_by", ""), resolved=d.get("resolved", ""), id=d.get("id") or _uid())
+
+
 @dataclass
 class Sheet:
     name: str = "Jednopólové schéma"
@@ -418,6 +463,7 @@ class Project:
     cables: list[Cable] = field(default_factory=list)
     structures: list[StructureId] = field(default_factory=list)   # registr kódů =funkce / +umístění s popisy
     revisions: list[Revision] = field(default_factory=list)
+    notes: list[Note] = field(default_factory=list)   # připomínky (redlining), viz model/notes.py
     path: Path | None = None
 
     # ---- strukturní označení ------------------------------------------
@@ -521,6 +567,7 @@ class Project:
             "cables": [c.to_dict() for c in self.cables],
             "structures": [x.to_dict() for x in self.structures],
             "revisions": [r.to_dict() for r in self.revisions],
+            "notes": [n.to_dict() for n in self.notes],
         }
 
     @classmethod
@@ -535,7 +582,8 @@ class Project:
                    sheets=[Sheet.from_dict(s) for s in d.get("sheets", [])] or [Sheet()],
                    cables=[Cable.from_dict(c) for c in d.get("cables", [])],
                    structures=[StructureId.from_dict(x) for x in d.get("structures", [])],
-                   revisions=[Revision.from_dict(r) for r in d.get("revisions", [])])
+                   revisions=[Revision.from_dict(r) for r in d.get("revisions", [])],
+                   notes=[Note.from_dict(n) for n in d.get("notes", [])])
 
     def save(self, path: Path | str | None = None) -> None:
         p = Path(path) if path else self.path
@@ -603,6 +651,9 @@ def migrate(d: dict, ver: int) -> dict:
             s.setdefault("loc", loc)
         if not d.get("revisions"):
             d["revisions"] = _revisions_from_meta(d.get("meta") or {})
+    if ver < 9:
+        # v9: připomínky (Project.notes). Starší program v9 odmítne místo tichého zahození připomínek při uložení.
+        d.setdefault("notes", [])
     d["format_version"] = FORMAT_VERSION
     return d
 

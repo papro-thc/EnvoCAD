@@ -82,11 +82,14 @@ Pořadí = priorita. Body 1, 2 a 5 jsou nejlevnější start.
 - [x] **Zrcadlení kontaktů** cívka ↔ kontakty (tabulka pod cívkou s odkazem list/sloupec), křížové odkazy přerušovacích bodů hvězda/řetěz – NS ochrana, stykače řízení výkonu, RTU – hotovo 10/2026: zrcadlo jako tabulka pod hostitelem (`model/xref.py`), kontaktní obraz `contacts`, přerušovací body řetěz a hvězda (`star_source`), kontroly `contact_dup`, `contact_count`, `contact_unknown`, `contact_image_syntax`, `interrupt_star_multi`. Záměrně vynechány (YAGNI): vícepól, skok kliknutím z řádku zrcadla, přepínací kontakt
 - [x] **Makra se zástupnými proměnnými** (`#In`, `#typ_stridace`, `#pocet_MPPT`) a sadami hodnot; průvodce skládá schéma z maker (EPLAN eBuild) – řeší i „Funkční šablony artiklů“ – hotovo 10/2026: makra v2 (`docs/design/makra_promenne.md`) s deklarovanými proměnnými `{x}`, sadami hodnot, podmínkou `when`, opakováním `repeat` a vazbou na artikl (`type: component` + `from`, `component_id` → `apply_to`); dialog proměnných při vložení, jedno undo; průvodce bere makro a sadu ze specifikace a doplní atributy střídače z artiklu. Záměrně vynechány: aritmetika ve výrazech, vnořená makra, skládání JPS z maker, výběr makra/sady v dialogu průvodce, sloupec `macro` u artiklu (jen rezervován)
 - [x] **Revize ve výkresu**: označení změn z `model/diff.py` přímo v listu (obláček/trojúhelník s číslem revize), revize v popisovém poli, uzavření revize listu – hotovo 10/2026: trojúhelníky se značkou revize v editoru, PDF a DXF (vrstva `REVIZE`), revize listu v popisovém poli, uzavření revize = měkký zámek (kontrola `rev_closed_changed`). Záměrně vynechány: obláček a značky ve vícepólu (YAGNI)
-- [ ] **Připomínkování (redlining)**: vrstva poznámek v projektu se stavem otevřeno/vyřešeno, export jako anotace do PDF (EPLAN eVIEW)
+- [x] **Připomínkování (redlining)**: vrstva poznámek v projektu se stavem otevřeno/vyřešeno, export jako anotace do PDF (EPLAN eVIEW) – hotovo 10/2026: `Project.notes` (formát v9 + migrace), nástroj Kreslit → Připomínka (bod / oblast), dialog, Navigátor → Připomínky (filtr, hledání, skok), Zobrazit → Připomínky, export PDF jako anotace (pypdf) a DXF vrstva `PRIPOMINKY`, dotaz při uzavření revize, kontroly `note_open`, `note_orphan`. Záměrně vynechány (YAGNI): vlákna odpovědí, import komentářů z PDF, vícepól, obláček
 - [ ] **Výrobní data rozvaděče**: zapojovací seznam s délkami z rozložení, barvou, průřezem, koncovkou/dutinkou (xlsx); formáty strojů (Komax, Steinhauer…) až při sériové výrobě
 - [ ] **Parametry artiklů pojmenovat podle ETIM/eCl@ss** – BMEcat importér pak jen mapuje sloupce
 - [ ] Databáze FV modulů a střídačů pro výběr v průvodci (jako SurgePV/PVcase)
 - Nedělat: předprojekt / P&ID (Preplanning), cloud (eVIEW/eManage) – stačí JPS, průvodce a sdílená knihovna
+
+## Chyby k řešení
+- [ ] Generovaný projekt se 4 a více střídači: JPS (~490×850 mm) přetéká list a v PDF se ořízne – rozdělit na více listů nebo zvětšit formát (zjištěno při review 10/2026, i v main)
 
 ## Odloženo (analýza 10/2026 – nebrzdí práci)
 - Příkazový řádek (styl ZWCAD/CADCraft) – až bude potřeba ovládat program z agentů

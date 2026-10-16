@@ -56,6 +56,11 @@ Zásada: **model nezávisí na UI.** Vše, co lze, se testuje bez spuštění Qt
   `RevisionMark` na listu, prvku nebo vodiči). Značky vznikají z porovnání `model/diff.py` přes `model/revision.py`;
   kreslí se v editoru, PDF a DXF (vrstva `REVIZE`) a revizi listu ukazuje popisové pole. **Uzavření revize je měkký
   zámek**: uloží otisky listů; další změna listu jen hlásí kontrola (`rev_closed_changed`), model ji neblokuje.
+- **Připomínky (redlining)** – `Project.notes` (`Note`: list, bod nebo obdélník v mm, text, autor, stav
+  otevřeno/vyřešeno, odpověď). Interní poznámky, nejsou součástí dokumentace: `diff_projects` ani
+  `sheet_fingerprint` je nevidí, do obsahu PDF se nevypalují. Pomocné funkce a geometrie `model/notes.py`, kontrola
+  `note_findings`, DXF vrstva `PRIPOMINKY` (volitelně), PDF anotace `export/pdf_annots.py` (pypdf). Návrh
+  `docs/design/pripominky.md`.
 - **Přístroj a křížové odkazy** (`model/xref.py`) – přístroj = skupina prvků se stejným `ref` v jednom prostoru
   označení (`DeviceIndex.build(project)`, O(N), hostitel = cívka, jinak první prvek). Přes skupinu se počítají
   kontakty (`contacts`, zrcadlo pod hostitelem), stykač s cívkou a přerušovací body (dvojice, řetěz, hvězda).
@@ -111,5 +116,6 @@ Tři vrstvy rozšíření, od nejjednodušší:
    rozvaděčů, importéry v menu, vlastní výkazy. Vzor: `envocad/plugins_builtin/example_counts.py`.
    Budoucí obory (HVAC, MaR, silnoproud budov) = balíček knihovny + plugin se šablonami a výkazy, jádro se nemění.
 
-Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **8** – strukturní označení a revize
-v `Project`, `Sheet.func/loc`; migrace v7→v8 v `model/project.py:migrate`), takže rozšíření modelu nerozbije staré soubory.
+Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **9** – připomínky `Project.notes`;
+v8 přidala strukturní označení a revize v `Project`, `Sheet.func/loc`; migrace v `model/project.py:migrate`), takže
+rozšíření modelu nerozbije staré soubory.

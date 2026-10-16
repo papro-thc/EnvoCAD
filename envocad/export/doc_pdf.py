@@ -8,6 +8,7 @@ from PySide6.QtCore import QMarginsF, QRectF, QSizeF, Qt
 from PySide6.QtGui import QPageLayout, QPageSize, QPainter, QPdfWriter, QPen, QUndoStack
 
 from envocad.export import reports
+from envocad.export.pdf_export import set_scene_notes_visible
 from envocad.model.frame import frame_geometry
 from envocad.model.project import Project, Sheet
 from envocad.ui import theme
@@ -44,6 +45,12 @@ class DocBuilder:
         self.project, self.library = project, library
         self.pages: list[tuple[str, str, object]] = []  # (druh, název, data)
         self._page = ""  # „3/16“ aktuální strany pro popisové pole
+        self._pdf_page = 0  # index aktuální fyzické strany PDF (od 0), zvyšuje se u každého newPage()
+        self._total = 0  # počet fyzických stran (vícepól a pokračování tabulek mají víc stran)
+        self.page_starts: list[int] = []  # první fyzická strana (od 1) každé položky self.pages – pro obsah
+        self.note_pages: list[tuple[int, object, list]] = []  # (fyzická strana od 0, PageMap, připomínky) – JPS
+        self._cap = 0  # řádků tabulky na stranu (spočítá se jednou)
+        self._scenes: dict[tuple[str, str], tuple[object, QUndoStack]] = {}
 
     def plan(self) -> None:
         p = self.project
@@ -88,21 +95,42 @@ class DocBuilder:
         painter.setPen(QPen(theme.PRINT.ink, 0.2))
         draw_text(painter, x0 + 10, y1 - 15, "Obsah dokumentace", 5, "left")
         y = y1 - 28
-        for i, (kind, name, _d) in enumerate(self.pages, start=1):
+        starts = self.page_starts or list(range(1, len(self.pages) + 1))
+        for i, (_kind, name, _d) in zip(starts, self.pages):
             draw_text(painter, x0 + 10, y, f"{i:>3}", 3, "left")
             draw_text(painter, x0 + 25, y, name, 3, "left")
             y -= 6
             if y < y0 + 45:
                 break
 
+    def _scene(self, sheet: Sheet, kind: str):
+        """Exportní scéna listu (sdílená mezi počítáním stran a vykreslením). Připomínky nekreslí – v PDF jsou jen
+        jako anotace (`pdf_annots`)."""
+        key = (sheet.id, kind)
+        if key not in self._scenes:
+            from envocad.ui.canvas import SchematicScene
+            from envocad.ui.multipole_view import MultipoleScene
+            from envocad.ui.terminal_plan_view import TerminalPlanScene
+            undo = QUndoStack()
+            cls = {"schematic": SchematicScene, "multipole": MultipoleScene, "terminals": TerminalPlanScene}[kind]
+            scene = cls(self.project, sheet, self.library, undo)
+            scene.draw_grid = False
+            set_scene_notes_visible(scene, False)
+            self._scenes[key] = (scene, undo)
+        return self._scenes[key][0]
+
+    def _sheet_pages(self, sheet: Sheet, kind: str) -> int:
+        if kind != "multipole":
+            return 1
+        return max(1, len(getattr(self._scene(sheet, kind), "pages", None) or []))
+
+    def _new_page(self, painter, writer) -> None:
+        writer.newPage()
+        self._pdf_page += 1
+        _page_painter_setup(painter, writer)
+
     def _sheet(self, painter, writer, sheet: Sheet, kind: str):
-        from envocad.ui.canvas import SchematicScene
-        from envocad.ui.multipole_view import MultipoleScene
-        from envocad.ui.terminal_plan_view import TerminalPlanScene
-        undo = QUndoStack()
-        cls = {"schematic": SchematicScene, "multipole": MultipoleScene, "terminals": TerminalPlanScene}[kind]
-        scene = cls(self.project, sheet, self.library, undo)
-        scene.draw_grid = False
+        scene = self._scene(sheet, kind)
         pw, ph = getattr(scene, "paper_size", (sheet.width, sheet.height))
         painter.resetTransform()
         # vejít do strany A3; vícepól může mít víc stran (každá na vlastní stranu PDF)
@@ -111,18 +139,53 @@ class DocBuilder:
         pages = getattr(scene, "pages", None) or [QRectF(0, -ph, pw, ph)]
         for i, src in enumerate(pages):
             if i:
-                writer.newPage()
-                _page_painter_setup(painter, writer)
+                self._new_page(painter, writer)
                 painter.resetTransform()
             scene.render(painter, target, src, Qt.KeepAspectRatio)
-        scene.deleteLater()
+        if kind == "schematic":
+            from envocad.export.pdf_annots import PageMap
+            from envocad.model.notes import notes_on_sheet
+            notes = notes_on_sheet(self.project, sheet.id, ("open",))
+            if notes:   # list u levého horního rohu strany (target začíná v 0, 0 a má poměr listu)
+                r = writer.pageLayout().fullRect(QPageLayout.Millimeter)
+                pm = PageMap.fit(pw, ph, r.width(), r.height(), center=False)
+                self.note_pages.append((self._pdf_page, pm, notes))
+
+    def _table_capacity(self) -> int:
+        """Počet řádků tabulky na jednu stranu (stejná geometrie jako `_table`)."""
+        if self._cap:
+            return self._cap
+        g = frame_geometry(self.project, _pseudo_sheet("", self.project), PAGE_W, PAGE_H, "", "")
+        _x0, y0, _x1, y1 = g.inner
+        y = y1 - 18 - ROW_H
+        n = 0
+        while y - ROW_H > y0 + 40:
+            y -= ROW_H
+            n += 1
+        self._cap = max(1, n)
+        return self._cap
+
+    def _count_pages(self) -> None:
+        """Fyzické strany předem: popisové pole ukazuje „n/N“ a obsah skutečná čísla stran."""
+        cap = self._table_capacity()
+        self.page_starts = []
+        total = 0
+        for kind, _name, data in self.pages:
+            self.page_starts.append(total + 1)
+            if kind == "sheet":
+                total += self._sheet_pages(*data)
+            elif kind == "table":
+                total += max(1, -(-len(data[1]) // cap))
+            else:
+                total += 1
+        self._total = total
 
     def _table(self, painter, writer, name: str, head: list[str], rows: list[list], start: int) -> int:
         """Nakreslí tabulku od řádku `start`; vrátí index prvního nevykresleného řádku (len(rows) = hotovo)."""
         p = self.project
         s = _pseudo_sheet(name, p)
         g = _draw_frame_page(painter, p, s, page=self._page)
-        x0, y0, x1, y1 = g.inner
+        x0, _y0, x1, y1 = g.inner
         painter.setPen(QPen(theme.PRINT.ink, 0.2))
         draw_text(painter, x0 + 5, y1 - 10, name, 4.5, "left")
         n = len(head)
@@ -142,7 +205,8 @@ class DocBuilder:
         y -= ROW_H
         painter.setPen(QPen(theme.PRINT.ink, 0.2))
         i = start
-        while i < len(rows) and y - ROW_H > y0 + 40:
+        stop = min(len(rows), start + self._table_capacity())
+        while i < stop:
             x = x0 + 5
             for c, v in enumerate(rows[i][:n]):
                 txt = str(v)
@@ -178,12 +242,18 @@ class DocBuilder:
             draw_text(painter, x0 + 10, y, f"{p.meta.get('revision') or '0'}  {p.meta.get('date', '')}  první vydání", 3, "left")
 
     # ---- export --------------------------------------------------------------------
-    def export(self, path: Path | str) -> int:
+    def export(self, path: Path | str, notes: bool = False) -> int:
+        """Vykreslí dokumentaci; `notes=True` doplní otevřené připomínky listů JPS jako anotace PDF.
+        Vrací počet fyzických stran."""
         self.plan()
+        self._pdf_page = 0
+        self.note_pages = []
         writer = QPdfWriter(str(path))
         writer.setPageSize(QPageSize(QSizeF(PAGE_W, PAGE_H), QPageSize.Millimeter))
+        # rozměr strany už orientaci nese (420×297); Landscape by ji otočil podruhé → strana na výšku 297×420
+        # a nerovnoměrně roztažený obsah (stejná oprava jako v pdf_export)
         writer.setPageLayout(QPageLayout(QPageSize(QSizeF(PAGE_W, PAGE_H), QPageSize.Millimeter),
-                                         QPageLayout.Landscape, QMarginsF(0, 0, 0, 0)))
+                                         QPageLayout.Portrait, QMarginsF(0, 0, 0, 0)))
         writer.setResolution(300)
         writer.setTitle(f"{self.project.name} – dokumentace")
         writer.setCreator("EnvoCAD")
@@ -191,14 +261,14 @@ class DocBuilder:
         theme._current = theme.PRINT
         painter = QPainter(writer)
         painter.setRenderHint(QPainter.Antialiasing)
-        count = 0
         try:
+            self._count_pages()
             for idx, (kind, name, data) in enumerate(self.pages):
                 if idx:
-                    writer.newPage()
-                _page_painter_setup(painter, writer)
-                count += 1
-                self._page = f"{count}/{len(self.pages)}"
+                    self._new_page(painter, writer)
+                else:
+                    _page_painter_setup(painter, writer)
+                self._page = f"{self._pdf_page + 1}/{self._total}"
                 if kind == "title":
                     self._title(painter, writer)
                 elif kind == "toc":
@@ -209,19 +279,24 @@ class DocBuilder:
                     head, rows = data
                     i = self._table(painter, writer, name, head, rows, 0)
                     while i < len(rows):
-                        writer.newPage()
-                        _page_painter_setup(painter, writer)
-                        count += 1
-                        self._page = f"{count}/{len(self.pages)}+"
+                        self._new_page(painter, writer)
+                        self._page = f"{self._pdf_page + 1}/{self._total}"
                         i = self._table(painter, writer, name + " (pokračování)", head, rows, i)
                 elif kind == "changes":
                     self._changes(painter, writer)
         finally:
             painter.end()
             theme._current = theme.DARK if prev_dark else theme.LIGHT
+            for scene, _undo in self._scenes.values():
+                scene.deleteLater()
+            self._scenes.clear()
+        count = self._pdf_page + 1
+        if notes and self.note_pages:
+            from envocad.export.pdf_annots import add_note_annotations
+            add_note_annotations(path, self.note_pages, self.project.name)
         return count
 
 
-def export_documentation_pdf(project: Project, library, path: Path | str) -> int:
-    """Vrátí počet stran."""
-    return DocBuilder(project, library).export(path)
+def export_documentation_pdf(project: Project, library, path: Path | str, notes: bool = False) -> int:
+    """Vrátí počet stran. `notes=True` = otevřené připomínky jako anotace PDF."""
+    return DocBuilder(project, library).export(path, notes=notes)

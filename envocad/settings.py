@@ -12,6 +12,7 @@
 """
 from __future__ import annotations
 
+import getpass
 import json
 from pathlib import Path
 
@@ -58,6 +59,17 @@ def shared_library_dir() -> Path | None:
         return None
     p = Path(d)
     return p if p.is_dir() else None
+
+
+def current_user() -> str:
+    """Autor připomínek a revizí: `standard.author` z nastavení, jinak přihlašovací jméno uživatele OS."""
+    author = str(load_settings()["standard"].get("author") or "").strip()
+    if author:
+        return author
+    try:
+        return getpass.getuser()
+    except (OSError, KeyError, ImportError):   # bez proměnných prostředí a bez záznamu v passwd
+        return ""
 
 
 def apply_standard_to_spec(spec: dict) -> dict:

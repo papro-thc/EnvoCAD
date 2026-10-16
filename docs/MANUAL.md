@@ -21,7 +21,7 @@ bash scripts/install.sh
 scripts/run.sh
 ```
 
-Skripty vytvoří virtuální prostředí `.venv`, nainstalují závislosti (PySide6, ezdxf, openpyxl, python-docx, segno)
+Skripty vytvoří virtuální prostředí `.venv`, nainstalují závislosti (PySide6, ezdxf, openpyxl, python-docx, segno, pypdf)
 a spustí program. Ručně: `python -m venv .venv`, aktivovat, `pip install -e .`, `python -m envocad` (na Windows
 `py -m envocad`, pokud `python` otevírá Microsoft Store).
 
@@ -35,8 +35,8 @@ balíčky v `library/`), pluginy, nastavení (`settings.json`), logy (`log/`) a 
 
 ## 2. Okno programu
 
-Vlevo jsou doky **Knihovna** (značky podle druhu prvku, s hledáním) a **Navigátor** (listy → prvky a vodiče,
-s filtrem), uprostřed záložky listů, vpravo **Vlastnosti** vybraného prvku nebo vodiče. Nahoře je nástrojová
+Vlevo jsou doky **Knihovna** (značky podle druhu prvku, s hledáním) a **Navigátor** (záložky **Prvky** – listy →
+prvky a vodiče, s filtrem – a **Připomínky**, viz sekce 9), uprostřed záložky listů, vpravo **Vlastnosti** vybraného prvku nebo vodiče. Nahoře je nástrojová
 lišta s nejčastějšími akcemi, dole stavový řádek s nápovědou k aktuálnímu režimu.
 
 Tmavý a světlý režim přepíná `Ctrl+D` (menu Zobrazit). Tisk a export jsou vždy černobílé na bílém.
@@ -292,6 +292,13 @@ Kontakty a přerušovací body:
 | `contact_image_syntax` | varování | v atributu `contacts` je nečitelný token |
 | `interrupt_star_multi` | varování | ve skupině přerušovacích bodů jsou dva a více zdrojů hvězdy |
 
+Připomínky (sekce 9):
+
+| Kód | Závažnost | Význam |
+|---|---|---|
+| `note_open` | informace | list má otevřené připomínky (jedna hláška na list) |
+| `note_orphan` | informace | připomínka je na smazaném listu, v editoru ji nevidět |
+
 Výpočty (`model/calc.py`, výkaz **Výpočty**): kontrola stringu proti střídači (Uoc při −10 °C vs. Umax,
 Umpp při 70 °C vs. rozsah MPPT, 1,25·Isc vs. Imax vstupu – atributy stringu Uoc/Umpp/Isc modulu a teplotní
 součinitel, atributy střídače Umax, MPPT min/max, Imax), proud kabelem (1,25·Isc, P_AC/√3·U, In),
@@ -375,6 +382,7 @@ Výchozí hodnoty (kabely, zpracoval) bere průvodce z **firemního standardu** 
 | Protokol kusového ověření rozvaděče (docx) | Výstupy → Protokol kusového ověření |
 | Technická zpráva (docx) – kostra s tabulkami z modelu a výpočty | Výstupy → Technická zpráva |
 | Štítky pro tiskárnu (CSV, `;`, UTF-8 BOM) | Výstupy → Štítky pro tiskárnu |
+| Otevřené připomínky jako anotace PDF nebo vrstva `PRIPOMINKY` v DXF | Výstupy → Přidávat připomínky do exportu (sekce 9) |
 
 Rámeček listu má popisové pole (projekt, zakázka, investor, místo, list, číslo listu, zpracoval, datum,
 revize, formát), souřadnicovou síť A–H × 1–6 a QR kód s identifikací výkresu. Údaje se zadávají v
@@ -395,11 +403,73 @@ objeví v popisovém poli toho listu (když je zapnutý rámeček). Revizi uzav�
 
 Uzavření je měkký zámek: program si zapamatuje stav listů. Když pak list změníš, kontrola `F7` hlásí
 `rev_closed_changed` (list změněn po uzavření revize). Úpravu neblokuje – porovnej projekt s revizí
-(`Porovnat s revizí (.ecp)…`) a založ novou revizi.
+(`Porovnat s revizí (.ecp)…`) a založ novou revizi. Má-li uzavírané místo otevřené připomínky, program se
+před uzavřením zeptá (sekce 9).
 
 ---
 
-## 9. Knihovna
+## 9. Připomínky (redlining)
+
+Připomínka je interní poznámka k listu: bod nebo oblast (obdélník) s textem, autorem a stavem **otevřeno** /
+**vyřešeno**. Je uložená v projektu (`.ecp`, formát v9), ale **není součástí dokumentace** – nevypaluje se do
+obsahu PDF ani DXF a revize ji neberou jako změnu. Starší verze programu (formát v8) projekt v9 neotevře.
+
+### Vložení a úpravy
+
+Kreslit → Připomínka (`Ctrl+Shift+P`) zapne zobrazení připomínek a nástroj. Klik = bod, tah přes alespoň
+1 mřížku (2,5 mm) v obou směrech = oblast. Je-li pod kotvou prvek nebo vodič, připomínka se na něj naváže
+(jen pro popis a skok). `Esc` nebo pravé tlačítko nástroj ukončí. Po nakreslení se otevře dialog.
+
+| Akce | Jak |
+|---|---|
+| Nová připomínka | `Ctrl+Shift+P`, klik nebo tah |
+| Upravit | dvojklik na připomínku, nebo kontextové menu → Upravit… |
+| Posun | tažení (přichycení na mřížku) |
+| Vyřešit / Znovu otevřít | kontextové menu |
+| Smazat | `Delete`, nebo kontextové menu → Smazat |
+
+Dialog **Připomínka**:
+
+| Pole | Význam |
+|---|---|
+| Text | popis připomínky (více řádků) |
+| Stav | otevřeno / vyřešeno; přepnutí na vyřešeno doplní, kdo a kdy |
+| Vyřízení | jak byla připomínka vyřízena (volitelné) |
+| Autor, Vytvořeno, Vyřešeno | jen ke čtení; autor = `standard.author` z firemního standardu, jinak přihlašovací jméno |
+
+Číslo připomínky (`Č.`) je pořadové v projektu a při smazání se nepřečíslovává.
+
+### Navigátor → Připomínky
+
+- Filtr **Otevřené** / **Vyřešené** / **Vše**, zaškrtávátko **jen aktuální list**.
+- Hledání v textu, autorovi, prvku a názvu listu.
+- Sloupce: Č., List, Prvek, Text, Autor, Datum, Stav.
+- Tlačítko **Vyřešit** a **Smazat** pracují s vybranými řádky; **Vyřešit** se změní na **Otevřít**, když jsou
+  vybrané jen vyřešené. Každá akce jde do undo.
+- **Dvojklik** na řádek přepne list, zapne zobrazení připomínek, připomínku vybere a vycentruje.
+
+### Zobrazení a export
+
+| Přepínač | Kde | Výchozí | Co dělá |
+|---|---|---|---|
+| Připomínky | Zobrazit → Připomínky | vypnuto | zobrazí nebo skryje připomínky v editoru |
+| Přidávat připomínky do exportu | Výstupy → Přidávat připomínky do exportu | vypnuto | přidá **otevřené** připomínky do exportů níže |
+
+Při zapnutém přepínači:
+- **PDF listu** (JPS) a **Celá dokumentace** – připomínky jsou anotace PDF (komentáře v Adobe Acrobat a
+  Readeru: bod jako poznámka, oblast jako obdélník; autor, text a číslo). Vícepól a plán svorkovnice připomínky
+  nemají.
+- **DXF listu** – připomínky ve vrstvě `PRIPOMINKY` (purpurová), s textem zalomeným na 40 znaků.
+
+### Revize a kontroly
+
+- Uzavření revize (Soubor → `Uzavřít revizi` / `Uzavřít revizi listu`) se při otevřených připomínkách zeptá
+  „N otevřených připomínek – přesto uzavřít?“ (výchozí odpověď Ne). Nezablokuje ho.
+- Kontrola `F7` hlásí otevřené připomínky (kódy v sekci 6).
+
+---
+
+## 10. Knihovna
 
 Knihovna má **značky** (JSON, vlastní FVE/rozvaděčové/ovládací + 673 značek QElectroTech ve složkách „QET“)
 a **artikly** (CSV, přes 700 položek: OEZ Minia a 3VA, Eaton xPole, Schneider, Hager, Weidmüller, Elektro
@@ -421,7 +491,7 @@ v projektu je ověř u výrobce.
 
 ---
 
-## 10. Klávesové zkratky
+## 11. Klávesové zkratky
 
 | Zkratka | Akce |
 |---|---|
@@ -444,18 +514,19 @@ v projektu je ověř u výrobce.
 | `Ctrl+Shift+T` | svorkovnice a můstky |
 | `Ctrl+Shift+K` | kabel vodiče |
 | `Ctrl+Shift+E` | celá dokumentace PDF |
+| `Ctrl+Shift+P` | připomínka (Kreslit → Připomínka) |
 | `Ctrl+D` | tmavý režim |
 | `Home` | přizpůsobit list |
 | kolečko / střední tlačítko | zoom / posun |
 
 ---
 
-## 11. Když se něco pokazí
+## 12. Když se něco pokazí
 
 - Program ukládá rozpracovaný projekt každé 2 minuty do `~/.envocad/autosave/`; po spuštění nabídne obnovu.
 - Log každého běhu: `~/.envocad/log/envocad.log` (Nápověda → Otevřít složku s logy); neošetřená chyba se
   zobrazí v dialogu a program většinou běží dál – ulož práci.
-- Starší projekty (`.ecp`) se při otevření převedou na aktuální formát (verze 6) automaticky.
+- Starší projekty (`.ecp`) se při otevření převedou na aktuální formát automaticky.
 - `python` na Windows spouští Store? Použij `py -m envocad`.
 - Linux Wayland potíže: `QT_QPA_PLATFORM=xcb scripts/run.sh`.
 

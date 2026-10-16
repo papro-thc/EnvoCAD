@@ -25,6 +25,7 @@ from envocad.ui import commands, theme
 from envocad.ui.canvas import Mode, SchematicScene, SchematicView
 from envocad.ui.layout_view import LayoutScene, LayoutView
 from envocad.ui.multipole_view import MultipoleScene, MultipoleView
+from envocad.ui.notes_panel import NotesPanel
 from envocad.ui.terminal_plan_view import TerminalPlanScene, TerminalPlanView
 
 DERIVED_VIEWS = (MultipoleView, TerminalPlanView)  # pohledy odvozené z modelu – po změně se přestaví
@@ -57,7 +58,12 @@ class MainWindow(QMainWindow):
         self.nav_panel = NavigatorPanel(self.library)
         self.nav_panel.goto.connect(self.goto_target)
         self._dock("Knihovna", self.lib_panel, Qt.LeftDockWidgetArea)
-        self._dock("Navigátor", self.nav_panel, Qt.LeftDockWidgetArea)
+        self.notes_panel = NotesPanel()
+        self.notes_panel.goto_note.connect(self.goto_note)
+        self.nav_tabs = QTabWidget()          # dock Navigátor: Prvky | Připomínky
+        self.nav_tabs.addTab(self.nav_panel, "Prvky")
+        self.nav_tabs.addTab(self.notes_panel, "Připomínky")
+        self._dock("Navigátor", self.nav_tabs, Qt.LeftDockWidgetArea)
         self._dock("Vlastnosti", self.props_panel, Qt.RightDockWidgetArea)
         self.setStatusBar(QStatusBar())
         self._build_actions()
@@ -177,6 +183,7 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
         act(m_draw, "Vodič (W)", lambda: self.draw_scene and self.draw_scene.start_wire(), None, True)
         act(m_draw, "Výběr (Esc)", lambda: self.draw_scene and self.draw_scene.set_mode(Mode.SELECT), None, True)
+        self.act_note = act(m_draw, "Připomínka", self.start_note, "Ctrl+Shift+P", True)
 
         m_view = mb.addMenu("&Zobrazit")
         act(m_view, "Přizpůsobit list", lambda: self.view and self.view.zoom_fit(), "Home", True)
@@ -196,6 +203,10 @@ class MainWindow(QMainWindow):
         self.act_frame.setChecked(frame_enabled())
         self.act_frame.toggled.connect(self.set_frame)
         m_view.addAction(self.act_frame)
+        self.act_notes = QAction("Připomínky", self, checkable=True)
+        self.act_notes.setChecked(self._notes_visible_setting())
+        self.act_notes.toggled.connect(self.set_notes_visible)
+        m_view.addAction(self.act_notes)
 
         m_proj = mb.addMenu("&Projekt")
         act(m_proj, "Strukturní označení…", self.edit_structures)
@@ -218,6 +229,11 @@ class MainWindow(QMainWindow):
         act(m_out, "Protokol kusového ověření (docx)…", self.export_routine_test)
         act(m_out, "Technická zpráva (docx)…", self.export_tz)
         act(m_out, "Štítky pro tiskárnu (CSV)…", self.export_labels_csv)
+        m_out.addSeparator()
+        self.act_export_notes = QAction("Přidávat připomínky do exportu", self, checkable=True)
+        self.act_export_notes.setChecked(self._export_notes())
+        self.act_export_notes.toggled.connect(lambda on: self._settings().setValue("export/notes", bool(on)))
+        m_out.addAction(self.act_export_notes)
         m_out.addSeparator()
         act(m_out, "Celá dokumentace (PDF)…", self.export_documentation, "Ctrl+Shift+E", True)
 
@@ -275,6 +291,7 @@ class MainWindow(QMainWindow):
         from envocad.model.project import sync_cables
         sync_cables(project)
         self.nav_panel.set_project(project)
+        self.notes_panel.set_project(project, self.undo)
         self.undo.clear()
         while self.tabs.count():
             w = self.tabs.widget(0)
@@ -353,6 +370,8 @@ class MainWindow(QMainWindow):
             scene.attrs_changed.connect(lambda _id: self.props_panel.show_item(self._selected_item()))
             scene.mode_changed.connect(self._show_mode)
             scene.open_switchboard.connect(self.open_switchboard_from_block)
+            scene.notes_visible = self._notes_visible_setting()
+            scene.rebuild_notes()
             title = sheet.name if not sheet.is_switchboard else f"{sheet.name} – jednopól (editace)"
         self._scenes.append(scene)  # držet referenci – scéna musí přežít stejně dlouho jako pohled
         view._scene_ref = scene
@@ -421,6 +440,8 @@ class MainWindow(QMainWindow):
     def _tab_changed(self, _index: int) -> None:
         log.info("tab_changed %s", _index)
         self.props_panel.show_item(None)
+        if self.current_sheet is not None:
+            self.notes_panel.set_current_sheet(self.current_sheet.id)
         v = self.view
         if isinstance(v, DERIVED_VIEWS) and getattr(v, "_dirty", False):
             v._dirty = False
@@ -653,17 +674,21 @@ class MainWindow(QMainWindow):
 
     def _show_mode(self, mode: Mode) -> None:
         txt = {Mode.SELECT: "Výběr", Mode.PLACE: "Vkládání symbolu – klik umístí, Esc/pravé tl. ukončí",
-               Mode.WIRE: "Vodič – klikněte na port, pak na druhý port"}[mode]
+               Mode.WIRE: "Vodič – klikněte na port, pak na druhý port",
+               Mode.NOTE: "Připomínka – klik = bod, tah = obdélník, Esc/pravé tl. ukončí"}[mode]
         self.statusBar().showMessage(txt)
 
     def _on_undo_changed(self, _value=None) -> None:
         self._update_title()
         self._sync_links_and_blocks()
         self.nav_panel._schedule()
+        self.notes_panel.refresh()
         for sc in self._scenes:   # popisky (označení, aspekty) a značky revize se po změně modelu přepočítají
             if hasattr(sc, "invalidate_text_layout"):
                 sc.invalidate_text_layout()
                 sc.update()
+            if hasattr(sc, "rebuild_notes"):   # undo/redo/panel mění Project.notes mimo scénu
+                sc.rebuild_notes()
         # odvozené pohledy (vícepól, plán svorkovnice): viditelný se přestaví hned, ostatní až při přepnutí
         for i in range(self.tabs.count()):
             w = self._unwrap(self.tabs.widget(i))
@@ -689,6 +714,44 @@ class MainWindow(QMainWindow):
         sc.clearSelection()
         it.setSelected(True)
         self.view.centerOn(it)
+
+    def goto_note(self, sheet_id: str, note_id: str) -> None:
+        """Skok na připomínku: přepne list, zapne zobrazení připomínek, vybere ji a vycentruje pohled."""
+        sheet = next((s for s in self.project.sheets if s.id == sheet_id), None)
+        if sheet is None:
+            return
+        if not self.act_notes.isChecked():
+            self.act_notes.setChecked(True)
+        self.open_sheet(sheet, "schematic")
+        sc = self.scene
+        it = sc.note_items.get(note_id) if sc is not None else None
+        if it is None:
+            return
+        sc.clearSelection()
+        it.setSelected(True)
+        self.view.centerOn(it)
+
+    def start_note(self) -> None:
+        """Nástroj Připomínka: zapne zobrazení připomínek (jinak by nová nebyla vidět) a přepne do režimu."""
+        sc = self._active_schematic()
+        if sc is None:
+            return
+        if not self.act_notes.isChecked():
+            self.act_notes.setChecked(True)
+        sc.start_note()
+
+    def _notes_visible_setting(self) -> bool:
+        return str(self._settings().value("view/notes", False)).lower() in ("true", "1")
+
+    def _export_notes(self) -> bool:
+        return str(self._settings().value("export/notes", False)).lower() in ("true", "1")
+
+    def set_notes_visible(self, on: bool) -> None:
+        """Zobrazit → Připomínky: zapne/vypne připomínky ve všech schématech (QSettings `view/notes`)."""
+        self._settings().setValue("view/notes", bool(on))
+        for sc in self._scenes:
+            if hasattr(sc, "set_notes_visible"):
+                sc.set_notes_visible(bool(on))
 
     def find_ref(self) -> None:
         text, ok = QInputDialog.getText(self, "Najít", "Označení prvku nebo vodiče (např. F2, X1, W3):")
@@ -1046,6 +1109,11 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Uzavřít revizi", "Není otevřená žádná revize – nejdřív porovnej projekt "
                                                             "se starší revizí.")
             return False
+        from envocad.model.notes import notes_on_sheet
+        closing = sheet_ids if sheet_ids is not None else [s.id for s in self.project.sheets]
+        n_open = sum(len(notes_on_sheet(self.project, sid, ("open",))) for sid in closing)
+        if n_open and not self._confirm_close_with_notes(n_open):
+            return False
         before = revisions_state(self.project)
         close_revision(self.project, next(r for r in self.project.revisions if r.id == rev.id), sheet_ids)
         after = revisions_state(self.project)
@@ -1054,6 +1122,18 @@ class MainWindow(QMainWindow):
         self.undo.push(commands.ReplaceRevisionsCommand(self.project, before, after, text))
         self.statusBar().showMessage(f"Revize {rev.label} uzavřena", 4000)
         return True
+
+    def _confirm_close_with_notes(self, n_open: int) -> bool:
+        from PySide6.QtWidgets import QDialogButtonBox
+
+        from envocad.model.notes import OPEN_NOTE_WORDS, count_label
+        from envocad.ui.dialogs import czech_buttons
+        box = QMessageBox(QMessageBox.Question, "Uzavřít revizi",
+                          f"{count_label(n_open, OPEN_NOTE_WORDS)} – přesto uzavřít?", QMessageBox.Yes | QMessageBox.No,
+                          self)
+        box.setDefaultButton(QMessageBox.No)
+        czech_buttons(box.findChild(QDialogButtonBox))
+        return box.exec() == QMessageBox.Yes
 
     def open_project(self) -> None:
         if not self._confirm_discard():
@@ -1201,7 +1281,7 @@ class MainWindow(QMainWindow):
             return
         path, _ = QFileDialog.getSaveFileName(self, "Export DXF", "", "DXF (*.dxf)")
         if path:
-            export_sheet_dxf(self.project, self.scene.sheet, self.library, path)
+            export_sheet_dxf(self.project, self.scene.sheet, self.library, path, notes=self._export_notes())
             self.statusBar().showMessage(f"Exportováno: {path}", 3000)
 
     def export_pdf(self, paper: str = "") -> None:
@@ -1211,8 +1291,9 @@ class MainWindow(QMainWindow):
             return
         path, _ = QFileDialog.getSaveFileName(self, "Export PDF", "", "PDF (*.pdf)")
         if path:
-            export_scene_pdf(sc, path, paper=paper or None)
-            self.statusBar().showMessage(f"Exportováno: {path}", 3000)
+            n = export_scene_pdf(sc, path, paper=paper or None, notes=self._export_notes())
+            from envocad.model.notes import count_label
+            self.statusBar().showMessage(f"Exportováno: {path}" + (f" ({count_label(n)})" if n else ""), 3000)
 
     def export_xlsx(self, current_only: bool) -> None:
         from envocad.export.xlsx_export import export_reports_xlsx
@@ -1228,7 +1309,7 @@ class MainWindow(QMainWindow):
         base = self.project.name.replace("/", "-") or "dokumentace"
         path, _ = QFileDialog.getSaveFileName(self, "Celá dokumentace", f"{base} – dokumentace.pdf", "PDF (*.pdf)")
         if path:
-            n = export_documentation_pdf(self.project, self.library, path)
+            n = export_documentation_pdf(self.project, self.library, path, notes=self._export_notes())
             self.statusBar().showMessage(f"Exportováno {n} stran: {path}", 5000)
 
     def export_labels_csv(self) -> None:

@@ -9,7 +9,8 @@ root = Path(SPECPATH)
 datas = collect_data_files("envocad", includes=["library/builtin/**/*.json", "library/builtin/**/*.csv",
                                                  "library/builtin/**/*.md", "plugins_builtin/*.py"],
                            include_py_files=True)
-hidden = ["envocad.plugins_builtin.example_counts", "openpyxl", "docx", "ezdxf"]
+# pypdf se importuje lokálně ve funkci (export/pdf_annots.py) → PyInstaller ho sám nemusí najít
+hidden = ["envocad.plugins_builtin.example_counts", "openpyxl", "docx", "ezdxf", "pypdf"]
 
 a = Analysis(
     ["envocad/__main__.py"],

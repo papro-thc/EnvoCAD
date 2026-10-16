@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMessageBox,
+    QPlainTextEdit,
     QPushButton,
     QSpinBox,
     QTableWidget,
@@ -1002,3 +1003,67 @@ class MacroValuesDialog(QDialog):
             self.error_label.setVisible(True)
             return
         super().accept()
+
+
+class NoteDialog(QDialog):
+    """Připomínka: text, stav (otevřeno/vyřešeno), vyřízení; autor a datum vzniku jen ke čtení. Přepnutí na
+    „vyřešeno“ vyplní, kdo a kdy ji vyřešil (aktuální uživatel, teď). Vrací upravenou kopii přes `result_note()`."""
+
+    def __init__(self, note, parent=None, title: str = "Připomínka"):
+        super().__init__(parent)
+        import copy
+
+        from envocad.model.notes import STATUS_LABELS
+        self.note = copy.deepcopy(note)
+        self.setWindowTitle(title)
+        self.setMinimumWidth(420)
+        lay = QVBoxLayout(self)
+        form = QFormLayout()
+        self.text = QPlainTextEdit(note.text)
+        self.text.setMinimumHeight(90)
+        form.addRow("Text:", self.text)
+        self.status = QComboBox()
+        for key in ("open", "resolved"):
+            self.status.addItem(STATUS_LABELS[key], key)
+        self.status.setCurrentIndex(0 if note.status == "open" else 1)
+        form.addRow("Stav:", self.status)
+        self.reply = QLineEdit(note.reply)
+        self.reply.setPlaceholderText("Jak byla připomínka vyřízena")
+        form.addRow("Vyřízení:", self.reply)
+        self.author = QLabel(note.author or "–")
+        form.addRow("Autor:", self.author)
+        self.created = QLabel(note.created.replace("T", " ") or "–")
+        form.addRow("Vytvořeno:", self.created)
+        self.resolved_label = QLabel()
+        form.addRow("Vyřešeno:", self.resolved_label)
+        lay.addLayout(form)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        lay.addWidget(bb)
+        self.status.currentIndexChanged.connect(self._status_changed)
+        self._show_resolved()
+
+    def _show_resolved(self) -> None:
+        n = self.note
+        self.resolved_label.setText(f"{n.resolved_by}, {n.resolved.replace('T', ' ')}" if n.resolved else "–")
+
+    def _status_changed(self, _i: int) -> None:
+        from envocad.model.notes import reopen, resolve
+        from envocad.settings import current_user
+        from envocad.ui.notes_view import now_iso
+        if self.status.currentData() == "resolved":
+            if not self.note.resolved:
+                resolve(self.note, current_user(), now_iso())
+        else:
+            reopen(self.note)
+        self._show_resolved()
+
+    def result_note(self):
+        """Poznámka s hodnotami z dialogu (kopie, originál zůstává beze změny)."""
+        import copy
+        n = copy.deepcopy(self.note)
+        n.text = self.text.toPlainText().strip()
+        n.reply = self.reply.text().strip()
+        n.status = self.status.currentData()
+        return n
