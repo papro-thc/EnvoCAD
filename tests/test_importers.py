@@ -158,13 +158,11 @@ def test_dxf_cli_blocks_and_scale(tmp_path, capsys):
 def test_components_validate_reports_errors(tmp_path):
     f = tmp_path / "c.csv"
     head = ";".join(components.REQUIRED + ["in_"])
-    f.write_text("\n".join([
-        head,
-        "ok-1;ABB;S201;Jistič;mcb;;https://abb.com/x;catalog;16",
-        "Spatne ID;ABB;S2;Jistič;mcb;;https://x;catalog;",
-        "ok-1;ABB;S3;Jistič;mcb;;https://x;catalog;",
-        "ok-3;;S4;;neznama;;;catalog;šestnáct",
-    ]), encoding="utf-8")
+    body = """ok-1;ABB;S201;Jistič;mcb;;https://abb.com/x;catalog;16
+Spatne ID;ABB;S2;Jistič;mcb;;https://x;catalog;
+ok-1;ABB;S3;Jistič;mcb;;https://x;catalog;
+ok-3;;S4;;neznama;;;catalog;šestnáct"""
+    f.write_text(f"{head}\n{body}", encoding="utf-8")
     errs = components.validate(f)
     joined = "\n".join(errs)
     for frag in ("id 'Spatne ID'", "duplicitní id 'ok-1'", "prázdné 'manufacturer'", "prázdné 'name'",
