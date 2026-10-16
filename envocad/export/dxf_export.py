@@ -10,7 +10,7 @@ from envocad.model.project import Element, Project, Sheet, element_symbol
 from envocad.model.symbol import GRID, Symbol, rotate_point
 
 LAYERS = {
-    "SYMBOLY": 7, "VODICE": 7, "TEXTY": 7, "RAMECEK": 8, "PORTY": 1,
+    "SYMBOLY": 7, "VODICE": 7, "TEXTY": 7, "RAMECEK": 8, "PORTY": 1, "REVIZE": 1,   # REVIZE = červená
 }
 DIR_VEC = {"N": (0, 1), "E": (1, 0), "S": (0, -1), "W": (-1, 0)}
 
@@ -114,5 +114,12 @@ def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Pa
         if lp.mark is not None:
             mx, my = lp.mark
             msp.add_line((mx - 1.2, my - 1.2), (mx + 1.2, my + 1.2), dxfattribs={"layer": "VODICE"})
+    # značky revize listu (trojúhelník s označením revize) – stejné trasy vodičů jako výše
+    from envocad.model.revision import revision_geometry
+    rg = revision_geometry(project, sheet, lib, lay.routes)
+    for pts in rg.polylines:
+        msp.add_lwpolyline(pts, close=True, dxfattribs={"layer": "REVIZE"})
+    for x, y, text, h, align in rg.texts:
+        _text(msp, x, y, text, h, align, 0, layer="REVIZE")
     doc.saveas(str(path))
 

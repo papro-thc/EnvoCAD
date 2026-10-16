@@ -149,12 +149,21 @@ def check_project(project: Project, lib) -> list[Finding]:
                                        f"Můstek {strip}:{'-'.join(g)} odkazuje na neexistující svorky {', '.join(missing)}",
                                        "bridge_missing"))
     out += designation_findings(project, lib)
+    out += revision_findings(project)
     out += calc_findings(project)
     out += potential_findings(project, lib)
     out += text_findings(project, lib)
     order = {ERROR: 0, WARNING: 1, INFO: 2}
     out.sort(key=lambda f: (order[f.severity], f.sheet_name, f.ref))
     return out
+
+
+def revision_findings(project: Project) -> list[Finding]:
+    """Měkký zámek revize: list změněný po uzavření (otisk se liší) a změna ještě není v nové revizi."""
+    from envocad.model.revision import changed_after_close
+    return [Finding(WARNING, s.id, s.name, "", False, "",
+                    f"List změněn po uzavření revize {rev.label} – porovnej s revizí a založ novou", "rev_closed_changed")
+            for s, rev in changed_after_close(project)]
 
 
 def _sev(issue) -> str:
