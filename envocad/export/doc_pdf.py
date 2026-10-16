@@ -63,6 +63,8 @@ class DocBuilder:
                 self.pages.append(("sheet", f"{s.name} – schéma", (s, "multipole")))
                 self.pages.append(("sheet", f"{s.name} – plán svorkovnice", (s, "terminals")))
         for name, fn in reports.ALL_REPORTS:
+            if name in reports.NOT_IN_DOC:
+                continue
             head, rows = fn(p, self.library, None)
             if rows:
                 self.pages.append(("table", name, (head, rows)))

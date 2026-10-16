@@ -6,12 +6,11 @@ from PySide6.QtGui import QBrush, QColor, QPainter, QPen, QUndoCommand, QUndoSta
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsRectItem, QGraphicsScene, QGraphicsView
 
 from envocad.library.store import LibraryStore
-from envocad.model.project import MODULE_WIDTH, Element, Project, Sheet
+from envocad.model.project import DEVICE_HEIGHT_MM, MODULE_WIDTH, Element, Project, Sheet
 from envocad.ui.render import draw_text
 from envocad.ui.theme import colors
 
 ROW_H = 90.0        # mm – výška řady (přístroj + prostor na vodiče)
-DEV_H = 45.0        # mm – výška přístroje (modulové přístroje ~ 45 mm na liště)
 MARGIN = 20.0
 UNPLACED_X_GAP = 30.0
 SNAP = 0.5          # modulu
@@ -41,7 +40,7 @@ class DeviceItem(QGraphicsRectItem):
 
     def __init__(self, element: Element, name: str, placed: bool, footprint=None, kind: str = ""):
         w = max(element.modules, 1.0) * MODULE_WIDTH
-        super().__init__(0, 0, w, DEV_H)
+        super().__init__(0, 0, w, DEVICE_HEIGHT_MM)
         self.element, self.name, self.placed, self.footprint, self.kind = element, name, placed, footprint, kind
         self.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemSendsGeometryChanges)
         self.setZValue(5)
@@ -127,7 +126,7 @@ class LayoutScene(QGraphicsScene):
         return QRectF(MARGIN, MARGIN + row * self.row_h, self.enclosure_w, self.row_h)
 
     def rail_y(self, row: int) -> float:
-        return MARGIN + row * self.row_h + (self.row_h - DEV_H) / 2
+        return MARGIN + row * self.row_h + (self.row_h - DEVICE_HEIGHT_MM) / 2
 
     def pos_to_scene(self, row: int, pos: float) -> QPointF:
         return QPointF(MARGIN + pos * MODULE_WIDTH, self.rail_y(row))
@@ -135,7 +134,7 @@ class LayoutScene(QGraphicsScene):
     def scene_to_placement(self, p: QPointF, width_modules: float) -> tuple[int, float] | None:
         """Bod levého horního rohu přístroje → (řada, pozice) nebo None (mimo skříň)."""
         lay = self.sheet.layout
-        cy = p.y() + DEV_H / 2
+        cy = p.y() + DEVICE_HEIGHT_MM / 2
         if p.x() < MARGIN - MODULE_WIDTH or p.x() > MARGIN + self.enclosure_w or cy < MARGIN or cy > MARGIN + lay.rows * self.row_h:
             return None
         row = int((cy - MARGIN) // self.row_h)
@@ -159,7 +158,7 @@ class LayoutScene(QGraphicsScene):
                 it.setPos(self.pos_to_scene(pl.row, pl.pos))
             else:
                 it.setPos(ux, unplaced_y)
-                unplaced_y += DEV_H + 8
+                unplaced_y += DEVICE_HEIGHT_MM + 8
             it.update()
 
     def rebuild(self) -> None:
@@ -177,14 +176,14 @@ class LayoutScene(QGraphicsScene):
         encl.setZValue(-2)
         self.addItem(encl)
         for r in range(lay.rows):
-            rail = QGraphicsRectItem(MARGIN, self.rail_y(r) + DEV_H / 2 - 17.5, self.enclosure_w, 35)
+            rail = QGraphicsRectItem(MARGIN, self.rail_y(r) + DEVICE_HEIGHT_MM / 2 - 17.5, self.enclosure_w, 35)
             rail.setPen(QPen(c.grid_major, 0.3))
             rail.setBrush(QBrush(QColor(c.grid)))
             rail.setZValue(-1)
             self.addItem(rail)
             for m in range(lay.modules_per_row + 1):
                 x = MARGIN + m * MODULE_WIDTH
-                tick = self.addLine(x, self.rail_y(r) + DEV_H, x, self.rail_y(r) + DEV_H + (3 if m % 6 else 6), QPen(c.grid_major, 0.2))
+                tick = self.addLine(x, self.rail_y(r) + DEVICE_HEIGHT_MM, x, self.rail_y(r) + DEVICE_HEIGHT_MM + (3 if m % 6 else 6), QPen(c.grid_major, 0.2))
                 tick.setZValue(-1)
         # přístroje
         unplaced_y = MARGIN
@@ -207,7 +206,7 @@ class LayoutScene(QGraphicsScene):
                 it.setPos(self.pos_to_scene(pl.row, pl.pos))
             else:
                 it.setPos(ux, unplaced_y)
-                unplaced_y += DEV_H + 8
+                unplaced_y += DEVICE_HEIGHT_MM + 8
             self.addItem(it)
             self.items_by_id[e.id] = it
         label = self.addSimpleText("")

@@ -65,6 +65,17 @@ Zásada: **model nezávisí na UI.** Vše, co lze, se testuje bez spuštění Qt
   označení (`DeviceIndex.build(project)`, O(N), hostitel = cívka, jinak první prvek). Přes skupinu se počítají
   kontakty (`contacts`, zrcadlo pod hostitelem), stykač s cívkou a přerušovací body (dvojice, řetěz, hvězda).
   Čistá data bez Qt; návrh v `docs/design/xref_zrcadleni_kontaktu.md`.
+- **Výrobní data rozvaděče** (`model/wiring.py`) – výrobní zapojovací seznam pro dílnu: každá žíla vnitřního vodiče
+  listu rozvaděče s průřezem (`wire_cross`: atribut, nejmenší In přístrojů přes `IN_TO_CROSS`, řízení, minimum),
+  barvou (`conductor_color`), typem, koncovkou (`end_for`, dutinky `FERRULE_DIN46228`, dvojitá při dvou žilách ve
+  svorce) a délkou z rozložení. Svorky: ruční `Wire.terminals`, svorkový prvek, jinak pravidlo pro přístroje s porty
+  1/2 (`multipole.device_terminal`: pól k → 2k+1 / 2k+2). Poloha svorky `terminal_point` (mm, Y nahoru, počátek levý
+  horní roh montážní plochy, osa řady `-(r+0,5)·P`, žlab j na `-j·P`, výška přístroje `DEVICE_HEIGHT_MM`; cívka a
+  kontakty přes umístěný stykač `xref.DeviceIndex`; neumístěné svorky/sběrnice odhadem), délka `route_length_mm` po
+  žlabech (+ konce, rezerva, zaokrouhlení). Parametry `WiringParams.resolve` (kód < `standard.wiring` < `Layout.params`
+  `wire_*`). `production_wires` vrací typované `ProductionWire` – rozhraní i pro budoucí exporty strojů
+  (`export/machine_<výrobce>.py`). Výkaz `reports.production_wiring_list` (není v PDF dokumentaci – `NOT_IN_DOC`),
+  xlsx pro dílnu `xlsx_export.export_production_xlsx`. Formát projektu se nemění; návrh `docs/design/vyrobni_data.md`.
 
 Z tohoto modelu se generuje vše ostatní (výkaz materiálu, seznam kabelů, svorkovnice) – to je hlavní
 přidaná hodnota oproti ručnímu kreslení v ZWCAD.

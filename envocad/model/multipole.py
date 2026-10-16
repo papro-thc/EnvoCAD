@@ -486,3 +486,43 @@ def auto_number_terminals(sheet: Sheet) -> dict[str, dict[str, dict[str, str]]]:
         if changed:
             result[w.id] = new
     return result
+
+
+# průchozí přístroje s pólovým číslováním 1/2, 3/4, 5/6 (jistič, odpínač, stykač…): porty „1“ (vstup) a „2“ (výstup)
+POLE_NUMBERED_PORTS = ("1", "2")
+# prvky s porty „1“, „2“…, které nejsou průchozí přístroje (odbočky sběrnice, svorky PE lišty, svorkové prvky)
+NOT_POLE_NUMBERED = TERMINAL_SYMBOLS | TERMINAL_BLOCK_SYMBOLS | {"sb.busbar", "sb.junction"}
+UNSWITCHED_POLES = {"N"} | NEVER_SWITCHED
+
+
+def port_conductors(sheet: Sheet, element_id: str, port: str) -> list[str]:
+    """Žíly všech vodičů listu napojených na port prvku (kanonické pořadí, bez duplicit)."""
+    return sorted({c for w in sheet.wires for end in (w.a, w.b)
+                   if end.element_id == element_id and end.port == port for c in wire_conductors(w)}, key=canon_key)
+
+
+def device_terminal(sheet: Sheet, w: Wire, conductor: str, side: str) -> tuple[str, bool]:
+    """Svorka konce žíly „F2:3“ a příznak, zda je odvozená pravidlem.
+
+    Pořadí: ruční přiřazení z `Wire.terminals`; svorkový prvek přes `wire_end_terminal` (čísla svorek skupiny);
+    průchozí přístroj s porty 1/2 → pól k (pořadí fázové žíly mezi žilami portu) = vstup 2k+1 / výstup 2k+2,
+    N a PE/PEN = jméno žíly („F2:N“) – odvozeno=True; jinak jméno portu („F1:L“)."""
+    t = terminal_text(w, conductor, side)
+    if t:
+        return t, False
+    end = w.a if side == "a" else w.b
+    try:
+        e = sheet.element(end.element_id)
+    except KeyError:
+        return end.port, False
+    name = e.ref or e.symbol_id
+    if is_terminal_block(e):
+        t = wire_end_terminal(sheet, w, conductor, side)
+        return (t or f"{name}:{end.port}"), False
+    if e.symbol_id not in NOT_POLE_NUMBERED and end.port in POLE_NUMBERED_PORTS:
+        if conductor in UNSWITCHED_POLES:
+            return f"{name}:{conductor}", True
+        phases = [c for c in port_conductors(sheet, e.id, end.port) if c not in UNSWITCHED_POLES]
+        k = phases.index(conductor) if conductor in phases else 0
+        return f"{name}:{2 * k + 1 + POLE_NUMBERED_PORTS.index(end.port)}", True
+    return f"{name}:{end.port}", False
