@@ -637,7 +637,7 @@ def test_feed_cable_tag_edit_and_move(app):
 
     from envocad.generate import build_project
     from envocad.ui.main_window import MainWindow
-    from envocad.ui.multipole_view import CableTagItem
+    from envocad.ui.multipole_view import CableTagItem, PoleItem
     spec = {"name": "Tag", "inverters": [{"ref": "T1", "p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200,
                                          "u_mppt_max": 1000, "i_mppt_max": 30, "strings": [20, 20]}]}
     p = build_project(spec)
@@ -660,6 +660,42 @@ def test_feed_cable_tag_edit_and_move(app):
     QTest.qWait(30)
     app.processEvents()
     assert calls == [x1.id]
+
+    def tag_pt():   # panel vlastností mění velikost pohledu → bod štítku přepočítat
+        return w.view.mapFromScene(tag.sceneBoundingRect().center())
+
+    def x1_poles():
+        return sorted((it for it in sc.items() if isinstance(it, PoleItem) and it.element.id == x1.id),
+                      key=lambda it: (it.scenePos().x(), it.scenePos().y()))
+
+    # klik bez tažení: vybrané zůstanou všechny svorky přívodu, štítek zvýrazněný, vlastnosti ukazují X1
+    shown = []
+    sc.selection_info.connect(shown.append)
+    poles = x1_poles()
+    assert len(poles) > 1
+    gap = app.styleHints().mouseDoubleClickInterval() + 50
+    sc.clearSelection()
+    QTest.qWait(gap)
+    QTest.mouseClick(vp, Qt.LeftButton, Qt.NoModifier, tag_pt())
+    app.processEvents()
+    assert all(it.isSelected() for it in poles)
+    assert {it.element.id for it in sc.selectedItems()} == {x1.id}
+    assert tag.highlight
+    assert shown and shown[-1] is not None and shown[-1].element.id == x1.id
+    # Ctrl+klik přepne celý přívod
+    QTest.qWait(gap)   # jinak by Qt dva kliky za sebou vzal jako dvojklik
+    QTest.mouseClick(vp, Qt.LeftButton, Qt.ControlModifier, tag_pt())
+    app.processEvents()
+    assert not any(it.isSelected() for it in poles) and not tag.highlight
+    QTest.qWait(gap)   # jinak by Qt dva kliky za sebou vzal jako dvojklik
+    QTest.mouseClick(vp, Qt.LeftButton, Qt.ControlModifier, tag_pt())
+    app.processEvents()
+    assert all(it.isSelected() for it in poles) and tag.highlight
+
+    # tažení posune celý přívod
+    QTest.qWait(gap)
+    before = [it.scenePos() for it in poles]
+    pt = tag_pt()
     QTest.mousePress(vp, Qt.LeftButton, Qt.NoModifier, pt)
     QTest.mouseMove(vp, pt + QPoint(30, 30))
     QTest.mouseMove(vp, pt + QPoint(60, 60))
@@ -667,5 +703,8 @@ def test_feed_cable_tag_edit_and_move(app):
     QTest.qWait(30)
     app.processEvents()
     assert x1.mp_pos is not None
+    after = [it.scenePos() for it in x1_poles()]
+    d = {(round(b.x() - a.x(), 3), round(b.y() - a.y(), 3)) for a, b in zip(before, after)}
+    assert len(d) == 1 and d != {(0.0, 0.0)}
     w.undo.setClean()
     w.close()

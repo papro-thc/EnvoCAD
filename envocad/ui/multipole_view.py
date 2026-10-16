@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
-from PySide6.QtGui import QPainter, QPainterPath, QPainterPathStroker, QPen, QUndoStack
+from PySide6.QtGui import QPainter, QPainterPath, QPainterPathStroker, QPen, QTransform, QUndoStack
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QGraphicsRectItem, QGraphicsScene
 
 from envocad.library.store import LibraryStore
@@ -54,13 +54,25 @@ class PoleItem(QGraphicsItem):
 
     def boundingRect(self) -> QRectF:
         x0, y0, x1, y1 = self.full_symbol.bounds()
-        return QRectF(x0, -y1, x1 - x0, y1 - y0).adjusted(-3, -8, 20, 3)
+        return QRectF(x0, -y1, x1 - x0, y1 - y0).adjusted(-3, -8, 20, 3).united(self.shape().boundingRect())
+
+    def _terminal_num(self) -> str | None:
+        """Číslo svorky kreslené vedle pólu svorkovnice (None, když se nekreslí)."""
+        if not (self.conductor and mp.is_terminal_block(self.element)):
+            return None
+        return mp.terminal_numbers(self.element, len(self.ep.slots))[self.ep.slot(self.conductor)] or "?"
 
     def shape(self) -> QPainterPath:
         x0, y0, x1, y1 = self.symbol.bounds()
         p = QPainterPath()
-        m = 2.0 if mp.is_terminal_block(self.element) else 1.0   # svorka: chytit jde i za číslo vedle kroužku
-        p.addRect(QRectF(x0, -y1, x1 - x0, y1 - y0).adjusted(-m, -m, m + 2.0 * (m > 1), m))
+        p.setFillRule(Qt.WindingFill)
+        p.addRect(QRectF(x0, -y1, x1 - x0, y1 - y0).adjusted(-1, -1, 1, 1))
+        num = self._terminal_num()
+        if num is not None:
+            # svorka: chytit jde i za číslo; to je ve scéně vždy vodorovně, proto plochu otočíme stejně jako text
+            a = sp(x1 + 1.0, y0 + 1.0)
+            t = QTransform().translate(a.x(), a.y()).rotate(self.element.rotation)
+            p.addPolygon(t.map(QRectF(-0.5, -2.8, len(num) * 1.6 + 1.0, 3.5)))
         return p
 
     def paint(self, painter: QPainter, option, widget=None) -> None:
@@ -75,9 +87,9 @@ class PoleItem(QGraphicsItem):
         painter.setBrush(Qt.NoBrush)
         for p in self.symbol.ports:
             painter.drawEllipse(sp(p.x, p.y), PORT_R, PORT_R)
-        if self.conductor and mp.is_terminal_block(self.element):
+        num = self._terminal_num()
+        if num is not None:
             # číslo svorky vedle značky (vždy vodorovně)
-            num = mp.terminal_numbers(self.element, len(self.ep.slots))[self.ep.slot(self.conductor)] or "?"
             painter.save()
             x0, y0, x1, _y1 = self.symbol.bounds()
             painter.translate(sp(x1 + 1.0, y0 + 1.0))
@@ -264,8 +276,9 @@ class CableTagItem(QGraphicsItem):
     def __init__(self, x0: float, x1: float, y_edge: float, rows: list[str], up: bool, element_id: str = ""):
         super().__init__()
         self.element_id = element_id   # přívod/vývod, ke kterému štítek patří: dvojklik = parametry, tažení = posun
+        self.highlight = False         # vybrán přívod/vývod (štítek sám vybrat nejde, výběr drží jeho svorky)
         if element_id:
-            self.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsMovable)
+            self.setFlags(QGraphicsItem.ItemIsMovable)
             self.setCursor(Qt.SizeAllCursor)
         self.rows = [r for r in rows if r] or ["?"]
         w = max(x1 - x0 + 4.0, max(len(r) for r in self.rows) * 1.25 + 3.0)
@@ -284,7 +297,7 @@ class CableTagItem(QGraphicsItem):
 
     def paint(self, painter, option, widget=None):
         ink = colors().ink if self.scene() is None or self.scene().draw_grid else PRINT.ink
-        if self.isSelected():
+        if self.highlight:
             ink = colors().selection
         painter.setPen(QPen(ink, LINE_WIDTH))
         painter.setBrush(Qt.NoBrush)
@@ -509,6 +522,8 @@ class MultipoleScene(QGraphicsScene):
         self._paper.setZValue(-1)
         self.addItem(self._paper)
         self._items: list[QGraphicsItem] = []
+        self._pole_items: dict[str, list[PoleItem]] = {}   # prvek → jeho póly ve scéně
+        self._tags: list[CableTagItem] = []
         self._move_start: dict[str, tuple[float, float]] = {}
         self.layout_pos: dict[str, tuple[float, float]] = {}
         self.pages: list[QRectF] = []          # strany (scénové obdélníky, shora dolů)
@@ -570,6 +585,8 @@ class MultipoleScene(QGraphicsScene):
         for it in self._items:
             self.removeItem(it)
         self._items.clear()
+        self._pole_items.clear()
+        self._tags.clear()
         self._paper.setPen(QPen(colors().paper, 0.5))
         poles: dict[str, mp.ElementPoles] = {}
         self._poles = poles
@@ -759,6 +776,10 @@ class MultipoleScene(QGraphicsScene):
     def _add(self, it: QGraphicsItem) -> None:
         self.addItem(it)
         self._items.append(it)
+        if isinstance(it, PoleItem):
+            self._pole_items.setdefault(it.element.id, []).append(it)
+        elif isinstance(it, CableTagItem) and it.element_id:
+            self._tags.append(it)
 
     def retheme(self) -> None:
         self.rebuild()
@@ -766,7 +787,15 @@ class MultipoleScene(QGraphicsScene):
     # ---- interakce ------------------------------------------------------------
     def _on_selection(self) -> None:
         sel = self.selectedItems()
-        self.selection_info.emit(sel[0] if len(sel) == 1 else None)
+        eids = {it.element.id for it in sel if isinstance(it, PoleItem)}
+        for tag in self._tags:
+            on = tag.element_id in eids
+            if tag.highlight != on:
+                tag.highlight = on
+                tag.update()
+        # všechny vybrané položky jsou póly jednoho prvku (např. přívod vybraný přes štítek) → vlastnosti prvku
+        one = len(eids) == 1 and all(isinstance(it, PoleItem) for it in sel)
+        self.selection_info.emit(sel[0] if len(sel) == 1 or one else None)
 
     def mouseDoubleClickEvent(self, ev):
         for it in self.items(ev.scenePos()):
@@ -808,22 +837,26 @@ class MultipoleScene(QGraphicsScene):
             self._wire_click(ev.scenePos())
             return
         if ev.button() == Qt.LeftButton:
-            # štítek kabelu u přívodu/vývodu: chytit = vybrat celý přívod (všechny svorky) a táhnout ho
-            from PySide6.QtGui import QTransform
+            # štítek kabelu u přívodu/vývodu: chytit = vybrat celý přívod (všechny svorky) a táhnout ho;
+            # štítek je jen posuvný (ne vybíratelný), Qt ho při tažení posune spolu s vybranými póly
             top = self.itemAt(ev.scenePos(), QTransform())
             if isinstance(top, CableTagItem) and top.element_id:
-                if not (ev.modifiers() & (Qt.ControlModifier | Qt.ShiftModifier)):
-                    self.clearSelection()
-                top.setSelected(True)
-                for it in self.items():
-                    if isinstance(it, PoleItem) and it.element.id == top.element_id:
-                        it.setSelected(True)
+                poles = self._pole_items.get(top.element_id, [])
+                if ev.modifiers() & Qt.ControlModifier:
+                    on = not all(it.isSelected() for it in poles)   # Ctrl = přepnout přívod ve výběru
+                else:
+                    on = True
+                    if not (ev.modifiers() & Qt.ShiftModifier) and not all(it.isSelected() for it in poles):
+                        self.clearSelection()
+                for it in poles:
+                    it.setSelected(on)
         super().mousePressEvent(ev)
         self._move_start = {it.element.id: it.element_origin() for it in self.selectedItems() if isinstance(it, PoleItem)}
 
     def mouseReleaseEvent(self, ev):
         super().mouseReleaseEvent(ev)
         if not self._move_start:
+            self._reset_tags()
             return
         moves: dict[str, tuple[tuple[float, float], tuple[float, float]]] = {}
         for it in self.selectedItems():
@@ -833,9 +866,17 @@ class MultipoleScene(QGraphicsScene):
                 if new != old and it.element.id not in moves:
                     moves[it.element.id] = (old, new)
         self._move_start = {}
+        if not moves:
+            self._reset_tags()
         if moves:
             # pozice se zapíše do modelu přes undo; scéna se přestaví (až po doběhnutí události myši)
             QTimer.singleShot(0, lambda: self.undo.push(commands.MoveMultipoleCommand(self, moves)))
+
+    def _reset_tags(self) -> None:
+        """Štítky posunuté myší bez změny modelu (tažení pod krok mřížky, štítek bez vybraných pólů) zpět na místo."""
+        for tag in self._tags:
+            if not tag.pos().isNull():
+                tag.setPos(0, 0)
 
     def reset_layout(self) -> None:
         """Zruší ruční pozice na listu – vše se rozmístí automaticky."""

@@ -2,6 +2,7 @@
 
 ## 0.11.0 – 2026-10-16
 - Vícepól: **štítek kabelu u přívodu/vývodu jde chytit** – dvojklik otevře parametry přívodu/vývodu, tažení posune celý přívod (všechny svorky); svorku jde chytit i za číslo vedle kroužku.
+- Vícepól, opravy štítku kabelu: klik bez tažení nechá vybraný celý přívod/vývod (Delete funguje), Ctrl+klik ho přepne ve výběru, panel vlastností ukáže prvek i při výběru přes štítek; štítek nejde vybrat sám (obdélníkem) a po tažení pod krok mřížky se vrátí na místo. Plocha pro chycení čísla svorky se otáčí s textem (svorkovnice otočené o 90/270°) a nezasahuje do sousední svorky.
 - Repozitář je veřejně na GitHubu: https://github.com/papro-thc/EnvoCAD (licence MIT).
 - **Vodiče jdou s prvky a dají se upravit myší** (`model/routing.py`): při posunu prvků se ruční lomy posunou s nimi (oba konce vybrané → celý vodič, jeden konec → lom u něj, trasa zůstane pravoúhlá) – vodiče už nezůstávají „přilepené“ na původním místě; undo vrátí i lomy. **Úsek vodiče lze chytit a táhnout** kolmo (vodorovný nahoru/dolů, svislý do stran, po 2,5 mm), `N` = narovnat vybrané vodiče (zrušit ruční lomy). **Odstup souběžných vodičů**: automatická Z-trasa posune lom o 5–20 mm, aby nevedla po jiném vodiči (souběh blíž než 5 mm) a co nejméně ho křížila; odbočky ze stejného portu smí vést spolu; stejné trasy v editoru, PDF i DXF. Kontrola projektu hlásí zbylé souběhy („Vodiče W2 a W5 vedou přes sebe“).
 - Otočené texty značek (DC, HV) se při rozmísťování popisků počítají ve správném směru.
