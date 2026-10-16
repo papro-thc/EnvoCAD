@@ -303,6 +303,36 @@ class MoveMultipoleCommand(QUndoCommand):
         self._apply(0)
 
 
+class MultipoleAddCommand(QUndoCommand):
+    """Vložení prvku nebo žíly přímo ve vícepólu (schématu rozvaděče): zapíše se do modelu listu, pohled se přestaví."""
+
+    def __init__(self, scene, element: Element | None = None, wire: Wire | None = None,
+                 elements: list[Element] | None = None, wires: list[Wire] | None = None):
+        self.elements = ([element] if element is not None else []) + list(elements or [])
+        self.wires = ([wire] if wire is not None else []) + list(wires or [])
+        super().__init__("Vložit prvek" if self.elements and len(self.elements) == 1 and not self.wires
+                         else ("Vodič" if not self.elements else f"Vložit ({len(self.elements)})"))
+        self.scene = scene
+
+    def redo(self):
+        s = self.scene.sheet
+        s.elements.extend(self.elements)
+        s.wires.extend(self.wires)
+        self.scene.rebuild()
+        if getattr(self.scene, "after_edit", None):
+            self.scene.after_edit()   # jednopólová editace téhož listu se přestaví
+
+    def undo(self):
+        s = self.scene.sheet
+        wid = {w.id for w in self.wires}
+        eid = {e.id for e in self.elements}
+        s.wires = [w for w in s.wires if w.id not in wid]
+        s.elements = [e for e in s.elements if e.id not in eid]
+        self.scene.rebuild()
+        if getattr(self.scene, "after_edit", None):
+            self.scene.after_edit()
+
+
 class SetCableCommand(QUndoCommand):
     """Změna kabelu (žíly, barvy, stínění, poznámka, artikl)."""
 

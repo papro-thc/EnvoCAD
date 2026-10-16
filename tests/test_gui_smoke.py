@@ -585,3 +585,46 @@ def test_multipole_pagination(app):
         out = Path(d) / "mp.pdf"
         export_scene_pdf(sc, out)
         assert out.stat().st_size > 5000
+
+
+def test_edit_in_switchboard_schematic(app):
+    """Ve schématu rozvaděče (vícepól) jde vkládat prvky a kreslit žíly – i u vygenerovaného projektu."""
+    from PySide6.QtCore import QPointF
+
+    from envocad.generate import build_project
+    from envocad.ui.canvas import Mode
+    from envocad.ui.main_window import MainWindow
+    from envocad.ui.multipole_view import MultipoleScene
+    spec = {"name": "Edit", "inverters": [{"ref": "T1", "p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200,
+                                          "u_mppt_max": 1000, "i_mppt_max": 30, "strings": [20, 20]}]}
+    p = build_project(spec)
+    w = MainWindow(LibraryStore(), p)
+    w._edit_element_anywhere = lambda *a, **k: None   # bez modálního dialogu
+    sb = p.sheets[-1]
+    w.open_sheet(sb, "multipole")
+    sc = w.view.scene()
+    assert isinstance(sc, MultipoleScene) and w.draw_scene is sc
+    n0 = len(sb.elements)
+    sc.start_place("fve.breaker_mcb")
+    assert sc.mode == Mode.PLACE
+    sc._place_at(QPointF(300, -100))
+    assert len(sb.elements) == n0 + 1
+    new = sb.elements[-1]
+    assert new.mp_pos == (300.0, 100.0) and new.rotation == 270 and new.ref.startswith("F")
+    # žíla z konce pólu existujícího vývodu na nový jistič
+    sc.set_mode(Mode.SELECT)
+    sc.rebuild()
+    out = next(e for e in sb.elements if e.ref == "XOUT")
+    ep = sc._poles[out.id]
+    x, y = ep.pole_pos(ep.symbol.ports[0].name, ep.slots[0])
+    sc.start_wire()
+    sc._wire_click(QPointF(x, -y))
+    ep2 = sc._poles[new.id]
+    x2, y2 = ep2.pole_pos(ep2.symbol.ports[0].name, "")
+    nw = len(sb.wires)
+    sc._wire_click(QPointF(x2, -y2))
+    assert len(sb.wires) == nw + 1 and sb.wires[-1].conductors == [ep.slots[0]]
+    w.undo.undo()
+    assert len(sb.wires) == nw
+    w.undo.setClean()
+    w.close()

@@ -151,8 +151,11 @@ strana 2, sloupec B, řádek 4 – na druhé straně vstupuje stejně s odkazem 
 pokračuje přes strany, PE lišta je na straně, kde má nejvíc sousedů. Ručně posunuté prvky zůstávají tam,
 kam je dáš (i na jiné straně).
 
-Vkládání nových prvků a vodičů do rozvaděče se dělá v záložce `R1 – jednopól (editace)` (`Ctrl+J`, menu
-List → Rozvaděč – jednopólová editace); `Ctrl+M` tě vrátí do vícepólu.
+**Kreslit jde přímo ve schématu rozvaděče**: dvojklik na značku v knihovně → klik umístí prvek (průchozí přístroje
+se otočí svisle, `R` otočí, Esc / pravé tlačítko ukončí) a hned se otevřou jeho parametry; `W` (nebo Vodič) →
+klik na konec pólu jednoho prvku a na konec pólu druhého nakreslí žílu (převezme označení žíly L1/N/PE/DC+…
+z pólu, na který klikneš). Makra z knihovny se vkládají taky. Totéž jde v záložce `R1 – jednopól (editace)`
+(`Ctrl+J`), obě záložky drží stejný model; `Ctrl+M` vrátí do schématu.
 
 ### Svorky a můstky
 Prvek **Svorkovnice** (`sb.terminal_block`) je v JPS *skupina svorek* jedné svorkovnice: označení X2 a

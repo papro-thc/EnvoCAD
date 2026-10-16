@@ -86,6 +86,13 @@ class MainWindow(QMainWindow):
         v = self.view
         return v.scene() if isinstance(v, SchematicView) and not isinstance(v, DERIVED_VIEWS) else None
 
+    @property
+    def draw_scene(self):
+        """Scéna, do které jde kreslit (vkládat prvky, vodiče): JPS / jednopólová editace i schéma rozvaděče (vícepól)."""
+        v = self.view
+        sc = v.scene() if isinstance(v, SchematicView) else None
+        return sc if sc is not None and hasattr(sc, "start_place") else None
+
     def _jps_scene(self, sheet: Sheet) -> SchematicScene | None:
         """JPS scéna listu (i když je aktivní jiná záložka) – příkazy nad vodiči jdou přes ni."""
         i = self._find_tab(sheet, "schematic")
@@ -154,7 +161,7 @@ class MainWindow(QMainWindow):
         act(m_edit, "Uložit výběr jako makro…", self.save_macro, "Ctrl+Shift+S")
         act(m_edit, "Smazat makro…", self.delete_macro)
         act(m_edit, "Smazat", lambda: self.scene and self.scene.delete_selected(), "Delete")
-        act(m_edit, "Otočit o 90°", lambda: self.scene and self.scene.rotate_selected(), "R")
+        act(m_edit, "Otočit o 90°", lambda: self.draw_scene and self.draw_scene.rotate_selected(), "R")
         m_edit.addSeparator()
         act(m_edit, "Svorky vybraného vodiče…", self.edit_wire_terminals, "Ctrl+T")
         act(m_edit, "Očíslovat svorky automaticky", self.auto_number_terminals)
@@ -166,8 +173,8 @@ class MainWindow(QMainWindow):
 
         m_draw = mb.addMenu("&Kreslit")
         tb.addSeparator()
-        act(m_draw, "Vodič (W)", lambda: self.scene and self.scene.start_wire(), None, True)
-        act(m_draw, "Výběr (Esc)", lambda: self.scene and self.scene.set_mode(Mode.SELECT), None, True)
+        act(m_draw, "Vodič (W)", lambda: self.draw_scene and self.draw_scene.start_wire(), None, True)
+        act(m_draw, "Výběr (Esc)", lambda: self.draw_scene and self.draw_scene.set_mode(Mode.SELECT), None, True)
 
         m_view = mb.addMenu("&Zobrazit")
         act(m_view, "Přizpůsobit list", lambda: self.view and self.view.zoom_fit(), "Home", True)
@@ -270,7 +277,7 @@ class MainWindow(QMainWindow):
             w.deleteLater()
         self._scenes.clear()
         if not self._panels_wired:
-            self.lib_panel.symbol_chosen.connect(lambda sid: self.scene and self.scene.start_place(sid))
+            self.lib_panel.symbol_chosen.connect(lambda sid: self.draw_scene and self.draw_scene.start_place(sid))
             self.lib_panel.macro_chosen.connect(self.insert_macro)
             self.props_panel.attr_edited.connect(lambda *a: self.scene and self.scene.set_attr(*a))
             self._panels_wired = True
@@ -327,6 +334,8 @@ class MainWindow(QMainWindow):
                 self._element_item_for(sheet, it.element.id) if it is not None and hasattr(it, "element") else None))
             scene.edit_element_requested.connect(lambda eid, sh=sheet: self._edit_element_anywhere(sh, eid))
             scene.delete_requested.connect(lambda eids, wids, sh=sheet: self._delete_anywhere(sh, eids, wids))
+            scene.mode_changed.connect(self._show_mode)
+            scene.after_edit = lambda sh=sheet: self._rebuild_peer(sh, "schematic")
             title = f"{sheet.name} – schéma" if sheet.is_switchboard else f"{sheet.name} – vícepól"
         elif kind == "terminals":
             scene = TerminalPlanScene(self.project, sheet, self.library, self.undo)
@@ -361,12 +370,22 @@ class MainWindow(QMainWindow):
         self.tabs.setCurrentIndex(idx)
         view.zoom_fit()
 
+    def _rebuild_peer(self, sheet: Sheet, kind: str) -> None:
+        i = self._find_tab(sheet, kind)
+        if i >= 0:
+            self._unwrap(self.tabs.widget(i)).scene().rebuild()
+
     def _edit_element_anywhere(self, sheet: Sheet, eid: str) -> None:
+        """Parametry prvku z odvozeného pohledu: dialog jde přes JPS scénu listu (otevře se skrytě, záložka zůstane)."""
+        cur = self.tabs.currentIndex()
         sc = self._jps_scene(sheet)
         if sc is None:
             self.open_sheet(sheet, "schematic")
             sc = self._jps_scene(sheet)
+            self.tabs.setCurrentIndex(cur)
         if sc is not None:
+            if eid not in sc.element_items:
+                sc.rebuild()
             sc.edit_element(eid)
 
     def _delete_anywhere(self, sheet: Sheet, eids: list, wids: list) -> None:
@@ -810,7 +829,7 @@ class MainWindow(QMainWindow):
         """Dvojklik na makro v knihovně: vloží sestavu doprostřed viditelné části listu."""
         import json
         from pathlib import Path
-        sc = self._active_schematic()
+        sc = self._active_schematic() or self.draw_scene
         if sc is None:
             QMessageBox.information(self, "Makro", "Makro jde vložit jen do schématu (JPS nebo jednopólová editace rozvaděče).")
             return

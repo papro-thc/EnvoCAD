@@ -17,7 +17,7 @@ from envocad.model.geometry import wire_label_anchor
 from envocad.model.project import Element, Project, Sheet, Wire, element_symbol, wire_label
 from envocad.model.symbol import GRID, Symbol, rotate_dir
 from envocad.ui import commands
-from envocad.ui.canvas import SchematicView
+from envocad.ui.canvas import Mode, SchematicView
 from envocad.ui.items import PORT_R, path_points, route, snap
 from envocad.ui.render import LINE_WIDTH, draw_frame, draw_text, paint_symbol, sp, symbol_path
 from envocad.ui.theme import PRINT, colors
@@ -368,12 +368,135 @@ class MultipoleScene(QGraphicsScene):
     selection_info = Signal(object)   # PoleItem | ConductorItem | None
     edit_element_requested = Signal(str)
     delete_requested = Signal(list, list)  # element_ids, wire_ids
+    mode_changed = Signal(object)
+
+    # ---- editace přímo ve schématu rozvaděče ---------------------------------------------------------
+    def set_mode(self, mode) -> None:
+        if getattr(self, "_ghost", None) is not None:
+            self.removeItem(self._ghost)
+        self._ghost = None
+        if getattr(self, "_preview", None) is not None:
+            self.removeItem(self._preview)
+        self._preview = None
+        self._wire_from = None
+        self._place_sid = None
+        self.mode = mode
+        self.mode_changed.emit(mode)
+
+    def start_place(self, symbol_id: str) -> None:
+        """Vložení prvku z knihovny: klik umístí (ruční pozice ve vícepólu), R otočí, Esc/pravé tlačítko ukončí."""
+        self.set_mode(Mode.PLACE)
+        self._place_sid = symbol_id
+        sym = self.library.get_symbol(symbol_id)
+        # ve schématu rozvaděče teče proud shora dolů – průchozí přístroje (porty W/E) se otočí svisle
+        self._place_rot = 270 if {p.dir for p in sym.ports} == {"W", "E"} and len(sym.ports) == 2 else 0
+        self._ghost = QGraphicsPathItem(symbol_path(sym))
+        self._ghost.setPen(QPen(colors().preview, LINE_WIDTH, Qt.DashLine))
+        self._ghost.setRotation(-self._place_rot)
+        self._ghost.setZValue(50)
+        self.addItem(self._ghost)
+
+    def start_wire(self) -> None:
+        self.set_mode(Mode.WIRE)
+
+    def insert_fragment(self, fragment: dict, at: tuple[float, float] | None = None) -> int:
+        """Makro do schématu rozvaděče: prvky dostanou ruční pozice ve vícepólu kolem bodu `at`."""
+        from envocad.library.macros import fragment_bounds
+        from envocad.model.project import paste_fragment
+        x0, y0, x1, y1 = fragment_bounds(fragment)
+        tx, ty = at if at is not None else (self.sheet.width / 2, self.sheet.height / 2)
+        dx, dy = snap(tx - (x0 + x1) / 2), snap(ty - (y0 + y1) / 2)
+        els, wires = paste_fragment(self.project, fragment, lambda sid: self.library.get_symbol(sid).iec_ref, dx, dy)
+        for e in els:
+            e.mp_pos = (e.x, e.y)
+        if els:
+            self.undo.push(commands.MultipoleAddCommand(self, elements=els, wires=wires))
+        return len(els)
+
+    def rotate_selected(self) -> None:
+        if self.mode == Mode.PLACE and self._ghost is not None:
+            self._place_rot = (self._place_rot + 90) % 360
+            self._ghost.setRotation(-self._place_rot)
+
+    def _pole_end_at(self, pos: QPointF) -> tuple[str, str, str | None, tuple[float, float]] | None:
+        """Konec pólu pod kurzorem: (prvek, port, žíla nebo None, pozice v modelu)."""
+        x, y = pos.x(), -pos.y()
+        best = None
+        for e in self.sheet.elements:
+            ep = self._poles.get(e.id)
+            if ep is None:
+                continue
+            conds = list(ep.slots) or [None]
+            for p in ep.symbol.ports:
+                for c in conds:
+                    try:
+                        px, py = ep.pole_pos(p.name, c) if c else ep.pole_pos(p.name, "")
+                    except (KeyError, ValueError):
+                        continue
+                    d = abs(px - x) + abs(py - y)
+                    if d <= GRID * 1.2 and (best is None or d < best[0]):
+                        best = (d, e.id, p.name, c, (px, py))
+        return best[1:] if best else None
+
+    def _place_at(self, pos: QPointF) -> None:
+        from envocad.model.project import Element
+        sym = self.library.get_symbol(self._place_sid)
+        x, y = snap(pos.x()), -snap(pos.y())
+        e = Element(symbol_id=sym.id, x=x, y=y, rotation=self._place_rot)
+        e.attrs = {a.key: a.default for a in sym.attributes}
+        e.attrs["ref"] = self.project.next_ref(sym.iec_ref) if sym.iec_ref else ""
+        e.mp_pos = (x, y)
+        self.undo.push(commands.MultipoleAddCommand(self, element=e))
+        eid = e.id
+        QTimer.singleShot(0, lambda: self.edit_element_requested.emit(eid))   # parametry hned po vložení
+
+    def _wire_click(self, pos: QPointF) -> None:
+        from envocad.model.project import WIRE_ATTRIBUTES, Wire, WireEnd
+        hit = self._pole_end_at(pos)
+        if hit is None:
+            return
+        if self._wire_from is None:
+            self._wire_from = hit
+            self._preview = QGraphicsPathItem()
+            self._preview.setPen(QPen(colors().preview, 0.3, Qt.DashLine))
+            self._preview.setZValue(50)
+            self.addItem(self._preview)
+            return
+        (ea, pa, ca, _), (eb, pb, cb, _) = self._wire_from, hit
+        if self._preview is not None:
+            self.removeItem(self._preview)
+        self._preview = None
+        self._wire_from = None
+        if ea == eb and pa == pb:
+            return
+        a, b = self.sheet.element(ea), self.sheet.element(eb)
+        conds = [ca or cb] if (ca or cb) else mp.default_conductors(a, pa, b, pb)
+        w = Wire(WireEnd(ea, pa), WireEnd(eb, pb), conductors=conds)
+        w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}
+        self.undo.push(commands.MultipoleAddCommand(self, wire=w))
+
+    def mouseMoveEvent(self, ev):
+        p = ev.scenePos()
+        if self.mode == Mode.PLACE and self._ghost is not None:
+            self._ghost.setPos(QPointF(snap(p.x()), snap(p.y())))
+        elif self.mode == Mode.WIRE and self._wire_from is not None and self._preview is not None:
+            x0, y0 = self._wire_from[3]
+            path = QPainterPath(sp(x0, y0))
+            path.lineTo(QPointF(sp(x0, y0).x(), snap(p.y())))
+            path.lineTo(QPointF(snap(p.x()), snap(p.y())))
+            self._preview.setPath(path)
+        super().mouseMoveEvent(ev)
 
     def __init__(self, project: Project, sheet: Sheet, library: LibraryStore, undo: QUndoStack):
         super().__init__()
         self.project, self.sheet, self.library, self.undo = project, sheet, library, undo
         self.draw_grid = True
-        self.mode = None
+        self.mode = Mode.SELECT
+        self._ghost = self._preview = None
+        self._wire_from = None
+        self._place_sid = None
+        self._place_rot = 0
+        self._poles: dict[str, mp.ElementPoles] = {}
         self.paper_size = (sheet.width, sheet.height)
         self._paper = QGraphicsRectItem(QRectF(0, -sheet.height, sheet.width, sheet.height))
         self._paper.setZValue(-1)
@@ -442,6 +565,7 @@ class MultipoleScene(QGraphicsScene):
         self._items.clear()
         self._paper.setPen(QPen(colors().paper, 0.5))
         poles: dict[str, mp.ElementPoles] = {}
+        self._poles = poles
         for e in self.sheet.elements:
             sym = element_symbol(self.project, e, self.library)
             poles[e.id] = mp.element_poles(self.sheet, e, sym)
@@ -663,6 +787,15 @@ class MultipoleScene(QGraphicsScene):
             self.undo.push(commands.SetTerminalsCommand(self, wid, w.terminals, new))
 
     def mousePressEvent(self, ev):
+        if ev.button() == Qt.RightButton and self.mode in (Mode.PLACE, Mode.WIRE):
+            self.set_mode(Mode.SELECT)
+            return
+        if ev.button() == Qt.LeftButton and self.mode == Mode.PLACE and self._place_sid:
+            self._place_at(ev.scenePos())
+            return
+        if ev.button() == Qt.LeftButton and self.mode == Mode.WIRE:
+            self._wire_click(ev.scenePos())
+            return
         super().mousePressEvent(ev)
         self._move_start = {it.element.id: it.element_origin() for it in self.selectedItems() if isinstance(it, PoleItem)}
 
@@ -689,7 +822,13 @@ class MultipoleScene(QGraphicsScene):
             self.undo.push(commands.MoveMultipoleCommand(self, moves))
 
     def keyPressEvent(self, ev):
-        if ev.key() == Qt.Key_Escape:
+        if ev.key() == Qt.Key_Escape and self.mode in (Mode.PLACE, Mode.WIRE):
+            self.set_mode(Mode.SELECT)
+        elif ev.key() == Qt.Key_W and self.mode != Mode.WIRE:
+            self.start_wire()
+        elif ev.key() == Qt.Key_R:
+            self.rotate_selected()
+        elif ev.key() == Qt.Key_Escape:
             self.clearSelection()
         elif ev.key() == Qt.Key_Delete:
             eids = sorted({it.element.id for it in self.selectedItems() if isinstance(it, PoleItem)})
