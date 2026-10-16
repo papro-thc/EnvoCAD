@@ -216,6 +216,10 @@ def simplify_points(pts: list[Point]) -> list[Point]:
         a, b, c = out[i - 1], out[i], out[i + 1]
         if (abs(a[0] - b[0]) < 1e-6 and abs(b[0] - c[0]) < 1e-6) or (abs(a[1] - b[1]) < 1e-6 and abs(b[1] - c[1]) < 1e-6):
             out.pop(i)
+            # trasa tam a zpět po přímce: po odebrání středu můžou zůstat dva stejné body za sebou
+            if abs(a[0] - c[0]) < 1e-6 and abs(a[1] - c[1]) < 1e-6:
+                out.pop(i)
+            i = max(1, i - 1)
         else:
             i += 1
     return out

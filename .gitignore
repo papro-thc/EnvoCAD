@@ -14,3 +14,8 @@ _sync/
 katalogy/
 *.autosave.ecp
 Claude outputs/
+
+# testy
+.hypothesis/
+.coverage
+htmlcov/
