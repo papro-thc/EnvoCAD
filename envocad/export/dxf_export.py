@@ -12,6 +12,7 @@ from envocad.model.symbol import GRID, Symbol, rotate_point
 LAYERS = {
     "SYMBOLY": 7, "VODICE": 7, "TEXTY": 7, "RAMECEK": 8, "PORTY": 1, "REVIZE": 1,   # REVIZE = červená
 }
+NOTES_LAYER, NOTES_COLOR = "PRIPOMINKY", 6     # purpurová – odlišná od červené revize
 DIR_VEC = {"N": (0, 1), "E": (1, 0), "S": (0, -1), "W": (-1, 0)}
 
 
@@ -89,11 +90,14 @@ def _wire_points(project: Project, sheet: Sheet, lib: LibraryStore, w) -> list[t
     return wire_route(project, sheet, lib, w)
 
 
-def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Path | str) -> None:
+def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Path | str, notes: bool = False) -> None:
+    """DXF listu. `notes=True` přidá otevřené připomínky (s textem) do vrstvy `PRIPOMINKY` – jen tehdy vrstva vznikne."""
     doc = ezdxf.new("R2010", setup=True)
     doc.header["$INSUNITS"] = 4  # mm
     for name, color in LAYERS.items():
         doc.layers.add(name, color=color)
+    if notes:
+        doc.layers.add(NOTES_LAYER, color=NOTES_COLOR)
     msp = doc.modelspace()
     from envocad.model.frame import MARGIN, MARGIN_LEFT, frame_enabled, frame_geometry
     _draw_geometry(msp, frame_geometry(project, sheet) if frame_enabled() else None, "RAMECEK")
@@ -129,5 +133,9 @@ def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Pa
     # značky revize listu (trojúhelník s označením revize) – stejné trasy vodičů jako výše
     from envocad.model.revision import revision_geometry
     _draw_geometry(msp, revision_geometry(project, sheet, lib, lay.routes), "REVIZE")
+    if notes:
+        from envocad.model.notes import notes_geometry
+        for g in notes_geometry(project, sheet, ("open",), with_text=True):
+            _draw_geometry(msp, g, NOTES_LAYER)
     doc.saveas(str(path))
 
