@@ -20,9 +20,11 @@ CODE_RE = re.compile(r"[A-Z][A-Z0-9_]*")
 REF_CHARS_RE = re.compile(r"[A-Z0-9_]+")        # vodič smí začínat číslicí
 SEPARATORS = set("=+-.:/") | set(string.whitespace)
 # Firemní číslování ENVO (docs/ENVO_STYL.md) používá „.“ a vnitřní „-“ v označení: FU1.1, QS1.2, SPD-DC1.1.
-# Plné označení se tím nerozbije (aspekty = a + stojí vždy před „-“), proto jde jen o informaci; ostatní oddělovače
-# (=, +, :, /, mezera) a úvodní „-“ jsou chyba – kolidují s aspekty a se zápisem svorek „X1:3“.
+# Plné označení se tím nerozbije (aspekty = a + stojí vždy před „-“). Tečka je schválený firemní standard
+# (bez nálezu), vnitřní „-“ je jen informace; ostatní oddělovače (=, +, :, /, mezera) a úvodní „-“ jsou chyba –
+# kolidují s aspekty a se zápisem svorek „X1:3“.
 SOFT_SEPARATORS = set(".-")
+INFO_SEPARATORS = set("-")                      # měkké oddělovače, které se hlásí jako INFO
 CABLE_SCOPE = ("~cable", "")                    # vodiče JPS (kabely) – jeden prostor pro celý projekt
 
 
@@ -105,7 +107,7 @@ def _separator_name(ch: str) -> str:
 def validate_ref(ref: str, classes: list[str] | None, *, is_wire: bool = False,
                  name: str = "") -> list[DesignationIssue]:
     """Přístrojová část označení (bez „-“). `classes` = povolené třídy značky (None/[] = nekontrolovat třídu),
-    `name` = název značky do textu nálezu. Měkký oddělovač („.“, vnitřní „-“) je jen INFO a kontrola pokračuje:
+    `name` = název značky do textu nálezu. Tečka (firemní číslování) projde bez nálezu, vnitřní „-“ je INFO; kontrola pokračuje:
     znaky se kontrolují bez měkkých oddělovačů, délka a třída z celého označení („SPD-DC1.1“ → třída SPD)."""
     if not ref:
         return []
@@ -116,7 +118,7 @@ def validate_ref(ref: str, classes: list[str] | None, *, is_wire: bool = False,
     if bad:
         return [DesignationIssue("ref_syntax", True, f"Označení „{ref}“ obsahuje nepovolený znak "
                                                     f"{_separator_name(bad)} (oddělovač aspektů)")]
-    soft = next((ch for ch in ref if ch in SOFT_SEPARATORS), "")
+    soft = next((ch for ch in ref if ch in INFO_SEPARATORS), "")
     if soft:
         out.append(DesignationIssue("ref_syntax", False, f"Označení „{ref}“ obsahuje znak „{soft}“ (oddělovač dle "
                                                         "IEC 81346) – přípustné jen jako firemní číslování", info=True))

@@ -68,8 +68,8 @@ písmenný kód označení žádné třídě neodpovídá. Shoda je prefixem: t�
 - Firemní prefix: svodič `fve.spd` má `iec_ref` „F“ a `function_class` `["F", "SPD"]` – firemní číslování
   `SPD-DC1.1` (`docs/ENVO_STYL.md`) neodpovídá třídě F ani podtřídě FC, a třída „S“ by znamenala ruční ovládání
   (tlačítka S1). Proto explicitní třípísmenný prefix místo volnějšího „S“.
-- Měkké oddělovače firemního číslování („.“, vnitřní „-“, např. `FU1.1`, `SPD-DC1.1`) jsou jen informace; třída,
-  délka a znaky (bez oddělovačů) se kontrolují dál.
+- Firemní číslování: tečka (`FU1.1`) je schválený standard ENVO a kontrola ji nehlásí; vnitřní „-“ (`SPD-DC1.1`)
+  je jen informace. Třída, délka a znaky (bez oddělovačů) se kontrolují dál.
 
 Formát symbolu kvůli tomu nemá verzi – nový klíč je nepovinný a starší program ho ignoruje.
 

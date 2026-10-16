@@ -252,8 +252,8 @@ Kontrola (`F7`) hlásí označení a strukturní údaje:
 | `loc_mismatch` | info | umístění listu se liší od označení bloku rozvaděče |
 | `contact_ambiguous` | varování | kontakt odpovídá cívkám ve více umístěních – nastav kontaktu umístění v panelu Vlastnosti |
 
-Kontrola `ref_class` se nedělá u kontaktů, přerušovacích bodů a vodičů. Tečka a pomlčka uvnitř označení
-(např. `FU1.1`, `SPD-DC1.1`) jsou firemní číslování a hlásí se jen jako info.
+Kontrola `ref_class` se nedělá u kontaktů, přerušovacích bodů a vodičů. Tečka v označení (např. `FU1.1`)
+je firemní číslování ENVO a kontrola ji nehlásí; pomlčka uvnitř označení (`SPD-DC1.1`) se hlásí jen jako info.
 
 ---
 

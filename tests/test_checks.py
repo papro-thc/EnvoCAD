@@ -120,7 +120,7 @@ def test_designation_findings_codes():
     for f in fs:
         by.setdefault(f.code, []).append(f)
     assert {f.ref for f in by["ref_syntax"] if f.severity == ERROR} == {"Q1:2", "W 1"}
-    assert {f.ref for f in by["ref_syntax"] if f.severity == INFO} == {"FU1.1"}
+    assert not {f.ref for f in by["ref_syntax"] if f.severity == INFO} & {"FU1.1"}   # tečka = firemní standard
     assert [f.ref for f in by["ref_chars"]] == ["f3"] and by["ref_chars"][0].severity == WARNING
     refs_len = {f.ref for f in by["ref_length"]}
     assert refs_len == {"F12345678901", "F123456789"}
