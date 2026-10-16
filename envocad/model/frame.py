@@ -85,7 +85,7 @@ def sheet_number(project: Project, sheet: Sheet) -> str:
 def title_rows(project: Project, sheet: Sheet, view: str = "", page: str = "") -> list[list[tuple[str, str]]]:
     """Řádky popisového pole jako [(popisek, hodnota), …] – vlevo doleva, vpravo doprava."""
     m = project.meta
-    date = m.get("date") or _date.today().strftime("%d.%m.%Y")  # noqa: DTZ011
+    date = m.get("date") or _date.today().strftime("%d.%m.%Y")
     name = sheet.name + (f" – {view}" if view else "")
     return [
         [("Projekt", project.name), ("Zakázka", m.get("order", ""))],

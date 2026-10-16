@@ -17,6 +17,7 @@ from envocad import __version__
 
 KEEP = 5
 SHUTTING_DOWN = False
+_crash_file = None   # otevřený crash.log pro faulthandler
 log = logging.getLogger("envocad")
 
 
@@ -38,14 +39,20 @@ def _rotate(d: Path) -> None:
 
 
 def setup(show_dialog: bool = True) -> Path:
+    global _crash_file
     d = log_dir()
-    _rotate(d)
     path = d / "envocad.log"
     root = logging.getLogger()
+    # nejdřív zavřít soubory z předchozího volání – na Windows nejde otevřený soubor při rotaci přejmenovat
     for h in list(root.handlers):
         if getattr(h, "_envocad", False):
             root.removeHandler(h)
             h.close()
+    if _crash_file is not None:
+        faulthandler.disable()
+        _crash_file.close()
+        _crash_file = None
+    _rotate(d)
     fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
     for h in (logging.FileHandler(path, encoding="utf-8"), logging.StreamHandler(sys.stderr)):
         h.setFormatter(fmt)
@@ -53,8 +60,8 @@ def setup(show_dialog: bool = True) -> Path:
         root.addHandler(h)
     root.setLevel(logging.INFO)
     # nativní pád (access violation / segfault) – Python by nic nevypsal; faulthandler zapíše zásobník
-    crash = open(d / "crash.log", "w", encoding="utf-8")  # noqa: SIM115 – musí zůstat otevřený
-    faulthandler.enable(file=crash, all_threads=True)
+    _crash_file = open(d / "crash.log", "w", encoding="utf-8")  # noqa: SIM115 – musí zůstat otevřený
+    faulthandler.enable(file=_crash_file, all_threads=True)
     log.info("EnvoCAD %s, Python %s, %s %s", __version__, platform.python_version(), platform.system(),
              platform.release())
     try:

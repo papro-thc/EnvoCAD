@@ -78,7 +78,7 @@ def export_routine_test_docx(project: Project, lib: LibraryStore, sheet: Sheet, 
         ["Síť / uzemnění", lay.params.get("network", "TN-S")],
         ["Krytí / IK", " / ".join(x for x in (lay.params.get("ip", ""), lay.params.get("ik", "")) if x)],
         ["Výrobce rozvaděče", "ENVO s.r.o."],
-        ["Datum", date.today().strftime("%d.%m.%Y")],  # noqa: DTZ011
+        ["Datum", date.today().strftime("%d.%m.%Y")],
     ])
 
     doc.add_heading("2. Osazené přístroje", level=2)
