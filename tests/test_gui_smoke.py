@@ -1182,3 +1182,158 @@ def test_insert_macro_without_parameters_is_copy(app, tmp_path):
     assert len(s.elements) == 3
     w.undo.setClean()
     w.close()
+
+
+# ---- připomínky: panel, skok, export, uzavření revize -------------------------------------------
+def _notes_window(app, tmp_path):
+    from envocad.model.project import Note
+    p = _project()
+    s2 = p.sheets[0].__class__(name="List 2")
+    p.sheets.append(s2)
+    s1 = p.sheets[0]
+    g = s1.elements[0]
+    p.notes += [
+        Note(s1.id, x=50, y=100, text="Zkontrolovat proud", no=1, target_id=g.id, author="Jan"),
+        Note(s1.id, x=100, y=60, w=20, h=10, text="Přidat popisek", no=2, author="Eva", status="resolved",
+             resolved_by="Jan", resolved="2026-10-16T10:00"),
+        Note(s2.id, x=40, y=40, text="Chybí svorka", no=3, author="Jan"),
+    ]
+    win = MainWindow(library=LibraryStore(tmp_path / "lib.db"), project=p)
+    win.show()
+    app.processEvents()
+    return win, p, s1, s2
+
+
+def test_notes_panel_filter_and_goto(app, tmp_path):
+    win, p, _s1, s2 = _notes_window(app, tmp_path)
+    settings = win._settings()
+    old = settings.value("view/notes", None)
+    try:
+        panel = win.notes_panel
+        nums = lambda: [panel.tree.topLevelItem(i).text(0) for i in range(panel.tree.topLevelItemCount())]
+        assert nums() == ["1", "3"]                                  # výchozí filtr = Otevřené
+        assert panel.tree.topLevelItem(0).text(2) == "G1" and panel.tree.topLevelItem(0).text(4) == "Jan"
+        panel.status.setCurrentIndex(1)
+        assert nums() == ["2"]
+        panel.status.setCurrentIndex(2)
+        assert nums() == ["1", "2", "3"]
+        panel.only_sheet.setChecked(True)
+        assert nums() == ["1", "2"]                                  # aktuální list = první
+        panel.only_sheet.setChecked(False)
+        panel.search.setText("svorka")
+        assert nums() == ["3"]
+        panel.search.setText("")
+
+        # skok: přepne list, zapne zobrazení, vybere a vycentruje
+        panel.goto_note.emit(s2.id, p.notes[2].id)
+        assert win.current_sheet is s2 and win.act_notes.isChecked()
+        sel = win.scene.selectedItems()
+        assert len(sel) == 1 and sel[0].note.id == p.notes[2].id
+
+        # Vyřešit / Otevřít a Smazat z panelu jdou přes undo a obnoví seznam
+        panel.status.setCurrentIndex(2)
+        panel.tree.topLevelItem(0).setSelected(True)
+        assert panel.btn_toggle.text() == "Vyřešit"
+        panel.btn_toggle.click()
+        assert p.notes[0].status == "resolved" and p.notes[0].resolved_by
+        win.undo.undo()
+        assert p.notes[0].status == "open" and nums() == ["1", "2", "3"]
+        win.undo.redo()
+        panel.tree.clearSelection()
+        panel.tree.topLevelItem(1).setSelected(True)
+        assert panel.btn_toggle.text() == "Otevřít"
+        panel.btn_delete.click()
+        assert [n.no for n in p.notes] == [1, 3] and nums() == ["1", "3"]
+        win.undo.undo()
+        assert [n.no for n in p.notes] == [1, 2, 3]
+    finally:
+        settings.setValue("view/notes", old if old is not None else False)
+        win.undo.setClean()
+        win.close()
+
+
+def _note_annots(path) -> list[list]:
+    """Anotace připomínek EnvoCAD (`/NM envocad:…`) po stranách; vlastní odkazy QPdfWriter se nepočítají."""
+    import pypdf
+    out = []
+    for pg in pypdf.PdfReader(path).pages:
+        items = [a.get_object() for a in (pg.get("/Annots") or [])]
+        out.append([a for a in items if str(a.get("/NM", "")).startswith("envocad:")])
+    return out
+
+
+def test_notes_export_pdf_from_gui(app, tmp_path):
+    win, p, s1, _s2 = _notes_window(app, tmp_path)
+    settings = win.__class__._settings()
+    old = settings.value("export/notes", None)
+    try:
+        out = tmp_path / "bez.pdf"
+        win.act_export_notes.setChecked(False)
+        from envocad.export.pdf_export import export_scene_pdf
+        assert export_scene_pdf(win.scene, out, notes=win._export_notes()) == 0
+        assert _note_annots(out) == [[]]
+        win.act_export_notes.setChecked(True)
+        assert win._export_notes()
+        out2 = tmp_path / "s.pdf"
+        n = export_scene_pdf(win.scene, out2, notes=win._export_notes())
+        assert n == 1                                                 # jen otevřená připomínka listu
+        annots = _note_annots(out2)[0]
+        assert len(annots) == 1 and "Zkontrolovat" in str(annots[0]["/Contents"])
+        # dokumentace
+        from envocad.export.doc_pdf import export_documentation_pdf
+        out3 = tmp_path / "d.pdf"
+        export_documentation_pdf(p, win.library, out3, notes=win._export_notes())
+        total = sum(len(a) for a in _note_annots(out3))
+        assert total == 2                                             # otevřené na obou listech
+        # DXF
+        from envocad.export.dxf_export import export_sheet_dxf
+        out4 = tmp_path / "s.dxf"
+        export_sheet_dxf(p, s1, win.library, out4, notes=win._export_notes())
+        assert "PRIPOMINKY" in out4.read_text(errors="ignore")
+        # v obsahu PDF se připomínky nevypalují a zobrazení scény se po exportu vrátí
+        win.set_notes_visible(True)
+        export_scene_pdf(win.scene, out2, notes=False)
+        assert win.scene.notes_visible and win.scene.note_items
+    finally:
+        settings.setValue("export/notes", old if old is not None else False)
+        win.set_notes_visible(False)
+        win.undo.setClean()
+        win.close()
+
+
+def test_close_revision_asks_about_open_notes(app, tmp_path):
+    from envocad.model.diff import diff_projects
+    win, p, _s1, s2 = _notes_window(app, tmp_path)
+    try:
+        old = Project.from_dict(p.to_dict())
+        p.sheets[0].elements[0].attrs["p_string"] = "99 kWp"
+        win.record_revision(diff_projects(old, p, win.library), "B", "1.1.2026", "ENVO", "B | test")
+        asked = []
+        win._confirm_close_with_notes = lambda n: asked.append(n) or False
+        assert not win.close_open_revision(None) and asked == [2] and not p.revisions[-1].closed
+        assert not win.close_open_revision([s2.id]) and asked == [2, 1]
+        win._confirm_close_with_notes = lambda n: asked.append(n) or True
+        assert win.close_open_revision(None) and p.revisions[-1].closed
+        # bez otevřených připomínek na uzavíraných listech se nikdo neptá
+        for n in p.notes:
+            n.status = "resolved"
+        asked.clear()
+        win.undo.undo()
+        assert win.close_open_revision(None) and not asked
+    finally:
+        win.undo.setClean()
+        win.close()
+
+
+def test_note_dialog_resolve_fills_user(app):
+    from envocad.model.project import Note
+    from envocad.ui.dialogs import NoteDialog
+    n = Note("s", text="a", author="Jan", created="2026-10-16T09:00")
+    d = NoteDialog(n)
+    d.text.setPlainText("  upraveno ")
+    d.status.setCurrentIndex(1)
+    r = d.result_note()
+    assert r.status == "resolved" and r.resolved and r.resolved_by == d.note.resolved_by and r.text == "upraveno"
+    assert n.status == "open" and not n.resolved                     # originál zůstává
+    d.status.setCurrentIndex(0)
+    assert d.result_note().status == "open" and not d.result_note().resolved

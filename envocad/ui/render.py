@@ -135,3 +135,21 @@ def draw_revision_marks(painter: QPainter, geom, color) -> None:
         if text:
             draw_text(painter, x, y, text, h, align)
     painter.restore()
+
+
+def draw_note_shape(painter: QPainter, shape, color, dash_first: bool = False) -> None:
+    """Kresba připomínky z `model/notes.py:note_shape` (mm, Y nahoru). `dash_first` = první polyline (obrys
+    obdélníku) čárkovaně; praporek a čáry plně."""
+    painter.save()
+    painter.setBrush(Qt.NoBrush)
+    painter.setPen(QPen(color, 0.35))
+    for x1, y1, x2, y2 in shape.lines:
+        painter.drawLine(sp(x1, y1), sp(x2, y2))
+    for i, pts in enumerate(shape.polylines):
+        painter.setPen(QPen(color, 0.35, Qt.DashLine if dash_first and i == 0 else Qt.SolidLine))
+        painter.drawPolygon([sp(x, y) for x, y in pts])
+    painter.setPen(QPen(color, 0.2))
+    for x, y, text, h, align in shape.texts:
+        if text:
+            draw_text(painter, x, y, text, h, align)
+    painter.restore()

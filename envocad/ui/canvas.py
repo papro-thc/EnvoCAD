@@ -25,6 +25,7 @@ from envocad.model.project import (
 from envocad.model.symbol import GRID
 from envocad.ui import commands
 from envocad.ui.items import ElementItem, WireItem, route, snap
+from envocad.ui.notes_view import NoteItem
 from envocad.ui.render import draw_frame, draw_geometry, draw_revision_marks, draw_text, sp
 from envocad.ui.theme import PRINT, colors
 
@@ -35,6 +36,7 @@ class Mode(Enum):
     SELECT = 0
     PLACE = 1
     WIRE = 2
+    NOTE = 3
 
 
 class SchematicScene(QGraphicsScene):
@@ -48,6 +50,7 @@ class SchematicScene(QGraphicsScene):
         self.project, self.sheet, self.library, self.undo = project, sheet, library, undo
         self.element_items: dict[str, ElementItem] = {}
         self.wire_items: dict[str, WireItem] = {}
+        self.note_items: dict[str, NoteItem] = {}
         self.mode = Mode.SELECT
         self.draw_grid = True
         self.ask_attributes = True  # dialog s parametry při vložení prvku (testy vypínají)
@@ -58,6 +61,11 @@ class SchematicScene(QGraphicsScene):
         self._wire_preview.setPen(QPen(colors().preview, 0.3, Qt.DashLine))
         self._wire_preview.setZValue(20)
         self._move_start: dict[str, tuple[float, float]] = {}
+        self._note_move_start: dict[str, tuple[float, float]] = {}
+        self._note_draw: tuple[QPointF, QPointF, str, bool] | None = None   # kotva (scéna), snap, cíl, vodič?
+        self._note_preview = QGraphicsRectItem()
+        self._note_preview.setPen(QPen(colors().preview, 0.3, Qt.DashLine))
+        self._note_preview.setZValue(20)
         self.setSceneRect(QRectF(-50, -sheet.height - 50, sheet.width + 100, sheet.height + 100))
         self._paper = QGraphicsRectItem(QRectF(0, -sheet.height, sheet.width, sheet.height))
         self._paper.setPen(QPen(colors().paper, 0.5))
@@ -81,6 +89,7 @@ class SchematicScene(QGraphicsScene):
             if wid in self.wire_items:
                 self.wire_items[wid].set_points(pts)
         self.invalidate_text_layout()
+        self.rebuild_notes()
 
     def add_element_item(self, e: Element) -> ElementItem:
         it = ElementItem(e, element_symbol(self.project, e, self.library))
@@ -119,6 +128,105 @@ class SchematicScene(QGraphicsScene):
             if a and b:
                 it.update_route(a, b)
         self.invalidate_text_layout()
+
+    # ---- připomínky (redlining) -------------------------------------------------
+    notes_visible = False   # výchozí vypnuto; zapíná Zobrazit → Připomínky (exportní scény ho nechávají vypnuté)
+
+    def set_notes_visible(self, visible: bool) -> None:
+        self.notes_visible = visible
+        self.rebuild_notes()
+
+    def rebuild_notes(self) -> None:
+        """Znovu vytvoří položky připomínek listu (otevřené i vyřešené); při vypnutém zobrazení žádné nevzniknou.
+        Výběr se zachová podle id."""
+        from envocad.model.notes import notes_on_sheet
+        from envocad.ui.notes_view import tooltip_text
+        selected = {i for i, it in self.note_items.items() if it.isSelected()}
+        for it in self.note_items.values():
+            self.removeItem(it)
+        self.note_items.clear()
+        if not self.notes_visible:
+            return
+        for n in notes_on_sheet(self.project, self.sheet.id):
+            it = NoteItem(n)
+            it.setToolTip(tooltip_text(self.project, n))
+            self.addItem(it)
+            self.note_items[n.id] = it
+            if n.id in selected:
+                it.setSelected(True)
+
+    def edit_note_later(self, nid: str) -> None:
+        """Dialog až po doběhnutí události (menu / dvojklik)."""
+        QTimer.singleShot(0, lambda: self.edit_note(nid))
+
+    def edit_note(self, nid: str) -> bool:
+        from envocad.model.notes import note
+        from envocad.ui.dialogs import NoteDialog
+        n = note(self.project, nid)
+        if n is None:
+            return False
+        dlg = NoteDialog(n, self._parent_widget(), f"Připomínka č. {n.no}")
+        if dlg.exec() != NoteDialog.Accepted:
+            return False
+        new = dlg.result_note()
+        if new == n:
+            return False
+        self.undo.push(commands.ReplaceNoteCommand(self.project, n, new, f"Upravit připomínku č. {n.no}",
+                                                   self.rebuild_notes))
+        return True
+
+    def set_note_status(self, nid: str, status: str) -> None:
+        from envocad.model.notes import note
+        from envocad.settings import current_user
+        from envocad.ui.notes_view import reopened_copy, resolved_copy
+        n = note(self.project, nid)
+        if n is None or n.status == status:
+            return
+        new = resolved_copy(n, current_user()) if status == "resolved" else reopened_copy(n)
+        text = f"Vyřešit připomínku č. {n.no}" if status == "resolved" else f"Znovu otevřít připomínku č. {n.no}"
+        self.undo.push(commands.ReplaceNoteCommand(self.project, n, new, text, self.rebuild_notes))
+
+    def delete_note(self, nid: str) -> None:
+        from envocad.model.notes import note
+        n = note(self.project, nid)
+        if n is not None:
+            self.undo.push(commands.ReplaceNoteCommand(self.project, n, None, f"Smazat připomínku č. {n.no}",
+                                                       self.rebuild_notes))
+
+    def start_note(self) -> None:
+        self.set_mode(Mode.NOTE)
+
+    def _note_target(self, pos: QPointF) -> tuple[str, bool]:
+        """Prvek, nebo vodič pod bodem (id, je_vodič); prázdné id = nic."""
+        for it in self.items(pos):
+            if isinstance(it, ElementItem) and it is not self._ghost:
+                return it.element.id, False
+        for it in self.items(pos):
+            if isinstance(it, WireItem):
+                return it.wire.id, True
+        return "", False
+
+    def _note_from_drag(self, a: QPointF, b: QPointF, target: str, is_wire: bool):
+        """Nová připomínka z tahu kotva → bod (obě na mřížce); tah menší než mřížka v některém směru = bod."""
+        from envocad.model.project import Note
+        from envocad.settings import current_user
+        from envocad.ui.notes_view import now_iso
+        ax, ay, bx, by = snap(a.x()), -snap(a.y()), snap(b.x()), -snap(b.y())
+        w, h = abs(bx - ax), abs(by - ay)
+        n = Note(self.sheet.id, x=ax, y=ay, target_id=target, is_wire=is_wire, author=current_user(),
+                 created=now_iso())
+        if w >= GRID and h >= GRID:
+            n.x, n.y, n.w, n.h = min(ax, bx), min(ay, by), w, h
+        return n
+
+    def _finish_note(self, n) -> None:
+        from envocad.ui.dialogs import NoteDialog
+        log.info("dialog: připomínka")
+        dlg = NoteDialog(n, self._parent_widget(), "Nová připomínka")
+        if dlg.exec() != NoteDialog.Accepted:
+            return
+        self.undo.push(commands.ReplaceNoteCommand(self.project, None, dlg.result_note(), "Přidat připomínku",
+                                                   self.rebuild_notes))
 
     # ---- rozmístění popisků (model/textlayout) – počítá se líně při kreslení, ruší se při změně geometrie
     _text_layout = None
@@ -197,6 +305,9 @@ class SchematicScene(QGraphicsScene):
             self.removeItem(self._wire_preview)
         self._wire_from = None
         self._place_symbol_id = None
+        self._note_draw = None
+        if self._note_preview.scene():
+            self.removeItem(self._note_preview)
         self.mode = mode
         log.info("režim: %s", mode.name)
         self.mode_changed.emit(mode)
@@ -236,6 +347,16 @@ class SchematicScene(QGraphicsScene):
         if self.mode == Mode.PLACE and self._ghost:
             self._ghost.setPos(snap(p.x()), snap(p.y()))
             return
+        if self.mode == Mode.NOTE and self._note_draw is not None:
+            a = self._note_draw[1]
+            b = QPointF(snap(p.x()), snap(p.y()))
+            if abs(b.x() - a.x()) >= GRID or abs(b.y() - a.y()) >= GRID:
+                if not self._note_preview.scene():
+                    self.addItem(self._note_preview)
+                self._note_preview.setRect(QRectF(a, b).normalized())
+            elif self._note_preview.scene():
+                self.removeItem(self._note_preview)
+            return
         if self.mode == Mode.WIRE and self._wire_from:
             a, port = self._wire_from
             hit = self._port_near(p)
@@ -272,6 +393,11 @@ class SchematicScene(QGraphicsScene):
             else:
                 self.undo.push(commands.AddElementCommand(self, e))
             return  # zůstáváme v režimu vkládání (Esc / pravé tlačítko ukončí)
+        if self.mode == Mode.NOTE:
+            if ev.button() == Qt.LeftButton:
+                target, is_wire = self._note_target(p)
+                self._note_draw = (p, QPointF(snap(p.x()), snap(p.y())), target, is_wire)
+            return
         if self.mode == Mode.WIRE and ev.button() == Qt.LeftButton:
             hit = self._port_near(p) or self._branch_at(p)   # port, nebo T-odbočka na vodiči
             if not hit:
@@ -304,6 +430,7 @@ class SchematicScene(QGraphicsScene):
             return
         # SELECT: úsek vodiče se dá chytit a posunout kolmo (vodorovný nahoru/dolů, svislý do stran)
         self._seg = None
+        self._note_move_start = {}
         if ev.button() == Qt.LeftButton:
             from PySide6.QtGui import QTransform
 
@@ -327,6 +454,8 @@ class SchematicScene(QGraphicsScene):
         self._move_wire_pts = {w.id: [tuple(x) for x in w.points] for w in self.sheet.wires if w.points and
                                (w.a.element_id in self._move_start or w.b.element_id in self._move_start)}
         self._dragging = bool(self._move_start)
+        self._note_move_start = {it.note.id: (it.note.x, it.note.y) for it in self.selectedItems()
+                                 if isinstance(it, NoteItem)}
 
     def _branch_at(self, pos: QPointF) -> tuple[ElementItem, str] | None:
         """Klik na vodič v režimu kreslení: vodič se rozdělí uzlem odbočky a vrátí se jeho volný port."""
@@ -377,6 +506,10 @@ class SchematicScene(QGraphicsScene):
     def mouseDoubleClickEvent(self, ev):
         if self.mode != Mode.SELECT:
             return super().mouseDoubleClickEvent(ev)
+        for nit in self.items(ev.scenePos()):
+            if isinstance(nit, NoteItem):
+                self.edit_note_later(nit.note.id)
+                return None
         it = self._element_at(ev.scenePos())
         if it is not None:
             if it.symbol.id == "fve.switchboard":
@@ -499,7 +632,20 @@ class SchematicScene(QGraphicsScene):
         return element_xref(self.project, self.sheet, e, self.device_index())
 
     def mouseReleaseEvent(self, ev):
+        if self.mode == Mode.NOTE:
+            draw, self._note_draw = self._note_draw, None
+            if self._note_preview.scene():
+                self.removeItem(self._note_preview)
+            if draw is not None and ev.button() == Qt.LeftButton:
+                n = self._note_from_drag(draw[0], ev.scenePos(), draw[2], draw[3])
+                if self.ask_attributes:
+                    QTimer.singleShot(0, lambda: self._finish_note(n))
+                else:
+                    self.undo.push(commands.ReplaceNoteCommand(self.project, None, n, "Přidat připomínku",
+                                                               self.rebuild_notes))
+            return
         super().mouseReleaseEvent(ev)
+        self._commit_note_moves()
         if self._seg is not None:
             it, _idx, _start, _pts, old = self._seg
             self._seg = None
@@ -523,6 +669,29 @@ class SchematicScene(QGraphicsScene):
                 self.undo.push(commands.MoveElementsCommand(self, moves, wp))
             self._move_start = {}
             self._move_wire_pts = {}
+
+    def _commit_note_moves(self) -> None:
+        """Posun vybraných připomínek (Qt je už přesunul a přichytil) se zapíše jedním příkazem."""
+        import copy
+
+        from envocad.model.notes import note
+        start, self._note_move_start = self._note_move_start, {}
+        moves = []
+        for nid, (ox, oy) in start.items():
+            it, n = self.note_items.get(nid), note(self.project, nid)
+            if it is None or n is None:
+                continue
+            nx, ny = it.pos().x(), -it.pos().y()
+            if (nx, ny) != (ox, oy):
+                new = copy.deepcopy(n)
+                new.x, new.y = nx, ny
+                moves.append((n, new))
+        if not moves:
+            return
+        self.undo.beginMacro("Posunout připomínku" if len(moves) == 1 else "Posunout připomínky")
+        for n, new in moves:
+            self.undo.push(commands.ReplaceNoteCommand(self.project, n, new, "Posunout připomínku", self.rebuild_notes))
+        self.undo.endMacro()
 
     def keyPressEvent(self, ev: QKeyEvent):
         if ev.key() == Qt.Key_Escape:
@@ -609,8 +778,20 @@ class SchematicScene(QGraphicsScene):
     def delete_selected(self) -> None:
         eids = [it.element.id for it in self.selectedItems() if isinstance(it, ElementItem)]
         wids = [it.wire.id for it in self.selectedItems() if isinstance(it, WireItem)]
+        nids = [it.note.id for it in self.selectedItems() if isinstance(it, NoteItem)]
+        if nids and (eids or wids):
+            self.undo.beginMacro("Smazat")
         if eids or wids:
             self.undo.push(commands.RemoveItemsCommand(self, eids, wids))
+        if nids:
+            from envocad.model.notes import note
+            for nid in nids:
+                n = note(self.project, nid)
+                if n is not None:
+                    self.undo.push(commands.ReplaceNoteCommand(self.project, n, None, f"Smazat připomínku č. {n.no}",
+                                                               self.rebuild_notes))
+        if nids and (eids or wids):
+            self.undo.endMacro()
 
     def rotate_selected(self) -> None:
         if self.mode == Mode.PLACE and self._ghost:

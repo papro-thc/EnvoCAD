@@ -307,3 +307,148 @@ def test_parallel_auto_wires_keep_distance():
         s.wires.append(Wire(WireEnd(a_.id, pa), WireEnd(b_.id, pb)))
     routes = route_sheet(p, s, lib)
     assert not wire_overlaps(s, routes)
+
+
+# ---- připomínky (Mode.NOTE) -------------------------------------------------------------------
+def test_note_click_makes_point_on_grid(app, win):
+    from envocad.model.notes import note_shape
+    w = win()
+    sc = w.scene
+    sc.ask_attributes = False
+    sc.start_note()
+    assert sc.mode == Mode.NOTE
+    n0 = w.undo.count()
+    QTest.mouseClick(w.view.viewport(), Qt.LeftButton, Qt.NoModifier, vp(w, 101.2, 88.7))
+    notes = w.project.notes
+    assert len(notes) == 1 and w.undo.count() == n0 + 1
+    n = notes[0]
+    assert not n.is_rect and n.sheet_id == sc.sheet.id and n.no == 1 and n.created
+    assert n.x % 2.5 == pytest.approx(0) and n.y % 2.5 == pytest.approx(0)
+    assert n.x == pytest.approx(101.2, abs=1.3) and n.y == pytest.approx(88.7, abs=1.3)
+    assert note_shape(n).bbox[2] > n.x
+    assert sc.mode == Mode.NOTE
+    w.undo.undo()
+    assert not w.project.notes
+    w.undo.redo()
+    assert len(w.project.notes) == 1
+
+
+def test_note_drag_makes_rect_with_preview(app, win):
+    w = win()
+    sc = w.scene
+    sc.ask_attributes = False
+    sc.start_note()
+    port = w.view.viewport()
+    QTest.mousePress(port, Qt.LeftButton, Qt.NoModifier, vp(w, 100, 100))
+    QTest.mouseMove(port, vp(w, 130, 80))
+    assert sc._note_preview.scene() is sc and sc._note_preview.rect().width() > 20
+    QTest.mouseRelease(port, Qt.LeftButton, Qt.NoModifier, vp(w, 130, 80))
+    assert sc._note_preview.scene() is None
+    n = w.project.notes[0]
+    assert n.is_rect and n.w == pytest.approx(30, abs=2.6) and n.h == pytest.approx(20, abs=2.6)
+    assert n.y == pytest.approx(80, abs=1.3)      # levý dolní roh: nižší Y modelu
+    # tah kratší než mřížka = bod
+    QTest.mousePress(port, Qt.LeftButton, Qt.NoModifier, vp(w, 200, 100))
+    QTest.mouseRelease(port, Qt.LeftButton, Qt.NoModifier, vp(w, 200.5, 100))
+    assert not w.project.notes[1].is_rect
+
+
+def test_note_click_on_element_sets_target(app, win):
+    p, a, _b = two_elements()
+    w = win(p)
+    sc = w.scene
+    sc.ask_attributes = False
+    sc.start_note()
+    QTest.mouseClick(w.view.viewport(), Qt.LeftButton, Qt.NoModifier, vp(w, a.x, a.y))
+    n = p.notes[0]
+    assert n.target_id == a.id and not n.is_wire
+    QTest.mouseClick(w.view.viewport(), Qt.LeftButton, Qt.NoModifier, vp(w, 20, 20))
+    assert p.notes[1].target_id == ""
+
+
+def test_note_dialog_deferred_and_cancel(app, win, monkeypatch):
+    w = win()
+    sc = w.scene
+    calls = []
+    monkeypatch.setattr(dialogs.NoteDialog, "exec", lambda self: calls.append(1) or dialogs.NoteDialog.Accepted)
+    sc.start_note()
+    QTest.mouseClick(w.view.viewport(), Qt.LeftButton, Qt.NoModifier, vp(w, 100, 100))
+    assert not calls and not w.project.notes         # dialog až po doběhnutí události
+    pump(app)
+    assert calls == [1] and len(w.project.notes) == 1
+    monkeypatch.setattr(dialogs.NoteDialog, "exec", lambda self: dialogs.NoteDialog.Rejected)
+    QTest.mouseClick(w.view.viewport(), Qt.LeftButton, Qt.NoModifier, vp(w, 150, 100))
+    pump(app)
+    assert len(w.project.notes) == 1
+
+
+def test_note_items_hidden_by_default_and_shown(app, win):
+    from envocad.model.project import Note
+    from envocad.ui.notes_view import NoteItem
+    p = Project(name="N")
+    p.notes.append(Note(p.sheets[0].id, x=50, y=50, text="x"))
+    p.notes.append(Note(p.sheets[0].id, x=80, y=50, text="y", status="resolved"))
+    settings = MainWindow._settings()
+    old = settings.value("view/notes", None)
+    settings.setValue("view/notes", False)
+    try:
+        w = win(p)
+        sc = w.scene
+        assert sc.notes_visible is False and not sc.note_items
+        assert not [i for i in sc.items() if isinstance(i, NoteItem)]
+        w.act_notes.setChecked(True)
+        assert len(sc.note_items) == 2 and all(i.scene() is sc for i in sc.note_items.values())
+        w.act_notes.setChecked(False)
+        assert not sc.note_items and not [i for i in sc.items() if isinstance(i, NoteItem)]
+    finally:
+        settings.setValue("view/notes", old if old is not None else False)
+
+
+def test_note_move_and_delete_via_commands(app, win):
+    from envocad.model.project import Note
+    p = Project(name="N")
+    n = Note(p.sheets[0].id, x=50, y=50, text="x")
+    p.notes.append(n)
+    w = win(p)
+    sc = w.scene
+    sc.set_notes_visible(True)
+    it = sc.note_items[n.id]
+    n0 = w.undo.count()
+    port = w.view.viewport()
+    # chytit křížek (kotva), táhnout o ~20 mm doprava
+    QTest.mousePress(port, Qt.LeftButton, Qt.NoModifier, vp(w, 50, 50))
+    QTest.mouseMove(port, vp(w, 60, 50))
+    QTest.mouseMove(port, vp(w, 70, 50))
+    QTest.mouseRelease(port, Qt.LeftButton, Qt.NoModifier, vp(w, 70, 50))
+    moved = p.notes[0]
+    assert w.undo.count() == n0 + 1 and moved.x == pytest.approx(70, abs=2.6) and moved.y == pytest.approx(50)
+    assert moved.x % 2.5 == pytest.approx(0)
+    w.undo.undo()
+    assert p.notes[0].x == 50
+    w.undo.redo()
+    # Delete smaže vybranou připomínku přes příkaz
+    sc.clearSelection()
+    sc.note_items[moved.id].setSelected(True)
+    sc.delete_selected()
+    assert not p.notes and not sc.note_items
+    w.undo.undo()
+    assert len(p.notes) == 1 and moved.id in sc.note_items
+    del it
+
+
+def test_note_context_menu_status(app, win):
+    from envocad.model.project import Note
+    p = Project(name="N")
+    n = Note(p.sheets[0].id, x=50, y=50, text="x")
+    p.notes.append(n)
+    w = win(p)
+    sc = w.scene
+    sc.set_notes_visible(True)
+    menu = sc.note_items[n.id].build_menu()
+    assert [a.text() for a in menu.actions()] == ["Upravit…", "Vyřešit", "Smazat"]
+    menu.actions()[1].trigger()
+    assert p.notes[0].status == "resolved" and p.notes[0].resolved
+    menu2 = sc.note_items[n.id].build_menu()
+    assert menu2.actions()[1].text() == "Znovu otevřít"
+    menu2.actions()[1].trigger()
+    assert p.notes[0].status == "open" and not p.notes[0].resolved
