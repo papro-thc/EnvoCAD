@@ -3,6 +3,10 @@
   "name": "Výkonový jistič",
   "category": "Jištění",
   "iec_ref": "Q",
+  "function_class": [
+    "Q",
+    "F"
+  ],
   "description": "Kompaktní výkonový jistič (MCCB)",
   "primitives": [
     {

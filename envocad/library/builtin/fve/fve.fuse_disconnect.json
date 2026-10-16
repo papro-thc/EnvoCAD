@@ -3,6 +3,10 @@
   "name": "Pojistkový odpínač",
   "category": "Jištění",
   "iec_ref": "F",
+  "function_class": [
+    "F",
+    "Q"
+  ],
   "description": "Pojistkový odpínač (pojistka ve vyklápěcím držáku) – DC rozvaděč u technologie, gPV",
   "primitives": [
     {

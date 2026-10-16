@@ -115,3 +115,64 @@ def test_missing_version_means_v1():
     del d["format_version"]
     p = Project.from_dict(d)
     assert p.sheets[0].wires[0].b.port == "DC1"
+
+
+def test_v7_to_v8_switchboard_location_and_structures():
+    blk = _el("b1", "fve.switchboard", "RDC1")
+    blk["attrs"]["desc"] = "DC rozvaděč"
+    blk2 = _el("b2", "fve.switchboard", "RDC1")          # stejné označení → jedna struktura, sdílený prostor
+    anon = _el("b3", "fve.switchboard")                   # bez označení → anonymní list
+    d = _v(7, [
+        _sheet("jps", [blk, blk2, anon]),
+        _sheet("sb1", [_el("f", "fve.breaker_mcb", "F1")], kind="switchboard", parent_element_id="b1"),
+        _sheet("sb2", [], kind="switchboard", parent_element_id="b2"),
+        _sheet("sb3", [], kind="switchboard", parent_element_id="b3"),
+        _sheet("orphan", [], kind="switchboard", parent_element_id="nic"),
+    ])
+    p = Project.from_dict(d)
+    by = {s.id: s for s in p.sheets}
+    assert by["sb1"].loc == "RDC1" and by["sb2"].loc == "RDC1"
+    assert by["sb3"].loc == "" and by["orphan"].loc == "" and by["jps"].loc == ""
+    assert all(s.func == "" for s in p.sheets)
+    assert [x.to_dict() for x in p.structures] == [{"aspect": "+", "code": "RDC1", "description": "DC rozvaděč"}]
+    assert p.revisions == []
+    _roundtrip_stable(p)
+
+
+def test_v7_to_v8_keeps_existing_values():
+    d = _v(7, [_sheet("sb", [], kind="switchboard", parent_element_id="x", loc="RH", func="AC")],
+           structures=[{"aspect": "+", "code": "RH", "description": "Hlavní"}])
+    p = Project.from_dict(d)
+    assert (p.sheets[0].func, p.sheets[0].loc) == ("AC", "RH")
+    assert len(p.structures) == 1 and p.structures[0].description == "Hlavní"
+
+
+def test_v7_revisions_from_meta():
+    meta = {"revision": "C", "author": "Patrik", "changes": (
+        "A | 2026-01-10 | List 1: přidáno F1 prvek | PR\n"
+        "A | 2026-01-10 | List 1: změněno W2 vodič – průřez | PR\n"
+        "B | 2026-02-01 | Rozvaděč: odebráno X3 | JN\n"
+        "\n"
+        "B | | popis | s | rourou | JN")}
+    p = Project.from_dict(_v(7, [_sheet("s1", [])], meta=meta))
+    assert [r.label for r in p.revisions] == ["A", "B", "C"]
+    a, b, c = p.revisions
+    assert a.closed and b.closed and not c.closed
+    assert (a.date, a.author) == ("2026-01-10", "PR")
+    assert a.description == "List 1: přidáno F1 prvek\nList 1: změněno W2 vodič – průřez"
+    assert b.description.endswith("popis | s | rourou") and b.author == "JN"
+    assert c.author == "Patrik" and not c.marks and not c.fingerprints
+    assert p.meta["changes"] == meta["changes"] and p.meta["revision"] == "C"   # meta zůstává
+    _roundtrip_stable(p)
+    # aktuální revize je už v seznamu → žádná otevřená navíc
+    p2 = Project.from_dict(_v(7, [_sheet("s1", [])], meta={**meta, "revision": "B"}))
+    assert [r.label for r in p2.revisions] == ["A", "B"]
+    # bez změnového listu a bez revize → prázdný seznam
+    assert Project.from_dict(_v(7, [_sheet("s1", [])])).revisions == []
+
+
+def test_example_migrates_to_v8():
+    p = Project.load(EXAMPLE)
+    assert FORMAT_VERSION == 8
+    assert all(s.func == "" and s.loc == "" for s in p.sheets)
+    assert p.structures == [] and p.revisions == []

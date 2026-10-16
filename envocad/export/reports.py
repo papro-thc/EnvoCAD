@@ -7,6 +7,7 @@ from __future__ import annotations
 from collections import OrderedDict
 
 from envocad.library.store import LibraryStore
+from envocad.model.designation import LOCATION_SYMBOLS, designation, full_designation
 from envocad.model.project import Element, Project, Sheet
 
 # Symboly, které nejsou přístroje k objednání (propojení, odkazy, vnější prvky)
@@ -32,6 +33,30 @@ def _param_str(e: Element) -> str:
     return ", ".join(parts)
 
 
+def _aspects(s: Sheet, e: Element) -> str:
+    """Aspekty prvku „=AC+RDC1“ (bez přístroje); prázdné, když list ani prvek žádné nemají."""
+    return designation(s, e).aspects
+
+
+def _tag(project: Project, s: Sheet, e: Element) -> str:
+    """Označení prvku do výkazů: plné „=AC+RDC1-F3“; bez aspektů zůstává dnešní „F3“ (ne „-F3“), aby projekty bez
+    strukturního označení vypadaly stejně jako dřív. Blok rozvaděče = jeho umístění „+RDC1“."""
+    if e.symbol_id in LOCATION_SYMBOLS:
+        return full_designation(project, s, e)
+    a = _aspects(s, e)
+    return f"{a}-{e.ref}" if a and e.ref else e.ref
+
+
+def _port_text(project: Project, s: Sheet, e: Element, port: str, terminal: str = "", base: str = "") -> str:
+    """Konec vodiče: „+RDC1-X1:3“ (svorka), „+RDC1-F2:1“ (prvek:port), u bloku rozvaděče „+RDC1-X1“ (port bloku =
+    přívod/vývod uvnitř). Aspekty shodné s `base` (kontext řádku, např. svorkovnice) se vynechají."""
+    if e.symbol_id in LOCATION_SYMBOLS and e.ref:
+        return f"{full_designation(project, s, e)}-{terminal or port}"
+    text = terminal or f"{e.ref or e.symbol_id}:{port}"
+    a = _aspects(s, e) if (terminal or e.ref) else ""
+    return f"{a}-{text}" if a and a != base else text
+
+
 def devices(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> list[Element]:
     return [e for s in _sheets(project, sheet) for e in s.elements if e.symbol_id not in NON_DEVICE_SYMBOLS]
 
@@ -40,7 +65,7 @@ def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None)
     """Seznam přístrojů (každý zvlášť) – pro štítky a kontrolu."""
     from envocad.model.project import contact_terminals, contacts_of
     head = ["Označení", "Přístroj", "Typ", "Výrobce", "Parametry", "Kontakty", "Moduly", "Řada", "Pozice", "List"]
-    rows = []
+    keyed: list[tuple[tuple, list]] = []
     for s in _sheets(project, sheet):
         for e in s.elements:
             if e.symbol_id in NON_DEVICE_SYMBOLS:
@@ -48,10 +73,13 @@ def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None)
             sym = lib.get_symbol(e.symbol_id)
             pl = s.layout.placement(e.id) if s.is_switchboard else None
             conts = ", ".join(sorted(contact_terminals(c) for _, c in contacts_of(project, e.ref))) if e.ref else ""
-            rows.append([e.ref, sym.name, e.attrs.get("type", ""), e.attrs.get("manufacturer", ""), _param_str(e),
-                         conts, e.modules or "", (pl.row + 1) if pl else "", pl.pos if pl else "", s.name])
-    rows.sort(key=lambda r: (r[9], _ref_key(r[0])))
-    return head, rows
+            d = designation(s, e)
+            keyed.append(((d.func, d.loc, _ref_key(e.ref), s.name),
+                          [_tag(project, s, e), sym.name, e.attrs.get("type", ""), e.attrs.get("manufacturer", ""),
+                           _param_str(e), conts, e.modules or "", (pl.row + 1) if pl else "", pl.pos if pl else "",
+                           s.name]))
+    keyed.sort(key=lambda kr: kr[0])
+    return head, [r for _, r in keyed]
 
 
 def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
@@ -116,7 +144,7 @@ def cables(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> t
             if not (w.attrs.get("ref") or w.attrs.get("cable")):
                 continue
             a, b = s.element(w.a.element_id), s.element(w.b.element_id)
-            rows.append([w.attrs.get("ref", ""), f"{a.ref or a.symbol_id}:{w.a.port}", f"{b.ref or b.symbol_id}:{w.b.port}",
+            rows.append([w.attrs.get("ref", ""), _port_text(project, s, a, w.a.port), _port_text(project, s, b, w.b.port),
                          w.attrs.get("cable", ""), w.attrs.get("cross", ""), " ".join(w.conductors) or w.attrs.get("poles", ""),
                          w.attrs.get("length", ""), w.attrs.get("route", ""), wire_xref(project, w.id, idx).lstrip("→ "), s.name])
     rows.sort(key=lambda r: (r[9], _ref_key(r[0])))
@@ -141,7 +169,7 @@ def terminals(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -
                     term = num or end.attrs.get("terminal") or (str(i) if c else "")
                     bridge = project.bridge_of(strip or end.ref, term, s)
                     rows.append([end.ref, term, c, w.attrs.get("ref") or w.attrs.get("cable", ""),
-                                 f"{other.ref or other.symbol_id}:{other_port}",
+                                 _port_text(project, s, other, other_port, base=_aspects(s, end)),
                                  "-".join(bridge) if bridge else "", end.attrs.get("desc", ""), s.name])
     rows.sort(key=lambda r: (r[7], _ref_key(r[0]), _ref_key(str(r[1]))))
     return head, rows
@@ -150,23 +178,28 @@ def terminals(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -
 def labels(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Štítky přístrojů a vývodů pro štítkovač: označení + stručný popis."""
     head = ["Štítek", "Popis", "List"]
-    rows = []
+    keyed: list[tuple[tuple, list]] = []
     for s in _sheets(project, sheet):
         for e in s.elements:
             if not e.ref:
                 continue
             sym = lib.get_symbol(e.symbol_id)
             desc = e.attrs.get("desc") or " ".join(x for x in (sym.name, e.attrs.get("in_", "") and e.attrs["in_"] + " A") if x)
-            rows.append([e.ref, desc, s.name])
-    rows.sort(key=lambda r: (r[2], _ref_key(r[0])))
-    return head, rows
+            d = designation(s, e)
+            keyed.append(((d.func, d.loc, _ref_key(e.ref), s.name), [_tag(project, s, e), desc, s.name]))
+    keyed.sort(key=lambda kr: kr[0])
+    return head, [r for _, r in keyed]
 
 
 def _ref_key(ref: str) -> tuple:
-    """Přirozené řazení F1, F2, F10."""
+    """Přirozené řazení F1, F2, F10; plné označení „+RDC1-X1“ nejdřív podle aspektů, pak podle přístroje."""
     import re
-    m = re.match(r"([A-Za-z]*)(\d*)", ref or "")
-    return (m.group(1), int(m.group(2) or 0)) if m else (ref, 0)
+    ref = ref or ""
+    prefix = ""
+    if ref[:1] in ("=", "+") and "-" in ref:
+        prefix, _, ref = ref.partition("-")
+    m = re.match(r"([A-Za-z]*)(\d*)", ref)
+    return (prefix, m.group(1), int(m.group(2) or 0)) if m else (prefix, ref, 0)
 
 
 def terminal_plan_report(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
@@ -184,14 +217,11 @@ def terminal_plan_report(project: Project, lib: LibraryStore, sheet: Sheet | Non
 
 
 def _end_text(project: Project, s: Sheet, w, side: str, conductor: str) -> str:
-    """Konec žíly: svorka (X1:3), jinak prvek:port; u bloku rozvaděče cíl uvnitř rozvaděče."""
+    """Konec žíly: svorka (+RDC1-X1:3), jinak prvek:port; u bloku rozvaděče cíl uvnitř rozvaděče."""
     from envocad.model.multipole import wire_end_terminal
     t = wire_end_terminal(s, w, conductor, side)
-    if t:
-        return t
     end = w.a if side == "a" else w.b
-    e = s.element(end.element_id)
-    return f"{e.ref or e.symbol_id}:{end.port}"
+    return _port_text(project, s, s.element(end.element_id), end.port, terminal=t)
 
 
 def cable_plan(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:

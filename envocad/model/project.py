@@ -7,6 +7,7 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from envocad.model.designation import CABLE_SCOPE, FUNC, LOC, scope_key, sheet_scope
 from envocad.model.symbol import Attribute, Port, Symbol, rotate_point
 
 # Atributy vodiče (vodič nemá symbol, proto jsou definované zde)
@@ -19,7 +20,7 @@ WIRE_ATTRIBUTES = [
     Attribute("method", "Uložení dle ČSN (A1/B1/C/D/E)"),
 ]
 
-FORMAT_VERSION = 7
+FORMAT_VERSION = 8
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 SHEET_KINDS = ("schematic", "switchboard")
@@ -279,6 +280,73 @@ ENCLOSURE_PARAMS = [
 
 
 @dataclass
+class StructureId:
+    """Položka registru strukturního označení projektu (IEC 81346): aspekt + kód + popis."""
+    aspect: str            # "=" funkce | "+" umístění
+    code: str              # "AC", "RS1" – bez znaménka, jedna úroveň
+    description: str = ""
+
+    def to_dict(self) -> dict:
+        return {"aspect": self.aspect, "code": self.code, "description": self.description}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> StructureId:
+        return cls(aspect=d.get("aspect", LOC), code=d.get("code", ""), description=d.get("description", ""))
+
+
+REVISION_KINDS = ("přidáno", "změněno", "odebráno")
+
+
+@dataclass
+class RevisionMark:
+    """Značka revize ve výkresu (trojúhelník s písmenem revize)."""
+    sheet_id: str
+    target_id: str = ""       # "" = změna listu bez místa → jen popisové pole
+    is_wire: bool = False
+    kind: str = "změněno"     # přidáno | změněno | odebráno
+    x: float | None = None    # pevná poloha – jen u odebraných
+    y: float | None = None
+    text: str = ""
+
+    def to_dict(self) -> dict:
+        return {"sheet_id": self.sheet_id, "target_id": self.target_id, "is_wire": self.is_wire, "kind": self.kind,
+                "x": self.x, "y": self.y, "text": self.text}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> RevisionMark:
+        x, y = d.get("x"), d.get("y")
+        return cls(sheet_id=d.get("sheet_id", ""), target_id=d.get("target_id", ""), is_wire=bool(d.get("is_wire")),
+                   kind=d.get("kind", "změněno"), x=float(x) if x is not None else None,
+                   y=float(y) if y is not None else None, text=d.get("text", ""))
+
+
+@dataclass
+class Revision:
+    """Revize dokumentace: popis, značky ve výkresu, otisky listů při uzavření (měkký zámek)."""
+    label: str
+    date: str = ""
+    author: str = ""
+    description: str = ""
+    closed: bool = False
+    marks: list[RevisionMark] = field(default_factory=list)
+    fingerprints: dict[str, str] = field(default_factory=dict)   # sheet_id → otisk při uzavření listu
+    id: str = field(default_factory=_uid)
+
+    def to_dict(self) -> dict:
+        return {"id": self.id, "label": self.label, "date": self.date, "author": self.author,
+                "description": self.description, "closed": self.closed, "marks": [m.to_dict() for m in self.marks],
+                "fingerprints": dict(self.fingerprints)}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> Revision:
+        return cls(label=str(d.get("label", "")), date=d.get("date", ""), author=d.get("author", ""),
+                   description=d.get("description", ""), closed=bool(d.get("closed")),
+                   marks=[RevisionMark.from_dict(m) for m in d.get("marks", [])],
+                   fingerprints={str(k): str(v) for k, v in (d.get("fingerprints") or {}).items()},
+                   id=d.get("id") or _uid())
+
+
+@dataclass
 class Sheet:
     name: str = "Jednopólové schéma"
     paper: str = "A3"
@@ -291,6 +359,9 @@ class Sheet:
     layout: Layout = field(default_factory=Layout)
     # můstky (propoje) svorkovnic tohoto listu: {"X2": [["1", "6", "11"], ["2", "7", "12"]]} – čísla svorek spojená můstkem
     bridges: dict[str, list[list[str]]] = field(default_factory=dict)
+    # strukturní označení listu (IEC 81346) – výchozí aspekty prvků a vodičů listu; kódy bez znaménka
+    func: str = ""                        # "=" funkce
+    loc: str = ""                         # "+" umístění (list rozvaděče = označení bloku)
     id: str = field(default_factory=_uid)
 
     @property
@@ -316,7 +387,7 @@ class Sheet:
             "id": self.id, "name": self.name, "paper": self.paper, "width": self.width, "height": self.height,
             "kind": self.kind, "parent_element_id": self.parent_element_id, "layout": self.layout.to_dict(),
             "elements": [e.to_dict() for e in self.elements], "wires": [w.to_dict() for w in self.wires],
-            "bridges": self.bridges,
+            "bridges": self.bridges, "func": self.func, "loc": self.loc,
         }
 
     @classmethod
@@ -328,6 +399,7 @@ class Sheet:
             elements=[Element.from_dict(e) for e in d.get("elements", [])],
             wires=[Wire.from_dict(w) for w in d.get("wires", [])], id=d["id"],
             bridges={k: [[str(x) for x in g] for g in v] for k, v in d.get("bridges", {}).items()},
+            func=d.get("func", ""), loc=d.get("loc", ""),
         )
 
 
@@ -337,7 +409,13 @@ class Project:
     meta: dict[str, str] = field(default_factory=dict)  # investor, číslo zakázky, místo, zpracoval…
     sheets: list[Sheet] = field(default_factory=lambda: [Sheet()])
     cables: list[Cable] = field(default_factory=list)
+    structures: list[StructureId] = field(default_factory=list)   # registr kódů =funkce / +umístění s popisy
+    revisions: list[Revision] = field(default_factory=list)
     path: Path | None = None
+
+    # ---- strukturní označení ------------------------------------------
+    def structure(self, aspect: str, code: str) -> StructureId | None:
+        return next((x for x in self.structures if x.aspect == aspect and x.code == code), None)
 
     # ---- kabely ------------------------------------------------------
     def cable(self, cid: str) -> Cable | None:
@@ -372,16 +450,19 @@ class Project:
 
     # ---- označení prvků ---------------------------------------------
     def used_refs(self, sheet: Sheet | None = None) -> set[str]:
-        """Použitá označení. S `sheet` jen ta ve stejném prostoru označení: list rozvaděče je vlastní prostor
-        (jako EPLAN „+RDC1-X1“), listy JPS sdílejí jeden společný."""
+        """Použitá označení. S `sheet` jen ta ve stejném prostoru označení (`scope_key`) jako výchozí hodnoty listu
+        (jako EPLAN „+RDC1-X1“: X1 smí být v každém umístění) a k tomu označení vodičů ve stejném prostoru jako
+        vodiče listu (vodiče JPS = kabely sdílejí jeden prostor celého projektu)."""
         if sheet is None:
-            sheets = self.sheets
-        elif sheet.is_switchboard:
-            sheets = [sheet]
-        else:
-            sheets = [s for s in self.sheets if not s.is_switchboard]
-        refs = {e.ref for s in sheets for e in s.elements if e.ref and e.symbol_id not in CONTACT_SYMBOLS}
-        refs |= {w.attrs.get("ref", "") for s in sheets for w in s.wires if w.attrs.get("ref")}
+            refs = {e.ref for s in self.sheets for e in s.elements if e.ref and e.symbol_id not in CONTACT_SYMBOLS}
+            refs |= {w.attrs.get("ref", "") for s in self.sheets for w in s.wires if w.attrs.get("ref")}
+            return refs
+        el_scope = sheet_scope(sheet)
+        wire_scope = el_scope if sheet.is_switchboard else CABLE_SCOPE
+        refs = {e.ref for s in self.sheets for e in s.elements
+                if e.ref and e.symbol_id not in CONTACT_SYMBOLS and scope_key(s, e) == el_scope}
+        refs |= {w.attrs["ref"] for s in self.sheets for w in s.wires
+                 if w.attrs.get("ref") and scope_key(s, w) in (el_scope, wire_scope)}
         return refs
 
     def next_ref(self, prefix: str) -> str:
@@ -414,9 +495,12 @@ class Project:
             return existing
         name = block.ref or "Rozvaděč"
         desc = block.attrs.get("desc", "")
-        sheet = Sheet(name=f"{name} – {desc}" if desc else name, kind="switchboard", parent_element_id=block.id)
+        sheet = Sheet(name=f"{name} – {desc}" if desc else name, kind="switchboard", parent_element_id=block.id,
+                      loc=block.ref)
         self.sheets.append(sheet)
         block.attrs["sheet"] = sheet.name
+        if block.ref and self.structure(LOC, block.ref) is None:
+            self.structures.append(StructureId(LOC, block.ref, desc))
         return sheet
 
     def switchboards(self) -> list[Sheet]:
@@ -428,6 +512,8 @@ class Project:
             "format": "envocad-project", "format_version": FORMAT_VERSION,
             "name": self.name, "meta": self.meta, "sheets": [s.to_dict() for s in self.sheets],
             "cables": [c.to_dict() for c in self.cables],
+            "structures": [x.to_dict() for x in self.structures],
+            "revisions": [r.to_dict() for r in self.revisions],
         }
 
     @classmethod
@@ -440,7 +526,9 @@ class Project:
         d = migrate(d, ver)
         return cls(name=d.get("name", ""), meta=dict(d.get("meta", {})),
                    sheets=[Sheet.from_dict(s) for s in d.get("sheets", [])] or [Sheet()],
-                   cables=[Cable.from_dict(c) for c in d.get("cables", [])])
+                   cables=[Cable.from_dict(c) for c in d.get("cables", [])],
+                   structures=[StructureId.from_dict(x) for x in d.get("structures", [])],
+                   revisions=[Revision.from_dict(r) for r in d.get("revisions", [])])
 
     def save(self, path: Path | str | None = None) -> None:
         p = Path(path) if path else self.path
@@ -490,8 +578,80 @@ def migrate(d: dict, ver: int) -> dict:
             if target is not None:
                 target.setdefault("bridges", {})[strip] = groups
         d.pop("bridges", None)
+    if ver < 8:
+        # v8: strukturní označení (Sheet.func/loc, Project.structures) a revize (Project.revisions).
+        # List rozvaděče dostane umístění = označení svého bloku (dosud implicitní vlastní prostor označení).
+        sheets = d.get("sheets", [])
+        el_by_id = {e["id"]: e for s in sheets for e in s.get("elements", []) if "id" in e}
+        structs = d.setdefault("structures", [])
+        for s in sheets:
+            s.setdefault("func", "")
+            loc = ""
+            if s.get("kind") == "switchboard":
+                blk = el_by_id.get(s.get("parent_element_id") or "")
+                attrs = (blk or {}).get("attrs") or {}
+                loc = attrs.get("ref", "")      # beze změny textu – nevalidní kód ohlásí kontrola
+                if loc and not any(x.get("aspect") == LOC and x.get("code") == loc for x in structs):
+                    structs.append({"aspect": LOC, "code": loc, "description": attrs.get("desc", "")})
+            s.setdefault("loc", loc)
+        if not d.get("revisions"):
+            d["revisions"] = _revisions_from_meta(d.get("meta") or {})
     d["format_version"] = FORMAT_VERSION
     return d
+
+
+def rename_structure(project: Project, aspect: str, old: str, new: str) -> int:
+    """Přejmenuje kód struktury `aspect` („=“/„+“) ze `old` na `new` v registru, na listech (`func`/`loc`)
+    i v overridech prvků (`attrs func/loc`). Vrací počet změněných míst. Kód `new`, který už v projektu existuje
+    (v registru nebo použitý), → ValueError – sloučení by nešlo vrátit (undo = přejmenování zpět)."""
+    if aspect not in (FUNC, LOC):
+        raise ValueError(f"Neznámý aspekt {aspect!r}")
+    if not old or not new or old == new:
+        return 0
+    key = "func" if aspect == FUNC else "loc"
+    used = {getattr(s, key) for s in project.sheets} | {e.attrs.get(key, "") for s in project.sheets for e in s.elements}
+    if project.structure(aspect, new) is not None or new in used:
+        what = "Funkce" if aspect == FUNC else "Umístění"
+        raise ValueError(f"{what} {aspect}{new} už v projektu existuje")
+    n = 0
+    for x in project.structures:
+        if x.aspect == aspect and x.code == old:
+            x.code = new
+            n += 1
+    for s in project.sheets:
+        if getattr(s, key) == old:
+            setattr(s, key, new)
+            n += 1
+        for e in s.elements:
+            if e.attrs.get(key) == old:
+                e.attrs[key] = new
+                n += 1
+    return n
+
+
+def _revisions_from_meta(meta: dict) -> list[dict]:
+    """Revize z textového změnového listu `meta["changes"]` (řádky „rev | datum | popis | zpracoval“): jedna uzavřená
+    revize na označení v pořadí výskytu, datum a autor z prvního vyplněného řádku, popis = popisy řádků pod sebou.
+    Bez značek a otisků. `meta["revision"]`, které v seznamu není, se přidá jako poslední otevřená revize."""
+    revs: dict[str, dict] = {}
+    for line in str(meta.get("changes") or "").splitlines():
+        parts = [x.strip() for x in line.split("|")]
+        label = parts[0] if parts else ""
+        if not label:
+            continue
+        date, desc, author = (parts + ["", "", ""])[1:4]
+        if len(parts) > 4:                       # „|“ v popisu – autor je poslední část
+            desc, author = " | ".join(parts[2:-1]), parts[-1]
+        r = revs.setdefault(label, Revision(label, closed=True).to_dict())
+        r["date"] = r["date"] or date
+        r["author"] = r["author"] or author
+        if desc:
+            r["description"] = f"{r['description']}\n{desc}" if r["description"] else desc
+    out = list(revs.values())
+    cur = str(meta.get("revision") or "").strip()
+    if cur and cur not in revs:
+        out.append(Revision(cur, author=str(meta.get("author") or "")).to_dict())
+    return out
 
 
 def switchboard_header(project: Project, sheet: Sheet) -> list[tuple[str, str]]:
@@ -742,7 +902,7 @@ def switchboard_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
         ports.append(Port(name, x, -half, "S"))
         prims.append({"type": "text", "x": x, "y": -half + 1.0, "text": f"{name}?", "height": 1.8, "align": "center"})
     return Symbol(id=base.id, name=base.name, category=base.category, description=base.description,
-                  iec_ref=base.iec_ref, primitives=prims, ports=ports, attributes=base.attributes,
+                  iec_ref=base.iec_ref, function_class=base.function_class, primitives=prims, ports=ports, attributes=base.attributes,
                   label_pos=(-15, -half - 3))
 
 
@@ -787,7 +947,7 @@ def inverter_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
     ports = [Port(f"DC{k + 1}", -10, 2.5 * (n - 1) - 5 * k, "W") for k in range(n)]
     ports += [p for p in base.ports if not p.name.startswith("DC")]
     ports = [Port(p.name, p.x, (-half if p.y == -10 else (half if p.y == 10 else p.y)), p.dir) for p in ports]
-    return Symbol(id=base.id, name=base.name, category=base.category, description=base.description, iec_ref=base.iec_ref,
+    return Symbol(id=base.id, name=base.name, category=base.category, description=base.description, iec_ref=base.iec_ref, function_class=base.function_class,
                   primitives=prims, ports=ports, attributes=base.attributes, multipole=base.multipole,
                   label_pos=(base.label_pos[0], half + 10.0))
 

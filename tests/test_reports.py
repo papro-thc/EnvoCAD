@@ -33,7 +33,7 @@ def test_reports_content(tmp_path):
     assert {r[2] for r in x1} == {"L1", "L2", "L3", "N", "PE"}
     assert next(r for r in x1 if r[2] == "L1")[1] == "1"  # ruční svorka z Wire.terminals
     _, rows = reports.labels(p, lib, s)
-    assert any(r[0] == "Q1" for r in rows)
+    assert any(r[0] == "+R1-Q1" for r in rows)          # list rozvaděče má umístění = označení bloku
     _, rows = reports.device_list(p, lib)  # celý projekt – blok R1 není přístroj
     assert not any(r[0] == "R1" for r in rows)
 
@@ -95,3 +95,44 @@ def test_cables_as_objects_and_wiring_list(tmp_path):
     assert len(rows) == 3 and rows[0][1] == "W2" and rows[0][3] == "hnědá"
     # artikl kabelu v knihovně
     assert any(cc.category == "cable" for cc in lib.components(category="cable"))
+
+
+def test_reports_full_designation(tmp_path):
+    from envocad.model.project import Wire, WireEnd
+    lib = LibraryStore(tmp_path / "lib.db")
+    p = Project(name="Označení")
+    jps = p.sheets[0]
+    t = Element("fve.inverter", 50, 150, attrs={"ref": "T1"})
+    f_jps = Element("fve.breaker_mcb", 80, 150, attrs={"ref": "F5"})
+    blk = Element("fve.switchboard", 120, 150, attrs={"ref": "RDC1"})
+    jps.elements += [t, f_jps, blk]
+    sb = p.create_switchboard_sheet(blk)
+    x1 = Element("sb.terminal_block", 20, 100, attrs={"ref": "X1", "terminal": "1 2 3"})
+    f3 = Element("fve.breaker_mcb", 60, 100, attrs={"ref": "F3"})
+    f2 = Element("fve.breaker_mcb", 60, 120, attrs={"ref": "F2"})
+    g = Element("fve.breaker_mcb", 60, 140, attrs={"ref": "F1", "loc": "RH"})        # override umístění
+    sb.elements += [x1, f3, f2, g]
+    sb.wires.append(Wire(WireEnd(x1.id, "2"), WireEnd(f3.id, "1"), conductors=["L1", "N", "PE"]))
+    w = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "X1"), attrs={"ref": "W1", "cable": "CYKY"}, conductors=["L1"])
+    w.terminals = {"L1": {"b": "X1:3"}}
+    jps.wires += [w, Wire(WireEnd(t.id, "AC"), WireEnd(f_jps.id, "1"), attrs={"ref": "W2", "cable": "CYKY"})]
+    _, rows = reports.device_list(p, lib)
+    # projekt bez struktur: JPS zůstává „F5“ (ne „-F5“); řazení (func, loc, přirozené ref)
+    assert [r[0] for r in rows] == ["F5", "T1", "+RDC1-F2", "+RDC1-F3", "+RDC1-X1", "+RH-F1"]
+    _, rows = reports.labels(p, lib)
+    assert "+RDC1" in [r[0] for r in rows] and "+RDC1-X1" in [r[0] for r in rows]
+    _, rows = reports.cables(p, lib)
+    w1 = next(r for r in rows if r[0] == "W1")
+    assert (w1[1], w1[2]) == ("T1:AC", "+RDC1-X1")                   # port bloku = přívod X1 v RDC1
+    assert next(r for r in rows if r[0] == "W2")[2] == "F5:1"
+    _, rows = reports.wiring_list(p, lib)
+    assert any(r[1] == "W1" and r[5] == "T1:AC" and r[6] == "+RDC1-X1:3" for r in rows)
+    assert any(r[5] == "+RDC1-X1:1" and r[6] == "+RDC1-F3:1" for r in rows)
+    _, rows = reports.cable_plan(p, lib)
+    assert any(r[0] == "W1" and r[7] == "+RDC1-X1:3" for r in rows)
+    _, rows = reports.terminals(p, lib, sb)
+    # svorkovnice v RDC1: protější konec ve stejném umístění bez opakování „+RDC1“
+    assert {(r[0], r[1], r[4]) for r in rows} == {("X1", "1", "F3:1"), ("X1", "2", "F3:1"), ("X1", "3", "F3:1")}
+    sb.wires.append(Wire(WireEnd(x1.id, "2"), WireEnd(g.id, "1"), conductors=["L1"]))
+    _, rows = reports.terminals(p, lib, sb)
+    assert any(r[4] == "+RH-F1:1" for r in rows)

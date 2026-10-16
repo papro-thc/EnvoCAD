@@ -3,6 +3,10 @@
   "name": "Jistič s chráničem",
   "category": "Jištění",
   "iec_ref": "F",
+  "function_class": [
+    "F",
+    "Q"
+  ],
   "description": "Proudový chránič s nadproudovou ochranou (RCBO)",
   "primitives": [
     {

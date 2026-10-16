@@ -342,3 +342,38 @@ def test_text_layout_avoids_and_reports_overlaps():
     # bez automatiky se překryv nahlásí
     assert any("Q1" in m and "Q2" in m for _, _, m in text_overlaps(p, s, lib, compute_layout(p, s, lib, auto=False)))
     assert not [m for _, _, m in text_overlaps(p, s, lib) if "Q1" in m and "Q2" in m]
+
+
+def test_symbol_function_class(tmp_path):
+    from envocad.model.symbol import Symbol
+    s = Symbol("x", "X", iec_ref="F")
+    assert s.function_class is None and s.classes == ["F"]
+    assert "function_class" not in s.to_dict()                   # bez klíče = odvodit z iec_ref
+    assert Symbol("y", "Y").classes == []                         # prázdný iec_ref = nekontrolovat
+    s.function_class = ["F", "Q"]
+    d = s.to_dict()
+    assert d["function_class"] == ["F", "Q"] and Symbol.from_dict(d).classes == ["F", "Q"]
+    assert Symbol.from_dict({**d, "function_class": []}).classes == []
+    assert s.validate() == []
+    bad = Symbol("z", "Z", iec_ref="F", function_class=["Q", "fx"])
+    issues = bad.validate()
+    assert any("fx" in i for i in issues) and any("prefix" in i for i in issues)
+    assert Symbol("r", "R", iec_ref="R", function_class=[]).validate() == []
+    # vestavěné značky dle návrhu v8
+    lib = LibraryStore(tmp_path / "lib.db")
+    expected = {"fve.breaker_mcb": ["F", "Q"], "fve.breaker_mccb": ["Q", "F"], "fve.fuse_disconnect": ["F", "Q"],
+                "fve.contactor": ["K", "Q"], "sb.rcd": ["F", "Q"], "sb.rcbo": ["F", "Q"], "fve.switchboard": []}
+    for sid, cls in expected.items():
+        assert lib.get_symbol(sid).function_class == cls, sid
+    assert lib.get_symbol("fve.inverter").function_class is None and lib.get_symbol("fve.inverter").classes == ["T"]
+
+
+def test_derived_symbols_keep_function_class(tmp_path):
+    from envocad.model.project import element_symbol
+    lib = LibraryStore(tmp_path / "lib.db")
+    p = Project()
+    blk = Element("fve.switchboard", attrs={"ref": "R1"})
+    p.sheets[0].elements.append(blk)
+    sb = p.create_switchboard_sheet(blk)
+    sb.elements.append(Element("sb.feed_in", attrs={"ref": "X1"}))
+    assert element_symbol(p, blk, lib).classes == []              # odvozená značka bloku nezačne kontrolovat „R“

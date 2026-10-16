@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from envocad.library.store import LibraryStore
 from envocad.library.templates import TEMPLATES, apply_template
 from envocad.model.project import FORMAT_VERSION, Element, Project, Sheet, Wire, WireEnd
@@ -228,3 +230,97 @@ def test_block_follows_switchboard_edits():
     sym = element_symbol(p, blk, lib)
     assert "X8" in [pt.name for pt in sym.ports] and sym.port("X8").dir == "S"
     assert any(pr.get("text") == "X8?" for pr in sym.primitives)
+
+
+def test_switchboard_sheet_gets_location_and_structure():
+    from envocad.model.project import StructureId
+    p = Project()
+    block = Element("fve.switchboard", 100, 100, attrs={"ref": "RDC1", "desc": "DC rozvaděč"})
+    p.sheets[0].elements.append(block)
+    s = p.create_switchboard_sheet(block)
+    assert s.loc == "RDC1" and s.func == ""
+    assert p.structures == [StructureId("+", "RDC1", "DC rozvaděč")]
+    assert p.structure("+", "RDC1") is p.structures[0] and p.structure("=", "RDC1") is None
+    # druhý blok se stejným označením strukturu nezdvojí
+    b2 = Element("fve.switchboard", 200, 100, attrs={"ref": "RDC1"})
+    p.sheets[0].elements.append(b2)
+    p.create_switchboard_sheet(b2)
+    assert len(p.structures) == 1
+    # blok bez označení → anonymní list, nic se neregistruje
+    b3 = Element("fve.switchboard", 300, 100)
+    p.sheets[0].elements.append(b3)
+    assert p.create_switchboard_sheet(b3).loc == "" and len(p.structures) == 1
+
+
+def test_used_refs_by_scope():
+    p = Project()
+    jps = p.sheets[0]
+    b1 = Element("fve.switchboard", attrs={"ref": "RDC1"})
+    b2 = Element("fve.switchboard", attrs={"ref": "RH"})
+    f_jps = Element("fve.breaker_mcb", attrs={"ref": "F1"})
+    jps.elements += [b1, b2, f_jps]
+    s1, s2 = p.create_switchboard_sheet(b1), p.create_switchboard_sheet(b2)
+    s1.elements.append(Element("sb.terminal_block", attrs={"ref": "X1"}))
+    s2.elements.append(Element("fve.breaker_mcb", attrs={"ref": "F7"}))
+    s2.elements.append(Element("fve.breaker_mcb", attrs={"ref": "F8", "loc": "RDC1"}))   # override do RDC1
+    jps.wires.append(Wire(WireEnd(b1.id, "1"), WireEnd(f_jps.id, "1"), attrs={"ref": "W1"}))
+    s1.wires.append(Wire(WireEnd("a", "1"), WireEnd("b", "1"), attrs={"ref": "W9"}))
+    assert p.used_refs(s1) == {"X1", "F8", "W9"}
+    assert p.used_refs(s2) == {"F7"}
+    assert p.used_refs(jps) == {"RDC1", "RH", "F1", "W1"}
+    assert {"X1", "F7", "F8", "W1", "W9", "F1"} <= p.used_refs()
+    # list se stejným umístěním sdílí prostor
+    extra = Sheet(name="RDC1 – pokračování", kind="switchboard", loc="RDC1")
+    p.sheets.append(extra)
+    assert p.used_refs(extra) == {"X1", "F8", "W9"}
+
+
+def test_rename_structure_is_invertible():
+    from envocad.model.project import StructureId, rename_structure
+    p = Project()
+    blk = Element("fve.switchboard", attrs={"ref": "RDC1"})
+    p.sheets[0].elements.append(blk)
+    p.sheets[0].func = "AC"
+    sb = p.create_switchboard_sheet(blk)
+    g = Element("fve.pv_string", attrs={"ref": "G1", "loc": "RDC1"})
+    p.sheets[0].elements.append(g)
+    p.structures.append(StructureId("=", "AC", "Střídavá část"))
+    before = p.to_dict()
+    assert rename_structure(p, "+", "RDC1", "RS1") == 3      # registr, list, override prvku
+    assert sb.loc == "RS1" and g.attrs["loc"] == "RS1" and p.structure("+", "RS1") is not None
+    assert blk.ref == "RDC1"                                   # ref bloku mění UI zvlášť (SetAttrCommand)
+    assert rename_structure(p, "=", "AC", "DC") == 2 and p.sheets[0].func == "DC"
+    assert rename_structure(p, "=", "DC", "DC") == 0
+    g.attrs["func"] = "XX"                                     # použitý kód mimo registr také blokuje
+    with pytest.raises(ValueError):
+        rename_structure(p, "=", "DC", "XX")
+    del g.attrs["func"]
+    p.structures.append(StructureId("+", "RH"))
+    with pytest.raises(ValueError, match="už v projektu existuje"):
+        rename_structure(p, "+", "RS1", "RH")
+    with pytest.raises(ValueError):
+        rename_structure(p, "?", "RS1", "X")
+    p.structures.pop()
+    rename_structure(p, "=", "DC", "AC")
+    rename_structure(p, "+", "RS1", "RDC1")
+    assert p.to_dict() == before
+
+
+def test_structures_and_revisions_roundtrip():
+    from envocad.model.project import Revision, RevisionMark, StructureId
+    p = Project()
+    p.sheets[0].func, p.sheets[0].loc = "AC", "STR"
+    p.structures = [StructureId("=", "AC", "Střídavá část"), StructureId("+", "STR")]
+    rev = Revision("B", date="2026-10-01", author="PR", description="Změna jističe",
+                   marks=[RevisionMark(p.sheets[0].id, "e1", kind="přidáno"),
+                          RevisionMark(p.sheets[0].id, kind="odebráno", x=12.5, y=-5.0, text="F9")],
+                   fingerprints={p.sheets[0].id: "abc"})
+    p.revisions = [Revision("A", closed=True), rev]
+    d = p.to_dict()
+    assert d["format_version"] == FORMAT_VERSION == 8
+    q = Project.from_dict(json.loads(json.dumps(d)))
+    assert q.to_dict() == d
+    assert q.sheets[0].func == "AC" and q.sheets[0].loc == "STR"
+    assert q.structures == p.structures
+    assert q.revisions[1].marks[1].x == 12.5 and q.revisions[1].marks[0].x is None
+    assert q.revisions[1].fingerprints == {p.sheets[0].id: "abc"} and q.revisions[0].closed

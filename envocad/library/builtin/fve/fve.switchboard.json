@@ -3,6 +3,7 @@
   "name": "Rozvaděč (blok)",
   "category": "Rozvaděče",
   "iec_ref": "R",
+  "function_class": [],
   "description": "Rozvaděč jako blok (odkaz na samostatný list)",
   "primitives": [
     {

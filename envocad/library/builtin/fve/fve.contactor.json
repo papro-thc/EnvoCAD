@@ -3,6 +3,10 @@
   "name": "Stykač",
   "category": "Spínání",
   "iec_ref": "K",
+  "function_class": [
+    "K",
+    "Q"
+  ],
   "description": "Stykač (např. pro odpojení FVE od DS – NS)",
   "primitives": [
     {

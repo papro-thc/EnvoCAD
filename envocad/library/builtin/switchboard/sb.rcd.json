@@ -3,6 +3,10 @@
   "name": "Proudový chránič",
   "category": "Jištění",
   "iec_ref": "F",
+  "function_class": [
+    "F",
+    "Q"
+  ],
   "description": "Proudový chránič (RCD)",
   "primitives": [
     {

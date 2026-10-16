@@ -105,7 +105,7 @@ SYMBOLS = [
         "label_pos": {"x": -5, "y": 4},
     },
     {
-        "id": "fve.fuse_disconnect", "name": "Pojistkový odpínač", "category": "Jištění", "iec_ref": "F",
+        "id": "fve.fuse_disconnect", "name": "Pojistkový odpínač", "category": "Jištění", "iec_ref": "F", "function_class": ["F", "Q"],
         "description": "Pojistkový odpínač (pojistka ve vyklápěcím držáku) – DC rozvaděč u technologie, gPV",
         "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0), L(-2.5, -1.5, -2.5, 1.5),
                        {"type": "polyline", "points": [[-1.84, 2.66], [-0.65, 4.00], [2.34, 1.34], [1.15, -0.00]], "closed": True}],  # pojistka na noži
@@ -162,7 +162,7 @@ SYMBOLS = [
         "label_pos": {"x": 9, "y": 2},
     },
     {
-        "id": "fve.breaker_mcb", "name": "Jistič", "category": "Jištění", "iec_ref": "F",
+        "id": "fve.breaker_mcb", "name": "Jistič", "category": "Jištění", "iec_ref": "F", "function_class": ["F", "Q"],
         "description": "Jistič (MCB)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0),
                        L(-4.3, 4.2, -2.3, 6.2), L(-4.3, 6.2, -2.3, 4.2)],
@@ -173,7 +173,7 @@ SYMBOLS = [
         "label_pos": {"x": -5, "y": -6},
     },
     {
-        "id": "fve.breaker_mccb", "name": "Výkonový jistič", "category": "Jištění", "iec_ref": "Q",
+        "id": "fve.breaker_mccb", "name": "Výkonový jistič", "category": "Jištění", "iec_ref": "Q", "function_class": ["Q", "F"],
         "description": "Kompaktní výkonový jistič (MCCB)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0),
                        L(-4.3, 4.2, -2.3, 6.2), L(-4.3, 6.2, -2.3, 4.2), R(-6, -3.5, 12, 10.5)],
@@ -193,7 +193,7 @@ SYMBOLS = [
         "label_pos": {"x": -5, "y": -6},
     },
     {
-        "id": "fve.contactor", "name": "Stykač", "category": "Spínání", "iec_ref": "K",
+        "id": "fve.contactor", "name": "Stykač", "category": "Spínání", "iec_ref": "K", "function_class": ["K", "Q"],
         "description": "Stykač (např. pro odpojení FVE od DS – NS)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0), A(-3.5, 0, 1, -90, 90)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
@@ -259,7 +259,7 @@ SYMBOLS = [
         "label_pos": {"x": 5, "y": 0},
     },
     {
-        "id": "fve.switchboard", "name": "Rozvaděč (blok)", "category": "Rozvaděče", "iec_ref": "R",
+        "id": "fve.switchboard", "name": "Rozvaděč (blok)", "category": "Rozvaděče", "iec_ref": "R", "function_class": [],
         "description": "Rozvaděč jako blok (odkaz na samostatný list)",
         "primitives": [R(-15, -10, 30, 20), T(0, 11.5, "ROZVADĚČ", 2)],
         "ports": [P("1", -15, 0, "W"), P("2", 15, 0, "E"), P("3", 0, 10, "N"), P("4", 0, -10, "S")],
@@ -267,7 +267,7 @@ SYMBOLS = [
         "label_pos": {"x": -15, "y": -13},
     },
     {
-        "id": "sb.rcd", "name": "Proudový chránič", "category": "Jištění", "iec_ref": "F",
+        "id": "sb.rcd", "name": "Proudový chránič", "category": "Jištění", "iec_ref": "F", "function_class": ["F", "Q"],
         "description": "Proudový chránič (RCD)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0),
                        {"type": "polyline", "points": [[-1, -2], [1, -2], [0, -4.5]], "closed": True}],
@@ -278,7 +278,7 @@ SYMBOLS = [
         "label_pos": {"x": -5, "y": -7},
     },
     {
-        "id": "sb.rcbo", "name": "Jistič s chráničem", "category": "Jištění", "iec_ref": "F",
+        "id": "sb.rcbo", "name": "Jistič s chráničem", "category": "Jištění", "iec_ref": "F", "function_class": ["F", "Q"],
         "description": "Proudový chránič s nadproudovou ochranou (RCBO)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0), L(-4.3, 4.2, -2.3, 6.2), L(-4.3, 6.2, -2.3, 4.2),
                        {"type": "polyline", "points": [[0, -2], [2, -2], [1, -4.5]], "closed": True}],

@@ -3,6 +3,10 @@
   "name": "Jistič",
   "category": "Jištění",
   "iec_ref": "F",
+  "function_class": [
+    "F",
+    "Q"
+  ],
   "description": "Jistič (MCB)",
   "primitives": [
     {

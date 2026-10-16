@@ -7,9 +7,12 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
+
+from envocad.model.designation import class_matches
 
 GRID = 2.5  # mm
 
@@ -58,6 +61,15 @@ class Symbol:
     # vícepólová podoba: {"pole": [primitiva jednoho pólu], "common": [primitiva kreslená jednou u 1. pólu],
     #                     "link": True (čárkovaná mechanická vazba pólů), "link_at": [x, y] bod vazby v pólu}
     multipole: dict = field(default_factory=dict)
+    # povolené třídy označení dle IEC 81346-2 (1–2 písmena, shoda prefixem); None = odvodit z iec_ref, [] = nekontrolovat
+    function_class: list[str] | None = None
+
+    @property
+    def classes(self) -> list[str]:
+        """Povolené třídy označení: explicitní `function_class`, jinak [iec_ref] (prázdný iec_ref = bez kontroly)."""
+        if self.function_class is not None:
+            return list(self.function_class)
+        return [self.iec_ref] if self.iec_ref else []
 
     def label_lines(self, attrs: dict) -> list[str]:
         """Řádky popisku prvku ve výkresu (bez označení): zobrazované atributy s formátem."""
@@ -94,6 +106,7 @@ class Symbol:
             "category": self.category,
             "description": self.description,
             "iec_ref": self.iec_ref,
+            **({"function_class": list(self.function_class)} if self.function_class is not None else {}),
             "primitives": self.primitives,
             "ports": [p.to_dict() for p in self.ports],
             "attributes": [a.to_dict() for a in self.attributes],
@@ -115,6 +128,7 @@ class Symbol:
             attributes=[Attribute(**a) for a in d.get("attributes", [])],
             label_pos=(float(lp["x"]), float(lp["y"])),
             multipole=dict(d.get("multipole") or {}),
+            function_class=[str(c) for c in d["function_class"]] if d.get("function_class") is not None else None,
         )
         if not any(a.key == "ref" for a in sym.attributes):
             sym.attributes.insert(0, Attribute("ref", "Označení", "", True))
@@ -174,6 +188,11 @@ class Symbol:
         names = [p.name for p in self.ports]
         if len(names) != len(set(names)):
             issues.append("duplicitní názvy portů")
+        for c in self.function_class or []:
+            if not re.fullmatch(r"[A-Z]{1,2}", c):
+                issues.append(f"neplatná třída označení {c!r} (1–2 velká písmena A–Z)")
+        if self.iec_ref and self.classes and not class_matches(self.iec_ref + "1", self.classes):
+            issues.append(f"prefix označení {self.iec_ref!r} neodpovídá třídám {', '.join(self.classes)}")
         return issues
 
 
