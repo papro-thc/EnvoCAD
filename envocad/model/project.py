@@ -223,9 +223,16 @@ class Layout:
     def total_modules(self) -> int:
         return self.rows * self.modules_per_row
 
-    def used_modules(self, sheet: Sheet) -> float:
-        return sum(sheet.element(pl.element_id).modules for pl in self.placements
-                   if any(e.id == pl.element_id for e in sheet.elements))
+    def devices(self, sheet: Sheet, project: Project | None = None) -> list[Element]:
+        """Přístroje listu pro rozložení: šířka > 0 a položka výkazu (cívka stykače se nepočítá, když skupina má
+        stykač – `xref.DeviceIndex.is_bom_device`). Bez `project` se skupiny hledají jen na listu."""
+        from envocad.model.xref import DeviceIndex
+        idx = DeviceIndex.build(project) if project is not None else DeviceIndex.for_sheets([sheet])
+        return [e for e in sheet.elements if e.modules > 0 and idx.is_bom_device(e)]
+
+    def used_modules(self, sheet: Sheet, project: Project | None = None) -> float:
+        devs = {e.id: e for e in self.devices(sheet, project)}
+        return sum(devs[pl.element_id].modules for pl in self.placements if pl.element_id in devs)
 
     def placement(self, eid: str) -> Placement | None:
         return next((p for p in self.placements if p.element_id == eid), None)
@@ -1060,38 +1067,42 @@ INTERRUPT_SYMBOL = "fve.interrupt"
 
 
 def interrupt_partner(project: Project, e: Element) -> tuple[Sheet, Element] | None:
-    """Protějšek přerušovacího bodu: jiný přerušovací bod se stejným označením (kdekoli v projektu)."""
+    """Protějšek přerušovacího bodu (stejné označení kdekoli v projektu): v řetězu další, jinak předchozí bod,
+    v hvězdě zdroj, u zdroje první cíl (`xref.interrupt_link`)."""
     if e.symbol_id != INTERRUPT_SYMBOL or not e.ref:
         return None
-    for s in project.sheets:
-        for o in s.elements:
-            if o.symbol_id == INTERRUPT_SYMBOL and o.id != e.id and o.ref == e.ref:
-                return s, o
-    return None
+    from envocad.model.xref import interrupt_link, interrupt_partner_of
+    sheet = project.sheet_of_element(e.id)
+    return interrupt_partner_of(interrupt_link(project, sheet, e))
 
 
-def element_xref(project: Project, sheet: Sheet, e: Element) -> str:
-    """Text křížového odkazu kreslený u prvku: přerušovací bod → poloha protějšku („→ /2.C3“),
-    kontakt → poloha své cívky, cívka → zrcadlo kontaktů (více řádků)."""
-    if is_contact(e):
-        hit = coil_of(project, e, sheet)
-        if hit is None:
-            return "→ ?"
-        from envocad.model.frame import position_ref
-        return "→ " + position_ref(project, hit[0], hit[1].x, hit[1].y)
-    if e.symbol_id in COIL_SYMBOLS:
-        return "\n".join(f"{t} {pos}" for t, pos in contact_mirror(project, e))
-    hit = interrupt_partner(project, e)
-    if hit is None:
-        return "" if e.symbol_id != INTERRUPT_SYMBOL else "→ ?"
-    s, o = hit
-    from envocad.model.frame import position_ref
-    return "→ " + position_ref(project, s, o.x, o.y)
+def element_xref(project: Project, sheet: Sheet, e: Element, index=None) -> str:
+    """Text křížového odkazu kreslený u prvku: přerušovací bod → poloha protějšku/ů („→ /2.C3“, řetěz, hvězda),
+    kontakt (i stykač kreslený jako silové kontakty cívky) → poloha hostitele („→ /2.B5“). Hostitel zrcadla
+    (cívka, přístroj s kontakty) vrací "" – zrcadlo je samostatná tabulka (`xref.mirror_geometry`).
+    `index` = `xref.DeviceIndex` (jinak se postaví)."""
+    from envocad.model import xref
+    if e.symbol_id == INTERRUPT_SYMBOL:
+        groups = index.interrupts if index is not None and index.project is project else None
+        return xref.interrupt_xref(project, sheet, e, groups)
+    if not (is_contact(e) or e.symbol_id in DUAL_ROLE):
+        return ""
+    idx = index or xref.DeviceIndex.build(project)
+    g = idx.group_of(e)
+    if g is None and is_contact(e):
+        g = idx.resolve(sheet, e)          # kontakt mimo projekt (náhled)
+    if g is None or (not is_contact(e) and not idx.is_secondary(e)):
+        return "→ ?" if is_contact(e) else ""
+    hs, h = g.host
+    return "→ " + xref.place_ref(project, sheet, e, hs, h)
 
 
 # ---- cívky a kontakty (ovládací obvody) ---------------------------------------------------------------------
-CONTACT_SYMBOLS = {"ctl.contact_no", "ctl.contact_nc", "ctl.contact_power"}
+CONTACT_KIND = {"ctl.contact_no": "no", "ctl.contact_nc": "nc", "ctl.contact_power": "power"}
+CONTACT_SYMBOLS = set(CONTACT_KIND)
 COIL_SYMBOLS = {"ctl.coil"}
+# bez cívky hlavní přístroj; s cívkou stejného označení = silové kontakty cívky (položka výkazu zůstává stykač)
+DUAL_ROLE = {"fve.contactor": "power"}
 
 
 def is_contact(e: Element) -> bool:
@@ -1099,54 +1110,48 @@ def is_contact(e: Element) -> bool:
 
 
 def contact_terminals(e: Element) -> str:
-    t = e.attrs.get("terminals", "")
-    if t:
-        return t
-    return {"ctl.contact_no": "13/14", "ctl.contact_nc": "21/22", "ctl.contact_power": "1/2"}.get(e.symbol_id, "")
+    """Svorky kontaktu jako text („13/14“, silový 3pól „1/2 3/4 5/6“) – `xref.contact_pairs`."""
+    from envocad.model.xref import contact_pairs
+    return " ".join(contact_pairs(e))
 
 
-def contacts_of(project: Project, ref: str, coil: Element | None = None) -> list[tuple[Sheet, Element]]:
-    """Kontakty (pomocné i silové) patřící k cívce/přístroji s označením `ref`, kdekoli v projektu. Se `coil` jen
-    kontakty, které `coil_of` přiřadí právě této cívce (stejné ref ve více umístěních → podle prostoru označení)."""
-    out = []
-    for s in project.sheets:
-        for e in s.elements:
-            if is_contact(e) and e.ref == ref:
-                if coil is not None:
-                    hit = coil_of(project, e, s)
-                    if hit is None or hit[1] is not coil:
-                        continue
-                out.append((s, e))
-    return out
+def contacts_of(project: Project, ref: str, coil: Element | None = None, index=None) -> list[tuple[Sheet, Element]]:
+    """Kontakty (pomocné i silové) s označením `ref`, kdekoli v projektu. Se `coil` jen kontakty přístroje (skupiny
+    `xref.DeviceIndex`), do kterého `coil` patří – stejné ref ve více umístěních se rozliší prostorem označení."""
+    if coil is None:
+        return [(s, e) for s in project.sheets for e in s.elements if is_contact(e) and e.ref == ref]
+    from envocad.model.xref import DeviceIndex
+    idx = index or DeviceIndex.build(project)
+    g = idx.group_of(coil)
+    return list(g.contacts) if g is not None and g.ref == ref else []
 
 
-def contact_mirror(project: Project, coil: Element) -> list[tuple[str, str]]:
-    """Zrcadlo kontaktů pod cívkou: [(svorky, odkaz /list.sloupec)…] – jako v EPLAN."""
-    from envocad.model.frame import position_ref
-    rows = []
-    for s, e in contacts_of(project, coil.ref, coil):
-        rows.append((contact_terminals(e), position_ref(project, s, e.x, e.y)))
-    rows.sort()
+def contact_mirror(project: Project, coil: Element, index=None) -> list[tuple[str, str]]:
+    """Zrcadlo kontaktů hostitele jako [(svorky, odkaz /list.sloupec)…] bez rezerv, přirozeně podle svorek."""
+    from envocad.model.xref import DeviceIndex, contact_table, natural_key
+    idx = index or DeviceIndex.build(project)
+    sheet = project.sheet_of_element(coil.id)
+    if sheet is None:
+        return []
+    rows = [(r.pair, r.ref) for r in contact_table(project, sheet, coil, idx).rows() if r.ref]
+    rows.sort(key=lambda r: (natural_key(r[0]), natural_key(r[1])))
     return rows
 
 
-def coil_candidates(project: Project, contact: Element) -> list[tuple[Sheet, Element]]:
-    """Cívky/přístroje se stejným označením jako kontakt (ne jiný kontakt), v pořadí listů a prvků."""
-    return [(s, e) for s in project.sheets for e in s.elements
-            if e.ref == contact.ref and e.id != contact.id and not is_contact(e)]
+def coil_candidates(project: Project, contact: Element, index=None) -> list[tuple[Sheet, Element]]:
+    """Hostitelé (cívka, jinak první ne-kontakt) přístrojů se stejným označením jako kontakt, v pořadí projektu."""
+    from envocad.model.xref import DeviceIndex
+    idx = index or DeviceIndex.build(project)
+    return [g.host for g in idx.by_ref.get(contact.ref, []) if g.host[1] is not contact] if contact.ref else []
 
 
-def coil_of(project: Project, contact: Element, sheet: Sheet | None = None) -> tuple[Sheet, Element] | None:
-    """Cívka nebo přístroj, ke kterému kontakt patří (stejné označení; ne jiný kontakt). Více kandidátů → přednost má
-    ten ve stejném prostoru označení (`designation.scope_key` – funkce, umístění) jako kontakt, jinak první.
-    `sheet` = list kontaktu (None = dohledá se)."""
-    cands = coil_candidates(project, contact)
-    if len(cands) <= 1:
-        return cands[0] if cands else None
-    sheet = sheet or project.sheet_of_element(contact.id)
-    if sheet is not None:
-        key = scope_key(sheet, contact)
-        same = next((c for c in cands if scope_key(c[0], c[1]) == key), None)
-        if same is not None:
-            return same
-    return cands[0]
+def coil_of(project: Project, contact: Element, sheet: Sheet | None = None, index=None) -> tuple[Sheet, Element] | None:
+    """Hostitel přístroje, ke kterému kontakt patří (stejné označení): cívka, jinak první ne-kontakt. Více přístrojů
+    se stejným ref → přednost má ten ve stejném prostoru označení (`designation.scope_key`) jako kontakt, jinak první.
+    `sheet` = list kontaktu (jen pro kontakt, který v projektu není)."""
+    from envocad.model.xref import DeviceIndex
+    idx = index or DeviceIndex.build(project)
+    g = idx.group_of(contact)
+    if g is None and contact.id not in idx.by_element:
+        g = idx.resolve(sheet or project.sheet_of_element(contact.id), contact)
+    return g.host if g is not None else None

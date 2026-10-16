@@ -50,6 +50,10 @@ TRIP_X = [L(-4.3, 4.2, -2.3, 6.2), L(-4.3, 6.2, -2.3, 4.2)]                   # 
 DISC_BAR = [L(-2.5, -1.5, -2.5, 1.5)]                                          # značka odpojovače/odpínače (pevný kontakt)
 
 
+# kontaktní obraz přístroje (páry svorek, viz docs/LIBRARY_FORMAT.md) – prázdný = bez kontrol a rezerv v zrcadle
+CONTACTS = attr("contacts", "Kontaktní obraz (např. 1/2 3/4 5/6 13/14)", "")
+
+
 def MP(pole, common=None, link=True, link_at=(0, 2)):
     """Vícepólová podoba: `pole` se opakuje pro každý pól, `common` se kreslí jednou, `link` = vazba pólů."""
     return {"pole": pole, "common": common or [], "link": link, "link_at": list(link_at)}
@@ -197,7 +201,7 @@ SYMBOLS = [
         "description": "Stykač (např. pro odpojení FVE od DS – NS)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0), A(-3.5, 0, 1, -90, 90)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
-        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS, CONTACTS],
         "multipole": MP(CONTACT + [A(-3.5, 0, 1, -90, 90)]),
         "label_pos": {"x": -5, "y": -6},
     },
@@ -247,7 +251,8 @@ SYMBOLS = [
         "description": "Potenciál pokračuje jinde (na jiném listu / místě) – páruje se podle označení",
         "primitives": [L(-7.5, 0, -2.5, 0), {"type": "polyline", "points": [[-2.5, 2.5], [2.5, 0], [-2.5, -2.5]], "closed": True}],
         "ports": [P("1", -7.5, 0, "W")],
-        "attributes": [attr("ref", "Označení potenciálu", "", True), attr("desc", "Popis")],
+        "attributes": [attr("ref", "Označení potenciálu", "", True), attr("desc", "Popis"),
+                       attr("star_source", "Zdroj hvězdy (1 = ano)", "")],
         "label_pos": {"x": -5, "y": 4},
     },
     {
@@ -371,7 +376,8 @@ SYMBOLS += [
         "primitives": [R(-5, -4, 10, 8), L(0, 7.5, 0, 4), L(0, -4, 0, -7.5), T(-6.5, 5, "A1", 1.8, "right"),
                        T(-6.5, -7, "A2", 1.8, "right")],
         "ports": [P("A1", 0, 7.5, "N"), P("A2", 0, -7.5, "S")],
-        "attributes": [REF, TYPE, MFR, attr("un", "Un cívky [V]", "230"), attr("desc", "Funkce", "", True), MOD],
+        "attributes": [REF, TYPE, MFR, attr("un", "Un cívky [V]", "230"), attr("desc", "Funkce", "", True), MOD,
+                       CONTACTS],
         "label_pos": {"x": 7, "y": 2},
     },
     {

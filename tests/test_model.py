@@ -247,8 +247,9 @@ def test_coil_contacts_mirror():
     s1.elements += [c_no, c_pw, lone]
     assert coil_of(p, c_no)[1] is k1 and coil_of(p, lone) is None
     assert coil_of(p, c_no, s1)[1] is k1
-    assert contact_mirror(p, k1) == [("1/2", "/1.C3"), ("13/14", "/1.D3")]
-    assert element_xref(p, s2, k1) == "1/2 /1.C3\n13/14 /1.D3"
+    # silový kontakt poles=3 = tři řádky (1/2, 3/4, 5/6) se stejným odkazem
+    assert contact_mirror(p, k1) == [("1/2", "/1.C3"), ("3/4", "/1.C3"), ("5/6", "/1.C3"), ("13/14", "/1.D3")]
+    assert element_xref(p, s2, k1) == ""        # zrcadlo je samostatná tabulka pod cívkou (xref.mirror_geometry)
     assert element_xref(p, s1, c_no) == "→ /2.B5" and element_xref(p, s1, lone) == "→ ?"
     assert "K1" in p.used_refs() and p.next_ref("K") == "K2"   # kontakty označení neblokují ani nezdvojují
     assert default_conductors(k1, "A1", c_no, "14") == ["L"]
@@ -256,7 +257,7 @@ def test_coil_contacts_mirror():
     assert ("contact_alone", "K9") in codes and not any(c == "dup_ref" for c, _ in codes)
     _, rows = reports.device_list(p, LibraryStore())
     k = next(r for r in rows if r[0] == "K1")
-    assert k[5] == "1/2, 13/14"
+    assert k[5] == "1/2, 3/4, 5/6, 13/14"
     _, bom = reports.bom(p, LibraryStore())
     assert not any("Kontakt" in r[1] for r in bom)
 
