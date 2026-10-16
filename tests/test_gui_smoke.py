@@ -1361,3 +1361,118 @@ def test_note_dialog_resolve_fills_user(app):
     assert n.status == "open" and not n.resolved                     # originál zůstává
     d.status.setCurrentIndex(0)
     assert d.result_note().status == "open" and not d.result_note().resolved
+
+
+# ---- výrobní data rozvaděče (GUI) -------------------------------------------------------------------------------
+def _sb_project():
+    from envocad.model.project import Layout, Sheet
+    p = Project(name="Rozv")
+    s = Sheet(name="RDC1", kind="switchboard", loc="RDC1", layout=Layout(rows=2, modules_per_row=24))
+    p.sheets.append(s)
+    a = Element("fve.breaker_mcb", attrs={"ref": "F1", "in_": "16", "poles": "1"})
+    b = Element("sb.terminal_block", attrs={"ref": "X1", "terminal": "1 2"})
+    s.elements += [a, b]
+    w = Wire(WireEnd(a.id, "2"), WireEnd(b.id, "1"), conductors=["L1"], attrs={"ref": "W1"})
+    s.wires.append(w)
+    return p, s, w
+
+
+def test_wire_dialog_production_fields_only_on_switchboard(app):
+    from envocad.model.project import SWITCHBOARD_WIRE_ATTRIBUTES, WIRE_ATTRIBUTES
+    from envocad.ui.dialogs import WireDialog, wire_auto_hints
+    p, s, w = _sb_project()
+    plain = WireDialog(w.attrs, w.conductors)
+    assert "color" not in plain.values() and plain.prod is None
+    hints = wire_auto_hints(p, s, w)
+    assert hints["color"] and hints["cross"]
+    d = WireDialog({**w.attrs, "prod": "0"}, w.conductors, attributes=WIRE_ATTRIBUTES + SWITCHBOARD_WIRE_ATTRIBUTES,
+                   hints=hints)
+    assert {"color", "end_a", "end_b", "prod"} <= set(d.values())
+    assert d.prod is not None and not d.prod.isChecked() and d.values()["prod"] == "0"
+    assert d._edits["color"].placeholderText() == hints["color"]
+    d.prod.setChecked(True)
+    assert d.values()["prod"] == ""
+    d.grab().save("/tmp/claude-0/-home-user-EnvoCAD/218ef7e0-ef83-5cc1-9211-57e519398ff2/scratchpad/wire_dialog.png")
+
+
+def test_canvas_wire_dialog_scope_and_panel_prod_undo(app, tmp_path):
+    from PySide6.QtWidgets import QCheckBox, QFormLayout, QLabel
+
+    from envocad.ui.canvas import SchematicScene
+    from envocad.ui.panels import PropertiesPanel
+    lib = LibraryStore(tmp_path / "lib.db")
+    p, s, w = _sb_project()
+    sc = SchematicScene(p, s, lib, __import__("PySide6.QtGui", fromlist=["QUndoStack"]).QUndoStack())
+    assert "attributes" in sc._wire_dialog_extra(w)
+    sc2 = SchematicScene(_project(), _project().sheets[0], lib,
+                         __import__("PySide6.QtGui", fromlist=["QUndoStack"]).QUndoStack())
+    assert sc2._wire_dialog_extra(sc2.sheet.wires[0]) == {}
+
+    def labels(panel):
+        out = []
+        for r in range(panel.form.rowCount()):
+            it = panel.form.itemAt(r, QFormLayout.LabelRole)
+            if it is not None and isinstance(it.widget(), QLabel):
+                out.append(it.widget().text())
+            fi = panel.form.itemAt(r, QFormLayout.FieldRole)
+            if fi is not None and isinstance(fi.widget(), QCheckBox):
+                out.append(fi.widget().text())
+        return out
+
+    panel = PropertiesPanel(lib)
+    panel.show_item(sc.wire_items[w.id])
+    got = labels(panel)
+    assert {"Barva vodiče", "Koncovka A", "Koncovka B", "Do výrobního seznamu"} <= set(got)
+    panel.show_item(sc2.wire_items[sc2.sheet.wires[0].id])
+    assert "Barva vodiče" not in labels(panel) and "Do výrobního seznamu" not in labels(panel)
+
+    panel.show_item(sc.wire_items[w.id])
+    panel.attr_edited.connect(sc.set_attr)
+    cb = next(c for c in panel.findChildren(QCheckBox) if c.text() == "Do výrobního seznamu")
+    assert cb.isChecked()
+    cb.setChecked(False)
+    app.processEvents()
+    assert w.attrs["prod"] == "0"
+    sc.undo.undo()
+    assert w.attrs.get("prod", "") == ""
+    sc.undo.redo()
+    assert w.attrs["prod"] == "0"
+
+
+def test_enclosure_panel_keeps_unknown_params_and_saves_wire_keys(app):
+    from envocad.model.project import Layout, Sheet
+    from envocad.ui.dialogs import EnclosurePanel
+    s = Sheet(kind="switchboard", layout=Layout(params={"nezname": "x", "wire_end_mm": "80"}))
+    panel = EnclosurePanel(s)
+    assert panel.wiring_group.isChecked() and panel._edits["wire_end_mm"].text() == "80"
+    assert panel._edits["wire_reserve_pct"].placeholderText()
+    panel._edits["wire_reserve_pct"].setText("15")
+    panel._edits["ip"].setText("IP 55")
+    lay = panel.apply()
+    assert lay.params["nezname"] == "x"
+    assert lay.params["wire_reserve_pct"] == "15" and lay.params["wire_end_mm"] == "80" and lay.params["ip"] == "IP 55"
+    panel._edits["wire_end_mm"].setText("")
+    assert "wire_end_mm" not in panel.apply().params
+
+
+def test_menu_export_production_xlsx(app, tmp_path, monkeypatch):
+    from openpyxl import load_workbook
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+    p, _s, _w = _sb_project()
+    out = str(tmp_path / "vyroba.xlsx")
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *a, **k: (out, ""))
+    win = MainWindow(LibraryStore(tmp_path / "lib.db"), p)
+    try:
+        win.export_production()
+        assert win.statusBar().currentMessage() == f"Exportováno: {out}"
+        assert "Výrobní seznam" in load_workbook(out).sheetnames
+    finally:
+        win.close()
+    seen = []
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: seen.append(a[2]))
+    win = MainWindow(LibraryStore(tmp_path / "lib.db"), Project(name="P"))
+    try:
+        win.export_production()
+        assert seen
+    finally:
+        win.close()

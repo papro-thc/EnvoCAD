@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QGraphicsPathItem, QGraphicsRectItem, QGraphicsSce
 from envocad.library.store import LibraryStore
 from envocad.model.multipole import default_conductors
 from envocad.model.project import (
+    SWITCHBOARD_WIRE_ATTRIBUTES,
     WIRE_ATTRIBUTES,
     Element,
     Project,
@@ -492,10 +493,19 @@ class SchematicScene(QGraphicsScene):
         e.component_id = dlg.component_id
         self.undo.push(commands.AddElementCommand(self, e))
 
+    def _wire_dialog_extra(self, w: Wire) -> dict:
+        """Na listu rozvaděče navíc výrobní atributy vodiče (barva, koncovky, do výrobního seznamu) a jejich placeholdery."""
+        if not self.sheet.is_switchboard:
+            return {}
+        from envocad.ui.dialogs import wire_auto_hints
+        return {"attributes": WIRE_ATTRIBUTES + SWITCHBOARD_WIRE_ATTRIBUTES,
+                "hints": wire_auto_hints(self.project, self.sheet, w)}
+
     def _finish_wire(self, w: Wire, heading: str) -> None:
         from envocad.ui.dialogs import WireDialog
         log.info("dialog: vložit vodič")
-        dlg = WireDialog(w.attrs, w.conductors, self._parent_widget(), "Vložit vodič", heading)
+        dlg = WireDialog(w.attrs, w.conductors, self._parent_widget(), "Vložit vodič", heading,
+                         **self._wire_dialog_extra(w))
         dlg.used_refs = self.project.used_refs(self.sheet)
         if dlg.exec() != WireDialog.Accepted:
             return
@@ -528,7 +538,8 @@ class SchematicScene(QGraphicsScene):
     def edit_wire(self, wid: str) -> None:
         from envocad.ui.dialogs import WireDialog
         w = next(w for w in self.sheet.wires if w.id == wid)
-        dlg = WireDialog(w.attrs, w.conductors, self._parent_widget(), f"Upravit vodič {w.attrs.get('ref', '')}")
+        dlg = WireDialog(w.attrs, w.conductors, self._parent_widget(), f"Upravit vodič {w.attrs.get('ref', '')}",
+                         **self._wire_dialog_extra(w))
         dlg.used_refs = self.project.used_refs(self.sheet)
         if dlg.exec() != WireDialog.Accepted:
             return

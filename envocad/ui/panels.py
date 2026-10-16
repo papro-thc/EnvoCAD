@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from envocad.library.store import LibraryStore
-from envocad.model.project import WIRE_ATTRIBUTES
+from envocad.model.project import SWITCHBOARD_WIRE_ATTRIBUTES, WIRE_ATTRIBUTES
 from envocad.ui.items import ElementItem, WireItem
 
 
@@ -161,6 +161,18 @@ class PropertiesPanel(QWidget):
             self.form.addRow(QLabel(f"<b>Vodič</b><br><small>{w.a.element_id}:{w.a.port} → {w.b.element_id}:{w.b.port}</small>"))
             for a in WIRE_ATTRIBUTES:
                 self._add_field(a.key, a.label, w.attrs.get(a.key, ""))
+            sc = item.scene()
+            sheet = getattr(sc, "sheet", None)
+            if sheet is not None and sheet.is_switchboard:
+                from envocad.ui.dialogs import wire_auto_hints
+                hints = wire_auto_hints(sc.project, sheet, w)
+                for a in SWITCHBOARD_WIRE_ATTRIBUTES:
+                    if a.key == "prod":
+                        self._add_check("prod", "Do výrobního seznamu", str(w.attrs.get("prod", "")).strip() != "0",
+                                        "Odškrtnutím se vodič vynechá z výrobního zapojovacího seznamu",
+                                        on_value="", off_value="0")
+                    else:
+                        self._add_field(a.key, a.label, w.attrs.get(a.key, ""), placeholder=hints.get(a.key, ""))
             conds = " ".join(w.conductors) or "–"
             terms = "<br>".join(f"{c}: {t.get('a', '')} → {t.get('b', '')}" for c, t in w.terminals.items()) or "–"
             self.form.addRow("Žíly", QLabel(conds))
@@ -176,8 +188,12 @@ class PropertiesPanel(QWidget):
             self._target = None
             self.form.addRow(QLabel("<i>Nic není vybráno</i>"))
 
-    def _add_field(self, key: str, label: str, value: str, inherited: str | None = None) -> None:
+    def _add_field(self, key: str, label: str, value: str, inherited: str | None = None,
+                   placeholder: str = "") -> None:
         ed = QLineEdit(value)
+        if placeholder:   # automatická hodnota, která se použije při prázdném poli
+            ed.setPlaceholderText(placeholder)
+            ed.setToolTip("Prázdné pole = automaticky")
         if inherited is not None:   # prázdné = dědí z listu; placeholder ukáže zděděnou hodnotu
             ed.setPlaceholderText(inherited or "(z listu)")
             ed.setToolTip("Prázdné pole = hodnota se zděďí z listu")
