@@ -104,6 +104,29 @@ jen jednou a další instance se na něj napojí; do portu sběrnice se dá psá
 klíč `pitch` v JSON makra (jinak šířka + 10 mm). Nejjednodušší cesta: otevři vestavěné makro
 (`envocad/library/builtin/macros/*.json`), uprav podle sebe a ulož pod stejným názvem do vlastní složky.
 
+### Makra s proměnnými: dialog, sady hodnot, opakování
+Makro, které deklaruje proměnné nebo opakování, se při vložení (dvojklik v panelu Knihovna) nejdřív zeptá na
+hodnoty v dialogu **Makro – název**. Makro bez proměnných se vloží hned jako dřív.
+
+- **Sada hodnot** – nahoře rozbalovací seznam předvoleb (např. „Pojistka 20 A gPV, SPD T1+T2“). Vybraná sada
+  vyplní pole; „— vlastní —“ nechá ruční hodnoty. Hodnoty zadané ručně po výběru sady sadu přebíjejí.
+- **Pole** podle typu: text, číslo (jednotka je v popisku, čárka i tečka se berou), nabídka a **artikl**.
+  Povinná pole jsou označená hvězdičkou a tučně; nápověda je v tooltipu. Při **OK** se hodnoty zkontrolují
+  (povinné, číslo, rozsah min/max, nabídka) a chyby se vypíšou v dialogu – dialog se nezavře.
+- **Vazba na artikl** – pole typu artikl otevře výběr artiklů dané kategorie. Po výběru se přepočítají pole,
+  která si berou hodnotu z parametrů artiklu (např. In pojistky z artiklu), a prvek, který artikl odkazuje,
+  dostane jeho parametry.
+- **Další (číslování)** – sbalená skupina s proměnnými, které jinak dodává generátor nebo opakování
+  (čísla střídače a stringu, označení). Obvykle se nechávají být.
+- **Opakování** – makro s klíčem `repeat` se vloží N× (počet je jedna z proměnných, např. „Počet stringů“),
+  instance jsou posunuté o rozteč a očíslované `{k}` = 1…N. Sdílené prvky (sběrnice, XPE) se vloží jen jednou,
+  i kdyby už na listu byly – vodiče se napojí na existující. Nejvíc 100 opakování.
+- **Podmínky `when`** – prvek nebo vodič s atributem `when` se vloží jen při splnění podmínky: `spd` (hodnota
+  není prázdná, 0, ne, no, false, off), `!spd`, `spd=T2`, `spd!=T2`. Vestavěné DC makro tak vynechá svodič
+  (i jeho vodiče), když zvolíš „bez SPD“. Atribut `when` se do vložených prvků nepřenáší.
+- **Zpět** – celé vložení (všechna opakování) je jeden krok `Ctrl+Z`; zpět smaže jen nové prvky a vodiče,
+  už existující sdílené prvky zůstanou.
+
 ### Přerušovací body
 Prvek **Přerušovací bod** (Svorky a propojení) přenese potenciál jinam – dva body se stejným označením se
 spárují a každý ukazuje polohu protějšku (`→ /2.C3` = list 2, sloupec C, řádek 3 v síti rámečku). Rámeček

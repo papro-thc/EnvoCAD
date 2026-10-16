@@ -591,6 +591,21 @@ class SchematicScene(QGraphicsScene):
         self.undo.push(commands.PasteCommand(self, els, wires))
         return len(els)
 
+    def insert_macro(self, m, values: dict, at: tuple[float, float] | None = None) -> int:
+        """Vloží makro s hodnotami proměnných (`expand`, opakování) jedním undo příkazem. Vrací počet nových prvků
+        (sloučené `shared` prvky nejsou nové)."""
+        from envocad.library.macros import expand, fragment_bounds
+        x0, y0, x1, y1 = fragment_bounds(m.fragment)
+        tx, ty = at if at is not None else (self.sheet.width / 2, self.sheet.height / 2)
+        dx, dy = snap(tx - (x0 + x1) / 2), snap(ty - (y0 + y1) / 2)
+        els, wires = expand(self.project, self.sheet, m, values, dx, dy,
+                            ref_prefix_of=lambda sid: self.library.get_symbol(sid).iec_ref,
+                            components=self.library.component, repeat=True)
+        if not els and not wires:
+            return 0
+        self.undo.push(commands.PasteCommand(self, els, wires, f"Vložit makro {m.name}"))
+        return len(els)
+
     def delete_selected(self) -> None:
         eids = [it.element.id for it in self.selectedItems() if isinstance(it, ElementItem)]
         wids = [it.wire.id for it in self.selectedItems() if isinstance(it, WireItem)]

@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from envocad.library.macros import resolve_values
 from envocad.model import multipole as mp
 from envocad.model.project import ENCLOSURE_PARAMS, MODULE_WIDTH, Layout, Project, Sheet, Wire
 from envocad.model.symbol import Attribute, Symbol
@@ -777,3 +778,193 @@ class StructuresDialog(QDialog):
                 return
             seen.add((x.aspect, x.code))
         self.accept()
+
+
+class MacroValuesDialog(QDialog):
+    """Hodnoty proměnných makra před vložením: sada hodnot, pole podle typu, artikl s přepočtem `from`.
+
+    `.values()` = výsledné hodnoty (po `resolve_values`), `.value_set()` = zvolená sada nebo None."""
+
+    CUSTOM = "— vlastní —"
+
+    def __init__(self, macro, library, context: dict | None = None, parent=None):
+        super().__init__(parent)
+        self.macro, self.library, self.context = macro, library, dict(context or {})
+        self.errors: list[str] = []
+        self._fields: dict[str, QWidget] = {}
+        self.setWindowTitle(f"Makro – {macro.name}")
+        self.setMinimumWidth(460)
+        root = QVBoxLayout(self)
+        if macro.description:
+            d = QLabel(macro.description)
+            d.setWordWrap(True)
+            root.addWidget(d)
+        self.set_combo = QComboBox()
+        self.set_combo.addItem(self.CUSTOM)
+        for s in macro.value_sets:
+            self.set_combo.addItem(s.name)
+            if s.description:
+                self.set_combo.setItemData(self.set_combo.count() - 1, s.description, Qt.ToolTipRole)
+        top = QFormLayout()
+        if macro.value_sets:
+            top.addRow("Sada hodnot", self.set_combo)
+            self.set_combo.currentIndexChanged.connect(self._apply_set)
+        root.addLayout(top)
+        main = QFormLayout()
+        root.addLayout(main)
+        count = macro.repeat.count if macro.repeat else ""
+        auto = [v for v in macro.variables if v.auto and v.name != count]
+        for v in macro.variables:
+            if v in auto:
+                continue
+            main.addRow(self._label(v), self._make_field(v))
+        self.extra = None
+        if auto:
+            self.extra = QGroupBox("Další (číslování)")
+            self.extra.setCheckable(True)
+            self.extra.setChecked(False)
+            ef = QFormLayout()
+            for v in auto:
+                ef.addRow(self._label(v), self._make_field(v))
+            holder = QWidget()
+            holder.setLayout(ef)
+            lay = QVBoxLayout(self.extra)
+            lay.setContentsMargins(6, 6, 6, 6)
+            lay.addWidget(holder)
+            holder.setVisible(False)
+            self.extra.toggled.connect(holder.setVisible)
+            root.addWidget(self.extra)
+        self.error_label = QLabel()
+        self.error_label.setStyleSheet("color: #c0392b;")
+        self.error_label.setWordWrap(True)
+        self.error_label.setVisible(False)
+        root.addWidget(self.error_label)
+        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        root.addWidget(bb)
+        self._load_defaults()
+
+    # ---- pole ----------------------------------------------------------------
+    def _label(self, v) -> QLabel:
+        text = v.title + (f" [{v.unit}]" if v.unit else "") + (" *" if v.required else "")
+        lab = QLabel(text)
+        if v.required:
+            f = lab.font()
+            f.setBold(True)
+            lab.setFont(f)
+        if v.help:
+            lab.setToolTip(v.help)
+        return lab
+
+    def _make_field(self, v) -> QWidget:
+        if v.type == "choice":
+            w = QComboBox()
+            for c in v.choices:
+                w.addItem(c or "(prázdné)", c)
+        elif v.type == "component":
+            w = QWidget()
+            h = QHBoxLayout(w)
+            h.setContentsMargins(0, 0, 0, 0)
+            edit = QLineEdit(readOnly=True, placeholderText="(bez artiklu)")
+            pick = QPushButton("Vybrat…")
+            clear = QPushButton("×")
+            clear.setMaximumWidth(28)
+            clear.setToolTip("Zrušit výběr artiklu")
+            h.addWidget(edit, 1)
+            h.addWidget(pick)
+            h.addWidget(clear)
+            w.edit = edit
+            pick.clicked.connect(lambda _=False, var=v: self._pick_component(var))
+            clear.clicked.connect(lambda _=False, var=v: self._set_component(var, ""))
+        else:
+            w = QLineEdit()
+            if v.type == "number":
+                from PySide6.QtCore import QRegularExpression
+                from PySide6.QtGui import QRegularExpressionValidator
+                w.setValidator(QRegularExpressionValidator(QRegularExpression(r"^([-+]?[0-9]*[.,]?[0-9]*|\{.*)$")))
+        if v.help:
+            w.setToolTip(v.help)
+        self._fields[v.name] = w
+        return w
+
+    def _get(self, name: str) -> str:
+        w = self._fields[name]
+        if isinstance(w, QComboBox):
+            return w.currentData() if w.currentData() is not None else w.currentText()
+        if isinstance(w, QLineEdit):
+            return w.text()
+        return w.edit.text()
+
+    def _set(self, name: str, value: str) -> None:
+        w = self._fields.get(name)
+        if w is None:
+            return
+        if isinstance(w, QComboBox):
+            key = value.replace(" ", "").lower()
+            for i in range(w.count()):
+                if str(w.itemData(i)).replace(" ", "").lower() == key:
+                    w.setCurrentIndex(i)
+                    return
+        elif isinstance(w, QLineEdit):
+            w.setText(value)
+        else:
+            w.edit.setText(value)
+
+    def _load_defaults(self) -> None:
+        for v in self.macro.variables:
+            self._set(v.name, v.default)
+        for k, val in self.context.items():
+            self._set(k, str(val))
+
+    def _apply_set(self) -> None:
+        vs = self.macro.value_set(self.set_combo.currentText())
+        if vs is None:
+            return
+        for k, val in vs.values.items():
+            self._set(k, val)
+        for v in self.macro.variables:
+            if v.type == "component" and v.name in vs.values:
+                self._refresh_from(v)
+
+    # ---- artikl ----------------------------------------------------------------
+    def _pick_component(self, v) -> None:
+        from envocad.ui.component_picker import ComponentPicker
+        dlg = ComponentPicker(self.library, category=v.category or None, parent=self, title=f"Vybrat artikl – {v.title}")
+        if dlg.exec() and dlg.selected:
+            self._set_component(v, dlg.selected.id)
+
+    def _set_component(self, v, cid: str) -> None:
+        self._set(v.name, cid)
+        self._refresh_from(v)
+
+    def _refresh_from(self, v) -> None:
+        """Po změně artiklu přepočítá pole s `from` odkazujícím na tuto proměnnou."""
+        cid = self._get(v.name).strip()
+        if not cid:
+            return
+        vals, _ = resolve_values(self.macro, given={v.name: cid}, components=self.library.component)
+        for o in self.macro.variables:
+            if o.source.partition(".")[0] == v.name and vals.get(o.name):
+                self._set(o.name, vals[o.name])
+
+    # ---- výsledek ----------------------------------------------------------------
+    def value_set(self) -> str | None:
+        return self.set_combo.currentText() if self.set_combo.currentIndex() > 0 else None
+
+    def _resolve(self) -> tuple[dict, list[str]]:
+        given = {name: self._get(name) for name in self._fields}
+        return resolve_values(self.macro, given=given, value_set=self.value_set(),
+                              components=self.library.component, context=self.context)
+
+    def values(self) -> dict[str, str]:
+        vals, self.errors = self._resolve()
+        return vals
+
+    def accept(self) -> None:
+        self._values, self.errors = self._resolve()
+        if self.errors:
+            self.error_label.setText("\n".join(self.errors))
+            self.error_label.setVisible(True)
+            return
+        super().accept()

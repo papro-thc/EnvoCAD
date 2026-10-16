@@ -893,22 +893,37 @@ class MainWindow(QMainWindow):
             self.lib_panel.refresh()
 
     def insert_macro(self, path: str) -> None:
-        """Dvojklik na makro v knihovně: vloží sestavu doprostřed viditelné části listu."""
-        import json
+        """Dvojklik na makro v knihovně: má-li proměnné, zeptá se na hodnoty; vloží sestavu doprostřed pohledu."""
         from pathlib import Path
+
+        from envocad.library.macros import load_macro, resolve_values
+        from envocad.ui.dialogs import MacroValuesDialog
         sc = self._active_schematic() or self.draw_scene
         if sc is None:
             QMessageBox.information(self, "Makro", "Makro jde vložit jen do schématu (JPS nebo jednopólová editace rozvaděče).")
             return
-        try:
-            data = json.loads(Path(path).read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            QMessageBox.warning(self, "Makro", f"Makro se nepodařilo načíst: {path}")
+        m = load_macro(Path(path))
+        if m is None:
+            QMessageBox.warning(self, "Makro", f"Makro se nepodařilo načíst (nebo je z novější verze programu): {path}")
             return
+        if m.has_parameters:
+            dlg = MacroValuesDialog(m, self.library, parent=self)
+            if not dlg.exec():
+                return
+            values = dlg.values()
+        else:
+            values, errs = resolve_values(m, components=self.library.component)
+            if errs:
+                QMessageBox.warning(self, "Makro", "\n".join(errs))
+                return
         c = self.view.mapToScene(self.view.viewport().rect().center()) if self.view else None
         at = (c.x(), -c.y()) if c is not None else None
-        n = sc.insert_fragment(data.get("fragment", {}), at)
-        self.statusBar().showMessage(f"Vloženo makro {data.get('name', '')} ({n} prvků)", 4000)
+        try:
+            n = sc.insert_macro(m, values, at)
+        except ValueError as ex:
+            QMessageBox.warning(self, "Makro", str(ex))
+            return
+        self.statusBar().showMessage(f"Vloženo makro {m.name} ({n} prvků)", 4000)
 
     def set_shared_library(self) -> None:
         from envocad.settings import load_settings, save_settings

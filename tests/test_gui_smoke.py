@@ -960,3 +960,99 @@ def test_mirror_checkbox_undo(app, tmp_path):
     lone.attrs["contacts"] = "13/14"
     sc.invalidate_text_layout()
     assert boxes(lone.id)
+
+
+def _dc_macro():
+    from envocad.library.macros import list_macros
+    return next(x for x in list_macros() if x.name == "DC string v rozvaděči")
+
+
+def _check_macro_insert(w, sheet, sc, lib, values):
+    """Společná kontrola: žádné „{“, žádné when, jeden XPE, jedno undo = původní stav, redo znovu."""
+    m = _dc_macro()
+    before = sheet.to_dict()
+    n = sc.insert_macro(m, values, (150, 150))
+    assert n > 0
+    for e in sheet.elements:
+        assert "when" not in e.attrs
+        assert not any("{" in str(v) for v in e.attrs.values()), e.attrs
+    for wr in sheet.wires:
+        assert not any("{" in str(v) for v in wr.attrs.values())
+    assert len([e for e in sheet.elements if e.ref == "XPE"]) == 1
+    assert len([e for e in sheet.elements if e.ref.startswith("FU")]) == 2
+    after = sheet.to_dict()
+    assert w.undo.undoText() == f"Vložit makro {m.name}"
+    w.undo.undo()
+    assert sheet.to_dict() == before
+    w.undo.redo()
+    assert sheet.to_dict() == after
+    w.undo.undo()
+    assert sheet.to_dict() == before
+
+
+def test_macro_insert_with_values_undo(app):
+    from envocad.model.project import Element, Project
+    from envocad.ui.main_window import MainWindow
+    lib = LibraryStore()
+    m = _dc_macro()
+    values, errs = __import__("envocad.library.macros", fromlist=["x"]).resolve_values(
+        m, given={"n": "2", "fuse_in": "20"}, components=lib.component)
+    assert not errs
+    p = Project(name="Makro hodnoty")
+    s = p.sheets[0]
+    # XPE už v listu je (sdílený prvek se nesmí zdvojit a undo ho nesmí smazat)
+    s.elements.append(Element("sb.feed_out", 10, 10, attrs={"ref": "XPE"}))
+    w = MainWindow(lib, p)
+    w.open_sheet(s, "schematic")
+    _check_macro_insert(w, s, w.view.scene(), lib, values)
+    assert any(e.ref == "XPE" for e in s.elements)
+    w.undo.setClean()
+    w.close()
+    # bez XPE v listu
+    p2 = Project(name="Makro hodnoty 2")
+    w2 = MainWindow(lib, p2)
+    w2.open_sheet(p2.sheets[0], "schematic")
+    _check_macro_insert(w2, p2.sheets[0], w2.view.scene(), lib, values)
+    w2.undo.setClean()
+    w2.close()
+
+
+def test_macro_insert_in_multipole(app):
+    from envocad.library.macros import resolve_values
+    from envocad.model.project import Project
+    from envocad.ui.main_window import MainWindow
+    lib = LibraryStore()
+    values, _ = resolve_values(_dc_macro(), given={"n": "2", "fuse_in": "20"}, components=lib.component)
+    p = Project(name="Makro vícepól")
+    sb = p.sheets[0]
+    sb.kind = "switchboard"
+    w = MainWindow(lib, p)
+    w.open_sheet(sb, "multipole")
+    sc = w.view.scene()
+    _check_macro_insert(w, sb, sc, lib, values)
+    sc.insert_macro(_dc_macro(), values, (150, 150))
+    assert all(e.mp_pos is not None for e in sb.elements)
+    w.undo.setClean()
+    w.close()
+
+
+def test_macro_values_dialog(app):
+    from envocad.ui.dialogs import MacroValuesDialog
+    lib = LibraryStore()
+    m = _dc_macro()
+    dlg = MacroValuesDialog(m, lib)
+    assert dlg.value_set() is None and dlg.set_combo.count() == len(m.value_sets) + 1
+    dlg.set_combo.setCurrentText("Pojistka 20 A gPV, SPD T1+T2")
+    v = dlg.values()
+    assert dlg.value_set() == "Pojistka 20 A gPV, SPD T1+T2"
+    assert v["fuse_in"] == "20" and v["spd"] == "T1+T2" and not dlg.errors
+    # povinná hodnota chybí → chyba, dialog zůstane otevřený
+    dlg.set_combo.setCurrentIndex(0)
+    dlg._fields["fuse_in"].setText("")
+    dlg.show()
+    dlg.accept()
+    assert dlg.errors and dlg.isVisible() and dlg.error_label.isVisible()
+    assert "povinná" in dlg.error_label.text()
+    dlg._fields["fuse_in"].setText("16,0")
+    dlg.accept()
+    assert not dlg.errors and dlg.result() == 1 and dlg.values()["fuse_in"] == "16"
