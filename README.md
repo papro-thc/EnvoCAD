@@ -1,7 +1,20 @@
 # EnvoCAD
 
-Interní nástroj ENVO pro kreslení jednopólových schémat FVE a správu vlastní knihovny elektro prvků.
-Cíl: nahradit EPLAN pro naše potřeby, s jedním modelem, ze kterého se generují schémata, výkazy a dokumentace.
+Open-source CAD pro elektro dokumentaci fotovoltaických elektráren – jednopólová schémata, rozvaděče
+(vícepól, rozložení, oteplení), výkazy a technická zpráva z jednoho datového modelu. Vzniká v ENVO s.r.o.
+jako náhrada EPLAN pro FVE: data-driven – projekt se dá vygenerovat ze specifikace (stringy, střídače, rozvaděče)
+a rozvaděče se skládají z maker, která si projektant vyladí sám.
+
+![Jednopólové schéma vygenerované ze specifikace](docs/img/jps.png)
+
+![DC rozvaděč – schéma z makra](docs/img/rozvadec.png)
+
+## Stažení
+
+```
+git clone https://github.com/papro-thc/EnvoCAD.git
+cd EnvoCAD
+```
 
 ## Instalace (Windows i Linux)
 
@@ -28,13 +41,27 @@ Build pro Windows se musí dělat na Windows, pro Linux na Linuxu.
 
 ## Stav
 
-v0.5 – jednopólové schéma FVE, listy rozvaděčů (schéma + fyzické rozložení na DIN lištách, parametry skříně, odhad oteplení),
-šablony rozvaděčů, výkazy (xlsx) a protokol kusového ověření (docx), export DXF/PDF, vícepól jako svorkové schéma (automatické rozmístění + posun myší), plán svorkovnice, rámeček s popisovým polem, knihovna 460 artiklů (OEZ, Eaton,
-Schneider, Hager, SMA, SolaX, Huawei, BMR) + 673 značek QElectroTech, import DXF/EPLAN, pluginy, tmavý režim.
+**v0.11** (viz `CHANGELOG.md`):
 
-Dokumentace: **`docs/MANUAL.md` (uživatelská příručka)**, `docs/ARCHITECTURE.md`, `docs/LIBRARY_FORMAT.md`, `docs/ROADMAP.md`, `docs/COMPONENTS.md`.
+- **JPS FVE** – stringy s počtem modulů a optimizérů, DC rozvaděče po trase a u technologie, střídače
+  (DC vstup na každý string), AC rozvaděč, uzemnění na HOP; křížové odkazy JPS ↔ rozvaděče.
+- **Generátor projektu** – průvodce nebo JSON specifikace → celý projekt; rozvaděče z parametrických maker
+  (`{k}`, `{string}`, `{fuse_in}`…), vlastní makro přepíše vestavěné.
+- **Rozvaděče** – vícepólové schéma jako v EPLAN (sběrnice potenciálů, svorky s můstky, více stran s odkazy,
+  kreslení přímo ve vícepólu), fyzické rozložení na DIN lištách, parametry skříně a odhad oteplení.
+- **Kreslení** – vodiče jen svisle/vodorovně, lomy jdou s prvky, úsek vodiče se dá táhnout myší, souběžné
+  vodiče drží odstup; popisky prvků a kabelů se rozmístí bez překryvů.
+- **Kontroly (F7)** – duplicitní označení, potenciály a zkraty, výpočty (stringy, Iz, úbytky, selektivita),
+  překryvy textů a souběhy vodičů, se skokem do výkresu.
+- **Výstupy** – výkazy xlsx (BOM, kabely, svorky, potenciály…), protokol kusového ověření a TZ (docx),
+  PDF celé dokumentace, DXF pro ZWCAD/AutoCAD.
+- **Knihovna** – ~460 artiklů (OEZ, Eaton, Schneider, Hager, SMA, SolaX, Huawei, BMR…), 673 značek QElectroTech,
+  import DXF/EPLAN, sdílená firemní knihovna, pluginy; tmavý režim.
+
+Dokumentace: **`docs/MANUAL.md` (uživatelská příručka)**, `docs/ARCHITECTURE.md`, `docs/LIBRARY_FORMAT.md`,
+`docs/ROADMAP.md`, `docs/COMPONENTS.md`, `docs/ENVO_STYL.md` (konvence výkresů ENVO).
 Nastavení a firemní standard: `~/.envocad/settings.json` (menu Knihovna), sdílená knihovna = síťová složka s JSON/CSV.
-Pokyny pro agenty: `CLAUDE.md`.
+Pokyny pro AI agenty: `CLAUDE.md`, `docs/AGENTS.md`.
 
 ## Ovládání editoru
 
@@ -42,7 +69,8 @@ Pokyny pro agenty: `CLAUDE.md`.
 |---|---|
 | Vložit symbol | dvojklik v panelu Knihovna, klik do výkresu, vyplnit parametry v dialogu (Esc zruší režim) |
 | Upravit parametry | dvojklik na prvek nebo vodič |
-| Posun | tažení myší (snap na mřížku 2,5 mm) |
+| Posun | tažení myší (snap na mřížku 2,5 mm); ruční lomy vodičů jdou s prvky |
+| Úprava trasy vodiče | chytit úsek vodiče a táhnout (vodorovný nahoru/dolů, svislý do stran); `N` narovná vybrané vodiče |
 | Rotace | `R` (o 90°) |
 | Vodič | `W`, klik na port → klik na port, vyplnit parametry (označení, kabel, průřez) |
 | Smazat | `Delete` |
@@ -71,6 +99,18 @@ Pokyny pro agenty: `CLAUDE.md`.
 | Revize | `Soubor → Porovnat s revizí` → změnový list; `Soubor → Vlastnosti` revize/datum |
 | TZ / DS | `Výstupy → Technická zpráva (docx)`, výkaz Data pro DS |
 | Artikl z knihovny | v dialogu prvku „Vybrat artikl z knihovny…“; menu Knihovna → Prohlížet / Importovat CSV |
+
+## Vývoj
+
+```
+pip install -e .[dev]
+pytest                                            # headless testy
+QT_QPA_PLATFORM=offscreen pytest tests/test_gui_smoke.py
+ruff check .
+```
+
+Model (`envocad/model`, `envocad/library`) je bez Qt a testuje se headless; GUI je PySide6 (`envocad/ui`).
+Chyby a nápady: [Issues](https://github.com/papro-thc/EnvoCAD/issues).
 
 ## Když program spadne
 

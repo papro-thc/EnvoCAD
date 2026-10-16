@@ -204,7 +204,9 @@ def symbol_text_boxes(e: Element, sym) -> list[Box]:
             h = pr.get("height", 2.5)
             if e.rotation % 180:
                 w = len(pr["text"]) * h * CHAR_W
-                out.append((e.x + x - 1.0 * h, e.y + y - w / 2, e.x + x + 0.3 * h, e.y + y + w / 2))
+                # otočený text: výška písma míří u 270° k +x, u 90° k −x
+                up, down = (1.0 * h, 0.3 * h) if e.rotation % 360 == 270 else (0.3 * h, 1.0 * h)
+                out.append((e.x + x - down, e.y + y - w / 2, e.x + x + up, e.y + y + w / 2))
             else:
                 out.append(text_box(e.x + x, e.y + y, pr["text"], h, pr.get("align", "center")))
     return out
