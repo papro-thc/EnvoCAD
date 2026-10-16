@@ -94,7 +94,8 @@ def guess_category(*texts: str) -> str:
 
 
 def _num(v: str) -> str:
-    m = re.search(r"-?\d+(?:[.,]\d+)?", v or "")
+    v = re.sub(r"(?<=\d)[\s\u00a0\u202f](?=\d{3}(?!\d))", "", v or "")   # „1 234,50“ – mezera odděluje tisíce
+    m = re.search(r"-?\d+(?:[.,]\d+)?", v)
     return m.group(0).replace(",", ".") if m else ""
 
 
