@@ -72,7 +72,7 @@ def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None)
                 continue
             sym = lib.get_symbol(e.symbol_id)
             pl = s.layout.placement(e.id) if s.is_switchboard else None
-            conts = ", ".join(sorted(contact_terminals(c) for _, c in contacts_of(project, e.ref))) if e.ref else ""
+            conts = ", ".join(sorted(contact_terminals(c) for _, c in contacts_of(project, e.ref, e))) if e.ref else ""
             d = designation(s, e)
             keyed.append(((d.func, d.loc, _ref_key(e.ref), s.name),
                           [_tag(project, s, e), sym.name, e.attrs.get("type", ""), e.attrs.get("manufacturer", ""),

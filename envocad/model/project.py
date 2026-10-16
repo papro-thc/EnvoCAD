@@ -629,16 +629,28 @@ def rename_structure(project: Project, aspect: str, old: str, new: str) -> int:
     return n
 
 
+REVISION_HEADER_LABELS = {"rev", "rev.", "revize", "revision", "index"}
+MAX_REVISION_LABEL = 8
+
+
+def _is_revision_label(label: str) -> bool:
+    """Krátké označení revize z řádku změnového listu („A“, „B1“, „03“) – ne hlavička („Rev“, „Revize“) ani věta."""
+    return (bool(label) and len(label) <= MAX_REVISION_LABEL and not any(ch.isspace() for ch in label)
+            and label.lower() not in REVISION_HEADER_LABELS)
+
+
 def _revisions_from_meta(meta: dict) -> list[dict]:
     """Revize z textového změnového listu `meta["changes"]` (řádky „rev | datum | popis | zpracoval“): jedna uzavřená
     revize na označení v pořadí výskytu, datum a autor z prvního vyplněného řádku, popis = popisy řádků pod sebou.
-    Bez značek a otisků. `meta["revision"]`, které v seznamu není, se přidá jako poslední otevřená revize."""
+    Bez značek a otisků. Bere jen řádky s aspoň dvěma částmi a krátkým označením bez mezer (`_is_revision_label`) –
+    hlavička tabulky a volný text se přeskočí. `meta["revision"]`, které v seznamu není, se přidá jako poslední
+    otevřená revize."""
     revs: dict[str, dict] = {}
     for line in str(meta.get("changes") or "").splitlines():
         parts = [x.strip() for x in line.split("|")]
-        label = parts[0] if parts else ""
-        if not label:
-            continue
+        label = parts[0]
+        if len(parts) < 2 or not _is_revision_label(label):
+            continue                             # volný text, nadpis, hlavička tabulky
         date, desc, author = (parts + ["", "", ""])[1:4]
         if len(parts) > 4:                       # „|“ v popisu – autor je poslední část
             desc, author = " | ".join(parts[2:-1]), parts[-1]
@@ -1062,7 +1074,7 @@ def element_xref(project: Project, sheet: Sheet, e: Element) -> str:
     """Text křížového odkazu kreslený u prvku: přerušovací bod → poloha protějšku („→ /2.C3“),
     kontakt → poloha své cívky, cívka → zrcadlo kontaktů (více řádků)."""
     if is_contact(e):
-        hit = coil_of(project, e)
+        hit = coil_of(project, e, sheet)
         if hit is None:
             return "→ ?"
         from envocad.model.frame import position_ref
@@ -1093,12 +1105,17 @@ def contact_terminals(e: Element) -> str:
     return {"ctl.contact_no": "13/14", "ctl.contact_nc": "21/22", "ctl.contact_power": "1/2"}.get(e.symbol_id, "")
 
 
-def contacts_of(project: Project, ref: str) -> list[tuple[Sheet, Element]]:
-    """Kontakty (pomocné i silové) patřící k cívce/přístroji s označením `ref`, kdekoli v projektu."""
+def contacts_of(project: Project, ref: str, coil: Element | None = None) -> list[tuple[Sheet, Element]]:
+    """Kontakty (pomocné i silové) patřící k cívce/přístroji s označením `ref`, kdekoli v projektu. Se `coil` jen
+    kontakty, které `coil_of` přiřadí právě této cívce (stejné ref ve více umístěních → podle prostoru označení)."""
     out = []
     for s in project.sheets:
         for e in s.elements:
             if is_contact(e) and e.ref == ref:
+                if coil is not None:
+                    hit = coil_of(project, e, s)
+                    if hit is None or hit[1] is not coil:
+                        continue
                 out.append((s, e))
     return out
 
@@ -1107,16 +1124,29 @@ def contact_mirror(project: Project, coil: Element) -> list[tuple[str, str]]:
     """Zrcadlo kontaktů pod cívkou: [(svorky, odkaz /list.sloupec)…] – jako v EPLAN."""
     from envocad.model.frame import position_ref
     rows = []
-    for s, e in contacts_of(project, coil.ref):
+    for s, e in contacts_of(project, coil.ref, coil):
         rows.append((contact_terminals(e), position_ref(project, s, e.x, e.y)))
     rows.sort()
     return rows
 
 
-def coil_of(project: Project, contact: Element) -> tuple[Sheet, Element] | None:
-    """Cívka nebo přístroj, ke kterému kontakt patří (stejné označení; ne jiný kontakt)."""
-    for s in project.sheets:
-        for e in s.elements:
-            if e.ref == contact.ref and e.id != contact.id and not is_contact(e):
-                return s, e
-    return None
+def coil_candidates(project: Project, contact: Element) -> list[tuple[Sheet, Element]]:
+    """Cívky/přístroje se stejným označením jako kontakt (ne jiný kontakt), v pořadí listů a prvků."""
+    return [(s, e) for s in project.sheets for e in s.elements
+            if e.ref == contact.ref and e.id != contact.id and not is_contact(e)]
+
+
+def coil_of(project: Project, contact: Element, sheet: Sheet | None = None) -> tuple[Sheet, Element] | None:
+    """Cívka nebo přístroj, ke kterému kontakt patří (stejné označení; ne jiný kontakt). Více kandidátů → přednost má
+    ten ve stejném prostoru označení (`designation.scope_key` – funkce, umístění) jako kontakt, jinak první.
+    `sheet` = list kontaktu (None = dohledá se)."""
+    cands = coil_candidates(project, contact)
+    if len(cands) <= 1:
+        return cands[0] if cands else None
+    sheet = sheet or project.sheet_of_element(contact.id)
+    if sheet is not None:
+        key = scope_key(sheet, contact)
+        same = next((c for c in cands if scope_key(c[0], c[1]) == key), None)
+        if same is not None:
+            return same
+    return cands[0]

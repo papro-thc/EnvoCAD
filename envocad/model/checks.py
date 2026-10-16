@@ -81,7 +81,7 @@ def check_project(project: Project, lib) -> list[Finding]:
                 out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref, f"Neznámá značka {e.symbol_id}", "symbol"))
                 continue
             sym_of[e.id] = sym
-            if is_contact(e) and e.ref and coil_of(project, e) is None:
+            if is_contact(e) and e.ref and coil_of(project, e, s) is None:
                 out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                    f"Kontakt {contact_terminals(e)} bez cívky/přístroje {e.ref}", "contact_alone"))
             if e.ref and refs[(*scope_key(s, e), e.ref)] > 1 and not mp.is_terminal_block(e) and not is_contact(e):
@@ -245,9 +245,9 @@ def _place_text(project: Project, s: Sheet, e: Element) -> str:
 
 
 def _contact_findings(project: Project) -> list[Finding]:
-    """Kontakt se páruje s cívkou jen podle `ref` (napříč projektem). Má-li stejné označení víc cívek/přístrojů
-    v různých prostorech (K1 v +RDC1 i v +RH), je párování nejednoznačné – pokud kontakt umístěním nevybere právě
-    jeden z nich."""
+    """Kontakt se páruje s cívkou podle `ref` (napříč projektem, `coil_of`). Má-li stejné označení víc cívek/přístrojů
+    v různých prostorech (K1 v +RDC1 i v +RH), přednost má cívka ve stejném prostoru označení (funkce, umístění) jako
+    kontakt. Nejednoznačné je to, jen když v prostoru kontaktu není právě jedna z nich."""
     out: list[Finding] = []
     owners: dict[str, list[tuple[Sheet, Element]]] = {}
     for s in project.sheets:
@@ -262,8 +262,7 @@ def _contact_findings(project: Project) -> list[Finding]:
             scopes = {scope_key(os_, o) for os_, o in cands}
             if len(scopes) < 2:
                 continue
-            if (c.attrs.get("func") or c.attrs.get("loc")) and \
-                    sum(1 for os_, o in cands if scope_key(os_, o) == scope_key(s, c)) == 1:
+            if sum(1 for os_, o in cands if scope_key(os_, o) == scope_key(s, c)) == 1:
                 continue
             places = sorted({_place_text(project, os_, o) for os_, o in cands})
             out.append(Finding(WARNING, s.id, s.name, c.id, False, c.ref,

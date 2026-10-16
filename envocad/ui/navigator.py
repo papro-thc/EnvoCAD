@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QTreeWidget,
     QTreeWidgetItem,
@@ -143,7 +144,7 @@ class DiffDialog(QDialog):
         lay.addWidget(self.tree)
         row = QHBoxLayout()
         row.addWidget(QLabel("Revize:"))
-        self.rev = QLineEdit(str(project.meta.get("revision") or "1"))
+        self.rev = QLineEdit(self.default_label(project))
         row.addWidget(self.rev)
         row.addWidget(QLabel("Datum:"))
         self.date = QLineEdit(project.meta.get("date", ""))
@@ -158,6 +159,27 @@ class DiffDialog(QDialog):
         self.btn_write.clicked.connect(self.accept)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
+
+    @staticmethod
+    def default_label(project) -> str:
+        """Předvyplněné označení: otevřená revize, po uzavřené revizi další označení, jinak `meta["revision"]`."""
+        from envocad.model.revision import next_revision_label
+        revs = project.revisions
+        open_rev = next((r for r in reversed(revs) if not r.closed), None)
+        if open_rev is not None:
+            return open_rev.label
+        if revs:
+            return next_revision_label(project)
+        return str(project.meta.get("revision") or "1")
+
+    def accept(self) -> None:
+        from envocad.model.revision import closed_labels
+        label = self.rev.text().strip()
+        if label in closed_labels(self.project):
+            QMessageBox.warning(self, "Porovnání s revizí", f"Revize {label} je už uzavřená – zadej jiné označení "
+                                                            "(změny se zapíší do nové revize).")
+            return
+        super().accept()
 
     def change_text(self) -> str:
         from envocad.model.diff import change_list_text

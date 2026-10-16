@@ -53,6 +53,11 @@ def test_xlsx_and_docx(tmp_path):
     text = "\n".join(par.text for par in doc.paragraphs)
     assert "kusovém ověření" in text and len(doc.tables) >= 5
     assert any("Q1" in c.text for t in doc.tables for row in t.rows for c in row.cells)
+    # datum protokolu = dnešek v místním čase (stejně jako popisové pole, bez DTZ011)
+    from datetime import datetime
+    today = datetime.now().astimezone().strftime("%d.%m.%Y")
+    cells = [[c.text for c in row.cells] for t in doc.tables for row in t.rows]
+    assert ["Datum", today] in [r[:2] for r in cells]
 
 
 def test_empty_sheet_reports(tmp_path):

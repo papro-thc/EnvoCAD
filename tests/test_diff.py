@@ -134,5 +134,8 @@ def test_sheet_fingerprint(tmp_path):
     s.loc = "RS1"
     assert sheet_fingerprint(s) != fp
     s.loc = ""
-    s.elements[0].x += 2.5
+    s.elements[0].x += 2.5                         # posun ani otočení otisk nemění (MARK_MOVES = False)
+    s.elements[0].rotation = (s.elements[0].rotation + 90) % 360
+    assert sheet_fingerprint(s) == fp
+    s.elements[0].attrs["desc"] = "jiný popis"
     assert sheet_fingerprint(s) != fp

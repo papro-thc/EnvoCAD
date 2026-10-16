@@ -16,6 +16,7 @@ from envocad.model.revision import (
     changed_after_close,
     close_revision,
     marks_from_changes,
+    next_revision_label,
     open_revision,
     restore_revisions_state,
     revision_geometry,
@@ -238,3 +239,89 @@ def test_compare_flow_end_to_end(tmp_path, lib):
     assert _revision_label(title_rows(p2, s)) == "B"
     other = p2.sheets[1]
     assert _revision_label(title_rows(p2, other)) == "B"           # jediná revize = první → i nezměněný list
+
+
+# ---- regrese z review --------------------------------------------------------------------------------------
+def _warned(p, lib) -> list[str]:
+    return [f.sheet_id for f in check_project(p, lib) if f.code == "rev_closed_changed"]
+
+
+def test_close_all_keeps_earlier_sheet_fingerprint(tmp_path, lib):
+    """Otevřená B, uzavřít list S1, upravit S1, uzavřít celou revizi → S1 se dál hlásí; porovnání do C ho zachytí."""
+    old, p = _pair(tmp_path)
+    s1 = p.sheets[0]
+    e = next(x for x in s1.elements if x.ref)
+    e.attrs["desc"] = "x1"
+    rev = open_revision(p, "B")
+    apply_changes(p, rev, diff_projects(old, p, lib))
+    close_revision(p, rev, [s1.id])
+    fp = rev.fingerprints[s1.id]
+    e.attrs["desc"] = "x2"
+    assert changed_after_close(p) == [(s1, rev)]
+    close_revision(p, rev)
+    assert rev.closed and rev.fingerprints[s1.id] == fp           # otisk uzavřeného listu se nepřepsal
+    assert changed_after_close(p) == [(s1, rev)] and _warned(p, lib) == [s1.id]
+    p.save(tmp_path / "B.ecp")
+    base = Project.load(tmp_path / "B.ecp")
+    # porovnání se stavem při uzavření listu S1 (desc x1) zachytí změnu x1 → x2 do nové revize C
+    at_close = Project.load(tmp_path / "B.ecp")
+    next(x for x in at_close.sheets[0].elements if x.id == e.id).attrs["desc"] = "x1"
+    nxt = open_revision(p, "")
+    assert nxt.label == "C"
+    ch = diff_projects(at_close, p, lib)
+    assert any(c.target_id == e.id and "x2" in c.detail for c in ch)
+    apply_changes(p, nxt, ch)
+    assert any(m.sheet_id == s1.id and m.target_id == e.id for m in nxt.marks)
+    assert changed_after_close(p) == [] and _warned(p, lib) == []
+    assert base.revisions[-1].fingerprints[s1.id] == fp           # uloženo a načteno beze změny
+
+
+def test_move_does_not_change_fingerprint(tmp_path, lib):
+    """Posun/otočení prvku nemění otisk listu (MARK_MOVES=False) → po uzavření žádné neodstranitelné varování."""
+    from envocad.model.diff import sheet_fingerprint
+    _, p = _pair(tmp_path)
+    s = p.sheets[0]
+    rev = open_revision(p, "A")
+    close_revision(p, rev)
+    fp = sheet_fingerprint(s)
+    e = next(x for x in s.elements if x.ref)
+    e.x += 5
+    e.rotation = (e.rotation + 90) % 360
+    assert sheet_fingerprint(s) == fp
+    assert changed_after_close(p) == [] and _warned(p, lib) == []
+    e.attrs["desc"] = "jiný"                                      # obsahová změna otisk mění dál
+    assert sheet_fingerprint(s) != fp and _warned(p, lib) == [s.id]
+
+
+def test_revisions_state_only_revision_meta():
+    """Stav pro undo nese jen meta „revision“ a „changes“ – obnovení nevrátí jiná metadata."""
+    p = Project(meta={"investor": "Původní", "revision": "A"})
+    before = revisions_state(p)
+    assert before[1] == {"revision": "A"}
+    rev = open_revision(p, "B")
+    apply_changes(p, rev, [])
+    p.meta["changes"] = "B | 1.1.2026 | x | PR"
+    after = revisions_state(p)
+    restore_revisions_state(p, before)
+    p.meta["investor"] = "Nový"                                   # změna mimo revize
+    restore_revisions_state(p, after)
+    assert p.meta == {"investor": "Nový", "revision": "B", "changes": "B | 1.1.2026 | x | PR"}
+    restore_revisions_state(p, before)
+    assert p.meta == {"investor": "Nový", "revision": "A"}        # „changes“ ve stavu chybělo → odebráno
+
+
+def test_next_label_and_closed_label_rejected():
+    p = Project()
+    assert next_revision_label(p) == "A"
+    a = open_revision(p, "A")
+    close_revision(p, a)
+    assert next_revision_label(p) == "B"
+    with pytest.raises(ValueError, match="uzavřená"):
+        open_revision(p, "A")
+    assert len(p.revisions) == 1                                  # odmítnutí projekt nezmění
+    b = open_revision(p, "B")
+    with pytest.raises(ValueError):
+        open_revision(p, "A")                                     # ani přejmenování otevřené revize
+    assert b.label == "B"
+    p.revisions = [Revision("1", closed=True), Revision("3", closed=True), Revision("2", closed=True)]
+    assert next_revision_label(p) == "4"                          # „3“ je uzavřená → přeskočit

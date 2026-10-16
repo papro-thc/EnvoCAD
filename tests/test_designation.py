@@ -87,6 +87,13 @@ def test_validate_ref_codes():
     assert i[0].error and "bez „-“" in i[0].text
     i = validate_ref("FU1.1", ["F"])
     assert [x.code for x in i] == ["ref_syntax"] and i[0].info
+    # po INFO za měkký oddělovač se kontroluje dál: třída, délka, znaky (bez „.“ a „-“)
+    assert [x.code for x in validate_ref("SPD-DC1.1", ["F", "SPD"])] == ["ref_syntax"]
+    i = validate_ref("T1.1", ["F", "Q"])
+    assert [x.code for x in i] == ["ref_syntax", "ref_class"] and i[0].info and not i[1].info
+    assert [x.code for x in validate_ref("Fu1.1", ["F"])] == ["ref_syntax", "ref_chars"]
+    assert [x.code for x in validate_ref("F1.2.3.4.5.6", ["F"])] == ["ref_syntax", "ref_length"]
+    assert [x.code for x in validate_ref("F-1", None, is_wire=True)] == ["ref_syntax"]
     i = validate_ref("f3", ["F"])
     assert [x.code for x in i] == ["ref_chars"] and not i[0].error and not i[0].info
     assert [x.code for x in validate_ref("Fč1", ["F"])] == ["ref_chars"]

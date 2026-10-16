@@ -466,25 +466,41 @@ class MainWindow(QMainWindow):
         dlg = SheetPropsDialog(sh, self)
         if dlg.exec() != SheetPropsDialog.Accepted:
             return
-        name, func, loc = dlg.values()
-        if not self.set_sheet_designation(sh, func, loc):
-            return
-        if name and name != sh.name:
-            sh.name = name
-            self._refresh_tab_titles()
-            self.undo.resetClean()
+        self.set_sheet_props(sh, *dlg.values())
 
-    def set_sheet_designation(self, sh: Sheet, func: str, loc: str) -> bool:
-        """=funkce / +umístění listu přes undo; nový kód se zapíše i do registru. False = neplatný kód."""
-        from envocad.model.designation import FUNC, LOC, validate_code
-        from envocad.model.project import StructureId
-        if (func, loc) == (sh.func, sh.loc):
+    def set_sheet_props(self, sh: Sheet, name: str, func: str, loc: str) -> bool:
+        """Název a označení listu jako jeden krok undo (makro). False = neplatný kód, nic se nezmění."""
+        rename = bool(name) and name != sh.name
+        designate = (func, loc) != (sh.func, sh.loc)
+        if not (rename or designate):
             return True
+        if designate and not self._valid_sheet_codes(sh, func, loc):
+            return False
+        self.undo.beginMacro("Vlastnosti listu")
+        if designate:
+            self.set_sheet_designation(sh, func, loc)
+        if rename:
+            self.undo.push(commands.RenameSheetCommand(sh, sh.name, name, on_change=self._refresh_tab_titles))
+        self.undo.endMacro()
+        return True
+
+    def _valid_sheet_codes(self, sh: Sheet, func: str, loc: str) -> bool:
+        from envocad.model.designation import FUNC, LOC, validate_code
         for aspect, code in ((FUNC, func), (LOC, loc)):
             issues = validate_code(code, aspect, f"listu {sh.name}")
             if issues:
                 QMessageBox.warning(self, "Označení listu", issues[0].text)
                 return False
+        return True
+
+    def set_sheet_designation(self, sh: Sheet, func: str, loc: str) -> bool:
+        """=funkce / +umístění listu přes undo; nový kód se zapíše i do registru. False = neplatný kód."""
+        from envocad.model.designation import FUNC, LOC
+        from envocad.model.project import StructureId
+        if (func, loc) == (sh.func, sh.loc):
+            return True
+        if not self._valid_sheet_codes(sh, func, loc):
+            return False
         self.undo.beginMacro("Změnit označení listu")
         self.undo.push(commands.SetSheetDesignationCommand(sh, (sh.func, sh.loc), (func, loc)))
         old_list = list(self.project.structures)
@@ -966,13 +982,14 @@ class MainWindow(QMainWindow):
         changes = diff_projects(old, self.project, self.library)
         dlg = DiffDialog(changes, self.project, self)
         dlg.goto.connect(self.goto_target)
-        if dlg.exec() == DiffDialog.Accepted and changes:
-            self.record_revision(changes, dlg.rev.text().strip(), dlg.date.text().strip(),
-                                 dlg.author.text().strip(), dlg.change_text())
+        if dlg.exec() == DiffDialog.Accepted and changes and \
+                self.record_revision(changes, dlg.rev.text().strip(), dlg.date.text().strip(),
+                                     dlg.author.text().strip(), dlg.change_text()):
             self.statusBar().showMessage(f"Změnový list doplněn o {len(changes)} řádků", 4000)
 
-    def record_revision(self, changes, label: str, date: str, author: str, change_text: str) -> None:
-        """Zapíše porovnání do revize: značky (`apply_changes`) + řádky `meta["changes"]`, jako jeden undo příkaz."""
+    def record_revision(self, changes, label: str, date: str, author: str, change_text: str) -> bool:
+        """Zapíše porovnání do revize: značky (`apply_changes`) + řádky `meta["changes"]`, jako jeden undo příkaz.
+        False = označení patří uzavřené revizi (hláška, projekt se nezmění)."""
         from envocad.model.revision import (
             apply_changes,
             open_revision,
@@ -980,13 +997,18 @@ class MainWindow(QMainWindow):
             revisions_state,
         )
         before = revisions_state(self.project)
-        rev = open_revision(self.project, label, date, author)
+        try:
+            rev = open_revision(self.project, label, date, author)
+        except ValueError as ex:
+            QMessageBox.warning(self, "Porovnání s revizí", f"{ex}.")
+            return False
         apply_changes(self.project, rev, changes)
         cur = self.project.meta.get("changes", "")
         self.project.meta["changes"] = (cur + "\n" + change_text).strip() if cur else change_text
         after = revisions_state(self.project)
         restore_revisions_state(self.project, before)
         self.undo.push(commands.ReplaceRevisionsCommand(self.project, before, after, "Porovnání s revizí"))
+        return True
 
     def close_revision_all(self) -> bool:
         return self.close_open_revision(None)

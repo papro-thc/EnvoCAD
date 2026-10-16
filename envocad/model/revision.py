@@ -2,7 +2,8 @@
 Bez Qt – geometrii kreslí Qt (`ui/render.py`) i DXF export (vrstva REVIZE) stejně.
 
 Použití z GUI (všechny funkce mění `project.revisions` / `project.meta` – v UI je obal jedním
-`ReplaceRevisionsCommand(project, old_revs, new_revs, old_meta, new_meta)`, stav před/po dá `revisions_state`):
+`ReplaceRevisionsCommand(project, before, after)`, stav před/po dá `revisions_state` – revize a jen meta klíče
+`REVISION_META_KEYS`, ostatní metadata undo revize nemění):
 
 Porovnání s revizí (`compare_revision`)::
 
@@ -80,24 +81,42 @@ def marks_from_changes(changes: list[Change]) -> list[RevisionMark]:
 
 
 # ---- práce s revizemi --------------------------------------------------------------------------------------
+REVISION_META_KEYS = ("revision", "changes")   # meta klíče, které mění revize (porovnání, změnový list)
+
+
 def revisions_state(project: Project) -> tuple[list[Revision], dict[str, str]]:
-    """Hluboká kopie (revize, meta) pro undo příkaz."""
-    return copy.deepcopy(project.revisions), dict(project.meta)
+    """Hluboká kopie (revize, meta klíče revize `REVISION_META_KEYS`) pro undo příkaz. Ostatní metadata (investor…)
+    do stavu nepatří – undo revize je nesmí vrátit."""
+    meta = {k: project.meta[k] for k in REVISION_META_KEYS if k in project.meta}
+    return copy.deepcopy(project.revisions), meta
 
 
 def restore_revisions_state(project: Project, state: tuple[list[Revision], dict[str, str]]) -> None:
-    """Vrátí stav z `revisions_state` (kopii – stav lze obnovit opakovaně, redo/undo)."""
+    """Vrátí stav z `revisions_state` (kopii – stav lze obnovit opakovaně, redo/undo). Z meta mění jen
+    `REVISION_META_KEYS` (klíč, který ve stavu chybí, odebere)."""
     revs, meta = state
     project.revisions = copy.deepcopy(revs)
-    project.meta = dict(meta)
+    for k in REVISION_META_KEYS:
+        if k in meta:
+            project.meta[k] = meta[k]
+        else:
+            project.meta.pop(k, None)
+
+
+def closed_labels(project: Project) -> set[str]:
+    """Označení uzavřených revizí."""
+    return {r.label for r in project.revisions if r.closed}
 
 
 def open_revision(project: Project, label: str, date: str = "", author: str = "") -> Revision:
     """Poslední otevřená (neuzavřená) revize, jinak nová na konci seznamu. Neprázdné `label`/`date`/`author`
-    otevřené revizi přepíšou údaje (dialog porovnání je nabízí k úpravě)."""
+    otevřené revizi přepíšou údaje (dialog porovnání je nabízí k úpravě). Označení, které už má uzavřená revize,
+    → ValueError (projekt se nezmění)."""
+    if label and label in closed_labels(project):
+        raise ValueError(f"Revize {label} je už uzavřená – zadej jiné označení")
     rev = next((r for r in reversed(project.revisions) if not r.closed), None)
     if rev is None:
-        rev = Revision(label or _next_label(project), date=date, author=author)
+        rev = Revision(label or next_revision_label(project), date=date, author=author)
         project.revisions.append(rev)
         return rev
     rev.label = label or rev.label
@@ -106,10 +125,19 @@ def open_revision(project: Project, label: str, date: str = "", author: str = ""
     return rev
 
 
-def _next_label(project: Project) -> str:
+def next_revision_label(project: Project) -> str:
+    """Označení další revize za poslední: „A“ → „B“, „3“ → „4“, jiné → „…+“ (bez revizí „A“). Nikdy nevrátí
+    označení uzavřené revize."""
     if not project.revisions:
         return "A"
-    last = project.revisions[-1].label
+    used = closed_labels(project)
+    label = _increment_label(project.revisions[-1].label)
+    while label in used:
+        label = _increment_label(label)
+    return label
+
+
+def _increment_label(last: str) -> str:
     if last.isdigit():
         return str(int(last) + 1)
     if len(last) == 1 and "A" <= last.upper() < "Z":
@@ -130,13 +158,19 @@ def apply_changes(project: Project, rev: Revision, changes: list[Change]) -> Non
 
 def close_revision(project: Project, rev: Revision, sheet_ids: list[str] | None = None) -> None:
     """Uzavře revizi (měkký zámek): uloží otisky listů. `sheet_ids=None` = celá revize (otisky všech listů
-    a `closed=True`), jinak jen vybrané listy (revize zůstane otevřená, jejich značky se dál nemění)."""
-    ids = [s.id for s in project.sheets] if sheet_ids is None else list(sheet_ids)
+    a `closed=True`; listy uzavřené dřív si nechají dosavadní otisk), jinak jen vybrané listy (revize zůstane
+    otevřená, jejich značky se dál nemění; opakované uzavření listu otisk obnoví)."""
+    if sheet_ids is None:
+        for s in project.sheets:
+            # list uzavřený dřív si nechá svůj otisk – jeho pozdější změna se dál hlásí (`changed_after_close`)
+            # a zachytí ji porovnání do další revize
+            rev.fingerprints.setdefault(s.id, sheet_fingerprint(s))
+        rev.closed = True
+        return
+    ids = set(sheet_ids)
     for s in project.sheets:
         if s.id in ids:
             rev.fingerprints[s.id] = sheet_fingerprint(s)
-    if sheet_ids is None:
-        rev.closed = True
 
 
 def _has_mark(rev: Revision, sheet_id: str) -> bool:

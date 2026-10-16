@@ -57,13 +57,19 @@ Pravidla:
 ## Třída označení (`function_class`)
 
 `iec_ref` je jen prefix automatického číslování (F → F1, F2…). `function_class` je seznam **povolených tříd**
-označení dle ČSN EN IEC 81346-2 (1–2 velká písmena). Kontrola projektu (`ref_class`, varování) hlásí prvek, jehož
+označení dle ČSN EN IEC 81346-2 (1–2 velká písmena: třída a podtřída), případně firemní prefix ENVO
+(`docs/ENVO_STYL.md`) až o 3 písmenech. Kontrola projektu (`ref_class`, varování) hlásí prvek, jehož
 písmenný kód označení žádné třídě neodpovídá. Shoda je prefixem: třída „F“ přijme F3, FA1, FC2.
 
 - Klíč chybí → třídy `[iec_ref]`; prázdný `iec_ref` → kontrola třídy se nedělá.
 - `[]` → nekontroluje se (např. blok rozvaděče `fve.switchboard`, jehož označení je umístění).
-- `validate()` vyžaduje třídy `^[A-Z]{1,2}$` a aby jim odpovídal i sám `iec_ref` (`iec_ref` + „1“).
+- `validate()` vyžaduje třídy `^[A-Z]{1,3}$` a aby jim odpovídal i sám `iec_ref` (`iec_ref` + „1“).
 - Příklad: jistič `fve.breaker_mcb` má `iec_ref` „F“ a `function_class` `["F", "Q"]` – označení Q1 je také v pořádku.
+- Firemní prefix: svodič `fve.spd` má `iec_ref` „F“ a `function_class` `["F", "SPD"]` – firemní číslování
+  `SPD-DC1.1` (`docs/ENVO_STYL.md`) neodpovídá třídě F ani podtřídě FC, a třída „S“ by znamenala ruční ovládání
+  (tlačítka S1). Proto explicitní třípísmenný prefix místo volnějšího „S“.
+- Měkké oddělovače firemního číslování („.“, vnitřní „-“, např. `FU1.1`, `SPD-DC1.1`) jsou jen informace; třída,
+  délka a znaky (bez oddělovačů) se kontrolují dál.
 
 Formát symbolu kvůli tomu nemá verzi – nový klíč je nepovinný a starší program ho ignoruje.
 

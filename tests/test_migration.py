@@ -171,6 +171,22 @@ def test_v7_revisions_from_meta():
     assert Project.from_dict(_v(7, [_sheet("s1", [])])).revisions == []
 
 
+def test_v7_revisions_from_meta_skips_header_and_free_text():
+    """Hlavička tabulky, volný text a dlouhé „označení“ nejsou revize."""
+    meta = {"changes": (
+        "Rev | Datum | Popis | Zpracoval\n"
+        "Revize | Datum | Popis | Zpracoval\n"
+        "Změnový list projektu FVE\n"
+        "A\n"
+        "Pozn. k revizi | viz TZ\n"
+        "DLOUHEOZNACENI | 2026 | x | PR\n"
+        "A | 2026-01-10 | List 1: přidáno F1 | PR\n"
+        "B1 | 2026-02-01 | změna | JN")}
+    p = Project.from_dict(_v(7, [_sheet("s1", [])], meta=meta))
+    assert [r.label for r in p.revisions] == ["A", "B1"]
+    assert p.revisions[0].description == "List 1: přidáno F1" and p.revisions[0].author == "PR"
+
+
 def test_example_migrates_to_v8():
     p = Project.load(EXAMPLE)
     assert FORMAT_VERSION == 8

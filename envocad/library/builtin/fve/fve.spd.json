@@ -3,6 +3,10 @@
   "name": "Svodič přepětí (SPD)",
   "category": "Jištění",
   "iec_ref": "F",
+  "function_class": [
+    "F",
+    "SPD"
+  ],
   "description": "Svodič přepětí, typ 1/2, DC nebo AC",
   "primitives": [
     {

@@ -254,3 +254,58 @@ def test_replace_revisions_undo_and_record(app):
     undo = QUndoStack()
     undo.push(commands.ReplaceRevisionsCommand(p, before, after))
     assert p.revisions[-1].label == "B" and p.meta["revision"] == "B"
+
+
+def test_replace_revisions_undo_keeps_other_meta(app):
+    """Undo revize vrátí jen meta „revision“/„changes“ – úprava investora mimo příkaz zůstane."""
+    from envocad.model.revision import apply_changes, open_revision, restore_revisions_state, revisions_state
+    p = _project()
+    p.meta.update({"investor": "Původní", "revision": "A"})
+    undo = QUndoStack()
+    before = revisions_state(p)
+    rev = open_revision(p, "B")
+    apply_changes(p, rev, [])
+    p.meta["changes"] = "B | 1.1.2026 | změna | ENVO"
+    after = revisions_state(p)
+    restore_revisions_state(p, before)
+    undo.push(commands.ReplaceRevisionsCommand(p, before, after))
+    assert p.meta["revision"] == "B" and p.meta["changes"]
+    p.meta["investor"] = "Nový"                                   # změna mimo příkaz
+    undo.undo()
+    assert p.meta["investor"] == "Nový" and p.meta["revision"] == "A" and "changes" not in p.meta
+    assert p.revisions == []
+    undo.redo()
+    assert p.meta["investor"] == "Nový" and p.meta["revision"] == "B"
+
+
+def test_rename_sheet_undo(app, monkeypatch):
+    """Název listu přes undo (RenameSheetCommand), s označením v jednom makru, bez resetClean."""
+    from PySide6.QtWidgets import QMessageBox
+
+    from envocad.ui.main_window import MainWindow
+    p = _project()
+    s = p.sheets[0]
+    _roundtrip(p, lambda: commands.RenameSheetCommand(s, s.name, "Nový název"))
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: QMessageBox.Ok)
+    w = MainWindow(library=LibraryStore(), project=p)
+    try:
+        w.undo.setClean()
+        name0 = s.name
+        before = p.to_dict()
+        assert w.set_sheet_props(s, "Přejmenovaný", "AC", "RS1")
+        assert (s.name, s.func, s.loc) == ("Přejmenovaný", "AC", "RS1")
+        assert not w.undo.isClean() and w.undo.count() == 1    # jeden krok undo (makro)
+        assert any(w.tabs.tabText(i).startswith("Přejmenovaný") for i in range(w.tabs.count()))
+        w.undo.undo()
+        assert p.to_dict() == before and s.name == name0 and w.undo.isClean()
+        assert any(w.tabs.tabText(i).startswith(name0) for i in range(w.tabs.count()))
+        w.undo.redo()
+        assert s.name == "Přejmenovaný"
+        assert w.set_sheet_props(s, "Jen název", "AC", "RS1") and s.name == "Jen název" and w.undo.count() == 2
+        n = w.undo.count()
+        assert not w.set_sheet_props(s, "Neplatný", "1X", "RS1")     # neplatný kód → nic se nezmění
+        assert s.name == "Jen název" and w.undo.count() == n
+        assert w.set_sheet_props(s, "Jen název", "AC", "RS1") and w.undo.count() == n   # beze změny = bez kroku
+    finally:
+        w.undo.setClean()
+        w.close()

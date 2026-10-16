@@ -778,3 +778,58 @@ def test_structure_ui_and_revision_flow(app, monkeypatch, tmp_path):
     assert pm.save(str(shot))
     w.undo.setClean()
     w.close()
+
+
+def test_revision_labels_panel_codes_and_structures_note(app, monkeypatch):
+    """Další označení revize v dialogu porovnání, odmítnutí označení uzavřené revize, func/loc v panelu velkými
+    písmeny, upozornění v dialogu struktur."""
+    from PySide6.QtWidgets import QLabel, QMessageBox
+
+    from envocad.model.diff import diff_projects
+    from envocad.model.revision import close_revision, open_revision
+    from envocad.ui.dialogs import StructuresDialog
+    from envocad.ui.navigator import DiffDialog
+    from envocad.ui.panels import PropertiesPanel
+    warned: list[str] = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda _p, _t, text, *a, **k: warned.append(text) or QMessageBox.Ok)
+    p = _project()
+    w = MainWindow(LibraryStore(), p)
+    try:
+        assert DiffDialog.default_label(p) == "1"                  # bez revizí → meta / „1“ jako dřív
+        rev = open_revision(p, "A")
+        assert DiffDialog.default_label(p) == "A"                  # otevřená revize
+        close_revision(p, rev)
+        dlg = DiffDialog([], p, w)
+        assert dlg.rev.text() == "B"                               # po uzavřené revizi další označení
+        dlg.rev.setText("A")
+        dlg.accept()
+        assert dlg.result() != DiffDialog.Accepted and warned and "uzavřená" in warned[-1]
+        dlg.rev.setText("B")
+        dlg.accept()
+        assert dlg.result() == DiffDialog.Accepted
+        # record_revision: označení uzavřené revize → hláška, projekt ani undo se nezmění
+        from envocad.model.project import Project as P
+        old = P.from_dict(p.to_dict())
+        p.sheets[0].elements[0].attrs["desc"] = "změna"
+        changes = diff_projects(old, p, w.library)
+        snap, n = p.to_dict(), w.undo.count()
+        assert not w.record_revision(changes, "A", "", "", "A | | x | ")
+        assert p.to_dict() == snap and w.undo.count() == n and "uzavřená" in warned[-1]
+        assert w.record_revision(changes, "B", "", "", "B | | x | ") and p.revisions[-1].label == "B"
+        # panel vlastností: kód funkce/umístění ořezaný a velkými písmeny
+        assert PropertiesPanel.normalize("loc", "  rh1 ") == "RH1"
+        assert PropertiesPanel.normalize("func", "ac") == "AC"
+        assert PropertiesPanel.normalize("desc", " text ") == " text "
+        emitted = []
+        panel = PropertiesPanel()
+        panel.attr_edited.connect(lambda *a: emitted.append(a))
+        panel._target = ("e1", False)
+        panel._commit("loc", " rdc1 ")
+        app.processEvents()
+        assert emitted == [("e1", False, "loc", "RDC1")]
+        # dialog struktur upozorní, že úprava kódu nepřejmenuje použití
+        sd = StructuresDialog([], w)
+        assert any("nepřejmenuje" in lb.text() for lb in sd.findChildren(QLabel))
+    finally:
+        w.undo.setClean()
+        w.close()

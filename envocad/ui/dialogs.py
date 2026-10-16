@@ -714,6 +714,10 @@ class StructuresDialog(QDialog):
         self.resize(480, 360)
         lay = QVBoxLayout(self)
         lay.addWidget(QLabel("Aspekt „=“ je funkce, „+“ umístění. Kód: A–Z, 0–9, _, začíná písmenem."))
+        note = QLabel("Úprava kódu zde nepřejmenuje jeho použití na listech a prvcích. Umístění rozvaděče "
+                      "přejmenuješ změnou označení jeho bloku.")
+        note.setWordWrap(True)
+        lay.addWidget(note)
         self.table = QTableWidget(0, 3)
         self.table.setHorizontalHeaderLabels(["Aspekt", "Kód", "Popis"])
         self.table.horizontalHeader().setStretchLastSection(True)

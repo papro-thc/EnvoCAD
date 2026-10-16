@@ -218,8 +218,7 @@ def diff_projects(old: Project, new: Project, lib=None) -> list[Change]:
 
 def _canon_element(e: Element) -> dict:
     return {"id": e.id, "symbol_id": e.symbol_id, "component_id": e.component_id or "",
-            "attrs": {k: v for k, v in sorted(e.attrs.items()) if k not in IGNORED_ATTRS and v not in ("", None)},
-            "pos": [e.x, e.y, e.rotation]}
+            "attrs": {k: v for k, v in sorted(e.attrs.items()) if k not in IGNORED_ATTRS and v not in ("", None)}}
 
 
 def _canon_wire(w: Wire) -> dict:
@@ -230,8 +229,10 @@ def _canon_wire(w: Wire) -> dict:
 
 def sheet_fingerprint(sheet: Sheet) -> str:
     """Otisk listu (sha1 kanonického JSON) ze stejných údajů, jaké porovnává `diff_projects` (název, označení listu,
-    prvky, vodiče, můstky, skříň). Stejný otisk ⇔ porovnání listu nenajde změnu (kabely a struktury jsou projektové,
-    do otisku listu nepatří). Pořadí prvků/vodičů v seznamu otisk nemění."""
+    prvky, vodiče, můstky, skříň). Stejný otisk ⇔ porovnání listu nenajde změnu se značkou (kabely a struktury
+    jsou projektové, do otisku listu nepatří). Pořadí prvků/vodičů v seznamu otisk nemění. Poloha prvků (x, y, rotace) ani ruční
+    lomy vodičů v otisku nejsou – pouhý posun nedostane značku revize (`revision.MARK_MOVES = False`), takže by
+    po uzavření vyvolal varování `rev_closed_changed`, které další porovnání nemůže odstranit."""
     data = {
         "name": sheet.name, "func": sheet.func, "loc": sheet.loc,
         "elements": sorted((_canon_element(e) for e in sheet.elements), key=lambda x: x["id"]),

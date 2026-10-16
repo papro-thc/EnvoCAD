@@ -415,6 +415,25 @@ class SetSheetDesignationCommand(QUndoCommand):
         self._set(self.old)
 
 
+class RenameSheetCommand(QUndoCommand):
+    """Název listu (`Sheet.name`) – Vlastnosti listu. `on_change` obnoví titulky záložek."""
+
+    def __init__(self, sheet, old: str, new: str, on_change=None):
+        super().__init__("Přejmenovat list")
+        self.sheet, self.old, self.new, self.on_change = sheet, old, new, on_change
+
+    def _set(self, v: str):
+        self.sheet.name = v
+        if self.on_change:
+            self.on_change()
+
+    def redo(self):
+        self._set(self.new)
+
+    def undo(self):
+        self._set(self.old)
+
+
 class RenameStructureCommand(QUndoCommand):
     """Přejmenování kódu funkce/umístění v celém projektu (registr, listy, override prvků) přes `rename_structure`."""
 
@@ -459,8 +478,9 @@ class SetStructuresCommand(QUndoCommand):
 
 
 class ReplaceRevisionsCommand(QUndoCommand):
-    """Nahrazení revizí a metadat (`project.revisions`, `project.meta`) – porovnání s revizí, uzavření revize.
-    `old_state`/`new_state` = `(revize, meta)` z `revision.revisions_state`."""
+    """Nahrazení revizí (`project.revisions`) a meta klíčů revize („revision“, „changes“) – porovnání s revizí,
+    uzavření revize. `old_state`/`new_state` = `(revize, meta)` z `revision.revisions_state`; ostatní `project.meta`
+    (investor, datum…) příkaz nemění, takže undo nevrátí jejich úpravy provedené mimo něj."""
 
     def __init__(self, project, old_state, new_state, text: str = "Revize", on_change=None):
         super().__init__(text)

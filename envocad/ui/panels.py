@@ -100,6 +100,9 @@ class LibraryPanel(QWidget):
             self.symbol_chosen.emit(sid)
 
 
+DESIGNATION_KEYS = ("func", "loc")    # override aspektů prvku – kód A–Z, 0–9, _
+
+
 class PropertiesPanel(QWidget):
     attr_edited = Signal(str, bool, str, str)  # target_id, is_wire, key, value
 
@@ -170,7 +173,13 @@ class PropertiesPanel(QWidget):
         ed.editingFinished.connect(lambda k=key, w=ed: self._commit(k, w.text()))
         self.form.addRow(label, ed)
 
+    @staticmethod
+    def normalize(key: str, value: str) -> str:
+        """Kód funkce/umístění prvku: ořez a velká písmena (jako dialog Vlastnosti listu); ostatní beze změny."""
+        return value.strip().upper() if key in DESIGNATION_KEYS else value
+
     def _commit(self, key: str, value: str) -> None:
+        value = self.normalize(key, value)
         if not self._target:
             return
         tid, is_wire = self._target

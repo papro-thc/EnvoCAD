@@ -105,7 +105,8 @@ def _separator_name(ch: str) -> str:
 def validate_ref(ref: str, classes: list[str] | None, *, is_wire: bool = False,
                  name: str = "") -> list[DesignationIssue]:
     """Přístrojová část označení (bez „-“). `classes` = povolené třídy značky (None/[] = nekontrolovat třídu),
-    `name` = název značky do textu nálezu."""
+    `name` = název značky do textu nálezu. Měkký oddělovač („.“, vnitřní „-“) je jen INFO a kontrola pokračuje:
+    znaky se kontrolují bez měkkých oddělovačů, délka a třída z celého označení („SPD-DC1.1“ → třída SPD)."""
     if not ref:
         return []
     out: list[DesignationIssue] = []
@@ -117,9 +118,10 @@ def validate_ref(ref: str, classes: list[str] | None, *, is_wire: bool = False,
                                                     f"{_separator_name(bad)} (oddělovač aspektů)")]
     soft = next((ch for ch in ref if ch in SOFT_SEPARATORS), "")
     if soft:
-        return [DesignationIssue("ref_syntax", False, f"Označení „{ref}“ obsahuje znak „{soft}“ (oddělovač dle "
-                                                     "IEC 81346) – přípustné jen jako firemní číslování", info=True)]
-    if not REF_CHARS_RE.fullmatch(ref):
+        out.append(DesignationIssue("ref_syntax", False, f"Označení „{ref}“ obsahuje znak „{soft}“ (oddělovač dle "
+                                                        "IEC 81346) – přípustné jen jako firemní číslování", info=True))
+    bare = "".join(ch for ch in ref if ch not in SOFT_SEPARATORS)    # znaky bez firemních oddělovačů
+    if not REF_CHARS_RE.fullmatch(bare):
         out.append(DesignationIssue("ref_chars", False,
                                     f"Označení „{ref}“: povolena jen velká písmena A–Z, číslice a _"))
     if len(ref) > MAX_REF_LEN:

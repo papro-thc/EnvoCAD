@@ -61,7 +61,8 @@ class Symbol:
     # vícepólová podoba: {"pole": [primitiva jednoho pólu], "common": [primitiva kreslená jednou u 1. pólu],
     #                     "link": True (čárkovaná mechanická vazba pólů), "link_at": [x, y] bod vazby v pólu}
     multipole: dict = field(default_factory=dict)
-    # povolené třídy označení dle IEC 81346-2 (1–2 písmena, shoda prefixem); None = odvodit z iec_ref, [] = nekontrolovat
+    # povolené třídy označení dle IEC 81346-2 (1–2 písmena) nebo firemní prefix ENVO (3 písmena, např. SPD);
+    # shoda prefixem; None = odvodit z iec_ref, [] = nekontrolovat
     function_class: list[str] | None = None
 
     @property
@@ -189,8 +190,8 @@ class Symbol:
         if len(names) != len(set(names)):
             issues.append("duplicitní názvy portů")
         for c in self.function_class or []:
-            if not re.fullmatch(r"[A-Z]{1,2}", c):
-                issues.append(f"neplatná třída označení {c!r} (1–2 velká písmena A–Z)")
+            if not re.fullmatch(r"[A-Z]{1,3}", c):
+                issues.append(f"neplatná třída označení {c!r} (1–3 velká písmena A–Z)")
         if self.iec_ref and self.classes and not class_matches(self.iec_ref + "1", self.classes):
             issues.append(f"prefix označení {self.iec_ref!r} neodpovídá třídám {', '.join(self.classes)}")
         return issues

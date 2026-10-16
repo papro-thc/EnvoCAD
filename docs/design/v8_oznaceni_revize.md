@@ -104,7 +104,9 @@ označení > `MAX_FULL_LEN` → WARNING `ref_length`.
 ### Unikátnost (`checks.py`)
 - `dup_ref` klíč `(*scope_key(s, x), ref)`; výjimky jako dnes (kontakty, skupiny svorek).
 - Dva listy se stejným `loc` sdílejí prostor (nové).
-- `contacts_of` / `coil_of` zůstávají podle ref; nová kontrola `contact_ambiguous` (WARNING).
+- `contacts_of` / `coil_of` zůstávají podle ref; mezi cívkami se stejným ref má přednost ta ve stejném
+  `scope_key` (funkce, umístění) jako kontakt, jinak první. Kontrola `contact_ambiguous` (WARNING) hlásí jen
+  kontakt, v jehož prostoru není právě jedna cívka.
 
 ### Exporty (`export/reports.py`)
 - `device_list`, `labels`: „Označení“ = `full_designation`, řazení `(func, loc, přirozené ref)`.
@@ -112,7 +114,8 @@ označení > `MAX_FULL_LEN` → WARNING `ref_length`.
 - Výkres: `display_designation` – bez overridu se popisky nemění.
 
 ## 2. Kontrola označení vs. funkce (EPLAN P017003)
-- `iec_ref` zůstává prefixem auto-číslování; `function_class` = seznam povolených tříd (1–2 písmena).
+- `iec_ref` zůstává prefixem auto-číslování; `function_class` = seznam povolených tříd (1–2 písmena;
+  firemní prefix ENVO až 3 písmena, např. `SPD`).
 - Výchozí: `[iec_ref]` je-li neprázdný, jinak `[]` (= nekontroluje se). Shoda prefixem: „F“ přijme F/FA/FC.
 ```python
 # Symbol
@@ -120,8 +123,8 @@ označení > `MAX_FULL_LEN` → WARNING `ref_length`.
     @property
     def classes(self) -> list[str]: ...
 ```
-- `to_dict` zapíše klíč jen když není `None`. `validate`: třídy `^[A-Z]{1,2}$` a `class_matches(iec_ref + "1", classes)`.
-- Explicitní `function_class` jen v 7 souborech:
+- `to_dict` zapíše klíč jen když není `None`. `validate`: třídy `^[A-Z]{1,3}$` a `class_matches(iec_ref + "1", classes)`.
+- Explicitní `function_class` jen v 8 souborech:
 
 | soubor | `iec_ref` | `function_class` |
 |---|---|---|
@@ -132,6 +135,7 @@ označení > `MAX_FULL_LEN` → WARNING `ref_length`.
 | `switchboard/sb.rcd.json` | F | `["F","Q"]` |
 | `switchboard/sb.rcbo.json` | F | `["F","Q"]` |
 | `fve/fve.switchboard.json` | R | `[]` (umístění) |
+| `fve/fve.spd.json` | F | `["F","SPD"]` (firemní `SPD-DC1.1`) |
 
 (Pokud JSON generuje `tools/gen_builtin_fve.py`, upravit i generátor.)
 
@@ -184,15 +188,18 @@ nevytváří (`MARK_MOVES = False`). `diff_projects` porovnává i `Sheet.func/l
 ### `model/revision.py`
 ```python
 def marks_from_changes(changes) -> list[RevisionMark]      # dedup (sheet, target)
-def open_revision(project, label, date, author) -> Revision # poslední otevřená, jinak nová
+def open_revision(project, label, date, author) -> Revision # poslední otevřená, jinak nová; label uzavřené → ValueError
+def next_revision_label(project) -> str                     # A → B, 3 → 4; přeskočí označení uzavřených
 def apply_changes(project, rev, changes) -> None            # nahradí značky (idempotentní), kromě listů s otiskem;
                                                             # meta["revision"] = rev.label
-def close_revision(project, rev, sheet_ids=None) -> None    # None = celá (otisky + closed=True)
+def close_revision(project, rev, sheet_ids=None) -> None    # None = celá (otisky + closed=True; dřív uzavřený list
+                                                            # si nechá svůj otisk – setdefault)
 def sheet_revision(project, sheet) -> Revision | None       # poslední se značkou na listu, jinak první
 def changed_after_close(project) -> list[tuple[Sheet, Revision]]
 def revision_geometry(project, sheet, lib, routes=None, revision=None) -> RevisionGeometry
 ```
-`diff.sheet_fingerprint(sheet) -> str`: sha1 kanonického JSON ze stejných údajů, jaké porovnává `diff_projects`.
+`diff.sheet_fingerprint(sheet) -> str`: sha1 kanonického JSON ze stejných údajů, jaké porovnává `diff_projects`,
+kromě polohy prvků (x, y, rotace) – posun nemá značku (`MARK_MOVES = False`), varování by nešlo odstranit.
 
 ### Geometrie
 ```python
@@ -237,12 +244,14 @@ if ver < 8:
 Dva bloky se stejným ref sloučí prostory – zamýšlené (dup_ref je hlásí už dnes).
 
 ## Undo (`ui/commands.py`)
-- `SetSheetDesignationCommand(sheet, old, new)` – `(func, loc)` listu.
+- `SetSheetDesignationCommand(sheet, old, new)` – `(func, loc)` listu; `RenameSheetCommand(sheet, old, new)` – název
+  listu. Dialog Vlastnosti listu = jedno makro (`MainWindow.set_sheet_props`).
 - `RenameStructureCommand(project, aspect, old, new)` – redo/undo přes `rename_structure`.
 - `SetStructuresCommand(project, old_list, new_list)` – dialog „Projekt → Strukturní označení“.
 - Override prvku: stávající `SetAttrCommand` (`func`/`loc`).
-- `ReplaceRevisionsCommand(project, old_revs, new_revs, old_meta, new_meta)` – `compare_revision` (místo
-  `resetClean`) a „Uzavřít revizi / list“.
+- `ReplaceRevisionsCommand(project, old_state, new_state)` – stav z `revisions_state` = (revize, jen meta klíče
+  „revision“ a „changes“); `compare_revision` (místo `resetClean`) a „Uzavřít revizi / list“. Ostatní metadata
+  (investor…) undo revize nemění.
 
 ## Pořadí implementace
 1. `designation.py` + testy. 2. `Symbol.function_class` + 7 JSON + `LIBRARY_FORMAT.md`.

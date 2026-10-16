@@ -157,6 +157,15 @@ def test_contact_ambiguous():
     assert "(+RDC1, +RH)" in amb[0].text
     c.attrs["loc"] = "RH"                       # umístění kontaktu vybere jednu cívku
     assert not _codes(check_project(p, lib), "contact_ambiguous")
+    c.attrs["loc"] = "XX"                       # v prostoru kontaktu žádná cívka → nejednoznačné
+    assert len(_codes(check_project(p, lib), "contact_ambiguous")) == 1
+    # kontakt přímo na listu rozvaděče +RH (bez overridu) – prostor listu vybere cívku v +RH, žádné varování
+    del c.attrs["loc"]
+    jps.elements.remove(c)
+    s2.elements.append(c)
+    assert not _codes(check_project(p, lib), "contact_ambiguous")
+    from envocad.model.project import coil_of
+    assert coil_of(p, c)[0] is s2
 
 
 def test_example_has_no_new_errors():
@@ -168,3 +177,25 @@ def test_example_has_no_new_errors():
     new_codes = {"ref_syntax", "ref_chars", "ref_length", "ref_class", "struct_syntax", "struct_undefined",
                  "sb_no_loc", "loc_mismatch", "contact_ambiguous"}
     assert not [f for f in fs if f.code in new_codes], [f.text for f in fs if f.code in new_codes]
+
+
+def test_generated_projects_have_no_ref_warnings():
+    """Vygenerované projekty (firemní číslování FU1.1, SPD-DC1.1) a šablony rozvaděčů: označení jen jako INFO."""
+    from envocad.generate import build_project
+    from envocad.library import templates as T
+    lib = LibraryStore()
+    spec = {"name": "Ref", "inverters": [{"ref": "T1", "p_ac": 25, "strings": [20, 20]},
+                                          {"ref": "T2", "p_ac": 25, "strings": [20]}],
+            "dc": {"route_boxes": 1, "tech_box": True, "disconnect": True}, "ac": {"distribution": "bus"}}
+    p = build_project(spec)
+    fs = [f for f in check_project(p, lib) if f.code.startswith("ref_")]
+    assert fs and all(f.severity == "info" for f in fs), [f.text for f in fs if f.severity != "info"]
+    assert any(f.ref.startswith("SPD-DC") for f in fs)
+    for t in T.TEMPLATES:
+        for dist in ("bus", "terminals"):
+            tp = Project()
+            blk = Element("fve.switchboard", attrs={"ref": "RH"})
+            tp.sheets[0].elements.append(blk)
+            T.apply_template(tp, tp.create_switchboard_sheet(blk), t.id, {"distribution": dist})
+            bad = [f.text for f in check_project(tp, lib) if f.code.startswith("ref_") and f.severity != "info"]
+            assert not bad, (t.id, dist, bad)

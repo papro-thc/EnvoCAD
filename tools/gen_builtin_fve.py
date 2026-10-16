@@ -116,7 +116,7 @@ SYMBOLS = [
         "label_pos": {"x": -5, "y": -6},
     },
     {
-        "id": "fve.spd", "name": "Svodič přepětí (SPD)", "category": "Jištění", "iec_ref": "F",
+        "id": "fve.spd", "name": "Svodič přepětí (SPD)", "category": "Jištění", "iec_ref": "F", "function_class": ["F", "SPD"],
         "description": "Svodič přepětí, typ 1/2, DC nebo AC",
         "primitives": [R(-2.5, -5, 5, 10), L(0, 5, 0, 7.5), L(0, -5, 0, -7.5), L(-2, -3.5, 2, 3.5),
                        L(1, 3.5, 2, 3.5), L(2, 2.5, 2, 3.5)],
