@@ -1,0 +1,205 @@
+"""Undo/redo všech příkazů z ui/commands.py: undo vrátí projekt přesně do původního stavu, redo zopakuje změnu."""
+import json
+import os
+
+import pytest
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+from PySide6.QtGui import QUndoStack
+from PySide6.QtWidgets import QApplication
+
+from envocad.library.store import LibraryStore
+from envocad.model.project import Cable, Element, Project, Wire, WireEnd
+from envocad.ui import commands
+from envocad.ui.canvas import SchematicScene
+
+
+@pytest.fixture(scope="module")
+def app():
+    return QApplication.instance() or QApplication([])
+
+
+@pytest.fixture(scope="module")
+def lib():
+    return LibraryStore()
+
+
+def _project():
+    p = Project(name="Undo")
+    s = p.sheets[0]
+    g = Element("fve.pv_string", 30, 150, attrs={"ref": "G1"})
+    q = Element("fve.dc_disconnect", 70, 152.5, attrs={"ref": "Q1"})
+    t = Element("fve.inverter", 120, 150, attrs={"ref": "T1"})
+    f = Element("fve.breaker_mcb", 170, 150, attrs={"ref": "F1", "in_": "80 A"})
+    s.elements += [g, q, t, f]
+    s.wires += [
+        Wire(WireEnd(g.id, "DC"), WireEnd(q.id, "1"), attrs={"ref": "W1"}),
+        Wire(WireEnd(q.id, "2"), WireEnd(t.id, "DC1"), points=[(95.0, 152.5)]),
+        Wire(WireEnd(t.id, "AC"), WireEnd(f.id, "1"), attrs={"ref": "W2"}),
+    ]
+    return p
+
+
+def _state(p: Project) -> str:
+    return json.dumps(p.to_dict(), sort_keys=True, ensure_ascii=False)
+
+
+def _check(p: Project, undo: QUndoStack, cmd, scene=None) -> None:
+    """Pushne příkaz (redo), ověří změnu, undo → původní stav, redo → stav po změně. Scéna musí sedět s modelem."""
+    before = _state(p)
+    undo.push(cmd)
+    after = _state(p)
+    assert after != before, f"{cmd.text()}: příkaz nic nezměnil"
+    undo.undo()
+    assert _state(p) == before, f"{cmd.text()}: undo nevrátilo původní stav"
+    if scene is not None:
+        _scene_matches(scene)
+    undo.redo()
+    assert _state(p) == after, f"{cmd.text()}: redo nedalo stejný stav"
+    if scene is not None:
+        _scene_matches(scene)
+
+
+def _scene_matches(sc) -> None:
+    if hasattr(sc, "element_items"):
+        assert set(sc.element_items) == {e.id for e in sc.sheet.elements}
+        assert set(sc.wire_items) == {w.id for w in sc.sheet.wires}
+
+
+@pytest.fixture
+def jps(app, lib):
+    p = _project()
+    undo = QUndoStack()
+    sc = SchematicScene(p, p.sheets[0], lib, undo)
+    yield p, sc, undo
+    undo.clear()
+
+
+def _el(p, ref):
+    return next(e for e in p.sheets[0].elements if e.ref == ref)
+
+
+def test_add_element(jps):
+    p, sc, undo = jps
+    _check(p, undo, commands.AddElementCommand(sc, Element("fve.meter", 200, 100, attrs={"ref": "P1"})), sc)
+
+
+def test_remove_items_keeps_order(jps):
+    p, sc, undo = jps
+    q = _el(p, "Q1")
+    w2 = next(w for w in p.sheets[0].wires if w.attrs.get("ref") == "W2")
+    # Q1 je uprostřed seznamu a má dva vodiče – po undo musí být na svém místě (pořadí určuje číslování a rozmístění)
+    _check(p, undo, commands.RemoveItemsCommand(sc, [q.id], [w2.id]), sc)
+
+
+def test_move_elements(jps):
+    p, sc, undo = jps
+    t = _el(p, "T1")
+    old, new = (t.x, t.y), (t.x + 10, t.y - 5)
+    w = p.sheets[0].wires[1]
+    pts_old, pts_new = list(w.points), [(105.0, 152.5)]
+    # posun proběhl interaktivně (první redo se přeskočí) → stav po posunu nastavíme ručně
+    t.x, t.y = new
+    w.points = pts_new
+    sc.element_items[t.id].sync_from_model()
+    moved = _state(p)
+    undo.push(commands.MoveElementsCommand(sc, {t.id: (old, new)}, {w.id: (pts_old, pts_new)}))
+    assert _state(p) == moved
+    undo.undo()
+    assert (t.x, t.y) == old and w.points == pts_old
+    undo.redo()
+    assert _state(p) == moved
+
+
+def test_set_wire_points(jps):
+    p, sc, undo = jps
+    w = p.sheets[0].wires[1]
+    _check(p, undo, commands.SetWirePointsCommand(sc, {w.id: (list(w.points), [])}), sc)
+
+
+def test_rotate(jps):
+    p, sc, undo = jps
+    _check(p, undo, commands.RotateElementCommand(sc, _el(p, "F1").id, 90), sc)
+    _check(p, undo, commands.RotateElementCommand(sc, _el(p, "F1").id, 270), sc)
+
+
+def test_add_wire(jps):
+    p, sc, undo = jps
+    f, t = _el(p, "F1"), _el(p, "T1")
+    _check(p, undo, commands.AddWireCommand(sc, Wire(WireEnd(f.id, "2"), WireEnd(t.id, "DC2"))), sc)
+
+
+def test_split_wire_keeps_order(jps):
+    p, sc, undo = jps
+    old = p.sheets[0].wires[0]
+    j = Element("sb.junction", 50, 150)
+    w1 = Wire(old.a, WireEnd(j.id, "W"), attrs=dict(old.attrs))
+    w2 = Wire(WireEnd(j.id, "E"), old.b)
+    _check(p, undo, commands.SplitWireCommand(sc, old.id, j, w1, w2), sc)
+
+
+def test_set_attr_element_and_wire(jps):
+    p, sc, undo = jps
+    f = _el(p, "F1")
+    _check(p, undo, commands.SetAttrCommand(sc, f.id, False, "in_", "80 A", "63 A"), sc)
+    w = p.sheets[0].wires[0]
+    _check(p, undo, commands.SetAttrCommand(sc, w.id, True, "ref", "W1", "W9"), sc)
+
+
+def test_set_attr_new_key_is_removed_on_undo(jps):
+    """Undo nového atributu nesmí nechat v projektu prázdný klíč (projekt by se lišil od původního)."""
+    p, sc, undo = jps
+    f = _el(p, "F1")
+    assert "desc" not in f.attrs
+    _check(p, undo, commands.SetAttrCommand(sc, f.id, False, "desc", "", "hlavní jistič"), sc)
+
+
+def test_set_component(jps):
+    p, sc, undo = jps
+    f = _el(p, "F1")
+    _check(p, undo, commands.SetComponentCommand(sc, f.id, f.component_id, "TEST-123"), sc)
+
+
+def test_paste(jps):
+    p, sc, undo = jps
+    a = Element("fve.breaker_mcb", 220, 150, attrs={"ref": "F2"})
+    b = Element("fve.breaker_mcb", 260, 150, attrs={"ref": "F3"})
+    _check(p, undo, commands.PasteCommand(sc, [a, b], [Wire(WireEnd(a.id, "2"), WireEnd(b.id, "1"))]), sc)
+
+
+def test_conductors_terminals_bridges(jps):
+    p, sc, undo = jps
+    w = p.sheets[0].wires[2]
+    old = list(w.conductors)
+    _check(p, undo, commands.SetConductorsCommand(sc, w.id, old, ["L1", "N", "PE"]), sc)
+    _check(p, undo, commands.SetTerminalsCommand(sc, w.id, dict(w.terminals),
+                                                 {w.conductors[0]: {"a": "X1:1"}}), sc)
+    _check(p, undo, commands.SetBridgesCommand(p, p.sheets[0], "X1", [], [["1", "2"]]))
+
+
+def test_set_cable(jps):
+    p, sc, undo = jps
+    c = Cable(ref="WC1")
+    p.cables.append(c)
+    old = c.to_dict()
+    new = dict(old, note="přes střechu")
+    _check(p, undo, commands.SetCableCommand(p, c.id, old, new))
+
+
+def test_multipole_commands(app, lib):
+    from envocad.generate import build_project
+    from envocad.ui.multipole_view import MultipoleScene
+    spec = {"name": "MP", "inverters": [{"ref": "T1", "p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200,
+                                        "u_mppt_max": 1000, "i_mppt_max": 30, "strings": [20, 20]}]}
+    p = build_project(spec)
+    sb = p.sheets[-1]
+    undo = QUndoStack()
+    sc = MultipoleScene(p, sb, lib, undo)
+    sc.rebuild()
+    e = next(e for e in sb.elements if e.ref == "X1")
+    _check(p, undo, commands.MoveMultipoleCommand(sc, {e.id: (e.mp_pos, (100.0, 100.0))}))
+    f = Element("fve.breaker_mcb", 0, 0, attrs={"ref": "F99"})
+    f.mp_pos = (200.0, 150.0)
+    _check(p, undo, commands.MultipoleAddCommand(sc, element=f))
+    undo.clear()

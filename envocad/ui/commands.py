@@ -32,6 +32,9 @@ class RemoveItemsCommand(QUndoCommand):
                 if w.touches(e.id):
                     wires[w.id] = w
         self.wires = list(wires.values())
+        # původní pořadí v listu – undo vrací prvky i vodiče na stejné místo (pořadí určuje číslování a rozmístění)
+        self.el_idx = sorted((sheet.elements.index(e), e) for e in self.elements)
+        self.w_idx = sorted((sheet.wires.index(w), w) for w in self.wires)
 
     def redo(self):
         s = self.scene.sheet
@@ -46,11 +49,11 @@ class RemoveItemsCommand(QUndoCommand):
 
     def undo(self):
         s = self.scene.sheet
-        for e in self.elements:
-            s.elements.append(e)
+        for i, e in self.el_idx:
+            s.elements.insert(i, e)
             self.scene.add_element_item(e)
-        for w in self.wires:
-            s.wires.append(w)
+        for i, w in self.w_idx:
+            s.wires.insert(i, w)
             self.scene.add_wire_item(w)
 
 
@@ -149,6 +152,7 @@ class SplitWireCommand(QUndoCommand):
         super().__init__("Odbočka na vodiči")
         self.scene = scene
         self.old = next(w for w in scene.sheet.wires if w.id == wire_id)
+        self.old_idx = scene.sheet.wires.index(self.old)
         self.junction, self.w1, self.w2 = junction, w1, w2
 
     def redo(self):
@@ -168,7 +172,7 @@ class SplitWireCommand(QUndoCommand):
             self.scene.remove_wire_item(w.id)
         s.elements = [e for e in s.elements if e.id != self.junction.id]
         self.scene.remove_element_item(self.junction.id)
-        s.wires.append(self.old)
+        s.wires.insert(self.old_idx, self.old)
         self.scene.add_wire_item(self.old)
 
 
@@ -176,23 +180,27 @@ class SetAttrCommand(QUndoCommand):
     def __init__(self, scene, target_id: str, is_wire: bool, key: str, old: str, new: str):
         super().__init__(f"Změnit {key}")
         self.scene, self.tid, self.is_wire, self.key, self.old, self.new = scene, target_id, is_wire, key, old, new
+        self.had_key = key in self._target().attrs   # undo nového atributu ho zase odebere
 
-    def _set(self, v: str):
+    def _target(self):
         if self.is_wire:
-            w = next(w for w in self.scene.sheet.wires if w.id == self.tid)
-            w.attrs[self.key] = v
-            self.scene.wire_items[self.tid].update()
+            return next(w for w in self.scene.sheet.wires if w.id == self.tid)
+        return self.scene.sheet.element(self.tid)
+
+    def _set(self, v: str, remove: bool = False):
+        t = self._target()
+        if remove:
+            t.attrs.pop(self.key, None)
         else:
-            e = self.scene.sheet.element(self.tid)
-            e.attrs[self.key] = v
-            self.scene.element_items[self.tid].update()
+            t.attrs[self.key] = v
+        (self.scene.wire_items if self.is_wire else self.scene.element_items)[self.tid].update()
         self.scene.attrs_changed.emit(self.tid)
 
     def redo(self):
         self._set(self.new)
 
     def undo(self):
-        self._set(self.old)
+        self._set(self.old, remove=not self.had_key)
 
 
 class SetComponentCommand(QUndoCommand):
