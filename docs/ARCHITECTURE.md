@@ -56,6 +56,10 @@ Zásada: **model nezávisí na UI.** Vše, co lze, se testuje bez spuštění Qt
   `RevisionMark` na listu, prvku nebo vodiči). Značky vznikají z porovnání `model/diff.py` přes `model/revision.py`;
   kreslí se v editoru, PDF a DXF (vrstva `REVIZE`) a revizi listu ukazuje popisové pole. **Uzavření revize je měkký
   zámek**: uloží otisky listů; další změna listu jen hlásí kontrola (`rev_closed_changed`), model ji neblokuje.
+- **Přístroj a křížové odkazy** (`model/xref.py`) – přístroj = skupina prvků se stejným `ref` v jednom prostoru
+  označení (`DeviceIndex.build(project)`, O(N), hostitel = cívka, jinak první prvek). Přes skupinu se počítají
+  kontakty (`contacts`, zrcadlo pod hostitelem), stykač s cívkou a přerušovací body (dvojice, řetěz, hvězda).
+  Čistá data bez Qt; návrh v `docs/design/xref_zrcadleni_kontaktu.md`.
 
 Z tohoto modelu se generuje vše ostatní (výkaz materiálu, seznam kabelů, svorkovnice) – to je hlavní
 přidaná hodnota oproti ručnímu kreslení v ZWCAD.

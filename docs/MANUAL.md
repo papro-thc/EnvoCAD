@@ -109,10 +109,46 @@ Prvek **Přerušovací bod** (Svorky a propojení) přenese potenciál jinam –
 spárují a každý ukazuje polohu protějšku (`→ /2.C3` = list 2, sloupec C, řádek 3 v síti rámečku). Rámeček
 s popisovým polem je zatím vypnutý – zapne ho `Zobrazit → Rámeček a popisové pole` (platí i pro PDF a DXF).
 
+Body se stejným označením (`ref`) v projektu tvoří skupinu. Zapojení podle stavu skupiny:
+
+| Stav skupiny | Zapojení | Zobrazení |
+|---|---|---|
+| 2 body | dvojice | `→ /2.C3` u obou |
+| 3 a více bodů | řetěz, pořadí list, x, shora dolů | střední bod `← /1.A2` a `→ /4.C1` na samostatných řádcích; první bod jen `→`, poslední jen `←` |
+| zdroj hvězdy (2 a více bodů) | hvězda: zdroj → ostatní body | u zdroje `→ /2.A2, /3.B1, /4.C5` (max. 3 na řádek), u cíle `← /1.F3` |
+
+Zdroj hvězdy označíš zaškrtávátkem **Zdroj hvězdy** v panelu Vlastnosti přerušovacího bodu (atribut
+`star_source` = `1`). Zdroj má být jeden: další zaškrtnutý bod kontrola hlásí jako `interrupt_star_multi`
+a zdrojem zůstane první podle pořadí. Bod bez protějšku ukazuje `→ ?`.
+
 ### Ovládací obvody
 Značky **Cívka** (K, A1/A2), **Kontakt NO** (13/14), **Kontakt NC** (21/22) a **Hlavní kontakt**. Kontakt
 dostane označení své cívky (K1); pod cívkou se automaticky kreslí zrcadlo kontaktů (svorky + poloha) a u
 kontaktu odkaz na cívku. Kontakty nejsou samostatné položky ve výkazu materiálu, patří k cívce.
+
+**Zrcadlo kontaktů** je tabulka pod hostitelem – cívkou, jističem, relé nebo RTU s kontakty. Sloupce:
+- vlevo od osy silové kontakty (1/2, 3/4, 5/6…),
+- u osy vlevo NO (13/14, 33/34…), vpravo NC (21/22…); prázdný sloupec se nekreslí,
+- hlavička s piktogramem druhu.
+
+Řádek = pár svorek a odkaz na kontakt: `13/14 /3.B4` = svorky 13/14, kontakt na listu 3, pozice B4. Odkaz
+na jiné umístění předřadí aspekt (`+RDC1/3.B4`). Silový kontakt s `poles` = 3 dá tři řádky (1/2, 3/4, 5/6).
+Rezerva je pár z kontaktního obrazu, ke kterému zatím není kontakt; řádek má jen pár, bez odkazu. Zrcadlo
+potlačíš atributem `mirror` = `0` na prvku (nepovinný atribut; panel ho nenabízí – viz `docs/LIBRARY_FORMAT.md`).
+
+**Kontaktní obraz** (atribut `contacts`) je seznam párů svorek přístroje: `1/2 3/4 5/6 13/14 21/22`. Zadáš ho
+v panelu Vlastnosti nebo sloupcem `contacts` v CSV artiklů; výchozí značky `ctl.coil` a `fve.contactor` mají
+pole prázdné. Druh kontaktu se pozná z předpony nebo z čísel svorek:
+- bez předpony podle IEC 60947-5-1: jednomístné liché/sudé (1/2, 3/4) = silový; dvoumístné s funkční číslicí
+  3/4 nebo 7/8 = NO, 1/2 nebo 5/6 = NC; ostatní jsou chyba (`contact_image_syntax`);
+- s předponou `NO:`, `NC:` nebo `P:` (silový), např. `NO:11/14 NC:11/12`, `NO:DO1 NO:DO2`.
+
+Obraz je nepovinný. Bez něj se nekreslí rezervy a nedělají se kontroly `contact_count` a `contact_unknown`.
+
+**Stykač v JPS a cívka** se stejným označením (např. K1) tvoří jeden přístroj. Výkaz materiálu a rozložení
+mají stykač, cívka se do nich nedává. Silové kontakty stykače jsou v zrcadle cívky jako silový sloupec.
+Stykač bez cívky je sám hostitelem zrcadla. Kontakty (`ctl.contact_*`) patří přístroji se stejným označením
+ve stejném prostoru označení (funkce a umístění).
 
 ---
 
@@ -213,6 +249,16 @@ Výkazy **Kabely** (přehled), **Kabelový plán** (po žílách odkud–kam, i 
   přívody/vývody rozvaděčů. Spojení L–N, L–PE, DC+–DC− nebo dvou fází v jedné síti je chyba. Panel Vlastnosti
   ukazuje u vodiče potenciál každé žíly (`L1 X1`, `DC+ G1`, `N (W3)`), výkaz **Potenciály** vypíše všechny sítě;
 - informace: přívod bez vazby na JPS, prvek bez artiklu, vodič bez kabelu/žil, selektivita nejistá.
+
+Kontakty a přerušovací body:
+
+| Kód | Závažnost | Význam |
+|---|---|---|
+| `contact_dup` | varování | dva kontakty nebo póly téhož přístroje mají stejné svorky |
+| `contact_count` | varování | použito víc kontaktů druhu (NO, NC, silové), než kontaktní obraz má |
+| `contact_unknown` | varování | pár svorek kontaktu není v kontaktním obrazu přístroje |
+| `contact_image_syntax` | varování | v atributu `contacts` je nečitelný token |
+| `interrupt_star_multi` | varování | ve skupině přerušovacích bodů jsou dva a více zdrojů hvězdy |
 
 Výpočty (`model/calc.py`, výkaz **Výpočty**): kontrola stringu proti střídači (Uoc při −10 °C vs. Umax,
 Umpp při 70 °C vs. rozsah MPPT, 1,25·Isc vs. Imax vstupu – atributy stringu Uoc/Umpp/Isc modulu a teplotní
