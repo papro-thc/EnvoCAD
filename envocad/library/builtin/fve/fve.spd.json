@@ -108,6 +108,18 @@
       "label": "Šířka [moduly]",
       "default": "4",
       "show": false
+    },
+    {
+      "key": "t_min",
+      "label": "Teplota okolí min [°C]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "t_max",
+      "label": "Teplota okolí max [°C]",
+      "default": "",
+      "show": false
     }
   ],
   "multipole": {

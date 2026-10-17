@@ -20,12 +20,19 @@ před použitím v průkazu ověřit proti normě. Jisté jsou exponenty x, čin
 Implementována je pouze varianta skříně BEZ ventilačních otvorů; pro `vents=True` se počítá stejně
 (na straně bezpečnosti) a do poznámek se zapíše upozornění.
 
+5. Hodnocení po přístrojích (`device_temperatures`, `ThermalResult.verdict`): teplota vzduchu v úrovni osy řady
+   DIN lišty přístroje (lineárně mezi Δt0,5 ve středu a Δt1,0 nahoře, spodní polovina konzervativně Δt0,5,
+   neumístěný přístroj = horní část) se porovná s horní mezí provozní teploty okolí přístroje `t_max` (datasheet,
+   artikl `t_max_c`), bez údaje s předpokladem 40 °C; nejhorší přístroj určuje verdikt. Se zadanou nejnižší
+   teplotou okolí skříně `t_ambient_min` i dolní mez `t_min`.
+
 Výsledek je orientační – pro průkaz dle normy lze použít i údaje výrobce skříně (Rittal Therm, Hager…).
 """
 from __future__ import annotations
 
+import math
 from bisect import bisect_left
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from envocad.model.project import Element, Sheet
 
@@ -44,14 +51,59 @@ LOSS_PER_A_PER_POLE = {
 # průchodem proudu). Cívka se nezapočítá, když položkou výkazu je stykač (`is_bom_device`) – žádná dvojí cívka.
 FIXED_LOSS_W = {"fve.spd": 0.5, "fve.meter": 2.0, "fve.contactor": 2.5, "ctl.coil": 2.5, "fve.transformer": 0.0}
 
-# Hodnocení oteplení podle teploty vzduchu uvnitř skříně (okolí + Δt v horní části), ne jen podle Δt:
-# ČSN EN 61439-1 čl. 7.1.1 – normální provozní podmínky: teplota okolí nepřekročí 40 °C, průměr za 24 h 35 °C.
-# Přístroje uvnitř (jističe, odpínače, svorky) jsou dimenzované na teplotu vzduchu kolem sebe; běžné katalogové
-# maximum pro modulové přístroje bez dalších opatření je 55 °C (`DEVICE_AIR_MAX_C`), nad referenční teplotou
-# přístrojů (`DEVICE_REF_C` 40 °C – kalibrace MCCB dle EN 60947-2; MCB dle EN 60898 je 30 °C) se proud
-# přístrojů snižuje (derating). ORIENTAČNÍ hodnoty – konkrétní mez podle katalogu použitých přístrojů.
+# Hodnocení oteplení po přístrojích (`device_temperatures`): teplota vzduchu v úrovni řady DIN lišty přístroje se
+# porovná s horní mezí provozní teploty okolí přístroje `t_max` (datasheet; artikl `t_max_c` → atribut `t_max`).
+# Přístroj bez údaje: předpoklad `DEFAULT_T_MAX_C` = 40 °C – horní mez normálních provozních podmínek výrobkových
+# norem (ČSN EN 60947-1 čl. 6.1.1, ČSN EN 60898-1: okolí do +40 °C, průměr za 24 h 35 °C). Výrobci obvykle uvádějí
+# víc (55–70 °C, s odlehčením), takže 40 °C je na straně bezpečnosti; verdikt pak hlásí „chybí rozsah teplot – ověřit“.
+# Dolní mez `t_min` se kontroluje jen se zadanou nejnižší teplotou okolí skříně `t_ambient_min` (vzduch uvnitř
+# = okolí – bez zatížení, např. FVE v noci, se skříň neohřívá); přístroj bez `t_min` pak předpokládá
+# `DEFAULT_T_MIN_C` = −5 °C (dolní mez normálních provozních podmínek týchž norem).
+# `DEVICE_REF_C` 40 °C – referenční teplota kalibrace MCCB dle EN 60947-2 (MCB dle EN 60898 je 30 °C): nad ní se
+# proud přístrojů snižuje (derating); verdikt to připomene i u vyhovujícího výsledku.
+DEFAULT_T_MAX_C = 40.0
+DEFAULT_T_MIN_C = -5.0
 DEVICE_REF_C = 40.0
-DEVICE_AIR_MAX_C = 55.0
+# Přístroje rozložení, které se po přístrojích nehodnotí bez vlastního údaje `t_max`: řadové svorky jsou dimenzované
+# na vyšší teploty (EN 60947-7-1, běžně do 100–130 °C) – předpoklad 40 °C by je hlásil zbytečně.
+THERMAL_SKIP_SYMBOLS = {"sb.terminal_block"}
+SOURCE_ARTICLE, SOURCE_ATTR, SOURCE_ASSUMED = "artikl", "atribut", "předpoklad"
+
+
+@dataclass
+class DeviceTemp:
+    """Teplota vzduchu u přístroje a jeho meze. `row` = řada rozložení od 0 (shora), None = neumístěný (počítá se
+    s teplotou v horní části skříně). `source` / `t_min_source`: „artikl“, „atribut“ nebo „předpoklad“
+    (`t_min_source` = "" když se dolní mez nekontroluje)."""
+    element_id: str
+    ref: str
+    row: int | None
+    t_air: float
+    t_max: float
+    source: str
+    t_min: float | None = None
+    t_min_source: str = ""
+
+    @property
+    def margin(self) -> float:
+        """Rezerva k horní mezi [K] (záporná = překročeno)."""
+        return self.t_max - self.t_air
+
+    @property
+    def place(self) -> str:
+        return f"v řadě {self.row + 1}" if self.row is not None else "neumístěný (horní část skříně)"
+
+    @property
+    def missing(self) -> bool:
+        """Chybí údaj z datasheetu (počítá se s předpokladem)."""
+        return self.source == SOURCE_ASSUMED or self.t_min_source == SOURCE_ASSUMED
+
+    def too_hot(self) -> bool:
+        return self.t_air > self.t_max + 1e-9
+
+    def too_cold(self, t_ambient_min: float | None) -> bool:
+        return t_ambient_min is not None and self.t_min is not None and t_ambient_min < self.t_min - 1e-9
+
 
 # IEC TR 60890 tab. 3 – činitel b: volná horní plocha 1,4; zakrytá horní plocha (vestavěná skříň) 0,7;
 # volné boční plochy (přední, zadní, boky) 0,9; zakryté boční plochy (např. zadní stěna nástěnné skříně) 0,5;
@@ -97,6 +149,8 @@ C_SMALL: tuple[tuple[float, float], ...] = (
 
 @dataclass
 class ThermalResult:
+    """Výsledek výpočtu oteplení; `devices` = teploty po přístrojích (`device_temperatures`), `t_ambient_min_c` =
+    nejnižší teplota okolí skříně (parametr `t_ambient_min`, None = dolní meze se nekontrolují)."""
     p_devices_w: float
     p_total_w: float
     ae_m2: float
@@ -109,29 +163,168 @@ class ThermalResult:
     c: float = 1.0
     d: float = 1.0
     x: float = X_LARGE
+    devices: list[DeviceTemp] = field(default_factory=list)
+    t_ambient_min_c: float | None = None
 
     @property
     def t_top_c(self) -> float:
         return self.t_ambient_c + self.dt_top_k
 
-    def limit_k(self, limit_k: float | None = None) -> float:
-        """Přípustné oteplení vzduchu v horní části skříně nad okolím [K]: zadané, jinak tak, aby teplota uvnitř
-        nepřekročila `DEVICE_AIR_MAX_C` (55 °C – 35 °C okolí = 20 K)."""
-        return limit_k if limit_k is not None else DEVICE_AIR_MAX_C - self.t_ambient_c
+    def air_at(self, height_ratio: float | None) -> float:
+        """Teplota vzduchu [°C] ve výšce `height_ratio` (0 = dno, 1 = strop skříně; None = horní část) –
+        `air_temperature`."""
+        return air_temperature(self.t_ambient_c, self.dt_mid_k, self.dt_top_k, height_ratio)
 
-    def verdict(self, limit_k: float | None = None) -> str:
-        """Orientační hodnocení podle absolutní teploty uvnitř (okolí + Δt v horní části) i oteplení:
-        nad `limit_k` (výchozí = do 55 °C uvnitř) nevyhovuje; nad 40 °C (referenční teplota přístrojů) vyhovuje
-        jen s odlehčením (derating) přístrojů; jinak vyhovuje. Viz `DEVICE_AIR_MAX_C`, `DEVICE_REF_C`."""
-        t_in = self.t_top_c
-        lim = self.limit_k(limit_k)
-        if self.dt_top_k > lim or t_in > DEVICE_AIR_MAX_C:
-            return (f"NEVYHOVUJE (orientačně) – uvnitř ≈ {t_in:.0f} °C, oteplení {self.dt_top_k:.0f} K > {lim:.0f} K; "
-                    "zvětšit skříň, snížit zatížení nebo doplnit ventilaci")
-        if t_in > DEVICE_REF_C:
-            return (f"vyhovuje s podmínkou (orientačně) – uvnitř ≈ {t_in:.0f} °C nad {DEVICE_REF_C:.0f} °C: "
-                    "ověřit odlehčení (derating) jističů a přístrojů podle katalogu")
-        return f"vyhovuje (orientačně) – uvnitř ≈ {t_in:.0f} °C"
+    def critical(self) -> DeviceTemp | None:
+        """Kritický přístroj: první z `hot_devices` (prokázané překročení má přednost před překročením předpokladu),
+        jinak s nejmenší rezervou k horní mezi (při shodě přednost údaji z datasheetu, pak pořadí prvků listu);
+        None bez přístrojů."""
+        hot = self.hot_devices()
+        if hot:
+            return hot[0]
+        return min(self.devices, key=_severity) if self.devices else None
+
+    def hot_devices(self) -> list[DeviceTemp]:
+        """Přístroje nad `t_max`: nejdřív prokázaná překročení (mez z artiklu / atributu), pak podle předpokladu;
+        uvnitř skupiny podle rezervy."""
+        return sorted((d for d in self.devices if d.too_hot()), key=lambda d: (d.source == SOURCE_ASSUMED, d.margin))
+
+    def cold_devices(self) -> list[DeviceTemp]:
+        return [d for d in self.devices if d.too_cold(self.t_ambient_min_c)]
+
+    def missing_devices(self) -> list[DeviceTemp]:
+        return [d for d in self.devices if d.missing]
+
+    def missing_text(self) -> str:
+        """„u 3 přístrojů chybí rozsah teplot – ověřit (předpoklad 40 °C)“, prázdné když údaje jsou."""
+        n = len(self.missing_devices())
+        if not n:
+            return ""
+        word = "přístroje" if n == 1 else "přístrojů"
+        assumed = f"{DEFAULT_T_MAX_C:.0f} °C"
+        if self.t_ambient_min_c is not None:
+            assumed = f"t_max {DEFAULT_T_MAX_C:.0f} °C, t_min {_c(DEFAULT_T_MIN_C)} °C"
+        return f"u {n} {word} chybí rozsah teplot – ověřit (předpoklad {assumed})"
+
+    def critical_text(self) -> str:
+        """Krátký popis kritického přístroje pro panel skříně („F3 v řadě 1: ≈ 48 °C, t_max 55 °C (artikl),
+        rezerva 7 K“), prázdné bez přístrojů."""
+        d = self.critical()
+        if d is None:
+            return ""
+        tail = f"rezerva {d.margin:.0f} K" if d.margin >= 0 else f"překročeno o {-d.margin:.0f} K"
+        return f"{d.ref or '?'} {d.place}: ≈ {d.t_air:.0f} °C, t_max {d.t_max:.0f} °C ({d.source}), {tail}"
+
+    def verdict(self) -> str:
+        """Orientační hodnocení po přístrojích: nejhorší přístroj (nejmenší rezerva k `t_max`, teplota vzduchu
+        v jeho řadě – `device_temperatures`) určuje verdikt; při zadané `t_ambient_min` i dolní meze `t_min`.
+        Chybějící údaje se doplní předpokladem (`DEFAULT_T_MAX_C`) a verdikt na ně upozorní."""
+        hot, cold = self.hot_devices(), self.cold_devices()
+        tail = self.missing_text()
+        tail = f"; {tail}" if tail else ""
+        if hot or cold:
+            parts = []
+            if hot:
+                d = hot[0]
+                more = f", a další {len(hot) - 1}" if len(hot) > 1 else ""
+                parts.append(f"{d.ref or '?'} {d.place}: ≈ {d.t_air:.0f} °C > t_max {d.t_max:.0f} °C"
+                             + (" (předpoklad)" if d.source == SOURCE_ASSUMED else "") + more)
+            if cold:
+                d = min(cold, key=lambda x: -(x.t_min or 0.0))
+                more = f", a další {len(cold) - 1}" if len(cold) > 1 else ""
+                parts.append(f"{d.ref or '?'}: t_min {_c(d.t_min)} °C > nejnižší okolí {_c(self.t_ambient_min_c)} °C"
+                             + (" (předpoklad)" if d.t_min_source == SOURCE_ASSUMED else "") + more)
+            fix = ("zvětšit skříň, snížit zatížení, doplnit ventilaci nebo zvolit přístroje s vyšší t_max" if hot
+                   else "doplnit vytápění skříně nebo zvolit přístroje s nižší t_min")
+            return f"NEVYHOVUJE (orientačně) – {'; '.join(parts)}; {fix}{tail}"
+        d = self.critical()
+        if d is None:
+            return f"vyhovuje (orientačně) – bez přístrojů, uvnitř ≈ {self.t_top_c:.0f} °C"
+        hottest = max(x.t_air for x in self.devices)
+        label = "nejteplejší" if d.t_air >= hottest - 1e-9 else "nejmenší rezerva"
+        txt = (f"vyhovuje (orientačně) – {label} {d.ref or '?'} ≈ {d.t_air:.0f} °C "
+               f"(t_max {d.t_max:.0f} °C, rezerva {d.margin:.0f} K)")
+        if hottest > DEVICE_REF_C:
+            txt += (f"; nad {DEVICE_REF_C:.0f} °C ověřit odlehčení (derating) jističů a přístrojů podle katalogu")
+        return txt + tail
+
+
+def _severity(d: DeviceTemp) -> tuple[float, bool]:
+    return (round(d.margin, 6), d.source == SOURCE_ASSUMED)
+
+
+def _c(v: float | None) -> str:
+    """Teplota pro text: celé číslo se znaménkem minus (−5)."""
+    return f"{v:.0f}".replace("-", "−") if v is not None else "?"
+
+
+def air_temperature(t_ambient_c: float, dt_mid_k: float, dt_top_k: float, height_ratio: float | None) -> float:
+    """Teplota vzduchu ve skříni [°C] ve výšce `height_ratio` (0 = dno, 1 = strop) podle profilu IEC TR 60890:
+    od středu výšky (Δt0,5) k horní části (Δt1,0) lineárně. Spodní polovina konzervativně Δt0,5 (norma tam
+    teplotu dál snižuje, my ne – na straně bezpečnosti). None (neumístěný přístroj) = horní část."""
+    if height_ratio is None:
+        return t_ambient_c + dt_top_k
+    h = min(max(height_ratio, 0.0), 1.0)
+    if h <= 0.5:
+        return t_ambient_c + dt_mid_k
+    return t_ambient_c + dt_mid_k + (dt_top_k - dt_mid_k) * (h - 0.5) / 0.5
+
+
+def row_height_ratio(layout, row: int) -> float:
+    """Výška osy řady `row` (0 = horní) nad dnem skříně jako podíl výšky skříně. Řady jsou ve skříni svisle na střed
+    s roztečí `row_pitch_mm` (jako kreslí rozložení), osa řady uprostřed pásu řady."""
+    pitch = layout.row_pitch_mm
+    h = max(layout.height_mm, layout.rows * pitch)
+    axis = h / 2 + (layout.rows / 2 - row - 0.5) * pitch
+    return min(max(axis / h, 0.0), 1.0) if h > 0 else 1.0
+
+
+def _temp_value(v) -> float | None:
+    try:
+        x = float(str(v).replace(",", ".").replace("−", "-").strip())
+    except (TypeError, ValueError):
+        return None
+    return x if math.isfinite(x) else None
+
+
+def _limit(e: Element, attr: str, param: str, default: float | None, lib) -> tuple[float | None, str]:
+    """Mez přístroje: atribut prvku (z artiklu `apply_to`, nebo ručně), jinak parametr artiklu v knihovně, jinak
+    předpoklad. Zdroj „artikl“, když hodnota odpovídá přiřazenému artiklu."""
+    comp = None
+    if lib is not None and e.component_id and hasattr(lib, "component"):
+        try:
+            comp = lib.component(e.component_id)
+        except Exception:  # noqa: BLE001 – knihovna nedostupná → jen atributy
+            comp = None
+    c_val = _temp_value(comp.params.get(param)) if comp is not None else None
+    a_val = _temp_value(e.attrs.get(attr))
+    if a_val is not None:
+        return a_val, SOURCE_ARTICLE if c_val is not None and abs(c_val - a_val) < 1e-9 else SOURCE_ATTR
+    if c_val is not None:
+        return c_val, SOURCE_ARTICLE
+    return default, SOURCE_ASSUMED if default is not None else ""
+
+
+def device_temperatures(sheet: Sheet, result: ThermalResult, layout=None, project=None, lib=None,
+                        t_ambient_min: float | None = None) -> list[DeviceTemp]:
+    """Teplota vzduchu u každého přístroje rozložení (`Layout.devices`) a jeho meze. Teplota v úrovni osy řady
+    (`row_height_ratio` → `air_temperature`); neumístěný přístroj = horní část skříně. `t_max` / `t_min` z atributu
+    nebo artiklu (`lib`), jinak předpoklad `DEFAULT_T_MAX_C` / `DEFAULT_T_MIN_C` (dolní mez jen se zadanou
+    `t_ambient_min`). Řadové svorky (`THERMAL_SKIP_SYMBOLS`) jen s vlastním údajem."""
+    lay = layout if layout is not None else sheet.layout
+    out: list[DeviceTemp] = []
+    for e in lay.devices(sheet, project):
+        t_max, src = _limit(e, "t_max", "t_max_c", DEFAULT_T_MAX_C, lib)
+        if e.symbol_id in THERMAL_SKIP_SYMBOLS and src == SOURCE_ASSUMED:
+            continue
+        t_min, src_min = (None, "")
+        if t_ambient_min is not None:
+            t_min, src_min = _limit(e, "t_min", "t_min_c", DEFAULT_T_MIN_C, lib)
+        pl = lay.placement(e.id)
+        row = pl.row if pl is not None else None
+        t_air = result.air_at(row_height_ratio(lay, row) if row is not None else None)
+        out.append(DeviceTemp(e.id, e.ref, row, round(t_air, 1), float(t_max), src, t_min, src_min))
+    return out
 
 
 def layout_inputs(layout) -> tuple[float, float]:
@@ -139,6 +332,16 @@ def layout_inputs(layout) -> tuple[float, float]:
     0,8 / 35 °C (`project.enclosure_number`)."""
     from envocad.model.project import enclosure_number
     return enclosure_number(layout.params, "rdf", 0.8), enclosure_number(layout.params, "t_ambient", 35.0)
+
+
+def ambient_min(layout) -> float | None:
+    """Nejnižší teplota okolí skříně [°C] (parametr `t_ambient_min`), None = nezadána / neplatná – dolní meze
+    přístrojů se pak nekontrolují."""
+    from envocad.model.project import enclosure_param_error
+    raw = str(layout.params.get("t_ambient_min") or "").strip()
+    if not raw or enclosure_param_error("t_ambient_min", raw):
+        return None
+    return _temp_value(raw.replace(" ", ""))
 
 
 def device_power_loss(e: Element, rdf: float = 0.8) -> float:
@@ -200,10 +403,11 @@ def c_factor(ae: float, height_mm: float, width_mm: float, depth_mm: float) -> f
 
 
 def temperature_rise(sheet: Sheet, rdf: float = 0.8, t_ambient_c: float = 35.0, wiring_pct: float = 15.0,
-                     partitions: int = 0, vents: bool = False, project=None, layout=None) -> ThermalResult:
+                     partitions: int = 0, vents: bool = False, project=None, layout=None, lib=None) -> ThermalResult:
     """Oteplení skříně dle IEC TR 60890. Cívka stykače se nezapočítá, když položkou výkazu je stykač na stejném
     listu (`xref.DeviceIndex.is_bom_device`; bez `project` se skupiny hledají jen na listu). `layout` = rozměry
-    a parametry skříně místo `sheet.layout` (rozpracovaná kopie v dialogu skříně)."""
+    a parametry skříně místo `sheet.layout` (rozpracovaná kopie v dialogu skříně). Výsledek nese i teploty po
+    přístrojích (`device_temperatures`; `lib` = knihovna pro meze z artiklů, nejnižší okolí z `t_ambient_min`)."""
     from envocad.model.xref import DeviceIndex
     idx = DeviceIndex.build(project) if project is not None else DeviceIndex.for_sheets([sheet])
     lay = layout if layout is not None else sheet.layout
@@ -244,5 +448,11 @@ def temperature_rise(sheet: Sheet, rdf: float = 0.8, t_ambient_c: float = 35.0, 
         notes.append("hloubka skříně nezadána – počítáno 150 mm")
     if not any(e.attrs.get("p_loss_w") for e in sheet.elements):
         notes.append("ztráty přístrojů odhadnuty z In (doplňte p_loss_w z katalogů pro přesnější výsledek)")
-    return ThermalResult(round(p_dev, 1), round(p_total, 1), round(ae, 3), round(dt_mid, 1), round(dt_top, 1),
-                         rdf, t_ambient_c, notes, k=round(k, 4), c=round(c, 3), d=d, x=x)
+    res = ThermalResult(round(p_dev, 1), round(p_total, 1), round(ae, 3), round(dt_mid, 1), round(dt_top, 1),
+                        rdf, t_ambient_c, notes, k=round(k, 4), c=round(c, 3), d=d, x=x,
+                        t_ambient_min_c=ambient_min(lay))
+    res.devices = device_temperatures(sheet, res, lay, project, lib, res.t_ambient_min_c)
+    if res.devices:
+        notes.append("teplota u přístroje v úrovni osy jeho řady (střed → horní část lineárně, spodní polovina "
+                     "jako střed); neumístěný přístroj = horní část")
+    return res

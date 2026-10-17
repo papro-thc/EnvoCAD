@@ -171,6 +171,18 @@ def _count(n, one: str, few: str, many: str) -> str:
     return f"{k:g} {plural(int(k), one, few, many) if k.is_integer() else few}"
 
 
+def _thermal_text(project: Project, lib: LibraryStore, sheet: Sheet) -> str:
+    """Řádek protokolu: teplota v horní části skříně a hodnocení po přístrojích (`ThermalResult.verdict`)."""
+    from envocad.model.thermal import layout_inputs, temperature_rise
+    try:
+        rdf, t_amb = layout_inputs(sheet.layout)
+        r = temperature_rise(sheet, rdf=rdf, t_ambient_c=t_amb, project=project, lib=lib)
+    except Exception:  # noqa: BLE001 – protokol se vygeneruje i bez výpočtu
+        return ""
+    return (f"ΣPv {r.p_total_w:.0f} W, okolí {r.t_ambient_c:.0f} °C, horní část ≈ {r.t_top_c:.0f} °C – "
+            f"{r.verdict()}")
+
+
 def export_routine_test_docx(project: Project, lib: LibraryStore, sheet: Sheet, path: Path | str,
                              template: Path | str | None = None) -> None:
     doc = Document(str(template)) if template else Document()
@@ -213,6 +225,7 @@ def export_routine_test_docx(project: Project, lib: LibraryStore, sheet: Sheet, 
         ["Zkratová odolnost", _with_unit(lay.params.get("icw", ""), "kA")],
         ["Síť / uzemnění", lay.params.get("network", "TN-S")],
         ["Krytí / IK", " / ".join(x for x in (lay.params.get("ip", ""), lay.params.get("ik", "")) if x)],
+        ["Oteplení (IEC TR 60890, výpočet)", _thermal_text(project, lib, sheet)],
         ["Výrobce rozvaděče", company],
         ["Datum", datetime.now().astimezone().strftime("%d.%m.%Y")],   # dnešní datum v místním čase
     ]

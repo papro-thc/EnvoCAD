@@ -270,10 +270,30 @@ krátké texty (DC rozvaděč) dají dva pásy na stranu A4. Export do PDF, stej
 ### Rozložení a skříň
 `Ctrl+L` otevře rozložení: DIN lišty podle řad, přístroje se přetahují na lišty (snap 0,5 modulu), vpravo
 panel **skříně**: označení, řady, moduly na řadu, rozměry, rozteč řad, IP/IK, montáž, materiál, dveře, Un/In/Icw,
-síť, rezerva, teplota okolí, RDF (`Ctrl+K` otevře totéž jako dialog; skříň lze vybrat z artiklů).
+síť, rezerva, teplota okolí, nejnižší teplota okolí (nepovinné), RDF (`Ctrl+K` otevře totéž jako dialog; skříň lze
+vybrat z artiklů).
 Panel ukazuje obsazenost a **odhad oteplení** podle IEC TR 60890 (ΣPv z atributů `p_loss_w` nebo odhad
-z In a pólů, chladicí plocha podle montáže, Δt uprostřed a v horní části, hodnocení). Parametry skříně se
-kreslí v informačním bloku listu rozvaděče a jdou do protokolu kusového ověření.
+z In a pólů, chladicí plocha podle montáže, Δt uprostřed a v horní části, kritický přístroj, hodnocení). Parametry
+skříně se kreslí v informačním bloku listu rozvaděče a jdou do protokolu kusového ověření.
+
+**Hodnocení oteplení po přístrojích.** Rozhoduje teplota vzduchu u každého přístroje proti rozsahu provozní teploty
+z jeho datasheetu, ne pevný práh skříně:
+
+- *Teplota v řadě*: oteplení roste s výškou – uprostřed výšky skříně Δt0,5, nahoře Δt1,0. Přístroj dostane teplotu
+  v úrovni osy své řady DIN lišty (řady jsou ve skříni na střed s roztečí řad): nad středem lineárně mezi Δt0,5
+  a Δt1,0, ve spodní polovině konzervativně Δt0,5 (norma tam teplotu ještě snižuje). Nerozmístěný přístroj
+  = horní část skříně.
+- *Meze přístroje*: atributy `t_max` / `t_min` (°C, teplota okolí přístroje dle datasheetu) – vyplní je artikl
+  (sloupce `t_max_c` / `t_min_c`), nebo je zadej ručně ve Vlastnostech prvku (u vestavěných přístrojů jsou to
+  skryté atributy). Přístroj bez `t_max` se hodnotí s předpokladem **40 °C** – horní mez normálních provozních
+  podmínek výrobkových norem (ČSN EN 60947-1, ČSN EN 60898-1); výrobci obvykle uvádějí víc (55–70 °C), takže
+  předpoklad je na straně bezpečnosti a hodnocení připíše „u N přístrojů chybí rozsah teplot – ověřit“.
+- *Dolní mez*: jen když skříň má **nejnižší teplotu okolí** (`t_ambient_min`); vzduch uvnitř se pak bere rovný
+  okolí (bez zatížení se skříň neohřívá). Přístroj bez `t_min` předpokládá −5 °C.
+- *Verdikt*: nejhorší přístroj (prokázané překročení z artiklu/atributu má přednost před překročením předpokladu):
+  „NEVYHOVUJE (orientačně) – F3 v řadě 1: ≈ 58 °C > t_max 55 °C; …“, jinak „vyhovuje (orientačně) – nejteplejší
+  F3 ≈ 48 °C (t_max 55 °C, rezerva 7 K)“; nad 40 °C připomene odlehčení (derating) jističů. Stejný text je v TZ
+  a v protokolu kusového ověření. Řadové svorky se hodnotí jen s vlastním `t_max`.
 
 Pozor: hodnoty křivek k a c v tabulkách jsou orientační – pro průkaz ověř proti normě.
 
@@ -313,6 +333,13 @@ Kontakty a přerušovací body:
 | `contact_unknown` | varování | pár svorek kontaktu není v kontaktním obrazu přístroje |
 | `contact_image_syntax` | varování | v atributu `contacts` je nečitelný token |
 | `interrupt_star_multi` | varování | ve skupině přerušovacích bodů jsou dva a více zdrojů hvězdy |
+
+Oteplení rozvaděče (sekce 4, Rozložení a skříň):
+
+| Kód | Závažnost | Význam |
+|---|---|---|
+| `thermal_device` | varování | teplota vzduchu v řadě přístroje překračuje jeho `t_max` z artiklu/atributu (nebo nejnižší teplota okolí skříně je pod jeho `t_min`) |
+| `thermal_device` | info | jedna položka na list: u N přístrojů chybí rozsah teplot z datasheetu (předpoklad 40 °C), kolik z nich je nad předpokladem |
 
 Připomínky (sekce 9):
 

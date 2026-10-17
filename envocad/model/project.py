@@ -445,6 +445,7 @@ ENCLOSURE_PARAMS = [
     ("network", "Síť / uzemnění", "TN-S"),
     ("reserve_pct", "Požadovaná rezerva [%]", "20"),
     ("t_ambient", "Teplota okolí [°C]", "35"),
+    ("t_ambient_min", "Nejnižší teplota okolí [°C]", ""),   # nepovinné – kontrola dolních mezí přístrojů (t_min)
     ("rdf", "RDF (Ib/In)", "0,8"),
     ("note", "Poznámka", ""),
 ]
@@ -454,7 +455,7 @@ ENCLOSURE_NUMERIC: dict[str, tuple[float, float, bool, str]] = {
     "width_mm": (0.0, 5000.0, True, "mm"), "height_mm": (0.0, 5000.0, True, "mm"),
     "depth_mm": (0.0, 2000.0, True, "mm"), "row_pitch_mm": (50.0, 1000.0, False, "mm"),
     "in_": (0.0, 10000.0, True, "A"), "icw": (0.0, 200.0, True, "kA"), "reserve_pct": (0.0, 100.0, False, "%"),
-    "t_ambient": (-40.0, 60.0, False, "°C"), "rdf": (0.0, 1.0, True, ""),
+    "t_ambient": (-40.0, 60.0, False, "°C"), "t_ambient_min": (-60.0, 60.0, False, "°C"), "rdf": (0.0, 1.0, True, ""),
 }
 
 

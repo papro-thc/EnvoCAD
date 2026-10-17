@@ -23,7 +23,7 @@ NUMERIC = {"price_czk", "in_", "poles", "icu_ka", "idn_ma", "un_v", "modules", "
            "p_loss_w", "p_ac_kw", "p_dc_max_kwp", "mppt", "phases", "i_ac_max_a", "e_kwh", "p_kw", "u_dc_v", "p_wp",
            "voc_v", "isc_a", "vmp_v", "imp_a", "uc_v", "up_kv", "iimp_ka", "in_ka", "rows", "modules_per_row",
            "cross_mm2", "cross_max_mm2", "levels", "cores_n", "od_mm", "u_dc_max_v", "u_mppt_min_v", "u_mppt_max_v",
-           "i_mppt_max_a", "strings_per_mppt", "beta_voc"}
+           "i_mppt_max_a", "strings_per_mppt", "beta_voc", "t_min_c", "t_max_c"}
 SOURCES = {"catalog", "datasheet", "web", "seed", "user"}
 
 # výchozí schematická značka podle kategorie (když symbol_id chybí)
@@ -43,6 +43,8 @@ PARAM_TO_ATTR = {
     "cross_mm2": "cross", "terminal_kind": "kind",
     "u_dc_max_v": "u_dc_max", "u_mppt_min_v": "u_mppt_min", "u_mppt_max_v": "u_mppt_max", "i_mppt_max_a": "i_mppt_max",
     "strings_per_mppt": "strings_per_mppt", "vmp_v": "vmp", "beta_voc": "beta_voc",
+    # rozsah provozní teploty okolí přístroje [°C] dle datasheetu – ověření oteplení po přístrojích (`thermal`)
+    "t_min_c": "t_min", "t_max_c": "t_max",
     "contacts": "contacts",   # kontaktní obraz („1/2 3/4 5/6 13/14 21/22“) – zrcadlo kontaktů, kontroly kontaktů
 }
 
@@ -134,6 +136,27 @@ def read_csv(path: Path | str) -> list[Component]:
         return [Component.from_row(r) for r in csv.DictReader(f, delimiter=delim) if r.get("id", "").strip()]
 
 
+T_RANGE_C = (-60.0, 150.0)   # věrohodný rozsah provozní teploty okolí přístroje z datasheetu [°C]
+
+
+def temperature_range_error(t_min, t_max) -> str | None:
+    """Česká hláška k rozsahu provozní teploty okolí (`t_min_c` / `t_max_c`): mimo věrohodný rozsah −60…150 °C
+    nebo t_min ≥ t_max. Prázdné hodnoty jsou v pořádku, nečíselné hlásí kontrola `NUMERIC` (tady se přeskočí)."""
+    vals = []
+    for key, v in (("t_min_c", t_min), ("t_max_c", t_max)):
+        t = str(v or "").strip()
+        if not re.fullmatch(r"-?\d+([.,]\d+)?", t):
+            vals.append(None)
+            continue
+        x = float(t.replace(",", "."))
+        if not T_RANGE_C[0] <= x <= T_RANGE_C[1]:
+            return f"'{key}' = {t} °C je mimo věrohodný rozsah {T_RANGE_C[0]:g} až {T_RANGE_C[1]:g} °C"
+        vals.append(x)
+    if vals[0] is not None and vals[1] is not None and vals[0] >= vals[1]:
+        return f"'t_min_c' ({vals[0]:g} °C) musí být menší než 't_max_c' ({vals[1]:g} °C)"
+    return None
+
+
 def validate(path: Path | str, known_symbols: set[str] | None = None) -> list[str]:
     """Vrátí seznam chyb (prázdný = OK)."""
     errors: list[str] = []
@@ -175,6 +198,9 @@ def validate(path: Path | str, known_symbols: set[str] | None = None) -> list[st
                 v = (row.get(c) or "").strip()
                 if v and not re.fullmatch(r"-?\d+([.,]\d+)?", v):
                     errors.append(f"řádek {n} ({rid}): '{c}' musí být číslo, je '{v}'")
+            t_err = temperature_range_error(row.get("t_min_c"), row.get("t_max_c"))
+            if t_err:
+                errors.append(f"řádek {n} ({rid}): {t_err}")
             contacts = (row.get("contacts") or "").strip()
             if contacts:
                 from envocad.model.xref import parse_contact_image

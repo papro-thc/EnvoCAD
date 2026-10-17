@@ -22,8 +22,9 @@ from envocad.model.project import (
     without_dangling,
 )
 from envocad.model.thermal import (
-    DEVICE_AIR_MAX_C,
+    DEFAULT_T_MAX_C,
     LOSS_PER_A_PER_POLE,
+    DeviceTemp,
     ThermalResult,
     device_power_loss,
     layout_inputs,
@@ -231,16 +232,22 @@ def test_losses_for_common_builtin_devices(lib):
 
 
 def test_thermal_verdict_uses_absolute_temperature():
-    """#12: hodnocení podle teploty uvnitř (okolí + Δt), ne jen Δt: 25 K při 35 °C = 60 °C > 55 °C nevyhovuje."""
-    def res(dt, amb):
-        return ThermalResult(10, 10, 1, dt / 1.2, dt, 0.8, amb, [])
-    assert res(25, 35).verdict().startswith("NEVYHOVUJE")
-    assert res(10, 35).verdict().startswith("vyhovuje s podmínkou")      # 45 °C > 40 °C – derating
-    assert res(4, 35).verdict().startswith("vyhovuje (orientačně)")
+    """#12 (po přístrojích): hodnocení podle teploty vzduchu u přístroje (okolí + Δt v jeho řadě) proti jeho t_max,
+    ne podle samotného Δt ani pevného prahu skříně."""
+    def res(dt, amb, t_max=55.0, src="artikl"):
+        r = ThermalResult(10, 10, 1, dt / 1.2, dt, 0.8, amb, [])
+        r.devices = [DeviceTemp("e1", "F3", 0, amb + dt, t_max, src)]
+        return r
+    assert res(25, 35).verdict().startswith("NEVYHOVUJE")                # 60 °C > 55 °C
+    assert res(10, 35).verdict().startswith("vyhovuje (orientačně)")     # 45 °C ≤ 55 °C
+    assert "derating" in res(10, 35).verdict()                           # nad 40 °C připomenout odlehčení
+    assert "derating" not in res(4, 35).verdict()
     assert res(10, 50).verdict().startswith("NEVYHOVUJE")                # 60 °C uvnitř
-    assert res(10, 20).limit_k() == DEVICE_AIR_MAX_C - 20
-    assert res(25, 20).verdict(limit_k=20).startswith("NEVYHOVUJE")
-    assert "orientačně" in res(4, 35).verdict()
+    assert res(10, 50, t_max=70).verdict().startswith("vyhovuje")        # přístroj do 70 °C
+    assert res(4, 35, t_max=DEFAULT_T_MAX_C, src="předpoklad").verdict().startswith("vyhovuje")
+    assert "orientačně" in res(4, 35).verdict() and "orientačně" in res(25, 35).verdict()
+    empty = ThermalResult(0, 0, 1, 0, 0, 0.8, 35, [])
+    assert empty.verdict().startswith("vyhovuje (orientačně) – bez přístrojů")
 
 
 # ---- vícepól ---------------------------------------------------------------------------------------------------------

@@ -131,6 +131,18 @@
       "label": "Ztrátový výkon při In [W]",
       "default": "",
       "show": false
+    },
+    {
+      "key": "t_min",
+      "label": "Teplota okolí min [°C]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "t_max",
+      "label": "Teplota okolí max [°C]",
+      "default": "",
+      "show": false
     }
   ],
   "multipole": {
