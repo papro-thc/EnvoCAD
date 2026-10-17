@@ -455,3 +455,23 @@ def test_prims_of_element_above_top_edge_stay_on_its_page(lib):
     assert terms and all(pr.page == 1 for pr in terms)
     labels = [pr for pr in g.prims if pr.kind == "text" and pr.text and "W1" in pr.text]
     assert labels and all(pr.page == 1 for pr in labels)
+
+
+def test_dxf_bridge_dots_continuous_and_suffix(lib, tmp_path):
+    """Tečky můstků na čárkované vrstvě MUSTKY mají plný obrys (linetype CONTINUOUS); chybějící přípona „.dxf“ se
+    doplní stejně pro jeden soubor i pro soubor na stranu."""
+    p, sb = _ac_terminals()
+    out = export_multipole_dxf(p, sb, lib, tmp_path / "bez")
+    assert out == [tmp_path / "bez.dxf"] and out[0].exists()
+    circles = [e for e in ezdxf.readfile(out[0]).modelspace().query("CIRCLE") if e.dxf.layer == "MUSTKY"]
+    assert circles and all(e.dxf.linetype == "CONTINUOUS" for e in circles)
+    split = export_multipole_dxf(p, sb, lib, tmp_path / "strany", split_pages=True)
+    assert split[0] == tmp_path / "strany_s1.dxf" and all(f.exists() for f in split)
+    assert export_multipole_dxf(p, sb, lib, tmp_path / "x.DXF") == [tmp_path / "x.DXF"]
+
+
+def test_export_files_message_plural(qapp):
+    from envocad.ui.main_window import export_files_message
+    assert export_files_message(["a.dxf"]) == "Exportováno: a.dxf"
+    assert export_files_message(["a_s1.dxf", "a_s2.dxf"]) == "Exportováno 2 soubory: a_s1.dxf …"
+    assert export_files_message([f"{i}" for i in range(5)]).startswith("Exportováno 5 souborů: ")

@@ -259,7 +259,7 @@ def test_record_revision_twice_does_not_duplicate(qapp, lib, proj):
 def test_record_revision_exception_restores_model(qapp, lib, proj, monkeypatch):
     """Výjimka uprostřed dočasné změny (`apply_changes`): try/finally vrátí revize i `meta` do původního stavu
     a do undo nic nepřibude."""
-    import envocad.model.revision as revision
+    from envocad.model import revision
     from envocad.model.diff import change_list_text, diff_projects
     from envocad.model.revision import revisions_state
     from envocad.ui.main_window import MainWindow

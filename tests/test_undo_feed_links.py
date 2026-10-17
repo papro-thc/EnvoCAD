@@ -260,11 +260,29 @@ def test_set_attr_wire_id_copies_conductors_and_undoes(app, lib):
     _done(w)
 
 
+def test_attrs_changed_emitted_after_followups(app, lib):
+    """Signál `attrs_changed` přijde až po navázaných změnách – panel vlastností vidí výsledný stav (port vodiče
+    JPS, odkud/kam) při redo i undo."""
+    p, s, sb, t, blk, feed, _ = _project()
+    other = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "X7"), attrs={"ref": "W7"}, conductors=list(FULL))
+    s.wires.append(other)
+    w = _win(lib, p)
+    w.open_sheet(sb)
+    seen = []
+    w.scene.attrs_changed.connect(lambda _id: seen.append((other.b.port, feed.attrs.get("from", ""),
+                                                          list(sb.wires[0].conductors))))
+    w.scene.set_attr(feed.id, False, "wire_id", other.id)
+    assert seen[-1][0] == "X1" and seen[-1][1].startswith("W7 ") and seen[-1][2] == FULL
+    w.undo.undo()
+    assert seen[-1] == ("X7", "", SHORT)
+    _done(w)
+
+
 def test_add_feed_with_wire_id_renames_jps_port_and_undoes(app, lib):
     """Nový přívod s vazbou z dialogu (`AddElementCommand`): konec vodiče JPS na bloku se přejmenuje podle
     označení přívodu, undo ho vrátí, redo zopakuje."""
     from envocad.model.project import feed_link_attrs
-    p, s, sb, t, blk, _feed, _ = _project()
+    p, s, sb, _t, blk, _feed, _ = _project()
     t2 = Element("fve.inverter", 50, 100, attrs={"ref": "T2"})
     other = Wire(WireEnd(t2.id, "AC"), WireEnd(blk.id, "X7"), attrs={"ref": "W7"}, conductors=list(FULL))
     s.elements.append(t2)
@@ -301,10 +319,28 @@ def test_paste_feed_with_wire_id_renames_jps_port(app, lib):
     _done(w)
 
 
+def test_multipole_add_feed_with_wire_id_renames_jps_port(app, lib):
+    """Totéž pro přívod s vazbou vložený ve vícepólu listu rozvaděče (`MultipoleAddCommand`)."""
+    p, s, sb, t, blk, _feed, _ = _project()
+    other = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "X7"), attrs={"ref": "W7"}, conductors=list(FULL))
+    s.wires.append(other)
+    w = _win(lib, p)
+    w.open_sheet(sb, "multipole")
+    mps = w.view.scene()
+    assert mps.sheet is sb
+    before = _state(p)
+    e = Element("sb.feed_in", 80, 200, attrs={"ref": "X4", "wire_id": other.id})
+    w.undo.push(commands.MultipoleAddCommand(mps, element=e))
+    assert other.b.port == "X4"
+    w.undo.undo()
+    assert other.b.port == "X7" and _state(p) == before
+    _done(w)
+
+
 def test_edit_feed_ref_and_wire_id_together_keeps_new_link(app, lib):
     """Úprava přívodu se změnou označení i vazby v jednom dialogu: nová vazba se neztratí – port dostane nově
     navázaný vodič, dosavadní vodič zůstane na svém portu a vodiče u přívodu převezmou žíly nového vodiče."""
-    p, s, sb, t, blk, feed, jw = _project(linked=True)
+    p, s, sb, _t, blk, feed, jw = _project(linked=True)
     t2 = Element("fve.inverter", 50, 100, attrs={"ref": "T2"})
     other = Wire(WireEnd(t2.id, "AC"), WireEnd(blk.id, "X7"), attrs={"ref": "W7"}, conductors=["L1", "PE"])
     s.elements.append(t2)

@@ -7,9 +7,11 @@ from envocad.model.project import Element, Wire
 
 
 class _FeedFollowups:
-    """Navázané změny primárních dat u přívodů/vývodů rozvaděče (žíly vodičů rozvaděče `feed_conductor_followups`,
-    port vodiče JPS na bloku `feed_port_followups`). Spočítají se při prvním redo po hlavní změně, další redo je
-    zopakuje beze změny a undo je vrátí před hlavní změnou – synchronizace mimo undo je už nedělá."""
+    """Navázané změny u přívodů/vývodů rozvaděče (žíly vodičů rozvaděče `feed_conductor_followups`, port vodiče
+    JPS na bloku `feed_port_followups`, u ruční vazby i odvozené odkud/kam a kabel). Vyvolá je vložení vodiče JPS,
+    vložení přívodu/vývodu s `wire_id` (`AddElementCommand`, `PasteCommand`, `MultipoleAddCommand`) i změna
+    `wire_id` (`SetAttrCommand`). Spočítají se při prvním redo po hlavní změně, další redo je zopakuje beze změny
+    a undo je vrátí před hlavní změnou – synchronizace mimo undo je už nedělá."""
 
     _ports: list | None = None
     _conds: list | None = None
