@@ -196,6 +196,7 @@ def check_project(project: Project, lib) -> list[Finding]:
     out += note_findings(full)
     out += cable_findings(full)
     out += calc_findings(project)
+    out += thermal_findings(project, lib)
     out += potential_findings(project, lib)
     out += text_findings(project, lib)
     out = aggregate_info(out)
@@ -608,6 +609,47 @@ def calc_findings(project: Project) -> list[Finding]:
             s = sheet_of.get(e.id) if e else None
             out.append(Finding(WARNING if "menší" in msg else INFO, s.id if s else "", s.name if s else "",
                                e.id if e else "", False, lo, f"Selektivita: {msg}", "calc_selectivity"))
+    return out
+
+
+def thermal_findings(project: Project, lib=None) -> list[Finding]:
+    """Oteplení rozvaděče po přístrojích (`thermal.temperature_rise` → `ThermalResult.devices`), kód `thermal_device`:
+    teplota vzduchu v řadě přístroje nad jeho `t_max` z artiklu / atributu (nebo `t_min` nad nejnižší teplotou okolí
+    skříně) – WARNING u přístroje. Přístroje bez rozsahu teplot z datasheetu (předpoklad `DEFAULT_T_MAX_C` /
+    `DEFAULT_T_MIN_C`) – jedna INFO na list, včetně počtu těch, které jsou nad předpokladem (bez údaje z datasheetu
+    nejde o prokázané překročení, ale o úkol doplnit data; verdikt oteplení je přesto hodnotí konzervativně)."""
+    from envocad.model.thermal import SOURCE_ASSUMED, layout_inputs, temperature_rise
+    out: list[Finding] = []
+    for s in project.sheets:
+        if not s.is_switchboard:
+            continue
+        rdf, t_amb = layout_inputs(s.layout)
+        r = temperature_rise(s, rdf=rdf, t_ambient_c=t_amb, project=project, lib=lib)
+        over_assumed = 0
+        for d in r.hot_devices():
+            if d.source == SOURCE_ASSUMED:
+                over_assumed += 1
+                continue
+            out.append(Finding(WARNING, s.id, s.name, d.element_id, False, d.ref,
+                               f"Oteplení (orientačně): {d.place} ≈ {d.t_air:.0f} °C > t_max {d.t_max:.0f} °C "
+                               f"({d.source})", "thermal_device"))
+        for d in r.cold_devices():
+            if d.t_min_source == SOURCE_ASSUMED:
+                over_assumed += 1
+                continue
+            t_min = f"{d.t_min:.0f}".replace("-", "−")
+            t_lo = f"{r.t_ambient_min_c:.0f}".replace("-", "−")
+            out.append(Finding(WARNING, s.id, s.name, d.element_id, False, d.ref,
+                               f"Teplota okolí skříně až {t_lo} °C je pod t_min {t_min} °C přístroje ({d.t_min_source})",
+                               "thermal_device"))
+        missing = r.missing_devices()
+        if missing:
+            refs = sorted({d.ref for d in missing if d.ref}, key=_natural)
+            shown = ", ".join(refs[:8]) + (", …" if len(refs) > 8 else "")
+            extra = f"; nad předpokladem: {over_assumed}" if over_assumed else ""
+            out.append(Finding(INFO, s.id, s.name, missing[0].element_id, False, "",
+                               f"Oteplení: {r.missing_text()}{extra}" + (f" ({shown})" if shown else ""),
+                               "thermal_device"))
     return out
 
 

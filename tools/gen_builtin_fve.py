@@ -66,6 +66,9 @@ MFR = attr("manufacturer", "Výrobce")
 POLES = attr("poles", "Póly", "3")
 MOD = attr("modules", "Šířka [moduly]", "3")
 PLOSS = attr("p_loss_w", "Ztrátový výkon při In [W]")
+# rozsah provozní teploty okolí přístroje dle datasheetu (skryté; z artiklu t_min_c/t_max_c) – ověření oteplení
+# po přístrojích (`model/thermal.py:device_temperatures`); prázdné = předpoklad DEFAULT_T_MAX_C
+TEMP = [attr("t_min", "Teplota okolí min [°C]"), attr("t_max", "Teplota okolí max [°C]")]
 
 SYMBOLS = [
     {
@@ -95,7 +98,7 @@ SYMBOLS = [
                        L(-2.5, -1.5, -2.5, 1.5), T(0, 6, "DC", 2)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("un", "Un [V DC]"), attr("in_", "In [A]", "", True),
-                       attr("poles", "Póly", "2"), attr("modules", "Šířka [moduly]", "2")],
+                       attr("poles", "Póly", "2"), attr("modules", "Šířka [moduly]", "2"), *TEMP],
         "multipole": MP(CONTACT + DISC_BAR, [T(0, 6, "DC", 2)]),
         "label_pos": {"x": -5, "y": -6},
     },
@@ -105,7 +108,7 @@ SYMBOLS = [
         "primitives": [R(-5, -2.5, 10, 5), L(-7.5, 0, 7.5, 0)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "gPV"),
-                       attr("poles", "Póly", "1"), attr("modules", "Šířka [moduly]", "1"), PLOSS],
+                       attr("poles", "Póly", "1"), attr("modules", "Šířka [moduly]", "1"), PLOSS, *TEMP],
         "multipole": MP([R(-5, -2.5, 10, 5), L(-7.5, 0, 7.5, 0)], link=False),
         "label_pos": {"x": -5, "y": 4},
     },
@@ -116,7 +119,7 @@ SYMBOLS = [
                        {"type": "polyline", "points": [[-1.84, 2.66], [-0.65, 4.00], [2.34, 1.34], [1.15, -0.00]], "closed": True}],  # pojistka na noži
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "gPV"),
-                       attr("un", "Un [V DC]", "1000"), attr("poles", "Póly", "2"), attr("modules", "Šířka [moduly]", "2"), PLOSS],
+                       attr("un", "Un [V DC]", "1000"), attr("poles", "Póly", "2"), attr("modules", "Šířka [moduly]", "2"), PLOSS, *TEMP],
         "multipole": MP([L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0), L(-2.5, -1.5, -2.5, 1.5), {"type": "polyline", "points": [[-1.84, 2.66], [-0.65, 4.00], [2.34, 1.34], [1.15, -0.00]], "closed": True}]),
         "label_pos": {"x": -5, "y": -6},
     },
@@ -127,7 +130,7 @@ SYMBOLS = [
                        L(1, 3.5, 2, 3.5), L(2, 2.5, 2, 3.5)],
         "ports": [P("L", 0, 7.5, "N"), P("PE", 0, -7.5, "S")],
         "attributes": [REF, TYPE, MFR, attr("spd_type", "Typ SPD", "T2", True), attr("uc", "Uc [V]"),
-                       POLES, attr("modules", "Šířka [moduly]", "4")],
+                       POLES, attr("modules", "Šířka [moduly]", "4"), *TEMP],
         "multipole": MP([R(-2.5, -5, 5, 10), L(0, 5, 0, 7.5), L(0, -5, 0, -7.5), L(-2, -3.5, 2, 3.5), L(1, 3.5, 2, 3.5), L(2, 2.5, 2, 3.5)], link=False),
         "label_pos": {"x": 4, "y": 2},
     },
@@ -173,7 +176,7 @@ SYMBOLS = [
                        L(-4.3, 4.2, -2.3, 6.2), L(-4.3, 6.2, -2.3, 4.2)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "B"),
-                       POLES, MOD, attr("icu", "Icu [kA]", "6"), PLOSS],
+                       POLES, MOD, attr("icu", "Icu [kA]", "6"), PLOSS, *TEMP],
         "multipole": MP(CONTACT + TRIP_X),
         "label_pos": {"x": -5, "y": -6},
     },
@@ -184,7 +187,7 @@ SYMBOLS = [
                        L(-4.3, 4.2, -2.3, 6.2), L(-4.3, 6.2, -2.3, 4.2), R(-6, -3.5, 12, 10.5)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("ir", "Ir [A]"), POLES,
-                       attr("modules", "Šířka [moduly]", "6"), attr("icu", "Icu [kA]"), PLOSS],
+                       attr("modules", "Šířka [moduly]", "6"), attr("icu", "Icu [kA]"), PLOSS, *TEMP],
         "multipole": MP(CONTACT + TRIP_X, [R(-6, -3.5, 12, 10.5)]),
         "label_pos": {"x": -5, "y": -7},
     },
@@ -193,7 +196,7 @@ SYMBOLS = [
         "description": "Odpínač AC (hlavní vypínač, odpínač FVE)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0), L(-2.5, -1.5, -2.5, 1.5)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
-        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS, *TEMP],
         "multipole": MP(CONTACT + DISC_BAR),
         "label_pos": {"x": -5, "y": -6},
     },
@@ -202,7 +205,7 @@ SYMBOLS = [
         "description": "Stykač (např. pro odpojení FVE od DS – NS)",
         "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0), A(-3.5, 0, 1, -90, 90)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
-        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS, CONTACTS],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS, CONTACTS, *TEMP],
         "multipole": MP(CONTACT + [A(-3.5, 0, 1, -90, 90)]),
         "label_pos": {"x": -5, "y": -6},
     },
@@ -211,7 +214,7 @@ SYMBOLS = [
         "description": "Elektroměr (fakturační / podružný)",
         "primitives": [C(0, 0, 5), T(0, -1, "kWh", 2), L(-7.5, 0, -5, 0), L(5, 0, 7.5, 0)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
-        "attributes": [REF, TYPE, MFR, attr("kind", "Druh", "fakturační"), attr("modules", "Šířka [moduly]", "4")],
+        "attributes": [REF, TYPE, MFR, attr("kind", "Druh", "fakturační"), attr("modules", "Šířka [moduly]", "4"), *TEMP],
         "label_pos": {"x": -5, "y": 6.5},
     },
     {
@@ -279,7 +282,7 @@ SYMBOLS = [
                        {"type": "polyline", "points": [[-1, -2], [1, -2], [0, -4.5]], "closed": True}],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("idn", "IΔn [mA]", "30", True),
-                       attr("rcd_type", "Typ", "A"), attr("poles", "Póly", "4"), attr("modules", "Šířka [moduly]", "4"), PLOSS],
+                       attr("rcd_type", "Typ", "A"), attr("poles", "Póly", "4"), attr("modules", "Šířka [moduly]", "4"), PLOSS, *TEMP],
         "multipole": MP(CONTACT, [{"type": "polyline", "points": [[-1, -2], [1, -2], [0, -4.5]], "closed": True}]),
         "label_pos": {"x": -5, "y": -7},
     },
@@ -290,7 +293,7 @@ SYMBOLS = [
                        {"type": "polyline", "points": [[0, -2], [2, -2], [1, -4.5]], "closed": True}],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
         "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("char", "Charakteristika", "B"),
-                       attr("idn", "IΔn [mA]", "30", True), attr("poles", "Póly", "2"), attr("modules", "Šířka [moduly]", "2"), PLOSS],
+                       attr("idn", "IΔn [mA]", "30", True), attr("poles", "Póly", "2"), attr("modules", "Šířka [moduly]", "2"), PLOSS, *TEMP],
         "multipole": MP(CONTACT + TRIP_X, [{"type": "polyline", "points": [[0, -2], [2, -2], [1, -4.5]], "closed": True}]),
         "label_pos": {"x": -5, "y": -7},
     },
@@ -300,7 +303,7 @@ SYMBOLS = [
         "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0), L(-2.5, -1.5, -2.5, 1.5),
                        C(2.5, 0, 0.8), T(0, 6, "HV", 2)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
-        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS, *TEMP],
         "multipole": MP(CONTACT + DISC_BAR, [C(2.5, 0, 0.8), T(0, 6, "HV", 2)]),
         "label_pos": {"x": -5, "y": -6},
     },
@@ -383,7 +386,7 @@ SYMBOLS += [
                        T(-6.5, -7, "A2", 1.8, "right")],
         "ports": [P("A1", 0, 7.5, "N"), P("A2", 0, -7.5, "S")],
         "attributes": [REF, TYPE, MFR, attr("un", "Un cívky [V]", "230"), attr("desc", "Funkce", "", True), MOD,
-                       CONTACTS],
+                       CONTACTS, *TEMP],
         "label_pos": {"x": 7, "y": 2},
     },
     {

@@ -1,4 +1,4 @@
-id;manufacturer;part_number;name;category;symbol_id;footprint_id;datasheet_url;source;price_czk;in_;poles;char;icu_ka;idn_ma;un_v;modules;width_mm;height_mm;depth_mm;p_loss_w;spd_type;uc_v;rows;modules_per_row;ip;ik;material;mounting;door;note
-oez-ofi-40-4-030ac;OEZ;OFI-40-4-030AC;Proudový chránič OFI 40 A 4p 30 mA AC;rcd;sb.rcd;;https://www.oez.cz;seed;;40;4;AC;;30;400;4;70;90;70;;;;;;;;;;;seed – ověřit
-oez-ofi-63-4-030a;OEZ;OFI-63-4-030A;Proudový chránič OFI 63 A 4p 30 mA A;rcd;sb.rcd;;https://www.oez.cz;seed;;63;4;A;;30;400;4;70;90;70;;;;;;;;;;;seed – ověřit
-hager-vu36nc;Hager;VU36NC;Rozvodnice Volta 3×12 modulů, nástěnná, plné dveře;enclosure;;;https://www.hager.cz;seed;;;;;;;;;;;;;;;3;12;IP30;;plast;nástěnná;plné;seed – rozměry doplnit
+id;manufacturer;part_number;name;category;symbol_id;footprint_id;datasheet_url;source;price_czk;in_;poles;char;icu_ka;idn_ma;un_v;modules;width_mm;height_mm;depth_mm;p_loss_w;spd_type;uc_v;rows;modules_per_row;ip;ik;material;mounting;door;note;t_min_c;t_max_c
+oez-ofi-40-4-030ac;OEZ;OFI-40-4-030AC;Proudový chránič OFI 40 A 4p 30 mA AC;rcd;sb.rcd;;https://www.oez.cz;seed;;40;4;AC;;30;400;4;70;90;70;;;;;;;;;;;seed – ověřit;;
+oez-ofi-63-4-030a;OEZ;OFI-63-4-030A;Proudový chránič OFI 63 A 4p 30 mA A;rcd;sb.rcd;;https://www.oez.cz;seed;;63;4;A;;30;400;4;70;90;70;;;;;;;;;;;seed – ověřit;;
+hager-vu36nc;Hager;VU36NC;Rozvodnice Volta 3×12 modulů, nástěnná, plné dveře;enclosure;;;https://www.hager.cz;seed;;;;;;;;;;;;;;;3;12;IP30;;plast;nástěnná;plné;seed – rozměry doplnit;;

@@ -101,6 +101,18 @@
       "label": "Kontaktní obraz (např. 1/2 3/4 5/6 13/14)",
       "default": "",
       "show": false
+    },
+    {
+      "key": "t_min",
+      "label": "Teplota okolí min [°C]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "t_max",
+      "label": "Teplota okolí max [°C]",
+      "default": "",
+      "show": false
     }
   ],
   "multipole": {

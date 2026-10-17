@@ -740,7 +740,8 @@ class EnclosurePanel(QWidget):
         f2 = QFormLayout(g2)
         f2.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
         hints = {"mounting": "nástěnná / zapuštěná / stojanová / volně stojící", "material": "plast / ocel / nerez",
-                 "door": "plné / průhledné / bez dveří"}
+                 "door": "plné / průhledné / bez dveří",
+                 "t_ambient_min": "nepovinné – kontrola t_min přístrojů (např. −20)"}
         self._edits: dict[str, QLineEdit] = {}
         for key, label, default in ENCLOSURE_PARAMS:
             ed = QLineEdit(lay.params.get(key, default))
@@ -889,12 +890,15 @@ class EnclosurePanel(QWidget):
         self.warning.setVisible(bool(warn))
         self._mark_invalid()
         rdf, t_amb = layout_inputs(lay)   # každá hodnota zvlášť; neplatná / nezadaná = výchozí
-        r = temperature_rise(self._sheet, rdf=rdf, t_ambient_c=t_amb, project=self._project, layout=lay)
+        r = temperature_rise(self._sheet, rdf=rdf, t_ambient_c=t_amb, project=self._project, layout=lay,
+                             lib=self.library)
         txt = (f"Ztráty přístrojů ΣPv = {r.p_devices_w:g} W, celkem s vodiči {r.p_total_w:g} W\n"
                f"Účinná chladicí plocha Ae = {r.ae_m2:g} m²\n"
                f"Oteplení: střed Δt = {r.dt_mid_k:g} K, horní část Δt = {r.dt_top_k:g} K "
-               f"→ ≈ {r.t_top_c:g} °C při okolí {r.t_ambient_c:g} °C\n"
-               f"Hodnocení: {r.verdict()}")
+               f"→ ≈ {r.t_top_c:g} °C při okolí {r.t_ambient_c:g} °C\n")
+        if r.critical() is not None:
+            txt += f"Kritický přístroj: {r.critical_text()}\n"
+        txt += f"Hodnocení: {r.verdict()}"
         if r.notes:
             txt += "\n" + "; ".join(r.notes)
         self.thermal.setText(txt)
