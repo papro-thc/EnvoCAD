@@ -98,6 +98,37 @@ kontakty cívky – položkou výkazu, rozložení a tepla je pak stykač). Zrca
 Kódy `func`/`loc` se zadávají bez znaménka („AC“, „RDC1“), jedna úroveň, znaky A–Z, 0–9, _ (max. 10).
 Plné označení prvku je pak `=AC+RDC1-F3` (viz `envocad/model/designation.py`).
 
+## Atributy vnitřního vodiče rozvaděče (výrobní data)
+
+Na listu rozvaděče má vodič kromě běžných atributů (`WIRE_ATTRIBUTES`: `ref`, `cable`, `cross`…) nepovinné klíče
+`SWITCHBOARD_WIRE_ATTRIBUTES` (`model/project.py`) pro výrobní zapojovací seznam (`model/wiring.py`, návrh
+`docs/design/vyrobni_data.md`). **Formát projektu se nemění (v9)** – prázdná hodnota = automaticky.
+
+| klíč | popisek | význam |
+|---|---|---|
+| `cross` | Průřez [mm²] | průřez vodiče; prázdné = z nejmenšího In přístrojů na koncích (`IN_TO_CROSS`, orientační), u `ctl.*` průřez řízení, jinak min. průřez |
+| `cable` | Typ kabelu | typ vodiče; prázdné = `wire_type` rozvaděče (H07V-K) |
+| `color` | Barva vodiče | jednožilový vodič vždy; vícežilový jen fáze/DC (N, PE, PEN si nechají barvu podle žíly); prázdné = barva žíly (`CORE_COLORS`) |
+| `end_a`, `end_b` | Koncovka A/B | koncovka konce `a`/`b`; prázdné = automaticky dutinka DIN 46228 u ohebného vodiče (`-K`, `-F`, `LiY`), dvojitá při dvou žilách v jedné svorce; `-` = bez koncovky; jiný text se vypíše doslova |
+| `prod` | Do výrobního seznamu | `0` = vodič se do výrobního seznamu nevypisuje; prázdné = ano |
+
+### Parametry výrobních dat v `Layout.params`
+
+Klíče `wire_*` v parametrech skříně (`WIRING_PARAMS`, výchozí `WIRING_DEFAULTS`). Priorita: výchozí v kódu <
+`settings.json` → `standard.wiring` (stejné klíče; čte jen export) < `Layout.params` rozvaděče. Prázdná nebo
+neplatná hodnota se přeskočí.
+
+| klíč | výchozí | význam |
+|---|---|---|
+| `wire_type` | `H07V-K` | typ vodiče, pokud vodič nemá `cable` |
+| `wire_end_mm` | 100 | přídavek na každý konec [mm] |
+| `wire_reserve_pct` | 10 | rezerva délky [%] |
+| `wire_round_mm` | 50 | zaokrouhlení délky nahoru [mm] |
+| `wire_duct_side_mm` | 25 | osa svislého žlabu od konce DIN lišty [mm] |
+| `wire_cross_min` | 1,5 | min. a výchozí silový průřez [mm²] |
+| `wire_cross_ctl` | 1 | výchozí průřez řízení (`ctl.*`) [mm²] |
+| `wire_unplaced` | `estimate` | neumístěné svorky/přívody/vývody/PE lišta/sběrnice: `estimate` = poloha odhadem, `none` = bez délky |
+
 ## Import z DXF výrobců
 
 `envocad/library/dxf_import.py` načte DXF (modelspace nebo konkrétní blok), převede entity

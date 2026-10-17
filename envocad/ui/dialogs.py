@@ -100,13 +100,42 @@ CONDUCTOR_PRESETS = ["L1 L2 L3 N PE", "L1 L2 L3 PE", "L1 L2 L3 N", "L1 N PE", "L
                      "DC+ DC-", "DC+", "DC-", "PEN"]
 
 
+def wire_auto_hints(project: Project, sheet: Sheet, w: Wire) -> dict[str, str]:
+    """Automaticky určené hodnoty výrobních atributů vodiče rozvaděče (placeholdery): průřez, barva, koncovky."""
+    from envocad.export.reports import wiring_base
+    from envocad.model.wiring import WiringParams, conductor_color, end_for, wire_cross
+    from envocad.model.xref import DeviceIndex
+    params = WiringParams.resolve(sheet.layout, wiring_base())
+    cross, _src = wire_cross(project, sheet, w, params, DeviceIndex.build(project))   # silový kontakt → In stykače
+    conds = mp.wire_conductors(w)
+    if len(conds) == 1:
+        color = conductor_color(w, conds[0]) or "bez barvy"
+    else:
+        color = "podle žíly"
+    wire_type = (w.attrs.get("cable") or "").strip() or params.wire_type
+    hints = {"cross": f"{cross:g}".replace(".", ",") if cross else "", "color": color}
+    for side in ("a", "b"):
+        text, _f = end_for(w, side, cross, wire_type)
+        hints[f"end_{side}"] = text or "bez koncovky"
+    return hints
+
+
 class WireDialog(AttrDialog):
-    """Parametry vodiče + seznam žil (pro vícepólový pohled a svorkovnice)."""
+    """Parametry vodiče + seznam žil (pro vícepólový pohled a svorkovnice).
+
+    `attributes` – jiný seznam atributů (na listu rozvaděče WIRE_ATTRIBUTES + SWITCHBOARD_WIRE_ATTRIBUTES);
+    `hints` – placeholdery s automatickou hodnotou podle klíče atributu."""
 
     def __init__(self, attrs: dict[str, str], conductors: list[str], parent=None,
-                 title: str = "Vodič", heading: str = ""):
+                 title: str = "Vodič", heading: str = "", attributes: list[Attribute] | None = None,
+                 hints: dict[str, str] | None = None):
         from envocad.model.project import WIRE_ATTRIBUTES
-        super().__init__(WIRE_ATTRIBUTES, attrs, parent, title, heading)
+        attributes = list(attributes if attributes is not None else WIRE_ATTRIBUTES)
+        self._has_prod = any(a.key == "prod" for a in attributes)
+        super().__init__([a for a in attributes if a.key != "prod"], attrs, parent, title, heading)
+        for k, h in (hints or {}).items():
+            if k in self._edits and h and not attrs.get(k):
+                self._edits[k].setPlaceholderText(h)
         self.cond = QComboBox()
         self.cond.setEditable(True)
         self.cond.addItems(CONDUCTOR_PRESETS)
@@ -114,6 +143,18 @@ class WireDialog(AttrDialog):
         self.cond.setToolTip("Žíly vodiče oddělené mezerou – každá se ve vícepólu kreslí zvlášť")
         form = self.layout().itemAt(1 if heading else 0).layout()
         form.addRow("Žíly (vícepól)", self.cond)
+        self.prod: QCheckBox | None = None
+        if self._has_prod:
+            self.prod = QCheckBox("Do výrobního seznamu")
+            self.prod.setChecked(str(attrs.get("prod", "")).strip() != "0")
+            self.prod.setToolTip("Odškrtnutím se vodič vynechá z výrobního zapojovacího seznamu")
+            form.addRow(self.prod)
+
+    def values(self) -> dict[str, str]:
+        v = super().values()
+        if self.prod is not None:
+            v["prod"] = "" if self.prod.isChecked() else "0"
+        return v
 
     def conductors(self) -> list[str]:
         return mp.parse_conductors(self.cond.currentText())
@@ -608,6 +649,44 @@ class EnclosurePanel(QWidget):
             f2.addRow(label, ed)
         root.addWidget(g2)
 
+        from envocad.export.reports import wiring_base
+        from envocad.model.wiring import UNPLACED_LABELS, WIRING_PARAMS, WiringParams, parse_param
+        eff = WiringParams.resolve(None, wiring_base())   # firemní standard, jinak výchozí hodnoty
+        self._wiring_keys = {k for k, _l, _d in WIRING_PARAMS}
+        # zaškrtnutá skupina = vlastní parametry rozvaděče; odškrtnutím se klíče wire_* z parametrů odeberou
+        # (platí firemní standard / výchozí), texty polí zůstanou do zavření panelu pro případné opětovné zaškrtnutí
+        self.wiring_group = QGroupBox("Výrobní data (zapojení)")
+        self.wiring_group.setCheckable(True)
+        self.wiring_group.setChecked(any(k in lay.params for k in self._wiring_keys))
+        self.wiring_group.setToolTip("Vlastní parametry výrobního zapojovacího seznamu pro tento rozvaděč; prázdné pole "
+                                     "= firemní standard / výchozí. Odškrtnutím se vlastní parametry odeberou.")
+        gl = QVBoxLayout(self.wiring_group)
+        gl.setContentsMargins(0, 0, 0, 0)
+        self._wiring_body = QWidget()
+        f4 = QFormLayout(self._wiring_body)
+        f4.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
+        self.unplaced = QComboBox()
+        for key, label, _default in WIRING_PARAMS:
+            if key == "wire_unplaced":   # výběr s českými popisky, ukládá se estimate / none
+                self.unplaced.addItem(f"výchozí ({eff.display(key)})", "")
+                for code, text in UNPLACED_LABELS.items():
+                    self.unplaced.addItem(text, code)
+                cur = parse_param(key, lay.params.get(key)) or ""
+                self.unplaced.setCurrentIndex(max(self.unplaced.findData(cur), 0))
+                f4.addRow(label, self.unplaced)
+                continue
+            ed = QLineEdit(lay.params.get(key, ""))
+            ed.setPlaceholderText(eff.value(key))
+            ed.setMinimumWidth(140)
+            self._edits[key] = ed
+            f4.addRow(label, ed)
+        gl.addWidget(self._wiring_body)
+        self._wiring_body.setVisible(self.wiring_group.isChecked())
+        self.wiring_group.toggled.connect(self._wiring_body.setVisible)
+        self.wiring_group.toggled.connect(self._apply)
+        self.unplaced.currentIndexChanged.connect(self._apply)
+        root.addWidget(self.wiring_group)
+
         g3 = QGroupBox("Oteplení (IEC 60890, orientačně)")
         v3 = QVBoxLayout(g3)
         self.thermal = QLabel()
@@ -678,7 +757,14 @@ class EnclosurePanel(QWidget):
         lay.enclosure = self.name.text().strip()
         lay.rows = self.rows.value()
         lay.modules_per_row = self.mods.value()
-        lay.params = {k: e.text().strip() for k, e in self._edits.items() if e.text().strip()}
+        own_wiring = self.wiring_group.isChecked()
+        edits = {k: e.text().strip() for k, e in self._edits.items()
+                 if e.text().strip() and (own_wiring or k not in self._wiring_keys)}
+        if own_wiring and self.unplaced.currentData():
+            edits["wire_unplaced"] = self.unplaced.currentData()
+        # klíče, které panel nezná, zůstanou; wire_* spravuje skupina „Výrobní data“
+        unknown = {k: v for k, v in lay.params.items() if k not in self._edits and k not in self._wiring_keys}
+        lay.params = {**unknown, **edits}
         lay.placements = [p for p in lay.placements if p.row < lay.rows]
         return lay
 

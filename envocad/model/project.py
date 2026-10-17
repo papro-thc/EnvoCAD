@@ -20,9 +20,19 @@ WIRE_ATTRIBUTES = [
     Attribute("method", "Uložení dle ČSN (A1/B1/C/D/E)"),
 ]
 
+# Další atributy vnitřního vodiče rozvaděče (jen list rozvaděče, výrobní zapojovací seznam – `model/wiring.py`);
+# prázdná hodnota = automaticky (barva podle žíly, koncovka podle průřezu a typu vodiče, vodič do seznamu patří)
+SWITCHBOARD_WIRE_ATTRIBUTES = [
+    Attribute("color", "Barva vodiče"),
+    Attribute("end_a", "Koncovka A"),
+    Attribute("end_b", "Koncovka B"),
+    Attribute("prod", "Do výrobního seznamu (0 = ne)"),
+]
+
 FORMAT_VERSION = 9
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
+DEVICE_HEIGHT_MM = 45.0  # mm – výška modulového přístroje na liště (rozložení, délky vodičů)
 SHEET_KINDS = ("schematic", "switchboard")
 
 

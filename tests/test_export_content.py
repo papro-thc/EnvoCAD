@@ -104,6 +104,54 @@ def test_xlsx_cells_match_reports(proj, lib, tmp_path):
             assert norm == [("" if c is None else c) for c in exp], f"{name}: {got} ≠ {exp}"
 
 
+def test_production_xlsx_numeric_cells(proj, lib, tmp_path):
+    """Výrobní seznam pro dílnu: buňky = výkaz, průřez a délka jsou čísla, list Parametry s hodnotami a zdroji."""
+    from envocad.export.xlsx_export import export_production_xlsx
+    sb = next(s for s in proj.sheets if s.is_switchboard)
+    sb.layout.params["wire_end_mm"] = "150"
+    out = tmp_path / "vyroba.xlsx"
+    export_production_xlsx(proj, lib, out, None, base={"wire_reserve_pct": "0"})
+    wb = load_workbook(out)
+    assert wb.sheetnames == ["Výrobní seznam", "Parametry"]
+    ws = wb["Výrobní seznam"]
+    head, rows = reports.production_wiring_list(proj, lib, None, {"wire_reserve_pct": "0"})
+    assert rows
+    values = [list(r) for r in ws.iter_rows(values_only=True)]
+    assert any(str(r[0]).startswith("Parametry") and "přídavek na konec" in str(r[0]) for r in values[:6])
+    hi = next(i for i, r in enumerate(values) if list(r[:len(head)]) == head)
+    body = values[hi + 1:hi + 1 + len(rows)]
+    assert len(body) == len(rows)
+    ci, li = head.index("Průřez [mm²]"), head.index("Délka [mm]")
+    for got, exp in zip(body, rows):
+        assert ["" if c is None else c for c in got[:len(exp)]] == exp
+        # průřez je číslo; prázdný jen tam, kde ho určí projektant (SPD), s poznámkou
+        ni = head.index("Poznámka")
+        assert (isinstance(got[ci], (int, float)) and got[ci] > 0) or (got[ci] is None and "SPD" in got[ni])
+    assert any(isinstance(r[ci], (int, float)) for r in body)
+    lengths = [r[li] for r in body if r[li] is not None]
+    assert lengths and all(isinstance(x, int) and x % 50 == 0 for x in lengths)
+    # list Parametry: rozvaděč, klíč, hodnota, zdroj
+    prm = [list(r) for r in wb["Parametry"].iter_rows(values_only=True)]
+    assert any(r[:2] == [sb.name, "wire_end_mm"] and r[3:5] == ["150", "rozvaděč"] for r in prm)
+    assert any(r[1] == "wire_reserve_pct" and r[3] == "0" and r[4] == "firemní standard" for r in prm)
+    assert any(r[0] == "Dutinky DIN 46228" for r in prm)
+
+
+def test_reports_xlsx_production_subtitle(proj, lib, tmp_path):
+    out = tmp_path / "r.xlsx"
+    export_reports_xlsx(proj, lib, out)
+    ws = load_workbook(out)["Výrobní zapojovací seznam"]
+    assert str(ws["A3"].value).startswith("Parametry") and "2k+1" in str(ws["A4"].value)
+
+
+def test_documentation_plan_skips_production_list(proj, lib, qapp):
+    from envocad.export.doc_pdf import DocBuilder
+    b = DocBuilder(proj, lib)
+    b.plan()
+    names = [n for _, n, _ in b.pages]
+    assert "Zapojovací seznam" in names and "Výrobní zapojovací seznam" not in names
+
+
 def test_bom_counts_every_device(proj, lib):
     """Výkaz materiálu: každý přístroj je v právě jedné položce a „Ks“ sedí s výčtem označení (X1 (2) = 2 ks)."""
     sb = next(s for s in proj.sheets if s.is_switchboard)

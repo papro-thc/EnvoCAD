@@ -226,6 +226,7 @@ class MainWindow(QMainWindow):
         m_out = mb.addMenu("&Výstupy")
         act(m_out, "Výkazy aktuálního listu (xlsx)…", lambda: self.export_xlsx(current_only=True))
         act(m_out, "Výkazy celého projektu (xlsx)…", lambda: self.export_xlsx(current_only=False))
+        act(m_out, "Výrobní data rozvaděče (xlsx)…", self.export_production)
         act(m_out, "Protokol kusového ověření (docx)…", self.export_routine_test)
         act(m_out, "Technická zpráva (docx)…", self.export_tz)
         act(m_out, "Štítky pro tiskárnu (CSV)…", self.export_labels_csv)
@@ -1302,6 +1303,20 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getSaveFileName(self, "Výkazy", f"{base} – výkazy.xlsx", "Excel (*.xlsx)")
         if path:
             export_reports_xlsx(self.project, self.library, path, sh)
+            self.statusBar().showMessage(f"Exportováno: {path}", 3000)
+
+    def export_production(self) -> None:
+        """Výrobní zapojovací seznam pro dílnu: aktuální list rozvaděče, jinak všechny rozvaděče projektu."""
+        from envocad.export.xlsx_export import export_production_xlsx
+        cur = self.current_sheet
+        sh = cur if cur is not None and cur.is_switchboard else None
+        if sh is None and not self.project.switchboards():
+            QMessageBox.information(self, "Výrobní data", "Projekt nemá žádný list rozvaděče.")
+            return
+        base = (sh.name if sh else self.project.name).replace("/", "-")
+        path, _ = QFileDialog.getSaveFileName(self, "Výrobní data rozvaděče", f"{base} – výroba.xlsx", "Excel (*.xlsx)")
+        if path:
+            export_production_xlsx(self.project, self.library, path, sh)
             self.statusBar().showMessage(f"Exportováno: {path}", 3000)
 
     def export_documentation(self) -> None:
