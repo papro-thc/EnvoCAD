@@ -752,8 +752,8 @@ class MainWindow(QMainWindow):
             finally:
                 self.undo.endMacro()
         # schéma rozvaděče je vícepólové; jednopólová podoba je jen editační (Ctrl+J)
+        # bez synchronizace: otevření listu model nemění (nový list a šablona jdou přes příkazy → _on_undo_changed)
         self.open_sheet(sheet, "multipole" if kind == "schematic" else kind)
-        self._sync_links_and_blocks()
 
     def _open_selected_switchboard(self, kind: str) -> None:
         if kind == "edit":
@@ -844,8 +844,8 @@ class MainWindow(QMainWindow):
     def _sheets_changed(self, sheet_ids: list[str]) -> None:
         """Po `SheetsStateCommand`: přestaví pohledy změněných listů (prvky a vodiče jsou nové objekty). Nejdřív se
         přestaví všechny scény, až potom porty bloků ROZVADĚČ – staré položky vodičů by mířily na neplatné porty."""
-        from envocad.model.project import sync_cables, sync_feed_links
-        sync_feed_links(self.project)
+        from envocad.model.project import sync_cables, sync_feed_link_attrs
+        sync_feed_link_attrs(self.project)
         sync_cables(self.project)
         for i in range(self.tabs.count()):
             w = self._unwrap(self.tabs.widget(i))
@@ -1036,9 +1036,10 @@ class MainWindow(QMainWindow):
         dlg.exec()
 
     def _sync_links_and_blocks(self) -> None:
-        """Po změně modelu: vazby přívodů/vývodů na vodiče JPS (odvozené, mimo undo) a porty bloků ROZVADĚČ."""
-        from envocad.model.project import sync_cables, sync_feed_links
-        sync_feed_links(self.project)
+        """Po změně modelu: vazby přívodů/vývodů na vodiče JPS a kabely (jen odvozená data, mimo undo – žíly a porty
+        vodičů mění příkazy, `commands._FeedFollowups`) a porty bloků ROZVADĚČ."""
+        from envocad.model.project import sync_cables, sync_feed_link_attrs
+        sync_feed_link_attrs(self.project)
         sync_cables(self.project)
         for i in range(self.tabs.count()):
             sc = self._unwrap(self.tabs.widget(i)).scene()
@@ -1366,19 +1367,23 @@ class MainWindow(QMainWindow):
         before = revisions_state(self.project)
         prev = next((r for r in reversed(self.project.revisions) if not r.closed), None)
         prev_label = prev.label if prev is not None else ""
+        # změny se udělají dočasně: snímek po změně a návrat do původního stavu (i při výjimce – model nesmí zůstat
+        # napůl změněný mimo undo); do modelu je pak zapíše příkaz
         try:
-            rev = open_revision(self.project, label, date, author)
-        except ValueError as ex:
-            QMessageBox.warning(self, "Porovnání s revizí", f"{ex}.")
-            return False
-        apply_changes(self.project, rev, changes)
-        # řádky, které do otevřené revize zapsalo dřívější porovnání, se nahradí (opakované porovnání je nezdvojí);
-        # ručně psané řádky zůstanou
-        self.project.meta["changes"] = merge_change_lines(self.project.meta.get("changes", ""),
-                                                          {rev.label, prev_label}, change_text, rev.auto_lines)
-        rev.auto_lines = [ln.strip() for ln in change_text.splitlines() if ln.strip()]
-        after = revisions_state(self.project)
-        restore_revisions_state(self.project, before)
+            try:
+                rev = open_revision(self.project, label, date, author)
+            except ValueError as ex:
+                QMessageBox.warning(self, "Porovnání s revizí", f"{ex}.")
+                return False
+            apply_changes(self.project, rev, changes)
+            # řádky, které do otevřené revize zapsalo dřívější porovnání, se nahradí (opakované porovnání je
+            # nezdvojí); ručně psané řádky zůstanou
+            self.project.meta["changes"] = merge_change_lines(self.project.meta.get("changes", ""),
+                                                              {rev.label, prev_label}, change_text, rev.auto_lines)
+            rev.auto_lines = [ln.strip() for ln in change_text.splitlines() if ln.strip()]
+            after = revisions_state(self.project)
+        finally:
+            restore_revisions_state(self.project, before)
         self.undo.push(commands.ReplaceRevisionsCommand(self.project, before, after, "Porovnání s revizí"))
         return True
 
@@ -1645,12 +1650,35 @@ class MainWindow(QMainWindow):
             sc.update()
 
     # ---- export / import -------------------------------------------------------
-    DXF_ONLY_SCHEMATIC = ("DXF se exportuje z jednopólového schématu nebo z listu rozvaděče v editoru. "
-                          "Vícepólové schéma, plán svorkovnice a rozložení rozvaděče exportuj do PDF "
+    DXF_ONLY_SCHEMATIC = ("DXF se exportuje z jednopólového schématu, z listu rozvaděče v editoru nebo "
+                          "z vícepólového schématu. Plán svorkovnice a rozložení rozvaděče exportuj do PDF "
                           "(Soubor → Export PDF nebo Výstupy → Celá dokumentace).")
 
+    def _ask_multipole_dxf_split(self) -> bool | None:
+        """Volba stránkování DXF vícepólu: False = jeden soubor (layout na stranu), True = soubor na stranu,
+        None = zrušeno."""
+        box = QMessageBox(QMessageBox.Question, "Export DXF vícepólu",
+                          "Jak uložit strany vícepólového schématu?", parent=self)
+        one = box.addButton("Jeden soubor (layout na stranu)", QMessageBox.AcceptRole)
+        split = box.addButton("Soubor na stranu", QMessageBox.AcceptRole)
+        box.addButton(QMessageBox.Cancel)
+        box.setDefaultButton(one)
+        box.exec()
+        return {one: False, split: True}.get(box.clickedButton())
+
     def export_dxf(self) -> None:
-        from envocad.export.dxf_export import export_sheet_dxf
+        from envocad.export.dxf_export import export_multipole_dxf, export_sheet_dxf
+        if isinstance(self.view, MultipoleView):       # vícepól: strany z kreslicího seznamu modelu
+            split = self._ask_multipole_dxf_split()
+            if split is None:
+                return
+            path, _ = QFileDialog.getSaveFileName(self, "Export DXF vícepólu", "", "DXF (*.dxf)")
+            if path:
+                files = export_multipole_dxf(self.project, self.view.scene().sheet, self.library, path,
+                                             split_pages=split)
+                msg = f"Exportováno: {path}" if len(files) == 1 else f"Exportováno {len(files)} souborů: {files[0]} …"
+                self.statusBar().showMessage(msg, 3000)
+            return
         if not self.scene:
             QMessageBox.information(self, "Export DXF", self.DXF_ONLY_SCHEMATIC if self.view is not None
                                     else "Není otevřený žádný list.")

@@ -296,6 +296,7 @@ class SchematicScene(QGraphicsScene):
                 _, d = port_geometry(self.project, self.sheet, self.library, e, end.port)
                 st = self._move_start.get(end.element_id)
                 ends.append((d, (e.x - st[0], e.y - st[1]) if st else (0.0, 0.0)))
+            # model-write-ok: živý náhled tažení prvku, uzavře ho MoveElementsCommand při puštění
             w.points = follow_points(orig, ends[0][0], ends[0][1], ends[1][0], ends[1][1])
 
     # ---- režimy -------------------------------------------------------------
@@ -374,6 +375,7 @@ class SchematicScene(QGraphicsScene):
             a, b = pts[idx], pts[idx + 1]
             off = snap(-p.y() - start[1]) if abs(a[1] - b[1]) < 1e-6 else snap(p.x() - start[0])
             new = drag_segment(pts, idx, off) if off else None
+            # model-write-ok: živý náhled tažení úseku, uzavře ho SetWirePointsCommand při puštění
             it.wire.points = new if new is not None else list(_old)
             self._route(it)
             return
@@ -387,6 +389,7 @@ class SchematicScene(QGraphicsScene):
         if self.mode == Mode.PLACE and ev.button() == Qt.LeftButton and self._place_symbol_id:
             sym = self.library.get_symbol(self._place_symbol_id)
             e = Element(symbol_id=sym.id, x=snap(p.x()), y=-snap(p.y()), rotation=self._ghost.element.rotation)
+            # model-write-ok: nový prvek (ještě není v listu), vloží ho AddElementCommand
             e.attrs = {a.key: a.default for a in sym.attributes}
             e.attrs["ref"] = self.project.next_ref(sym.iec_ref)
             if self.ask_attributes:
@@ -415,6 +418,7 @@ class SchematicScene(QGraphicsScene):
                 self.removeItem(self._wire_preview)
                 if not (a is b and pa == pb):
                     w = Wire(WireEnd(a.element.id, pa), WireEnd(b.element.id, pb))
+                    # model-write-ok: nový vodič (ještě není v listu), vloží ho AddWireCommand
                     w.conductors = default_conductors(a.element, pa, b.element, pb)
                     for j in (a.element, b.element):   # odbočka z uzlu: žíly a kabel podle vodiče, na kterém uzel je
                         if j.symbol_id == "sb.junction":
@@ -422,6 +426,7 @@ class SchematicScene(QGraphicsScene):
                             if src is not None:
                                 w.conductors = list(src.conductors)
                             break
+                    # model-write-ok: nový vodič (ještě není v listu), vloží ho AddWireCommand
                     w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}
                     w.attrs["ref"] = self.project.next_ref("W")
                     if self.ask_attributes:
@@ -488,6 +493,7 @@ class SchematicScene(QGraphicsScene):
         dlg.used_refs = self._used_refs_for(sym.id)
         if dlg.exec() != ElementDialog.Accepted:
             return
+        # model-write-ok: nový prvek z dialogu, do modelu ho vloží AddElementCommand
         e.attrs = dlg.values()
         if dlg.wire_combo is not None:
             e.attrs.update(feed_link_attrs(self.project, self.sheet, e, dlg.wire_id))
@@ -515,6 +521,7 @@ class SchematicScene(QGraphicsScene):
         dlg.used_refs = self.project.used_refs(self.sheet)
         if dlg.exec() != WireDialog.Accepted:
             return
+        # model-write-ok: nový vodič z dialogu, do modelu ho vloží AddWireCommand
         w.attrs = dlg.values()
         w.conductors = dlg.conductors()
         self.undo.push(commands.AddWireCommand(self, w))
@@ -623,11 +630,11 @@ class SchematicScene(QGraphicsScene):
 
     def _take_conductors_from_link(self, eid: str, wire_id: str) -> None:
         """Vodiče napojené na přívod/vývod převezmou žíly z navázaného vodiče JPS."""
-        from envocad.model.project import linked_wire
-        hit = linked_wire(self.project, self.sheet, self.sheet.element(eid))
-        if hit is None or not hit[1].conductors:
+        from envocad.model.project import effective_feed_wire
+        lw = effective_feed_wire(self.project, self.sheet, self.sheet.element(eid))
+        if lw is None or not lw.conductors:
             return
-        conds = list(hit[1].conductors)
+        conds = list(lw.conductors)
         for w in self.sheet.wires:
             if w.touches(eid) and w.conductors != conds:
                 self.undo.push(commands.SetConductorsCommand(self, w.id, w.conductors, conds))

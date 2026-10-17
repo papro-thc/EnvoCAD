@@ -178,7 +178,7 @@ class BridgeItem(QGraphicsPathItem):
 
     def __init__(self, strip: str, group: list[str], points: list[tuple[float, float]]):
         super().__init__()
-        self.strip, self.group, self.points = strip, group, points
+        self.strip, self.group, self.points = strip, list(group), list(points)
         path = QPainterPath(sp(*points[0]))
         for pt in points[1:]:
             path.lineTo(sp(*pt))
@@ -210,14 +210,18 @@ class PageBreakItem(QGraphicsItem):
     def boundingRect(self) -> QRectF:
         return QRectF(-40, -6, 80, 12)
 
+    def arrow(self) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+        """Čáry šipky relativně k hrotu (osy modelu) – stejné jako v kreslicím seznamu modelu."""
+        from envocad.model.multipole_geometry import break_arrow
+        return break_arrow(0.0, 0.0, self.outgoing)
+
     def paint(self, painter, option, widget=None):
         from envocad.model.multipole_geometry import REF_TEXT_H, break_text_pos
         c = colors().ink if self.scene() is None or self.scene().draw_grid else PRINT.ink
         painter.setPen(QPen(c, LINE_WIDTH))
-        d = 1.0 if self.outgoing else -1.0
-        # šipka k okraji strany: vpravo ven na pozdější stranu, vlevo zpět na dřívější
-        painter.drawLine(QPointF(0, 0), QPointF(-3 * d, -2))
-        painter.drawLine(QPointF(0, 0), QPointF(-3 * d, 2))
+        # šipka k okraji strany (z modelu): vpravo ven na pozdější stranu, vlevo zpět na dřívější
+        for a, b in self.arrow():
+            painter.drawLine(sp(*a), sp(*b))
         painter.setPen(QPen(c, 0.2))
         tx, ty, align = break_text_pos(0.0, 0.0, self.outgoing)
         draw_text(painter, tx, ty, self.text, REF_TEXT_H, align)
@@ -275,16 +279,16 @@ class BusItem(QGraphicsItem):
     def paint(self, painter, option, widget=None):
         c = colors()
         ink = c.selection if self.isSelected() else c.ink
+        from envocad.model.multipole_geometry import bus_arrows
         pen = QPen(ink, LINE_WIDTH * 1.5, Qt.SolidLine, Qt.FlatCap)
         for cond in self.conductors:
             y = self.ys[cond]
             painter.setPen(pen)
             painter.drawLine(sp(self.x0, y), sp(self.x1, y))
-            # šipky potenciálu na koncích + název (předpona sběrnice + žíla)
+            # šipky potenciálu na koncích (z modelu) + název (předpona sběrnice + žíla)
             name = f"{self.prefix}{cond}"
-            for x, d in ((self.x0, -1.0), (self.x1, 1.0)):
-                painter.drawLine(sp(x, y), sp(x - 2.5 * d, y + 1.2))
-                painter.drawLine(sp(x, y), sp(x - 2.5 * d, y - 1.2))
+            for a, b in bus_arrows(self.x0, self.x1, y):
+                painter.drawLine(sp(*a), sp(*b))
             painter.setPen(QPen(ink, 0.2))
             draw_text(painter, self.x0 - 1.5, y - 0.8, name, 2.0, "right")
             draw_text(painter, self.x1 + 1.5, y - 0.8, name, 2.0, "left")
@@ -359,6 +363,7 @@ class TitleItem(QGraphicsItem):
         return QRectF(-2, -2, 200, 20)
 
     def paint(self, painter, option, widget=None):
+        from envocad.model.multipole_geometry import title_underline
         ink = colors().ink if self.scene() is None or self.scene().draw_grid else PRINT.ink
         painter.setPen(QPen(ink, 0.25))
         y = 0.0
@@ -367,7 +372,8 @@ class TitleItem(QGraphicsItem):
             y -= h
             draw_text(painter, 0, y, text, h, "left")
             if i == 0:
-                painter.drawLine(sp(0, y - 1.0), sp(len(text) * h * 0.72, y - 1.0))
+                a, b = title_underline(0.0, y, text, h)
+                painter.drawLine(sp(*a), sp(*b))
                 y -= 2.8
             y -= 1.2
 
@@ -839,34 +845,11 @@ class MultipoleScene(QGraphicsScene):
         self._add(PageBreakItem(xb, yb, not right, ref_b))
 
     def _add_bridges(self, poles: dict[str, mp.ElementPoles]) -> None:
-        """Můstky svorkovnic: spojí středy svorek (posunuté k portu 1) se stejným označením X:n na tomto listu."""
-        pos: dict[tuple[str, str], tuple[float, float, float, float]] = {}  # (střed x, y, směr k portu 1)
-        for ep in poles.values():
-            e = ep.element
-            if not mp.is_terminal_block(e) or not ep.per_pole:
-                continue
-            nums = mp.terminal_numbers(e, len(ep.slots))
-            px, py = e.port_pos(ep.symbol, ep.through[0] if ep.through else ep.symbol.ports[0].name)
-            dx, dy = px - e.x, py - e.y
-            n = (dx * dx + dy * dy) ** 0.5 or 1.0
-            for c, num in zip(ep.slots, nums):
-                if num:
-                    ox, oy = ep.pole_offset(c)
-                    pos[(e.ref, num)] = (ep.origin[0] + ox, ep.origin[1] + oy, dx / n, dy / n, self.page_of.get(e.id, 0))
-        for strip, groups in self.sheet.bridges.items():
-            for gi, g in enumerate(groups):
-                hits = [pos[(strip, n)] for n in g if (strip, n) in pos]
-                if len(hits) < 2:
-                    continue
-                # každá skupina můstků v jiné výšce (od 2 mm po 0,6 mm směrem k portu 1), aby se nepřekrývaly;
-                # přes hranici stran se můstek kreslí po stranách zvlášť
-                off = 2.0 + 0.6 * (gi % 6)
-                for k in sorted({h[4] for h in hits}):
-                    part = [h for h in hits if h[4] == k]
-                    if len(part) < 2:
-                        continue
-                    pts = sorted((x + ux * off, y + uy * off) for x, y, ux, uy, _ in part)
-                    self._add(BridgeItem(strip, g, pts))
+        """Můstky svorkovnic z modelu (`MultipoleGeometry.bridges` = `multipole.bridge_paths`, stejně jako export
+        DXF a kontrola překryvů); nouzově (chyba v modelu) spočítané nad polohami scény."""
+        bridges = self._geo.bridges if self._geo is not None else mp.bridge_paths(self.sheet, poles, self.page_of)
+        for br in bridges:
+            self._add(BridgeItem(br.strip, list(br.group), list(br.pts)))
 
     def _add_fan(self, ep: mp.ElementPoles) -> None:
         """Neprůchozí prvek: od portu vede kolmá sběrná čárka přes všechny sloty."""

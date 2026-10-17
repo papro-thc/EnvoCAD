@@ -6,6 +6,42 @@ from PySide6.QtGui import QUndoCommand
 from envocad.model.project import Element, Wire
 
 
+class _FeedFollowups:
+    """Navázané změny primárních dat u přívodů/vývodů rozvaděče (žíly vodičů rozvaděče `feed_conductor_followups`,
+    port vodiče JPS na bloku `feed_port_followups`). Spočítají se při prvním redo po hlavní změně, další redo je
+    zopakuje beze změny a undo je vrátí před hlavní změnou – synchronizace mimo undo je už nedělá."""
+
+    _ports: list | None = None
+    _conds: list | None = None
+
+    def _followups_redo(self, compute) -> None:
+        from envocad.model.project import apply_conductor_changes, apply_text_changes
+        project = getattr(self.scene, "project", None)
+        if project is None:
+            return
+        if self._ports is None:
+            self._ports, self._conds = [], []
+            compute(project)        # naplní _ports / _conds a rovnou je provede (výpočet závisí na pořadí)
+            return
+        apply_text_changes(project, self._ports)
+        apply_conductor_changes(project, self._conds)
+
+    def _followups_undo(self) -> None:
+        from envocad.model.project import apply_conductor_changes, apply_text_changes
+        project = getattr(self.scene, "project", None)
+        if project is None or self._ports is None:
+            return
+        apply_conductor_changes(project, self._conds, undo=True)
+        apply_text_changes(project, self._ports, undo=True)
+
+    def _wire_conductors(self, project, wires) -> None:
+        from envocad.model.project import apply_conductor_changes, feed_conductor_followups
+        for w in wires:
+            ch = feed_conductor_followups(project, w)
+            apply_conductor_changes(project, ch)
+            self._conds += ch
+
+
 class AddElementCommand(QUndoCommand):
     def __init__(self, scene, element: Element):
         super().__init__(f"Vložit {element.ref or element.symbol_id}")
@@ -131,21 +167,25 @@ class RotateElementCommand(QUndoCommand):
         self._rot(-self.delta)
 
 
-class AddWireCommand(QUndoCommand):
+class AddWireCommand(_FeedFollowups, QUndoCommand):
+    """Vložení vodiče; vodič JPS na port bloku ROZVADĚČ předá žíly vodičům u přívodu (follow-up, undo ho vrátí)."""
+
     def __init__(self, scene, wire: Wire):
         super().__init__("Vodič")
         self.scene, self.wire = scene, wire
 
     def redo(self):
         self.scene.sheet.wires.append(self.wire)
+        self._followups_redo(lambda p: self._wire_conductors(p, [self.wire]))
         self.scene.add_wire_item(self.wire)
 
     def undo(self):
+        self._followups_undo()
         self.scene.sheet.wires = [w for w in self.scene.sheet.wires if w.id != self.wire.id]
         self.scene.remove_wire_item(self.wire.id)
 
 
-class SplitWireCommand(QUndoCommand):
+class SplitWireCommand(_FeedFollowups, QUndoCommand):
     """T-odbočka: vodič se rozdělí uzlem (sb.junction) na dva díly; z volného portu uzlu pak vede odbočka."""
 
     def __init__(self, scene, wire_id: str, junction: Element, w1: Wire, w2: Wire):
@@ -163,9 +203,12 @@ class SplitWireCommand(QUndoCommand):
         self.scene.add_element_item(self.junction)
         for w in (self.w1, self.w2):
             s.wires.append(w)
+        self._followups_redo(lambda p: self._wire_conductors(p, [self.w1, self.w2]))
+        for w in (self.w1, self.w2):
             self.scene.add_wire_item(w)
 
     def undo(self):
+        self._followups_undo()
         s = self.scene.sheet
         s.wires = [w for w in s.wires if w.id not in (self.w1.id, self.w2.id)]
         for w in (self.w1, self.w2):
@@ -176,7 +219,10 @@ class SplitWireCommand(QUndoCommand):
         self.scene.add_wire_item(self.old)
 
 
-class SetAttrCommand(QUndoCommand):
+class SetAttrCommand(_FeedFollowups, QUndoCommand):
+    """Změna atributu. Ruční vazba přívodu/vývodu (`wire_id`) navíc přejmenuje konec vodiče JPS na bloku a předá
+    žíly vodičům u přívodu (follow-upy, undo je vrátí)."""
+
     def __init__(self, scene, target_id: str, is_wire: bool, key: str, old: str, new: str):
         super().__init__(f"Změnit {key}")
         self.scene, self.tid, self.is_wire, self.key, self.old, self.new = scene, target_id, is_wire, key, old, new
@@ -198,11 +244,37 @@ class SetAttrCommand(QUndoCommand):
             self.scene.invalidate_text_layout()   # popisek (ref / aspekty) se přepočítá
         self.scene.attrs_changed.emit(self.tid)
 
+    def _feed_link(self, project) -> None:
+        from envocad.model.project import (
+            FEED_SYMBOLS,
+            apply_conductor_changes,
+            apply_text_changes,
+            effective_feed_wire,
+            feed_conductor_changes,
+            feed_port_followups,
+        )
+        sheet = self.scene.sheet
+        feed = self._target()
+        if self.is_wire or self.key != "wire_id" or feed.symbol_id not in FEED_SYMBOLS or not sheet.is_switchboard:
+            return
+        self._ports = feed_port_followups(project, sheet, feed, feed.ref)
+        apply_text_changes(project, self._ports)
+        w = effective_feed_wire(project, sheet, feed)
+        if w is not None:
+            self._conds = feed_conductor_changes(sheet, feed, w)
+            apply_conductor_changes(project, self._conds)
+
     def redo(self):
         self._set(self.new)
+        self._followups_redo(self._feed_link)
+        if self._conds:
+            _refresh_wires(self.scene, [c.wire_id for c in self._conds])
 
     def undo(self):
+        self._followups_undo()
         self._set(self.old, remove=not self.had_key)
+        if self._conds:
+            _refresh_wires(self.scene, [c.wire_id for c in self._conds])
 
 
 class SetComponentCommand(QUndoCommand):
@@ -223,6 +295,12 @@ class SetComponentCommand(QUndoCommand):
         self._set(self.old)
 
 
+def _refresh_wires(scene, wids) -> None:
+    for wid in wids:
+        if any(w.id == wid for w in scene.sheet.wires):
+            _refresh_wire(scene, wid)
+
+
 def _refresh_wire(scene, wid: str) -> None:
     """JPS scéna má položky vodičů; odvozené scény (vícepól) se celé přestaví."""
     items = getattr(scene, "wire_items", None)
@@ -234,24 +312,36 @@ def _refresh_wire(scene, wid: str) -> None:
         scene.rebuild()
 
 
-class SetConductorsCommand(QUndoCommand):
-    """Změna seznamu žil vodiče (vícepól)."""
+class SetConductorsCommand(_FeedFollowups, QUndoCommand):
+    """Změna seznamu žil vodiče (vícepól). Vodič JPS navázaný na přívod/vývod rozvaděče předá nové žíly vodičům
+    u přívodu (follow-up, undo ho vrátí)."""
 
     def __init__(self, scene, wire_id: str, old: list[str], new: list[str]):
         super().__init__("Změnit žíly vodiče")
         self.scene, self.wid, self.old, self.new = scene, wire_id, list(old), list(new)
 
-    def _set(self, v: list[str]):
+    _old_terminals: dict | None = None
+
+    def _set(self, v: list[str], terminals: dict | None = None):
         w = next(w for w in self.scene.sheet.wires if w.id == self.wid)
+        if self._old_terminals is None:
+            self._old_terminals = {c: dict(t) for c, t in w.terminals.items()}
         w.conductors = list(v)
-        w.terminals = {c: t for c, t in w.terminals.items() if c in w.conductors}
-        _refresh_wire(self.scene, self.wid)
+        if terminals is not None:     # undo vrátí i svorky žil, které redo zahodilo
+            w.terminals = {c: dict(t) for c, t in terminals.items()}
+        else:
+            w.terminals = {c: t for c, t in w.terminals.items() if c in w.conductors}
+        return w
 
     def redo(self):
-        self._set(self.new)
+        w = self._set(self.new)
+        self._followups_redo(lambda p: self._wire_conductors(p, [w]))
+        _refresh_wire(self.scene, self.wid)
 
     def undo(self):
-        self._set(self.old)
+        self._followups_undo()
+        self._set(self.old, self._old_terminals)
+        _refresh_wire(self.scene, self.wid)
 
 
 class SetTerminalsCommand(QUndoCommand):
