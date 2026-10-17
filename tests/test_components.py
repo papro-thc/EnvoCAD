@@ -125,3 +125,114 @@ def test_settings_design_temperatures():
     from envocad.settings import load_settings
     st = load_settings()["standard"]
     assert st["pv_t_min"] == -20 and st["pv_t_max"] == 70
+
+
+# ---- optimizéry a režim stringu střídače (docs/design/optimizery.md) -------------------------------------------
+OPT_ROW = {"id": "test-opt-850", "manufacturer": "TestEdge", "part_number": "TP850", "name": "Optimizér 850 W",
+           "category": "optimizer", "symbol_id": "", "datasheet_url": "https://example.com/o.pdf", "source": "web",
+           "p_max_w": "850", "p_tol_pct": "", "u_in_max_v": "125", "u_mppt_min_v": "12,5", "u_mppt_max_v": "105",
+           "isc_in_max_a": "14.5", "i_out_max_a": "15", "u_out_max_v": "85", "modules_per_optimizer": "2",
+           "string_mode": "fixed_voltage", "partial_ok": "0", "compat": "TestEdge", "n_min_1ph": "6",
+           "n_max_1ph": "12", "p_string_max_1ph_w": "5700", "n_min_3ph": "8", "n_max_3ph": "25",
+           "p_string_max_3ph_w": "11250"}
+
+
+def test_optimizer_category_and_columns():
+    assert "optimizer" in components.CATEGORIES and "optimizer" not in components.DEFAULT_SYMBOL
+    for col in ("p_max_w", "p_tol_pct", "u_in_max_v", "isc_in_max_a", "i_out_max_a", "u_out_max_v",
+                "modules_per_optimizer", "partial_ok", "n_min_1ph", "n_max_3ph", "p_string_max_1ph_w",
+                "p_string_max_3ph_w", "u_string_v", "n_opt_min", "n_opt_max", "p_string_max_w"):
+        assert col in components.NUMERIC, col
+    assert {components.PARAM_TO_ATTR[k] for k in ("string_mode", "u_string_v", "n_opt_min", "n_opt_max",
+                                                  "p_string_max_w")} == {"string_mode", "u_string", "n_opt_min",
+                                                                         "n_opt_max", "p_string_max"}
+    from envocad.model import calc
+    assert components.STRING_MODES == calc.STRING_MODES
+
+
+def test_optimizer_values_by_phase():
+    c = Component.from_row(OPT_ROW)
+    assert c.symbol_id == "" and c.category == "optimizer"
+    v3 = c.optimizer_values(3)
+    assert v3 == {"optimizer": "TP850", "opt_manufacturer": "TestEdge", "opt_p_max": "850", "opt_u_in_max": "125",
+                  "opt_u_mppt_min": "12,5", "opt_isc_in_max": "14.5", "opt_i_out_max": "15", "opt_u_out_max": "85",
+                  "opt_modules": "2", "opt_partial": "0", "opt_compat": "TestEdge", "optimizer_id": "test-opt-850",
+                  "opt_n_min": "8", "opt_n_max": "25", "opt_p_string_max": "11250"}
+    v1 = c.optimizer_values("1")
+    assert (v1["opt_n_min"], v1["opt_n_max"], v1["opt_p_string_max"]) == ("6", "12", "5700")
+    assert c.optimizer_values("?")["opt_n_min"] == "8"                       # neznámá fáze = 3f
+    # nekoliduje s atributy modulu (type / manufacturer)
+    assert not {"type", "manufacturer"} & set(v3)
+    from envocad.model import calc
+    o = calc.OptimizerData.from_attrs(v3)
+    assert (o.modules, o.u_mppt_min, o.n_min, o.p_string_max, o.compat) == (2, 12.5, 8, 11250, "TestEdge")
+
+
+def test_optimizer_error():
+    assert components.optimizer_error(OPT_ROW) is None
+    errs = components.optimizer_error({})
+    assert "p_max_w" in errs and "u_in_max_v" in errs and "isc_in_max_a" in errs and "modules_per_optimizer" in errs
+    assert "u_mppt_max_v" in components.optimizer_error({**OPT_ROW, "u_mppt_max_v": "130"})
+    assert "u_mppt_min_v" in components.optimizer_error({**OPT_ROW, "u_mppt_min_v": "110"})
+    assert "modules_per_optimizer" in components.optimizer_error({**OPT_ROW, "modules_per_optimizer": "3"})
+    assert "string_mode" in components.optimizer_error({**OPT_ROW, "string_mode": "pevne"})
+    assert components.optimizer_error({**OPT_ROW, "string_mode": ""}) is None
+    assert "partial_ok" in components.optimizer_error({**OPT_ROW, "partial_ok": "2"})
+    assert "n_min_3ph" in components.optimizer_error({**OPT_ROW, "n_min_3ph": "30"})
+    assert "n_max_1ph" in components.optimizer_error({**OPT_ROW, "n_max_1ph": "1.5"})
+    assert "p_tol_pct" in components.optimizer_error({**OPT_ROW, "p_tol_pct": "150"})
+
+
+def test_inverter_error_string_mode():
+    se = {**INV_ROW, "string_mode": "fixed_voltage", "u_string_v": "750", "n_opt_min": "16", "n_opt_max": "50",
+          "p_string_max_w": "11250"}
+    assert inverter_error(se) is None
+    assert "string_mode" in inverter_error({**INV_ROW, "string_mode": "solaredge"})
+    assert "u_string_v" in inverter_error({**se, "u_string_v": ""})               # fixed_voltage ⇒ u_string
+    assert "u_string_v" in inverter_error({**se, "u_string_v": "1200"})           # > u_dc_max
+    assert "n_opt_min" in inverter_error({**se, "n_opt_min": "60"})
+    assert inverter_error({**INV_ROW, "string_mode": "optimizer"}) is None
+
+
+def test_validate_optimizer_rows(tmp_path):
+    ok = _write(tmp_path / "opt.csv", [OPT_ROW])
+    assert components.validate(ok, {"fve.pv_string"}) == []                   # prázdné symbol_id je v pořádku
+    bad = _write(tmp_path / "bad.csv", [{**OPT_ROW, "isc_in_max_a": ""}, {**OPT_ROW, "id": "x2", "p_max_w": "abc"}])
+    errs = components.validate(bad)
+    assert any("test-opt-850" in e and "isc_in_max_a" in e for e in errs)
+    assert any("x2" in e and "'p_max_w' musí být číslo" in e for e in errs)
+    lib = LibraryStore()
+    assert lib.import_components_csv_v2(ok) == 1
+    c = lib.component("test-opt-850")
+    assert c.category == "optimizer" and c.optimizer_values(1)["opt_n_max"] == "12"
+    assert [x.id for x in lib.components(category="optimizer")] == ["test-opt-850"]
+
+
+def test_builtin_optimizer_and_inverter_headers():
+    head = (CSV_DIR / "optimizers.csv").read_text(encoding="utf-8-sig").splitlines()[0].split(";")
+    for col in (*components.REQUIRED, "p_max_w", "p_tol_pct", "u_in_max_v", "u_mppt_min_v", "u_mppt_max_v",
+                "isc_in_max_a", "i_out_max_a", "u_out_max_v", "modules_per_optimizer", "string_mode", "partial_ok",
+                "compat", "n_min_1ph", "n_max_1ph", "p_string_max_1ph_w", "n_min_3ph", "n_max_3ph",
+                "p_string_max_3ph_w", "eff_max_pct", "weight_kg", "t_min_c", "t_max_c", "note"):
+        assert col in head, col
+    assert components.validate(CSV_DIR / "optimizers.csv") == []
+    assert all(c.category == "optimizer" for c in components.read_csv(CSV_DIR / "optimizers.csv"))
+    inv_head = (CSV_DIR / "inverters.csv").read_text(encoding="utf-8-sig").splitlines()[0].split(";")
+    for col in ("string_mode", "u_string_v", "n_opt_min", "n_opt_max", "p_string_max_w"):
+        assert col in inv_head, col
+
+
+def test_hidden_optimizer_and_mode_attributes():
+    for sid, keys in (("fve.pv_string", ("optimizer_id", "opt_manufacturer", "opt_p_max", "opt_p_tol", "opt_u_in_max",
+                                         "opt_u_mppt_min", "opt_isc_in_max", "opt_i_out_max", "opt_u_out_max",
+                                         "opt_modules", "opt_partial", "opt_compat", "opt_n_min", "opt_n_max",
+                                         "opt_p_string_max", "orientation")),
+                      ("fve.inverter", ("string_mode", "u_string", "n_opt_min", "n_opt_max", "p_string_max")),
+                      ("fve.inverter_hybrid", ("string_mode", "u_string", "n_opt_min", "n_opt_max", "p_string_max"))):
+        data = json.loads((BUILTIN_DIR / "fve" / f"{sid}.json").read_text(encoding="utf-8"))
+        attrs = {a["key"]: a for a in data["attributes"]}
+        for k in keys:
+            assert k in attrs and not attrs[k]["show"] and attrs[k]["default"] == "", (sid, k)
+    # optimizer_values plní jen atributy, které značka stringu zná
+    data = json.loads((BUILTIN_DIR / "fve" / "fve.pv_string.json").read_text(encoding="utf-8"))
+    assert set(Component.from_row(OPT_ROW).optimizer_values()) <= {a["key"] for a in data["attributes"]}

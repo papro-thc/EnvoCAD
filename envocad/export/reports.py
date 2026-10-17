@@ -461,11 +461,15 @@ def _g(v) -> str:
     return "–" if v is None else f"{v:g}"
 
 
+def fixed_voltage_parts(sc) -> tuple[str, str]:
+    """(„pevné U 750 V“, „P stringu 6160 / 11250 W“) stringu s pevným napětím (`calc.StringCheck`, neznámé „–“)."""
+    return f"pevné U {_g(sc.u_string)} V", f"P stringu {_g(sc.p_string)} / {_g(sc.p_string_max)} W"
+
+
 def fixed_voltage_text(sc) -> str:
-    """Hodnoty stringu s pevným napětím pro výkaz Výpočty a TZ: „14 optimizérů, pevné U 750 V, P stringu 6160 /
-    11250 W“ (neznámé „–“)."""
+    """Hodnoty stringu s pevným napětím pro výkaz Výpočty: „14 optimizérů, pevné U 750 V, P stringu 6160 / 11250 W“."""
     n_opt = f"{sc.n_opt} optimizérů, " if sc.n_opt else ""
-    return f"{n_opt}pevné U {_g(sc.u_string)} V, P stringu {_g(sc.p_string)} / {_g(sc.p_string_max)} W"
+    return n_opt + ", ".join(fixed_voltage_parts(sc))
 
 
 @over_clean
