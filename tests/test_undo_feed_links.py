@@ -237,9 +237,11 @@ def test_set_conductors_on_jps_wire_propagates_and_undoes(app, lib):
 
 
 def test_set_attr_wire_id_copies_conductors_and_undoes(app, lib):
-    """Ruční vazba (`wire_id`) na vodič JPS: žíly a port bloku se změní příkazem a undo je vrátí."""
+    """Ruční vazba (`wire_id`) na vodič JPS: žíly, port bloku i odvozené odkud/kam a kabel se změní příkazem a undo
+    vrátí celý stav projektu."""
     p, s, sb, t, blk, feed, _ = _project()
-    other = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "X7"), attrs={"ref": "W7"}, conductors=list(FULL))
+    other = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "X7"), attrs={"ref": "W7", "cable": "CYKY"},
+                 conductors=list(FULL))
     s.wires.append(other)
     w = _win(lib, p)
     w.open_sheet(sb)
@@ -252,8 +254,74 @@ def test_set_attr_wire_id_copies_conductors_and_undoes(app, lib):
     assert sb.wires[0].conductors == SHORT and other.b.port == "X7"
     w.undo.redo()
     assert sb.wires[0].conductors == FULL and other.b.port == "X1"
+    assert feed.attrs["from"].startswith("W7 ") and feed.attrs["cable"] == "CYKY"
     w.undo.undo()
-    assert json.loads(_state(p))["sheets"][1]["wires"] == json.loads(before)["sheets"][1]["wires"]
+    assert _state(p) == before          # i odkud/kam a kabel ruční vazby vrátí undo (klíče zase chybí)
+    _done(w)
+
+
+def test_add_feed_with_wire_id_renames_jps_port_and_undoes(app, lib):
+    """Nový přívod s vazbou z dialogu (`AddElementCommand`): konec vodiče JPS na bloku se přejmenuje podle
+    označení přívodu, undo ho vrátí, redo zopakuje."""
+    from envocad.model.project import feed_link_attrs
+    p, s, sb, t, blk, _feed, _ = _project()
+    t2 = Element("fve.inverter", 50, 100, attrs={"ref": "T2"})
+    other = Wire(WireEnd(t2.id, "AC"), WireEnd(blk.id, "X7"), attrs={"ref": "W7"}, conductors=list(FULL))
+    s.elements.append(t2)
+    s.wires.append(other)
+    w = _win(lib, p)
+    w.open_sheet(sb)
+    sc = w.scene
+    before = _state(p)
+    e = Element("sb.feed_in", 80, 200, attrs={"ref": "X2"})
+    e.attrs.update(feed_link_attrs(p, sb, e, other.id))
+    w.undo.push(commands.AddElementCommand(sc, e))
+    assert other.b.port == "X2" and e.attrs["wire_id"] == other.id
+    after = _state(p)
+    w.undo.undo()
+    assert other.b.port == "X7" and _state(p) == before
+    w.undo.redo()
+    assert other.b.port == "X2" and _state(p) == after
+    _done(w)
+
+
+def test_paste_feed_with_wire_id_renames_jps_port(app, lib):
+    """Totéž pro přívod s vazbou vložený přes `PasteCommand` (makro s vazbou)."""
+    p, s, sb, t, blk, _feed, _ = _project()
+    other = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "X7"), attrs={"ref": "W7"}, conductors=list(FULL))
+    s.wires.append(other)
+    w = _win(lib, p)
+    w.open_sheet(sb)
+    before = _state(p)
+    e = Element("sb.feed_in", 80, 200, attrs={"ref": "X3", "wire_id": other.id})
+    w.undo.push(commands.PasteCommand(w.scene, [e], []))
+    assert other.b.port == "X3"
+    w.undo.undo()
+    assert other.b.port == "X7" and _state(p) == before
+    _done(w)
+
+
+def test_edit_feed_ref_and_wire_id_together_keeps_new_link(app, lib):
+    """Úprava přívodu se změnou označení i vazby v jednom dialogu: nová vazba se neztratí – port dostane nově
+    navázaný vodič, dosavadní vodič zůstane na svém portu a vodiče u přívodu převezmou žíly nového vodiče."""
+    p, s, sb, t, blk, feed, jw = _project(linked=True)
+    t2 = Element("fve.inverter", 50, 100, attrs={"ref": "T2"})
+    other = Wire(WireEnd(t2.id, "AC"), WireEnd(blk.id, "X7"), attrs={"ref": "W7"}, conductors=["L1", "PE"])
+    s.elements.append(t2)
+    s.wires.append(other)
+    w = _win(lib, p)
+    w.open_sheet(sb)
+    sc = w.scene
+    before = _state(p)
+    sc.undo.beginMacro("Upravit X1")            # stejné kroky jako `edit_element`
+    sc._apply_attr_changes(feed.id, False, dict(feed.attrs), {**feed.attrs, "ref": "X5", "wire_id": other.id}, "x")
+    sc._take_conductors_from_link(feed.id, other.id)
+    sc.undo.endMacro()
+    assert feed.attrs["ref"] == "X5" and feed.attrs["wire_id"] == other.id
+    assert other.b.port == "X5" and jw.b.port == "X1"
+    assert sb.wires[0].conductors == ["L1", "PE"]
+    w.undo.undo()
+    assert _state(p) == before
     _done(w)
 
 
