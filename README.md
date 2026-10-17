@@ -58,7 +58,7 @@ Build pro Windows se musí dělat na Windows, pro Linux na Linuxu.
 - **Knihovna** – ~460 artiklů (OEZ, Eaton, Schneider, Hager, SMA, SolaX, Huawei, BMR…), 673 značek QElectroTech,
   import DXF/EPLAN, sdílená firemní knihovna, pluginy.
 - **Rozhraní** – lišty s ikonami, které se mění podle pohledu (Kreslení v JPS a schématu rozvaděče, Dispozice
-  v rozložení), hledání příkazů `Ctrl+K`, menu na pravém tlačítku, kontrola F7 jako panel vedle výkresu, stavový
+  v rozložení), hledání příkazů `Ctrl+K`, menu na pravém tlačítku, kontrola F7 jako panel pod výkresem, stavový
   řádek se souřadnicemi, zoomem a počtem chyb, úvodní obrazovka, režim Jen výkres (`F11`), tmavý režim; okno si
   pamatuje velikost a rozložení panelů.
 

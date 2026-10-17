@@ -112,7 +112,7 @@ def findings_badge(findings: list[Finding] | None) -> str:
 
 
 class ChecksPanel(QWidget):
-    """Kontrola projektu jako panel (dok) vedle výkresu: nálezy zůstanou vidět při opravování, filtr závažnosti,
+    """Kontrola projektu jako panel (dok) pod výkresem: nálezy zůstanou vidět při opravování, filtr závažnosti,
     „Zkontrolovat znovu“; po změně projektu ji hlavní okno obnoví samo (je-li panel otevřený)."""
     goto = Signal(str, str, bool)
     recheck = Signal()

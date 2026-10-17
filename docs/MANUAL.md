@@ -59,8 +59,9 @@ panely, druhým stiskem se vrátí.
 položkách menu (i bez diakritiky), šipkami vybereš, Enter spustí.
 
 **Pravé tlačítko** ve výkresu (JPS i schéma rozvaděče) vybere položku pod kurzorem a nabídne Vlastnosti, Otočit,
-Kopírovat, Smazat a Uložit jako makro; u vodiče navíc Svorky, Kabel a Narovnat, u bloku ROZVADĚČ Otevřít rozvaděč,
-na prázdném místě Vložit, Vložit značku, Vodič a Přizpůsobit list. V režimu Vodič nebo Vkládání pravé tlačítko jen
+Kopírovat a Smazat (v JPS i Uložit výběr jako makro); u vodiče navíc Svorky, Kabel a Narovnat (Narovnat jen v JPS),
+u bloku ROZVADĚČ Otevřít rozvaděč, na prázdném místě Vložit značku, Vodič a Přizpůsobit list (a Vložit, když je
+něco zkopírované). V režimu Vodič nebo Vkládání pravé tlačítko jen
 ukončí režim. Připomínky mají vlastní menu (sekce 9).
 
 **Stavový řádek** vlevo ukazuje nápovědu k aktuálnímu režimu, vpravo souřadnice kurzoru v mm (Y nahoru jako ve
