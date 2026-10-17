@@ -138,3 +138,5 @@ příkazů) a nechat sync mimo undo s tím, že „je to odvozené“ (port i ž
   svorkovnice později. DWG export není potřeba (uživatel).
 - B (uživatel): dělit, když by list JPS přesáhl A2; listy A2. AC list (AC rozvaděč, síť, HOP) **na začátek** jako
   přehled, za ním listy střídačů. Dělení jen v generátoru (příkaz „Rozdělit list“ YAGNI).
+- B, PDF (uživatel): volba při exportu PDF „Skutečný formát listu / Zmenšit na A3“, výchozí podle firemního standardu
+  (nový klíč standardu, výchozí „zmenšit na A3“ = dnešní chování).
