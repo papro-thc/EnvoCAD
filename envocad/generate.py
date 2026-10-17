@@ -5,10 +5,15 @@
 Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
 {
   "name": "FVE Firma s.r.o.", "meta": {"investor": "…", "place": "…", "order": "…", "author": "…"},
-  "module": {"p_wp": 450, "voc": 49.5, "vmp": 41.5, "isc": 13.9, "beta_voc": -0.27, "type": "JA Solar …"},
+  "module": {"p_wp": 450, "voc": 49.5, "vmp": 41.5, "isc": 13.9, "beta_voc": -0.27, "type": "JA Solar …",
+             "imp": 13.2, "u_sys_max": 1500,                          # nepovinné: Impp, max. napětí systému modulu
+             "alpha_isc": 0.045, "gamma_pmax": -0.29,                 # nepovinné [%/K]: oba → součinitel Umpp = γ − α
+             "component_id": "ja-solar-jam54d40-450"},                # nepovinné: artikl modulu (pv_modules.csv)
+  "site": {"t_min": -20, "t_max": 70},                                # návrhové teploty stringů → meta pv_t_min/pv_t_max
   "optimizer": {"type": "", "per_module": 1},                        # optimizéry (prázdný typ = bez optimizérů)
   "inverters": [{"ref": "T1", "type": "SMA STP 25-50", "p_ac": 25, "phases": 3, "u_dc_max": 1100,
                  "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30, "strings": [20, 20, 18, 18],
+                 "isc_mppt_max": 40, "strings_per_mppt": 2, "mppt": 2,       # nepovinné (jinak z artiklu, mppt dopočet)
                  "component_id": "sma-stp-25-50"}],
   "dc": {"cable": "H1Z2Z2-K 1x6", "cross": 6, "length": 40,          # string → první DC rozvaděč
          "route_boxes": 1, "route_length": 20,                        # DC rozvaděče po trase (odpínač + SPD), kabel mezi nimi
@@ -28,7 +33,14 @@ Položka `macros` smí být i objekt {"name": "DC string v rozvaděči", "value_
 "values": {"fuse_in": 25}} – sada hodnot a hodnoty proměnných makra přebijí základ ze `dc`/`ac` (docs/LIBRARY_FORMAT.md,
 „Formát makra“). Neplatná hodnota → ValueError s názvem makra. In (`fuse_in`, `disconnect_in`, `breaker_in`, `main_in`)
 jsou čísla v A (ne „C40“), `spd` je text (T1, T2, T1+T2, T1+T2+T3…). Artikl střídače (`component_id`) doplní atributy,
-které specifikace nezadala (typ, výrobce, mppt…).
+které specifikace nezadala (typ, výrobce, mppt, strings_per_mppt…) – ještě před dopočtem `mppt` z počtu stringů.
+Se známým `mppt` (specifikace nebo artikl) se stringy zapojí na MPPT rovnoměrně (string k → MPPT k mod mppt), jinak
+za sebou DC1, DC2… (`calc.string_ports`). Neznámé `strings_per_mppt` zůstane v atributu prázdné (kontrola pak proudy
+paralelních stringů nesčítá); pro počet DC vstupů se počítá se 2 na MPPT.
+Artikl modulu (`module.component_id`) stejně doplní prázdné údaje modulu (p_wp, voc, vmp, isc, imp, beta_voc,
+u_sys_max, alpha_isc, gamma_pmax, typ, výrobce); zadané hodnoty specifikace vyhrávají a stringy dostanou `component_id` artiklu.
+`site.t_min` / `site.t_max` [°C] se zapíšou do `meta["pv_t_min"]` / `meta["pv_t_max"]` (kontrola stringů,
+`calc.design_temperatures`); bez nich platí výchozí −10 / 70 °C.
 """
 from __future__ import annotations
 
@@ -48,6 +60,7 @@ from envocad.library.templates import (
     _wire,
     build_dc_strings,
 )
+from envocad.model.calc import DC_INPUTS_PER_MPPT_DEFAULT, InverterData, string_ports
 from envocad.model.project import (
     PORT_PITCH,
     Element,
@@ -67,6 +80,7 @@ DEFAULT_SPEC = {
     "name": "Nový projekt FVE",
     "meta": {},
     "module": {"p_wp": 450, "voc": 49.5, "vmp": 41.5, "isc": 13.9, "beta_voc": -0.27, "type": ""},
+    "site": {},   # {"t_min": -20, "t_max": 70} – návrhové teploty stringů (průvodce předvyplní ze standardu)
     "optimizer": {"type": "", "per_module": 1},
     "dc": {"cable": "H1Z2Z2-K 1x6", "cross": 6, "length": 30, "route_boxes": 1, "route_length": 20,
            "tech_box": True, "tech_length": 5, "spd": "T2", "fuse_in": 15, "disconnect_in": 32, "disconnect": False},
@@ -120,6 +134,10 @@ def build_project(spec: dict) -> Project:
 
 
 def _build_project(spec: dict) -> Project:
+    spec = dict(spec or {})
+    if isinstance(spec.get("module"), dict) and spec["module"].get("component_id"):
+        # artikl modulu doplní jen to, co specifikace nezadala – proto před doplněním výchozích hodnot
+        spec["module"] = _apply_module_component(spec["module"])
     spec = _merge(DEFAULT_SPEC, spec)
     invs = spec.get("inverters") or []
     if not invs:
@@ -128,6 +146,10 @@ def _build_project(spec: dict) -> Project:
         raise ValueError(f"AC rozvaděč: sběrnice má {AC_MAX_INVERTERS_BUS} přívodů – nejvýš {AC_MAX_INVERTERS_BUS} "
                          f"střídačů (zadáno {len(invs)}). Zvolte rozvod svorkami nebo rozdělte FVE na více rozvaděčů.")
     p = Project(name=spec["name"], meta={k: _s(v) for k, v in spec["meta"].items()})
+    site = spec.get("site") or {}
+    for key, meta_key in (("t_min", "pv_t_min"), ("t_max", "pv_t_max")):
+        if site.get(key) not in (None, ""):
+            p.meta[meta_key] = _s(site[key])
     s = p.sheets[0]
     s.name = "Jednopólové schéma"
     mod, dc, ac = spec["module"], spec["dc"], spec["ac"]
@@ -163,24 +185,39 @@ def _build_project(spec: dict) -> Project:
         ref_t = inv.get("ref") or f"T{i + 1}"
         t = Element("fve.inverter_hybrid" if spec.get("battery") and i == 0 else "fve.inverter", x_inv, y_mid, attrs={
             "ref": ref_t, "type": _s(inv.get("type")), "p_ac": _s(inv.get("p_ac")), "phases": _s(inv.get("phases", 3)),
-            "mppt": _s(inv.get("mppt", max(1, -(-len(strings) // int(inv.get("strings_per_mppt") or 2))))),
-            "strings_per_mppt": _s(inv.get("strings_per_mppt") or 2),
+            "mppt": _s(inv.get("mppt")), "strings_per_mppt": _s(inv.get("strings_per_mppt")),
             "u_dc_max": _s(inv.get("u_dc_max")), "u_mppt_min": _s(inv.get("u_mppt_min")),
             "u_mppt_max": _s(inv.get("u_mppt_max")), "i_mppt_max": _s(inv.get("i_mppt_max")),
             "p_dc_max": _s(inv.get("p_dc_max"))}, component_id=inv.get("component_id"))
+        if inv.get("isc_mppt_max") not in (None, ""):
+            t.attrs["isc_mppt_max"] = _s(inv["isc_mppt_max"])
+        # artikl dřív než dopočet MPPT: jeho strings_per_mppt / mppt určí počet DC vstupů
         _apply_inverter_component(t, inv)
+        # neznámé stringů na MPPT zůstane prázdné (kontrola pak proudy na MPPT nesčítá); výchozí 2 jen pro DC vstupy
+        spm_known, mppt_known = _int_attr(t.attrs.get("strings_per_mppt")), _int_attr(t.attrs.get("mppt"))
+        if not spm_known:
+            t.attrs["strings_per_mppt"] = ""
+        spm = spm_known or DC_INPUTS_PER_MPPT_DEFAULT
+        # známé mppt: stringy rovnoměrně po MPPT (string k → MPPT k mod mppt), jinak DC1, DC2… za sebou (`calc.string_ports`)
+        ports = string_ports(len(strings), InverterData(mppt=mppt_known, strings_per_mppt=spm_known))
+        if not mppt_known:
+            t.attrs["mppt"] = str(max(1, -(-len(strings) // spm)))
         s.elements.append(t)
         inverter_elements.append(t)
         gens: list[Element] = []
         for k, n_mod in enumerate(strings):
             ys = y - 35.0 - k * 45.0
-            p_str = round(n_mod * float(mod.get("p_wp") or 0) / 1000, 2)
+            p_str = round(n_mod * float(str(mod.get("p_wp") or 0).replace(",", ".")) / 1000, 2)
             p_total += p_str
             g = Element("fve.pv_string", x_str, ys, attrs={
                 "ref": p.next_ref("G"), "type": _s(mod.get("type")), "n_modules": _s(n_mod), "p_module": _s(mod.get("p_wp")),
                 "p_string": f"{p_str:g} kWp", "voc": _s(mod.get("voc")), "vmp": _s(mod.get("vmp")),
                 "isc": _s(mod.get("isc")), "beta_voc": _s(mod.get("beta_voc")),
-                "n_optimizers": _s(round(n_mod * opt_per)) if opt_per else "", "optimizer": _s(opt.get("type")) if opt_per else ""})
+                "n_optimizers": _s(round(n_mod * opt_per)) if opt_per else "", "optimizer": _s(opt.get("type")) if opt_per else ""},
+                component_id=mod.get("component_id") or None)
+            for key in ("imp", "u_sys_max", "manufacturer", "alpha_isc", "gamma_pmax"):   # jen zadané – starší specifikace beze změny výstupu
+                if mod.get(key) not in (None, ""):
+                    g.attrs[key] = _s(mod[key])
             s.elements.append(g)
             gens.append(g)
         # DC rozvaděče: po trase (odpínač + SPD) a u technologie (pojistkové odpínače + SPD); stringy jimi procházejí odděleně
@@ -196,9 +233,10 @@ def _build_project(spec: dict) -> Project:
         # porty bloku DC rozvaděče (viz switchboard_symbol): rozteč PORT_PITCH, shora dolů
         half = max(20.0, n_str * PORT_PITCH + PORT_PITCH) / 2
         port_y = [y_mid + round((half - PORT_PITCH / 2 - k * PORT_PITCH) / 2.5) * 2.5 for k in range(n_str)]
-        n_in = max(2, int(t.attrs["mppt"]) * int(t.attrs["strings_per_mppt"]), n_str)   # DC vstupy střídače (viz inverter_symbol)
+        n_in = max(2, int(t.attrs["mppt"]) * spm, n_str)   # DC vstupy střídače (viz inverter_symbol)
         for k, g in enumerate(gens):
-            port_inv = f"DC{k + 1}"   # každý string má na střídači vlastní vstup – stringy se nespojují
+            port_inv = f"DC{ports[k]}"   # každý string má na střídači vlastní vstup – stringy se nespojují
+            j_in = ports[k] - 1          # pořadí vstupu shora (DC1 nahoře)
             if boxes:
                 prev, prev_port = g, "DC"
                 for j, b in enumerate(boxes):
@@ -213,7 +251,7 @@ def _build_project(spec: dict) -> Project:
                 # vějíř lomů těsně před DC vstupy střídače (5 mm rozestup) – za popiskem kabelu, mimo značku střídače;
                 # pořadí lomů bez křížení doladí `_align_bends`
                 xb = t.x - 10.0 - 5.0 * (n_str - k)
-                y_inv = t.y + (2.5 * (n_in - 1) - 5.0 * k if n_in > 2 else (5.0 if k == 0 else -5.0))
+                y_inv = t.y + (2.5 * (n_in - 1) - 5.0 * j_in if n_in > 2 else (5.0 if j_in == 0 else -5.0))
                 s.wires.append(Wire(WireEnd(prev.id, prev_port), WireEnd(t.id, port_inv), conductors=list(DC_CONDUCTORS),
                                     points=[(xb, port_y[k]), (xb, y_inv)],
                                     attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": _s(dc.get("cross")),
@@ -299,6 +337,37 @@ def _align_outputs(project: Project, blk: Element, grid: Element, earth: Element
         grid.y = blk.port_pos(sym, "XOUT")[1]
     if earth is not None and "XPE" in names:
         earth.y = blk.port_pos(sym, "XPE")[1] - 20.0
+
+
+def _int_attr(v) -> int | None:
+    """Kladné celé číslo z atributu („2“, „2.0“, „2,0“), jinak None."""
+    try:
+        x = float(str(v).replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+    return int(x) if x >= 1 else None
+
+
+# údaje modulu ve specifikaci ← atribut prvku `fve.pv_string` (`Component.attr_values()`)
+MODULE_SPEC_FROM_ATTR = {"p_module": "p_wp", "voc": "voc", "vmp": "vmp", "isc": "isc", "imp": "imp",
+                         "beta_voc": "beta_voc", "u_sys_max": "u_sys_max", "type": "type", "manufacturer": "manufacturer",
+                         "alpha_isc": "alpha_isc", "gamma_pmax": "gamma_pmax"}
+
+
+def _apply_module_component(mod: dict) -> dict:
+    """Artikl modulu (`module.component_id`) doplní údaje modulu, které specifikace nezadala (chybí nebo prázdné);
+    zadané hodnoty mají přednost. Vrací novou specifikaci modulu; neznámý artikl → beze změny (stringy si
+    `component_id` ponechají, kontrola projektu ho nahlásí). Desetinná čárka z CSV se převede na tečku."""
+    out = dict(mod)
+    comp = _lib().component(mod.get("component_id"))
+    if comp is None:
+        return out
+    for akey, val in comp.attr_values().items():
+        skey = MODULE_SPEC_FROM_ATTR.get(akey)
+        if skey and out.get(skey) in (None, ""):
+            out[skey] = val if skey in ("type", "manufacturer") else val.replace(",", ".")
+    out["component_id"] = comp.id
+    return out
 
 
 def _apply_inverter_component(t: Element, inv: dict) -> None:

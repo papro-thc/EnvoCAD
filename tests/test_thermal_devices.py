@@ -254,13 +254,18 @@ def test_builtin_device_symbols_have_hidden_temperature_attrs():
     assert "sb.terminal_block" not in with_temp
 
 
-def test_builtin_csv_temperature_columns_empty():
-    """Vestavěné artikly: sloupce t_min_c/t_max_c jsou připravené, ale bez vymyšlených hodnot."""
+def test_builtin_csv_temperature_values_have_source():
+    """Vestavěné artikly: rozsah teplot je vyplněný jen s citovaným zdrojem (poznámka „t: … dle <URL>“), nic odhadnutého."""
     from envocad.library.components import read_csv
     found = False
     for f in (BUILTIN / "components").glob("*.csv"):
         for c in read_csv(f):
-            assert not c.params.get("t_min_c") and not c.params.get("t_max_c"), c.id
+            tmin, tmax = c.params.get("t_min_c"), c.params.get("t_max_c")
+            if tmin or tmax:
+                assert tmin and tmax, c.id
+                assert float(tmin) < float(tmax), c.id
+                note = str(c.params.get("note", ""))
+                assert "t: " in note and "http" in note, c.id
         found = found or "t_max_c" in f.read_text(encoding="utf-8").splitlines()[0]
     assert found
 

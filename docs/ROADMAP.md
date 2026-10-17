@@ -86,11 +86,12 @@ Pořadí = priorita. Body 1, 2 a 5 jsou nejlevnější start.
 - [x] **Výrobní data rozvaděče**: zapojovací seznam s délkami z rozložení, barvou, průřezem, koncovkou/dutinkou (xlsx) – hotovo 10/2026: `model/wiring.py` (návrh `docs/design/vyrobni_data.md`), výkaz „Výrobní zapojovací seznam“ (mimo PDF dokumentaci), `export_production_xlsx` s listem Parametry, odvozené svorky přístrojů 1/2 → 1…6, délky po žlabech z rozložení, dutinky DIN 46228; formát v9 beze změny. GUI (atributy vodiče, parametry skříně, položka menu) dodělává gui-dev
 - [ ] **Formáty strojů pro výrobu vodičů** (Komax, Steinhauer…) – až při sériové výrobě; vstupem `wiring.ProductionWire`, výstup `export/machine_<výrobce>.py`
 - [ ] **Parametry artiklů pojmenovat podle ETIM/eCl@ss** – BMEcat importér pak jen mapuje sloupce
-- [ ] Databáze FV modulů a střídačů pro výběr v průvodci (jako SurgePV/PVcase)
+- [x] Databáze FV modulů a střídačů pro výběr v průvodci (jako SurgePV/PVcase) – hotovo 10/2026: katalog `pv_modules.csv` + rozšířený `inverters.csv` (zdroje v poznámkách), výběr z katalogu v průvodci, asistent stringů (`model/calc.py`, sdílený s F7), návrhové teploty v projektu (`docs/design/katalog_fv.md`). Data zatím neúplná (WebSearch bez stahování datasheetů) – doplnit z PDF výrobců; importér PVsyst .PAN/.OND odložen
 - Nedělat: předprojekt / P&ID (Preplanning), cloud (eVIEW/eManage) – stačí JPS, průvodce a sdílená knihovna
 
 ## Chyby k řešení
-- [ ] Generovaný projekt se 4 a více střídači: JPS (~490×850 mm) přetéká list a v PDF se ořízne – rozdělit na více listů nebo zvětšit formát (zjištěno při review 10/2026, i v main)
+- [x] Generovaný projekt se 4 a více střídači: JPS přetékal list – opraveno 10/2026 (formát A3–A0 podle obsahu); rozdělení velkých JPS na víc listů zůstává otevřené
+- [ ] Rozvaděčové artikly: doplnit `t_min_c`/`t_max_c` z datasheetů (zatím 76 řádků se zdrojem; OEZ LTN/LFN/OPVP, Eaton PF7 chybí)
 
 ## Odloženo (analýza 10/2026 – nebrzdí práci)
 - Příkazový řádek (styl ZWCAD/CADCraft) – až bude potřeba ovládat program z agentů

@@ -589,11 +589,13 @@ def calc_findings(project: Project) -> list[Finding]:
     out: list[Finding] = []
     sheet_of = {e.id: s for s in project.sheets for e in s.elements}
     el_by_ref = {e.ref: e for s in project.sheets for e in s.elements if e.ref}
+    for msg in calc.design_temperature_issues(project):   # neplatná návrhová teplota ve Vlastnostech projektu
+        out.append(Finding(WARNING, "", "", "", False, "", msg, "calc_temp"))
     for sc in calc.check_strings(project):
         e = el_by_ref.get(sc.ref)
         s = sheet_of.get(e.id) if e else None
         for msg in sc.issues:
-            sev = WARNING if ("chybí" in msg or "nemá" in msg or "není" in msg) else ERROR
+            sev = WARNING if ("chybí" in msg or "nemá" in msg or "není" in msg or "omezení výkonu" in msg) else ERROR
             out.append(Finding(sev, s.id if s else "", s.name if s else "", e.id if e else "", False, sc.ref,
                                f"String: {msg}", "calc_string"))
     for cc in calc.check_cables(project):

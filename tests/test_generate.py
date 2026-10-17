@@ -100,3 +100,73 @@ def test_string_modules_and_optimizers_in_label_and_bom():
     mods = next(r for r in rows if r[1] == "FV modul")
     opts = next(r for r in rows if r[1] == "Optimizér")
     assert mods[5] == 38 and mods[2] == "JA 450" and opts[5] == 38 and opts[2] == "SE S500"
+
+
+# ---- katalog FV: artikl modulu, návrhové teploty, artikl střídače před dopočtem MPPT ---------------------------
+_CATALOG = """id;manufacturer;part_number;name;category;symbol_id;datasheet_url;source;p_wp;voc_v;vmp_v;isc_a;imp_a;beta_voc;u_sys_max_v;mppt;strings_per_mppt;isc_mppt_max_a;u_dc_max_v;u_mppt_min_v;u_mppt_max_v;i_mppt_max_a
+test-mod-450;TestSolar;TS-450;FV modul 450 Wp;pv_module;fve.pv_string;https://example.com/m.pdf;web;450;49,5;41,5;13,9;10,85;-0,26;1500;;;;;;;
+test-inv-1spm;TestInv;TI-25;Střídač 25 kW;inverter;fve.inverter;https://example.com/i.pdf;web;;;;;;;;;1;40;1100;200;1000;16
+"""
+
+
+def _catalog(tmp_path):
+    f = tmp_path / "katalog.csv"
+    f.write_text(_CATALOG, encoding="utf-8")
+    assert LibraryStore().import_components_csv_v2(f) == 2
+
+
+def _inv(**kw):
+    return {"ref": "T1", "p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30,
+            "strings": [20, 20, 18], **kw}
+
+
+def test_module_component_fills_missing_values(tmp_path):
+    _catalog(tmp_path)
+    p = build_project({"module": {"component_id": "test-mod-450", "vmp": 41.0}, "inverters": [_inv()],
+                       "site": {"t_min": -20, "t_max": 70}})
+    gs = [e for e in p.sheets[0].elements if e.symbol_id == "fve.pv_string"]
+    g = gs[0]
+    assert all(x.component_id == "test-mod-450" for x in gs)
+    assert g.attrs["voc"] == "49.5" and g.attrs["vmp"] == "41.0"          # spec vyhrává, čárka → tečka
+    assert g.attrs["imp"] == "10.85" and g.attrs["u_sys_max"] == "1500" and g.attrs["beta_voc"] == "-0.26"
+    assert g.attrs["type"] == "TS-450" and g.attrs["manufacturer"] == "TestSolar" and g.attrs["p_module"] == "450"
+    assert p.meta["pv_t_min"] == "-20" and p.meta["pv_t_max"] == "70"
+    from envocad.model import calc
+    assert calc.check_strings(p)[0].t_min == -20
+    from envocad.export.reports import bom
+    _, rows = bom(p, LibraryStore())
+    mod = next(r for r in rows if r[1] == "FV modul")
+    assert mod[2] == "TS-450" and mod[3] == "TestSolar" and mod[5] == 58
+    # neznámý artikl: hodnoty ze specifikace / výchozí, component_id zůstane (kontrola ho nahlásí)
+    p = build_project({"module": {"component_id": "neni-v-knihovne"}, "inverters": [_inv()]})
+    g = next(e for e in p.sheets[0].elements if e.symbol_id == "fve.pv_string")
+    assert g.component_id == "neni-v-knihovne" and g.attrs["voc"] == "49.5" and "imp" not in g.attrs
+    assert "pv_t_min" not in p.meta
+
+
+def test_inverter_component_before_mppt(tmp_path):
+    _catalog(tmp_path)
+    # artikl: 1 string na MPPT → 3 stringy = 3 MPPT (dřív 2 podle výchozích 2 stringů na MPPT)
+    p = build_project({"inverters": [_inv(component_id="test-inv-1spm")]})
+    t = next(e for e in p.sheets[0].elements if e.symbol_id == "fve.inverter")
+    assert t.attrs["strings_per_mppt"] == "1" and t.attrs["mppt"] == "3" and t.attrs["isc_mppt_max"] == "40"
+    assert t.attrs["i_mppt_max"] == "30"                                    # spec vyhrává nad artiklem (16)
+    # spec strings_per_mppt vyhrává nad artiklem
+    p = build_project({"inverters": [_inv(component_id="test-inv-1spm", strings_per_mppt=2)]})
+    t = next(e for e in p.sheets[0].elements if e.symbol_id == "fve.inverter")
+    assert t.attrs["strings_per_mppt"] == "2" and t.attrs["mppt"] == "2"
+    # isc_mppt_max ze specifikace
+    p = build_project({"inverters": [_inv(isc_mppt_max=25)]})
+    t = next(e for e in p.sheets[0].elements if e.symbol_id == "fve.inverter")
+    assert t.attrs["isc_mppt_max"] == "25" and t.attrs["mppt"] == "2"
+
+
+def test_tz_uses_design_temperatures(tmp_path):
+    from docx import Document
+
+    from envocad.export.tz_export import export_tz_docx
+    p = build_project({"inverters": [_inv()], "site": {"t_min": -20, "t_max": 75}})
+    out = tmp_path / "tz.docx"
+    export_tz_docx(p, LibraryStore(), out)
+    heads = [c.text for t in Document(str(out)).tables for c in t.rows[0].cells]
+    assert "Uoc při -20 °C [V]" in heads and "Umpp při 75 °C [V]" in heads

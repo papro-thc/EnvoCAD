@@ -145,6 +145,30 @@
       "label": "Tepl. součinitel Uoc [%/K]",
       "default": "-0.27",
       "show": false
+    },
+    {
+      "key": "imp",
+      "label": "Impp modulu STC [A]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "u_sys_max",
+      "label": "Max. napětí systému modulu [V]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "gamma_pmax",
+      "label": "Tepl. součinitel Pmax [%/K]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "alpha_isc",
+      "label": "Tepl. součinitel Isc [%/K]",
+      "default": "",
+      "show": false
     }
   ],
   "label_pos": {

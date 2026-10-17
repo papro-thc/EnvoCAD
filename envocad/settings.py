@@ -7,6 +7,7 @@
     "dc_cable": "H1Z2Z2-K 1x6", "dc_cross": 6, "ac_cable": "CYKY-J 5x16", "ac_cross": 16,
     "switchboard_paper": "A4",                             // strany schématu rozvaděče: A4 / A4 na výšku / A3
     "preferred_manufacturers": ["OEZ", "Eaton", "Weidmüller"],
+    "pv_t_min": -20, "pv_t_max": 70,                       // návrhové teploty stringů [°C] pro průvodce
     "project_meta": {"author": "PR"}                      // předvyplní se do nového projektu
   }
 }
@@ -28,6 +29,8 @@ DEFAULTS = {
         "grid_cable": "CYKY-J 5x35", "grid_cross": 35,
         "switchboard_paper": "A4",   # strany schématu rozvaděče a plánu svorkovnice: „A4“, „A4 na výšku“, „A3“
         "preferred_manufacturers": ["OEZ", "Eaton", "Weidmüller", "SMA", "Huawei", "SolaX"],
+        # návrhové teploty pro stringy [°C] – průvodce je předvyplní do `meta pv_t_min/pv_t_max` (model/calc.py)
+        "pv_t_min": -20, "pv_t_max": 70,
         "project_meta": {},
     },
 }
