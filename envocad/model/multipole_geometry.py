@@ -349,9 +349,9 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
     label_page: dict[tuple[str, str, int], int] = {}     # strana popisku žíly = strana jejího úseku
 
     def conductor(w, c: str, idx: int, pa: Point, da: str, pb: Point, db: str, ends: tuple[str, str],
-                  page: int, staggered: bool = False, part: int = 0) -> None:
+                  page: int, staggered: bool = False, part: int = 0, branch: str = "") -> None:
         """Úsek žíly na straně `page` (strana prvku, ze kterého vede – ne podle výšky bodu)."""
-        pts = mp.conductor_route(pa, da, pb, db, stagger=idx * mp.GRID, jog=0.8)
+        pts = mp.wire_route(pa, da, pb, db, stagger=idx * mp.GRID, branch=branch)
         what = f"žílu {c}" + (f" vodiče {w.attrs['ref']}" if w.attrs.get("ref") else "")
         owner = f"{w.id}#{c}"   # každá žíla zvlášť – popisek L− přes žílu L+ téhož vodiče je překryv
         for a, b in pairwise(pts):
@@ -403,6 +403,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
         rail_y[key] = y
         return y
 
+    branches = mp.branch_ends(sheet, poles)
     for w in sheet.wires:
         ea, eb = poles.get(w.a.element_id), poles.get(w.b.element_id)
         if not ea or not eb:
@@ -443,7 +444,8 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
                 rail_taps.setdefault(key, []).append((ks, tap))
                 continue
             if ka == kb:
-                conductor(w, c, i, pa, da, pb, db, (ta, tb), ka, len(mp.wire_conductors(w)) > 1)
+                conductor(w, c, i, pa, da, pb, db, (ta, tb), ka, len(mp.wire_conductors(w)) > 1,
+                          branch=mp.branch_side(branches, w.id))
                 continue
             right = ka < kb
             xa = (W - MARGIN - BREAK_INSET) if right else (MARGIN_LEFT + BREAK_INSET)

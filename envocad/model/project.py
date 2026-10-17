@@ -652,7 +652,7 @@ class SheetText:
 
 @dataclass
 class Sheet:
-    name: str = "Jednopólové schéma"
+    name: str = "Blokové schéma"
     paper: str = "A3"
     width: float = 420.0
     height: float = 297.0

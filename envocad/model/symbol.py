@@ -32,6 +32,11 @@ class Port:
         return asdict(self)
 
 
+# atribut → atribut, který ho v popisku ve výkresu nahradí, když je zadaný: typ SPD (T1+T2) je obsažený
+# v objednacím typu svodiče („VPU PV I+II 3 1000“) – ve výkresu typ, Uc, Up, ISCPV
+LABEL_SUPERSEDED = {"spd_type": "type"}
+
+
 @dataclass
 class Attribute:
     key: str
@@ -41,12 +46,16 @@ class Attribute:
     fmt: str = ""        # formát zobrazené hodnoty ve výkresu, např. "{} modulů" (prázdné = hodnota sama)
 
     def display(self, value: str) -> str:
-        """Hodnota pro výkres podle `fmt`; hodnota, která už jednotku z formátu nese („25 kW“), se nezdvojí."""
+        """Hodnota pro výkres podle `fmt`; hodnota, která už jednotku z formátu nese („25 kW“, „1000 V DC“ u
+        „Uc {} V“), se nezdvojí – dostane jen předponu formátu („Uc 1000 V DC“)."""
         if not (self.fmt and value):
             return value
-        suffix = self.fmt.split("{}", 1)[-1].strip() if "{}" in self.fmt else ""
+        prefix, suffix = (self.fmt.split("{}", 1) + [""])[:2] if "{}" in self.fmt else ("", "")
+        suffix = suffix.strip()
+        if suffix and suffix.lower() in str(value).lower().split():
+            return prefix + str(value).strip()
         if suffix and str(value).strip().lower().endswith(suffix.lower()):
-            return str(value)
+            return prefix + str(value).strip()
         return self.fmt.format(value)
 
     def to_dict(self) -> dict:
@@ -81,9 +90,15 @@ class Symbol:
             return list(self.function_class)
         return [self.iec_ref] if self.iec_ref else []
 
+    def label_attributes(self, attrs: dict, skip: set[str] | frozenset = frozenset({"ref"})) -> list[Attribute]:
+        """Zobrazované atributy s hodnotou (bez `skip`); atribut, který nahrazuje jiný zadaný (`LABEL_SUPERSEDED`:
+        typ SPD vedle objednacího typu svodiče), se vynechá – popisek SPD se pak vejde vedle pólů."""
+        return [a for a in self.attributes if a.show and a.key not in skip and attrs.get(a.key)
+                and not (a.key in LABEL_SUPERSEDED and attrs.get(LABEL_SUPERSEDED[a.key]))]
+
     def label_lines(self, attrs: dict) -> list[str]:
         """Řádky popisku prvku ve výkresu (bez označení): zobrazované atributy s formátem."""
-        return [a.display(attrs[a.key]) for a in self.attributes if a.show and a.key != "ref" and attrs.get(a.key)]
+        return [a.display(attrs[a.key]) for a in self.label_attributes(attrs)]
 
     def pole_symbol(self) -> Symbol:
         """Značka jednoho pólu pro vícepól (bez vlastní – celá značka)."""

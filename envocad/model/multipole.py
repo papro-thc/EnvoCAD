@@ -808,8 +808,7 @@ def pole_label_texts(ep: ElementPoles) -> list[tuple[str, float]]:
     e = ep.element
     lines = [(e.ref, 2.5)] if e.ref else []
     skip = {"ref", "terminal"} if is_terminal_block(e) else {"ref"}   # čísla svorek jsou u pólů
-    lines += [(a.display(e.attrs[a.key]), 2.0) for a in ep.symbol.attributes
-              if a.show and a.key not in skip and e.attrs.get(a.key)]
+    lines += [(a.display(e.attrs[a.key]), 2.0) for a in ep.symbol.label_attributes(e.attrs, skip)]
     return lines
 
 
@@ -843,6 +842,10 @@ def pole_label_lines(ep: ElementPoles) -> list[tuple[float, float, str, float, s
         boxes = [_rot_box(sym, *pole_anchor(ep, c), e.rotation) for c in ep.switched]
         x = min(b[0] for b in boxes) - LABEL_GAP
         y = max(b[3] for b in boxes) - lines[0][1]
+        # dlouhý popisek (SPD: typ, Uc, Up, ISCPV) nesmí sahat pod spodní porty – tam vede PE / vývodní žíly;
+        # posune se nahoru, aby poslední řádek ležel nad spodním okrajem pólů
+        stack = sum(h + 1.0 for _, h in lines[1:])
+        y = max(y, min(b[1] for b in boxes) + 1.5 + stack)
         out = []
         for text, h in lines:
             out.append((x, y, text, h, "right"))
@@ -895,16 +898,63 @@ def break_y(p: tuple[float, float], d: str, n: int, used: set[float]) -> float:
     return y
 
 
+BRANCH_CHAMFER = GRID / 2   # zkosení odbočky ze svorky (45°), jako uzel „T“ se směrem v EPLAN
+
+
+def branch_ends(sheet: Sheet, poles: dict[str, ElementPoles]) -> set[tuple[str, str]]:
+    """Konce vodičů, které jsou na svorce přístroje druhým vodičem (dvojitá dutinka): (id vodiče, „a“/„b“).
+
+    Ze stejného portu prvku vede víc vodičů (odpínač → vývod a → SPD): hlavní je ten, jehož protější pól leží
+    nejvíc v ose portu (pokračuje rovně), ostatní jsou odbočky – kreslí se ze svorky hned za vývodem se zkoseným
+    rohem, aby bylo vidět, že začínají na svorce, a ne v uzlu na čáře. Svorkovnice a sběrnice se nepočítají."""
+    groups: dict[tuple[str, str], list[tuple[float, str, str]]] = {}
+    for w in sheet.wires:
+        ea, eb = poles.get(w.a.element_id), poles.get(w.b.element_id)
+        if not ea or not eb or BUS_SYMBOL in (ea.element.symbol_id, eb.element.symbol_id):
+            continue
+        c = wire_conductors(w)[0]
+        for side, me, end, other, oend in (("a", ea, w.a, eb, w.b), ("b", eb, w.b, ea, w.a)):
+            if is_terminal_block(me.element) or me.element.symbol_id == "sb.pe_bar":
+                continue
+            try:
+                d = rotate_dir(me.symbol.port(end.port).dir, me.element.rotation)
+                px, py = me.pole_pos(end.port, c)
+                qx, qy = other.pole_pos(oend.port, c)
+            except (KeyError, StopIteration):
+                continue
+            off = abs(qx - px) if d in ("N", "S") else abs(qy - py)
+            groups.setdefault((me.element.id, end.port), []).append((off, w.id, side))
+    out: set[tuple[str, str]] = set()
+    for ends in groups.values():
+        if len(ends) < 2:
+            continue
+        ends.sort()
+        out |= {(wid, side) for _off, wid, side in ends[1:]}
+    return out
+
+
 def conductor_route(pa: tuple[float, float], da: str, pb: tuple[float, float], db: str, stagger: float = 0.0,
-                    jog: float = 0.8) -> list[tuple[float, float]]:
+                    jog: float = 0.8, branch: bool = False) -> list[tuple[float, float]]:
     """Trasa žíly ve vícepólu (model mm, Y nahoru): vývod GRID z každého portu, L/Z vedení, příčka Z-trasy v `jog`
-    délky (blízko cíle) posunutá o `stagger` (rovnoběžné žíly se nepřekrývají). Stejně kreslí scéna i kontrola."""
+    délky (blízko cíle) posunutá o `stagger` (rovnoběžné žíly se nepřekrývají). Stejně kreslí scéna i kontrola.
+    `branch` = odbočka ze svorky v `pa` (`branch_ends`): příčka hned za vývodem, roh zkosený pod 45°."""
     stub = GRID
     va, vb = DIR_VEC[da], DIR_VEC[db]
     sa = (pa[0] + va[0] * stub, pa[1] + va[1] * stub)
     sb = (pb[0] + vb[0] * stub, pb[1] + vb[1] * stub)
     pts = [pa, sa]
     horizontal_first = da in ("E", "W")
+    if branch and not horizontal_first and db in ("N", "S") and abs(sa[0] - sb[0]) > 1e-6:
+        # odbočky žil jednoho vodiče po 2 × `stagger` – mezi příčky se vejde popisek žíly
+        my = sa[1] - 2 * stagger if da == "S" else sa[1] + 2 * stagger
+        ch = BRANCH_CHAMFER
+        sx = 1.0 if sb[0] > sa[0] else -1.0
+        return [pa, (sa[0], my - va[1] * ch), (sa[0] + sx * ch, my), (sb[0], my), sb, pb]
+    if branch and horizontal_first and db in ("E", "W") and abs(sa[1] - sb[1]) > 1e-6:
+        mx = sa[0] + 2 * stagger if da == "E" else sa[0] - 2 * stagger
+        ch = BRANCH_CHAMFER
+        sy = 1.0 if sb[1] > sa[1] else -1.0
+        return [pa, (mx - va[0] * ch, sa[1]), (mx, sa[1] + sy * ch), (mx, sb[1]), sb, pb]
     if horizontal_first and db in ("E", "W") and abs(sa[1] - sb[1]) > 1e-6:
         mx = _snap(sa[0] + (sb[0] - sa[0]) * jog) + stagger
         pts += [(mx, sa[1]), (mx, sb[1])]
@@ -917,6 +967,20 @@ def conductor_route(pa: tuple[float, float], da: str, pb: tuple[float, float], d
         pts.append((sa[0], sb[1]))
     pts += [sb, pb]
     return pts
+
+
+def branch_side(branches: set[tuple[str, str]], wire_id: str) -> str:
+    """„a“/„b“, když je konec vodiče odbočkou ze svorky (`branch_ends`), jinak „“ (oba konce → „a“)."""
+    return "a" if (wire_id, "a") in branches else "b" if (wire_id, "b") in branches else ""
+
+
+def wire_route(pa: tuple[float, float], da: str, pb: tuple[float, float], db: str, stagger: float = 0.0,
+               branch: str = "") -> list[tuple[float, float]]:
+    """Trasa žíly mezi póly (`conductor_route`, `jog` 0,8); `branch` „a“/„b“ = ten konec je odbočka ze svorky
+    (`branch_ends`) – trasa se spočítá od něj a obrátí, aby body šly vždy od `pa` k `pb`."""
+    if branch == "b":
+        return conductor_route(pb, db, pa, da, stagger=stagger, jog=0.8, branch=True)[::-1]
+    return conductor_route(pa, da, pb, db, stagger=stagger, jog=0.8, branch=branch == "a")
 
 
 def conductor_label_anchor(pts: list[tuple[float, float]], staggered: bool) -> tuple[float, float, str, bool]:

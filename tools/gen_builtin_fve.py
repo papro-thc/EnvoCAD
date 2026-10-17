@@ -133,7 +133,10 @@ SYMBOLS = [
         "primitives": [R(-2.5, -5, 5, 10), L(0, 5, 0, 7.5), L(0, -5, 0, -7.5), L(-2, -3.5, 2, 3.5),
                        L(1, 3.5, 2, 3.5), L(2, 2.5, 2, 3.5)],
         "ports": [P("L", 0, 7.5, "N"), P("PE", 0, -7.5, "S")],
-        "attributes": [REF, TYPE, MFR, attr("spd_type", "Typ SPD", "T2", True), attr("uc", "Uc [V]"),
+        "attributes": [REF, TYPE, MFR, attr("spd_type", "Typ SPD", "T2", True),
+                       # do výkresu (proč SPD nemá vlastní pojistku): Uc, ochranná úroveň Up, zkratová odolnost ISCPV
+                       attr("uc", "Uc [V]", "", True, "Uc {} V"), attr("up", "Up [kV]", "", True, "Up ≤ {} kV"),
+                       attr("iscpv", "ISCPV [kA]", "", True, "ISCPV {} kA"),
                        POLES, attr("modules", "Šířka [moduly]", "4"), *TEMP],
         "multipole": MP([R(-2.5, -5, 5, 10), L(0, 5, 0, 7.5), L(0, -5, 0, -7.5), L(-2, -3.5, 2, 3.5), L(1, 3.5, 2, 3.5), L(2, 2.5, 2, 3.5)], link=False),
         "label_pos": {"x": 4, "y": 2},

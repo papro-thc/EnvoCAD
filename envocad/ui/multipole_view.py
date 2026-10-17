@@ -386,7 +386,7 @@ class ConductorItem(QGraphicsPathItem):
     Type = QGraphicsItem.UserType + 12
 
     def __init__(self, wire: Wire, conductor: str, idx: int, pa: QPointF, da: str, pb: QPointF, db: str,
-                 end_text: tuple[str, str] = ("", "")):
+                 end_text: tuple[str, str] = ("", ""), branch: str = ""):
         super().__init__()
         self.wire, self.conductor, self.idx = wire, conductor, idx
         self.end_text = end_text
@@ -395,7 +395,7 @@ class ConductorItem(QGraphicsPathItem):
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.setZValue(5)
         self.setPen(QPen(colors().wire, LINE_WIDTH * 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
-        pts = mp.conductor_route((pa.x(), -pa.y()), da, (pb.x(), -pb.y()), db, stagger=idx * GRID, jog=0.8)
+        pts = mp.wire_route((pa.x(), -pa.y()), da, (pb.x(), -pb.y()), db, stagger=idx * GRID, branch=branch)
         path = QPainterPath(sp(*pts[0]))
         for q in pts[1:]:
             path.lineTo(sp(*q))
@@ -700,6 +700,7 @@ class MultipoleScene(QGraphicsScene):
             else:
                 self._add(PoleItem(ep, None, first=True))
                 self._add_fan(ep)
+        branches = mp.branch_ends(self.sheet, poles)    # druhé vodiče ze svorky (dvojitá dutinka) – jako model
         for w in self.sheet.wires:
             ea, eb = poles.get(w.a.element_id), poles.get(w.b.element_id)
             if not ea or not eb:
@@ -723,7 +724,8 @@ class MultipoleScene(QGraphicsScene):
                     self._add(it)
                     continue
                 if ka == kb:
-                    it = ConductorItem(w, c, i, sp(*pa), da, sp(*pb), db, (ta, tb))
+                    it = ConductorItem(w, c, i, sp(*pa), da, sp(*pb), db, (ta, tb),
+                                       branch=mp.branch_side(branches, w.id))
                     it.staggered = len(mp.wire_conductors(w)) > 1
                     it.label = self._labels.get((w.id, c, 0))
                     self._add(it)

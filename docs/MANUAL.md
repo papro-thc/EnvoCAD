@@ -1,6 +1,6 @@
 # EnvoCAD – uživatelská příručka
 
-Verze 0.10. EnvoCAD je nástroj pro elektro-dokumentaci fotovoltaických elektráren: jednopólové schéma (JPS),
+Verze 0.10. EnvoCAD je nástroj pro elektro-dokumentaci fotovoltaických elektráren: blokové schéma celé elektrárny (dříve nazývané jednopólové schéma, JPS; skutečné jednopólové schéma s přístroji rozvaděčů je v plánu),
 rozvaděče (vícepólové schéma, svorkovnice, rozložení, oteplení), kabely, výpočty, výkazy a kompletní
 dokumentace v jednom PDF. Všechno vychází z jednoho datového modelu – co nakreslíš, to se propíše do
 všech výstupů.
@@ -46,7 +46,7 @@ Nahoře jsou lišty s ikonami (tooltip ukáže název a zkratku):
 | Soubor | nový, otevřít, uložit, export PDF a DXF |
 | Úpravy | zpět, znovu, kopírovat, vložit, smazat, najít označení |
 | Pohled | přizpůsobit list, přiblížit, oddálit, Jen výkres; přepínač Jednopól / Vícepól / Rozložení / Svorkovnice (zamáčknutý = zobrazený pohled); tmavý režim |
-| Kreslení | výběr, vodič, vložit značku, přerušovací bod, text, připomínka, otočit, zrcadlit, narovnat vodič – jen v JPS a schématu rozvaděče (přerušovací bod, text, zrcadlit a narovnat jen v editoru listu, ne ve vícepólu), aktivní nástroj je zamáčknutý |
+| Kreslení | výběr, vodič, vložit značku, přerušovací bod, text, připomínka, otočit, zrcadlit, narovnat vodič – jen v blokovém schématu a schématu rozvaděče (přerušovací bod, text, zrcadlit a narovnat jen v editoru listu, ne ve vícepólu), aktivní nástroj je zamáčknutý |
 | Dispozice | skříň rozvaděče, výrobní data – jen v rozložení rozvaděče (místo lišty Kreslení) |
 | Kontrola a výstupy | kontrola F7, výkazy, celá dokumentace PDF, štítky |
 
@@ -58,8 +58,8 @@ panely, druhým stiskem se vrátí.
 **Hledat příkaz** (`Ctrl+K`): napiš část názvu příkazu, třeba „export dxf“ nebo „svorkovnice“ – hledá ve všech
 položkách menu (i bez diakritiky), šipkami vybereš, Enter spustí.
 
-**Pravé tlačítko** ve výkresu (JPS i schéma rozvaděče) vybere položku pod kurzorem a nabídne Vlastnosti, Otočit,
-Kopírovat a Smazat (v JPS i Uložit výběr jako makro); u vodiče navíc Svorky, Kabel a Narovnat (Narovnat jen v JPS),
+**Pravé tlačítko** ve výkresu (blokové schéma i schéma rozvaděče) vybere položku pod kurzorem a nabídne Vlastnosti, Otočit,
+Kopírovat a Smazat (v blokovém schématu i Uložit výběr jako makro); u vodiče navíc Svorky, Kabel a Narovnat (Narovnat jen v blokovém schématu),
 u bloku ROZVADĚČ Otevřít rozvaděč, na prázdném místě Vložit značku, Vodič a Přizpůsobit list (a Vložit, když je
 něco zkopírované). V režimu Vodič nebo Vkládání pravé tlačítko jen
 ukončí režim. Připomínky mají vlastní menu (sekce 9).
@@ -77,16 +77,16 @@ Druhy záložek (podle názvu):
 
 | Záložka | Co to je |
 |---|---|
-| `Jednopólové schéma` | JPS celé elektrárny – hlavní editační list |
+| `Blokové schéma` | blokové schéma celé elektrárny (stringy → rozvaděče → střídače → síť) – hlavní editační list; starší projekty mají list `Jednopólové schéma` |
 | `R1 – schéma` | **vícepólové** schéma rozvaděče (odvozené, přístroje po pólech, svorky, můstky) |
 | `R1 – jednopól (editace)` | jednopólová kresba rozvaděče – jen pro vkládání prvků a vodičů |
 | `R1 – rozložení` | fyzické rozložení na DIN lištách + parametry skříně a oteplení |
 | `R1 – svorkovnice` | kreslený plán svorkovnice |
-| `… – vícepól` | vícepólový pohled libovolného listu JPS |
+| `… – vícepól` | vícepólový pohled libovolného listu blokového schématu |
 
 ---
 
-## 3. Kreslení jednopólového schématu
+## 3. Kreslení blokového schématu
 
 ### Vložení prvku
 Dvojklik na značku v Knihovně (nebo hledej: „jistič“, „střídač“, „string“) → klik do výkresu → vyplnit dialog
@@ -104,7 +104,7 @@ seznamu). Žíly se značí podle **ČSN EN 60445**: střídavé L1, L2, L3, N, 
 napsané `DC+ DC-` se samo převede na `L+ L-`. Výchozí žíly se odvodí z portů a pólů (DC port → `L+ L-`,
 3pólový prvek → `L1 L2 L3 N PE`).
 
-V JPS je každá čára jednopólová – jedna čára = jeden kabel se všemi žílami. FV string má jeden port DC,
+V blokovém schématu je každá čára jednopólová – jedna čára = jeden kabel se všemi žílami. FV string má jeden port DC,
 střídač vstupy DC1…DCn (jeden na string) a AC.
 
 **Svorky typu střídače**: střídač s výrobcem a typem z artiklu dostane pod značkou pás svorek své řady – záložní
@@ -160,7 +160,7 @@ stačí tedy nakreslit svou verzi, uložit ji pod tím jménem a generátor ji z
 
 Parametrické makro používá v atributech, označeních a názvech portů **proměnné** `{k}` (pořadí instance),
 `{nk}` (n + k – pro vývod X{nk}), `{n}`, `{i}` / `{j}` (číslo střídače / stringu u něj – číslování ENVO
-`FU{i}.{j}`, `SPD-DC{i}.{j}`), `{string}` / `{inverter}` (označení z JPS), `{fuse_in}`, `{disc_in}`,
+`FU{i}.{j}`, `SPD-DC{i}.{j}`), `{string}` / `{inverter}` (označení z blokového schématu), `{fuse_in}`, `{disc_in}`,
 `{breaker_in}`, `{main_in}`, `{spd}`. Označení s proměnnou se dosadí a nepřečísluje (`X{k}` → X3), ostatní
 (F1, W1) dostanou další volné číslo. Prvek s atributem **`shared` = 1** (sběrnice, vývod XPE k HOP) se vloží
 jen jednou a další instance se na něj napojí; do portu sběrnice se dá psát `T{k}`. Rozteč instancí určuje
@@ -237,7 +237,7 @@ pole prázdné. Druh kontaktu se pozná z předpony nebo z čísel svorek:
 
 Obraz je nepovinný. Bez něj se nekreslí rezervy a nedělají se kontroly `contact_count` a `contact_unknown`.
 
-**Stykač v JPS a cívka** se stejným označením (např. K1) tvoří jeden přístroj. Výkaz materiálu a rozložení
+**Stykač v blokovém schématu a cívka** se stejným označením (např. K1) tvoří jeden přístroj. Výkaz materiálu a rozložení
 mají stykač, cívka se do nich nedává. Výjimka: je-li stykač nakreslen na jiném listu (silové schéma se stejným
 umístěním), zůstává cívka položkou svého listu rozvaděče (rozložení, oteplení, výkaz a štítky toho listu);
 v celoprojektovém výkazu je jen stykač. Silové kontakty stykače jsou v zrcadle cívky jako silový sloupec.
@@ -249,7 +249,7 @@ ve stejném prostoru označení (funkce a umístění).
 ## 4. Rozvaděče
 
 ### Založení
-V JPS vlož **Rozvaděč (blok)** (R1), zapoj do něj kabely a dvakrát na něj klikni. Poprvé program nabídne
+V blokovém schématu vlož **Rozvaděč (blok)** (R1), zapoj do něj kabely a dvakrát na něj klikni. Poprvé program nabídne
 **šablonu**: *AC rozvaděč FVE* (přívod, hlavní vypínač, rozvod, SPD, vývody s jističi), *DC rozvaděč* (každý
 string zvlášť: pojistkový odpínač / odpínač DC, SPD, vývod), nebo prázdný list. Otevře se záložka
 `R1 – schéma` – vícepólové schéma rozvaděče.
@@ -261,8 +261,8 @@ předpona), přístroje se na ni napojují odbočkou s tečkou; porty `T1…T10`
 PE sběrnice i PE svodiče přepětí jdou na vývod `XPE` – ekvipotenciální svorkovnici (HOP) vně rozvaděče. Nebo
 **rozvodné svorky s můstky** (skupiny svorek X2, můstky mezi nimi).
 
-Blok v JPS dostane **porty podle přívodů a vývodů** listu (X1 vlevo, X4, X5… vpravo). Kabel zakreslený na port
-X4 se sám naváže na vývod X4: vývod převezme kabel, žíly a text „kam“, u kabelu v JPS se objeví křížový odkaz
+Blok v blokovém schématu dostane **porty podle přívodů a vývodů** listu (X1 vlevo, X4, X5… vpravo). Kabel zakreslený na port
+X4 se sám naváže na vývod X4: vývod převezme kabel, žíly a text „kam“, u kabelu v blokovém schématu se objeví křížový odkaz
 `→ R1:X4 /2.B4`. Když vývod přejmenuješ nebo přidáš, blok se přestaví sám; na smazaný vývod s kabelem
 zůstane port označený `?`.
 
@@ -304,7 +304,7 @@ z pólu, na který klikneš). Makra z knihovny se vkládají taky. Totéž jde v
 (`Ctrl+J`), obě záložky drží stejný model; `Ctrl+M` vrátí do schématu.
 
 ### Svorky a můstky
-Prvek **Svorkovnice** (`sb.terminal_block`) je v JPS *skupina svorek* jedné svorkovnice: označení X2 a
+Prvek **Svorkovnice** (`sb.terminal_block`) je v blokovém schématu *skupina svorek* jedné svorkovnice: označení X2 a
 v atributu „Svorka č.“ čísla (`1 2 3 4 5`, nebo jen první číslo – zbytek se dopočítá). Ve vícepólu má každá
 žíla vlastní svorku s číslem. **Přívod a vývod** (`sb.feed_in`, `sb.feed_out`) jsou také svorkovnice: ve
 vícepólu dostane každá žíla svorku s číslem (bez zadání 1…n, jinak „Svorka č.“ stejně jako u skupiny),
@@ -313,7 +313,7 @@ PE lišta), ruční čísla nechá.
 
 `Úpravy → Svorkovnice a můstky…` (`Ctrl+Shift+T`): tabulka svorek vybrané svorkovnice (vnitřní/vnější strana,
 můstek) a editace **můstků** – jedna skupina na řádek, čísla svorek pomlčkou (`1-6-11-16`). Můstky se kreslí
-ve vícepólu, v JPS čárkovaně mezi skupinami, a jsou ve výkazech a BOM. Můstky patří listu rozvaděče –
+ve vícepólu, v blokovém schématu čárkovaně mezi skupinami, a jsou ve výkazech a BOM. Můstky patří listu rozvaděče –
 svorkovnice X1 v RDC1 a X1 v RH jsou dvě různé. Přepnutí svorkovnice v dialogu rozpracované můstky nezahodí;
 OK uloží změny všech svorkovnic jedním krokem undo a odmítne číslo svorky, které na svorkovnici není.
 Šířka skupiny svorek v rozložení = počet svorek × 6,2 mm, pokud atribut „Šířka skupiny“ nevyplníš.
@@ -322,7 +322,7 @@ OK uloží změny všech svorkovnic jedním krokem undo a odmítne číslo svork
 prvky bez skupin svorek.
 
 ### Plán svorkovnice
-`Zobrazit → Plán svorkovnice` (`Ctrl+Shift+M`): svorky v řadě, nahoře vnější připojení (kabel z JPS),
+`Zobrazit → Plán svorkovnice` (`Ctrl+Shift+M`): svorky v řadě, nahoře vnější připojení (kabel z blokového schématu),
 dole vnitřní (přístroj), můstky. Krátké svorkovnice jsou vedle sebe, další pod nimi; dlouhá svorkovnice se
 zalomí do dalšího pásu („(pokračování)“) a co se nevejde na stranu, pokračuje na další straně (v editoru pod
 sebou, v PDF listu i v dokumentaci každá strana zvlášť, popisové pole „2/5, str. 1/3“). Žádná svorka se nevynechá.
@@ -363,7 +363,7 @@ Pozor: hodnoty křivek k a c v tabulkách jsou orientační – pro průkaz ově
 
 ## 5. Kabely
 
-Kabel je objekt: vzniká automaticky z vodiče JPS, který má označení nebo typ kabelu, a drží s ním krok
+Kabel je objekt: vzniká automaticky z vodiče blokového schématu, který má označení nebo typ kabelu, a drží s ním krok
 (typ, průřez, délka, trasa se editují ve vodiči). `Úpravy → Kabel vybraného vodiče…` (`Ctrl+Shift+K`) otevře
 žíly s čísly a **barvami** (ČSN 33 0165: L1 hnědá, L2 černá, L3 šedá, N modrá, PE zelenožlutá, L+ červená,
 L− černá – jdou přepsat), stínění, poznámku a artikl kabelu z knihovny (CYKY, AYKY, H1Z2Z2-K…).
@@ -373,7 +373,7 @@ Výkazy **Kabely** (přehled), **Kabelový plán** (po žílách odkud–kam, i 
 
 **Značení vodičů a kabelů (ČSN EN 62491)** – výkaz **Značení vodičů a kabelů** (xlsx, pro tisk; do PDF dokumentace
 nejde), jeden řádek = jeden štítek:
-- **štítek kabelu** na obou koncích kabelu JPS: označení kabelu dle IEC 81346 (`W3`, se strukturou `=DC-W3`) a ve
+- **štítek kabelu** na obou koncích kabelu blokového schématu: označení kabelu dle IEC 81346 (`W3`, se strukturou `=DC-W3`) a ve
   druhém řádku adresa protějšího konce (`→ +RDC1-X1`);
 - **návlečka** na obou koncích každé žíly vnitřního vodiče rozvaděče. Druh značení je parametr výrobních dat
   **Značení vodičů (návlečky)** – v panelu skříně rozvaděče (skupina Výrobní data) nebo pro celou firmu
@@ -386,7 +386,7 @@ Návlečky jsou i ve **Výrobním zapojovacím seznamu** (sloupce Návlečka odk
 rozvaděče (xlsx) na listu **Návlečky**.
 
 Výkaz **Kabely a vodiče k objednání** (jen v xlsx, do PDF dokumentace nejde) sečte materiál pro nákup: kabely
-JPS podle typu a průřezu (počet a metry z délky kabelu, kabel přes svorky jen jednou), vnitřní vodiče rozvaděčů
+blokového schématu podle typu a průřezu (počet a metry z délky kabelu, kabel přes svorky jen jednou), vnitřní vodiče rozvaděčů
 podle typu, průřezu a barvy (metry z výrobního zapojovacího seznamu – s rezervou na konce) a dutinky podle druhu.
 Sloupec „Bez délky“ ukáže, kolika položkám délka chybí – součet metrů je pak neúplný.
 
@@ -406,7 +406,7 @@ stavovém řádku. Co kontrola hlásí:
 - **potenciály**: program sleduje, co je vodivě spojené přes vodiče, uzly, svorky, můstky, PE lištu i přes
   přívody/vývody rozvaděčů. Spojení L–N, L–PE, L+–L− nebo dvou fází v jedné síti je chyba. Panel Vlastnosti
   ukazuje u vodiče potenciál každé žíly (`L1 X1`, `L+ G1`, `N (W3)`), výkaz **Potenciály** vypíše všechny sítě;
-- informace: přívod bez vazby na JPS, prvek bez artiklu, vodič bez kabelu/žil, selektivita nejistá.
+- informace: přívod bez vazby na blokové schéma, prvek bez artiklu, vodič bez kabelu/žil, selektivita nejistá.
 
 Kontakty a přerušovací body:
 
@@ -512,7 +512,7 @@ asistent přiřazuje stringy na MPPT stejně jako generátor a počítá stejný
 v mezích střídače a vyplní pole Stringy. Chyby stringů v průvodci jen varují – projekt jde vygenerovat i tak; blokují
 jen chyby zadání (např. text místo čísla).
 
-Vygeneruje se JPS (stringy → DC rozvaděče → střídače → AC rozvaděč → síť) a listy všech rozvaděčů včetně
+Vygeneruje se blokové schéma (stringy → DC rozvaděče → střídače → AC rozvaděč → síť) a listy všech rozvaděčů včetně
 kabelů a vazeb. Hned potom spusť `F7`.
 
 DC strana se dělá jako na stavbě: ke každému střídači vznikne **DC rozvaděč po trase** (počet zadáš, i 0 –
@@ -521,11 +521,11 @@ odpínač DC a SPD na každý string, stringy jím procházejí odděleně) a **
 zvlášť až na vlastní DC vstup střídače (DC1…DCn podle počtu MPPT × stringů na MPPT; zná-li střídač počet MPPT
 (zadáním nebo z artiklu), stringy se rozdělí na MPPT rovnoměrně – 1. string na MPPT 1, 2. na MPPT 2… –, jinak jdou
 na DC1, DC2… za sebou; paralelní spojení dělá
-jen SolarEdge a kreslí se jako jeden string). Blok DC rozvaděče v JPS má porty podle přívodů
-(X1…Xn od stringů) a vývodů (Xn+1… dál). Když obojí vypneš, vloží se jen samostatný odpínač DC v JPS.
+jen SolarEdge a kreslí se jako jeden string). Blok DC rozvaděče v blokovém schématu má porty podle přívodů
+(X1…Xn od stringů) a vývodů (Xn+1… dál). Když obojí vypneš, vloží se jen samostatný odpínač DC v blokovém schématu.
 AC rozvaděč má přívody po střídačích, jističe, rozvodné svorky s můstky, SPD, hlavní vypínač a vývod do HDS.
 Označení jsou jedinečná uvnitř každého rozvaděče (jako v EPLAN `+RDC1-X1`), takže X1 smí být v každém
-rozvaděči; listy JPS sdílejí jeden prostor označení.
+rozvaděči; listy blokového schématu sdílejí jeden prostor označení.
 
 Jištění ve specifikaci i v průvodci se zadává **číslem v ampérech**: `dc.fuse_in`, `dc.disconnect_in`,
 `ac.breaker_in` (např. `40`, ne „C40“ ani „B40“ – charakteristiku nese prvek jističe) a `ac.main_in`; „40,0“
@@ -543,9 +543,9 @@ Výchozí hodnoty (kabely, zpracoval) bere průvodce z **firemního standardu** 
 
 | Výstup | Kde |
 |---|---|
-| PDF listu (skutečný formát / zmenšený na A4) – z JPS, schématu (vícepólu) i plánu svorkovnice rozvaděče (strany A4); z rozložení celý pohled zmenšený na A3 (A4) | Soubor → Export PDF / Export PDF na A4 |
-| DXF listu – jen z jednopólového schématu a listu rozvaděče v editoru (z vícepólu, plánu svorkovnice a rozložení program upozorní, ať se použije PDF) | Soubor → Export DXF |
-| **Celá dokumentace do jednoho PDF**: titulní list, obsah, listy JPS, schéma + plán svorkovnice každého rozvaděče, výkazy, změnový list – strany schématu a plánu svorkovnice A4, ostatní A3 (smíšené formáty v jednom PDF, obsah i „n/N“ počítají skutečné strany) | Výstupy → Celá dokumentace (`Ctrl+Shift+E`) |
+| PDF listu (skutečný formát / zmenšený na A4) – z blokového schématu, schématu (vícepólu) i plánu svorkovnice rozvaděče (strany A4); z rozložení celý pohled zmenšený na A3 (A4) | Soubor → Export PDF / Export PDF na A4 |
+| DXF listu – jen z blokového schématu a listu rozvaděče v editoru (z vícepólu, plánu svorkovnice a rozložení program upozorní, ať se použije PDF) | Soubor → Export DXF |
+| **Celá dokumentace do jednoho PDF**: titulní list, obsah, listy blokového schématu, schéma + plán svorkovnice každého rozvaděče, výkazy, změnový list – strany schématu a plánu svorkovnice A4, ostatní A3 (smíšené formáty v jednom PDF, obsah i „n/N“ počítají skutečné strany) | Výstupy → Celá dokumentace (`Ctrl+Shift+E`) |
 | Výkazy xlsx (Data pro DS, Výpočty, Přístroje, Výkaz materiálu, Kabely, Kabelový plán, Kabely a vodiče k objednání, Zapojovací seznam, Svorkovnice, Plán svorkovnice, Štítky) | Výstupy → Výkazy listu / projektu |
 | Protokol kusového ověření rozvaděče (docx) | Výstupy → Protokol kusového ověření |
 | Technická zpráva (docx) – kostra s tabulkami z modelu a výpočty | Výstupy → Technická zpráva |
@@ -646,7 +646,7 @@ Dialog **Připomínka**:
 | Přidávat připomínky do exportu | Výstupy → Přidávat připomínky do exportu | vypnuto | přidá **otevřené** připomínky do exportů níže |
 
 Při zapnutém přepínači:
-- **PDF listu** (JPS) a **Celá dokumentace** – připomínky jsou anotace PDF (komentáře v Adobe Acrobat a
+- **PDF listu** (blokové schéma) a **Celá dokumentace** – připomínky jsou anotace PDF (komentáře v Adobe Acrobat a
   Readeru: bod jako poznámka, oblast jako obdélník; autor, text a číslo). PDF vícepólu a plánu svorkovnice
   připomínky nemají; v celé dokumentaci jsou připomínky listu rozvaděče na straně jeho vícepólu (bod u přístroje,
   viz sekce 8).

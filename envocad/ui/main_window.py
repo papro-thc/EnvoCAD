@@ -277,7 +277,7 @@ class MainWindow(QMainWindow):
         self.act_focus.toggled.connect(self.set_drawing_only)
         m_view.addSeparator()
         act(m_view, "Vícepólový pohled", self.open_multipole, "Ctrl+M", "view_multipole")
-        act(m_view, "Jednopólové schéma", self.open_singlepole, "Ctrl+J", "view_singlepole")
+        act(m_view, "Blokové schéma / jednopólová editace", self.open_singlepole, "Ctrl+J", "view_singlepole")
         act(m_view, "Plán svorkovnice", lambda: self.current_sheet and self.open_sheet(self.current_sheet, "terminals"),
             "Ctrl+Shift+M", "view_terminals")
         act(m_view, "Vícepól: rozmístit automaticky", lambda: isinstance(self.view, MultipoleView)
@@ -620,7 +620,7 @@ class MainWindow(QMainWindow):
         if self.scene:
             self._show_mode(self.scene.mode)
         elif isinstance(self.view, MultipoleView):
-            self.statusBar().showMessage("Vícepól – odvozený z JPS; dvojklik na žílu = svorky, Ctrl+T, "
+            self.statusBar().showMessage("Vícepól – odvozený z jednopólové editace; dvojklik na žílu = svorky, Ctrl+T, "
                                          "Úpravy → Očíslovat svorky")
         elif isinstance(self.view, TerminalPlanView):
             self.statusBar().showMessage("Plán svorkovnice – odvozený z listu; Soubor → Export PDF")
@@ -781,7 +781,7 @@ class MainWindow(QMainWindow):
             block = ps.element(sh.parent_element_id)
             n = sum(1 for w in ps.wires if w.touches(block.id))
             text = (f"„{sh.name}“ je list rozvaděče {block.ref or ''} (blok ROZVADĚČ na listu „{ps.name}“).\n\n"
-                    "Odstranit list rozvaděče se vším obsahem?\n\nBlok ROZVADĚČ v jednopólovém schématu zůstane"
+                    "Odstranit list rozvaděče se vším obsahem?\n\nBlok ROZVADĚČ v blokovém schématu zůstane"
                     + (f" a {n} vodič(ů) na něm zůstane připojeno na portech označených „?“ (ukáže je Kontrola projektu)."
                        if n else "."))
         ids = {e.id for e in sh.elements}
@@ -1243,7 +1243,7 @@ class MainWindow(QMainWindow):
     def edit_cable(self) -> None:
         hit = self._selected_wire_id()
         if not hit:
-            QMessageBox.information(self, "Kabel", "Vyberte vodič v JPS.")
+            QMessageBox.information(self, "Kabel", "Vyberte vodič v blokovém schématu.")
             return
         sh, wid = hit
         from envocad.model.project import sync_cables
@@ -1375,7 +1375,7 @@ class MainWindow(QMainWindow):
         from envocad.ui.dialogs import MacroValuesDialog
         sc = self._active_schematic() or self.draw_scene
         if sc is None:
-            QMessageBox.information(self, "Makro", "Makro jde vložit jen do schématu (JPS nebo jednopólová editace rozvaděče).")
+            QMessageBox.information(self, "Makro", "Makro jde vložit jen do schématu (blokové schéma nebo jednopólová editace rozvaděče).")
             return
         m = load_macro(Path(path))
         if m is None:
@@ -1787,7 +1787,7 @@ class MainWindow(QMainWindow):
             sc.update()
 
     # ---- export / import -------------------------------------------------------
-    DXF_ONLY_SCHEMATIC = ("DXF se exportuje z jednopólového schématu, z listu rozvaděče v editoru nebo "
+    DXF_ONLY_SCHEMATIC = ("DXF se exportuje z blokového schématu, z listu rozvaděče v editoru nebo "
                           "z vícepólového schématu. Plán svorkovnice a rozložení rozvaděče exportuj do PDF "
                           "(Soubor → Export PDF nebo Výstupy → Celá dokumentace).")
 
@@ -2147,7 +2147,7 @@ class MainWindow(QMainWindow):
         """Kreslit → Vložit značku: značka vybraná v Knihovně jde rovnou do vkládání, jinak se ukáže Knihovna."""
         sc = self.draw_scene
         if sc is None:
-            self.statusBar().showMessage("Značky jde vkládat do schématu (JPS nebo schéma rozvaděče)", 5000)
+            self.statusBar().showMessage("Značky jde vkládat do schématu (blokové schéma nebo schéma rozvaděče)", 5000)
             self._update_toolbars()
             return
         it = self.lib_panel.tree.currentItem()

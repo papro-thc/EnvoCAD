@@ -18,7 +18,8 @@ Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
   "dc": {"cable": "H1Z2Z2-K 1x6", "cross": 6, "length": 40,          # string → první DC rozvaděč
          "route_boxes": 1, "route_length": 20,                        # DC rozvaděče po trase (odpínač + SPD), kabel mezi nimi
          "tech_box": true, "tech_length": 5,                          # DC rozvaděč u technologie (pojistkové odpínače + SPD), kabel ke střídači
-         "spd": "T2", "fuse_in": 15, "disconnect_in": 32,
+         "spd": "T1+T2", "fuse_in": 15, "disconnect_in": 32,
+         "spd_component": "weidmuller-vpu-pv-i-ii-3-1000",            # artikl SPD (typ, Uc, Up, ISCPV), když typ odpovídá
          "disconnect": false},                                        # jen samostatný odpínač v JPS bez DC rozvaděčů (stará varianta)
   "ac": {"cable": "CYKY-J 5x16", "cross": 16, "length": 30, "breaker_in": 40, "main_in": 125,
          "grid_cable": "CYKY-J 5x35", "grid_cross": 35, "grid_length": 20, "spd": "T1+T2", "enclosure": "",
@@ -83,7 +84,9 @@ DEFAULT_SPEC = {
     "site": {},   # {"t_min": -20, "t_max": 70} – návrhové teploty stringů (průvodce předvyplní ze standardu)
     "optimizer": {"type": "", "per_module": 1},
     "dc": {"cable": "H1Z2Z2-K 1x6", "cross": 6, "length": 30, "route_boxes": 1, "route_length": 20,
-           "tech_box": True, "tech_length": 5, "spd": "T2", "fuse_in": 15, "disconnect_in": 32, "disconnect": False},
+           "tech_box": True, "tech_length": 5, "spd": "T1+T2", "fuse_in": 15, "disconnect_in": 32, "disconnect": False,
+           # artikl svodiče DC (typ, Uc, Up, ISCPV do výkresu) – použije se, když typ `spd` odpovídá artiklu; "" = bez
+           "spd_component": "weidmuller-vpu-pv-i-ii-3-1000"},
     "ac": {"cable": "CYKY-J 5x16", "cross": 16, "length": 30, "breaker_in": 40, "main_in": 125,
            "grid_cable": "CYKY-J 5x35", "grid_cross": 35, "grid_length": 20, "spd": "T1+T2", "enclosure": "",
            "distribution": "bus"},
@@ -151,7 +154,7 @@ def _build_project(spec: dict) -> Project:
         if site.get(key) not in (None, ""):
             p.meta[meta_key] = _s(site[key])
     s = p.sheets[0]
-    s.name = "Jednopólové schéma"
+    s.name = "Blokové schéma"
     mod, dc, ac = spec["module"], spec["dc"], spec["ac"]
     opt = spec.get("optimizer") or {}
     opt_per = float(opt.get("per_module") or 1) if opt.get("type") else 0.0
@@ -314,6 +317,7 @@ def _build_project(spec: dict) -> Project:
         if not _dc_box_from_macro(p, sheet, [g.ref for g in gens], entry, dc, inv_no, inv_ref):
             build_dc_strings(p, sheet, [g.ref for g in gens], kind, _s(dc.get("fuse_in") or 15),
                              _s(dc.get("disconnect_in") or 32), _s(dc.get("spd") or "T2"))
+        _apply_spd_component(sheet, dc.get("spd_component"))
     sb = p.create_switchboard_sheet(blk)
     sb.layout.params.setdefault("network", "3NPE, 50 Hz")
     sb.layout.params.setdefault("un", "230/400 V")
@@ -328,6 +332,22 @@ def _build_project(spec: dict) -> Project:
     sync_feed_links(p)
     sync_cables(p)
     return p
+
+
+def _apply_spd_component(sheet: Sheet, cid) -> None:
+    """Artikl svodiče DC (`dc.spd_component`) na SPD listu DC rozvaděče, jejichž typ SPD artiklu odpovídá („T1+T2“ =
+    „T1+T2 DC“) – typ, výrobce, Uc, Up, ISCPV ve výkresu. Jiný zadaný typ (`dc.spd` „T2“) artikl nepřepíše;
+    neznámý nebo prázdný artikl → beze změny."""
+    comp = _lib().component(cid) if cid else None
+    if comp is None:
+        return
+
+    def norm(t: str) -> str:
+        return "".join(t.upper().replace("DC", "").split())
+
+    for e in sheet.elements:
+        if e.symbol_id == "fve.spd" and norm(e.attrs.get("spd_type", "")) == norm(comp.params.get("spd_type", "")):
+            comp.apply_to(e)
 
 
 def _align_outputs(project: Project, blk: Element, grid: Element, earth: Element | None) -> None:

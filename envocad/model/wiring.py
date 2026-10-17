@@ -49,6 +49,8 @@ WIRING_DEFAULTS: dict[str, str] = {
     "wire_duct_side_mm": "25",
     "wire_cross_min": "1,5",
     "wire_cross_ctl": "1",
+    "wire_cross_dc": "6",
+    "wire_spd_lps": "no",
     "wire_unplaced": "estimate",
     "wire_marking": "address",
 }
@@ -61,6 +63,8 @@ _LABELS = {
     "wire_duct_side_mm": "Svislý žlab od konce lišty [mm]",
     "wire_cross_min": "Min. / výchozí silový průřez [mm²]",
     "wire_cross_ctl": "Výchozí průřez řízení [mm²]",
+    "wire_cross_dc": "Min. průřez DC žil L+ / L− [mm²]",
+    "wire_spd_lps": "Jímací soustava (hromosvod) na objektu",
     "wire_unplaced": "Neumístěné konce",
     "wire_marking": "Značení vodičů (návlečky)",
 }
@@ -73,6 +77,7 @@ _FIELDS = {
     "wire_type": "wire_type", "wire_end_mm": "end_mm", "wire_reserve_pct": "reserve_pct",
     "wire_round_mm": "round_mm", "wire_duct_side_mm": "duct_side_mm", "wire_cross_min": "cross_min",
     "wire_cross_ctl": "cross_ctl", "wire_unplaced": "unplaced", "wire_marking": "marking",
+    "wire_cross_dc": "cross_dc", "wire_spd_lps": "lps",
 }
 UNPLACED_MODES = ("estimate", "none")
 # uložená hodnota `wire_unplaced` → český popisek (GUI výběr, list „Parametry“, podnadpis)
@@ -82,7 +87,10 @@ UNPLACED_LABELS: dict[str, str] = {"estimate": "odhad", "none": "bez délky"}
 MARKING_LABELS: dict[str, str] = {"address": "adresné – protější konec", "both": "odkud / kam",
                                   "number": "číslo vodiče", "none": "bez návleček"}
 # výběrové parametry: klíč → {uložená hodnota: český popisek}
-CHOICE_LABELS: dict[str, dict[str, str]] = {"wire_unplaced": UNPLACED_LABELS, "wire_marking": MARKING_LABELS}
+# jímací soustava: SPD typu I (T1) v objektu s hromosvodem → PE svodiče 16 mm² Cu k ochrannému pospojování
+LPS_LABELS: dict[str, str] = {"no": "ne – PE od SPD 6 mm²", "yes": "ano – PE od SPD typu I 16 mm²"}
+CHOICE_LABELS: dict[str, dict[str, str]] = {"wire_unplaced": UNPLACED_LABELS, "wire_marking": MARKING_LABELS,
+                                            "wire_spd_lps": LPS_LABELS}
 
 
 def _parse_float(v) -> float | None:
@@ -126,6 +134,8 @@ class WiringParams:
     cross_ctl: float = 1.0
     unplaced: str = "estimate"
     marking: str = "address"
+    cross_dc: float = 6.0
+    lps: str = "no"
 
     @classmethod
     def resolve(cls, layout: Layout | None, base: dict | None = None) -> WiringParams:
@@ -153,6 +163,7 @@ class WiringParams:
         return (f"typ {self.wire_type}, přídavek na konec {_fmt(self.end_mm)} mm, rezerva {_fmt(self.reserve_pct)} %, "
                 f"zaokrouhlení nahoru na {_fmt(self.round_mm)} mm, svislý žlab {_fmt(self.duct_side_mm)} mm od lišty, "
                 f"min. průřez {_fmt(self.cross_min)} mm², řízení {_fmt(self.cross_ctl)} mm², neumístěné konce: {unpl}, "
+                f"DC žíly min. {_fmt(self.cross_dc)} mm², jímací soustava: {LPS_LABELS.get(self.lps, self.lps)}, "
                 f"značení vodičů: {MARKING_LABELS.get(self.marking, self.marking)}, "
                 f"výška přístroje {_fmt(DEVICE_HEIGHT_MM)} mm")
 
@@ -254,7 +265,9 @@ def wire_cross(project: Project, sheet: Sheet, w: Wire, params: WiringParams, in
     """Průřez vodiče a jeho zdroj: `attrs["cross"]` („vodič“) → nejmenší In přístrojů na koncích přes `IN_TO_CROSS`,
     nejméně `cross_min` („jištění“; In nad tabulkou → None) → silový kontakt bez In: In stykače ve skupině
     (`index`, „stykač“) → přístroj z `NO_DEFAULT_CROSS` (SPD: None, zdroj „SPD“) → konec na prvku řízení `ctl.*`
-    mimo silové kontakty („řízení“) → `cross_min` („výchozí“)."""
+    mimo silové kontakty („řízení“) → `cross_min` („výchozí“). PE od svodiče (port PE prvku `fve.spd`) má vlastní
+    pravidlo (`spd_pe_cross`, zdroj „PE SPD“); DC žíly (L+ / L− / M) mají nejméně `cross_dc` a přívod DC svodiče
+    bez In na druhém konci dostane `cross_dc` (zdroj „DC“) – stejný průřez jako DC vedení stringu."""
     del project   # rezervováno (např. průřez z objektu kabelu)
     c = _parse_float(w.attrs.get("cross"))
     if c and c > 0:
@@ -262,9 +275,37 @@ def wire_cross(project: Project, sheet: Sheet, w: Wire, params: WiringParams, in
     ends = []
     for end in (w.a, w.b):
         try:
-            ends.append(sheet.element(end.element_id))
+            e = sheet.element(end.element_id)
         except KeyError:
-            pass
+            continue
+        ends.append(e)
+        if e.symbol_id == "fve.spd" and end.port == "PE":
+            return spd_pe_cross(e, params), SPD_PE
+    cross, source = _wire_cross(ends, params, index)
+    if cross is not None and set(wire_conductors(w)) <= DC_CORES:   # DC string: L+ / L− nejméně `cross_dc`
+        return max(cross, params.cross_dc), source
+    if cross is None and source == "SPD" and set(wire_conductors(w)) <= DC_CORES:
+        return params.cross_dc, "DC"        # přívod DC svodiče = průřez DC vedení stringu
+    return cross, source
+
+
+SPD_PE = "PE SPD"
+DC_CORES = {"L+", "L-", "M"}
+
+
+def is_spd_type1(e: Element) -> bool:
+    """SPD typu I (T1, „I+II“): podle typu SPD nebo objednacího typu."""
+    t = f"{e.attrs.get('spd_type', '')} {e.attrs.get('type', '')}".upper()
+    return bool(re.search(r"\bT1\b|\bI\+II\b|\bTYP\s*1\b", t.replace("T1+", "T1 ")))
+
+
+def spd_pe_cross(e: Element, params: WiringParams) -> float:
+    """PE od svodiče: nejméně 6 mm² Cu; SPD typu I v objektu s jímací soustavou (`wire_spd_lps`) 16 mm² Cu
+    k ochrannému pospojování."""
+    return 16.0 if params.lps == "yes" and is_spd_type1(e) else 6.0
+
+
+def _wire_cross(ends: list[Element], params: WiringParams, index) -> tuple[float | None, str]:
     ins = [x for e in ends if e.symbol_id not in NO_CROSS_SYMBOLS and (x := _in_of(e)) is not None]
     if ins:
         return _cross_for_in(min(ins), params), "jištění"
@@ -284,6 +325,8 @@ def cross_note(cross: float | None, source: str) -> str:
     for src, note in NO_DEFAULT_CROSS.values():
         if source == src:
             return note
+    if source == SPD_PE:
+        return f"PE od SPD {_fmt(cross)} mm² Cu" + (" (SPD typu I, jímací soustava)" if cross and cross >= 16 else "")
     if cross is None:
         return "In nad tabulkou – průřez určí projektant"
     if source == "výchozí":
@@ -759,6 +802,7 @@ def production_wires(project: Project, sheet: Sheet | None = None, base: dict | 
             cross, source = next((x for x in crosses if x[0] is None), None) or max(crosses, key=lambda x: x[0])
             types = list(dict.fromkeys((w.attrs.get("cable") or "").strip() or params.wire_type for w in wires))
             rows.append((chain, a, b, devs, c, wires, cross, source, types))
+        spd_rows: list[tuple[ProductionWire, _End, _End]] = []
         clamps: dict[tuple, list[tuple[float | None, str]]] = {}
         for _chain, a, b, _devs, c, _wires, cross, _src, _types in rows:
             for end in (a, b):
@@ -789,6 +833,8 @@ def production_wires(project: Project, sheet: Sheet | None = None, base: dict | 
                         notes.append("2 vodiče různého průřezu ve svorce – ověřit")
                     elif is_flexible(t1) and is_flexible(t2):
                         twin = True
+                        if note := twin_clamp_note(end.element, end.text, c1):
+                            notes.append(note)
                     else:
                         notes.append("2 vodiče ve svorce, jeden tuhý – ověřit")
                 ferr.append(end_for(end.wire, end.side, cross, _end_type(end, params), twin=twin, auto=auto))
@@ -808,12 +854,59 @@ def production_wires(project: Project, sheet: Sheet | None = None, base: dict | 
                                 list(dict.fromkeys(notes)), a.wire.id, list(dict.fromkeys(w.id for w in wires)),
                                 params.marking, local_from=local_end_text(s, a.text), local_to=local_end_text(s, b.text))
             keyed.append(((natural_key(s.name), a.key, b.key, canon_key(c)), pw))
+            spd_rows.append((pw, a, b))
+        _spd_branch_notes(spd_rows)
     keyed.sort(key=lambda kp: kp[0])
     out = [pw for _, pw in keyed]
     for i, pw in enumerate(out, start=1):
         pw.number = i
         pw.marker_from, pw.marker_to = wire_markers(pw)
     return out
+
+
+SPD_BRANCH_MAX_MM = 500   # přívody k SPD a PE svodiče dohromady co nejkratší, nejvýš 0,5 m (ČSN EN 62305-4, 61643-32)
+
+
+def twin_clamp_note(e: Element, text: str, cross: float | None) -> str:
+    """Dvojitá dutinka ve svorce přístroje: vejde se? Podle atributu `cross_max` (max. průřez svorky z katalogu,
+    `cross_max_mm2`) – dvojitá dutinka 2× S potřebuje svorku aspoň 2·S; bez údaje připomínka ověřit katalog.
+    Svorkovnice a lišty se neřeší (svorky dimenzuje projektant podle průřezu)."""
+    if cross is None or e.symbol_id in TERMINAL_BLOCK_SYMBOLS or e.symbol_id in NO_CROSS_SYMBOLS:
+        return ""
+    cmax = _parse_float(e.attrs.get("cross_max"))
+    if cmax is None:
+        return f"dvojitá dutinka 2×{_fmt(cross)} ve svorce {text} – ověřit rozsah svorky v katalogu"
+    if 2 * cross > cmax + 1e-9:
+        return f"dvojitá dutinka 2×{_fmt(cross)} se do svorky {text} (max {_fmt(cmax)} mm²) nevejde"
+    return ""
+
+
+def _spd_branch_notes(rows: list[tuple[ProductionWire, _End, _End]]) -> None:
+    """Odbočka ke svodiči: přívod každé žíly k SPD + PE svodiče > 0,5 m → poznámka k řádkům odbočky (zkrátit).
+    Počítají se jen délky mezi umístěnými konci (odhad u neumístěného prvku by jen šuměl)."""
+    by_spd: dict[str, tuple[Element, list[ProductionWire], list[ProductionWire]]] = {}
+    for pw, a, b in rows:
+        for end in (a, b):
+            if end.element.symbol_id != "fve.spd":
+                continue
+            _e, lines, pes = by_spd.setdefault(end.element.id, (end.element, [], []))
+            (pes if end.port == "PE" else lines).append(pw)
+    for e, lines, pes in by_spd.values():
+        pe_len = max((pw.length_mm or 0 for pw in pes if not _estimated(pw)), default=0)
+        for pw in lines:
+            if pw.length_mm is None or _estimated(pw):
+                continue
+            total = pw.length_mm + pe_len
+            if total > SPD_BRANCH_MAX_MM:
+                note = (f"odbočka {element_name(e)}: {pw.conductor} + PE = {_fmt(total / 1000)} m > "
+                        f"{_fmt(SPD_BRANCH_MAX_MM / 1000)} m – vést nejkratší cestou")
+                for row in (pw, *pes):
+                    if note not in row.notes:
+                        row.notes.append(note)
+
+
+def _estimated(pw: ProductionWire) -> bool:
+    return any(n.startswith(("délka odhadem", "neumístěno")) for n in pw.notes)
 
 
 def _end_type(end: _End, params: WiringParams) -> str:

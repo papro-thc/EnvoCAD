@@ -949,7 +949,7 @@ class ElementDialog(AttrDialog):
             idx = self.wire_combo.findData(cur)
             self.wire_combo.setCurrentIndex(max(idx, 0))
             form = self.layout().itemAt(1).layout()
-            form.addRow("Vodič v JPS", self.wire_combo)
+            form.addRow("Vodič v blokovém schématu", self.wire_combo)
         if library is not None:
             row = QHBoxLayout()
             self.comp_label = QLabel(self._comp_text())

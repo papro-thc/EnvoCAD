@@ -26,7 +26,7 @@ NUMERIC = {"price_czk", "in_", "poles", "icu_ka", "idn_ma", "un_v", "modules", "
            "i_mppt_max_a", "strings_per_mppt", "beta_voc", "t_min_c", "t_max_c",
            # FV moduly (pv_modules.csv) a střídače – katalog pro průvodce (docs/design/katalog_fv.md)
            "alpha_isc", "gamma_pmax", "noct_c", "u_sys_max_v", "i_fuse_max_a", "weight_kg", "isc_mppt_max_a",
-           "eff_max_pct", "eff_eu_pct"}
+           "eff_max_pct", "eff_eu_pct", "iscpv_ka"}
 SOURCES = {"catalog", "datasheet", "web", "seed", "user"}
 
 # výchozí schematická značka podle kategorie (když symbol_id chybí)
@@ -52,6 +52,9 @@ PARAM_TO_ATTR = {
     "gamma_pmax": "gamma_pmax", "alpha_isc": "alpha_isc",
     # rozsah provozní teploty okolí přístroje [°C] dle datasheetu – ověření oteplení po přístrojích (`thermal`)
     "t_min_c": "t_min", "t_max_c": "t_max",
+    # SPD do výkresu: ochranná úroveň Up, zkratová odolnost ISCPV (DC SPD bez vlastní pojistky)
+    "up_kv": "up", "iscpv_ka": "iscpv",
+    "cross_max_mm2": "cross_max",   # max. průřez svorky – dvojitá dutinka se vejde? (`wiring.twin_clamp_note`)
     "contacts": "contacts",   # kontaktní obraz („1/2 3/4 5/6 13/14 21/22“) – zrcadlo kontaktů, kontroly kontaktů
 }
 
@@ -93,6 +96,8 @@ class Component:
             if v in (None, ""):
                 continue
             out[akey] = str(v)
+        if out.get("uc") and "DC" in (self.params.get("spd_type") or "").upper().split():
+            out["uc"] = f"{out['uc']} V DC"    # DC svodič: „Uc 1000 V DC“ ve výkresu (stejnosměrné napětí)
         return out
 
     def apply_to(self, e: Element) -> dict[str, str]:

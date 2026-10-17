@@ -9,7 +9,7 @@
   "sheets": [
    {
     "id": "#1",
-    "name": "Jednopólové schéma",
+    "name": "Blokové schéma",
     "paper": "A2",
     "width": 594.0,
     "height": 420.0,
@@ -639,13 +639,19 @@
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.1",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G1"
+       "desc": "string G1",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#44",
@@ -663,7 +669,7 @@
      {
       "id": "#45",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -678,7 +684,7 @@
      {
       "id": "#38",
       "symbol_id": "fve.dc_disconnect",
-      "x": 100.0,
+      "x": 110.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -693,7 +699,7 @@
      {
       "id": "#46",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -708,23 +714,29 @@
      {
       "id": "#39",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.2",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G2"
+       "desc": "string G2",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#47",
       "symbol_id": "sb.feed_in",
-      "x": 140.0,
+      "x": 160.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -739,7 +751,7 @@
      {
       "id": "#40",
       "symbol_id": "fve.dc_disconnect",
-      "x": 140.0,
+      "x": 160.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -754,7 +766,7 @@
      {
       "id": "#48",
       "symbol_id": "sb.feed_out",
-      "x": 140.0,
+      "x": 160.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -769,18 +781,24 @@
      {
       "id": "#41",
       "symbol_id": "fve.spd",
-      "x": 152.5,
+      "x": 172.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.3",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G3"
+       "desc": "string G3",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
@@ -948,15 +966,15 @@
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -1040,15 +1058,15 @@
       },
       "points": [
        [
-        175.0,
+        195.0,
         170.0
        ],
        [
-        175.0,
+        195.0,
         147.5
        ],
        [
-        120.0,
+        140.0,
         147.5
        ]
       ],
@@ -1169,13 +1187,19 @@
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.1",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G1"
+       "desc": "string G1",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#70",
@@ -1193,7 +1217,7 @@
      {
       "id": "#71",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -1208,7 +1232,7 @@
      {
       "id": "#64",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 100.0,
+      "x": 110.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -1224,7 +1248,7 @@
      {
       "id": "#72",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -1239,23 +1263,29 @@
      {
       "id": "#65",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.2",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G2"
+       "desc": "string G2",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#73",
       "symbol_id": "sb.feed_in",
-      "x": 140.0,
+      "x": 160.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -1270,7 +1300,7 @@
      {
       "id": "#66",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 140.0,
+      "x": 160.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -1286,7 +1316,7 @@
      {
       "id": "#74",
       "symbol_id": "sb.feed_out",
-      "x": 140.0,
+      "x": 160.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -1301,18 +1331,24 @@
      {
       "id": "#67",
       "symbol_id": "fve.spd",
-      "x": 152.5,
+      "x": 172.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.3",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G3"
+       "desc": "string G3",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
@@ -1480,15 +1516,15 @@
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -1572,15 +1608,15 @@
       },
       "points": [
        [
-        175.0,
+        195.0,
         170.0
        ],
        [
-        175.0,
+        195.0,
         147.5
        ],
        [
-        120.0,
+        140.0,
         147.5
        ]
       ],
@@ -2231,7 +2267,7 @@
   "sheets": [
    {
     "id": "#1",
-    "name": "Jednopólové schéma",
+    "name": "Blokové schéma",
     "paper": "A2",
     "width": 594.0,
     "height": 420.0,
@@ -3164,13 +3200,19 @@
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.1",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G1"
+       "desc": "string G1",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#63",
@@ -3188,7 +3230,7 @@
      {
       "id": "#64",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -3203,7 +3245,7 @@
      {
       "id": "#57",
       "symbol_id": "fve.dc_disconnect",
-      "x": 100.0,
+      "x": 110.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -3218,7 +3260,7 @@
      {
       "id": "#65",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -3233,23 +3275,29 @@
      {
       "id": "#58",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.2",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G2"
+       "desc": "string G2",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#66",
       "symbol_id": "sb.feed_in",
-      "x": 140.0,
+      "x": 160.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -3264,7 +3312,7 @@
      {
       "id": "#59",
       "symbol_id": "fve.dc_disconnect",
-      "x": 140.0,
+      "x": 160.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -3279,7 +3327,7 @@
      {
       "id": "#67",
       "symbol_id": "sb.feed_out",
-      "x": 140.0,
+      "x": 160.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -3294,18 +3342,24 @@
      {
       "id": "#60",
       "symbol_id": "fve.spd",
-      "x": 152.5,
+      "x": 172.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.3",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G3"
+       "desc": "string G3",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
@@ -3473,15 +3527,15 @@
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -3565,15 +3619,15 @@
       },
       "points": [
        [
-        175.0,
+        195.0,
         170.0
        ],
        [
-        175.0,
+        195.0,
         147.5
        ],
        [
-        120.0,
+        140.0,
         147.5
        ]
       ],
@@ -3694,13 +3748,19 @@
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.1",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G1"
+       "desc": "string G1",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#89",
@@ -3718,7 +3778,7 @@
      {
       "id": "#90",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -3733,7 +3793,7 @@
      {
       "id": "#83",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 100.0,
+      "x": 110.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -3749,7 +3809,7 @@
      {
       "id": "#91",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -3764,23 +3824,29 @@
      {
       "id": "#84",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.2",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G2"
+       "desc": "string G2",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#92",
       "symbol_id": "sb.feed_in",
-      "x": 140.0,
+      "x": 160.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -3795,7 +3861,7 @@
      {
       "id": "#85",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 140.0,
+      "x": 160.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -3811,7 +3877,7 @@
      {
       "id": "#93",
       "symbol_id": "sb.feed_out",
-      "x": 140.0,
+      "x": 160.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -3826,18 +3892,24 @@
      {
       "id": "#86",
       "symbol_id": "fve.spd",
-      "x": 152.5,
+      "x": 172.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.3",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G3"
+       "desc": "string G3",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
@@ -4005,15 +4077,15 @@
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -4097,15 +4169,15 @@
       },
       "points": [
        [
-        175.0,
+        195.0,
         170.0
        ],
        [
-        175.0,
+        195.0,
         147.5
        ],
        [
-        120.0,
+        140.0,
         147.5
        ]
       ],
@@ -4215,13 +4287,19 @@
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC2.1",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G4"
+       "desc": "string G4",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#113",
@@ -4239,7 +4317,7 @@
      {
       "id": "#114",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -4254,7 +4332,7 @@
      {
       "id": "#109",
       "symbol_id": "fve.dc_disconnect",
-      "x": 100.0,
+      "x": 110.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -4269,7 +4347,7 @@
      {
       "id": "#115",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -4284,18 +4362,24 @@
      {
       "id": "#110",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC2.2",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G5"
+       "desc": "string G5",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
@@ -4463,15 +4547,15 @@
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -4582,13 +4666,19 @@
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC2.1",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G4"
+       "desc": "string G4",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#131",
@@ -4606,7 +4696,7 @@
      {
       "id": "#132",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -4621,7 +4711,7 @@
      {
       "id": "#127",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 100.0,
+      "x": 110.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -4637,7 +4727,7 @@
      {
       "id": "#133",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -4652,18 +4742,24 @@
      {
       "id": "#128",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC2.2",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G5"
+       "desc": "string G5",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
@@ -4831,15 +4927,15 @@
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -5756,7 +5852,7 @@
   "sheets": [
    {
     "id": "#1",
-    "name": "Jednopólové schéma",
+    "name": "Blokové schéma",
     "paper": "A2",
     "width": 594.0,
     "height": 420.0,
@@ -6291,12 +6387,18 @@
       "attrs": {
        "ref": "SPD-DC1.1",
        "spd_type": "T1+T2 DC",
-       "uc": "1000",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G1"
+       "desc": "string G1",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#37",
@@ -6314,7 +6416,7 @@
      {
       "id": "#38",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -6329,7 +6431,7 @@
      {
       "id": "#33",
       "symbol_id": "fve.dc_disconnect",
-      "x": 100.0,
+      "x": 110.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -6344,7 +6446,7 @@
      {
       "id": "#39",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -6359,18 +6461,24 @@
      {
       "id": "#34",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.2",
        "spd_type": "T1+T2 DC",
-       "uc": "1000",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G2"
+       "desc": "string G2",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
@@ -6538,15 +6646,15 @@
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -6657,12 +6765,18 @@
       "attrs": {
        "ref": "SPD-DC1.1",
        "spd_type": "T1+T2 DC",
-       "uc": "1000",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G1"
+       "desc": "string G1",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#55",
@@ -6680,7 +6794,7 @@
      {
       "id": "#56",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -6695,7 +6809,7 @@
      {
       "id": "#51",
       "symbol_id": "fve.dc_disconnect",
-      "x": 100.0,
+      "x": 110.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -6710,7 +6824,7 @@
      {
       "id": "#57",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -6725,18 +6839,24 @@
      {
       "id": "#52",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.2",
        "spd_type": "T1+T2 DC",
-       "uc": "1000",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G2"
+       "desc": "string G2",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
@@ -6904,15 +7024,15 @@
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -7024,12 +7144,18 @@
       "attrs": {
        "ref": "SPD-DC1.1",
        "spd_type": "T1+T2 DC",
-       "uc": "1000",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G1"
+       "desc": "string G1",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#73",
@@ -7047,7 +7173,7 @@
      {
       "id": "#74",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -7062,7 +7188,7 @@
      {
       "id": "#69",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 100.0,
+      "x": 110.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -7078,7 +7204,7 @@
      {
       "id": "#75",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -7093,18 +7219,24 @@
      {
       "id": "#70",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.2",
        "spd_type": "T1+T2 DC",
-       "uc": "1000",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G2"
+       "desc": "string G2",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
@@ -7272,15 +7404,15 @@
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -7957,7 +8089,7 @@
   "sheets": [
    {
     "id": "#1",
-    "name": "Jednopólové schéma",
+    "name": "Blokové schéma",
     "paper": "A2",
     "width": 594.0,
     "height": 420.0,
@@ -8714,13 +8846,19 @@
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.1",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G1"
+       "desc": "string G1",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#53",
@@ -8738,7 +8876,7 @@
      {
       "id": "#54",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -8753,7 +8891,7 @@
      {
       "id": "#45",
       "symbol_id": "fve.dc_disconnect",
-      "x": 100.0,
+      "x": 110.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -8768,7 +8906,7 @@
      {
       "id": "#55",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -8783,23 +8921,29 @@
      {
       "id": "#46",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.2",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G2"
+       "desc": "string G2",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#56",
       "symbol_id": "sb.feed_in",
-      "x": 140.0,
+      "x": 160.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -8814,7 +8958,7 @@
      {
       "id": "#47",
       "symbol_id": "fve.dc_disconnect",
-      "x": 140.0,
+      "x": 160.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -8829,7 +8973,7 @@
      {
       "id": "#57",
       "symbol_id": "sb.feed_out",
-      "x": 140.0,
+      "x": 160.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -8844,23 +8988,29 @@
      {
       "id": "#48",
       "symbol_id": "fve.spd",
-      "x": 152.5,
+      "x": 172.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.3",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G3"
+       "desc": "string G3",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#58",
       "symbol_id": "sb.feed_in",
-      "x": 180.0,
+      "x": 210.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -8875,7 +9025,7 @@
      {
       "id": "#49",
       "symbol_id": "fve.dc_disconnect",
-      "x": 180.0,
+      "x": 210.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -8890,7 +9040,7 @@
      {
       "id": "#59",
       "symbol_id": "sb.feed_out",
-      "x": 180.0,
+      "x": 210.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -8905,18 +9055,24 @@
      {
       "id": "#50",
       "symbol_id": "fve.spd",
-      "x": 192.5,
+      "x": 222.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.4",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G4"
+       "desc": "string G4",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
@@ -9084,15 +9240,15 @@
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -9176,15 +9332,15 @@
       },
       "points": [
        [
-        175.0,
+        195.0,
         170.0
        ],
        [
-        175.0,
+        195.0,
         147.5
        ],
        [
-        120.0,
+        140.0,
         147.5
        ]
       ],
@@ -9268,15 +9424,15 @@
       },
       "points": [
        [
-        215.0,
+        245.0,
         170.0
        ],
        [
-        215.0,
+        245.0,
         147.5
        ],
        [
-        160.0,
+        190.0,
         147.5
        ]
       ],
@@ -9407,13 +9563,19 @@
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.1",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G1"
+       "desc": "string G1",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#87",
@@ -9431,7 +9593,7 @@
      {
       "id": "#88",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -9446,7 +9608,7 @@
      {
       "id": "#79",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 100.0,
+      "x": 110.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -9462,7 +9624,7 @@
      {
       "id": "#89",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -9477,23 +9639,29 @@
      {
       "id": "#80",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.2",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G2"
+       "desc": "string G2",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#90",
       "symbol_id": "sb.feed_in",
-      "x": 140.0,
+      "x": 160.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -9508,7 +9676,7 @@
      {
       "id": "#81",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 140.0,
+      "x": 160.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -9524,7 +9692,7 @@
      {
       "id": "#91",
       "symbol_id": "sb.feed_out",
-      "x": 140.0,
+      "x": 160.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -9539,23 +9707,29 @@
      {
       "id": "#82",
       "symbol_id": "fve.spd",
-      "x": 152.5,
+      "x": 172.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.3",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G3"
+       "desc": "string G3",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
       "id": "#92",
       "symbol_id": "sb.feed_in",
-      "x": 180.0,
+      "x": 210.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -9570,7 +9744,7 @@
      {
       "id": "#83",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 180.0,
+      "x": 210.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -9586,7 +9760,7 @@
      {
       "id": "#93",
       "symbol_id": "sb.feed_out",
-      "x": 180.0,
+      "x": 210.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -9601,18 +9775,24 @@
      {
       "id": "#84",
       "symbol_id": "fve.spd",
-      "x": 192.5,
+      "x": 222.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.4",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G4"
+       "desc": "string G4",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
@@ -9780,15 +9960,15 @@
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -9872,15 +10052,15 @@
       },
       "points": [
        [
-        175.0,
+        195.0,
         170.0
        ],
        [
-        175.0,
+        195.0,
         147.5
        ],
        [
-        120.0,
+        140.0,
         147.5
        ]
       ],
@@ -9964,15 +10144,15 @@
       },
       "points": [
        [
-        215.0,
+        245.0,
         170.0
        ],
        [
-        215.0,
+        245.0,
         147.5
        ],
        [
-        160.0,
+        190.0,
         147.5
        ]
       ],

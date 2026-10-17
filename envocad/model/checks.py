@@ -146,7 +146,7 @@ def check_project(project: Project, lib) -> list[Finding]:
             if (e.symbol_id in FEED_SYMBOLS and s.is_switchboard and linked_wire(project, s, e) is None
                     and not is_earthing_feed(s, e)):
                 out.append(Finding(INFO, s.id, s.name, e.id, False, e.ref,
-                                   "Přívod/vývod bez vazby na vodič v JPS", "feed_unlinked"))
+                                   "Přívod/vývod bez vazby na vodič v blokovém schématu", "feed_unlinked"))
             if (e.symbol_id not in NO_ARTICLE_SYMBOLS and not e.component_id and not e.attrs.get("type")
                     and not mp.is_terminal_block(e) and idx.is_bom_device(e)):
                 out.append(Finding(INFO, s.id, s.name, e.id, False, e.ref, "Bez artiklu / typu", "no_article"))
@@ -177,7 +177,7 @@ def check_project(project: Project, lib) -> list[Finding]:
                 out.append(Finding(INFO, s.id, s.name, w.id, True, ref, "Vodič bez žil (vícepól ho kreslí jako L1)", "no_cond"))
         if s.is_switchboard and (not s.parent_element_id or project.sheet_of_element(s.parent_element_id) is None):
             out.append(Finding(WARNING, s.id, s.name, "", False, s.loc,
-                               "List rozvaděče bez bloku ROZVADĚČ v jednopólovém schématu (blok smazán?) – "
+                               "List rozvaděče bez bloku ROZVADĚČ v blokovém schématu (blok smazán?) – "
                                "vlož blok a propoj ho s listem, nebo list odstraň", "sb_no_block"))
         # můstky na neexistující svorky
         terms = set()
@@ -197,6 +197,7 @@ def check_project(project: Project, lib) -> list[Finding]:
     out += layout_findings(project)
     out += contact_findings(project, idx)
     out += interrupt_findings(project, idx)
+    out += spd_findings(project)
     out += designation_findings(project, lib, idx)
     out += revision_findings(full)
     out += note_findings(full)
@@ -489,6 +490,35 @@ def contact_findings(project: Project, index=None) -> list[Finding]:
             if used > have:
                 out.append(Finding(WARNING, hs.id, hs.name, h.id, False, g.ref,
                                    f"{g.ref}: {count_words(used, kind)}, kontaktní obraz má {have}", "contact_count"))
+    return out
+
+
+SPD_SWITCHES = {"fve.dc_disconnect", "fve.fuse_disconnect", "fve.switch_disconnector", "sb.main_switch"}
+SPD_SOURCES = {"sb.feed_in", "fve.pv_string"}
+
+
+def spd_findings(project: Project) -> list[Finding]:
+    """Svodič připojený na svorky odpínače na straně stringu (tam, kam vede i přívod od stringu): vypnutý odpínač
+    by SPD neodpojil – SPD patří na výstupní svorky (strana střídače), dvojitou dutinkou s vývodem."""
+    out = []
+    for s in project.sheets:
+        by_id = {e.id: e for e in s.elements}
+        at: dict[tuple[str, str], list[tuple[str, str]]] = {}
+        for w in s.wires:
+            at.setdefault((w.a.element_id, w.a.port), []).append((w.b.element_id, w.b.port))
+            at.setdefault((w.b.element_id, w.b.port), []).append((w.a.element_id, w.a.port))
+        for e in s.elements:
+            if e.symbol_id != "fve.spd":
+                continue
+            for oid, oport in at.get((e.id, "L"), []):
+                d = by_id.get(oid)
+                if d is None or d.symbol_id not in SPD_SWITCHES:
+                    continue
+                if any(by_id.get(x) is not None and by_id[x].symbol_id in SPD_SOURCES
+                       for x, _p in at.get((oid, oport), [])):
+                    out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
+                                       f"SPD na svorkách {d.ref}:{oport} na straně stringu – vypnutý {d.ref} ho "
+                                       "neodpojí; připoj na výstupní svorky (strana střídače)", "spd_side"))
     return out
 
 

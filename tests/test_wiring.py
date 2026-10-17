@@ -630,17 +630,26 @@ def test_sheets_sorted_naturally(lib):
 
 
 def test_spd_cross_left_to_designer(lib):
-    """(15) SPD bez In na druhém konci: průřez None, poznámka, bez dutinky; In jištění SPD má přednost."""
+    """(15) AC SPD bez In na druhém konci: průřez None, poznámka, bez dutinky; In jištění SPD má přednost.
+    PE od SPD má vlastní pravidlo: 6 mm² Cu, SPD typu I s jímací soustavou 16 mm² Cu."""
     p, s = _sb()
     bus = _el(s, "sb.busbar", "1")
     spd = _el(s, "fve.spd", "F1", row=0, pos=0, poles=4, modules=4)
     pe = _el(s, "sb.pe_bar", "X9")
     w = _w(s, spd, "PE", pe, "1", ["PE"])
-    _w(s, bus, "1", spd, "L", AC[:4])
-    pw = next(r for r in _rows(p, s, lib) if r.wire_id == w.id)
+    wl = _w(s, bus, "1", spd, "L", AC[:4])
+    rows = _rows(p, s, lib)
+    pw = next(r for r in rows if r.wire_id == wl.id)
     assert pw.cross is None and pw.cross_source == "SPD"
     assert "SPD – průřez určí projektant (dle výrobce SPD)" in pw.notes
     assert pw.end_from == pw.end_to == "" and pw.ferrule_from is None
+    pe_row = next(r for r in rows if r.wire_id == w.id)
+    assert pe_row.cross == 6.0 and pe_row.cross_source == "PE SPD"
+    spd.attrs["spd_type"] = "T1+T2"
+    assert wire_cross(p, s, w, WiringParams()) == (6.0, "PE SPD")
+    assert wire_cross(p, s, w, WiringParams(lps="yes")) == (16.0, "PE SPD")
+    spd.attrs["spd_type"] = "T2"
+    assert wire_cross(p, s, w, WiringParams(lps="yes")) == (6.0, "PE SPD")
     fb = _el(s, "fve.fuse", "F0", in_=25)
     assert wire_cross(p, s, _w(s, fb, "2", spd, "L", ["L1"]), WiringParams()) == (4.0, "jištění")
 
