@@ -844,26 +844,83 @@ def _top(d: dict, key: str) -> list:
 
 
 def _repair_duplicate_ids(proj: Project) -> None:
-    """Duplicitní id prvků / vodičů / listů (ručně upravený soubor) → nová id pro druhý a další výskyt. Vodiče
-    dál vedou na první prvek s daným id (tak je hledá `Sheet.element`)."""
+    """Duplicitní id listů / prvků / vodičů (ručně upravený soubor, např. list zkopírovaný v JSON) → nové id pro
+    druhý a další výskyt, a to tak, aby se nic nerozbilo: po přeznačení prvku na listu se přepíší konce vodičů,
+    umístění ve skříni, značky revizí a připomínky téhož listu, `parent_element_id` listu rozvaděče, který blok
+    podle atributu „sheet“ reprezentuje, a vazby přívodů/vývodů (`wire_id`) listů rozvaděčů pod tímto listem.
+    Duplicita uvnitř jednoho listu je nejednoznačná: vodiče dál vedou na první prvek s daným id (`Sheet.element`)."""
     seen_s: set[str] = set()
-    seen_e: set[str] = set()
+    seen_e: dict[str, Element] = {}   # id → první prvek s tímto id (předchozí listy)
     seen_w: set[str] = set()
+    marks = [m for r in proj.revisions for m in r.marks]
     for s in proj.sheets:
         if s.id in seen_s:
             log.warning("duplicitní id listu %s – nové id", s.id)
             s.id = _uid()
         seen_s.add(s.id)
+        emap: dict[str, str] = {}
+        local: dict[str, Element] = {}
         for e in s.elements:
-            if e.id in seen_e:
-                log.warning("duplicitní id prvku %s (%s) – nové id", e.id, e.ref)
+            old = e.id
+            if old in local or old in seen_e:
                 e.id = _uid()
-            seen_e.add(e.id)
+                log.warning("duplicitní id prvku %s (%s) – nové id %s", old, e.ref, e.id)
+                if old not in local:
+                    # první výskyt na listu, id už má prvek jiného listu → odkazy listu patří tomuto prvku
+                    emap[old] = e.id
+                    _repoint_switchboard(proj, seen_e[old], e, old)
+                local.setdefault(old, e)
+            local.setdefault(e.id, e)
+        for e in s.elements:
+            seen_e.setdefault(e.id, e)
+        wmap: dict[str, str] = {}
+        local_w: set[str] = set()
         for w in s.wires:
-            if w.id in seen_w:
-                log.warning("duplicitní id vodiče %s – nové id", w.id)
+            old = w.id
+            if old in local_w or old in seen_w:
                 w.id = _uid()
-            seen_w.add(w.id)
+                log.warning("duplicitní id vodiče %s – nové id %s", old, w.id)
+                if old not in local_w:
+                    wmap[old] = w.id
+                local_w.add(old)
+            local_w.add(w.id)
+        seen_w |= {w.id for w in s.wires}
+        _remap_sheet_refs(proj, s, emap, wmap, marks)
+
+
+def _repoint_switchboard(proj: Project, first: Element | None, renamed: Element, old: str) -> None:
+    """Blok ROZVADĚČ dostal nové id: list rozvaděče s `parent_element_id` = staré id převezme, jen když ho podle
+    atributu „sheet“ (jméno listu) reprezentuje právě přeznačený blok, a ne první blok se stejným id."""
+    name = renamed.attrs.get("sheet", "")
+    if not name or (first is not None and first.attrs.get("sheet", "") == name):
+        return
+    for sb in proj.sheets:
+        if sb.parent_element_id == old and sb.name == name:
+            sb.parent_element_id = renamed.id
+            return
+
+
+def _remap_sheet_refs(proj: Project, s: Sheet, emap: dict[str, str], wmap: dict[str, str],
+                      marks: list[RevisionMark]) -> None:
+    """Po přeznačení prvků / vodičů listu `s` přepíše odkazy, které na ně z listu (a z listů pod ním) vedou."""
+    if not emap and not wmap:
+        return
+    for w in s.wires:
+        for end in (w.a, w.b):
+            end.element_id = emap.get(end.element_id, end.element_id)
+    for pl in s.layout.placements:
+        pl.element_id = emap.get(pl.element_id, pl.element_id)
+    for x in [*marks, *proj.notes]:
+        if x.sheet_id == s.id and x.target_id:
+            x.target_id = (wmap if x.is_wire else emap).get(x.target_id, x.target_id)
+    if not wmap:
+        return
+    blocks = {e.id for e in s.elements}
+    for sb in proj.sheets:
+        if sb.parent_element_id in blocks:
+            for f in sb.elements:
+                if f.symbol_id in FEED_SYMBOLS and f.attrs.get("wire_id") in wmap:
+                    f.attrs["wire_id"] = wmap[f.attrs["wire_id"]]
 
 
 def read_project_json(path: Path | str) -> dict:
@@ -888,8 +945,9 @@ def read_project_json(path: Path | str) -> dict:
 def write_json_atomic(data: dict, path: Path | str, backup: bool = False) -> None:
     """Zapíše JSON do `<cesta>.tmp` ve stejné složce a přejmenuje ho na cíl (`os.replace` – atomické). S `backup`
     nejdřív zkopíruje dosavadní soubor na `<cesta>.bak` (jedna záloha předchozí verze). Při chybě zůstane cíl
-    beze změny a dočasný soubor se smaže."""
-    p = Path(path)
+    beze změny a dočasný soubor se smaže. Symbolický odkaz zůstane odkazem (zapisuje se do cíle odkazu, `.tmp`
+    i `.bak` vedle cíle) a nový soubor převezme oprávnění dosavadního (`shutil.copymode`)."""
+    p = Path(os.path.realpath(path))
     text = json.dumps(data, ensure_ascii=False, indent=2)
     tmp = p.with_name(p.name + ".tmp")
     try:
@@ -897,6 +955,11 @@ def write_json_atomic(data: dict, path: Path | str, backup: bool = False) -> Non
             f.write(text)
             f.flush()
             os.fsync(f.fileno())
+        if p.is_file():
+            try:
+                shutil.copymode(p, tmp)
+            except OSError as ex:   # oprávnění jsou jen pojistka – uložení kvůli nim neselže
+                log.warning("oprávnění %s nejde převzít: %s", p, ex)
         if backup and p.is_file():
             try:
                 shutil.copy2(p, p.with_name(p.name + ".bak"))
@@ -1164,11 +1227,13 @@ def linked_wire(project: Project, sheet: Sheet, e: Element) -> tuple[Sheet, Wire
 
 
 def feed_link_attrs(project: Project, sheet: Sheet, e: Element, wire_id: str) -> dict[str, str]:
-    """Atributy přívodu/vývodu odvozené z navázaného vodiče JPS (odkud/kam, kabel)."""
+    """Atributy přívodu/vývodu odvozené z navázaného vodiče JPS (odkud/kam, kabel). Jen klíče, které k prvku
+    patří: přívod „from“, vývod „to“ (zrušení vazby nepřidá prázdný klíč, který prvek neměl)."""
+    key = "from" if e.symbol_id == "sb.feed_in" else "to"
     e2 = Element(symbol_id=e.symbol_id, attrs={"wire_id": wire_id})
     hit = linked_wire(project, sheet, e2)
     if hit is None:
-        return {"wire_id": "", "from": "", "to": "", "cable": ""} if not wire_id else {}
+        return {"wire_id": "", key: "", "cable": ""} if not wire_id else {}
     s, w = hit
     block = sheet.parent_element_id
     far_end = w.b if w.a.element_id == block else w.a
@@ -1176,7 +1241,6 @@ def feed_link_attrs(project: Project, sheet: Sheet, e: Element, wire_id: str) ->
     from envocad.model.frame import position_ref
     text = f"{w.attrs.get('ref', '')} {far.ref or far.symbol_id}:{far_end.port} {position_ref(project, s, far.x, far.y)}".strip()
     cable = " ".join(x for x in (w.attrs.get("cable", ""), w.attrs.get("cross", "")) if x)
-    key = "from" if e.symbol_id == "sb.feed_in" else "to"
     return {"wire_id": wire_id, key: text, "cable": cable}
 
 
@@ -1398,7 +1462,9 @@ def sync_feed_links(project: Project) -> int:
             w = feed_wire_by_port(project, s, f)
             new_id = w.id if w else ""
             if new_id != cur or (new_id and not f.attrs.get("cable") and w.attrs.get("cable")):
-                f.attrs.update(feed_link_attrs(project, s, f, new_id))
+                for k, v in feed_link_attrs(project, s, f, new_id).items():
+                    if f.attrs.get(k, "") != v:   # nezměněnou hodnotu ani chybějící prázdný klíč nepřepisovat
+                        f.attrs[k] = v
                 if w and w.conductors:
                     for sw in s.wires:
                         if sw.touches(f.id) and sw.conductors != list(w.conductors):

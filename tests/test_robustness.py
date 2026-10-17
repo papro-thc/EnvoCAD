@@ -354,3 +354,175 @@ def test_plugin_keyboard_interrupt_propagates(tmp_path, monkeypatch):
     (pd / "k.py").write_text("raise KeyboardInterrupt\n", encoding="utf-8")
     with pytest.raises(KeyboardInterrupt):
         plugins.load_plugins(None)
+
+
+def _jps_with_switchboard() -> Project:
+    from envocad.library.templates import apply_template
+    from envocad.model.project import Layout, sync_feed_links
+    p = Project(name="Kopie listu")
+    s = p.sheets[0]
+    t = Element("fve.inverter", 50, 150, attrs={"ref": "T1"})
+    blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
+    s.elements += [t, blk]
+    s.wires.append(Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "1"), attrs={"ref": "W2"}))
+    sb = p.create_switchboard_sheet(blk)
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
+    sync_feed_links(p)
+    if not sb.layout.placements:
+        sb.layout = Layout(rows=3)
+        sb.layout.set_placement(sb.elements[0].id, 0, 0.0)
+    return p
+
+
+def test_sheet_copied_in_json_keeps_wires_and_links():
+    """List zkopírovaný v JSON (stejná id prvků a vodičů na dvou listech) → po načtení žádný visící vodič,
+    list rozvaděče patří dál původnímu bloku, přívody vedou na původní vodič, kopie listu rozvaděče má vlastní
+    umístění ve skříni; připomínka na kopii ukazuje na přeznačený prvek."""
+    from envocad.model.project import FEED_SYMBOLS, dangling_wires, linked_wire
+    p = _jps_with_switchboard()
+    jps, sb = p.sheets
+    feed_wires = {f.ref: f.attrs.get("wire_id") for f in sb.elements if f.symbol_id in FEED_SYMBOLS}
+    assert any(feed_wires.values())
+    d = p.to_dict()
+    for k, src in enumerate((0, 1)):
+        c = copy.deepcopy(d["sheets"][src])
+        c["id"], c["name"] = f"kopie{k}", f"Kopie {k}"
+        d["sheets"].append(c)
+    target = d["sheets"][0]["elements"][0]["id"]
+    d["notes"] = [{"sheet_id": "kopie0", "x": 0, "y": 0, "text": "a", "no": 1, "target_id": target}]
+    q = Project.from_dict(d)
+    assert all(not dangling_wires(s) for s in q.sheets)
+    ids = [e.id for s in q.sheets for e in s.elements]
+    assert len(ids) == len(set(ids))
+    wids = [w.id for s in q.sheets for w in s.wires]
+    assert len(wids) == len(set(wids))
+    qjps, qsb, copy_jps, copy_sb = q.sheets
+    assert [e.id for e in qjps.elements] == [e.id for e in jps.elements]            # první výskyt beze změny
+    assert qsb.parent_element_id == jps.elements[1].id
+    for f in qsb.elements:
+        if f.symbol_id in FEED_SYMBOLS and feed_wires.get(f.ref):
+            assert linked_wire(q, qsb, f)[0] is qjps                                   # přívod → původní vodič
+    copy_ids = {e.id for e in copy_sb.elements}
+    assert copy_sb.layout.placements and all(pl.element_id in copy_ids for pl in copy_sb.layout.placements)
+    assert q.notes[0].target_id == copy_jps.elements[0].id != target
+    assert {e.id for e in copy_jps.elements}.isdisjoint(e.id for e in qjps.elements)
+
+
+def test_copied_block_takes_its_own_switchboard_sheet_and_feed_links():
+    """Kopie listu JPS i listu rozvaděče, blok kopie odkazuje (atribut „sheet“) na kopii listu rozvaděče →
+    kopie listu rozvaděče patří přeznačenému bloku a její přívody vedou na přeznačené vodiče kopie JPS."""
+    from envocad.model.project import FEED_SYMBOLS, dangling_wires, linked_wire
+    p = _jps_with_switchboard()
+    d = p.to_dict()
+    cj, cs = copy.deepcopy(d["sheets"][0]), copy.deepcopy(d["sheets"][1])
+    cj["id"], cs["id"], cs["name"] = "kj", "ks", "R1 kopie"
+    cj["elements"][1]["attrs"]["sheet"] = "R1 kopie"
+    d["sheets"] += [cj, cs]
+    q = Project.from_dict(d)
+    qjps, qsb, copy_jps, copy_sb = q.sheets
+    assert all(not dangling_wires(s) for s in q.sheets)
+    assert qsb.parent_element_id == qjps.elements[1].id
+    assert copy_sb.parent_element_id == copy_jps.elements[1].id != qjps.elements[1].id
+    linked = [linked_wire(q, copy_sb, f) for f in copy_sb.elements
+              if f.symbol_id in FEED_SYMBOLS and f.attrs.get("wire_id")]
+    assert linked and all(hit is not None and hit[0] is copy_jps for hit in linked)
+
+
+# ---- výkazy a exporty s visícím vodičem ---------------------------------------------------------------------------
+def _dangling_generated() -> Project:
+    from envocad.generate import build_project
+    spec = {"name": "T", "module": {"p_wp": 450, "voc": 49.5, "vmp": 41.5, "isc": 13.9},
+            "inverters": [{"ref": "T1", "p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000,
+                           "i_mppt_max": 30, "strings": [20, 20]}], "ac": {"breaker_in": 50, "main_in": 125}}
+    d = build_project(spec).to_dict()
+    for sd in d["sheets"]:
+        if sd["wires"]:
+            sd["wires"][0]["a"]["element_id"] = "nonexistent"
+    next(sd for sd in d["sheets"] if sd.get("kind") == "switchboard")["elements"][0]["symbol_id"] = "x.unknown"
+    p = Project.from_dict(d)
+    assert without_dangling(p) is not p
+    return p
+
+
+def test_all_reports_called_directly_ignore_dangling_wires(lib, tmp_path):
+    """Každý výkaz z ALL_REPORTS (i volaný přímo, např. pluginem) a technická zpráva snesou visící vodič –
+    na celém projektu i na každém listu; model se nemění."""
+    from envocad.export import reports
+    from envocad.export.tz_export import export_tz_docx
+    p = _dangling_generated()
+    before = json.dumps(p.to_dict(), sort_keys=True)
+    assert len(reports.ALL_REPORTS) >= 12
+    for name, fn in reports.ALL_REPORTS:
+        for sheet in (None, *p.sheets):
+            head, rows = fn(p, lib, sheet)
+            assert isinstance(head, list) and isinstance(rows, list), name
+    assert reports.devices(p, lib, p.sheets[1])
+    export_tz_docx(p, lib, tmp_path / "tz.docx")
+    assert (tmp_path / "tz.docx").stat().st_size > 0
+    assert json.dumps(p.to_dict(), sort_keys=True) == before
+
+
+def test_plugin_report_gets_project_without_dangling(tmp_path, monkeypatch, lib):
+    from envocad import plugins
+    from envocad.export import reports
+    pd = tmp_path / "plugins"
+    pd.mkdir()
+    monkeypatch.setattr(plugins, "plugin_dirs", lambda: [pd])
+    (pd / "r.py").write_text(
+        "def register(ctx):\n"
+        "    def rep(p, lib, sheet):\n"
+        "        for s in ([sheet] if sheet else p.sheets):\n"
+        "            for w in s.wires:\n"
+        "                s.element(w.a.element_id); s.element(w.b.element_id)\n"
+        "        return ['n'], [[1]]\n"
+        "    ctx.add_report('Plugin výkaz', rep)\n", encoding="utf-8")
+    ctx = plugins.load_plugins(None)
+    try:
+        assert ctx.loaded == ["r"]
+        fn = dict(reports.ALL_REPORTS)["Plugin výkaz"]
+        p = _dangling_generated()
+        assert fn(p, lib, None) == (["n"], [[1]]) and fn(p, lib, p.sheets[0]) == (["n"], [[1]])
+    finally:
+        reports.ALL_REPORTS[:] = [r for r in reports.ALL_REPORTS if r[0] != "Plugin výkaz"]
+
+
+def test_plugin_library_writes_are_logged_when_plugin_fails(tmp_path, monkeypatch, caplog):
+    from envocad import plugins
+    lib = LibraryStore(tmp_path / "lib.db")
+    pd = tmp_path / "plugins"
+    pd.mkdir()
+    monkeypatch.setattr(plugins, "plugin_dirs", lambda: [pd])
+    (pd / "w.py").write_text(
+        "from envocad.model.symbol import Symbol\n"
+        "def register(ctx):\n"
+        "    ctx.library.put_symbol(Symbol(id='plugin.x', name='X'))\n"
+        "    raise RuntimeError('pád po zápisu')\n", encoding="utf-8")
+    with caplog.at_level(logging.WARNING, logger="envocad.plugins"):
+        ctx = plugins.load_plugins(lib)
+    assert [n for n, _ in ctx.failed] == ["w"]
+    assert any("plugin.x" in r.getMessage() and "nevracejí" in r.getMessage() for r in caplog.records)
+    assert lib.get_symbol("plugin.x") is not None          # transakce knihovnu nepokrývá (docstring)
+    assert "put_symbol" not in vars(lib)                     # záznam zápisů po registraci zmizí
+    assert "nepokrývá" in plugins.__doc__
+
+
+@pytest.mark.skipif(os.name != "posix", reason="oprávnění a symlinky POSIX")
+def test_save_keeps_file_mode_and_symlink(tmp_path):
+    import stat
+    f = tmp_path / "a.ecp"
+    Project().save(f)
+    os.chmod(f, 0o664)
+    old = os.umask(0o022)
+    try:
+        Project(name="B").save(f)
+    finally:
+        os.umask(old)
+    assert stat.S_IMODE(os.stat(f).st_mode) == 0o664
+    real = tmp_path / "real.ecp"
+    Project().save(real)
+    link = tmp_path / "link.ecp"
+    link.symlink_to(real)
+    p = Project(name="Přes odkaz")
+    p.save(link)
+    assert link.is_symlink() and json.loads(real.read_text(encoding="utf-8"))["name"] == "Přes odkaz"
+    assert p.path == link and (tmp_path / "real.ecp.bak").exists() and not (tmp_path / "link.ecp.tmp").exists()

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer
@@ -32,6 +33,8 @@ DERIVED_VIEWS = (MultipoleView, TerminalPlanView)  # pohledy odvozené z modelu 
 from envocad.ui.panels import LibraryPanel, PropertiesPanel
 
 FILE_FILTER = "Projekt EnvoCAD (*.ecp)"
+REJECTED_AUTOSAVE_DIR = "odmitnute"   # podsložka autosave pro kopie, které uživatel při startu odmítl obnovit
+REJECTED_KEEP_DAYS = 30
 log = logging.getLogger("envocad.ui")
 
 
@@ -92,6 +95,10 @@ class MainWindow(QMainWindow):
         self._load_plugins()
         import uuid
         self._autosave_token = uuid.uuid4().hex[:8]   # nepojmenovaný projekt: vlastní autosave pro každé okno
+        # autosave patřící TOMUTO oknu: poslední zapsaná kopie a obnovená kopie (z ní okno vzniklo). Okno maže jen
+        # tyto soubory – kopie jiného okna / procesu se stejným projektem se nikdy nedotkne.
+        self._last_autosave: Path | None = None
+        self._recovered_autosave: Path | None = None
         try:
             self._load_project(self.project)
         except Exception as ex:
@@ -365,6 +372,7 @@ class MainWindow(QMainWindow):
             for widget, _view, _scene, _title in built:
                 widget.deleteLater()
             raise
+        self._clear_autosave()   # předchozí projekt byl uložen nebo zahozen (`_confirm_discard`) – jeho kopie okna pryč
         self.project = project
         self.nav_panel.set_project(project)
         self.notes_panel.set_project(project, self.undo)
@@ -1116,10 +1124,9 @@ class MainWindow(QMainWindow):
                                  QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
         if r == QMessageBox.Save:
             return self.save_project()
-        if r == QMessageBox.Discard:
-            self._clear_autosave()   # zahozené změny se nemají při příštím startu nabízet k obnově
-            return True
-        return False
+        # Zahodit: kopie se smaže až po úspěšném otevření jiného projektu (`_load_project`) nebo zavření okna
+        # (`closeEvent`) – když otevření selže, okno zůstane s neuloženou prací a ta musí být dál na disku.
+        return r == QMessageBox.Discard
 
     def new_project(self) -> None:
         if self._confirm_discard():
@@ -1384,7 +1391,6 @@ class MainWindow(QMainWindow):
     def _save_to(self, path) -> bool:
         """Uloží projekt do `path`. Cesta projektu se změní až po úspěšném zápisu (`Project.save` je atomický);
         chyba → česká hláška, projekt i titulek zůstanou, jak byly."""
-        old_auto = self._autosave_path()
         try:
             self.project.save(path)
         except Exception as ex:  # noqa: BLE001
@@ -1397,7 +1403,7 @@ class MainWindow(QMainWindow):
         self.undo.setClean()
         self._update_title()
         self._add_recent(self.project.path)
-        self._clear_autosave(old_auto)
+        self._clear_autosave()   # jen kopie tohoto okna (stejný projekt může mít rozpracovaný i jiné okno)
         self.statusBar().showMessage(f"Uloženo: {self.project.path}", 3000)
         return True
 
@@ -1457,22 +1463,31 @@ class MainWindow(QMainWindow):
             p = self._autosave_path()
             write_json_atomic(self.project.to_dict(), p)
             (p.with_suffix(".orig")).write_text(str(self.project.path or ""), encoding="utf-8")
-            self._last_autosave = p
-            log.info("autosave %s", p)
         except Exception as ex:  # noqa: BLE001
             log.warning("autosave selhal: %s", ex)
+            return
+        log.info("autosave %s", p)
+        old = {self._last_autosave, self._recovered_autosave} - {p, None}
+        self._last_autosave = p
+        self._recovered_autosave = None
+        # obnovená (nebo starší, jinak pojmenovaná) kopie tohoto okna je teď nahrazena novou → smazat
+        self._unlink_autosaves(old)
 
-    def _clear_autosave(self, *extra) -> None:
-        """Smaže automatickou kopii projektu (po uložení / zahození změn)."""
-        for p in {self._autosave_path(), getattr(self, "_last_autosave", None), *extra}:
-            if p is None:
-                continue
+    @staticmethod
+    def _unlink_autosaves(paths) -> None:
+        for p in paths:
             try:
                 p.unlink(missing_ok=True)
                 p.with_suffix(".orig").unlink(missing_ok=True)
-            except OSError:
-                pass
+            except OSError as ex:
+                log.warning("autosave %s nejde smazat: %s", p, ex)
+
+    def _clear_autosave(self) -> None:
+        """Smaže automatické kopie, které patří tomuto oknu (zapsaná `_last_autosave` a obnovená kopie) – po uložení,
+        po zahození změn a otevření jiného projektu, po zavření okna. Čisté okno, které nic nezapsalo, nemaže nic."""
+        self._unlink_autosaves({self._last_autosave, self._recovered_autosave} - {None})
         self._last_autosave = None
+        self._recovered_autosave = None
 
     def offer_recovery(self) -> None:
         """Po startu: pokud existuje automaticky uložená kopie, nabídne její obnovení."""
@@ -1485,7 +1500,8 @@ class MainWindow(QMainWindow):
                 return f.stat().st_mtime
             except OSError:
                 return 0.0
-        files = sorted(d.glob("*.autosave.ecp"), key=mtime, reverse=True)
+        own = {self._last_autosave, self._recovered_autosave}   # vlastní kopie okna se nenabízejí
+        files = sorted((f for f in d.glob("*.autosave.ecp") if f not in own), key=mtime, reverse=True)
         if not files:
             return
         f = files[0]           # nejnovější; ostatní zůstanou a nabídnou se při dalším startu
@@ -1496,24 +1512,48 @@ class MainWindow(QMainWindow):
             orig = ""
         more = (f"\n\nDalší automaticky uložené kopie ({len(files) - 1}) zůstanou ve složce\n{d}\n"
                 "a nabídnou se při příštím spuštění.") if len(files) > 1 else ""
+        rejected = d / REJECTED_AUTOSAVE_DIR
         r = QMessageBox.question(self, "Obnova rozpracované práce",
                                  f"Byla nalezena automaticky uložená kopie projektu\n{orig or '(nepojmenovaný)'}.\n"
-                                 f"Obnovit ji? (Ne = kopie se smaže){more}", QMessageBox.Yes | QMessageBox.No,
-                                 QMessageBox.Yes)
-        if r == QMessageBox.Yes:
-            try:
-                proj = Project.load(f)
-                proj.path = Path(orig) if orig else None
-                self._load_project(proj)
-            except Exception as ex:  # noqa: BLE001 – kopie zůstává, nic se nemaže
-                log.warning("autosave %s nejde načíst: %s", f, ex)
-                QMessageBox.warning(self, "Obnova", f"Kopii nejde načíst:\n{error_text(ex)}\n\n"
-                                    f"Soubor zůstává ve složce\n{d}")
-                return
-            # obnovený projekt není uložený v původním souboru → neuložený stav (zavření se zeptá, autosave běží)
-            self.undo.push(commands.MarkDirtyCommand("Obnova automatické kopie"))
-        f.unlink(missing_ok=True)
-        orig_file.unlink(missing_ok=True)
+                                 f"Obnovit ji? (Ne = kopie se přesune do složky\n{rejected}\n"
+                                 f"a už se nebude nabízet){more}", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+        if r != QMessageBox.Yes:
+            # „Ne“ kopii nemaže: může patřit oknu, které právě běží (druhý proces se stejným projektem) nebo jde o
+            # omyl. Přesune se do podsložky „odmitnute“ – nenabízí se znovu (ani při dalším startu), zůstává ručně
+            # dostupná a běžící okno si při příštím autosave zapíše novou kopii. Staré odmítnuté kopie se promazávají.
+            self._reject_autosave(f, rejected)
+            return
+        try:
+            proj = Project.load(f)
+            proj.path = Path(orig) if orig else None
+            self._load_project(proj)
+        except Exception as ex:  # noqa: BLE001 – kopie zůstává, nic se nemaže
+            log.warning("autosave %s nejde načíst: %s", f, ex)
+            QMessageBox.warning(self, "Obnova", f"Kopii nejde načíst:\n{error_text(ex)}\n\n"
+                                f"Soubor zůstává ve složce\n{d}")
+            return
+        # obnovený projekt není uložený v původním souboru → neuložený stav (zavření se zeptá, autosave běží);
+        # undo-reset-ok: obnova autosave – čistý stav se zahodí, žádný krok undo ho nevrátí
+        self.undo.resetClean()
+        self._update_title()
+        # kopie zůstává na disku, dokud okno nezapíše novou (autosave) nebo projekt neuloží / nezahodí
+        self._recovered_autosave = f
+
+    @staticmethod
+    def _reject_autosave(f: Path, rejected: Path) -> None:
+        """Přesune odmítnutou kopii (a její .orig) do `rejected`; kopie starší než REJECTED_KEEP_DAYS tam smaže."""
+        import time
+        try:
+            rejected.mkdir(parents=True, exist_ok=True)
+            for src in (f, f.with_suffix(".orig")):
+                if src.exists():
+                    os.replace(src, rejected / src.name)
+            limit = time.time() - REJECTED_KEEP_DAYS * 86400
+            for old in rejected.iterdir():
+                if old.is_file() and old.stat().st_mtime < limit:
+                    old.unlink(missing_ok=True)
+        except OSError as ex:
+            log.warning("odmítnutou kopii %s nejde přesunout: %s", f, ex)
 
     def save_project_as(self) -> bool:
         path, _ = QFileDialog.getSaveFileName(self, "Uložit projekt", "", FILE_FILTER)
@@ -1701,7 +1741,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, ev) -> None:
         if self._confirm_discard():
-            self._clear_autosave()   # uloženo nebo zahozeno – kopie už není potřeba
+            self._clear_autosave()   # uloženo nebo zahozeno – kopie tohoto okna už není potřeba
             ev.accept()
         else:
             ev.ignore()

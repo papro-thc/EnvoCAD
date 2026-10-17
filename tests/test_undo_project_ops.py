@@ -158,6 +158,45 @@ def test_delete_parent_sheet_undo_reattaches_switchboards(app, lib, asked):
     _done(w)
 
 
+def test_delete_parent_sheet_with_linked_feeds_undo_is_exact(app, lib, asked):
+    """List JPS s blokem, jehož list rozvaděče má přívody navázané na vodič (šablona): smazání → undo vrátí
+    `to_dict` přesně (přívod nedostane navíc prázdný klíč „to“), redo zopakuje."""
+    p = _jps_project()
+    blk = p.sheets[0].elements[1]
+    sb = p.create_switchboard_sheet(blk)
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
+    feed = next(e for e in sb.elements if e.symbol_id == "sb.feed_in" and e.attrs.get("wire_id"))
+    attrs_before = dict(feed.attrs)
+    assert "to" not in attrs_before
+    w = _win(lib, p)
+    w.tabs.setCurrentIndex(0)
+    before = _state(p)
+    w.delete_sheet()
+    assert feed.attrs["wire_id"] == "" and "to" not in feed.attrs
+    after = _roundtrip(w, before)
+    w.undo.undo()
+    assert feed.attrs == attrs_before and _state(p) == before
+    w.undo.redo()
+    assert _state(p) == after
+    _done(w)
+
+
+def test_sync_feed_links_does_not_add_empty_keys():
+    from envocad.model.project import sync_feed_links
+    p = _jps_project()
+    blk = p.sheets[0].elements[1]
+    sb = p.create_switchboard_sheet(blk)
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
+    before = _state(p)
+    parent = p.sheets.pop(0)
+    assert sync_feed_links(p)
+    assert all("to" not in e.attrs for e in sb.elements if e.symbol_id == "sb.feed_in")
+    assert all("from" not in e.attrs for e in sb.elements if e.symbol_id == "sb.feed_out")
+    p.sheets.insert(0, parent)
+    sync_feed_links(p)
+    assert _state(p) == before
+
+
 # ---- 2: šablona -------------------------------------------------------------------------------------------------
 def test_insert_template_single_undo_step(app, lib, asked, monkeypatch):
     p = _jps_project()
@@ -347,10 +386,30 @@ def test_enclosure_panel_changes_are_merged_undo_steps(app, lib, asked):
     w.undo.undo()
     assert panel.rows.value() == 3 and w.undo.isClean()
     panel.rows.setValue(4)                             # nová změna po undo …
-    panel.rows.setValue(3)                             # … a návrat na původní hodnotu = pořád jeden krok
-    assert sb.layout.rows == 3 and w.undo.count() == 1
-    w.undo.undo()
+    panel.rows.setValue(3)                             # … a návrat na původní hodnotu = krok zmizí
+    assert sb.layout.rows == 3 and w.undo.count() == 0
     assert _state(p) == before and w.undo.isClean()
+    _done(w)
+
+
+def test_enclosure_panel_rows_there_and_back_is_no_step_and_no_defaults(app, lib, asked):
+    """Počet řad 3 → 1 → 3: krok zmizí a parametry skříně zůstanou beze změny (panel nedoplní výchozí hodnoty
+    polí, která v parametrech nebyla); změna jednoho pole zapíše jen to pole."""
+    p, sb, w = _sb_window(lib)
+    sb.layout.params = {}
+    w.open_sheet(sb, "layout")
+    panel = w.view.side_panel
+    before = _state(p)
+    panel.rows.setValue(1)
+    assert sb.layout.rows == 1 and sb.layout.params == {} and w.undo.count() == 1
+    panel.rows.setValue(3)
+    assert w.undo.count() == 0 and w.undo.isClean() and _state(p) == before and sb.layout.params == {}
+    panel._edits["ip"].setText("IP 54")
+    panel._edits["ip"].editingFinished.emit()
+    assert sb.layout.params == {"ip": "IP 54"} and w.undo.count() == 1
+    panel._edits["ip"].setText("IP 40")               # výchozí hodnota u klíče, který už v parametrech je, zůstane
+    panel._edits["ip"].editingFinished.emit()
+    assert sb.layout.params == {"ip": "IP 40"}
     _done(w)
 
 
@@ -524,41 +583,106 @@ def test_layout_outside_placements_model():
 ALLOWED_UNDO_RESETS = {
     ("main_window.py", "_load_project", "clear"),                 # načtení projektu (otevření, nový, obnova autosave)
     ("main_window.py", "_mark_new_project_dirty", "resetClean"),  # nový projekt z průvodce / specifikace
+    ("main_window.py", "offer_recovery", "resetClean"),           # obnova autosave – neuložený stav
 }
 
 
-def _own_nodes(fn):
-    """Uzly těla funkce bez vnořených funkcí (volání patří nejvnitřnější funkci)."""
-    stack = list(fn.body)
-    while stack:
-        node = stack.pop()
-        yield node
-        stack.extend(c for c in ast.iter_child_nodes(node)
-                     if not isinstance(c, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)))
+def _is_undoish(node, aliases_names, aliases_attrs) -> bool:
+    """Výraz, který je (nejspíš) undo stack: `undo`, `self.undo`, `self.undo_stack`, `x.undo_stack()`,
+    `QUndoStack(...)` nebo alias – proměnná / atribut, do kterého se undo stack přiřadil."""
+    if isinstance(node, ast.Call):
+        return _is_undoish(node.func, aliases_names, aliases_attrs)
+    if isinstance(node, ast.Attribute):
+        return "undo" in node.attr.lower() or node.attr in aliases_attrs
+    if isinstance(node, ast.Name):
+        return "undo" in node.id.lower() or node.id in aliases_names
+    return False
+
+
+def _undo_reset_calls(src: str) -> list[tuple[str, str, int]]:
+    """Všechna volání `resetClean()` a `clear()` na undo stacku v modulu: (nadřazená funkce, metoda, řádek).
+    Volání v lambdě / vnořené funkci se přiřadí nejbližší pojmenované funkci, volání mimo funkci „<module>“."""
+    tree = ast.parse(src)
+    parents = {}
+    for node in ast.walk(tree):
+        for child in ast.iter_child_nodes(node):
+            parents[child] = node
+    # aliasy: `st = self.undo`, `self.stack = self.undo`, `with ... as st`, `(st := self.undo)` – opakovaně, aby
+    # se zachytil i řetěz `a = self.undo; b = a`
+    names, attrs = set(), set()
+    for _ in range(3):
+        for node in ast.walk(tree):
+            pairs = []
+            if isinstance(node, ast.Assign):
+                pairs = [(t, node.value) for t in node.targets]
+            elif isinstance(node, (ast.AnnAssign, ast.NamedExpr)) and node.value is not None:
+                pairs = [(node.target, node.value)]
+            elif isinstance(node, ast.withitem) and node.optional_vars is not None:
+                pairs = [(node.optional_vars, node.context_expr)]
+            for target, value in pairs:
+                if _is_undoish(value, names, attrs):
+                    if isinstance(target, ast.Name):
+                        names.add(target.id)
+                    elif isinstance(target, ast.Attribute):
+                        attrs.add(target.attr)
+
+    def owner(node) -> str:
+        while node in parents:
+            node = parents[node]
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                # vnořená pojmenovaná funkce (callback) se přiřadí vnější metodě
+                outer = node
+                while outer in parents:
+                    outer = parents[outer]
+                    if isinstance(outer, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        node = outer
+                    elif isinstance(outer, ast.ClassDef):
+                        break
+                return node.name
+        return "<module>"
+
+    found = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+            continue
+        attr = node.func.attr
+        if attr == "resetClean" or (attr == "clear" and _is_undoish(node.func.value, names, attrs)):
+            found.append((owner(node), attr, node.lineno))
+    return found
+
+
+def test_undo_reset_scanner_sees_lambda_alias_and_class_level():
+    samples = {
+        "def f(self):\n    panel.changed.connect(lambda: self.undo.resetClean())\n": ("f", "resetClean"),
+        "def f(self):\n    st = self.undo\n    st.clear()\n": ("f", "clear"),
+        "def f(self):\n    st = self.undo\n    b = st\n    b.resetClean()\n": ("f", "resetClean"),
+        "def f(self):\n    self.undo_stack.clear()\n": ("f", "clear"),
+        "def f(self):\n    self.scene.undo_stack().clear()\n": ("f", "clear"),
+        "def f(self):\n    self.undo.resetClean()\n": ("f", "resetClean"),
+        "def f(self):\n    def cb():\n        self.undo.clear()\n    return cb\n": ("f", "clear"),
+        "class A:\n    def __init__(self):\n        self.stack = self.undo\n    def g(self):\n"
+        "        self.stack.clear()\n": ("g", "clear"),
+        "class A:\n    x = undo.clear()\n": ("<module>", "clear"),
+    }
+    for code, expected in samples.items():
+        assert [c[:2] for c in _undo_reset_calls(code)] == [expected], code
+    # běžné clear() na jiném objektu se nehlásí
+    assert _undo_reset_calls("def f(self):\n    self.items.clear()\n    d = {}\n    d.clear()\n") == []
 
 
 def test_no_undo_reset_outside_allowed_places():
-    """V envocad/ui smí `undo.resetClean()` / `undo.clear()` zůstat jen při načtení projektu a po založení nového
-    projektu – a každé volání má komentář `undo-reset-ok` (proč)."""
+    """V envocad/ui smí `undo.resetClean()` / `undo.clear()` zůstat jen při načtení projektu, po založení nového
+    projektu a po obnově autosave – a každé volání má komentář `undo-reset-ok` (proč). Hlídají se všechna volání
+    včetně lambd, vnořených funkcí, kódu mimo funkce a aliasů undo stacku (`st = self.undo; st.clear()`)."""
     ui = Path(__file__).resolve().parent.parent / "envocad" / "ui"
     found = set()
     for path in sorted(ui.glob("*.py")):
         src = path.read_text(encoding="utf-8")
         lines = src.splitlines()
-        tree = ast.parse(src)
-        for fn in ast.walk(tree):
-            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            for node in _own_nodes(fn):
-                if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
-                    continue
-                attr, target = node.func.attr, node.func.value
-                is_undo = (isinstance(target, ast.Attribute) and target.attr == "undo") or \
-                          (isinstance(target, ast.Name) and target.id == "undo")
-                if attr == "resetClean" or (attr == "clear" and is_undo):
-                    key = (path.name, fn.name, attr)
-                    assert key in ALLOWED_UNDO_RESETS, f"{path.name}:{node.lineno} {fn.name}: undo.{attr}() mimo undo"
-                    near = " ".join(lines[max(0, node.lineno - 3):node.lineno])
-                    assert "undo-reset-ok" in near, f"{path.name}:{node.lineno}: chybí komentář undo-reset-ok"
-                    found.add(key)
+        for fn_name, attr, lineno in _undo_reset_calls(src):
+            key = (path.name, fn_name, attr)
+            assert key in ALLOWED_UNDO_RESETS, f"{path.name}:{lineno} {fn_name}: undo.{attr}() mimo undo"
+            near = " ".join(lines[max(0, lineno - 3):lineno])
+            assert "undo-reset-ok" in near, f"{path.name}:{lineno}: chybí komentář undo-reset-ok"
+            found.add(key)
     assert found == ALLOWED_UNDO_RESETS

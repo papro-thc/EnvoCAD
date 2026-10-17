@@ -814,20 +814,21 @@ class EnclosurePanel(QWidget):
 
     @staticmethod
     def real_change(before: dict, after: dict) -> bool:
-        """Liší se rozložení jinak než doplněním výchozích hodnot polí, která v parametrech nebyla? (Panel ukazuje
-        výchozí hodnoty a při zápisu je doplní – samotný průchod polem ale nemá být změnou ani krokem undo.)"""
-        defaults = {k: d for k, _l, d in ENCLOSURE_PARAMS if d}
-        bp = before.get("params") or {}
-        ap = {k: v for k, v in (after.get("params") or {}).items() if k in bp or defaults.get(k) != v}
-        return {**after, "params": ap} != before
+        """Liší se rozložení? `_write` výchozí hodnoty nevyplněných polí nedoplňuje, takže stačí porovnat obsah
+        (průchod polem beze změny není změna ani krok undo)."""
+        return after != before
 
     def _write(self, lay: Layout) -> Layout:
         lay.enclosure = self.name.text().strip()
         lay.rows = self.rows.value()
         lay.modules_per_row = self.mods.value()
         own_wiring = self.wiring_group.isChecked()
+        # výchozí hodnotu pole, které v parametrech nebylo (panel ji jen ukazuje), nedoplňovat – jinak by se
+        # rozložení změnilo pouhým zápisem jiného pole a krok undo by po návratu hodnoty nezmizel
+        defaults = {k: d for k, _l, d in ENCLOSURE_PARAMS if d}
         edits = {k: e.text().strip() for k, e in self._edits.items()
-                 if e.text().strip() and (own_wiring or k not in self._wiring_keys)}
+                 if e.text().strip() and (own_wiring or k not in self._wiring_keys)
+                 and (k in lay.params or defaults.get(k) != e.text().strip())}
         if own_wiring and self.unplaced.currentData():
             edits["wire_unplaced"] = self.unplaced.currentData()
         # klíče, které panel nezná, zůstanou; wire_* spravuje skupina „Výrobní data“

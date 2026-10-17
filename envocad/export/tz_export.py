@@ -14,7 +14,7 @@ from envocad.export import reports
 from envocad.export.docx_export import _table
 from envocad.library.store import LibraryStore
 from envocad.model import calc
-from envocad.model.project import Project
+from envocad.model.project import Project, without_dangling
 
 
 def _f(v, d=0.0) -> float:
@@ -57,6 +57,7 @@ def dso_data(project: Project, lib: LibraryStore) -> list[tuple[str, str]]:
 
 
 def export_tz_docx(project: Project, lib: LibraryStore, path: Path | str, template: Path | str | None = None) -> None:
+    project = without_dangling(project)   # vodiče na neexistující prvek (poškozený soubor) se do zprávy nedostanou
     doc = Document(str(template)) if template else Document()
     st = doc.styles["Normal"]
     st.font.name = "Calibri"

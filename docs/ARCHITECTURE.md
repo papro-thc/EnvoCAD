@@ -100,8 +100,8 @@ smazání listu (`AddSheetCommand`, `DeleteSheetCommand` – vrací i odpojené 
 záložky listu se zavřou / obnoví), šablona rozvaděče (`SheetsStateCommand` – snímek změněných listů), vlastnosti
 projektu (`SetProjectMetaCommand`), skříň (`SetLayoutCommand` – snímek `Layout.to_dict`, po sobě jdoucí změny
 téhož pole panelu se slučují; dialog skříně pracuje na kopii). `undo.clear()` / `undo.resetClean()` smí GUI volat
-jen při načtení projektu a po založení nového projektu z průvodce / specifikace (hlídá test
-`test_no_undo_reset_outside_allowed_places`). Zmenšení počtu řad skříně umístění nemaže: umístění v řadě mimo skříň
+jen při načtení projektu, po založení nového projektu z průvodce / specifikace a po obnově autosave (hlídá test
+`test_no_undo_reset_outside_allowed_places` – všechna volání v `ui/` včetně lambd a aliasů undo stacku). Zmenšení počtu řad skříně umístění nemaže: umístění v řadě mimo skříň
 zůstane v modelu (`Layout.stored_placement`), `Layout.placement` ho nevrací (přístroj je nerozmístěný) a kontrola
 hlásí `outside_enclosure`.
 
@@ -144,4 +144,11 @@ prvek Y – …“; vstupní slovník se nemění), odkazy uvnitř projektu ale 
 editor ho nekreslí, kontroly/výkazy/exporty pracují nad `without_dangling(project)` a kontrola ho hlásí (`dangling`).
 `element_symbol` nikdy nepadá: neznámé `symbol_id` → zástupná značka „?“ (`Symbol.placeholder`, kontrola `symbol`),
 port, na který vede vodič a značka ho nemá → osiřelý port „X1?“ (`Symbol.orphan_ports`, kontrola `bad_port`).
-`Project.save` je atomický (`.tmp` + `os.replace`) a nechává zálohu `<název>.ecp.bak`.
+`Project.save` je atomický (`.tmp` + `os.replace`) a nechává zálohu `<název>.ecp.bak`; nový soubor převezme oprávnění
+původního a symbolický odkaz zůstane odkazem (zapisuje se do jeho cíle). Ručně zkopírovaný list (duplicitní id)
+dostane při načtení nová id i s přepsáním odkazů (konce vodičů, umístění, list rozvaděče, vazby přívodů).
+
+Autosave (`ui/main_window.py`): okno maže jen kopie, které samo zapsalo nebo obnovilo (`_last_autosave`,
+`_recovered_autosave`), a to až po uložení, po zahození změn a úspěšném otevření jiného projektu nebo po zavření.
+Obnovená kopie zůstává na disku do prvního nového autosave okna; „Ne“ v nabídce obnovy kopii přesune do
+`autosave/odmitnute/` (nenabízí se znovu, maže se po 30 dnech).

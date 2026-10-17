@@ -241,10 +241,142 @@ def test_recovery_keeps_autosave_on_failure_and_offers_newest(app, lib, dialogs,
     q = [t for k, t in dialogs.seen if k == "question"]
     assert len(q) == 1 and "Další automaticky uložené kopie (1)" in q[0]
     assert w.project.name == "Novější" and w.project.path == tmp_path / "novejsi.ecp"
-    assert not newer.exists() and older.exists()
+    assert newer.exists() and older.exists() and w._recovered_autosave == newer   # obnovená kopie zůstává na disku
     assert not w.undo.isClean() and w.windowTitle().startswith("novejsi.ecp*")
     w.undo.setClean()
     older.unlink()
+
+
+def _write_autosave(d: Path, stem: str, project: Project, orig: str) -> Path:
+    d.mkdir(parents=True, exist_ok=True)
+    f = d / f"{stem}.autosave.ecp"
+    f.write_text(json.dumps(project.to_dict()), encoding="utf-8")
+    f.with_suffix(".orig").write_text(orig, encoding="utf-8")
+    return f
+
+
+def test_recovery_is_dirty_without_undo_step_and_copy_kept_until_new_autosave(app, lib, dialogs, tmp_path):
+    """Obnova autosave: Ctrl+Z neudělá projekt „čistým“ (žádný krok undo), kopie zůstane na disku až do nového
+    autosave tohoto okna nebo uložení."""
+    d = home_dir() / "autosave"
+    orig = tmp_path / "proj.ecp"
+    _project("Uloženo").save(orig)
+    rec = _write_autosave(d, "x", _project("Rozpracováno"), str(orig))
+    w = _win(lib)
+    w.offer_recovery()
+    assert w.project.name == "Rozpracováno" and not w.undo.isClean() and not w.undo.canUndo()
+    assert rec.exists() and rec.with_suffix(".orig").exists()
+    w.undo.undo()
+    assert not w.undo.isClean() and "*" in w.windowTitle()
+    dialogs.answers.append(QMessageBox.Cancel)
+    assert not w.close()                                    # zavření se zeptá, Zrušit → okno zůstane
+    assert rec.exists()
+    w.autosave()                                            # nová kopie tohoto okna → obnovená pryč
+    assert w._autosave_path().exists() and not rec.exists() and not rec.with_suffix(".orig").exists()
+    dialogs.answers.append(QMessageBox.Save)
+    assert w.close()
+    assert not w._autosave_path().exists()
+    assert json.loads(orig.read_text(encoding="utf-8"))["name"] == "Rozpracováno"
+
+
+def test_recovery_copy_with_same_name_is_overwritten_not_deleted(app, lib, dialogs, tmp_path):
+    w0 = _win(lib)
+    w0.project.path = tmp_path / "p.ecp"
+    same = w0._autosave_path()                              # kopie, kterou by si obnovené okno zapsalo samo
+    w0.undo.setClean()
+    w0.close()
+    _write_autosave(same.parent, same.name[:-len(".autosave.ecp")], _project("R"), str(tmp_path / "p.ecp"))
+    w = _win(lib)
+    w.offer_recovery()
+    assert w._autosave_path() == same
+    w.autosave()
+    assert same.exists() and same.with_suffix(".orig").exists()
+    assert w._last_autosave == same and w._recovered_autosave is None
+    dialogs.answers.append(QMessageBox.Discard)
+    assert w.close() and not same.exists()
+
+
+def test_save_after_recovery_removes_recovered_copy(app, lib, dialogs, tmp_path):
+    rec = _write_autosave(home_dir() / "autosave", "y", _project("R"), str(tmp_path / "r.ecp"))
+    w = _win(lib)
+    w.offer_recovery()
+    assert rec.exists() and w.save_project()
+    assert not rec.exists() and not rec.with_suffix(".orig").exists()
+    w.close()
+
+
+def test_two_windows_only_own_autosave_is_deleted(app, lib, dialogs, tmp_path):
+    """Dvě okna se stejným projektem: čisté okno ani okno, které nic nezapsalo, nesmaže autosave druhého okna;
+    „Ne“ v nabídce obnovy kopii nesmaže (přesune do „odmitnute“ a už ji nenabízí)."""
+    f = tmp_path / "proj.ecp"
+    _project().save(f)
+    a, b, b2, b3 = (_win(lib, Project.load(f)) for _ in range(4))   # okna (a jejich nabídka obnovy) před autosave
+    _dirty(a)
+    a.autosave()
+    auto = a._autosave_path()
+    assert auto.exists() and auto == b._autosave_path()
+    assert b.close() and auto.exists()                      # čisté okno nemaže nic
+    _dirty(b2)
+    dialogs.answers.append(QMessageBox.Discard)
+    assert b2.close() and auto.exists()                     # zahodilo změny, ale autosave nezapsalo → nemaže
+    _dirty(b3)
+    assert b3.save_project() and auto.exists()              # uložení maže jen kopii tohoto okna
+    b3.close()
+    # druhý start při běžícím okně A: „Ne“ = přesun do odmitnute, nenabízí se znovu
+    dialogs.answers.append(QMessageBox.No)
+    c = _win(lib)                                           # nabídka obnovy při startu (QTimer) → „Ne“
+    assert dialogs.seen[-1][0] == "question" and not dialogs.answers
+    rejected = home_dir() / "autosave" / "odmitnute"
+    assert not auto.exists() and (rejected / auto.name).exists() and (rejected / auto.with_suffix(".orig").name).exists()
+    dialogs.seen.clear()
+    c.offer_recovery()
+    assert not [t for k, t in dialogs.seen if k == "question"]
+    a.autosave()                                            # běžící okno si kopii zapíše znovu
+    assert auto.exists()
+    dialogs.answers.append(QMessageBox.Discard)
+    assert a.close() and not auto.exists()
+    assert (rejected / auto.name).exists()                  # odmítnutá kopie zůstává pro ruční obnovu
+    c.close()
+
+
+def test_rejected_autosaves_are_pruned_after_30_days(app, lib, dialogs, tmp_path):
+    from envocad.ui.main_window import REJECTED_KEEP_DAYS
+    d = home_dir() / "autosave"
+    rejected = d / "odmitnute"
+    rejected.mkdir(parents=True)
+    old, fresh = rejected / "old.autosave.ecp", rejected / "fresh.autosave.ecp"
+    old.write_text("{}", encoding="utf-8")
+    fresh.write_text("{}", encoding="utf-8")
+    import time
+    t = time.time() - (REJECTED_KEEP_DAYS + 1) * 86400
+    os.utime(old, (t, t))
+    _write_autosave(d, "z", _project(), "")
+    dialogs.answers.append(QMessageBox.No)
+    w = _win(lib)                                           # nabídka obnovy při startu → „Ne“
+    assert not dialogs.answers
+    assert not old.exists() and fresh.exists() and (rejected / "z.autosave.ecp").exists()
+    w.close()
+
+
+def test_discard_then_failed_open_keeps_autosave(app, lib, dialogs, tmp_path):
+    """„Zahodit“ a otevření selže → okno má dál neuloženou práci a její autosave zůstává; po úspěšném otevření
+    jiného projektu se smaže."""
+    w = _win(lib)
+    w.project.path = tmp_path / "moje.ecp"
+    _dirty(w)
+    w.autosave()
+    auto = w._autosave_path()
+    bad = tmp_path / "vadny.ecp"
+    bad.write_text("{nejde", encoding="utf-8")
+    dialogs.answers.append(QMessageBox.Discard)
+    w.open_path(str(bad))
+    assert w.project.path == tmp_path / "moje.ecp" and not w.undo.isClean() and auto.exists()
+    good = tmp_path / "dobry.ecp"
+    _project("Jiný").save(good)
+    dialogs.answers.append(QMessageBox.Discard)
+    w.open_path(str(good))
+    assert w.project.name == "Jiný" and not auto.exists()
+    w.close()
 
 
 # ---- 8: uložení ---------------------------------------------------------------------------------------------------
