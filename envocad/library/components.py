@@ -23,7 +23,10 @@ NUMERIC = {"price_czk", "in_", "poles", "icu_ka", "idn_ma", "un_v", "modules", "
            "p_loss_w", "p_ac_kw", "p_dc_max_kwp", "mppt", "phases", "i_ac_max_a", "e_kwh", "p_kw", "u_dc_v", "p_wp",
            "voc_v", "isc_a", "vmp_v", "imp_a", "uc_v", "up_kv", "iimp_ka", "in_ka", "rows", "modules_per_row",
            "cross_mm2", "cross_max_mm2", "levels", "cores_n", "od_mm", "u_dc_max_v", "u_mppt_min_v", "u_mppt_max_v",
-           "i_mppt_max_a", "strings_per_mppt", "beta_voc", "t_min_c", "t_max_c"}
+           "i_mppt_max_a", "strings_per_mppt", "beta_voc", "t_min_c", "t_max_c",
+           # FV moduly (pv_modules.csv) a střídače – katalog pro průvodce (docs/design/katalog_fv.md)
+           "alpha_isc", "gamma_pmax", "noct_c", "u_sys_max_v", "i_fuse_max_a", "weight_kg", "isc_mppt_max_a",
+           "eff_max_pct", "eff_eu_pct"}
 SOURCES = {"catalog", "datasheet", "web", "seed", "user"}
 
 # výchozí schematická značka podle kategorie (když symbol_id chybí)
@@ -43,6 +46,8 @@ PARAM_TO_ATTR = {
     "cross_mm2": "cross", "terminal_kind": "kind",
     "u_dc_max_v": "u_dc_max", "u_mppt_min_v": "u_mppt_min", "u_mppt_max_v": "u_mppt_max", "i_mppt_max_a": "i_mppt_max",
     "strings_per_mppt": "strings_per_mppt", "vmp_v": "vmp", "beta_voc": "beta_voc",
+    # FV modul: Impp, max. napětí systému; střídač: max. zkratový proud na MPPT (kontrola stringů, `model/calc.py`)
+    "imp_a": "imp", "u_sys_max_v": "u_sys_max", "isc_mppt_max_a": "isc_mppt_max",
     # rozsah provozní teploty okolí přístroje [°C] dle datasheetu – ověření oteplení po přístrojích (`thermal`)
     "t_min_c": "t_min", "t_max_c": "t_max",
     "contacts": "contacts",   # kontaktní obraz („1/2 3/4 5/6 13/14 21/22“) – zrcadlo kontaktů, kontroly kontaktů
@@ -76,17 +81,21 @@ class Component:
         except ValueError:
             return None
 
-    def apply_to(self, e: Element) -> dict[str, str]:
-        """Propíše parametry do atributů prvku; vrátí změněné atributy (klíč → nová hodnota)."""
-        changed: dict[str, str] = {}
+    def attr_values(self) -> dict[str, str]:
+        """Atributy prvku, které artikl zná (`PARAM_TO_ATTR`, jen neprázdné): klíč atributu → hodnota.
+        Bez prvku – průvodce z nich předvyplní pole, `apply_to` je propíše do prvku."""
+        out: dict[str, str] = {}
         src = {"part_number": self.part_number, "manufacturer": self.manufacturer, **self.params}
         for pkey, akey in PARAM_TO_ATTR.items():
             v = src.get(pkey)
             if v in (None, ""):
                 continue
-            v = str(v)
-            if e.attrs.get(akey) != v:
-                changed[akey] = v
+            out[akey] = str(v)
+        return out
+
+    def apply_to(self, e: Element) -> dict[str, str]:
+        """Propíše parametry do atributů prvku; vrátí změněné atributy (klíč → nová hodnota)."""
+        changed = {k: v for k, v in self.attr_values().items() if e.attrs.get(k) != v}
         e.attrs.update(changed)
         e.component_id = self.id
         return changed
@@ -157,6 +166,57 @@ def temperature_range_error(t_min, t_max) -> str | None:
     return None
 
 
+def _row_num(row: dict, key: str) -> float | None:
+    """Číslo ze sloupce řádku CSV (desetinná čárka i tečka); prázdné / nečíselné → None (to hlásí `NUMERIC`)."""
+    t = str(row.get(key) or "").strip()
+    if not re.fullmatch(r"-?\d+([.,]\d+)?", t):
+        return None
+    return float(t.replace(",", "."))
+
+
+P_WP_TOLERANCE = 0.03   # |p_wp − vmp·imp| / p_wp – opsané hodnoty STC musí sedět na 3 %
+
+
+def pv_module_error(row: dict) -> str | None:
+    """Česká hláška k řádku FV modulu (`category=pv_module`), nebo None. Povinné `voc_v` a `isc_a` (bez nich řádek
+    neukládat), dál vmp < voc, imp < isc, −1 < β_Voc < 0 %/K, |p_wp − vmp·imp| ≤ 3 % p_wp. Prázdné nepovinné
+    hodnoty se přeskočí; víc chyb najednou se spojí středníkem."""
+    errs: list[str] = []
+    voc, vmp, isc, imp = (_row_num(row, k) for k in ("voc_v", "vmp_v", "isc_a", "imp_a"))
+    beta, p_wp = _row_num(row, "beta_voc"), _row_num(row, "p_wp")
+    for key, v in (("voc_v", voc), ("isc_a", isc)):
+        if v is None:
+            errs.append(f"FV modul bez '{key}'")
+        elif v <= 0:
+            errs.append(f"'{key}' musí být kladné, je {v:g}")
+    if voc and vmp is not None and not 0 < vmp < voc:
+        errs.append(f"'vmp_v' ({vmp:g} V) musí být kladné a menší než 'voc_v' ({voc:g} V)")
+    if isc and imp is not None and not 0 < imp < isc:
+        errs.append(f"'imp_a' ({imp:g} A) musí být kladné a menší než 'isc_a' ({isc:g} A)")
+    if beta is not None and not -1 < beta < 0:
+        errs.append(f"'beta_voc' ({beta:g} %/K) musí být mezi −1 a 0 %/K")
+    if p_wp and vmp and imp and abs(p_wp - vmp * imp) / p_wp > P_WP_TOLERANCE:
+        errs.append(f"'p_wp' ({p_wp:g} Wp) nesedí na vmp·imp = {vmp * imp:.1f} W (odchylka > {P_WP_TOLERANCE:.0%})")
+    return "; ".join(errs) or None
+
+
+def inverter_error(row: dict) -> str | None:
+    """Česká hláška k řádku střídače (`inverter`, `inverter_hybrid`), nebo None: u_mppt_min < u_mppt_max ≤ u_dc_max,
+    strings_per_mppt ≥ 1. Prázdné hodnoty se přeskočí (vestavěné střídače se doplňují postupně)."""
+    errs: list[str] = []
+    u_dc, lo, hi = (_row_num(row, k) for k in ("u_dc_max_v", "u_mppt_min_v", "u_mppt_max_v"))
+    spm = _row_num(row, "strings_per_mppt")
+    if lo is not None and hi is not None and not lo < hi:
+        errs.append(f"'u_mppt_min_v' ({lo:g} V) musí být menší než 'u_mppt_max_v' ({hi:g} V)")
+    if hi is not None and u_dc is not None and hi > u_dc:
+        errs.append(f"'u_mppt_max_v' ({hi:g} V) nesmí být větší než 'u_dc_max_v' ({u_dc:g} V)")
+    if lo is not None and hi is None and u_dc is not None and lo >= u_dc:
+        errs.append(f"'u_mppt_min_v' ({lo:g} V) musí být menší než 'u_dc_max_v' ({u_dc:g} V)")
+    if spm is not None and (spm < 1 or not spm.is_integer()):
+        errs.append(f"'strings_per_mppt' musí být celé číslo ≥ 1, je {spm:g}")
+    return "; ".join(errs) or None
+
+
 def validate(path: Path | str, known_symbols: set[str] | None = None) -> list[str]:
     """Vrátí seznam chyb (prázdný = OK)."""
     errors: list[str] = []
@@ -201,6 +261,10 @@ def validate(path: Path | str, known_symbols: set[str] | None = None) -> list[st
             t_err = temperature_range_error(row.get("t_min_c"), row.get("t_max_c"))
             if t_err:
                 errors.append(f"řádek {n} ({rid}): {t_err}")
+            cat_err = (pv_module_error(row) if cat == "pv_module"
+                       else inverter_error(row) if cat in ("inverter", "inverter_hybrid") else None)
+            if cat_err:
+                errors.append(f"řádek {n} ({rid}): {cat_err}")
             contacts = (row.get("contacts") or "").strip()
             if contacts:
                 from envocad.model.xref import parse_contact_image

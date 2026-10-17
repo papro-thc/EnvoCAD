@@ -593,7 +593,7 @@ def calc_findings(project: Project) -> list[Finding]:
         e = el_by_ref.get(sc.ref)
         s = sheet_of.get(e.id) if e else None
         for msg in sc.issues:
-            sev = WARNING if ("chybí" in msg or "nemá" in msg or "není" in msg) else ERROR
+            sev = WARNING if ("chybí" in msg or "nemá" in msg or "není" in msg or "omezení výkonu" in msg) else ERROR
             out.append(Finding(sev, s.id if s else "", s.name if s else "", e.id if e else "", False, sc.ref,
                                f"String: {msg}", "calc_string"))
     for cc in calc.check_cables(project):

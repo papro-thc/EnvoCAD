@@ -6,12 +6,15 @@ Hodnoty Iz jsou tabulky A.52 pro Cu/PVC 70 °C při 30 °C okolí (B.52.x) – p
 """
 from __future__ import annotations
 
+import math
+import re
 from dataclasses import dataclass, field
 
 from envocad.model.project import Element, Project, Sheet, Wire
 
 RHO_CU, RHO_AL = 0.0225, 0.036      # Ω·mm²/m při provozní teplotě ~70 °C (orientační)
 T_MIN_DEFAULT, T_MAX_DEFAULT = -10.0, 70.0  # °C: nejnižší okolí (Uoc), teplota článku při plném slunci (Umpp)
+# – výchozí, když projekt nemá návrhové teploty v `meta["pv_t_min"]` / `meta["pv_t_max"]` (`design_temperatures`)
 BETA_VOC_DEFAULT = -0.27            # %/K (krystalický Si; z datasheetu modulu `beta_voc`)
 SAFETY_ISC = 1.25                   # ČSN 33 2000-7-712: dimenzování DC na 1,25·Isc
 SELECTIVITY_RATIO = 1.6             # orientační poměr In pro selektivitu MCB–MCB v přetížení
@@ -86,6 +89,238 @@ def voltage_drop(i_a: float, length_m: float, cross: float, system: str, u_v: fl
     return round(du, 2), round(100 * du / u_v, 2) if u_v else 0.0
 
 
+# ---- stringy: data modulu a střídače, meze, hlášky (sdílí průvodce i kontrola F7) -----------------------------
+@dataclass(frozen=True)
+class ModuleData:
+    """FV modul pro výpočet stringů (STC): Voc, Vmp, Isc [V, A], Imp, β_Voc [%/K], max. napětí systému, Pmax [Wp]."""
+    voc: float
+    vmp: float
+    isc: float
+    imp: float | None = None
+    beta_voc: float = BETA_VOC_DEFAULT
+    u_sys_max: float | None = None
+    p_wp: float | None = None
+
+    @classmethod
+    def from_attrs(cls, a: dict) -> ModuleData | None:
+        """Z atributů prvku `fve.pv_string` (nebo `Component.attr_values()` artiklu modulu); bez Uoc → None.
+        Chybějící Vmp = 0,82·Voc, Isc = 0, β = `BETA_VOC_DEFAULT` (jako dosud v kontrole stringů)."""
+        voc = _f(a.get("voc"))
+        if not voc or voc <= 0:
+            return None
+        return cls(voc=voc, vmp=_f(a.get("vmp")) or voc * 0.82, isc=_f(a.get("isc")) or 0.0, imp=_f(a.get("imp")),
+                   beta_voc=_f(a.get("beta_voc")) or BETA_VOC_DEFAULT, u_sys_max=_f(a.get("u_sys_max")),
+                   p_wp=_f(a.get("p_module")))
+
+    def uoc(self, t: float) -> float:
+        """Uoc jednoho modulu při teplotě t [°C]: Voc·(1 + β/100·(t − 25))."""
+        return self.voc * (1 + self.beta_voc / 100.0 * (t - 25))
+
+    def ump(self, t: float) -> float:
+        """Umpp jednoho modulu při teplotě t [°C] (stejný součinitel jako Uoc – zjednodušení)."""
+        return self.vmp * (1 + self.beta_voc / 100.0 * (t - 25))
+
+
+@dataclass(frozen=True)
+class InverterData:
+    """Střídač pro výpočet stringů: Umax DC, okno MPPT [V], Imax a Isc max na MPPT [A], počet MPPT, stringů na MPPT,
+    P AC [kW], P DC max [kWp]. Neznámé = None (příslušná kontrola se přeskočí)."""
+    u_dc_max: float | None = None
+    u_mppt_min: float | None = None
+    u_mppt_max: float | None = None
+    i_mppt_max: float | None = None
+    isc_mppt_max: float | None = None
+    mppt: int | None = None
+    strings_per_mppt: int = 2
+    p_ac: float | None = None
+    p_dc_max: float | None = None
+
+    @classmethod
+    def from_attrs(cls, a: dict) -> InverterData:
+        """Z atributů prvku `fve.inverter*` (nebo `Component.attr_values()` artiklu střídače)."""
+        mppt = _f(a.get("mppt"))
+        spm = _f(a.get("strings_per_mppt"))
+        return cls(u_dc_max=_f(a.get("u_dc_max")), u_mppt_min=_f(a.get("u_mppt_min")),
+                   u_mppt_max=_f(a.get("u_mppt_max")), i_mppt_max=_f(a.get("i_mppt_max")),
+                   isc_mppt_max=_f(a.get("isc_mppt_max")), mppt=int(mppt) if mppt and mppt >= 1 else None,
+                   strings_per_mppt=int(spm) if spm and spm >= 1 else 2, p_ac=_f(a.get("p_ac")),
+                   p_dc_max=_f(a.get("p_dc_max")))
+
+
+@dataclass
+class StringLimits:
+    """Meze stringu pro dvojici modul + střídač: počet modulů ve stringu n_min…n_max (None = bez horní meze – chybí
+    Umax i MPPT max), nejvýš n_par_max paralelních stringů na jeden MPPT; `reasons` = české důvody pro průvodce."""
+    n_min: int
+    n_max: int | None
+    n_par_max: int
+    reasons: list[str] = field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        """Existuje aspoň jeden přípustný počet modulů a aspoň jeden string na MPPT."""
+        return self.n_par_max >= 1 and (self.n_max is None or self.n_min <= self.n_max)
+
+
+def design_temperatures(project: Project) -> tuple[float, float]:
+    """Návrhové teploty pro stringy (t_min pro Uoc, t_max pro Umpp) z `meta["pv_t_min"]` / `meta["pv_t_max"]`
+    (Vlastnosti projektu, průvodce), jinak `T_MIN_DEFAULT` / `T_MAX_DEFAULT`."""
+    meta = getattr(project, "meta", None) or {}
+    t_min = _f(meta.get("pv_t_min"))
+    t_max = _f(meta.get("pv_t_max"))
+    return (T_MIN_DEFAULT if t_min is None else t_min, T_MAX_DEFAULT if t_max is None else t_max)
+
+
+def _u_strings(m: ModuleData, n: int, t_min: float, t_max: float) -> tuple[float, float, float]:
+    """(Uoc za studena, Umpp za tepla, Umpp za studena) stringu n modulů, zaokrouhleno na 0,1 V jako ve výkazech."""
+    beta = m.beta_voc / 100.0
+    return (round(n * m.voc * (1 + beta * (t_min - 25)), 1), round(n * m.vmp * (1 + beta * (t_max - 25)), 1),
+            round(n * m.vmp * (1 + beta * (t_min - 25)), 1))
+
+
+def _voltage_issues(m: ModuleData, inv: InverterData | None, n: int, t_min: float, t_max: float) -> list[str]:
+    uoc_cold, umpp_hot, umpp_cold = _u_strings(m, n, t_min, t_max)
+    out = []
+    if inv is not None and inv.u_dc_max and uoc_cold > inv.u_dc_max:
+        out.append(f"Uoc při {t_min:g} °C {uoc_cold} V > Umax střídače {inv.u_dc_max:g} V")
+    if m.u_sys_max and uoc_cold > m.u_sys_max:
+        out.append(f"Uoc při {t_min:g} °C {uoc_cold} V > Umax systému modulu {m.u_sys_max:g} V")
+    if inv is not None:
+        if inv.u_mppt_min and umpp_hot and umpp_hot < inv.u_mppt_min:
+            out.append(f"Umpp při {t_max:g} °C {umpp_hot} V < Umppt min {inv.u_mppt_min:g} V")
+        if inv.u_mppt_max and umpp_cold and umpp_cold > inv.u_mppt_max:
+            out.append(f"Umpp při {t_min:g} °C {umpp_cold} V > Umppt max {inv.u_mppt_max:g} V (mimo rozsah sledování)")
+    return out
+
+
+def _current_issues(m: ModuleData, inv: InverterData, n_par: int) -> list[str]:
+    """Proud na MPPT. Se `isc_mppt_max`: n_par·Isc > Isc max = chyba, n_par·Imp > Imax = varování (omezení výkonu).
+    Bez něj dosavadní pravidlo: 1,25·Isc jednoho stringu proti Imax vstupu (staré projekty beze změny)."""
+    out = []
+    isc = m.isc
+    if inv.isc_mppt_max:
+        n_par = max(1, n_par)
+        if isc and n_par * isc > inv.isc_mppt_max:
+            out.append(f"Isc {n_par}× {isc:g} A = {n_par * isc:.1f} A > Isc max MPPT {inv.isc_mppt_max:g} A")
+        if m.imp and inv.i_mppt_max and n_par * m.imp > inv.i_mppt_max:
+            out.append(f"Impp {n_par}× {m.imp:g} A = {n_par * m.imp:.1f} A > Imax MPPT {inv.i_mppt_max:g} A "
+                       "– omezení výkonu")
+    elif inv.i_mppt_max and isc and SAFETY_ISC * isc > inv.i_mppt_max:
+        out.append(f"1,25·Isc {SAFETY_ISC * isc:.1f} A > Imax vstupu {inv.i_mppt_max:g} A")
+    return out
+
+
+def string_issues(m: ModuleData, inv: InverterData | None, n: int, n_par: int = 1, t_min: float = T_MIN_DEFAULT,
+                  t_max: float = T_MAX_DEFAULT) -> list[str]:
+    """České hlášky ke stringu n modulů, n_par paralelních stringů na stejném MPPT (prázdný seznam = vyhovuje).
+    Texty sdílí kontrola projektu (F7), výkaz Výpočty i asistent průvodce; „– omezení výkonu“ je jen varování."""
+    out = []
+    if not n or not m.voc:
+        out.append("chybí počet modulů nebo Uoc modulu")
+    if inv is None:
+        out.append("string není propojen se střídačem")
+    out += _voltage_issues(m, inv, n, t_min, t_max)
+    if inv is not None:
+        out += _current_issues(m, inv, n_par)
+        if not (inv.u_dc_max or inv.u_mppt_min):
+            out.append("střídač nemá zadané Umax / rozsah MPPT (doplňte z artiklu)")
+    return out
+
+
+N_MODULES_LIMIT = 200   # strop hledání horní meze počtu modulů ve stringu (bez Umax / MPPT max → None)
+
+
+def string_limits(m: ModuleData, inv: InverterData, t_min: float = T_MIN_DEFAULT,
+                  t_max: float = T_MAX_DEFAULT) -> StringLimits:
+    """Rozsah počtu modulů ve stringu a paralelních stringů na MPPT – konzistentní se `string_issues`:
+    n_max = ⌊min(Umax, Umax systému modulu) / Uoc(t_min)⌋ a ⌊Umppt max / Umpp(t_min)⌋, n_min = ⌈Umppt min / Umpp(t_max)⌉."""
+    reasons: list[str] = []
+    uoc1, ump_hot1, ump_cold1 = m.uoc(t_min), m.ump(t_max), m.ump(t_min)
+
+    def fits_high(n: int, which: str) -> bool:
+        return not any(which in x for x in _voltage_issues(m, inv, n, t_min, t_max))
+
+    def upper(which: str, limit: float | None, per_module: float, label: str) -> int | None:
+        if not limit or per_module <= 0:
+            return None
+        n = max(0, math.floor(limit / per_module))
+        while n < N_MODULES_LIMIT and fits_high(n + 1, which):   # zaokrouhlení jako ve výkazu
+            n += 1
+        while n > 0 and not fits_high(n, which):
+            n -= 1
+        reasons.append(f"nejvýš {n} modulů: {label}")
+        return n
+
+    caps = [
+        upper("Umax střídače", inv.u_dc_max, uoc1,
+              f"Uoc při {t_min:g} °C {uoc1:.1f} V/modul, Umax střídače {inv.u_dc_max or 0:g} V"),
+        upper("Umax systému modulu", m.u_sys_max, uoc1,
+              f"Uoc při {t_min:g} °C {uoc1:.1f} V/modul, Umax systému modulu {m.u_sys_max or 0:g} V"),
+        upper("Umppt max", inv.u_mppt_max, ump_cold1,
+              f"Umpp při {t_min:g} °C {ump_cold1:.1f} V/modul, Umppt max {inv.u_mppt_max or 0:g} V"),
+    ]
+    known = [c for c in caps if c is not None]
+    n_max = min(known) if known else None
+    n_min = 1
+    if inv.u_mppt_min and ump_hot1 > 0:
+        n_min = max(1, math.ceil(inv.u_mppt_min / ump_hot1))
+        while n_min > 1 and not any("Umppt min" in x for x in _voltage_issues(m, inv, n_min - 1, t_min, t_max)):
+            n_min -= 1
+        while n_min < N_MODULES_LIMIT and any("Umppt min" in x for x in _voltage_issues(m, inv, n_min, t_min, t_max)):
+            n_min += 1
+        reasons.append(f"nejméně {n_min} modulů: Umpp při {t_max:g} °C {ump_hot1:.1f} V/modul, "
+                       f"Umppt min {inv.u_mppt_min:g} V")
+    if not (inv.u_dc_max or inv.u_mppt_min):
+        reasons.append("střídač nemá zadané Umax / rozsah MPPT (doplňte z artiklu)")
+    n_par_max = max(1, inv.strings_per_mppt)
+    if inv.isc_mppt_max:
+        if m.isc:
+            by_isc = math.floor(inv.isc_mppt_max / m.isc + 1e-9)
+            if by_isc < n_par_max:
+                reasons.append(f"nejvýš {by_isc} stringů na MPPT: Isc {m.isc:g} A, Isc max MPPT {inv.isc_mppt_max:g} A")
+            n_par_max = min(n_par_max, by_isc)
+        if m.imp and inv.i_mppt_max and n_par_max * m.imp > inv.i_mppt_max:
+            reasons.append(f"{n_par_max} stringy na MPPT: Impp {n_par_max * m.imp:.1f} A > Imax MPPT "
+                           f"{inv.i_mppt_max:g} A – omezení výkonu")
+    elif inv.i_mppt_max and m.isc and SAFETY_ISC * m.isc > inv.i_mppt_max:
+        reasons.append(f"1,25·Isc {SAFETY_ISC * m.isc:.1f} A > Imax vstupu {inv.i_mppt_max:g} A – modul na střídač nelze")
+        n_par_max = 0
+    if n_max is not None and n_min > n_max:
+        reasons.append(f"rozsah je prázdný (nejméně {n_min}, nejvýš {n_max} modulů) – modul a střídač k sobě nepasují")
+    return StringLimits(n_min, n_max, n_par_max, reasons)
+
+
+def suggest_inverter_count(p_dc_kwp: float, p_ac_kw: float, dc_ac_max: float = 1.3) -> int:
+    """Doporučený počet střídačů: nejmenší počet, při kterém poměr DC/AC nepřekročí `dc_ac_max` (aspoň 1)."""
+    if not p_dc_kwp or p_dc_kwp <= 0 or not p_ac_kw or p_ac_kw <= 0 or dc_ac_max <= 0:
+        return 1
+    return max(1, math.ceil(p_dc_kwp / (p_ac_kw * dc_ac_max) - 1e-9))
+
+
+def propose_strings(n_total: int, n_inverters: int, lim: StringLimits,
+                    inv: InverterData) -> tuple[list[list[int]], int]:
+    """Návrh stringů: n_total modulů do co nejmenšího počtu stringů v mezích `lim`, rovnoměrně délky (liší se nejvýš
+    o 1 modul) i počtem na střídač; kapacita střídače = mppt · min(strings_per_mppt, n_par_max) stringů (neznámé mppt =
+    bez omezení). Vrací (stringy po střídačích – délky sestupně, počet modulů, které se nevešly)."""
+    n_inv = max(1, int(n_inverters or 1))
+    empty: list[list[int]] = [[] for _ in range(n_inv)]
+    n_total = max(0, int(n_total or 0))
+    if not n_total or lim.n_max is None or lim.n_max < 1 or not lim.ok:
+        return empty, n_total
+    per_inv = inv.mppt * min(inv.strings_per_mppt, lim.n_par_max) if inv.mppt else None
+    n_str = math.ceil(n_total / lim.n_max)
+    if per_inv is not None:
+        n_str = min(n_str, per_inv * n_inv)
+    n_str = min(n_str, n_total // max(1, lim.n_min))
+    if n_str <= 0:
+        return empty, n_total
+    placed = min(n_total, n_str * lim.n_max)
+    base, rem = divmod(placed, n_str)
+    lengths = [base + 1] * rem + [base] * (n_str - rem)
+    out = [lengths[i::n_inv] for i in range(n_inv)]   # střídavě: počty i délky na střídačích vyrovnané
+    return out, n_total - placed
+
+
 @dataclass
 class StringCheck:
     ref: str
@@ -100,6 +335,11 @@ class StringCheck:
     i_mppt_max: float | None
     issues: list[str] = field(default_factory=list)
     sheet: str = ""          # název listu se stringem (filtr výkazu Výpočty pro jeden list)
+    mppt: int | None = None  # index MPPT střídače (od 0; DCk → (k−1)//strings_per_mppt), None = nezjištěno
+    n_par: int = 1           # počet stringů na stejném MPPT (včetně tohoto)
+    isc_mppt_max: float | None = None
+    t_min: float = T_MIN_DEFAULT
+    t_max: float = T_MAX_DEFAULT
 
     @property
     def ok(self) -> bool:
@@ -164,43 +404,51 @@ def _breaker_on_wire(s: Sheet, w: Wire) -> tuple[float | None, str]:
     return None, ""
 
 
-def check_strings(project: Project, t_min: float = T_MIN_DEFAULT, t_max: float = T_MAX_DEFAULT) -> list[StringCheck]:
-    out = []
+def check_strings(project: Project, t_min: float | None = None, t_max: float | None = None) -> list[StringCheck]:
+    """Kontrola každého stringu proti střídači, na který vede (přes odpínače, pojistky, svorky, DC rozvaděče).
+    Teploty: zadané, jinak `design_temperatures(project)`. Stringy na stejném MPPT (střídač + DCk → MPPT) se
+    počítají spolu (`n_par`) – uplatní se jen u střídače s `isc_mppt_max`."""
+    d_min, d_max = design_temperatures(project)
+    t_min = d_min if t_min is None else t_min
+    t_max = d_max if t_max is None else t_max
+    found = []
     for s in project.sheets:
         for e in s.elements:
             if e.symbol_id != "fve.pv_string":
                 continue
-            n = int(_f(e.attrs.get("n_modules"), 0) or 0)
-            voc = _f(e.attrs.get("voc")) or 0.0
-            vmp = _f(e.attrs.get("vmp")) or (voc * 0.82 if voc else 0.0)
-            isc = _f(e.attrs.get("isc")) or 0.0
-            beta = (_f(e.attrs.get("beta_voc")) or BETA_VOC_DEFAULT) / 100.0
-            uoc_cold = round(n * voc * (1 + beta * (t_min - 25)), 1)
-            umpp_hot = round(n * vmp * (1 + beta * (t_max - 25)), 1)
-            umpp_cold = round(n * vmp * (1 + beta * (t_min - 25)), 1)
-            # střídač: po vodičích až k prvnímu střídači (přes odpínač/pojistky/svorky)
-            inv = _find_inverter(project, s, e)
-            sc = StringCheck(e.ref, n, uoc_cold, umpp_hot, isc, inv.ref if inv else "",
-                             _f(inv.attrs.get("u_dc_max")) if inv else None, _f(inv.attrs.get("u_mppt_min")) if inv else None,
-                             _f(inv.attrs.get("u_mppt_max")) if inv else None, _f(inv.attrs.get("i_mppt_max")) if inv else None,
-                             sheet=s.name)
-            if not n or not voc:
-                sc.issues.append("chybí počet modulů nebo Uoc modulu")
-            if inv is None:
-                sc.issues.append("string není propojen se střídačem")
-            else:
-                if sc.u_dc_max and uoc_cold > sc.u_dc_max:
-                    sc.issues.append(f"Uoc při {t_min:g} °C {uoc_cold} V > Umax střídače {sc.u_dc_max:g} V")
-                if sc.u_mppt_min and umpp_hot and umpp_hot < sc.u_mppt_min:
-                    sc.issues.append(f"Umpp při {t_max:g} °C {umpp_hot} V < Umppt min {sc.u_mppt_min:g} V")
-                if sc.u_mppt_max and umpp_cold and umpp_cold > sc.u_mppt_max:
-                    sc.issues.append(f"Umpp při {t_min:g} °C {umpp_cold} V > Umppt max {sc.u_mppt_max:g} V (mimo rozsah sledování)")
-                if sc.i_mppt_max and isc and SAFETY_ISC * isc > sc.i_mppt_max:
-                    sc.issues.append(f"1,25·Isc {SAFETY_ISC * isc:.1f} A > Imax vstupu {sc.i_mppt_max:g} A")
-                if not (sc.u_dc_max or sc.u_mppt_min):
-                    sc.issues.append("střídač nemá zadané Umax / rozsah MPPT (doplňte z artiklu)")
-            out.append(sc)
+            inv_el, port = _trace_inverter(project, s, e)
+            inv = InverterData.from_attrs(inv_el.attrs) if inv_el is not None else None
+            mppt = None
+            mt = re.fullmatch(r"DC(\d+)", port or "")
+            if inv is not None and mt and int(mt.group(1)) >= 1:
+                mppt = (int(mt.group(1)) - 1) // inv.strings_per_mppt
+            found.append((s, e, inv_el, inv, mppt))
+    groups: dict[tuple[str, int], int] = {}
+    for _s, _e, inv_el, _inv, mppt in found:
+        if inv_el is not None and mppt is not None:
+            groups[(inv_el.id, mppt)] = groups.get((inv_el.id, mppt), 0) + 1
+    out = []
+    for s, e, inv_el, inv, mppt in found:
+        n = int(_f(e.attrs.get("n_modules"), 0) or 0)
+        m = ModuleData.from_attrs(e.attrs) or ModuleData(voc=0.0, vmp=0.0, isc=_f(e.attrs.get("isc")) or 0.0,
+                                                         imp=_f(e.attrs.get("imp")),
+                                                         beta_voc=_f(e.attrs.get("beta_voc")) or BETA_VOC_DEFAULT,
+                                                         u_sys_max=_f(e.attrs.get("u_sys_max")))
+        n_par = groups.get((inv_el.id, mppt), 1) if inv_el is not None and mppt is not None else 1
+        uoc_cold, umpp_hot, _umpp_cold = _u_strings(m, n, t_min, t_max)
+        sc = StringCheck(e.ref, n, uoc_cold, umpp_hot, m.isc, inv_el.ref if inv_el else "",
+                         inv.u_dc_max if inv else None, inv.u_mppt_min if inv else None,
+                         inv.u_mppt_max if inv else None, inv.i_mppt_max if inv else None,
+                         sheet=s.name, mppt=mppt, n_par=n_par, isc_mppt_max=inv.isc_mppt_max if inv else None,
+                         t_min=t_min, t_max=t_max)
+        sc.issues = string_issues(m, inv, n, n_par, t_min, t_max)
+        out.append(sc)
     return out
+
+
+_PASS_THROUGH = ("fve.dc_disconnect", "fve.fuse", "fve.terminal", "sb.terminal_block", "fve.spd", "fve.switchboard",
+                 "sb.feed_in", "sb.feed_out", "fve.interrupt")
+_INVERTERS = ("fve.inverter", "fve.inverter_hybrid")
 
 
 def _find_inverter(project: Project, s: Sheet, start: Element, max_depth: int = 8) -> Element | None:
@@ -213,16 +461,63 @@ def _find_inverter(project: Project, s: Sheet, start: Element, max_depth: int = 
                 for end, other in ((w.a, w.b), (w.b, w.a)):
                     if end.element_id == eid and other.element_id not in seen:
                         o = s.element(other.element_id)
-                        if o.symbol_id in ("fve.inverter", "fve.inverter_hybrid"):
+                        if o.symbol_id in _INVERTERS:
                             return o
-                        if o.symbol_id in ("fve.dc_disconnect", "fve.fuse", "fve.terminal", "sb.terminal_block",
-                                           "fve.spd", "fve.switchboard", "sb.feed_in", "sb.feed_out", "fve.interrupt"):
+                        if o.symbol_id in _PASS_THROUGH:
                             seen.add(o.id)
                             nxt.append(o.id)
         frontier = nxt
         if not frontier:
             break
     return None
+
+
+def _block_exit(s: Sheet, block: Element, port: str) -> str | None:
+    """Průchod blokem DC rozvaděče: vstup X{k} ↔ výstup X{k + N/2} (N = počet zapojených portů X…, jako u generátoru).
+    Jiné zapojení → None (nejednoznačné)."""
+    nums = sorted({int(mm.group(1)) for w in s.wires for end in (w.a, w.b) if end.element_id == block.id
+                   and (mm := re.fullmatch(r"X(\d+)", end.port or ""))})
+    mk = re.fullmatch(r"X(\d+)", port or "")
+    if not mk or len(nums) % 2 or int(mk.group(1)) not in nums:
+        return None
+    i = nums.index(int(mk.group(1)))
+    half = len(nums) // 2
+    return f"X{nums[i + half]}" if i < half else None
+
+
+def _trace_inverter(project: Project, s: Sheet, start: Element, max_depth: int = 8) -> tuple[Element | None, str]:
+    """(střídač, port střídače) pro string: střídač jako `_find_inverter`; port jen při jednoznačném řetězci
+    vodičů (přes průchozí prvky, bloky DC rozvaděčů párem portů), jinak "" (MPPT nezjištěn → bez sčítání proudů)."""
+    inv = _find_inverter(project, s, start, max_depth)
+    if inv is None:
+        return None, ""
+    cur, entered = start, None
+    visited = {start.id}
+    for _ in range(max_depth + 1):
+        exit_port = _block_exit(s, cur, entered) if cur.symbol_id == "fve.switchboard" else None
+        if cur.symbol_id == "fve.switchboard" and exit_port is None:
+            return inv, ""
+        nxt = []
+        for w in s.wires:
+            for end, other in ((w.a, w.b), (w.b, w.a)):
+                if end.element_id != cur.id or other.element_id in visited:
+                    continue
+                if exit_port is not None and end.port != exit_port:
+                    continue
+                if exit_port is None and entered is not None and end.port == entered:
+                    continue
+                nxt.append(other)
+        if len({(o.element_id, o.port) for o in nxt}) != 1:
+            return inv, ""
+        o = nxt[0]
+        el = s.element(o.element_id)
+        if el.symbol_id in _INVERTERS:
+            return (inv, o.port) if el.id == inv.id else (inv, "")
+        if el.symbol_id not in _PASS_THROUGH:
+            return inv, ""
+        visited.add(el.id)
+        cur, entered = el, o.port
+    return inv, ""
 
 
 def check_cables(project: Project, t_ambient: float = 30.0, du_limit_pct: float = 3.0) -> list[CableCheck]:

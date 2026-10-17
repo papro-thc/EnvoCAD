@@ -2,7 +2,7 @@
 
 from envocad.library.store import LibraryStore
 from envocad.model import calc
-from envocad.model.checks import check_project
+from envocad.model.checks import WARNING, check_project
 from envocad.model.project import Element, Project, Wire, WireEnd
 
 
@@ -68,3 +68,133 @@ def test_string_and_cable_checks():
     from envocad.export import reports
     _, rows = reports.calculations(p, LibraryStore())
     assert [r[0] for r in rows][:1] == ["String"] and any(r[0] == "Kabel" and r[1] == "W2" for r in rows)
+
+
+# ---- katalog FV: data modulu/střídače, meze stringu, návrh stringů (docs/design/katalog_fv.md §2) ------------
+MOD = calc.ModuleData(voc=49.5, vmp=41.5, isc=13.9, imp=13.2, beta_voc=-0.27)
+INV = calc.InverterData(u_dc_max=1100, u_mppt_min=200, u_mppt_max=1000, i_mppt_max=30, mppt=3, strings_per_mppt=2)
+
+
+def _spec(**inv):
+    return {"name": "S", "inverters": [{"ref": "T1", "p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000,
+                                        "i_mppt_max": 30, "strings": [20, 20, 18], **inv}]}
+
+
+def test_module_and_inverter_from_attrs():
+    m = calc.ModuleData.from_attrs({"voc": "49,5", "isc": "13.9", "imp": "13.2", "u_sys_max": "1500", "p_module": "450"})
+    assert m.vmp == 49.5 * 0.82 and m.beta_voc == calc.BETA_VOC_DEFAULT and m.u_sys_max == 1500 and m.p_wp == 450
+    assert calc.ModuleData.from_attrs({"isc": "13.9"}) is None and calc.ModuleData.from_attrs({"voc": "0"}) is None
+    i = calc.InverterData.from_attrs({"u_dc_max": "1100", "mppt": "3", "strings_per_mppt": "", "isc_mppt_max": "40"})
+    assert i.u_dc_max == 1100 and i.mppt == 3 and i.strings_per_mppt == 2 and i.isc_mppt_max == 40 and i.u_mppt_min is None
+    assert abs(MOD.uoc(-10) - 49.5 * (1 + 0.0027 * 35)) < 1e-9 and MOD.uoc(25) == 49.5
+
+
+def test_design_temperatures():
+    p = Project(name="T")
+    assert calc.design_temperatures(p) == (calc.T_MIN_DEFAULT, calc.T_MAX_DEFAULT) == (-10.0, 70.0)
+    p.meta.update({"pv_t_min": "-20", "pv_t_max": "75,5"})
+    assert calc.design_temperatures(p) == (-20.0, 75.5)
+    p.meta["pv_t_min"] = "x"
+    assert calc.design_temperatures(p)[0] == -10.0
+
+
+def test_string_limits_consistent_with_issues():
+    lim = calc.string_limits(MOD, INV, -10, 70)
+    assert (lim.n_min, lim.n_max, lim.n_par_max) == (6, 20, 2) and lim.ok   # 1100/54,18 → 20; 200/36,46 → 6
+    assert any("nejvýš 20 modulů" in r and "Umax střídače" in r for r in lim.reasons)
+    assert not calc.string_issues(MOD, INV, 20, 1, -10, 70) and not calc.string_issues(MOD, INV, 6, 1, -10, 70)
+    assert any("Umax" in x for x in calc.string_issues(MOD, INV, 21, 1, -10, 70))
+    assert any("Umppt min" in x for x in calc.string_issues(MOD, INV, 5, 1, -10, 70))
+    # chladnější návrhová teplota zmenší horní mez
+    assert calc.string_limits(MOD, INV, -20, 70).n_max == 19
+    # Umax systému modulu
+    m = calc.ModuleData(voc=49.5, vmp=41.5, isc=13.9, u_sys_max=1000)
+    lim = calc.string_limits(m, INV, -10, 70)
+    assert lim.n_max == 18 and any("systému modulu" in r for r in lim.reasons)
+    assert any("> Umax systému modulu 1000 V" in x for x in calc.string_issues(m, INV, 19, 1, -10, 70))
+    # neslučitelné okno: prázdný rozsah
+    narrow = calc.InverterData(u_dc_max=300, u_mppt_min=280, u_mppt_max=290)
+    lim = calc.string_limits(MOD, narrow, -10, 70)
+    assert not lim.ok and any("prázdný" in r for r in lim.reasons)
+    # bez údajů střídače: bez horní meze, s důvodem
+    lim = calc.string_limits(MOD, calc.InverterData(), -10, 70)
+    assert lim.n_max is None and lim.n_min == 1 and any("nemá zadané" in r for r in lim.reasons)
+
+
+def test_string_current_rules():
+    # bez isc_mppt_max: dosavadní pravidlo 1,25·Isc jednoho stringu, paralelní stringy se nesčítají
+    assert not calc.string_issues(MOD, INV, 20, 2, -10, 70)
+    low = calc.InverterData(u_dc_max=1100, u_mppt_min=200, u_mppt_max=1000, i_mppt_max=16)
+    assert calc.string_issues(MOD, low, 20, 1, -10, 70) == ["1,25·Isc 17.4 A > Imax vstupu 16 A"]
+    assert calc.string_limits(MOD, low, -10, 70).n_par_max == 0
+    # s isc_mppt_max: součet Isc = chyba, součet Imp nad Imax = varování „omezení výkonu“
+    inv = calc.InverterData(u_dc_max=1100, u_mppt_min=200, u_mppt_max=1000, i_mppt_max=20, isc_mppt_max=30,
+                            strings_per_mppt=2)
+    assert not calc.string_issues(MOD, inv, 20, 1, -10, 70)
+    issues = calc.string_issues(MOD, inv, 20, 2, -10, 70)   # 2 × 13,9 = 27,8 ≤ 30; 2 × 13,2 = 26,4 > 20
+    assert len(issues) == 1 and "omezení výkonu" in issues[0]
+    tight = calc.InverterData(u_dc_max=1100, u_mppt_min=200, u_mppt_max=1000, i_mppt_max=30, isc_mppt_max=20)
+    assert any("Isc max MPPT 20 A" in x for x in calc.string_issues(MOD, tight, 20, 2, -10, 70))
+    lim = calc.string_limits(MOD, tight, -10, 70)
+    assert lim.n_par_max == 1 and any("nejvýš 1 stringů na MPPT" in r for r in lim.reasons)
+
+
+def test_suggest_inverter_count():
+    assert calc.suggest_inverter_count(30, 25) == 1
+    assert calc.suggest_inverter_count(32.5, 25) == 1             # přesně 1,3
+    assert calc.suggest_inverter_count(40, 25) == 2
+    assert calc.suggest_inverter_count(100, 25, dc_ac_max=1.0) == 4
+    assert calc.suggest_inverter_count(0, 25) == 1 and calc.suggest_inverter_count(10, 0) == 1
+
+
+def test_propose_strings():
+    lim = calc.StringLimits(6, 20, 2)
+    assert calc.propose_strings(58, 1, lim, INV) == ([[20, 19, 19]], 0)
+    assert calc.propose_strings(78, 2, lim, INV) == ([[20, 19], [20, 19]], 0)
+    # kapacita střídače 3 MPPT × 2 stringy = 6 stringů po 20 modulech
+    assert calc.propose_strings(200, 1, lim, INV) == ([[20] * 6], 80)
+    # úzký rozsah: 41 modulů do stringů 18–20 → 2 × 20, jeden zbývá
+    assert calc.propose_strings(41, 1, calc.StringLimits(18, 20, 2), INV) == ([[20, 20]], 1)
+    assert calc.propose_strings(5, 1, lim, INV) == ([[]], 5)            # méně než n_min
+    assert calc.propose_strings(50, 2, calc.StringLimits(1, None, 2), INV) == ([[], []], 50)
+    assert calc.propose_strings(50, 1, calc.StringLimits(6, 20, 0), INV) == ([[]], 50)
+    # neznámý počet MPPT = bez omezení počtu stringů
+    assert calc.propose_strings(200, 1, lim, calc.InverterData())[0] == [[20] * 10]
+    # návrh projde kontrolou stringů
+    for n in calc.propose_strings(58, 1, calc.string_limits(MOD, INV), INV)[0][0]:
+        assert not calc.string_issues(MOD, INV, n, 2)
+
+
+def test_check_strings_groups_by_mppt_through_dc_boxes():
+    from envocad.generate import build_project
+    p = build_project(_spec())          # string → RDC po trase → RDC u technologie → DC1…DC3
+    st = {sc.ref: sc for sc in calc.check_strings(p)}
+    assert [(st[r].mppt, st[r].n_par) for r in ("G1", "G2", "G3")] == [(0, 2), (0, 2), (1, 1)]
+    assert all(sc.ok for sc in st.values()) and st["G1"].t_min == -10.0
+    # isc_mppt_max: dva stringy na MPPT 0 překročí 20 A, samotný G3 ne
+    p = build_project(_spec(isc_mppt_max=20))
+    st = {sc.ref: sc for sc in calc.check_strings(p)}
+    assert not st["G1"].ok and any("Isc 2× 13.9 A" in x for x in st["G1"].issues) and st["G3"].ok
+    assert st["G1"].isc_mppt_max == 20
+    # bez DC rozvaděčů, jeden string na MPPT
+    p = build_project({**_spec(strings_per_mppt=1), "dc": {"route_boxes": 0, "tech_box": False}})
+    assert [(sc.mppt, sc.n_par) for sc in calc.check_strings(p)] == [(0, 1), (1, 1), (2, 1)]
+
+
+def test_check_strings_design_temperatures_and_warning():
+    p, s = _fve()
+    p.meta["pv_t_min"] = "-25"
+    sc = calc.check_strings(p)[0]
+    assert sc.t_min == -25 and sc.uoc_cold == round(20 * 49.5 * (1 + -0.0027 * -50), 1)
+    assert calc.check_strings(p, -10, 70)[0].uoc_cold < sc.uoc_cold     # explicitní teploty vyhrávají
+    from envocad.export import reports
+    _, rows = reports.calculations(p, LibraryStore())
+    assert "Uoc(-25 °C)" in rows[0][2]
+    # „omezení výkonu“ je v kontrole projektu varování, ne chyba
+    g = next(e for e in s.elements if e.ref == "G1")
+    t = next(e for e in s.elements if e.ref == "T1")
+    g.attrs["imp"] = "13.2"
+    t.attrs.update({"isc_mppt_max": "40", "i_mppt_max": "10"})
+    p.meta.pop("pv_t_min")
+    fs = [f for f in check_project(p, LibraryStore()) if f.code == "calc_string"]
+    assert len(fs) == 1 and fs[0].severity == WARNING and "omezení výkonu" in fs[0].text

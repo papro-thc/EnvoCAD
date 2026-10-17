@@ -1416,6 +1416,8 @@ class NoteDialog(QDialog):
 PROJECT_META_FIELDS = [
     ("name", "Název projektu"), ("investor", "Investor"), ("order", "Číslo zakázky"), ("place", "Místo"),
     ("author", "Zpracoval"), ("date", "Datum"), ("revision", "Revize"),
+    # návrhové teploty kontroly stringů (`calc.design_temperatures`); prázdné = výchozí −10 / 70 °C
+    ("pv_t_min", "Návrhová teplota min pro stringy [°C]"), ("pv_t_max", "Návrhová teplota max pro stringy [°C]"),
 ]
 PROJECT_CHANGES_LABEL = "Změnový list (řádek = revize | datum | popis | zpracoval)"
 

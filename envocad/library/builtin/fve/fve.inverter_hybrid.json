@@ -174,6 +174,12 @@
       "label": "Stringů na MPPT",
       "default": "",
       "show": false
+    },
+    {
+      "key": "isc_mppt_max",
+      "label": "Isc max na MPPT [A]",
+      "default": "",
+      "show": false
     }
   ],
   "label_pos": {

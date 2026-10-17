@@ -84,8 +84,9 @@ def export_tz_docx(project: Project, lib: LibraryStore, path: Path | str, templa
              e.attrs.get("p_string", ""), e.attrs.get("voc", ""), e.attrs.get("isc", ""), s.name] for s, e in strings])
     doc.add_paragraph("")
     doc.add_heading("2.1 Kontrola stringů proti střídači", 2)
-    sc = calc.check_strings(project)
-    _table(doc, ["String", "Střídač", f"Uoc při {calc.T_MIN_DEFAULT:g} °C [V]", f"Umpp při {calc.T_MAX_DEFAULT:g} °C [V]",
+    t_min, t_max = calc.design_temperatures(project)
+    sc = calc.check_strings(project, t_min, t_max)
+    _table(doc, ["String", "Střídač", f"Uoc při {t_min:g} °C [V]", f"Umpp při {t_max:g} °C [V]",
                  "1,25·Isc [A]", "Umax / MPPT střídače", "Výsledek"],
            [[x.ref, x.inverter, x.uoc_cold, x.umpp_hot, round(calc.SAFETY_ISC * x.isc, 1),
              f"{x.u_dc_max or '–'} / {x.u_mppt_min or '–'}–{x.u_mppt_max or '–'} V", "vyhovuje" if x.ok else "; ".join(x.issues)]
