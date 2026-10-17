@@ -1,7 +1,7 @@
 {
  "default_1inv": {
   "format": "envocad-project",
-  "format_version": 9,
+  "format_version": 10,
   "name": "Nový projekt FVE",
   "meta": {
    "p_installed_kwp": "26.1"
@@ -2222,7 +2222,7 @@
  },
  "two_inv": {
   "format": "envocad-project",
-  "format_version": 9,
+  "format_version": 10,
   "name": "FVE Test",
   "meta": {
    "investor": "Test s.r.o.",
@@ -5748,7 +5748,7 @@
  },
  "route2_terminals": {
   "format": "envocad-project",
-  "format_version": 9,
+  "format_version": 10,
   "name": "Nový projekt FVE",
   "meta": {
    "p_installed_kwp": "17.1"
@@ -7949,7 +7949,7 @@
  },
  "with_component": {
   "format": "envocad-project",
-  "format_version": 9,
+  "format_version": 10,
   "name": "Nový projekt FVE",
   "meta": {
    "p_installed_kwp": "34.2"

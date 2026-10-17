@@ -80,7 +80,8 @@ Pokyny pro AI agenty: `CLAUDE.md`, `docs/AGENTS.md`.
 | Upravit parametry | dvojklik na prvek nebo vodič |
 | Posun | tažení myší (snap na mřížku 2,5 mm); ruční lomy vodičů jdou s prvky |
 | Úprava trasy vodiče | chytit úsek vodiče a táhnout (vodorovný nahoru/dolů, svislý do stran); `N` narovná vybrané vodiče |
-| Rotace | `R` (o 90°) |
+| Rotace / zrcadlení | `R` (o 90°), `M` zrcadlí podle svislé osy značky (i během vkládání) |
+| Text | `T`, klik do výkresu, text a výška písma; dvojklik upraví, `Delete` smaže |
 | Vodič | `W`, klik na port → klik na port, vyplnit parametry (označení, kabel, průřez) |
 | Smazat | `Delete` |
 | Zoom / posun pohledu | kolečko / střední tlačítko; `Ctrl++` / `Ctrl+-` přiblížit / oddálit, `Home` přizpůsobit list |

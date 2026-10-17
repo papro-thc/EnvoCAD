@@ -12,7 +12,7 @@ from itertools import pairwise
 
 from envocad.model.geometry import Point, orthogonalize
 from envocad.model.project import Element, Project, Sheet, Wire, element_symbol
-from envocad.model.symbol import GRID, rotate_dir
+from envocad.model.symbol import GRID, place_dir
 
 DIR_VEC = {"N": (0, 1), "E": (1, 0), "S": (0, -1), "W": (-1, 0)}
 MIN_GAP = 2 * GRID          # souběžné vodiče blíž než 5 mm = „přes sebe“
@@ -25,7 +25,7 @@ def _snap(v: float) -> float:
 
 def port_geometry(project: Project, sheet: Sheet, lib, e: Element, port: str) -> tuple[Point, str]:
     sym = element_symbol(project, e, lib)
-    return e.port_pos(sym, port), rotate_dir(sym.port(port).dir, e.rotation)
+    return e.port_pos(sym, port), place_dir(sym.port(port).dir, e.rotation, e.mirror)
 
 
 def wire_route(project: Project, sheet: Sheet, lib, w: Wire, stagger: float = 0.0) -> list[Point]:

@@ -229,6 +229,46 @@ class RotateElementCommand(QUndoCommand):
         self._rot(-self.delta)
 
 
+class SheetTextsCommand(QUndoCommand):
+    """Volné texty listu (přidat, upravit, posunout, smazat): stav `Sheet.texts` před a po jako seznamy slovníků."""
+
+    def __init__(self, scene, before: list[dict], after: list[dict], text: str = "Text"):
+        super().__init__(text)
+        self.scene, self.before, self.after = scene, before, after
+
+    def _set(self, state: list[dict]):
+        from envocad.model.project import SheetText
+        self.scene.sheet.texts = [SheetText.from_dict(d) for d in state]
+        self.scene.rebuild_texts()
+
+    def redo(self):
+        self._set(self.after)
+
+    def undo(self):
+        self._set(self.before)
+
+
+class MirrorElementsCommand(QUndoCommand):
+    """Zrcadlit prvky podle svislé osy značky (přepne `Element.mirror`); vodiče se přetrasují na nové porty."""
+
+    def __init__(self, scene, element_ids: list[str]):
+        super().__init__("Zrcadlit")
+        self.scene, self.eids = scene, list(element_ids)
+
+    def _flip(self):
+        for eid in self.eids:
+            e = self.scene.sheet.element(eid)
+            e.mirror = not e.mirror
+            self.scene.element_items[eid].sync_from_model()
+            self.scene.update_wires_of(eid)
+
+    def redo(self):
+        self._flip()
+
+    def undo(self):
+        self._flip()
+
+
 class AddWireCommand(_FeedFollowups, QUndoCommand):
     """Vložení vodiče; vodič JPS na port bloku ROZVADĚČ předá žíly vodičům u přívodu (follow-up, undo ho vrátí)."""
 

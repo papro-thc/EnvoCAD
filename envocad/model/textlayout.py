@@ -12,7 +12,7 @@ from itertools import pairwise
 from envocad.model.designation import display_designation, element_name
 from envocad.model.geometry import Point, wire_label_anchor
 from envocad.model.project import Element, Project, Sheet, element_symbol, element_xref, wire_label, wire_xref
-from envocad.model.symbol import rotate_point
+from envocad.model.symbol import MIRROR_ALIGN, place_point, rotate_point
 
 Box = tuple[float, float, float, float]   # x1, y1, x2, y2 (x1<x2, y1<y2)
 DIR_VEC = {"N": (0, 1), "E": (1, 0), "S": (0, -1), "W": (-1, 0)}
@@ -25,6 +25,13 @@ def text_box(x: float, y: float, text: str, h: float, align: str = "left") -> Bo
     w = len(text) * h * CHAR_W
     x1 = {"left": x, "center": x - w / 2, "right": x - w}.get(align, x)
     return (x1, y - 0.3 * h, x1 + w, y + 1.0 * h)
+
+
+def sheet_text_boxes(t) -> list[Box]:
+    """Obálky řádků volného textu listu (`project.SheetText`)."""
+    from envocad.model.project import TEXT_LINE
+    return [text_box(t.x, t.y - i * TEXT_LINE * t.height, line, t.height) for i, line in enumerate(t.lines())
+            if line.strip()]
 
 
 def boxes_overlap(a: Box, b: Box, tol: float = 0.15) -> bool:
@@ -62,7 +69,7 @@ def element_label_lines(project: Project, sheet: Sheet, e: Element, sym) -> list
 
 def symbol_box(e: Element, sym) -> Box:
     x1, y1, x2, y2 = sym.bounds()
-    pts = [rotate_point(px, py, e.rotation) for px, py in ((x1, y1), (x2, y2))]
+    pts = [place_point(px, py, e.rotation, getattr(e, "mirror", False)) for px, py in ((x1, y1), (x2, y2))]
     xs, ys = [e.x + p[0] for p in pts], [e.y + p[1] for p in pts]
     return (min(xs), min(ys), max(xs), max(ys))
 
@@ -200,7 +207,7 @@ def segment_hits_box(p: Point, q: Point, b: Box, tol: float = 0.2) -> bool:
 def symbol_segments(e: Element, sym) -> list[tuple[Point, Point]]:
     """Čáry značky v souřadnicích listu (čáry, hrany obdélníků a lomených čar, kružnice jako čtverec)."""
     def tr(x, y):
-        rx, ry = rotate_point(x, y, e.rotation)
+        rx, ry = place_point(x, y, e.rotation, getattr(e, "mirror", False))
         return (e.x + rx, e.y + ry)
     out = []
     for pr in sym.primitives:
@@ -225,7 +232,7 @@ def symbol_text_boxes(e: Element, sym) -> list[Box]:
     out = []
     for pr in sym.primitives:
         if pr["type"] == "text":
-            x, y = rotate_point(pr["x"], pr["y"], e.rotation)
+            x, y = place_point(pr["x"], pr["y"], e.rotation, getattr(e, "mirror", False))
             h = pr.get("height", 2.5)
             if e.rotation % 180:
                 w = len(pr["text"]) * h * CHAR_W
@@ -233,7 +240,8 @@ def symbol_text_boxes(e: Element, sym) -> list[Box]:
                 up, down = (1.0 * h, 0.3 * h) if e.rotation % 360 == 270 else (0.3 * h, 1.0 * h)
                 out.append((e.x + x - down, e.y + y - w / 2, e.x + x + up, e.y + y + w / 2))
             else:
-                out.append(text_box(e.x + x, e.y + y, pr["text"], h, pr.get("align", "center")))
+                align = pr.get("align", "center")
+                out.append(text_box(e.x + x, e.y + y, pr["text"], h, MIRROR_ALIGN.get(align, align) if getattr(e, "mirror", False) else align))
     return out
 
 
@@ -346,6 +354,9 @@ def compute_layout(project: Project, sheet: Sheet, lib, routes: dict[str, list[P
             _add_line(grid, a, b, e.id)
         for b in symbol_text_boxes(e, sym):
             grid.add(b, "text", e.id + "#sym")
+    for t in sheet.texts:                      # volné texty listu: popisky se jim vyhnou
+        for b in sheet_text_boxes(t):
+            grid.add(b, "text", t.id)
     for wid, pts in routes.items():
         for a, b in pairwise(pts):
             _add_line(grid, a, b, wid)
@@ -428,6 +439,8 @@ def sheet_content_boxes(project: Project, sheet: Sheet, lib, layout: SheetTextLa
     for m in lay.mirrors.values():
         out += list(m.boxes)
         out += [(min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)) for x1, y1, x2, y2 in m.lines]
+    for t in sheet.texts:
+        out += sheet_text_boxes(t)
     return out
 
 

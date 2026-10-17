@@ -173,7 +173,8 @@ Tři vrstvy rozšíření, od nejjednodušší:
    rozvaděčů, importéry v menu, vlastní výkazy. Vzor: `envocad/plugins_builtin/example_counts.py`.
    Budoucí obory (HVAC, MaR, silnoproud budov) = balíček knihovny + plugin se šablonami a výkazy, jádro se nemění.
 
-Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **9** – připomínky `Project.notes`;
+Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **10** – zrcadlení prvku `Element.mirror` a volné
+texty listu `Sheet.texts`; v9 přidala připomínky `Project.notes`;
 v8 přidala strukturní označení a revize v `Project`, `Sheet.func/loc`; migrace v `model/project.py:migrate`), takže
 rozšíření modelu nerozbije staré soubory. Načítání validuje strukturu (`Project.from_dict` → `CorruptProjectError`, česky „Soubor je poškozen: list X,
 prvek Y – …“; vstupní slovník se nemění), odkazy uvnitř projektu ale nevaliduje: vodič na neexistující prvek se načte,

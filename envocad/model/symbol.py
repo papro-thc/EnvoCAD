@@ -272,3 +272,18 @@ def rotate_dir(d: str, rot: int) -> str:
     steps = (rot // 90) % 4
     # DIRS = N,E,S,W (po směru hod. ručiček); rotace proti směru → index klesá
     return DIRS[(i - steps) % 4]
+
+
+def place_point(x: float, y: float, rot: int, mirror: bool = False) -> tuple[float, float]:
+    """Bod značky do souřadnic prvku: nejdřív zrcadlení podle svislé osy značky (x → −x), pak otočení."""
+    return rotate_point(-x if mirror else x, y, rot)
+
+
+def place_dir(d: str, rot: int, mirror: bool = False) -> str:
+    """Směr portu prvku: zrcadlení prohodí E/W, pak otočení (jako `place_point`)."""
+    if mirror and d in ("E", "W"):
+        d = "W" if d == "E" else "E"
+    return rotate_dir(d, rot)
+
+
+MIRROR_ALIGN = {"left": "right", "right": "left", "center": "center"}

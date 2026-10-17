@@ -223,7 +223,7 @@ def test_migrate_does_not_mutate_input():
              "wires": [{"id": "w", "a": {"element_id": "1", "port": "DC+"}, "b": {"element_id": "2", "port": "DC+"}}]}]}
     before = copy.deepcopy(d)
     out = migrate(d, 4)
-    assert d == before and out["format_version"] == 9
+    assert d == before and out["format_version"] == 10
     Project.from_dict(d)
     assert d == before
 

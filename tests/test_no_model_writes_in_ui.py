@@ -2,7 +2,7 @@
 
 V `envocad/ui/` (rekurzivně) mimo `commands.py` se hlásí zápisy do polí objektů modelu (`FIELDS`: attrs,
 conductors, terminals, mp_pos, points, port, bridges, wires, elements, meta, sheets, structures, component_id, x, y,
-rotation, name):
+rotation, mirror, name):
 - přiřazení `X.<pole> = …` (i v n-tici, `+=`, `del`) a `X.<pole>[k] = …`;
 - volání slovníkových a seznamových mutátorů `X.<pole>.update/pop/setdefault/clear/popitem/append/extend/insert/
   remove/sort(…)`.
@@ -21,7 +21,7 @@ from pathlib import Path
 
 UI = Path(__file__).resolve().parent.parent / "envocad" / "ui"
 FIELDS = {"attrs", "conductors", "terminals", "mp_pos", "points", "port", "bridges", "wires", "elements", "meta",
-          "sheets", "structures", "component_id", "x", "y", "rotation", "name"}
+          "sheets", "structures", "component_id", "x", "y", "rotation", "mirror", "name"}
 MUTATORS = {"update", "pop", "setdefault", "clear", "popitem", "append", "extend", "insert", "remove", "sort"}
 OK = re.compile(r"#\s*model-write-ok:\s*\S")
 

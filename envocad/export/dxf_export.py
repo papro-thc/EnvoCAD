@@ -10,7 +10,7 @@ import ezdxf
 
 from envocad.library.store import LibraryStore
 from envocad.model.project import Element, Project, Sheet, element_symbol
-from envocad.model.symbol import GRID, Symbol, rotate_point
+from envocad.model.symbol import GRID, MIRROR_ALIGN, Symbol, place_point
 
 LAYERS = {
     "SYMBOLY": 7, "VODICE": 7, "TEXTY": 7, "RAMECEK": 8, "REVIZE": 1,   # REVIZE = červená (porty se do DXF nekreslí)
@@ -35,6 +35,7 @@ class _At:
 
     def __init__(self, x: float, y: float, rotation: float):
         self.x, self.y, self.rotation = x, y, rotation
+        self.mirror = False
 
 
 def _snap(v: float) -> float:
@@ -42,7 +43,7 @@ def _snap(v: float) -> float:
 
 
 def _tr(e: Element, x: float, y: float) -> tuple[float, float]:
-    rx, ry = rotate_point(x, y, e.rotation)
+    rx, ry = place_point(x, y, e.rotation, getattr(e, "mirror", False))
     return (e.x + rx, e.y + ry)
 
 
@@ -67,6 +68,7 @@ def _draw_symbol_at(msp, e, sym: Symbol) -> None:
     """Grafika značky (bez portů a popisků) v počátku `e.x, e.y` natočená o `e.rotation` – prvek listu nebo pól
     ve vícepólu (`_At`). Oblouky a kružnice zůstanou přesné."""
     rot = e.rotation
+    mirror = getattr(e, "mirror", False)
     for p in sym.primitives:
         t = p["type"]
         a = {"layer": "SYMBOLY"}
@@ -82,11 +84,14 @@ def _draw_symbol_at(msp, e, sym: Symbol) -> None:
                 h = msp.add_hatch(color=7, dxfattribs=a)
                 h.paths.add_edge_path().add_arc(_tr(e, p["cx"], p["cy"]), p["r"], 0, 360)
         elif t == "arc":
-            msp.add_arc(_tr(e, p["cx"], p["cy"]), p["r"], p["start"] + rot, p["end"] + rot, dxfattribs=a)
+            start, end = (180 - p["end"], 180 - p["start"]) if mirror else (p["start"], p["end"])
+            msp.add_arc(_tr(e, p["cx"], p["cy"]), p["r"], start + rot, end + rot, dxfattribs=a)
         elif t == "polyline":
             msp.add_lwpolyline([_tr(e, x, y) for x, y in p["points"]], close=p.get("closed", False), dxfattribs=a)
         elif t == "text":
-            _text(msp, *_tr(e, p["x"], p["y"]), p["text"], p.get("height", 2.5), p.get("align", "center"), rot)
+            align = p.get("align", "center")
+            _text(msp, *_tr(e, p["x"], p["y"]), p["text"], p.get("height", 2.5),
+                  MIRROR_ALIGN.get(align, align) if mirror else align, rot)
 
 
 def _text(msp, x, y, text, height, align, rot, layer="SYMBOLY"):
@@ -154,6 +159,11 @@ def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Pa
         _draw_symbol(msp, e, element_symbol(project, e, lib), lay.elements.get(e.id))
     for m in lay.mirrors.values():           # zrcadla kontaktů pod hostiteli
         _draw_geometry(msp, m, "TEXTY")
+    from envocad.model.project import TEXT_LINE
+    for t in sheet.texts:                    # volné texty listu
+        for i, line in enumerate(t.lines()):
+            if line.strip():
+                _text(msp, t.x, t.y - i * TEXT_LINE * t.height, line, t.height, "left", 0, layer="TEXTY")
     for w in sheet.wires:
         pts = lay.routes.get(w.id) or _wire_points(project, sheet, lib, w)
         msp.add_lwpolyline(pts, dxfattribs={"layer": "VODICE"})

@@ -189,7 +189,7 @@ def test_v7_revisions_from_meta_skips_header_and_free_text():
 
 def test_example_migrates_to_current():
     p = Project.load(EXAMPLE)
-    assert FORMAT_VERSION == 9
+    assert FORMAT_VERSION == 10
     assert all(s.func == "" and s.loc == "" for s in p.sheets)
     assert p.structures == [] and p.revisions == [] and p.notes == []
 
@@ -204,7 +204,7 @@ def test_v8_to_v9_notes():
     assert p.sheets[0].func == "AC" and p.structures[0].code == "AC"
     assert p.revisions[0].label == "A" and p.revisions[0].fingerprints == {"s1": "x"}
     out = p.to_dict()
-    assert out["format_version"] == 9 and out["notes"] == []
+    assert out["format_version"] == FORMAT_VERSION and out["notes"] == []
     _roundtrip_stable(p)
 
 
@@ -231,3 +231,32 @@ def test_v9_notes_roundtrip_and_v8_program_rejects():
             Project.from_dict(d)
     finally:
         prj.FORMAT_VERSION = old
+
+
+def test_v9_to_v10_mirror_and_texts():
+    """v10: zrcadlení prvku a volné texty listu – v9 je nemá (výchozí hodnoty), uloží se jen když jsou použité;
+    program s formátem 9 soubor v10 odmítne (nezahodí tiše zrcadlení a texty)."""
+    from envocad.model.project import SheetText
+    p = Project.from_dict(_v(9, [_sheet("s1", [_el("f", "fve.breaker_mcb", "F1")])]))
+    assert p.sheets[0].texts == [] and p.sheets[0].elements[0].mirror is False
+    out = p.to_dict()
+    assert "texts" not in out["sheets"][0] and "mirror" not in out["sheets"][0]["elements"][0]
+    p.sheets[0].elements[0].mirror = True
+    p.sheets[0].texts.append(SheetText(10, 20, "Řádek 1\nŘádek 2", 3.5))
+    d = json.loads(json.dumps(p.to_dict()))
+    assert d["format_version"] == 10 and d["sheets"][0]["elements"][0]["mirror"] is True
+    q = Project.from_dict(d)
+    assert q.sheets[0].elements[0].mirror and q.sheets[0].texts[0].lines() == ["Řádek 1", "Řádek 2"]
+    _roundtrip_stable(q)
+    import envocad.model.project as prj
+    old = prj.FORMAT_VERSION
+    try:
+        prj.FORMAT_VERSION = 9
+        with pytest.raises(ValueError, match="novější"):
+            Project.from_dict(d)
+    finally:
+        prj.FORMAT_VERSION = old
+    bad = copy.deepcopy(d)
+    bad["sheets"][0]["texts"][0]["height"] = 0
+    with pytest.raises(ValueError, match="height"):
+        Project.from_dict(bad)

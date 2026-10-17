@@ -673,7 +673,7 @@ def _expand_once(project, sheet, fragment: dict, values: dict, dx: float, dy: fl
         cid = subst(src.component_id, values) if src.component_id else None
         if cid and _PH.search(cid):
             cid = None   # nedosazený artikl („{inv}“ bez hodnoty)
-        new = Element(symbol_id=src.symbol_id, x=src.x + dx, y=src.y + dy, rotation=src.rotation, attrs=attrs,
+        new = Element(symbol_id=src.symbol_id, x=src.x + dx, y=src.y + dy, rotation=src.rotation, mirror=src.mirror, attrs=attrs,
                       component_id=cid or None)
         if cid and components is not None and src.component_id != cid:
             comp = components(cid)

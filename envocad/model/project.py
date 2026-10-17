@@ -21,7 +21,7 @@ from envocad.model.designation import (
     scope_key,
     sheet_scope,
 )
-from envocad.model.symbol import Attribute, Port, Symbol, placeholder_symbol, rotate_point, with_orphan_ports
+from envocad.model.symbol import Attribute, Port, Symbol, place_point, placeholder_symbol, with_orphan_ports
 
 # Atributy vodiče (vodič nemá symbol, proto jsou definované zde)
 WIRE_ATTRIBUTES = [
@@ -42,7 +42,7 @@ SWITCHBOARD_WIRE_ATTRIBUTES = [
     Attribute("prod", "Do výrobního seznamu (0 = ne)"),
 ]
 
-FORMAT_VERSION = 9
+FORMAT_VERSION = 10
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 DEVICE_HEIGHT_MM = 45.0  # mm – výška modulového přístroje na liště (rozložení, délky vodičů)
@@ -170,6 +170,7 @@ class Element:
     component_id: str | None = None  # přiřazený artikl z knihovny
     mp_pos: tuple[float, float] | None = None  # ruční pozice ve vícepólu (None = automatické rozmístění)
     id: str = field(default_factory=_uid)
+    mirror: bool = False  # zrcadleno podle svislé osy značky (před otočením, v10); popisky a texty se nezrcadlí
 
     @property
     def ref(self) -> str:
@@ -196,7 +197,7 @@ class Element:
 
     def port_pos(self, symbol: Symbol, port_name: str) -> tuple[float, float]:
         p = symbol.port(port_name)
-        rx, ry = rotate_point(p.x, p.y, self.rotation)
+        rx, ry = place_point(p.x, p.y, self.rotation, self.mirror)
         return (self.x + rx, self.y + ry)
 
     def to_dict(self) -> dict:
@@ -204,6 +205,7 @@ class Element:
             "id": self.id, "symbol_id": self.symbol_id, "x": self.x, "y": self.y,
             "rotation": self.rotation, "attrs": self.attrs, "component_id": self.component_id,
             **({"mp_pos": list(self.mp_pos)} if self.mp_pos else {}),
+            **({"mirror": True} if self.mirror else {}),
         }
 
     @classmethod
@@ -215,7 +217,7 @@ class Element:
         return cls(
             symbol_id=str(d["symbol_id"]), x=_float(d["x"], "x"), y=_float(d["y"], "y"), rotation=rot,
             attrs=_str_attrs(d.get("attrs")), component_id=str(cid) if cid else None, id=str(d["id"]),
-            mp_pos=_point(d["mp_pos"], "mp_pos") if d.get("mp_pos") else None,
+            mp_pos=_point(d["mp_pos"], "mp_pos") if d.get("mp_pos") else None, mirror=d.get("mirror") is True,
         )
 
 
@@ -609,6 +611,36 @@ class Note:
                    resolved_by=d.get("resolved_by", ""), resolved=d.get("resolved", ""), id=d.get("id") or _uid())
 
 
+TEXT_HEIGHTS = (2.5, 3.5, 5.0, 7.0)   # výšky písma volného textu [mm] (ISO 3098)
+TEXT_LINE = 1.4                        # řádkování víceřádkového textu (× výška)
+
+
+@dataclass
+class SheetText:
+    """Volný text listu (v10): poznámka, nadpis části výkresu. (x, y) = levý bod základny prvního řádku [mm, Y nahoru];
+    další řádky (zalomení v `text`) jsou pod ním po `TEXT_LINE` × výška. Kreslí se ve výkresu, PDF i DXF; nepatří
+    k prvku a do výkazů nejde."""
+    x: float = 0.0
+    y: float = 0.0
+    text: str = ""
+    height: float = 2.5
+    id: str = field(default_factory=_uid)
+
+    def lines(self) -> list[str]:
+        return self.text.splitlines() or [""]
+
+    def to_dict(self) -> dict:
+        return {"id": self.id, "x": self.x, "y": self.y, "text": self.text, "height": self.height}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> SheetText:
+        h = _float(d.get("height", 2.5), "height")
+        if not 0.5 <= h <= 50:
+            raise ValueError(f"položka „height“ textu mimo rozsah 0,5–50 mm: {h}")
+        return cls(x=_float(d.get("x", 0), "x"), y=_float(d.get("y", 0), "y"), text=str(d.get("text") or ""),
+                   height=h, id=str(d.get("id") or _uid()))
+
+
 @dataclass
 class Sheet:
     name: str = "Jednopólové schéma"
@@ -629,6 +661,7 @@ class Sheet:
     # prázdné = podle firemního standardu (`multipole.paper_choice`). Nepovinný klíč – ukládá se, jen když je zadaný.
     mp_paper: str = ""
     id: str = field(default_factory=_uid)
+    texts: list[SheetText] = field(default_factory=list)   # volné texty listu (v10)
 
     @property
     def is_switchboard(self) -> bool:
@@ -655,7 +688,14 @@ class Sheet:
             "elements": [e.to_dict() for e in self.elements], "wires": [w.to_dict() for w in self.wires],
             "bridges": self.bridges, "func": self.func, "loc": self.loc,
             **({"mp_paper": self.mp_paper} if self.mp_paper else {}),
+            **({"texts": [t.to_dict() for t in self.texts]} if self.texts else {}),
         }
+
+    def text(self, tid: str) -> SheetText:
+        for t in self.texts:
+            if t.id == tid:
+                return t
+        raise KeyError(tid)
 
     def restore_state(self, d: dict) -> None:
         """Nastaví list na stav `d` (z `to_dict`) na místě – objekt listu zůstane (drží ho pohledy a příkazy undo).
@@ -689,6 +729,8 @@ class Sheet:
                      for k, v in _dict(d.get("bridges"), "bridges").items()},
             func=str(d.get("func") or ""), loc=str(d.get("loc") or ""),
             mp_paper=str(d.get("mp_paper") or ""),
+            texts=[_part(SheetText.from_dict, x, f"{where}, text {k + 1}")
+                   for k, x in enumerate(_list(d.get("texts"), "texts"))],
         )
 
 
@@ -1124,6 +1166,8 @@ def migrate(d: dict, ver: int) -> dict:
     if ver < 9:
         # v9: připomínky (Project.notes). Starší program v9 odmítne místo tichého zahození připomínek při uložení.
         d.setdefault("notes", [])
+    # v10: zrcadlení prvku (`Element.mirror`, jen když je True) a volné texty listu (`Sheet.texts`) – nepovinné,
+    # bez migrace dat. Starší program v10 odmítne místo tichého zahození zrcadlení a textů při uložení.
     d["format_version"] = FORMAT_VERSION
     return d
 
@@ -1437,7 +1481,7 @@ def paste_fragment(project: Project, fragment: dict, ref_prefix_of, dx: float = 
     els: list[Element] = []
     for d in fragment.get("elements", []):
         e = Element.from_dict(d)
-        new = Element(symbol_id=e.symbol_id, x=e.x + dx, y=e.y + dy, rotation=e.rotation,
+        new = Element(symbol_id=e.symbol_id, x=e.x + dx, y=e.y + dy, rotation=e.rotation, mirror=e.mirror,
                       attrs=detach_element_attrs(e.symbol_id, e.attrs), component_id=e.component_id)
         prefix = copy_prefix(e, ref_prefix_of(e.symbol_id))
         if e.symbol_id in ("sb.terminal_block", "fve.terminal"):

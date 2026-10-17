@@ -246,6 +246,7 @@ class MainWindow(QMainWindow):
         act(m_edit, "Smazat makro…", self.delete_macro)
         act(m_edit, "Smazat", self.delete_selected, "Delete", "delete")
         act(m_edit, "Otočit o 90°", lambda: self.draw_scene and self.draw_scene.rotate_selected(), "R", "rotate")
+        act(m_edit, "Zrcadlit", lambda: self.scene and self.scene.mirror_selected(), "M", "mirror")
         act(m_edit, "Narovnat vodič (zrušit ruční lomy)", lambda: self.scene and self.scene.straighten_selected(),
             "N", "straighten")
         m_edit.addSeparator()
@@ -263,6 +264,8 @@ class MainWindow(QMainWindow):
         act(m_draw, "Výběr (Esc)", lambda: self.draw_scene and self.draw_scene.set_mode(Mode.SELECT), None, "select")
         act(m_draw, "Vodič (W)", lambda: self.draw_scene and self.draw_scene.start_wire(), None, "wire")
         act(m_draw, "Vložit značku z knihovny", self.insert_symbol, None, "insert_symbol")
+        act(m_draw, "Přerušovací bod", lambda: self.scene and self.scene.start_place("fve.interrupt"), None, "interrupt")
+        act(m_draw, "Text", lambda: self.scene and self.scene.set_mode(Mode.TEXT), "T", "text")
         self.act_note = act(m_draw, "Připomínka", self.start_note, "Ctrl+Shift+P", "note")
 
         m_view = mb.addMenu("&Zobrazit")
@@ -995,7 +998,8 @@ class MainWindow(QMainWindow):
     def _show_mode(self, mode: Mode) -> None:
         txt = {Mode.SELECT: "Výběr", Mode.PLACE: "Vkládání symbolu – klik umístí, Esc/pravé tl. ukončí",
                Mode.WIRE: "Vodič – klikněte na port, pak na druhý port",
-               Mode.NOTE: "Připomínka – klik = bod, tah = obdélník, Esc/pravé tl. ukončí"}[mode]
+               Mode.NOTE: "Připomínka – klik = bod, tah = obdélník, Esc/pravé tl. ukončí",
+               Mode.TEXT: "Text – klik umístí text (dvojklik na text = úprava), Esc/pravé tl. ukončí"}[mode]
         self.statusBar().showMessage(txt)
         self._sync_tool_checks()
 
@@ -2042,7 +2046,8 @@ class MainWindow(QMainWindow):
         ("tb_edit", "Úpravy", ("undo", "redo", None, "copy", "paste", "delete", None, "find")),
         ("tb_view", "Pohled", ("fit", "zoom_in", "zoom_out", "focus", None, "view_singlepole", "view_multipole",
                                "view_layout", "view_terminals", None, "dark")),
-        ("tb_draw", "Kreslení", ("select", "wire", "insert_symbol", "note", None, "rotate", "straighten")),
+        ("tb_draw", "Kreslení", ("select", "wire", "insert_symbol", "interrupt", "text", "note", None, "rotate", "mirror",
+                                 "straighten")),
         ("tb_layout", "Dispozice", ("enclosure", "production")),
         ("tb_out", "Kontrola a výstupy", ("checks", "reports", "doc_pdf", "labels")),
     )
@@ -2053,11 +2058,14 @@ class MainWindow(QMainWindow):
         "view_singlepole": "singlepole", "view_multipole": "multipole", "view_layout": "din-rail",
         "view_terminals": "terminal-strip", "dark": "moon", "select": "mouse-pointer-2", "wire": "wire",
         "insert_symbol": "component", "note": "message-square-plus", "rotate": "rotate-cw", "straighten": "straighten",
+        "mirror": "flip-horizontal-2", "text": "type", "interrupt": "interrupt",
         "enclosure": "package", "production": "factory", "checks": "circle-check-big", "reports": "table",
         "doc_pdf": "book-open", "labels": "tag",
     }
     TEXT_BESIDE: ClassVar[dict[str, str]] = {"checks": "Kontrola", "doc_pdf": "Dokumentace"}   # tlačítka s popiskem
-    TOOLS: ClassVar[dict[str, Mode]] = {"select": Mode.SELECT, "wire": Mode.WIRE, "insert_symbol": Mode.PLACE, "note": Mode.NOTE}
+    TOOLS: ClassVar[dict[str, Mode]] = {"select": Mode.SELECT, "wire": Mode.WIRE, "insert_symbol": Mode.PLACE, "note": Mode.NOTE,
+                                        "text": Mode.TEXT}
+    JPS_ONLY = ("copy", "paste", "straighten", "mirror", "text", "interrupt")   # jen editor JPS / listu (ne vícepól)
     VIEWS: ClassVar[dict[str, str]] = {"view_singlepole": "schematic", "view_multipole": "multipole", "view_layout": "layout",
              "view_terminals": "terminals"}
 
@@ -2112,10 +2120,10 @@ class MainWindow(QMainWindow):
         draw, jps = self.draw_scene is not None, self.scene is not None
         self.toolbars["tb_draw"].setVisible(draw)
         self.toolbars["tb_layout"].setVisible(kind == "layout")
-        for k in ("copy", "paste", "straighten"):
-            self.actions[k].setEnabled(jps)
         for k in ("delete", "rotate", *self.TOOLS):
             self.actions[k].setEnabled(draw)
+        for k in self.JPS_ONLY:
+            self.actions[k].setEnabled(jps)
         for k in ("fit", "zoom_in", "zoom_out"):
             self.actions[k].setEnabled(v is not None)
         for k, vk in self.VIEWS.items():
@@ -2277,7 +2285,7 @@ class MainWindow(QMainWindow):
                 menu.addAction(self.actions["straighten"])
             menu.addSeparator()
         if hit is not None:
-            for k in ("rotate", "copy", "delete"):
+            for k in ("rotate", "mirror", "copy", "delete"):
                 if self.actions[k].isEnabled():
                     menu.addAction(self.actions[k])
             if self.scene is not None:

@@ -46,7 +46,7 @@ Nahoře jsou lišty s ikonami (tooltip ukáže název a zkratku):
 | Soubor | nový, otevřít, uložit, export PDF a DXF |
 | Úpravy | zpět, znovu, kopírovat, vložit, smazat, najít označení |
 | Pohled | přizpůsobit list, přiblížit, oddálit, Jen výkres; přepínač Jednopól / Vícepól / Rozložení / Svorkovnice (zamáčknutý = zobrazený pohled); tmavý režim |
-| Kreslení | výběr, vodič, vložit značku, připomínka, otočit, narovnat vodič – jen v JPS a schématu rozvaděče, aktivní nástroj je zamáčknutý |
+| Kreslení | výběr, vodič, vložit značku, přerušovací bod, text, připomínka, otočit, zrcadlit, narovnat vodič – jen v JPS a schématu rozvaděče (přerušovací bod, text, zrcadlit a narovnat jen v editoru listu, ne ve vícepólu), aktivní nástroj je zamáčknutý |
 | Dispozice | skříň rozvaděče, výrobní data – jen v rozložení rozvaděče (místo lišty Kreslení) |
 | Kontrola a výstupy | kontrola F7, výkazy, celá dokumentace PDF, štítky |
 
@@ -91,7 +91,7 @@ Druhy záložek (podle názvu):
 ### Vložení prvku
 Dvojklik na značku v Knihovně (nebo hledej: „jistič“, „střídač“, „string“) → klik do výkresu → vyplnit dialog
 s parametry → OK. Režim vkládání trvá, dokud nezmáčkneš `Esc` nebo pravé tlačítko. Během vkládání `R` otáčí
-značku o 90°.
+značku o 90° a `M` ji zrcadlí.
 
 V dialogu lze vybrat **artikl z knihovny** („Vybrat artikl z knihovny…“): typ, výrobce, In, póly,
 charakteristika, Icu, moduly, ztrátový výkon atd. se propíší do prvku. Označení (F1, Q2, T1…) se předvyplní
@@ -111,9 +111,18 @@ vodiče. Stejně jde vodič na jiném vodiči i ukončit. Uzel má čtyři porty
 
 ### Úpravy
 Dvojklik na prvek nebo vodič otevře dialog s parametry, panel Vlastnosti upravuje jednotlivé atributy přímo.
-Tažení myší posouvá (snap 2,5 mm), `R` otáčí, `Delete` maže, `Ctrl+Z`/`Ctrl+Y` vrací. `Ctrl+C`/`Ctrl+V`
+Tažení myší posouvá (snap 2,5 mm), `R` otáčí, `M` zrcadlí, `Delete` maže, `Ctrl+Z`/`Ctrl+Y` vrací. `Ctrl+C`/`Ctrl+V`
 kopíruje vybrané prvky včetně vodičů mezi nimi – kopie dostanou nová označení a posun 10 mm. Výběr více prvků
 tažením rámečku v prázdné ploše. Kolečko zoomuje, střední tlačítko posouvá pohled, `Home` přizpůsobí list.
+
+**Zrcadlit** (`M`, Úpravy → Zrcadlit, i pravé tlačítko) obrátí vybrané značky podle jejich svislé osy – porty
+vpravo jsou pak vlevo a vodiče se k nim přetrasují; popisky a texty ve značce zůstanou čitelné. Platí pro výkres,
+PDF i DXF; vícepól si přístroje rozmisťuje sám a zrcadlení nepřebírá.
+
+**Text** (`T`, Kreslit → Text): klik do výkresu otevře dialog s textem (víc řádků) a výškou písma 2,5 / 3,5 / 5 /
+7 mm. Text se posouvá myší, dvojklik ho upraví (smazáním celého textu se odstraní), `Delete` maže. Je ve výkresu,
+v PDF i DXF (vrstva TEXTY) a popisky prvků se mu vyhnou. Texty se nekopírují se schránkou ani makrem a změnový
+list revize je nesleduje.
 
 **Přečíslovat označení** (`Úpravy → Přečíslovat označení…`): nový prvek dostane další volné číslo sám (F1, F2…),
 tenhle příkaz srovná označení hromadně. Rozsah je aktuální list nebo celý projekt, režim **Jen doplnit chybějící
@@ -175,7 +184,7 @@ hodnoty v dialogu **Makro – název**. Makro bez proměnných se vloží hned j
   už existující sdílené prvky zůstanou.
 
 ### Přerušovací body
-Prvek **Přerušovací bod** (Svorky a propojení) přenese potenciál jinam – dva body se stejným označením se
+Prvek **Přerušovací bod** (Svorky a propojení, nebo tlačítko na liště Kreslení) přenese potenciál jinam – dva body se stejným označením se
 spárují a každý ukazuje polohu protějšku (`→ /2.C3` = list 2, sloupec C, řádek 3 v síti rámečku). Rámeček
 s popisovým polem je zatím vypnutý – zapne ho `Zobrazit → Rámeček a popisové pole` (platí i pro PDF a DXF).
 
@@ -658,6 +667,8 @@ v projektu je ověř u výrobce.
 | `W` | kreslit vodič |
 | `Esc` | zpět do výběru |
 | `R` | otočit o 90° |
+| `M` | zrcadlit |
+| `T` | text |
 | `Delete` | smazat |
 | `Ctrl+Z` / `Ctrl+Y` | zpět / znovu |
 | `Ctrl+C` / `Ctrl+V` | kopírovat / vložit kopii |
