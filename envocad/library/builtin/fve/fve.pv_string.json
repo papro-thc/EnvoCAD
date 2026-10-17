@@ -207,6 +207,12 @@
       "show": false
     },
     {
+      "key": "opt_u_mppt_max",
+      "label": "Optimizér – U MPPT max [V]",
+      "default": "",
+      "show": false
+    },
+    {
       "key": "opt_isc_in_max",
       "label": "Optimizér – Isc max vstupu [A]",
       "default": "",

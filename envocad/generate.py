@@ -53,6 +53,7 @@ artikl optimizéru > classic (prázdné); pravidla `n_opt_min` / `n_opt_max` / `
 from __future__ import annotations
 
 import json
+import logging
 import math
 import sys
 from pathlib import Path
@@ -80,6 +81,8 @@ from envocad.model.project import (
     sync_cables,
     sync_feed_links,
 )
+
+log = logging.getLogger("envocad.generate")
 
 BATTERY_ROW_EXTRA = 40.0   # místo pro baterii pod hybridním střídačem (mm)
 INV_LABEL_SPACE = 40.0     # popisek DC kabelu („W12  2× H1Z2Z2-K 1x6 mm²“) mezi blokem rozvaděče a lomy ke střídači
@@ -416,14 +419,21 @@ def _modules_per_optimizer(comp) -> int:
 
 def _apply_optimizer_component(opt: dict) -> tuple[dict, object | None]:
     """Artikl optimizéru (`optimizer.component_id`): prázdný typ ← part_number, `per_module` ← 1 / modulů na
-    optimizér. Vrací (nová specifikace optimizéru, artikl | None); neznámý artikl → beze změny a None."""
+    optimizér (zadané jiné `per_module` se nepoužije – počet optimizérů musí odpovídat `opt_*` atributům; zaloguje
+    se varování, průvodce to hlásí v asistentu). Vrací (nová specifikace optimizéru, artikl | None); neznámý artikl →
+    beze změny a None. Průvodce při vymazaném typu `component_id` neposílá (= bez optimizérů)."""
     out = dict(opt)
     comp = _lib().component(opt.get("component_id"))
     if comp is None or comp.category != "optimizer":
         return out, None
     if not str(out.get("type") or "").strip():
         out["type"] = comp.part_number
-    out["per_module"] = 1 / _modules_per_optimizer(comp)
+    per = 1 / _modules_per_optimizer(comp)
+    given = _num(opt.get("per_module"))
+    if given is not None and abs(given - per) > 1e-9:
+        log.warning("optimizer.per_module %g neodpovídá artiklu %s (%g ks/modul) – použije se hodnota z artiklu",
+                    given, comp.id, per)
+    out["per_module"] = per
     out["component_id"] = comp.id
     return out, comp
 

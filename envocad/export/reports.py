@@ -8,6 +8,7 @@ import functools
 from collections import OrderedDict
 
 from envocad.library.store import LibraryStore
+from envocad.model.notes import plural
 from envocad.model.designation import LOCATION_SYMBOLS, designation, element_name, full_designation, scope_key
 from envocad.model.project import NON_DEVICE_SYMBOLS, Element, Project, Sheet, clean_view
 from envocad.model.xref import natural_key
@@ -461,6 +462,10 @@ def _g(v) -> str:
     return "–" if v is None else f"{v:g}"
 
 
+def _modules(n: int) -> str:
+    return f"{n} {plural(n, 'modul', 'moduly', 'modulů')}"
+
+
 def fixed_voltage_parts(sc) -> tuple[str, str]:
     """(„pevné U 750 V“, „P stringu 6160 / 11250 W“) stringu s pevným napětím (`calc.StringCheck`, neznámé „–“)."""
     return f"pevné U {_g(sc.u_string)} V", f"P stringu {_g(sc.p_string)} / {_g(sc.p_string_max)} W"
@@ -468,7 +473,7 @@ def fixed_voltage_parts(sc) -> tuple[str, str]:
 
 def fixed_voltage_text(sc) -> str:
     """Hodnoty stringu s pevným napětím pro výkaz Výpočty: „14 optimizérů, pevné U 750 V, P stringu 6160 / 11250 W“."""
-    n_opt = f"{sc.n_opt} optimizérů, " if sc.n_opt else ""
+    n_opt = f"{sc.n_opt} {plural(sc.n_opt, 'optimizér', 'optimizéry', 'optimizérů')}, " if sc.n_opt else ""
     return n_opt + ", ".join(fixed_voltage_parts(sc))
 
 
@@ -482,11 +487,11 @@ def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None
         if sheet is not None and sc.sheet != sheet.name:
             continue
         if sc.mode == "fixed_voltage":   # pevné napětí (SolarEdge): Uoc·n ani okno MPPT se nekontrolují
-            vals = f"{sc.n} modulů, {fixed_voltage_text(sc)}"
+            vals = f"{_modules(sc.n)}, {fixed_voltage_text(sc)}"
             lim = f"{sc.inverter}: optimizérů {sc.n_opt_min or '–'}–{sc.n_opt_max or '–'}, " \
                   f"P stringu ≤ {_g(sc.p_string_max)} W"
         else:
-            vals = f"{sc.n} modulů, Uoc({sc.t_min:g} °C) = {sc.uoc_cold} V, Umpp({sc.t_max:g} °C) = {sc.umpp_hot} V, 1,25·Isc = {calc.SAFETY_ISC * sc.isc:.1f} A"
+            vals = f"{_modules(sc.n)}, Uoc({sc.t_min:g} °C) = {sc.uoc_cold} V, Umpp({sc.t_max:g} °C) = {sc.umpp_hot} V, 1,25·Isc = {calc.SAFETY_ISC * sc.isc:.1f} A"
             lim = f"{sc.inverter}: Umax {sc.u_dc_max or '–'} V, MPPT {sc.u_mppt_min or '–'}–{sc.u_mppt_max or '–'} V, Imax {sc.i_mppt_max or '–'} A"
             if sc.isc_mppt_max:   # nové pravidlo: součet Isc paralelních stringů na MPPT
                 lim += f", Isc max MPPT {sc.isc_mppt_max:g} A ({sc.n_par} str. na MPPT)"

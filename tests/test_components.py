@@ -155,7 +155,7 @@ def test_optimizer_values_by_phase():
     assert c.symbol_id == "" and c.category == "optimizer"
     v3 = c.optimizer_values(3)
     assert v3 == {"optimizer": "TP850", "opt_manufacturer": "TestEdge", "opt_p_max": "850", "opt_u_in_max": "125",
-                  "opt_u_mppt_min": "12,5", "opt_isc_in_max": "14.5", "opt_i_out_max": "15", "opt_u_out_max": "85",
+                  "opt_u_mppt_min": "12,5", "opt_u_mppt_max": "105", "opt_isc_in_max": "14.5", "opt_i_out_max": "15", "opt_u_out_max": "85",
                   "opt_modules": "2", "opt_partial": "0", "opt_compat": "TestEdge", "optimizer_id": "test-opt-850",
                   "opt_n_min": "8", "opt_n_max": "25", "opt_p_string_max": "11250"}
     v1 = c.optimizer_values("1")
@@ -224,7 +224,7 @@ def test_builtin_optimizer_and_inverter_headers():
 
 def test_hidden_optimizer_and_mode_attributes():
     for sid, keys in (("fve.pv_string", ("optimizer_id", "opt_manufacturer", "opt_p_max", "opt_p_tol", "opt_u_in_max",
-                                         "opt_u_mppt_min", "opt_isc_in_max", "opt_i_out_max", "opt_u_out_max",
+                                         "opt_u_mppt_min", "opt_u_mppt_max", "opt_isc_in_max", "opt_i_out_max", "opt_u_out_max",
                                          "opt_modules", "opt_partial", "opt_compat", "opt_n_min", "opt_n_max",
                                          "opt_p_string_max", "orientation")),
                       ("fve.inverter", ("string_mode", "u_string", "n_opt_min", "n_opt_max", "p_string_max")),

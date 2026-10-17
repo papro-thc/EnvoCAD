@@ -46,7 +46,7 @@ jen u optimizéru (Huawei pravidla nejsou v listu optimizéru); matice optimizé
 `components.py`: NUMERIC + číselné sloupce; PARAM_TO_ATTR jen střídač (`string_mode`, `u_string_v`→`u_string`,
 `n_opt_min`, `n_opt_max`, `p_string_max_w`→`p_string_max`); optimizér **vlastní** mapa `OPTIMIZER_ATTRS`
 a `Component.optimizer_values(phases) -> dict` (`part_number`→`optimizer`, `manufacturer`→`opt_manufacturer`,
-`opt_p_max`, `opt_p_tol`, `opt_u_in_max`, `opt_u_mppt_min`, `opt_isc_in_max`, `opt_i_out_max`, `opt_u_out_max`,
+`opt_p_max`, `opt_p_tol`, `opt_u_in_max`, `opt_u_mppt_min`, `opt_u_mppt_max`, `opt_isc_in_max`, `opt_i_out_max`, `opt_u_out_max`,
 `opt_modules`, `opt_partial`, `optimizer_id` + pravidla dané fáze) – nekoliduje s `type`/`manufacturer` modulu.
 `optimizer_error(row)`: povinné `p_max_w`, `u_in_max_v`, `isc_in_max_a` (bez nich neukládat), u_mppt_min < u_mppt_max
 ≤ u_in_max, mpo ∈ {1, 2}, `string_mode` z množiny, n_min ≤ n_max; `inverter_error` + `string_mode` z množiny,

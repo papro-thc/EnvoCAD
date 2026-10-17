@@ -602,6 +602,7 @@ class ProjectWizard(QDialog):
                   self.t_min, self.t_max, self.mod_total, self.strings, self.opt_type, self.opt_per):
             w.textChanged.connect(self.update_assistant)
         self.string_mode.currentIndexChanged.connect(self.update_assistant)
+        self.opt_type.textChanged.connect(self._opt_type_changed)
         self.update_assistant()
 
     # ---- katalog (docs/design/katalog_fv.md §4): pole se vyplní z artiklu, ruční úprava pole vyhrává --------------
@@ -684,6 +685,23 @@ class ProjectWizard(QDialog):
         self._set_catalog_label(self.opt_label, comp)
         self.update_assistant()
 
+    def _opt_type_changed(self, text: str) -> None:
+        """Vymazaný typ optimizéru = bez optimizérů: zruší i vazbu na artikl (jinak by generátor typ z artiklu doplnil)."""
+        if not text.strip() and self._opt_comp is not None:
+            self.clear_optimizer()
+
+    def _opt_per_mismatch(self) -> str:
+        """Poznámka, když ručně zadané „ks na modul“ neodpovídá artiklu optimizéru (generátor i asistent počítají
+        s 1 / modulů na optimizér z artiklu); jinak ""."""
+        if self._opt_comp is None:
+            return ""
+        mpo = 2 if self._opt_comp.num("modules_per_optimizer") == 2 else 1
+        per = self._num(self.opt_per)
+        if per is None or abs(per - 1 / mpo) < 1e-9:
+            return ""
+        return (f"Ručně zadané {per:g} ks/modul neodpovídá artiklu ({_n_word(mpo, _MODULE_WORDS)} na optimizér) – "
+                f"počítá se s {1 / mpo:g} ks/modul z artiklu; pro jiný počet zrušte vazbu na artikl (×).")
+
     def clear_optimizer(self) -> None:
         self._opt_comp = None
         self._set_catalog_label(self.opt_label, None)
@@ -757,6 +775,13 @@ class ProjectWizard(QDialog):
             return round(n * per)
         return None
 
+    def _manual_mpo(self) -> int | None:
+        """Modulů na optimizér z ručního „ks na modul“ (bez artiklu optimizéru; 0,5 → 2), jinak None."""
+        from envocad.model.calc import modules_per_optimizer
+        if self._opt_comp is not None or not self.opt_type.text().strip():
+            return None
+        return modules_per_optimizer(self.opt_per.text())
+
     def _string_groups(self) -> list[list[int]]:
         from envocad.generate import parse_strings
         try:
@@ -805,13 +830,15 @@ class ProjectWizard(QDialog):
         mod, inv, t_min, t_max, opt = self._calc_data()
         if mod is None:
             return "<i>Zadejte Uoc modulu – asistent pak spočítá rozsah stringu.</i>"
-        lim = string_limits(mod, inv, t_min, t_max, opt)
+        lim = string_limits(mod, inv, t_min, t_max, opt, self._manual_mpo())
         hi = "?" if lim.n_max is None else str(lim.n_max)
         step = f", po {lim.step} modulech" if lim.step > 1 else ""
         lines = [f"<b>Modulů ve stringu: {lim.n_min}–{hi}{step}</b>"
                  + (f" ({'; '.join(lim.reasons)})" if lim.reasons else "")
                  + f"<br>Stringů na MPPT ≤ {lim.n_par_max}"]
         lines += self._mode_lines(mod, inv, opt, lim, t_min, t_max)
+        if note := self._opt_per_mismatch():
+            lines.append(f"<span style='color:#b26a00'>{note}</span>")
         groups = self._string_groups()
         for i, results in enumerate(self.string_results()):
             res: dict[tuple, int] = {}
@@ -894,7 +921,7 @@ class ProjectWizard(QDialog):
         n_inv = len(groups) or 1
         if total and mod.p_wp and inv.p_ac:
             n_inv = max(n_inv, suggest_inverter_count(n_total * mod.p_wp / 1000, inv.p_ac))
-        out, left = propose_strings(n_total, n_inv, string_limits(mod, inv, t_min, t_max, opt), inv)
+        out, left = propose_strings(n_total, n_inv, string_limits(mod, inv, t_min, t_max, opt, self._manual_mpo()), inv)
         out = [g for g in out if g]
         if not out:
             QMessageBox.warning(self, "Navrhnout stringy", "Pro tento modul a střídač nelze stringy navrhnout – "
@@ -1022,7 +1049,7 @@ class ProjectWizard(QDialog):
             if u_sys:
                 module["u_sys_max"] = float(u_sys.replace(",", "."))
         optimizer = {"type": self.opt_type.text().strip(), "per_module": v.get("opt_per") or 1}
-        if self._opt_comp is not None:
+        if self._opt_comp is not None and optimizer["type"]:   # bez typu = bez optimizérů, artikl se neposílá
             optimizer["component_id"] = self._opt_comp.id
         site = {k: v[k] for k in ("t_min", "t_max") if v.get(k) not in (None, "")}
         return {

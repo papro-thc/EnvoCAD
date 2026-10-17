@@ -86,16 +86,23 @@ def export_tz_docx(project: Project, lib: LibraryStore, path: Path | str, templa
     doc.add_heading("2.1 Kontrola stringů proti střídači", 2)
     t_min, t_max = calc.design_temperatures(project)
     sc = calc.check_strings(project, t_min, t_max)
-    _table(doc, ["String", "Střídač", f"Uoc při {t_min:g} °C [V]", f"Umpp při {t_max:g} °C [V]",
-                 "1,25·Isc [A]", "Umax / MPPT střídače", "Výsledek"],
-           [[x.ref, x.inverter, x.uoc_cold, x.umpp_hot, round(calc.SAFETY_ISC * x.isc, 1),
-             f"{x.u_dc_max or '–'} / {x.u_mppt_min or '–'}–{x.u_mppt_max or '–'} V", "vyhovuje" if x.ok else "; ".join(x.issues)]
-            if x.mode != "fixed_voltage" else   # pevné napětí: místo Uoc / Umpp pevné U a P stringu
-            [x.ref, x.inverter, *reports.fixed_voltage_parts(x),
-             round(calc.SAFETY_ISC * x.isc, 1), f"{x.u_dc_max or '–'} V; optimizérů {x.n_opt_min or '–'}–{x.n_opt_max or '–'}",
-             "vyhovuje" if x.ok else "; ".join(x.issues)]
-            for x in sc])
-    doc.add_paragraph("")
+    classic = [x for x in sc if x.mode != "fixed_voltage"]
+    fixed = [x for x in sc if x.mode == "fixed_voltage"]
+    if classic or not fixed:
+        _table(doc, ["String", "Střídač", f"Uoc při {t_min:g} °C [V]", f"Umpp při {t_max:g} °C [V]",
+                     "1,25·Isc [A]", "Umax / MPPT střídače", "Výsledek"],
+               [[x.ref, x.inverter, x.uoc_cold, x.umpp_hot, round(calc.SAFETY_ISC * x.isc, 1),
+                 f"{x.u_dc_max or '–'} / {x.u_mppt_min or '–'}–{x.u_mppt_max or '–'} V",
+                 "vyhovuje" if x.ok else "; ".join(x.issues)] for x in classic])
+        doc.add_paragraph("")
+    if fixed:   # pevné napětí (SolarEdge): Uoc·n, okno MPPT ani 1,25·Isc nemají význam – vlastní tabulka
+        doc.add_paragraph("Stringy s pevným napětím (optimizér na každém modulu, napětí řídí střídač):")
+        _table(doc, ["String", "Střídač", "Modulů / optimizérů", "Pevné napětí", "P stringu / max [W]",
+                     "Optimizérů min–max", "Umax střídače [V]", "Výsledek"],
+               [[x.ref, x.inverter, f"{x.n} / {x.n_opt or '–'}", *reports.fixed_voltage_parts(x),
+                 f"{x.n_opt_min or '–'}–{x.n_opt_max or '–'}", x.u_dc_max or "–",
+                 "vyhovuje" if x.ok else "; ".join(x.issues)] for x in fixed])
+        doc.add_paragraph("")
 
     doc.add_heading("3. Střídače a akumulace", 1)
     invs = [(s, e) for s in project.sheets for e in s.elements if e.symbol_id in ("fve.inverter", "fve.inverter_hybrid", "fve.battery")]
