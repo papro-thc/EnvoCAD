@@ -245,7 +245,10 @@ prvky bez skupin svorek.
 
 ### Plán svorkovnice
 `Zobrazit → Plán svorkovnice` (`Ctrl+Shift+M`): svorky v řadě, nahoře vnější připojení (kabel z JPS),
-dole vnitřní (přístroj), můstky. Export do PDF, stejná data jsou i jako list ve výkazech.
+dole vnitřní (přístroj), můstky. Krátké svorkovnice jsou vedle sebe, další pod nimi; dlouhá svorkovnice se
+zalomí do dalšího pásu („(pokračování)“) a co se nevejde na stranu, pokračuje na další straně (v editoru pod
+sebou, v PDF listu i v dokumentaci každá strana zvlášť, popisové pole „n/N“). Žádná svorka se nevynechá.
+Export do PDF, stejná data jsou i jako list ve výkazech.
 
 ### Rozložení a skříň
 `Ctrl+L` otevře rozložení: DIN lišty podle řad, přístroje se přetahují na lišty (snap 0,5 modulu), vpravo
@@ -377,8 +380,8 @@ Výchozí hodnoty (kabely, zpracoval) bere průvodce z **firemního standardu** 
 
 | Výstup | Kde |
 |---|---|
-| PDF listu (skutečný formát / zmenšený na A4) | Soubor → Export PDF / Export PDF na A4 |
-| DXF listu | Soubor → Export DXF |
+| PDF listu (skutečný formát / zmenšený na A4) – z JPS, schématu (vícepólu) i plánu svorkovnice rozvaděče; z rozložení celý pohled zmenšený na A3 (A4) | Soubor → Export PDF / Export PDF na A4 |
+| DXF listu – jen z jednopólového schématu a listu rozvaděče v editoru (z vícepólu, plánu svorkovnice a rozložení program upozorní, ať se použije PDF) | Soubor → Export DXF |
 | **Celá dokumentace do jednoho PDF**: titulní list, obsah, listy JPS, schéma + plán svorkovnice každého rozvaděče, výkazy, změnový list | Výstupy → Celá dokumentace (`Ctrl+Shift+E`) |
 | Výkazy xlsx (Data pro DS, Výpočty, Přístroje, Výkaz materiálu, Kabely, Kabelový plán, Zapojovací seznam, Svorkovnice, Plán svorkovnice, Štítky) | Výstupy → Výkazy listu / projektu |
 | Protokol kusového ověření rozvaděče (docx) | Výstupy → Protokol kusového ověření |
@@ -388,7 +391,25 @@ Výchozí hodnoty (kabely, zpracoval) bere průvodce z **firemního standardu** 
 
 Rámeček listu má popisové pole (projekt, zakázka, investor, místo, list, číslo listu, zpracoval, datum,
 revize, formát), souřadnicovou síť A–H × 1–6 a QR kód s identifikací výkresu. Údaje se zadávají v
-Soubor → Vlastnosti projektu, název firmy v popisovém poli v nastavení (`standard.company`).
+Soubor → Vlastnosti projektu, název firmy v popisovém poli v nastavení (`standard.company`) – stejný název je na
+titulní straně dokumentace a v protokolu kusového ověření. Dlouhý text se v buňce popisového pole zmenší, a když
+se nevejde ani tak, zkrátí se s „…“. Kresba vícepólu se automaticky posune nahoru, aby nezasahovala do popisového
+pole a QR kódu (ručně přesunuté přístroje zůstanou, kde jsou).
+
+**Celá dokumentace (PDF)**: obsah má sloupce *Strana* (fyzická strana PDF, u víc stran rozsah „19–20“), *Název*
+a *List výkresu* (číslo listu projektu, které ukazuje popisové pole listu – např. „2/6“). Strany obsahu, výkazů
+a změnového listu nesou v popisovém poli číslo strany dokumentace („15/33“), strany listů číslo listu výkresu.
+Obsah, výkazy i změnový list jsou tabulky stránkované na víc stran; šířky sloupců se řídí obsahem a šířkou strany,
+dlouhý text se v buňce zalomí. **Bez rámečku** (výchozí) má každá strana malé „strana n/N“ v pravém dolním rohu –
+dokumentace se vždy dá očíslovat a seřadit, rámeček ale zůstává volbou uživatele (např. pro vložení do rámečku
+zákazníka). Otevřené připomínky listu rozvaděče se v dokumentaci (s volbou „Přidávat připomínky do exportu“)
+ukážou na straně jeho vícepólu u přístroje, ke kterému patří (vodič → jeho první konec); připomínka bez vazby na
+přístroj je vlevo nahoře na první straně vícepólu s poznámkou, že patří k listu rozvaděče.
+
+**docx** (technická zpráva, protokol kusového ověření): A4, jazyk čeština, vlastnosti dokumentu (název, autor =
+Zpracoval projektu nebo `standard.author`, datum); výkazy v technické zprávě na šířku, šířky sloupců podle obsahu.
+**xlsx**: označení začínající „=“ (=AC+RDC1-F1) jsou text, ne vzorec; průřez, délka, číslo žíly a číslo svorky
+jsou čísla.
 
 ### Revize
 Soubor → Vlastnosti projektu: revize, datum, změnový list (řádek = `revize | datum | popis | zpracoval`).
@@ -396,7 +417,11 @@ Soubor → Vlastnosti projektu: revize, datum, změnový list (řádek = `revize
 skříň) a jedním tlačítkem zapíše změny do změnového listu; dvojklik skočí na změněný prvek.
 
 Výkres ukazuje změny trojúhelníky s číslem revize (červeně, také v DXF ve vrstvě `REVIZE`); revize listu se
-objeví v popisovém poli toho listu (když je zapnutý rámeček). Revizi uzavřeš v menu **Soubor**:
+objeví v popisovém poli toho listu (když je zapnutý rámeček). List, který se od začátku sledování revizí
+nezměnil, ukazuje výchozí stav – revizi z vlastností projektu před prvním porovnáním (při prvním porovnání se
+uloží jako uzavřená revize), a když tam žádná nebyla, prázdnou revizi; novou revizi ukazují jen změněné listy.
+Opakované porovnání do téže otevřené revize řádky změnového listu té revize nahradí (nezdvojí). Znak „|“ v popisu
+změny se zapíše jako „¦“, aby se sloupce změnového listu nerozpadly. Revizi uzavřeš v menu **Soubor**:
 
 | Položka | Co dělá |
 |---|---|
@@ -459,8 +484,9 @@ Dialog **Připomínka**:
 
 Při zapnutém přepínači:
 - **PDF listu** (JPS) a **Celá dokumentace** – připomínky jsou anotace PDF (komentáře v Adobe Acrobat a
-  Readeru: bod jako poznámka, oblast jako obdélník; autor, text a číslo). Vícepól a plán svorkovnice připomínky
-  nemají.
+  Readeru: bod jako poznámka, oblast jako obdélník; autor, text a číslo). PDF vícepólu a plánu svorkovnice
+  připomínky nemají; v celé dokumentaci jsou připomínky listu rozvaděče na straně jeho vícepólu (bod u přístroje,
+  viz sekce 8).
 - **DXF listu** – připomínky ve vrstvě `PRIPOMINKY` (purpurová), s textem zalomeným na 40 znaků.
 
 ### Revize a kontroly

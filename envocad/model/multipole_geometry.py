@@ -49,12 +49,19 @@ class MultipoleGeometry:
     # popisky žil: (id vodiče, žíla, část) → (x, y, text, zarovnání); část 0 = žíla / úsek k přerušení na straně
     # zdroje, 1 = úsek za přerušením. Scéna je kreslí přesně tady (rozmístěné mimo cizí čáry a texty).
     conductor_labels: dict[tuple[str, str, int], tuple[float, float, str, str]] = field(default_factory=dict)
+    origins: dict[str, Point] = field(default_factory=dict)    # prvek → poloha (po stránkování a posunu)
+    page_of: dict[str, int] = field(default_factory=dict)      # prvek → strana
+
+
+TB_PAD = 2.5          # odstup kresby od popisového pole a QR kódu
 
 
 def multipole_geometry(project: Project, sheet: Sheet, lib) -> MultipoleGeometry:
-    """Texty a čáry vícepólu listu rozvaděče (souřadnice pohledu, strany pod sebou)."""
-    from envocad.model.frame import MARGIN, MARGIN_LEFT
-    g = MultipoleGeometry()
+    """Texty a čáry vícepólu listu rozvaděče (souřadnice pohledu, strany pod sebou).
+
+    Se zapnutým rámečkem se automaticky rozmístěné prvky strany, jejichž kresba by zasahovala do popisového pole
+    nebo QR kódu vedle něj, posunou nahoru (o násobek mřížky, nejvýš pod nadpis rozvaděče). Výsledné polohy
+    prvků jsou v `origins` – scéna (`ui/multipole_view.py`) je převezme, takže kreslí totéž."""
     poles: dict[str, mp.ElementPoles] = {}
     for e in sheet.elements:
         poles[e.id] = mp.element_poles(sheet, e, element_symbol(project, e, lib))
@@ -62,7 +69,68 @@ def multipole_geometry(project: Project, sheet: Sheet, lib) -> MultipoleGeometry
                             page_w=mp.page_width(sheet))
     for eid, ep in poles.items():
         ep.origin = layout.get(eid, (ep.element.x, ep.element.y))
-    page_of, g.pages = mp.paginate(sheet, poles)
+    page_of, n_pages = mp.paginate(sheet, poles)
+    g = _build(project, sheet, poles, page_of, n_pages)
+    shifts = _title_block_shifts(project, sheet, g, poles, page_of)
+    if shifts:
+        for eid, ep in poles.items():
+            dy = shifts.get(page_of.get(eid, 0), 0.0)
+            if dy and not ep.element.mp_pos:
+                ep.origin = (ep.origin[0], ep.origin[1] + dy)
+        g = _build(project, sheet, poles, page_of, n_pages)
+    g.origins = {eid: ep.origin for eid, ep in poles.items()}
+    g.page_of = dict(page_of)
+    return g
+
+
+def _title_block_shifts(project: Project, sheet: Sheet, g: MultipoleGeometry, poles, page_of) -> dict[int, float]:
+    """Posun nahoru (mm, na mřížce) pro každou stranu, na které kresba automaticky rozmístěných prvků zasahuje do
+    popisového pole s QR kódem. Jen se zapnutým rámečkem; nejvýš tolik, aby kresba nezasáhla nadpis rozvaděče."""
+    from envocad.model.frame import MARGIN, frame_enabled, title_block_box
+    if not frame_enabled():
+        return {}
+    tb = title_block_box(sheet.width, sheet.height)
+    tb = (tb[0] - TB_PAD, tb[1], tb[2], tb[3] + TB_PAD)
+    pitch = mp.page_pitch(sheet)
+    title = switchboard_title(project, sheet)
+    top_limit = sheet.height - MARGIN - 4.0 - (9.0 + 4.2 * max(len(title) - 1, 0) if title else 0.0) - TB_PAD
+    auto = {eid for eid, ep in poles.items() if not ep.element.mp_pos}
+    low: dict[int, float] = {}      # strana → nejnižší bod kresby v oblasti popisového pole (lokální y strany)
+    top: dict[int, float] = {}      # strana → nejvyšší bod kresby automatických prvků
+    for box, owner, _w in g.texts:
+        eid = owner.split("#")[0]
+        if eid not in auto:
+            continue
+        k = page_of.get(eid, 0)
+        x0, y0, x1, y1 = box[0], box[1] + k * pitch, box[2], box[3] + k * pitch
+        top[k] = max(top.get(k, y1), y1)
+        if x1 > tb[0] and x0 < tb[2] and y0 < tb[3]:
+            low[k] = min(low.get(k, y0), y0)
+    for a, b, owner, _w in g.lines:
+        eid = owner.split("#")[0]
+        if eid not in auto:
+            continue
+        k = page_of.get(eid, 0)
+        ys = (a[1] + k * pitch, b[1] + k * pitch)
+        top[k] = max(top.get(k, max(ys)), max(ys))
+        if max(a[0], b[0]) > tb[0] and min(a[0], b[0]) < tb[2] and min(ys) < tb[3]:
+            low[k] = min(low.get(k, min(ys)), min(ys))
+    out: dict[int, float] = {}
+    for k, y in low.items():
+        need = tb[3] - y
+        room = top_limit - top.get(k, top_limit)
+        dy = min(need, max(room, 0.0))
+        dy = -(-dy // mp.GRID) * mp.GRID if dy == need else (dy // mp.GRID) * mp.GRID
+        if dy > 0:
+            out[k] = dy
+    return out
+
+
+def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], page_of: dict[str, int],
+           n_pages: int) -> MultipoleGeometry:
+    from envocad.model.frame import MARGIN, MARGIN_LEFT
+    g = MultipoleGeometry()
+    g.pages = n_pages
     pitch = mp.page_pitch(sheet)
 
     def text(x: float, y: float, s: str, h: float, align: str, owner: str, what: str) -> None:
@@ -301,7 +369,42 @@ def _place_conductor_labels(g: MultipoleGeometry, pending) -> None:
                 s += 10.0
         return s
 
+    placed: list[tuple[str, Point, Point, Point]] = []   # (text, úsek trasy, bod popisku) – už rozmístěné popisky
+
+    def nearest_seg(pts: list[Point], x: float, y: float) -> tuple[Point, Point] | None:
+        best_d, best_seg = None, None
+        for a, b in pairwise(pts):
+            if a == b:
+                continue
+            cx = min(max(x, min(a[0], b[0])), max(a[0], b[0]))
+            cy = min(max(y, min(a[1], b[1])), max(a[1], b[1]))
+            d = (cx - x) ** 2 + (cy - y) ** 2
+            if best_d is None or d < best_d:
+                best_d, best_seg = d, (a, b)
+        return best_seg
+
+    def duplicate(pts: list[Point], label: str) -> bool:
+        """Stejný popisek už leží u úseku, který tato žíla sdílí (žíly několika vodičů vedené po stejné čáře
+        do jedné svorky – např. PE ze svodičů do XPE): druhý popisek by se jen opakoval."""
+        for text, a, b, (lx, ly) in placed:
+            if text != label:
+                continue
+            for c, d in pairwise(pts):
+                if abs(a[0] - b[0]) < 1e-6 and abs(c[0] - d[0]) < 1e-6 and abs(a[0] - c[0]) < 1e-6:
+                    lo, hi = max(min(a[1], b[1]), min(c[1], d[1])), min(max(a[1], b[1]), max(c[1], d[1]))
+                    if hi - lo > 1.0 and lo - 2.0 <= ly <= hi + 2.0:
+                        return True
+                elif abs(a[1] - b[1]) < 1e-6 and abs(c[1] - d[1]) < 1e-6 and abs(a[1] - c[1]) < 1e-6:
+                    lo, hi = max(min(a[0], b[0]), min(c[0], d[0])), min(max(a[0], b[0]), max(c[0], d[0]))
+                    if hi - lo > 1.0 and lo - 2.0 <= lx <= hi + 2.0:
+                        return True
+        return False
+
     for key, owner, pts, label, staggered in pending:
+        if duplicate(pts, label):
+            x, y, _a, _v = mp.conductor_label_anchor(pts, staggered)
+            g.conductor_labels[key] = (x, y, "", "left")    # prázdný = scéna popisek nekreslí
+            continue
         best, best_s = None, None
         for i, (x, y, align) in enumerate(_label_candidates(pts, staggered, label)):
             box = text_box(x, y, label, 1.8, align)
@@ -312,6 +415,9 @@ def _place_conductor_labels(g: MultipoleGeometry, pending) -> None:
                 break
         x, y, align, box = best
         g.conductor_labels[key] = (x, y, label, align)
+        seg = nearest_seg(pts, x, y)
+        if seg is not None:
+            placed.append((label, seg[0], seg[1], (x, y)))
         tgrid.add(box, len(g.texts))
         g.texts.append((box, owner, f"popisek žíly {key[1]}"))
 

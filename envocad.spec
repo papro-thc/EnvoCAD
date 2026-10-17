@@ -9,6 +9,17 @@ root = Path(SPECPATH)
 datas = collect_data_files("envocad", includes=["library/builtin/**/*.json", "library/builtin/**/*.csv",
                                                  "library/builtin/**/*.md", "plugins_builtin/*.py"],
                            include_py_files=True)
+# české překlady Qt (tlačítka Ano/Ne/Storno, souborový dialog) – envocad.app.install_qt_translations je hledá
+# v adresáři překladů Qt; cílová cesta v balíčku = stejná relativní cesta vůči site-packages jako ve vývojovém
+# prostředí (Linux PySide6/Qt/translations, Windows PySide6/translations), kam míří i runtime hook PyInstalleru
+import PySide6
+from PySide6.QtCore import QLibraryInfo
+
+_tr_src = Path(QLibraryInfo.path(QLibraryInfo.TranslationsPath)).resolve()
+_tr_dest = _tr_src.relative_to(Path(PySide6.__file__).resolve().parent.parent)
+for _name in ("qtbase_cs.qm", "qt_cs.qm"):
+    if (_tr_src / _name).exists():
+        datas.append((str(_tr_src / _name), str(_tr_dest)))
 # pypdf se importuje lokálně ve funkci (export/pdf_annots.py) → PyInstaller ho sám nemusí najít
 hidden = ["envocad.plugins_builtin.example_counts", "openpyxl", "docx", "ezdxf", "pypdf"]
 

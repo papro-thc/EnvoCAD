@@ -460,6 +460,8 @@ def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None
     head = ["Část", "Prvek", "Hodnoty", "Mez / porovnání", "Výsledek"]
     rows = []
     for sc in calc.check_strings(project):
+        if sheet is not None and sc.sheet != sheet.name:
+            continue
         vals = f"{sc.n} modulů, Uoc({calc.T_MIN_DEFAULT:g} °C) = {sc.uoc_cold} V, Umpp({calc.T_MAX_DEFAULT:g} °C) = {sc.umpp_hot} V, 1,25·Isc = {calc.SAFETY_ISC * sc.isc:.1f} A"
         lim = f"{sc.inverter}: Umax {sc.u_dc_max or '–'} V, MPPT {sc.u_mppt_min or '–'}–{sc.u_mppt_max or '–'} V, Imax {sc.i_mppt_max or '–'} A"
         rows.append(["String", sc.ref, vals, lim, "OK" if sc.ok else "; ".join(sc.issues)])
@@ -470,7 +472,7 @@ def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None
         lim = f"Iz = {cc.iz or '–'} A" + (f", In {cc.breaker_ref} = {cc.in_breaker:g} A" if cc.in_breaker else "") + \
               (f", ΔU = {cc.du_v} V ({cc.du_pct} %)" if cc.du_pct is not None else "")
         rows.append(["Kabel", cc.ref, vals, lim, "OK" if not cc.issues else "; ".join(cc.issues)])
-    for lo, hi, il, ih, msg in calc.check_selectivity(project):
+    for lo, hi, il, ih, msg in calc.check_selectivity(project, sheet):
         rows.append(["Selektivita", f"{lo} → {hi}", f"In {il:g} A → {ih:g} A", f"poměr ≥ {calc.SELECTIVITY_RATIO}", msg])
     return head, rows
 

@@ -54,6 +54,12 @@ def default_db_path() -> Path:
     return home_dir() / "library.db"
 
 
+# načtené soubory knihovny v tomto procesu: (cesta, mtime, velikost) → řádek tabulky symbols / seznam artiklů. Další
+# LibraryStore (jiná databáze, generátor, testy) nemusí stejné soubory znovu parsovat; změněný soubor má jiné mtime.
+_PARSED_SYMBOLS: dict[tuple[str, float, int], tuple] = {}
+_PARSED_CSV: dict[tuple[str, float, int], list] = {}
+
+
 class LibraryStore:
     def __init__(self, path: Path | str | None = None, load_builtin: bool = True):
         self.path = Path(path) if path else default_db_path()
@@ -82,7 +88,7 @@ class LibraryStore:
                 pass
         for root, tag in sources:
             self._sync_symbols(root, tag, seen, rows)
-            self._sync_components(root)
+            self._sync_components(root, tag, seen)
         n = len(rows)
         if rows:
             self.conn.executemany(
@@ -100,25 +106,38 @@ class LibraryStore:
             mtime = f.stat().st_mtime
             if seen.get(key) == mtime:
                 continue  # beze změny – přeskočit (start s ~700 symboly by jinak trval sekundy)
-            try:
-                sym = Symbol.from_json(f)
-            except Exception as ex:  # noqa: BLE001 – vadný uživatelský soubor nesmí shodit start
-                log.warning("knihovna: značka %s se nenačetla: %s", f, ex)
-                continue
-            rows.append((sym.id, sym.name, sym.category, 1 if tag == "builtin" else 0,
-                         json.dumps(sym.to_dict(), ensure_ascii=False)))
+            cached = _PARSED_SYMBOLS.get((str(f), mtime, f.stat().st_size))
+            if cached is None:
+                try:
+                    sym = Symbol.from_json(f)
+                except Exception as ex:  # noqa: BLE001 – vadný uživatelský soubor nesmí shodit start
+                    log.warning("knihovna: značka %s se nenačetla: %s", f, ex)
+                    continue
+                cached = (sym.id, sym.name, sym.category, json.dumps(sym.to_dict(), ensure_ascii=False))
+                _PARSED_SYMBOLS[(str(f), mtime, f.stat().st_size)] = cached
+            sid, name, category, data = cached
+            rows.append((sid, name, category, 1 if tag == "builtin" else 0, data))
             self.conn.execute("INSERT OR REPLACE INTO builtin_files(path, mtime) VALUES(?, ?)", (key, mtime))
 
-    def _sync_components(self, root: Path) -> None:
+    def _sync_components(self, root: Path, tag: str = "", seen: dict | None = None) -> None:
+        """Artikly z CSV; soubor beze změny (stejné mtime jako při posledním načtení) se přeskočí."""
         csvs = sorted(root.rglob("*.csv"))
         if csvs:
             from envocad.library.components import read_csv
+            seen = seen or {}
             for f in csvs:
-                try:
-                    comps = read_csv(f)
-                except Exception as ex:  # noqa: BLE001 – vadný soubor nesmí shodit start
-                    log.warning("knihovna: artikly %s se nenačetly: %s", f, ex)
+                key = f"csv:{tag}:{f.relative_to(root)}"
+                mtime = f.stat().st_mtime
+                if seen.get(key) == mtime:
                     continue
+                comps = _PARSED_CSV.get((str(f), mtime, f.stat().st_size))
+                if comps is None:
+                    try:
+                        comps = read_csv(f)
+                    except Exception as ex:  # noqa: BLE001 – vadný soubor nesmí shodit start
+                        log.warning("knihovna: artikly %s se nenačetly: %s", f, ex)
+                        continue
+                    _PARSED_CSV[(str(f), mtime, f.stat().st_size)] = comps
                 self.conn.executemany(
                     "INSERT INTO components(id,manufacturer,part_number,name,symbol_id,params,price,url) "
                     "VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET manufacturer=excluded.manufacturer,"
@@ -127,6 +146,7 @@ class LibraryStore:
                     [(c.id, c.manufacturer, c.part_number, c.name, c.symbol_id or None,
                       json.dumps(c.to_db_row()["params"], ensure_ascii=False), c.price, c.datasheet_url) for c in comps],
                 )
+                self.conn.execute("INSERT OR REPLACE INTO builtin_files(path, mtime) VALUES(?, ?)", (key, mtime))
             self.conn.commit()
 
     # ---- artikly (typované API) -----------------------------------------

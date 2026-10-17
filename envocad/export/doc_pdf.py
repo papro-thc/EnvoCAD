@@ -1,7 +1,13 @@
 """Celá dokumentace do jednoho PDF: titulní list, obsah, listy JPS, schéma + plán svorkovnice každého rozvaděče,
-tabulkové výkazy a změnový list. Všechny strany A3 na šířku, stránkované tabulky."""
+tabulkové výkazy a změnový list. Všechny strany A3 na šířku.
+
+Obsah, výkazy i změnový list jsou tabulky (`_TableLayout`): šířky sloupců podle obsahu a šířky strany, dlouhý
+text se v buňce zalomí, tabulka pokračuje na dalších stranách. Počet stran se spočítá předem (obsah ukazuje
+skutečná čísla stran, popisové pole „n/N“). Bez rámečku má každá strana malé „strana n/N“ v pravém dolním rohu.
+"""
 from __future__ import annotations
 
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from PySide6.QtCore import QMarginsF, QRectF, QSizeF, Qt
@@ -9,13 +15,20 @@ from PySide6.QtGui import QPageLayout, QPageSize, QPainter, QPdfWriter, QPen, QU
 
 from envocad.export import reports
 from envocad.export.pdf_export import set_scene_notes_visible
-from envocad.model.frame import frame_geometry
+from envocad.model.frame import TB_H, company_names, frame_enabled, frame_geometry, sheet_number
 from envocad.model.project import Project, Sheet
 from envocad.ui import theme
-from envocad.ui.render import draw_frame, draw_text, sp
+from envocad.ui.render import draw_frame, draw_text, sp, text_width, wrap_text
 
 PAGE_W, PAGE_H = 420.0, 297.0
-ROW_H = 5.0
+ROW_H = 5.0               # nejmenší výška řádku tabulky
+FONT_H = 2.2              # písmo tabulky (mm)
+LINE_PITCH = 3.2          # řádkování zalomeného textu v buňce
+CELL_PAD = 1.0            # vnitřní okraj buňky vlevo/vpravo
+TABLE_TOP = 18.0          # začátek tabulky pod horním okrajem kreslicí plochy (nad ní název)
+MIN_COL = 8.0             # nejužší sloupec
+MAX_WORD = 30.0           # delší slovo se smí lámat po znacích (nesnižuje min. šířku sloupce víc)
+FOOTER_H = 2.5            # „strana n/N“ bez rámečku
 
 
 def _page_painter_setup(painter: QPainter, writer: QPdfWriter) -> None:
@@ -38,6 +51,87 @@ def _draw_frame_page(painter, project, sheet_for_frame, view="", page=""):
     return g
 
 
+def _table_area(project: Project) -> tuple[float, float, float, float]:
+    """Plocha tabulky na straně (x0, spodek, x1, vršek tabulky) – s rámečkem nad popisovým polem."""
+    x0, y0, x1, y1 = frame_geometry(project, _pseudo_sheet("", project), PAGE_W, PAGE_H).inner
+    bottom = y0 + TB_H + 5.0 if frame_enabled() else y0 + 3.0
+    return x0 + 5.0, bottom, x1 - 5.0, y1 - TABLE_TOP
+
+
+@dataclass
+class _TableLayout:
+    """Rozvržení tabulky: šířky sloupců, zalomené buňky, výšky řádků a rozdělení řádků na strany."""
+    widths: list[float]
+    head: list[list[str]]                       # zalomená hlavička (řádky každé buňky)
+    head_h: float
+    cells: list[list[list[str]]] = field(default_factory=list)   # řádek → buňka → řádky textu
+    heights: list[float] = field(default_factory=list)
+    pages: list[tuple[int, int]] = field(default_factory=list)   # (od, do) řádků na stranu
+
+    @property
+    def page_count(self) -> int:
+        return max(1, len(self.pages))
+
+
+def _col_widths(head: list[str], rows: list[list], avail: float) -> list[float]:
+    """Šířky sloupců: přirozená šířka (nejdelší text) se vejde → ta; jinak každý sloupec aspoň na nejdelší slovo
+    a zbytek šířky strany podle toho, kolik by sloupec chtěl navíc (dlouhé texty se zalomí)."""
+    n = len(head)
+    nat = [0.0] * n
+    mn = [0.0] * n
+    for i in range(n):
+        texts = [str(head[i])] + [str(r[i]) for r in rows if i < len(r) and r[i] not in (None, "")]
+        for t in dict.fromkeys(texts):
+            for line in t.split("\n"):
+                nat[i] = max(nat[i], text_width(line, FONT_H))
+                for word in line.split():
+                    mn[i] = max(mn[i], min(MAX_WORD, text_width(word, FONT_H)))
+    pad = 2 * CELL_PAD + 0.5
+    nat = [max(MIN_COL, w + pad) for w in nat]
+    mn = [min(nat[i], max(MIN_COL, mn[i] + pad)) for i in range(n)]
+    if sum(nat) <= avail:
+        return nat
+    if sum(mn) >= avail:
+        return [w * avail / sum(mn) for w in mn]
+    k = (avail - sum(mn)) / (sum(nat) - sum(mn))
+    return [mn[i] + k * (nat[i] - mn[i]) for i in range(n)]
+
+
+def _row_height(lines: list[list[str]]) -> float:
+    return max(ROW_H, max(len(c) for c in lines) * LINE_PITCH + 1.8)
+
+
+def table_layout(project: Project, head: list[str], rows: list[list], widths: list[float] | None = None
+                 ) -> _TableLayout:
+    """Rozvrhne tabulku na strany dokumentace. `widths` = pevné šířky (obsah: spočítané s nejdelšími čísly)."""
+    x0, bottom, x1, top = _table_area(project)
+    widths = widths or _col_widths(head, rows, x1 - x0)
+    n = len(head)
+    cw = [max(1.0, w - 2 * CELL_PAD) for w in widths]
+    hl = [wrap_text(str(h), cw[i], FONT_H) for i, h in enumerate(head)]
+    lay = _TableLayout(widths, hl, _row_height(hl))
+    room = top - bottom - lay.head_h
+    max_lines = max(1, int((room - 1.8) // LINE_PITCH))
+    for r in rows:
+        cells = []
+        for i in range(n):
+            v = r[i] if i < len(r) else ""
+            lines = wrap_text("" if v is None else str(v), cw[i], FONT_H)
+            if len(lines) > max_lines:          # buňka vyšší než strana – zkrátit (nemělo by nastat)
+                lines = lines[:max_lines - 1] + [lines[max_lines - 1] + " …"]
+            cells.append(lines)
+        lay.cells.append(cells)
+        lay.heights.append(_row_height(cells))
+    start, used = 0, 0.0
+    for i, h in enumerate(lay.heights):
+        if used + h > room and i > start:
+            lay.pages.append((start, i))
+            start, used = i, 0.0
+        used += h
+    lay.pages.append((start, len(rows)))
+    return lay
+
+
 class DocBuilder:
     """Sestaví seznam stran (pro obsah) a pak je vykreslí."""
 
@@ -47,10 +141,11 @@ class DocBuilder:
         self.pages: list[tuple[str, str, object]] = []  # (druh, název, data)
         self._page = ""  # „3/16“ aktuální strany pro popisové pole
         self._pdf_page = 0  # index aktuální fyzické strany PDF (od 0), zvyšuje se u každého newPage()
-        self._total = 0  # počet fyzických stran (vícepól a pokračování tabulek mají víc stran)
+        self._total = 0  # počet fyzických stran (vícepól, plán svorkovnice a tabulky mají víc stran)
         self.page_starts: list[int] = []  # první fyzická strana (od 1) každé položky self.pages – pro obsah
-        self.note_pages: list[tuple[int, object, list]] = []  # (fyzická strana od 0, PageMap, připomínky) – JPS
-        self._cap = 0  # řádků tabulky na stranu (spočítá se jednou)
+        self.page_counts: list[int] = []  # počet fyzických stran každé položky self.pages
+        self.note_pages: list[tuple[int, object, list]] = []  # (fyzická strana od 0, PageMap, připomínky)
+        self._layouts: dict[int, _TableLayout] = {}   # index položky → rozvržení tabulky (obsah, výkazy, změny)
         self._scenes: dict[tuple[str, str], tuple[object, QUndoStack]] = {}
 
     def plan(self) -> None:
@@ -70,6 +165,94 @@ class DocBuilder:
             if rows:
                 self.pages.append(("table", name, (head, rows)))
         self.pages.append(("changes", "Změnový list", None))
+        self._layouts = {}
+
+    # ---- tabulky (obsah, výkazy, změnový list) ------------------------------------------------------------
+    TOC_HEAD = ("Strana", "Název", "List výkresu")
+
+    def _toc_sheet_no(self, data) -> str:
+        """Číslo listu výkresu (jako v popisovém poli listu) – jen u listů, u tabulek prázdné."""
+        if isinstance(data, tuple) and data and isinstance(data[0], Sheet):
+            return sheet_number(self.project, data[0])
+        return ""
+
+    def _toc_rows(self, starts: list[int] | None = None) -> list[list]:
+        rows = []
+        for i, (_kind, name, data) in enumerate(self.pages):
+            if starts is None:
+                num = "9999"
+            else:
+                first, cnt = starts[i], (self.page_counts[i] if i < len(self.page_counts) else 1)
+                num = f"{first}–{first + cnt - 1}" if cnt > 1 else str(first)
+            rows.append([num, name, self._toc_sheet_no(data)])
+        return rows
+
+    def _change_rows(self) -> list[list]:
+        from envocad.model.diff import split_change_line
+        p = self.project
+        rows = [split_change_line(ln) for ln in (p.meta.get("changes", "") or "").splitlines() if ln.strip()]
+        if not rows:
+            rows = [[p.meta.get("revision") or "0", p.meta.get("date", ""), "první vydání", p.meta.get("author", "")]]
+        return rows
+
+    CHANGES_HEAD = ("Revize", "Datum", "Popis změny", "Zpracoval")
+
+    def _layout(self, idx: int) -> _TableLayout:
+        lay = self._layouts.get(idx)
+        if lay is None:
+            kind, _name, data = self.pages[idx]
+            if kind == "toc":
+                # šířky a stránkování s nejdelšími možnými čísly stran – skutečná čísla se do nich vejdou
+                ph = self._toc_rows()
+                ph = [[f"{r[0]}–{r[0]}", r[1], r[2]] for r in ph]
+                lay = table_layout(self.project, list(self.TOC_HEAD), ph)
+            elif kind == "changes":
+                lay = table_layout(self.project, list(self.CHANGES_HEAD), self._change_rows())
+            else:
+                head, rows = data
+                lay = table_layout(self.project, head, rows)
+            self._layouts[idx] = lay
+        return lay
+
+    def _draw_table(self, painter, name: str, head: list[str], rows: list[list], lay: _TableLayout,
+                    page_no: int) -> None:
+        """Jedna strana tabulky (`page_no` = index strany v rozvržení)."""
+        p = self.project
+        title = name + (" (pokračování)" if page_no else "")
+        _draw_frame_page(painter, p, _pseudo_sheet(title, p), page=self._page)
+        x0, _bottom, _x1, top = _table_area(p)
+        painter.setPen(QPen(theme.PRINT.ink, 0.2))
+        draw_text(painter, x0, top + 8.0, title, 4.5, "left")
+        total_w = sum(lay.widths)
+        y = top
+        # hlavička
+        painter.setPen(QPen(theme.PRINT.ink, 0.2))
+        x = x0
+        for i, lines in enumerate(lay.head):
+            for j, t in enumerate(lines):
+                draw_text(painter, x + CELL_PAD, y - 3.5 - j * LINE_PITCH, t, FONT_H, "left")
+            x += lay.widths[i]
+        y -= lay.head_h
+        painter.setPen(QPen(theme.PRINT.ink, 0.3))
+        painter.drawLine(sp(x0, top), sp(x0 + total_w, top))
+        painter.drawLine(sp(x0, y), sp(x0 + total_w, y))
+        a, b = lay.pages[page_no]
+        for r in range(a, b):
+            painter.setPen(QPen(theme.PRINT.ink, 0.2))
+            x = x0
+            for i, lines in enumerate(lay.cells[r]):
+                for j, t in enumerate(lines):
+                    draw_text(painter, x + CELL_PAD, y - 3.5 - j * LINE_PITCH, t, FONT_H, "left")
+                x += lay.widths[i]
+            y -= lay.heights[r]
+            painter.setPen(QPen(theme.PRINT.ink, 0.08))
+            painter.drawLine(sp(x0, y), sp(x0 + total_w, y))
+        # svislé dělicí čáry sloupců (tence) – zalomený text zůstane čitelně ve svém sloupci
+        painter.setPen(QPen(theme.PRINT.ink, 0.08))
+        x = x0
+        for w in lay.widths[:-1]:
+            x += w
+            painter.drawLine(sp(x, top), sp(x, y))
 
     # ---- strany ----------------------------------------------------------------
     def _title(self, painter, writer):
@@ -78,7 +261,7 @@ class DocBuilder:
         s = _pseudo_sheet("Titulní list", p)
         _draw_frame_page(painter, p, s, page=self._page)
         painter.setPen(QPen(theme.PRINT.ink, 0.2))
-        draw_text(painter, PAGE_W / 2, 200, "ENVO s.r.o.", 8, "center")
+        draw_text(painter, PAGE_W / 2, 200, company_names()[1], 8, "center")
         draw_text(painter, PAGE_W / 2, 180, "Elektrotechnická dokumentace", 6, "center")
         draw_text(painter, PAGE_W / 2, 160, p.name, 10, "center")
         y = 130
@@ -89,22 +272,6 @@ class DocBuilder:
                 draw_text(painter, PAGE_W / 2 - 5, y, label + ":", 4, "right")
                 draw_text(painter, PAGE_W / 2 + 5, y, val, 4, "left")
                 y -= 8
-
-    def _toc(self, painter, writer):
-        p = self.project
-        s = _pseudo_sheet("Obsah", p)
-        g = _draw_frame_page(painter, p, s, page=self._page)
-        x0, y0, _x1, y1 = g.inner
-        painter.setPen(QPen(theme.PRINT.ink, 0.2))
-        draw_text(painter, x0 + 10, y1 - 15, "Obsah dokumentace", 5, "left")
-        y = y1 - 28
-        starts = self.page_starts or list(range(1, len(self.pages) + 1))
-        for i, (_kind, name, _d) in zip(starts, self.pages):
-            draw_text(painter, x0 + 10, y, f"{i:>3}", 3, "left")
-            draw_text(painter, x0 + 25, y, name, 3, "left")
-            y -= 6
-            if y < y0 + 45:
-                break
 
     def _scene(self, sheet: Sheet, kind: str):
         """Exportní scéna listu (sdílená mezi počítáním stran a vykreslením). Připomínky nekreslí – v PDF jsou jen
@@ -123,131 +290,114 @@ class DocBuilder:
         return self._scenes[key][0]
 
     def _sheet_pages(self, sheet: Sheet, kind: str) -> int:
-        if kind != "multipole":
+        """Počet stran listu: vícepól a plán svorkovnice mohou mít víc stran (`scene.pages`)."""
+        if kind == "schematic":
             return 1
         return max(1, len(getattr(self._scene(sheet, kind), "pages", None) or []))
 
+    def _footer(self, painter, writer) -> None:
+        """Bez rámečku (není popisové pole s číslem strany): malé „strana n/N“ v pravém dolním rohu."""
+        if frame_enabled():
+            return
+        _page_painter_setup(painter, writer)
+        painter.setPen(QPen(theme.PRINT.ink, 0.2))
+        draw_text(painter, PAGE_W - 10.0, 4.0, f"strana {self._pdf_page + 1}/{self._total}", FOOTER_H, "right")
+
     def _new_page(self, painter, writer) -> None:
+        self._footer(painter, writer)
         writer.newPage()
         self._pdf_page += 1
+        self._page = f"{self._pdf_page + 1}/{self._total}"
         _page_painter_setup(painter, writer)
 
     def _sheet(self, painter, writer, sheet: Sheet, kind: str):
         scene = self._scene(sheet, kind)
         pw, ph = getattr(scene, "paper_size", (sheet.width, sheet.height))
         painter.resetTransform()
-        # vejít do strany A3; vícepól může mít víc stran (každá na vlastní stranu PDF)
+        # vejít do strany A3; vícepól a plán svorkovnice mohou mít víc stran (každá na vlastní stranu PDF)
         scale = min(writer.width() / pw, writer.height() / ph)
         target = QRectF(0, 0, pw * scale, ph * scale)
         pages = getattr(scene, "pages", None) or [QRectF(0, -ph, pw, ph)]
+        first = self._pdf_page
         for i, src in enumerate(pages):
             if i:
                 self._new_page(painter, writer)
                 painter.resetTransform()
             scene.render(painter, target, src, Qt.KeepAspectRatio)
+        if kind == "terminals":
+            return
+        from envocad.export.pdf_annots import PageMap
+        from envocad.model.notes import notes_on_sheet
+        notes = notes_on_sheet(self.project, sheet.id, ("open",))
+        if not notes:
+            return
+        r = writer.pageLayout().fullRect(QPageLayout.Millimeter)
+        pm = PageMap.fit(pw, ph, r.width(), r.height(), center=False)   # list u levého horního rohu strany
         if kind == "schematic":
-            from envocad.export.pdf_annots import PageMap
-            from envocad.model.notes import notes_on_sheet
-            notes = notes_on_sheet(self.project, sheet.id, ("open",))
-            if notes:   # list u levého horního rohu strany (target začíná v 0, 0 a má poměr listu)
-                r = writer.pageLayout().fullRect(QPageLayout.Millimeter)
-                pm = PageMap.fit(pw, ph, r.width(), r.height(), center=False)
-                self.note_pages.append((self._pdf_page, pm, notes))
+            self.note_pages.append((self._pdf_page, pm, notes))
+            return
+        # list rozvaděče: připomínka je v kresbě listu rozvaděče – ve vícepólu se ukáže u přístroje, ke kterému
+        # patří (bod u jeho polohy ve vícepólu); bez vazby na přístroj vlevo nahoře na první straně
+        by_page: dict[int, list] = {}
+        for i, n in enumerate(notes):
+            k, x, y, where = self._multipole_anchor(scene, sheet, n, i)
+            text = n.text if where else f"{n.text}\n(připomínka k listu rozvaděče {sheet.name}, bez vazby na přístroj)"
+            by_page.setdefault(k, []).append(replace(n, x=x, y=y, w=0.0, h=0.0, text=text))
+        for k, ns in sorted(by_page.items()):
+            self.note_pages.append((first + k, pm, ns))
 
-    def _table_capacity(self) -> int:
-        """Počet řádků tabulky na jednu stranu (stejná geometrie jako `_table`)."""
-        if self._cap:
-            return self._cap
-        g = frame_geometry(self.project, _pseudo_sheet("", self.project), PAGE_W, PAGE_H, "", "")
-        _x0, y0, _x1, y1 = g.inner
-        y = y1 - 18 - ROW_H
-        n = 0
-        while y - ROW_H > y0 + 40:
-            y -= ROW_H
-            n += 1
-        self._cap = max(1, n)
-        return self._cap
+    @staticmethod
+    def _multipole_anchor(scene, sheet: Sheet, note, i: int) -> tuple[int, float, float, bool]:
+        """Strana vícepólu a bod (souřadnice strany, mm) pro připomínku listu rozvaděče: u přístroje, na který je
+        navázaná (vodič → jeho první konec); jinak vlevo nahoře na první straně. Poslední hodnota = má vazbu."""
+        from envocad.model.frame import MARGIN, MARGIN_LEFT
+        eid = note.target_id
+        if note.is_wire:
+            w = next((w for w in sheet.wires if w.id == eid), None)
+            eid = w.a.element_id if w is not None else ""
+        ep = getattr(scene, "_poles", {}).get(eid) if eid else None
+        if ep is not None:
+            k = scene.page_of.get(eid, 0)
+            x, y = ep.origin
+            return k, x + 2.5, y + k * scene.page_pitch + 2.5, True
+        return 0, MARGIN_LEFT + 5.0 + 8.0 * i, sheet.height - MARGIN - 30.0, False
 
     def _count_pages(self) -> None:
         """Fyzické strany předem: popisové pole ukazuje „n/N“ a obsah skutečná čísla stran."""
-        cap = self._table_capacity()
-        self.page_starts = []
+        self.page_starts, self.page_counts = [], []
         total = 0
-        for kind, _name, data in self.pages:
+        for idx, (kind, _name, data) in enumerate(self.pages):
             self.page_starts.append(total + 1)
             if kind == "sheet":
-                total += self._sheet_pages(*data)
-            elif kind == "table":
-                total += max(1, -(-len(data[1]) // cap))
+                cnt = self._sheet_pages(*data)
+            elif kind in ("table", "toc", "changes"):
+                cnt = self._layout(idx).page_count
             else:
-                total += 1
+                cnt = 1
+            self.page_counts.append(cnt)
+            total += cnt
         self._total = total
 
-    def _table(self, painter, writer, name: str, head: list[str], rows: list[list], start: int) -> int:
-        """Nakreslí tabulku od řádku `start`; vrátí index prvního nevykresleného řádku (len(rows) = hotovo)."""
-        p = self.project
-        s = _pseudo_sheet(name, p)
-        g = _draw_frame_page(painter, p, s, page=self._page)
-        x0, _y0, x1, y1 = g.inner
-        painter.setPen(QPen(theme.PRINT.ink, 0.2))
-        draw_text(painter, x0 + 5, y1 - 10, name, 4.5, "left")
-        n = len(head)
-        widths = [max(12.0, min(70.0, 2.0 + 1.6 * max([len(str(h))] + [len(str(r[i])) for r in rows[:200]])))
-                  for i, h in enumerate(head)]
-        total = sum(widths)
-        avail = x1 - x0 - 10
-        if total > avail:
-            widths = [w * avail / total for w in widths]
-        y = y1 - 18
-        x = x0 + 5
-        painter.setPen(QPen(theme.PRINT.ink, 0.3))
-        for i, h in enumerate(head):
-            draw_text(painter, x + 1, y - 3.5, str(h), 2.2, "left")
-            x += widths[i]
-        painter.drawLine(sp(x0 + 5, y - ROW_H), sp(x0 + 5 + sum(widths), y - ROW_H))
-        y -= ROW_H
-        painter.setPen(QPen(theme.PRINT.ink, 0.2))
-        i = start
-        stop = min(len(rows), start + self._table_capacity())
-        while i < stop:
-            x = x0 + 5
-            for c, v in enumerate(rows[i][:n]):
-                txt = str(v)
-                maxc = int(widths[c] / 1.5)
-                if len(txt) > maxc:
-                    txt = txt[: max(1, maxc - 1)] + "…"
-                draw_text(painter, x + 1, y - 3.5, txt, 2.2, "left")
-                x += widths[c]
-            y -= ROW_H
-            i += 1
-        return i
-
-    def _changes(self, painter, writer):
-        p = self.project
-        s = _pseudo_sheet("Změnový list", p)
-        g = _draw_frame_page(painter, p, s, page=self._page)
-        x0, _y0, _x1, y1 = g.inner
-        painter.setPen(QPen(theme.PRINT.ink, 0.2))
-        draw_text(painter, x0 + 10, y1 - 15, "Změnový list", 5, "left")
-        y = y1 - 28
-        draw_text(painter, x0 + 10, y, "Revize", 3, "left")
-        draw_text(painter, x0 + 35, y, "Datum", 3, "left")
-        draw_text(painter, x0 + 65, y, "Popis změny", 3, "left")
-        draw_text(painter, x0 + 250, y, "Zpracoval", 3, "left")
-        y -= 7
-        for line in (p.meta.get("changes", "") or "").splitlines():
-            parts = [x.strip() for x in line.split("|")]
-            parts += [""] * (4 - len(parts))
-            for x, txt in zip((10, 35, 65, 250), parts):
-                draw_text(painter, x0 + x, y, txt, 3, "left")
-            y -= 6
-        if not p.meta.get("changes"):
-            draw_text(painter, x0 + 10, y, f"{p.meta.get('revision') or '0'}  {p.meta.get('date', '')}  první vydání", 3, "left")
+    def _table_kind(self, painter, writer, idx: int) -> None:
+        kind, name, data = self.pages[idx]
+        lay = self._layout(idx)
+        if kind == "toc":
+            head, rows, name = list(self.TOC_HEAD), self._toc_rows(self.page_starts), "Obsah dokumentace"
+            # skutečná čísla stran do šířek spočítaných s nejdelšími čísly – zalomení ani počet stran se nezmění
+            lay = table_layout(self.project, head, rows, widths=lay.widths)
+        elif kind == "changes":
+            head, rows = list(self.CHANGES_HEAD), self._change_rows()
+        else:
+            head, rows = data
+        for k in range(lay.page_count):
+            if k:
+                self._new_page(painter, writer)
+            self._draw_table(painter, name, head, rows, lay, k)
 
     # ---- export --------------------------------------------------------------------
     def export(self, path: Path | str, notes: bool = False) -> int:
-        """Vykreslí dokumentaci; `notes=True` doplní otevřené připomínky listů JPS jako anotace PDF.
-        Vrací počet fyzických stran."""
+        """Vykreslí dokumentaci; `notes=True` doplní otevřené připomínky listů jako anotace PDF (listy rozvaděčů
+        u přístroje ve vícepólu). Vrací počet fyzických stran."""
         self.plan()
         self._pdf_page = 0
         self.note_pages = []
@@ -266,27 +416,19 @@ class DocBuilder:
         painter.setRenderHint(QPainter.Antialiasing)
         try:
             self._count_pages()
-            for idx, (kind, name, data) in enumerate(self.pages):
+            for idx, (kind, _name, data) in enumerate(self.pages):
                 if idx:
                     self._new_page(painter, writer)
                 else:
                     _page_painter_setup(painter, writer)
-                self._page = f"{self._pdf_page + 1}/{self._total}"
+                    self._page = f"1/{self._total}"
                 if kind == "title":
                     self._title(painter, writer)
-                elif kind == "toc":
-                    self._toc(painter, writer)
                 elif kind == "sheet":
                     self._sheet(painter, writer, *data)
-                elif kind == "table":
-                    head, rows = data
-                    i = self._table(painter, writer, name, head, rows, 0)
-                    while i < len(rows):
-                        self._new_page(painter, writer)
-                        self._page = f"{self._pdf_page + 1}/{self._total}"
-                        i = self._table(painter, writer, name + " (pokračování)", head, rows, i)
-                elif kind == "changes":
-                    self._changes(painter, writer)
+                else:
+                    self._table_kind(painter, writer, idx)
+            self._footer(painter, writer)
         finally:
             painter.end()
             theme._current = theme.DARK if prev_dark else theme.LIGHT

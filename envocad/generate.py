@@ -92,8 +92,31 @@ def _s(v) -> str:
     return "" if v is None else str(v)
 
 
+_BUILD_LIB = None    # knihovna sdílená během jednoho `build_project` (otevření LibraryStore = synchronizace souborů)
+
+
+def _lib():
+    """Knihovna pro generátor: během `build_project` jedna instance pro celé sestavení, jinak nová."""
+    if _BUILD_LIB is not None:
+        return _BUILD_LIB
+    from envocad.library.store import LibraryStore
+    return LibraryStore()
+
+
 def build_project(spec: dict) -> Project:
     """Sestaví projekt: JPS (stringy → DC rozvaděče → střídač, každý string na vlastní DC vstup → AC rozvaděč → síť) + listy rozvaděčů."""
+    global _BUILD_LIB
+    if _BUILD_LIB is not None:          # vnořené volání – knihovna už je otevřená
+        return _build_project(spec)
+    from envocad.library.store import LibraryStore
+    _BUILD_LIB = LibraryStore()
+    try:
+        return _build_project(spec)
+    finally:
+        _BUILD_LIB = None
+
+
+def _build_project(spec: dict) -> Project:
     spec = _merge(DEFAULT_SPEC, spec)
     invs = spec.get("inverters") or []
     if not invs:
@@ -252,9 +275,8 @@ def build_project(spec: dict) -> Project:
         _build_ac_switchboard(p, sb, invs, ac, spec)
     _align_bends(p)
     _align_outputs(p, blk, grid, earth)
-    from envocad.library.store import LibraryStore
     from envocad.model.frame import fit_sheet_to_content
-    fit_sheet_to_content(p, s, LibraryStore())
+    fit_sheet_to_content(p, s, _lib())
     # až po rozmístění na list: vazby přívodů ukládají texty s polohou v JPS („W3 T1:DC1 /1.F3“)
     sync_feed_links(p)
     sync_cables(p)
@@ -264,9 +286,8 @@ def build_project(spec: dict) -> Project:
 def _align_outputs(project: Project, blk: Element, grid: Element, earth: Element | None) -> None:
     """Síť (DS) na výšku vývodu XOUT bloku AC rozvaděče (vodič vede rovně) a uzemnění (HOP) pod vývod XPE –
     porty bloku jsou známé až po vytvoření listu rozvaděče."""
-    from envocad.library.store import LibraryStore
     from envocad.model.project import element_symbol
-    sym = element_symbol(project, blk, LibraryStore())
+    sym = element_symbol(project, blk, _lib())
     names = {pt.name for pt in sym.ports}
     if "XOUT" in names:
         grid.y = blk.port_pos(sym, "XOUT")[1]
@@ -281,8 +302,7 @@ def _apply_inverter_component(t: Element, inv: dict) -> None:
     cid = inv.get("component_id")
     if not cid:
         return
-    from envocad.library.store import LibraryStore
-    comp = LibraryStore().component(cid)
+    comp = _lib().component(cid)
     if comp is None:
         return
     probe = Element(t.symbol_id, t.x, t.y, attrs=dict(t.attrs))
@@ -295,9 +315,8 @@ def _apply_inverter_component(t: Element, inv: dict) -> None:
 def _align_bends(project: Project) -> None:
     """Lomy vodičů JPS podle skutečných poloh portů (porty bloků rozvaděčů a střídačů se dopočítají až z listů):
     svislý úsek [(x, y1), (x, y2)] dostane y1 = port A, y2 = port B – vodič je pak jen vodorovný–svislý–vodorovný."""
-    from envocad.library.store import LibraryStore
     from envocad.model.project import element_symbol
-    lib = LibraryStore()
+    lib = _lib()
     s = project.sheets[0]
     groups: dict[str, list] = {}
     for w in s.wires:
@@ -365,12 +384,11 @@ def _dc_box_from_macro(project: Project, sheet: Sheet, strings: list[str], name,
     i (číslo střídače), j (string u střídače) – ENVO číslování FU{i}.{j}, XS{i}.{j}, STRING {i}.{j} –, inverter;
     základ ze specifikace fuse_in, disc_in, spd. `name` = položka `spec["macros"]` (název nebo objekt). False = makro chybí."""
     from envocad.library.macros import find_macro, macro_pitch
-    from envocad.library.store import LibraryStore
     entry = _macro_ref(name)
     m = find_macro(entry[0]) if entry[0] else None
     if m is None:
         return False
-    lib = LibraryStore()
+    lib = _lib()
     n = len(strings)
     pitch = macro_pitch(m)
     base = _macro_vars(dc, {})
@@ -386,13 +404,12 @@ def _dc_box_from_macro(project: Project, sheet: Sheet, strings: list[str], name,
 def _ac_box_from_macros(project: Project, sheet: Sheet, invs: list[dict], ac: dict, macros: dict) -> bool:
     """AC rozvaděč: makro přívodu na každý střídač (k, i, inverter; breaker_in, main_in) + makro jádra (spd = ac.spd, main_in)."""
     from envocad.library.macros import find_macro, macro_pitch
-    from envocad.library.store import LibraryStore
     ef, ec = _macro_ref(macros.get("ac_feed", "")), _macro_ref(macros.get("ac_core", ""))
     mf = find_macro(ef[0]) if ef[0] else None
     mc = find_macro(ec[0]) if ec[0] else None
     if mf is None or mc is None or (ac.get("distribution") or "bus") != "bus":
         return False
-    lib = LibraryStore()
+    lib = _lib()
     pitch = macro_pitch(mf)
     devices = []
     base = _macro_vars({}, ac)

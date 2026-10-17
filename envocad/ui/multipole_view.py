@@ -609,8 +609,10 @@ class MultipoleScene(QGraphicsScene):
         self._breaks: dict[tuple[int, bool], int] = {}
         # popisky žil rozmístěné modelem (stejné rozmístění a trasy jako tato scéna, viz model/multipole_geometry)
         from envocad.model.multipole_geometry import multipole_geometry
+        origins: dict[str, tuple[float, float]] = {}
         try:
-            self._labels = multipole_geometry(self.project, self.sheet, self.library).conductor_labels
+            geo = multipole_geometry(self.project, self.sheet, self.library)
+            self._labels, origins = geo.conductor_labels, geo.origins
         except Exception:
             log.exception("vícepól: rozmístění popisků žil selhalo")
             self._labels = {}
@@ -620,6 +622,9 @@ class MultipoleScene(QGraphicsScene):
         for eid, ep in poles.items():
             ep.origin = self.layout_pos.get(eid, (ep.element.x, ep.element.y))
         self._paginate(poles)
+        for eid, o in origins.items():     # polohy z modelu (posun mimo popisové pole s QR kódem)
+            if eid in poles:
+                poles[eid].origin = o
         for e in self.sheet.elements:
             ep = poles[e.id]
             if e.symbol_id == BUS:
@@ -962,8 +967,8 @@ class MultipoleScene(QGraphicsScene):
             painter.restore()
             if k:  # dělicí čára mezi stranami i bez rámečku
                 painter.setPen(QPen(c.grid, 0, Qt.DashLine))
-                painter.drawLine(QPointF(0, -h - k * self.page_pitch + self.PAGE_GAP / 2),
-                                 QPointF(w, -h - k * self.page_pitch + self.PAGE_GAP / 2))
+                y = k * self.page_pitch - h - self.PAGE_GAP / 2   # scénové y uprostřed mezery nad stranou k
+                painter.drawLine(QPointF(0, y), QPointF(w, y))
 
 
 class MultipoleView(SchematicView):

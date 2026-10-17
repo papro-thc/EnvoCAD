@@ -1344,19 +1344,23 @@ class MainWindow(QMainWindow):
         False = označení patří uzavřené revizi (hláška, projekt se nezmění)."""
         from envocad.model.revision import (
             apply_changes,
+            merge_change_lines,
             open_revision,
             restore_revisions_state,
             revisions_state,
         )
         before = revisions_state(self.project)
+        prev = next((r for r in reversed(self.project.revisions) if not r.closed), None)
+        prev_label = prev.label if prev is not None else ""
         try:
             rev = open_revision(self.project, label, date, author)
         except ValueError as ex:
             QMessageBox.warning(self, "Porovnání s revizí", f"{ex}.")
             return False
         apply_changes(self.project, rev, changes)
-        cur = self.project.meta.get("changes", "")
-        self.project.meta["changes"] = (cur + "\n" + change_text).strip() if cur else change_text
+        # řádky otevřené revize (i pod dřívějším označením) se nahradí – opakované porovnání je nezdvojí
+        self.project.meta["changes"] = merge_change_lines(self.project.meta.get("changes", ""),
+                                                          {rev.label, prev_label}, change_text)
         after = revisions_state(self.project)
         restore_revisions_state(self.project, before)
         self.undo.push(commands.ReplaceRevisionsCommand(self.project, before, after, "Porovnání s revizí"))
@@ -1625,9 +1629,15 @@ class MainWindow(QMainWindow):
             sc.update()
 
     # ---- export / import -------------------------------------------------------
+    DXF_ONLY_SCHEMATIC = ("DXF se exportuje z jednopólového schématu nebo z listu rozvaděče v editoru. "
+                          "Vícepólové schéma, plán svorkovnice a rozložení rozvaděče exportuj do PDF "
+                          "(Soubor → Export PDF nebo Výstupy → Celá dokumentace).")
+
     def export_dxf(self) -> None:
         from envocad.export.dxf_export import export_sheet_dxf
         if not self.scene:
+            QMessageBox.information(self, "Export DXF", self.DXF_ONLY_SCHEMATIC if self.view is not None
+                                    else "Není otevřený žádný list.")
             return
         path, _ = QFileDialog.getSaveFileName(self, "Export DXF", "", "DXF (*.dxf)")
         if path:
@@ -1635,9 +1645,16 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"Exportováno: {path}", 3000)
 
     def export_pdf(self, paper: str = "") -> None:
-        from envocad.export.pdf_export import export_scene_pdf
+        from envocad.export.pdf_export import export_layout_pdf, export_scene_pdf
+        if isinstance(self.view, LayoutView):          # rozložení rozvaděče: celý pohled na jednu stranu
+            path, _ = QFileDialog.getSaveFileName(self, "Export PDF", "", "PDF (*.pdf)")
+            if path:
+                export_layout_pdf(self.view.scene(), path, paper or None)
+                self.statusBar().showMessage(f"Exportováno: {path}", 3000)
+            return
         sc = self.scene or (self.view.scene() if isinstance(self.view, DERIVED_VIEWS) else None)
         if not sc:
+            QMessageBox.information(self, "Export PDF", "Není otevřený žádný list.")
             return
         path, _ = QFileDialog.getSaveFileName(self, "Export PDF", "", "PDF (*.pdf)")
         if path:

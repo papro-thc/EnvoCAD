@@ -30,6 +30,26 @@ def company_names() -> tuple[str, str]:
         full = COMPANY
     short = full.split()[0].rstrip(",") if full else "ENVO"
     return short, full
+TEXT_CHAR_W = 0.72   # odhad průměrné šířky znaku / výška písma (Arial, jako `textlayout.CHAR_W`)
+MIN_TEXT_H = 1.6     # nejmenší výška písma hodnoty v popisovém poli
+
+
+def fit_text(text: str, width: float, height: float, min_height: float = MIN_TEXT_H) -> tuple[str, float]:
+    """Text do buňky široké `width` mm: když je širší, zmenší se písmo (nejvýš na `min_height`), a když se nevejde
+    ani tak, zkrátí se s „…“ na konci. Šířka je odhad (`TEXT_CHAR_W`). Vrací (text, výška písma)."""
+    text = str(text or "")
+    if not text or width <= 0:
+        return text, height
+    est = TEXT_CHAR_W * len(text)
+    if est * height <= width:
+        return text, height
+    h = max(min_height, width / est)
+    if est * h <= width:
+        return text, round(h, 2)
+    n = max(1, int(width / (TEXT_CHAR_W * h)) - 1)
+    return text[:n].rstrip() + "…", h
+
+
 COLS = "ABCDEFGH"   # sloupce souřadnicové sítě (zleva doprava)
 ROWS = 6            # řádky 1…6 (shora dolů)
 
@@ -71,10 +91,16 @@ def qr_modules(text: str) -> list[list[bool]] | None:
 
 
 def sheet_revision_label(project: Project, sheet: Sheet) -> str:
-    """Revize listu do popisového pole a QR: revize listu (`revision.sheet_revision`), jinak `meta["revision"]`."""
-    from envocad.model.revision import sheet_revision
+    """Revize listu do popisového pole a QR: revize listu (`revision.sheet_revision`). Nezměněný list bez výchozí
+    revize před první revizí se značkami → prázdná (výchozí stav, ne nová revize). Projekt bez značek revizí
+    (revize se po listech nesledují) → `meta["revision"]`."""
+    from envocad.model.revision import revisions_marked, sheet_revision
     rev = sheet_revision(project, sheet)
-    return rev.label if rev is not None else str(project.meta.get("revision", "") or "")
+    if rev is not None:
+        return rev.label
+    if revisions_marked(project):
+        return ""
+    return str(project.meta.get("revision", "") or "")
 
 
 def qr_text(project: Project, sheet: Sheet, view: str = "") -> str:
@@ -135,8 +161,8 @@ def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, h
     logo_w = 34.0
     g.lines.append((tx0 + logo_w, ty0, tx0 + logo_w, ty1))
     short, full = company_names()
-    g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 2.0, short, 5.0, "center"))
-    g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 6.0, full, 1.8, "center"))
+    g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 2.0, *fit_text(short, logo_w - 3.0, 5.0, 2.5), "center"))
+    g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 6.0, *fit_text(full, logo_w - 2.0, 1.8, 1.2), "center"))
     # QR kód s identifikací výkresu vlevo od popisového pole (projekt | zakázka | list | revize)
     mods = qr_modules(qr_text(project, sheet, view))
     if mods:
@@ -160,7 +186,9 @@ def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, h
             if c:
                 g.lines.append((cx, top - rh, cx, top))
             g.texts.append((cx + 1.0, top - 2.2, label, 1.5, "left"))
-            g.texts.append((cx + 1.0, top - rh + 1.3, value, 2.5 if r < 3 else 2.2, "left"))
+            # dlouhá hodnota se zmenší, případně zkrátí s „…“ – nepřetéká do sousední buňky
+            g.texts.append((cx + 1.0, top - rh + 1.3, *fit_text(str(value or ""), colw - 2.0, 2.5 if r < 3 else 2.2),
+                            "left"))
     return g
 
 

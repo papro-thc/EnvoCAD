@@ -175,15 +175,18 @@ class LayoutScene(QGraphicsScene):
         encl.setPen(QPen(c.paper, 0.8))
         encl.setZValue(-2)
         self.addItem(encl)
+        # tisk (PDF): lišty světle šedé – tiskové barvy mřížky jsou bílé
+        rail_line = QColor(150, 150, 150) if getattr(self, "printing", False) else c.grid_major
+        rail_fill = QColor(235, 235, 235) if getattr(self, "printing", False) else QColor(c.grid)
         for r in range(lay.rows):
             rail = QGraphicsRectItem(MARGIN, self.rail_y(r) + DEVICE_HEIGHT_MM / 2 - 17.5, self.enclosure_w, 35)
-            rail.setPen(QPen(c.grid_major, 0.3))
-            rail.setBrush(QBrush(QColor(c.grid)))
+            rail.setPen(QPen(rail_line, 0.3))
+            rail.setBrush(QBrush(rail_fill))
             rail.setZValue(-1)
             self.addItem(rail)
             for m in range(lay.modules_per_row + 1):
                 x = MARGIN + m * MODULE_WIDTH
-                tick = self.addLine(x, self.rail_y(r) + DEVICE_HEIGHT_MM, x, self.rail_y(r) + DEVICE_HEIGHT_MM + (3 if m % 6 else 6), QPen(c.grid_major, 0.2))
+                tick = self.addLine(x, self.rail_y(r) + DEVICE_HEIGHT_MM, x, self.rail_y(r) + DEVICE_HEIGHT_MM + (3 if m % 6 else 6), QPen(rail_line, 0.2))
                 tick.setZValue(-1)
         # přístroje
         unplaced_y = MARGIN
@@ -263,12 +266,15 @@ class LayoutScene(QGraphicsScene):
         top = self._encl_rect.top() if hasattr(self, "_encl_rect") else MARGIN
         dims = f"{lay.width_mm:g} × {lay.height_mm:g}" + (f" × {lay.depth_mm:g}" if lay.depth_mm else "") + " mm"
         used, total = lay.used_modules(self.sheet, self.project), lay.total_modules
-        line1 = f"{self.sheet.name}   skříň: {lay.enclosure or '– (dvojklik = nastavení)'}   {dims}   {lay.params.get('ip', '')}"
+        printing = getattr(self, "printing", False)     # PDF: bez nápovědy editoru
+        enc = lay.enclosure or ("–" if printing else "– (dvojklik = nastavení)")
+        line1 = f"{self.sheet.name}   skříň: {enc}   {dims}   {lay.params.get('ip', '')}"
         line2 = (f"{lay.rows} řad × {lay.modules_per_row} modulů = {total} M, obsazeno {used:g} M "
                  f"({(used / total * 100) if total else 0:.0f} %), rezerva {total - used:g} M")
         draw_text(painter, self._encl_rect.left() if hasattr(self, "_encl_rect") else MARGIN, -(top - 13), line1, 3.5, "left")
         draw_text(painter, self._encl_rect.left() if hasattr(self, "_encl_rect") else MARGIN, -(top - 7), line2, 2.5, "left")
-        draw_text(painter, MARGIN + self.enclosure_w + UNPLACED_X_GAP, -(MARGIN - 6), "Nerozmístěno", 3.0, "left")
+        if not printing or any(lay.placement(e.id) is None for e in lay.devices(self.sheet, self.project)):
+            draw_text(painter, MARGIN + self.enclosure_w + UNPLACED_X_GAP, -(MARGIN - 6), "Nerozmístěno", 3.0, "left")
 
 
 class LayoutView(QGraphicsView):

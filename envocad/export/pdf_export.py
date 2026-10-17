@@ -67,3 +67,32 @@ def export_scene_pdf(scene, path: Path | str, paper: str | None = None, notes: b
     # QGraphicsScene.render(KeepAspectRatio) kreslí list od levého horního rohu strany (nevystředí) → center=False
     pm = PageMap.fit(pw, ph, out_w, out_h, center=False)
     return add_note_annotations(path, [(0, pm, ns)], scene.project.name)
+
+
+def export_layout_pdf(scene, path: Path | str, paper: str | None = None) -> None:
+    """PDF rozložení rozvaděče (`ui/layout_view.LayoutScene`): celý pohled (skříň, lišty, přístroje, nerozmístěné)
+    zmenšený na stranu A3 na šířku (nebo `paper` = "A4"), s okrajem 10 mm a v tiskových barvách."""
+    out_w, out_h = PAPERS.get(paper or "A3", PAPERS["A3"])
+    writer = QPdfWriter(str(path))
+    writer.setPageLayout(QPageLayout(QPageSize(QSizeF(out_w, out_h), QPageSize.Millimeter), QPageLayout.Portrait,
+                                     QMarginsF(0, 0, 0, 0)))
+    writer.setResolution(300)
+    writer.setTitle(f"{scene.project.name} – {scene.sheet.name} – rozložení")
+    writer.setCreator("EnvoCAD")
+    prev_dark = theme.is_dark()
+    theme._current = theme.PRINT
+    scene.clearSelection()
+    scene.printing = True                 # bez nápovědy editoru v hlavičce
+    scene.rebuild()                       # lišty a obrys skříně se barví při stavbě → tiskové barvy
+    try:
+        painter = QPainter(writer)
+        painter.setRenderHint(QPainter.Antialiasing)
+        k = writer.width() / out_w        # px na mm
+        m = 10.0 * k
+        target = QRectF(m, m, writer.width() - 2 * m, writer.height() - 2 * m)
+        scene.render(painter, target, scene.sceneRect(), Qt.KeepAspectRatio)
+        painter.end()
+    finally:
+        theme._current = theme.DARK if prev_dark else theme.LIGHT
+        scene.printing = False
+        scene.rebuild()

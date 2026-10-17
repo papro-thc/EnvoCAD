@@ -34,8 +34,9 @@ def _check_dxf(p, s, lib, path):
     export_sheet_dxf(p, s, lib, path)
     doc = ezdxf.readfile(path)
     msp = doc.modelspace()
-    for name in ("SYMBOLY", "VODICE", "TEXTY", "RAMECEK", "PORTY"):
+    for name in ("SYMBOLY", "VODICE", "TEXTY", "RAMECEK"):
         assert name in doc.layers
+    assert "PORTY" not in doc.layers          # nepoužitá hladina se nezakládá (porty se do DXF nekreslí)
     assert doc.header["$INSUNITS"] == 4
     # jeden polyline na vodič, jen svislé a vodorovné úseky
     wires = [e for e in msp.query("LWPOLYLINE") if e.dxf.layer == "VODICE"]
@@ -99,8 +100,11 @@ def test_xlsx_cells_match_reports(proj, lib, tmp_path):
         hi = next(i for i, r in enumerate(values) if [c for c in r[:len(head)]] == list(head))
         body = values[hi + 1:hi + 1 + len(rows)]
         assert len(body) == len(rows), name
+        from envocad.export.xlsx_export import NUMERIC_COLUMNS, _number
         for got, exp in zip(body, rows):
             norm = ["" if c is None else c for c in got[:len(exp)]]
+            # číselné sloupce (průřez, délka, číslo žíly/svorky) jsou v xlsx čísla
+            exp = [_number(c) if i < len(head) and head[i] in NUMERIC_COLUMNS else c for i, c in enumerate(exp)]
             assert norm == [("" if c is None else c) for c in exp], f"{name}: {got} ≠ {exp}"
 
 
@@ -245,9 +249,9 @@ def test_documentation_pages_counted_with_multipole(proj, lib, tmp_path, qapp, m
     n = b.export(out)
     assert n == len(pypdf.PdfReader(out).pages)
     n_mp = sum(1 for k, _, d in b.pages if k == "sheet" and d[1] == "multipole")
-    cap = b._table_capacity()
-    n_cont = sum(-(-len(d[1]) // cap) - 1 for k, _, d in b.pages if k == "table")
-    assert n_mp and n == len(b.pages) + n_mp + n_cont    # každý vícepól má o stranu víc, dlouhé tabulky pokračují
+    assert n_mp and all(c == 2 for (k, _, d), c in zip(b.pages, b.page_counts) if k == "sheet" and d[1] == "multipole")
+    assert n == sum(b.page_counts)                       # každý vícepól má o stranu víc, dlouhé tabulky pokračují
+    assert b.page_starts == [1 + sum(b.page_counts[:i]) for i in range(len(b.pages))]
     totals = {pg.split("/")[1] for pg in seen}
     assert totals == {str(n)} and seen[-1] == f"{n}/{n}"   # změnový list = poslední strana
     nums = [int(pg.split("/")[0]) for pg in seen]
@@ -266,19 +270,25 @@ def test_documentation_pdf_note_annotations(proj, lib, tmp_path, qapp):
     _multipage_switchboards(proj)
     proj.notes = [Note(jps.id, 100.0, 100.0, "Doplnit SPD", no=1),
                   Note(jps.id, 10.0, 10.0, "Vyřešeno", no=2, status="resolved"),
-                  Note(proj.sheets[1].id, 50.0, 50.0, "Ve vícepólu ne", no=3)]
+                  Note(proj.sheets[1].id, 50.0, 50.0, "List rozvaděče", no=3)]
     # bez notes žádné anotace
     out = tmp_path / "bez.pdf"
     export_documentation_pdf(proj, lib, out)
     assert not any(_pdf_annots(out))
     assert not any(_pdf_annots(out))   # QPdfWriter píše prázdné /Annots [], anotace žádné
-    # s notes: jen otevřená připomínka listu JPS, na jeho straně (titul, obsah → 3. strana)
+    # s notes: otevřené připomínky – list JPS na jeho straně (titul, obsah → 3. strana), připomínka listu rozvaděče
+    # (bez vazby na přístroj) na první straně jeho vícepólu (hned za JPS)
     out = tmp_path / "s.pdf"
-    n = export_documentation_pdf(proj, lib, out, notes=True)
+    b = DocBuilder(proj, lib)
+    n = b.export(out, notes=True)
     ann = _pdf_annots(out)
     assert len(ann) == n
     pages_with = [i for i, a in enumerate(ann) if a]
-    assert pages_with == [2]
+    mp_first = next(st for (k, _, d), st in zip(b.pages, b.page_starts)
+                    if k == "sheet" and d[0].id == proj.sheets[1].id and d[1] == "multipole") - 1
+    assert pages_with == [2, mp_first]
+    sb_note = [a for a in ann[mp_first] if a["/Subtype"] == "/Text"]
+    assert len(sb_note) == 1 and sb_note[0]["/Contents"].startswith("List rozvaděče")
     main = [a for a in ann[2] if a["/Subtype"] == "/Text"]
     assert len(main) == 1 and main[0]["/Contents"] == "Doplnit SPD"
     # list JPS 480 mm na A3 (420) u levého horního rohu: měřítko 420/480, Y od horního okraje
@@ -289,6 +299,8 @@ def test_documentation_pdf_note_annotations(proj, lib, tmp_path, qapp):
     assert y == pytest.approx((297 - (jps.height - 100) * s) * MM_TO_PT, abs=0.5)
 
     # list JPS za vícepólem na 2 strany → anotace na správné fyzické straně
+    proj.notes = proj.notes[:2]                       # jen připomínky JPS
+
     class Reordered(DocBuilder):
         def plan(self):
             super().plan()

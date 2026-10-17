@@ -5,6 +5,26 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
+QT_TRANSLATIONS = ("qtbase_cs", "qt_cs")   # české texty standardních tlačítek a dialogů Qt (Ano/Ne/Storno…)
+
+
+def install_qt_translations(app) -> list:
+    """Načte české překlady Qt (`qtbase_cs`, případně `qt_cs`) z adresáře překladů Qt (`QLibraryInfo`; v balíčku
+    PyInstaller `PySide6/Qt/translations`) a nainstaluje je do aplikace. Vrací nainstalované překladače (aplikace si
+    je musí držet – jinak je uvolní GC); chybějící soubor nevadí (zůstanou anglická tlačítka)."""
+    from PySide6.QtCore import QLibraryInfo, QTranslator
+    path = QLibraryInfo.path(QLibraryInfo.TranslationsPath)
+    out = []
+    for name in QT_TRANSLATIONS:
+        tr = QTranslator(app)
+        if tr.load(name, path):
+            app.installTranslator(tr)
+            out.append(tr)
+            if name == "qtbase_cs":
+                break           # qt_cs je jen meta-soubor odkazující na qtbase_cs – stačí jeden
+    app._envocad_translators = out
+    return out
+
 
 def main() -> None:
     from envocad.logging_setup import log, setup
@@ -13,6 +33,7 @@ def main() -> None:
     app = QApplication(sys.argv)
     app.setApplicationName("EnvoCAD")
     app.setOrganizationName("ENVO")
+    install_qt_translations(app)
     from envocad.ui import theme
     from envocad.ui.main_window import MainWindow
 

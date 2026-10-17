@@ -1,6 +1,7 @@
 """Výkazy do .xlsx (openpyxl). Jeden sešit, list na každý výkaz."""
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -16,14 +17,42 @@ THIN = Side(style="thin", color="999999")
 BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 
 
+# sloupce, jejichž číselné hodnoty se zapisují jako čísla (Excel s nimi počítá a řadí je číselně)
+NUMERIC_COLUMNS = {"Průřez [mm²]", "Délka [m]", "Č.", "Svorka", "Ks", "Spojů"}
+
+
+def _number(v):
+    """Text čísla („6“, „1,5“, „2.5“) → int/float; jiné hodnoty (i „1/2“, „PE“, „“) beze změny."""
+    if not isinstance(v, str):
+        return v
+    t = v.strip().replace(",", ".")
+    if not t or t[0] in "+" or t.startswith("0") and len(t) > 1 and t[1] != ".":
+        return v               # „+RDC1…“ a čísla s nulou na začátku („01“) zůstanou textem
+    try:
+        f = float(t)
+    except ValueError:
+        return v
+    if not math.isfinite(f):
+        return v
+    return int(f) if f.is_integer() and "." not in t and "e" not in t.lower() else f
+
+
+def _set_text_safe(cell) -> None:
+    """Řetězec začínající „=“ (strukturní označení =AC+RDC1-F1) uložit jako text, ne jako vzorec."""
+    if isinstance(cell.value, str) and cell.value.startswith("="):
+        cell.data_type = "s"
+
+
 def _write_table(ws, title: str, subtitle: str, head: list[str], rows: list[list], extra: list[str] = ()) -> None:
     """Nadpis, podnadpis (+ doplňkové řádky podnadpisu `extra`, např. parametry výpočtu), prázdný řádek, tabulka."""
     ws.append([title])
     ws["A1"].font = Font(bold=True, size=14)
     ws.append([subtitle])
+    _set_text_safe(ws.cell(row=ws.max_row, column=1))
     for line in extra:
         ws.append([line])
         ws.cell(row=ws.max_row, column=1).font = Font(italic=True, size=9)
+        _set_text_safe(ws.cell(row=ws.max_row, column=1))
     ws.append([])
     ws.append(head)
     hr = ws.max_row
@@ -33,10 +62,14 @@ def _write_table(ws, title: str, subtitle: str, head: list[str], rows: list[list
         cell.fill = HEAD_FILL
         cell.border = BORDER
         cell.alignment = Alignment(vertical="center", wrap_text=True)
+    numeric = [h in NUMERIC_COLUMNS for h in head]
     for r in rows:
-        ws.append(r)
-        for c in range(1, len(head) + 1):
-            ws.cell(row=ws.max_row, column=c).border = BORDER
+        ws.append([_number(v) if c < len(numeric) and numeric[c] else v for c, v in enumerate(r)])
+        for c in range(1, max(len(head), len(r)) + 1):
+            cell = ws.cell(row=ws.max_row, column=c)
+            _set_text_safe(cell)
+            if c <= len(head):
+                cell.border = BORDER
     for c, h in enumerate(head, start=1):
         width = max([len(str(h))] + [len(str(r[c - 1])) for r in rows if c - 1 < len(r)] + [6])
         ws.column_dimensions[get_column_letter(c)].width = min(width + 2, 50)

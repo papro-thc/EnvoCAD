@@ -128,7 +128,10 @@ Jeden model, dva pohledy nad stejnými daty:
 - Geometrie vícepólu (rozmístění `auto_layout`, stránkování `paginate`, popisky přístrojů `pole_label_lines`, trasy
   žil `conductor_route`, příčka PE svodiče `pe_join_segments`) je v `model/multipole.py`; `model/multipole_geometry.py`
   z ní bez Qt skládá texty a čáry celého pohledu a rozmisťuje popisky žil mimo cizí čáry – stejné polohy kreslí scéna
-  (`ui/multipole_view.py`) a kontroluje F7 (`mp_text_overlap`).
+  (`ui/multipole_view.py`) a kontroluje F7 (`mp_text_overlap`). Se zapnutým rámečkem posune automaticky rozmístěné
+  prvky strany nahoru mimo popisové pole s QR kódem; výsledné polohy (`MultipoleGeometry.origins`) přebírá scéna.
+- Plán svorkovnice: data `model/terminal_plan.py:terminal_plan`, rozmístění na strany `layout_plan_pages` (pásy,
+  svorkovnice vedle sebe, zalomení dlouhé, další strana) – scéna `ui/terminal_plan_view.py` má `pages` jako vícepól.
 
 ## Modularita a rozšiřování
 
