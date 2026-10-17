@@ -90,6 +90,10 @@ def export_tz_docx(project: Project, lib: LibraryStore, path: Path | str, templa
                  "1,25·Isc [A]", "Umax / MPPT střídače", "Výsledek"],
            [[x.ref, x.inverter, x.uoc_cold, x.umpp_hot, round(calc.SAFETY_ISC * x.isc, 1),
              f"{x.u_dc_max or '–'} / {x.u_mppt_min or '–'}–{x.u_mppt_max or '–'} V", "vyhovuje" if x.ok else "; ".join(x.issues)]
+            if x.mode != "fixed_voltage" else   # pevné napětí: místo Uoc / Umpp pevné U a P stringu
+            [x.ref, x.inverter, f"pevné U {reports._g(x.u_string)} V", reports.fixed_voltage_text(x).split(", ")[-1],
+             round(calc.SAFETY_ISC * x.isc, 1), f"{x.u_dc_max or '–'} V; optimizérů {x.n_opt_min or '–'}–{x.n_opt_max or '–'}",
+             "vyhovuje" if x.ok else "; ".join(x.issues)]
             for x in sc])
     doc.add_paragraph("")
 
