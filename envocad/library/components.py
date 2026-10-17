@@ -239,7 +239,8 @@ def pv_module_error(row: dict) -> str | None:
 
 def inverter_error(row: dict) -> str | None:
     """Česká hláška k řádku střídače (`inverter`, `inverter_hybrid`), nebo None: u_mppt_min < u_mppt_max ≤ u_dc_max,
-    strings_per_mppt ≥ 1. Prázdné hodnoty se přeskočí (vestavěné střídače se doplňují postupně)."""
+    strings_per_mppt ≥ 1, `string_mode` z `STRING_MODES`, fixed_voltage ⇒ `u_string_v`, u_string ≤ u_dc_max,
+    n_opt_min ≤ n_opt_max. Prázdné hodnoty se přeskočí (vestavěné střídače se doplňují postupně)."""
     errs: list[str] = []
     u_dc, lo, hi = (_row_num(row, k) for k in ("u_dc_max_v", "u_mppt_min_v", "u_mppt_max_v"))
     spm = _row_num(row, "strings_per_mppt")
