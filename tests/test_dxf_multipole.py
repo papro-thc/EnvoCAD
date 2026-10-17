@@ -358,3 +358,100 @@ def test_gui_export_dxf_from_multipole_tab(qapp, lib, tmp_path, monkeypatch):
     finally:
         w.undo.setClean()
         w.close()
+
+
+def _r(pt) -> tuple[float, float]:
+    return (round(pt[0], 3), round(pt[1], 3))
+
+
+def _dedup(pts) -> tuple:
+    """Bez opakovaných po sobě jdoucích bodů (QPainterPath nulový úsek vynechá)."""
+    out: list = []
+    for q in pts:
+        if not out or out[-1] != q:
+            out.append(q)
+    return tuple(out)
+
+
+def _view_pts(g, pr) -> tuple[tuple[float, float], ...]:
+    """Body primitiva v souřadnicích pohledu (strany pod sebou, jako scéna)."""
+    return tuple(_r((x, y - pr.page * g.page_pitch)) for x, y in pr.pts)
+
+
+@pytest.mark.parametrize("case", sorted(CASES))
+def test_scene_matches_model_prims(case, qapp, lib):
+    """Parita scéna × kreslicí seznam modelu (z něj kreslí DXF): trasy žil, počátky pólů, štítky kabelů, tečky
+    sběrnic a sběrných čar a nadpis rozvaděče."""
+    from envocad.ui.items import path_points
+    from envocad.ui.multipole_view import BusItem, CableTagItem, ConductorItem, PoleItem, RailItem, TitleItem
+    p, sb = CASES[case]()
+    g = mg.multipole_geometry(p, sb, lib)
+    sc = _scene(p, sb, lib)
+    items = sc.items()
+    # trasy žil: ConductorItem ↔ prims „poly“
+    scene_routes = Counter(_dedup(_r(pt) for pt in path_points(it.path()))   # path_points: už mm, Y nahoru
+                           for it in items if isinstance(it, ConductorItem))
+    model_routes = Counter(_dedup(_view_pts(g, pr)) for pr in g.prims if pr.kind == "poly")
+    assert scene_routes and scene_routes == model_routes
+    # počátky pólů: PoleItem ↔ prims „symbol“ (společná část značky leží ve stejném počátku)
+    poles = {(it.element.id, _r((it.pos().x(), -it.pos().y()))) for it in items if isinstance(it, PoleItem)}
+    model_poles = {_view_pts(g, pr)[0] for pr in g.prims if pr.kind == "symbol"}
+    assert poles and {pt for _eid, pt in poles} == model_poles
+    # štítky kabelů: texty a polohy řádků CableTagItem ↔ prims „text“ ve vrstvě STITKY
+    tags = set()
+    for it in items:
+        if isinstance(it, CableTagItem):
+            top = it.y_edge + it.h if it.up else it.y_edge
+            for i, t in enumerate(it.rows):
+                tags.add((t, _r(((it.x0 + it.x1) / 2, top - (i + 1) * it.ROW + 0.8))))
+    model_tags = {(pr.text, _view_pts(g, pr)[0]) for pr in g.prims if pr.kind == "text" and pr.layer == "STITKY"}
+    assert tags == model_tags
+    # tečky: odbočky sběrnic (BusItem) a sběrných čar (RailItem) ↔ prims „dot“ ve vrstvě SBERNICE
+    dots = Counter(_r(pt) for it in items if isinstance(it, BusItem) for pt in it.taps)
+    dots += Counter(_r(pt) for it in items if isinstance(it, RailItem) for pt in it.rail.dots)
+    model_dots = Counter(_view_pts(g, pr)[0] for pr in g.prims if pr.kind == "dot" and pr.layer == "SBERNICE")
+    assert dots == model_dots
+    # nadpis: řádky a polohy TitleItem (stejný výpočet jako `TitleItem.paint`) ↔ prims s vlastníkem nadpisu
+    titles = set()
+    for it in items:
+        if isinstance(it, TitleItem):
+            y = 0.0
+            for i, t in enumerate(it.lines):
+                h = 5.0 if i == 0 else 3.0
+                y -= h
+                titles.add((t, _r((it.pos().x(), -it.pos().y() + y))))
+                y -= (2.8 if i == 0 else 0.0) + 1.2
+    assert titles
+    texts = {(pr.text, _view_pts(g, pr)[0]) for pr in g.prims if pr.kind == "text"}
+    assert titles <= texts
+
+
+def test_prims_of_element_above_top_edge_stay_on_its_page(lib):
+    """Prvek s ruční polohou na straně k ≥ 1, jehož port (a začátek žíly) leží nad horní hranou strany: žíla, svorky
+    i popisek žíly patří na stranu prvku (`page_of`), ne na stranu k − 1 podle výšky bodu."""
+    from envocad.model.project import Wire, WireEnd
+    p = Project()
+    blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
+    p.sheets[0].elements.append(blk)
+    sb = p.create_switchboard_sheet(blk)
+    q1 = Element("fve.breaker_mcb", 100, 100, rotation=270, attrs={"ref": "Q1"})   # port 1 nahoru
+    q2 = Element("fve.breaker_mcb", 160, 100, attrs={"ref": "Q2"})
+    q1.mp_pos = q2.mp_pos = (0.0, 0.0)           # ruční polohy určují formát stran (`paper_choice`)
+    sb.elements += [q1, q2]
+    size = mp.page_size(sb, mp.paper_choice(sb))
+    pitch = mp.page_pitch(sb, size)
+    top1 = size[1] - pitch                       # horní hrana strany 2 v souřadnicích pohledu
+    q1.mp_pos = (100.0, top1 - 1.0)              # počátek těsně pod horní hranou, port 1 nad ní
+    q2.mp_pos = (160.0, top1 - 80.0)
+    sb.wires.append(Wire(WireEnd(q1.id, "1"), WireEnd(q2.id, "1"), attrs={"ref": "W1"}, conductors=["L1"],
+                         terminals={"L1": {"a": "1", "b": "1"}}))
+    g = mg.multipole_geometry(p, sb, lib)
+    assert g.page_of[q1.id] == g.page_of[q2.id] == 1
+    polys = [pr for pr in g.prims if pr.kind == "poly"]
+    assert all(pr.page == 1 for pr in polys)
+    # předpoklad testu: část žíly je nad horní hranou strany 2 (souřadnice pohledu = lokální − strana × rozteč)
+    assert max(y - pitch for pr in polys for _x, y in pr.pts) > top1
+    terms = [pr for pr in g.prims if pr.kind == "text" and pr.text == "1"]
+    assert terms and all(pr.page == 1 for pr in terms)
+    labels = [pr for pr in g.prims if pr.kind == "text" and pr.text and "W1" in pr.text]
+    assert labels and all(pr.page == 1 for pr in labels)
