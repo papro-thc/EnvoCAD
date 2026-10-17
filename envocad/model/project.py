@@ -1135,7 +1135,8 @@ AUTO_TEXT_TEMPLATES = ("od {}", "{} dál", "string {}", "DC rozvaděč u {}", "D
 
 @dataclass(frozen=True)
 class TextChange:
-    """Změna textu navázaná na přejmenování: `kind` = "element" (atribut `key` prvku `target_id`), "sheet"
+    """Změna textu navázaná na přejmenování: `kind` = "element" (atribut `key` prvku `target_id`), "wire"
+    (atribut vodiče), "cable" (označení kabelu, `key` = "ref", `model.renumber`), "sheet"
     (název listu `target_id`) nebo "wire_port" (port konce `key` = "a"/"b" vodiče `target_id` – konec vodiče JPS
     na bloku ROZVADĚČ po přejmenování přívodu/vývodu, `feed_port_followups`). U „element“ znamená `old` None
     chybějící klíč – undo ho odebere (odvozené atributy nové vazby přívodu, `SetAttrCommand`)."""
@@ -1251,6 +1252,17 @@ def apply_text_changes(project: Project, changes: list[TextChange], undo: bool =
                 project.sheet(c.target_id).name = val
             except KeyError:
                 continue
+        elif c.kind == "wire":
+            w = wires.get(c.target_id)
+            if w is not None:
+                if val is None:
+                    w.attrs.pop(c.key, None)
+                else:
+                    w.attrs[c.key] = val
+        elif c.kind == "cable":
+            cab = next((k for k in project.cables if k.id == c.target_id), None)
+            if cab is not None and c.key == "ref":
+                cab.ref = val or ""
         elif c.target_id in els:
             if val is None:
                 els[c.target_id].attrs.pop(c.key, None)

@@ -251,6 +251,7 @@ class MainWindow(QMainWindow):
         m_edit.addSeparator()
         act(m_edit, "Svorky vybraného vodiče…", self.edit_wire_terminals, "Ctrl+T", "terminals")
         act(m_edit, "Očíslovat svorky automaticky", self.auto_number_terminals)
+        act(m_edit, "Přečíslovat označení…", self.renumber_refs, None, "renumber")
         act(m_edit, "Svorkovnice a můstky…", self.edit_strip, "Ctrl+Shift+T")
         act(m_edit, "Kabel vybraného vodiče (žíly, barvy, stínění)…", self.edit_cable, "Ctrl+Shift+K", "cable")
         m_edit.addSeparator()
@@ -1266,6 +1267,28 @@ class MainWindow(QMainWindow):
             sc = self._jps_scene(sh)
         n = sc.auto_number_terminals()
         self.statusBar().showMessage(f"Očíslovány svorky u {n} vodičů" if n else "Všechny svorky už jsou přiřazené", 4000)
+
+    def renumber_refs(self) -> None:
+        """Úpravy → Přečíslovat označení: přístroje a vodiče podle polohy, jeden krok undo (`model.renumber`)."""
+        from envocad.ui.renumber_dialog import RenumberDialog
+        dlg = RenumberDialog(self.project, self.library, self.current_sheet, self)
+        if dlg.exec() != RenumberDialog.Accepted or not dlg.changes:
+            return
+        from envocad.model.renumber import summary
+        self.undo.push(commands.TextChangesCommand(self.project, dlg.all_changes(), self._refs_changed,
+                                                   "Přečíslovat označení"))
+        self.statusBar().showMessage(f"Přečíslováno: {summary(dlg.changes)}", 5000)
+
+    def _refs_changed(self) -> None:
+        """Po přečíslování / jeho undo: překreslit všechny otevřené pohledy a panel vlastností."""
+        for i in range(self.tabs.count()):
+            sc = self._unwrap(self.tabs.widget(i)).scene()
+            sc.rebuild()
+            sc.update()
+        self._sync_links_and_blocks()
+        self._refresh_tab_titles()
+        if self._findings is not None and self.checks_dock.isVisible():
+            self._checks_timer.start()
 
     def _update_title(self) -> None:
         name = self.project.path.name if self.project.path else "nepojmenovaný"

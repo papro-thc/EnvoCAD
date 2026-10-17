@@ -626,8 +626,8 @@ class TextChangesCommand(QUndoCommand):
     """Navázané změny textů po přejmenování prvku (`model.project.rename_followups`): popisy jiných prvků a názvy
     listů. `on_change` obnoví pohledy (titulky záložek, popisky)."""
 
-    def __init__(self, project, changes: list, on_change=None):
-        super().__init__("Upravit navázané texty")
+    def __init__(self, project, changes: list, on_change=None, text: str = "Upravit navázané texty"):
+        super().__init__(text)
         self.project, self.changes, self.on_change = project, list(changes), on_change
 
     def _apply(self, undo: bool):

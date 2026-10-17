@@ -12,7 +12,7 @@
 - [x] Dialog parametrů při vložení prvku/vodiče
 - [x] Rámeček a popisové pole listu (šablona ENVO) – logo doplnit po dodání
 - [ ] Příkazový řádek (styl ZWCAD/CADCraft): každá akce = příkaz, ovladatelné i z agentů
-- [ ] Automatické číslování označení (T1, F1, Q1…) s kontrolou duplicit
+- [x] Automatické číslování označení (T1, F1, Q1…) s kontrolou duplicit – nové prvky a kopie dostanou další volné číslo, F7 hlásí duplicity, Úpravy → Přečíslovat označení (podle polohy, jen chybějící/duplicitní nebo vše, kontakty s cívkou, 10/2026)
 
 ## v0.2 – Knihovna a výkazy
 - [ ] Editor symbolů (porty, atributy) přímo v GUI

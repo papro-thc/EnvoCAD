@@ -115,6 +115,16 @@ Tažení myší posouvá (snap 2,5 mm), `R` otáčí, `Delete` maže, `Ctrl+Z`/`
 kopíruje vybrané prvky včetně vodičů mezi nimi – kopie dostanou nová označení a posun 10 mm. Výběr více prvků
 tažením rámečku v prázdné ploše. Kolečko zoomuje, střední tlačítko posouvá pohled, `Home` přizpůsobí list.
 
+**Přečíslovat označení** (`Úpravy → Přečíslovat označení…`): nový prvek dostane další volné číslo sám (F1, F2…),
+tenhle příkaz srovná označení hromadně. Rozsah je aktuální list nebo celý projekt, režim **Jen doplnit chybějící
+a opravit duplicitní** (výchozí – ostatní označení zůstanou, u duplicity si číslo nechá první podle polohy) nebo
+**Přečíslovat vše podle polohy** (listy v pořadí projektu, v listu po sloupcích zleva doprava a shora dolů).
+Číslovat lze přístroje, vodiče (W) nebo obojí. Dialog ukáže náhled „staré → nové“; provede se jedním krokem
+`Ctrl+Z`. Kontakty dostanou číslo spolu se svou cívkou, kabel navázaný na vodič jeho označením se přejmenuje s ním,
+automatické popisy („od T1“) se přepíšou. Každý prostor označení (=funkce+umístění) se čísluje zvlášť. Nemění se
+svorkovnice, přívody a vývody (čísla svorek viz `Očíslovat svorky`), přerušovací body, bloky ROZVADĚČ a firemní
+označení, která nejsou tvaru písmena + číslo (`Q1.2`, `SPD-DC1`) – jejich čísla zůstanou obsazená.
+
 ### Makra (sestavy)
 Vyber prvky (vodiče mezi nimi se přiberou) a `Úpravy → Uložit výběr jako makro…` (`Ctrl+Alt+M`): makro se
 uloží do `~/.envocad/macros/` nebo – když je nastavená sdílená knihovna – na dotaz do `<sdílená>/macros/`

@@ -365,3 +365,27 @@ def test_drawing_only_and_compact_checks_panel():
     w2, _p2, _s2 = _sb_window()
     assert w2.findChild(QDockWidget, "Knihovna").isVisible() and not w2.act_focus.isChecked()
     w2.close()
+
+
+def test_renumber_dialog_and_undo(monkeypatch):
+    """Úpravy → Přečíslovat označení: náhled v dialogu, jeden krok undo, popisky ve výkresu se překreslí."""
+    from envocad.model.project import Element
+    from envocad.ui.renumber_dialog import RenumberDialog
+    w = _window()
+    s = w.project.sheets[0]
+    a = Element("fve.breaker_mcb", 100, 100, attrs={"ref": "F1"})
+    b = Element("fve.breaker_mcb", 150, 100, attrs={"ref": "F1"})
+    s.elements += [a, b]
+    w.scene.rebuild()
+    dlg = RenumberDialog(w.project, w.library, s, w)
+    assert dlg.tree.topLevelItemCount() == 1 and dlg.tree.topLevelItem(0).text(2) == "F2"
+    dlg.mode.setCurrentIndex(dlg.mode.findData("all"))
+    assert dlg.changes and "1 prvek" in dlg.summary.text()
+    monkeypatch.setattr(RenumberDialog, "exec", lambda self: RenumberDialog.Accepted)
+    n = w.undo.count()
+    w.renumber_refs()
+    assert (a.ref, b.ref) == ("F1", "F2") and w.undo.count() == n + 1
+    assert w.undo.undoText() == "Přečíslovat označení"
+    w.undo.undo()
+    assert b.ref == "F1"
+    w.close()

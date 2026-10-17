@@ -89,6 +89,7 @@ Pokyny pro AI agenty: `CLAUDE.md`, `docs/AGENTS.md`.
 | Otevřít rozvaděč | dvojklik na blok ROZVADĚČ (poprvé nabídne šablonu) – otevře vícepólové schéma; `Ctrl+J` přepne na jednopólovou editaci (vkládání, vodiče) |
 | Rozložení rozvaděče | `Ctrl+L` na listu rozvaděče; přístroje přetáhnout na DIN lišty; parametry skříně a oteplení v panelu vpravo (`Ctrl+Alt+K`) |
 | Výkazy / protokol | menu Výstupy (xlsx, docx) |
+| Přečíslovat | Úpravy → Přečíslovat označení: doplní chybějící a opraví duplicitní označení, nebo přečísluje vše podle polohy (aktuální list / projekt, přístroje i vodiče, náhled, jeden krok undo) |
 | Vícepól | `Ctrl+M` otevře vícepólový pohled listu (odvozený z JPS, `Ctrl+J` zpět); žíly vodiče se zadávají v dialogu vodiče („Žíly“), dvojklik na žílu / `Ctrl+T` = svorky, Úpravy → Očíslovat svorky |
 | Svorkovnice a můstky | `Ctrl+Shift+T` – tabulka svorek vybrané svorkovnice, můstky jako „1-6-11“ (jedna skupina na řádek); skupina svorek v JPS = prvek Svorky s čísly v atributu „terminal“ |
 | Plán svorkovnice | `Ctrl+Shift+M` – kreslený plán svorkovnice (export PDF), totéž jako list ve výkazech |
