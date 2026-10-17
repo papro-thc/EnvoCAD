@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QFont, QPainter, QPainterPath, QPen
+from PySide6.QtGui import QFont, QFontMetricsF, QPainter, QPainterPath, QPen
 
 from envocad.model.symbol import Primitive, Symbol
 
@@ -75,6 +75,55 @@ def draw_text(painter: QPainter, x: float, y: float, text: str, height: float = 
     dx = {"left": 0.0, "center": -w / 2, "right": -w}.get(align, 0.0)
     painter.drawText(QPointF(dx, 0), text)
     painter.restore()
+
+
+_METRICS: dict[int, QFontMetricsF] = {}
+
+
+def text_width(text: str, height: float = 2.5) -> float:
+    """Šířka textu v mm tak, jak ho nakreslí `draw_text` (stejné písmo a měřítko)."""
+    px = max(1, round(height * 1.4 * 10))
+    fm = _METRICS.get(px)
+    if fm is None:
+        font = QFont("Arial")
+        font.setPixelSize(px)
+        fm = _METRICS[px] = QFontMetricsF(font)
+    return fm.horizontalAdvance(text) * 0.1
+
+
+def wrap_text(text: str, width: float, height: float = 2.5) -> list[str]:
+    """Zalomí text do řádků široké nejvýš `width` mm (po slovech, příliš dlouhé slovo po znacích). Zalomení řádku
+    v textu se zachová; prázdný text = jeden prázdný řádek."""
+    out: list[str] = []
+    for para in str(text).split("\n"):
+        line = ""
+        for word in para.split():
+            cand = f"{line} {word}" if line else word
+            if text_width(cand, height) <= width:
+                line = cand
+                continue
+            if line:
+                out.append(line)
+                line = ""
+            while text_width(word, height) > width and len(word) > 1:   # slovo širší než sloupec → po znacích
+                k = len(word) - 1
+                while k > 1 and text_width(word[:k], height) > width:
+                    k -= 1
+                out.append(word[:k])
+                word = word[k:]
+            line = word
+        out.append(line)
+    return out or [""]
+
+
+def elide_text(text: str, width: float, height: float = 2.5) -> str:
+    """Text zkrácený na `width` mm s „…“ na konci (beze změny, když se vejde)."""
+    if text_width(text, height) <= width:
+        return text
+    k = len(text)
+    while k > 0 and text_width(text[:k].rstrip() + "…", height) > width:
+        k -= 1
+    return text[:k].rstrip() + "…" if k else "…"
 
 
 def draw_frame(painter: QPainter, geom, color) -> None:

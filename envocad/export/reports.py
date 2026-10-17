@@ -8,12 +8,10 @@ import functools
 from collections import OrderedDict
 
 from envocad.library.store import LibraryStore
-from envocad.model.designation import LOCATION_SYMBOLS, designation, full_designation
-from envocad.model.project import Element, Project, Sheet, clean_view
+from envocad.model.designation import LOCATION_SYMBOLS, designation, element_name, full_designation, scope_key
+from envocad.model.project import NON_DEVICE_SYMBOLS, Element, Project, Sheet, clean_view
+from envocad.model.xref import natural_key
 
-# Symboly, které nejsou přístroje k objednání (propojení, odkazy, vnější prvky)
-NON_DEVICE_SYMBOLS = {"fve.terminal", "fve.earth", "fve.grid", "fve.load", "fve.switchboard", "sb.feed_in", "sb.feed_out",
-                      "fve.interrupt", "ctl.contact_no", "ctl.contact_nc", "ctl.contact_power"}
 TERMINAL_SYMBOLS = {"sb.feed_in", "sb.feed_out", "sb.terminal_block"}
 
 DEVICE_PARAMS = ["in_", "char", "poles", "idn", "spd_type", "uc", "icu", "ir", "p_ac", "e_kwh", "sn"]
@@ -64,7 +62,7 @@ def _port_text(project: Project, s: Sheet, e: Element, port: str, terminal: str 
     přívod/vývod uvnitř). Aspekty shodné s `base` (kontext řádku, např. svorkovnice) se vynechají."""
     if e.symbol_id in LOCATION_SYMBOLS and e.ref:
         return f"{full_designation(project, s, e)}-{terminal or port}"
-    text = terminal or f"{e.ref or e.symbol_id}:{port}"
+    text = terminal or f"{element_name(e)}:{port}"
     a = _aspects(s, e) if (terminal or e.ref) else ""
     return f"{a}-{text}" if a and a != base else text
 
@@ -85,7 +83,6 @@ def devices(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> 
 
 def _contacts_text(idx, e: Element) -> str:
     """Sloupec Kontakty: páry kontaktů a pólů stykače (secondary) přístroje, jen u položky výkazu skupiny."""
-    from envocad.model.xref import natural_key
     g = idx.group_of(e)
     if g is None or g.device[1] is not e:
         return ""
@@ -104,23 +101,53 @@ def _symbol(lib, symbol_id: str):
 @over_clean
 def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Seznam přístrojů (každý zvlášť) – pro štítky a kontrolu."""
+    from envocad.model.multipole import is_terminal_block
     idx = _index(project)
     head = ["Označení", "Přístroj", "Typ", "Výrobce", "Parametry", "Kontakty", "Moduly", "Řada", "Pozice", "List"]
     keyed: list[tuple[tuple, list]] = []
     for s in _sheets(project, sheet):
+        strips: dict[tuple[str, str, str], list[Element]] = {}
         for e in s.elements:
             if e.symbol_id in NON_DEVICE_SYMBOLS or not idx.is_bom_device(e, sheet):
+                continue
+            if is_terminal_block(e) and e.ref:
+                # svorkovnice = jeden řádek za všechny skupiny svorek; klíč jako u štítků (`labels`): prostor
+                # označení + ref – skupina X1 s vlastním umístěním (override +loc) je jiná svorkovnice
+                strips.setdefault((*scope_key(s, e), e.ref), []).append(e)
                 continue
             sym = _symbol(lib, e.symbol_id)
             pl = s.layout.placement(e.id) if s.is_switchboard else None
             conts = _contacts_text(idx, e)
             d = designation(s, e)
-            keyed.append(((d.func, d.loc, _ref_key(e.ref), s.name),
+            keyed.append(((natural_key(d.func), natural_key(d.loc), _ref_key(e.ref), natural_key(s.name)),
                           [_tag(project, s, e), sym.name, e.attrs.get("type", ""), e.attrs.get("manufacturer", ""),
                            _param_str(e), conts, e.modules or "", (pl.row + 1) if pl else "", pl.pos if pl else "",
                            s.name]))
+        for (_f, _l, ref), grp in strips.items():
+            e = grp[0]
+            n = sum(_terminal_qty(s, g) for g in grp)
+            pls = sorted((pl.row, pl.pos) for g in grp if s.is_switchboard and (pl := s.layout.placement(g.id)))
+            mods = round(sum(g.modules for g in grp), 2)
+            types = ", ".join(dict.fromkeys(t for g in grp if (t := g.attrs.get("type", ""))))
+            mfrs = ", ".join(dict.fromkeys(m for g in grp if (m := g.attrs.get("manufacturer", ""))))
+            params = f"{n} {_terminal_word(n)}" + (f", {len(grp)} {'skupiny' if len(grp) < 5 else 'skupin'}" if len(grp) > 1 else "")
+            d = designation(s, e)
+            keyed.append(((natural_key(d.func), natural_key(d.loc), _ref_key(ref), natural_key(s.name)),
+                          [_tag(project, s, e), _symbol(lib, e.symbol_id).name, types, mfrs, params, "", mods or "",
+                           (pls[0][0] + 1) if pls else "", pls[0][1] if pls else "", s.name]))
     keyed.sort(key=lambda kr: kr[0])
     return head, [r for _, r in keyed]
+
+
+def _terminal_word(n: int) -> str:
+    return "svorka" if n == 1 else ("svorky" if 2 <= n <= 4 else "svorek")
+
+
+def _terminal_qty(s: Sheet, e: Element) -> int:
+    """Počet svorek skupiny: žíly napojených vodičů, jinak čísla svorek z atributu, jinak 1."""
+    from envocad.model.multipole import terminal_numbers, wire_conductors
+    n = len({c for w in s.wires for end in (w.a, w.b) if end.element_id == e.id for c in wire_conductors(w)})
+    return n or len([x for x in terminal_numbers(e, 1) if x]) or 1
 
 
 @over_clean
@@ -128,21 +155,23 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
     """Výkaz materiálu – sloučeno podle přístroje/typu/výrobce/parametrů."""
     head = ["Pol.", "Přístroj", "Typ", "Výrobce", "Parametry", "Ks", "Označení"]
     groups: OrderedDict[tuple, list[str]] = OrderedDict()
-    from envocad.model.multipole import is_terminal_block, terminal_numbers, wire_conductors
+    from envocad.model.multipole import is_terminal_block
     qty: dict[tuple, int] = {}
     idx = _index(project)
     for s in _sheets(project, sheet):
+        strip_qty: OrderedDict[tuple, int] = OrderedDict()   # (klíč položky, plné označení svorkovnice) → kusy
         for e in s.elements:
             if (e.symbol_id in NON_DEVICE_SYMBOLS and not is_terminal_block(e)) or not idx.is_bom_device(e, sheet):
                 continue
             if is_terminal_block(e):
-                # skupina svorek (i přívod/vývod) = tolik kusů svorky, kolik má žil; parametr = průřez/druh z artiklu
-                n = len({c for w in s.wires for end in (w.a, w.b) if end.element_id == e.id for c in wire_conductors(w)})
-                n = n or len([x for x in terminal_numbers(e, 1) if x]) or 1
+                # skupina svorek (i přívod/vývod) = tolik kusů svorky, kolik má žil; parametr = průřez/druh z artiklu;
+                # označení plné (+RDC1-X1 – X1 je v každém rozvaděči jiná), skupiny jedné svorkovnice sečtené
+                n = _terminal_qty(s, e)
                 params = ", ".join(x for x in (e.attrs.get("cross", "") and f"{e.attrs['cross']} mm²",
                                                e.attrs.get("kind", "")) if x)
                 key = ("Řadová svorka", e.attrs.get("type", ""), e.attrs.get("manufacturer", ""), params)
-                groups.setdefault(key, []).append(f"{e.ref} ({n})")
+                sk = (key, _tag(project, s, e) or element_name(e, lib))
+                strip_qty[sk] = strip_qty.get(sk, 0) + n
                 qty[key] = qty.get(key, 0) + n
                 continue
             if e.symbol_id == "fve.pv_string":
@@ -156,22 +185,35 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
                         continue
                     params = f"{e.attrs['p_module']} Wp" if akey == "type" and e.attrs.get("p_module") else ""
                     key = (name, e.attrs.get(akey, ""), "", params)
-                    groups.setdefault(key, []).append(f"{e.ref} ({n})")
+                    groups.setdefault(key, []).append(f"{_tag(project, s, e)} ({n})")
                     qty[key] = qty.get(key, 0) + n
                 continue
             key = (_symbol(lib, e.symbol_id).name, e.attrs.get("type", ""), e.attrs.get("manufacturer", ""), _param_str(e))
-            groups.setdefault(key, []).append(e.ref)
+            groups.setdefault(key, []).append(_tag(project, s, e))
             qty[key] = qty.get(key, 0) + 1
-        # můstky: za každou skupinu můstků jeden (vícepólový) můstek dané svorkovnice
+        for (key, tag), n in strip_qty.items():
+            groups.setdefault(key, []).append(f"{tag} ({n})")
+        # můstky: za každou skupinu můstků jeden (vícepólový) můstek dané svorkovnice; počítají se jen svorky, které
+        # na svorkovnici existují (můstek na smazanou svorku se nepočítá, skupina pod 2 svorky odpadá)
         if s.is_switchboard or sheet is not None:
-            strips = {e.ref for e in s.elements if is_terminal_block(e) and e.ref}
-            for strip in sorted(strips):
+            from envocad.model.terminal_plan import strip_numbers
+            first = {}
+            for e in s.elements:
+                if is_terminal_block(e) and e.ref:
+                    first.setdefault(e.ref, e)
+            for strip in sorted(first, key=natural_key):
+                existing = strip_numbers(project, s, strip)
+                tag = _tag(project, s, first[strip]) or strip
                 for g in project.bridge_groups(strip, s):
+                    g = [x for x in g if x in existing]
+                    if len(g) < 2:
+                        continue
                     key = ("Můstek svorek", "", "", f"{len(g)} pólů")
-                    groups.setdefault(key, []).append(f"{strip}:{'-'.join(g)}")
+                    groups.setdefault(key, []).append(f"{tag}:{'-'.join(g)}")
                     qty[key] = qty.get(key, 0) + 1
     rows = []
-    for i, (key, refs) in enumerate(sorted(groups.items(), key=lambda kv: (kv[0][0], kv[0][3])), start=1):
+    order = sorted(groups.items(), key=lambda kv: (kv[0][0], natural_key(kv[0][3]), kv[0][1], kv[0][2]))
+    for i, (key, refs) in enumerate(order, start=1):
         rows.append([i, key[0], key[1], key[2], key[3], qty[key], ", ".join(sorted(refs, key=_ref_key))])
     return head, rows
 
@@ -191,7 +233,7 @@ def cables(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> t
             rows.append([w.attrs.get("ref", ""), _port_text(project, s, a, w.a.port), _port_text(project, s, b, w.b.port),
                          w.attrs.get("cable", ""), w.attrs.get("cross", ""), " ".join(w.conductors) or w.attrs.get("poles", ""),
                          w.attrs.get("length", ""), w.attrs.get("route", ""), wire_xref(project, w.id, idx).lstrip("→ "), s.name])
-    rows.sort(key=lambda r: (r[9], _ref_key(r[0])))
+    rows.sort(key=lambda r: (natural_key(r[9]), _ref_key(r[0])))
     return head, rows
 
 
@@ -208,45 +250,72 @@ def terminals(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -
                 if end.symbol_id not in TERMINAL_SYMBOLS:
                     continue
                 conds = w.conductors or [""]
+                base = _aspects(s, end)
                 for i, c in enumerate(conds, start=1):
                     desig = wire_end_terminal(s, w, c, side) if c else ""
                     strip, _, num = desig.partition(":")
                     term = num or end.attrs.get("terminal") or (str(i) if c else "")
                     bridge = project.bridge_of(strip or end.ref, term, s)
                     rows.append([end.ref, term, c, w.attrs.get("ref") or w.attrs.get("cable", ""),
-                                 _port_text(project, s, other, other_port, base=_aspects(s, end)),
+                                 _other_end_text(project, s, w, c, "b" if side == "a" else "a", other, other_port, base),
                                  "-".join(bridge) if bridge else "", end.attrs.get("desc", ""), s.name])
-    rows.sort(key=lambda r: (r[7], _ref_key(r[0]), _ref_key(str(r[1]))))
+    rows.sort(key=lambda r: (natural_key(r[7]), _ref_key(r[0]), natural_key(str(r[1])), r[2]))
     return head, rows
+
+
+def _other_end_text(project: Project, s: Sheet, w, conductor: str, side: str, other: Element, other_port: str,
+                    base: str) -> str:
+    """Druhý konec žíly pro výkaz svorkovnice – stejně jako zapojovací/výrobní seznam (`wiring.conductor_end`:
+    pól přístroje „Q1:3“, svorka, potenciál sběrnice); aspekty shodné se svorkovnicí (`base`) se vynechají."""
+    if not conductor:
+        return _port_text(project, s, other, other_port, base=base)
+    from envocad.model.wiring import conductor_end
+    text = conductor_end(project, s, w, conductor, side).text
+    if base and text.startswith(base + "-"):
+        text = text[len(base) + 1:]
+    return text
 
 
 @over_clean
 def labels(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Štítky přístrojů a vývodů pro štítkovač: označení + stručný popis."""
+    from envocad.model.multipole import is_terminal_block
+    from envocad.model.project import CONTACT_SYMBOLS, INTERRUPT_SYMBOL
     head = ["Štítek", "Popis", "List"]
     keyed: list[tuple[tuple, list]] = []
     idx = _index(project)
     for s in _sheets(project, sheet):
+        strips: set[tuple] = set()
         for e in s.elements:
-            if not e.ref or not idx.is_bom_device(e, sheet):   # cívka stykače = jeden štítek se stykačem
+            # cívka stykače = jeden štítek se stykačem; kontakty patří k přístroji (vlastní štítek nemají),
+            # přerušovací bod není fyzický prvek
+            if not e.ref or not idx.is_bom_device(e, sheet) or e.symbol_id in CONTACT_SYMBOLS \
+                    or e.symbol_id == INTERRUPT_SYMBOL:
                 continue
             sym = _symbol(lib, e.symbol_id)
-            desc = e.attrs.get("desc") or " ".join(x for x in (sym.name, e.attrs.get("in_", "") and e.attrs["in_"] + " A") if x)
+            if is_terminal_block(e):
+                key = (*scope_key(s, e), e.ref)
+                if key in strips:      # skupiny svorek jedné svorkovnice = jeden štítek
+                    continue
+                strips.add(key)
+                desc = sym.name
+            else:
+                desc = e.attrs.get("desc") or " ".join(x for x in (sym.name, e.attrs.get("in_", "") and e.attrs["in_"] + " A") if x)
             d = designation(s, e)
-            keyed.append(((d.func, d.loc, _ref_key(e.ref), s.name), [_tag(project, s, e), desc, s.name]))
+            keyed.append(((natural_key(d.func), natural_key(d.loc), _ref_key(e.ref), natural_key(s.name)),
+                          [_tag(project, s, e), desc, s.name]))
     keyed.sort(key=lambda kr: kr[0])
     return head, [r for _, r in keyed]
 
 
 def _ref_key(ref: str) -> tuple:
-    """Přirozené řazení F1, F2, F10; plné označení „+RDC1-X1“ nejdřív podle aspektů, pak podle přístroje."""
-    import re
+    """Přirozené řazení F1, F2, F10, F10.2; plné označení „+RDC1-X1“ nejdřív podle aspektů (přirozeně: +R2 < +R10),
+    pak podle přístroje."""
     ref = ref or ""
     prefix = ""
     if ref[:1] in ("=", "+") and "-" in ref:
         prefix, _, ref = ref.partition("-")
-    m = re.match(r"([A-Za-z]*)(\d*)", ref)
-    return (prefix, m.group(1), int(m.group(2) or 0)) if m else (prefix, ref, 0)
+    return (natural_key(prefix), natural_key(ref))
 
 
 @over_clean
@@ -292,7 +361,7 @@ def cable_plan(project: Project, lib: LibraryStore, sheet: Sheet | None = None) 
                              core.color if core else CORE_COLORS.get(name, ""),
                              _end_text(project, s, w, "a", name), _end_text(project, s, w, "b", name),
                              "ano" if c.shield else "", c.length, s.name])
-    rows.sort(key=lambda r: (r[10], _ref_key(r[0]), int(r[4]) if str(r[4]).isdigit() else 99))
+    rows.sort(key=lambda r: (natural_key(r[10]), _ref_key(r[0]), int(r[4]) if str(r[4]).isdigit() else 99))
     return head, rows
 
 
@@ -300,26 +369,34 @@ def cable_plan(project: Project, lib: LibraryStore, sheet: Sheet | None = None) 
 def wiring_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Zapojovací seznam: každé propojení po žílách – odkud, kam, kabel/vodič, barva, průřez (pro zapojování)."""
     from envocad.model.project import CORE_COLORS, sync_cables
-    from envocad.model.wiring import conductor_color, conductor_end
+    from envocad.model.wiring import conductor_color, merged_conductors
     sync_cables(project)
     head = ["List", "Kabel / vodič", "Žíla", "Barva", "Průřez [mm²]", "Odkud", "Kam", "Poznámka"]
     rows = []
     for s in _sheets(project, sheet):
+        if s.is_switchboard:
+            # vnitřní vodiče: konce i sloučení nespínaných N/PE vedených v JPS přes přístroj stejně jako výrobní
+            # seznam (`wiring.merged_conductors`) – „vede kolem Q1“ místo neexistující svorky „Q1:PE“
+            for mc in merged_conductors(project, s):
+                w = mc.wires[0]
+                label = "/".join(dict.fromkeys(r for x in mc.wires if (r := (x.attrs.get("ref") or "").strip()))) \
+                    or "vodič"
+                cross = next((x.attrs["cross"] for x in mc.wires if x.attrs.get("cross")), "")
+                kinds = list(dict.fromkeys(k for x in mc.wires if (k := x.attrs.get("cable", ""))))
+                note = "; ".join([*kinds, *mc.notes])
+                rows.append([s.name, label, mc.conductor, conductor_color(w, mc.conductor), cross,
+                             mc.end_a.text, mc.end_b.text, note])
+            continue
         for w in s.wires:
-            c = project.cable_of_wire(w) if not s.is_switchboard else None
+            c = project.cable_of_wire(w)
             label = c.ref if c else (w.attrs.get("ref") or "vodič")
             cross = (c.cross if c else "") or w.attrs.get("cross", "")
             for name in (w.conductors or ["L1"]):
                 core = c.core(name) if c else None
-                if s.is_switchboard:
-                    color = conductor_color(w, name)   # vnitřní vodič: barva z atributu `color`, jinak podle žíly
-                    # konce stejně jako výrobní seznam (odvozené svorky, sběrnice jako potenciál „+RDC1-1L1“)
-                    ends = [conductor_end(project, s, w, name, side).text for side in ("a", "b")]
-                else:
-                    color = core.color if core and core.color else CORE_COLORS.get(name, "")
-                    ends = [_end_text(project, s, w, side, name) for side in ("a", "b")]
+                color = core.color if core and core.color else CORE_COLORS.get(name, "")
+                ends = [_end_text(project, s, w, side, name) for side in ("a", "b")]
                 rows.append([s.name, label, name, color, cross, *ends, c.type if c else w.attrs.get("cable", "")])
-    rows.sort(key=lambda r: (r[0], _ref_key(r[1])))
+    rows.sort(key=lambda r: (natural_key(r[0]), _ref_key(r[1])))
     return head, rows
 
 
@@ -385,6 +462,8 @@ def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None
     head = ["Část", "Prvek", "Hodnoty", "Mez / porovnání", "Výsledek"]
     rows = []
     for sc in calc.check_strings(project):
+        if sheet is not None and sc.sheet != sheet.name:
+            continue
         vals = f"{sc.n} modulů, Uoc({calc.T_MIN_DEFAULT:g} °C) = {sc.uoc_cold} V, Umpp({calc.T_MAX_DEFAULT:g} °C) = {sc.umpp_hot} V, 1,25·Isc = {calc.SAFETY_ISC * sc.isc:.1f} A"
         lim = f"{sc.inverter}: Umax {sc.u_dc_max or '–'} V, MPPT {sc.u_mppt_min or '–'}–{sc.u_mppt_max or '–'} V, Imax {sc.i_mppt_max or '–'} A"
         rows.append(["String", sc.ref, vals, lim, "OK" if sc.ok else "; ".join(sc.issues)])
@@ -395,7 +474,7 @@ def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None
         lim = f"Iz = {cc.iz or '–'} A" + (f", In {cc.breaker_ref} = {cc.in_breaker:g} A" if cc.in_breaker else "") + \
               (f", ΔU = {cc.du_v} V ({cc.du_pct} %)" if cc.du_pct is not None else "")
         rows.append(["Kabel", cc.ref, vals, lim, "OK" if not cc.issues else "; ".join(cc.issues)])
-    for lo, hi, il, ih, msg in calc.check_selectivity(project):
+    for lo, hi, il, ih, msg in calc.check_selectivity(project, sheet):
         rows.append(["Selektivita", f"{lo} → {hi}", f"In {il:g} A → {ih:g} A", f"poměr ≥ {calc.SELECTIVITY_RATIO}", msg])
     return head, rows
 
@@ -413,16 +492,19 @@ def dso_report(project: Project, lib: LibraryStore, sheet: Sheet | None = None) 
 def potentials(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Potenciály (sítě): název, žíly, počet spojů, vodiče, prvky:porty, stav (zkrat)."""
     from envocad.model.potential import nets
-    head = ["Potenciál", "Žíly", "Spojů", "Vodiče", "Prvky", "Stav"]
+    head = ["Potenciál", "Žíly", "Spojů", "Vodiče", "Prvky", "Stav", "List"]
     rows = []
     for n in nets(project, lib):
         if sheet is not None and not any(s.id == sheet.id for s, _, _, _ in n.members):
             continue
         wires = sorted({w.attrs.get("ref") or w.attrs.get("cable", "") for _, w, _ in n.wires if w.attrs.get("ref") or w.attrs.get("cable")},
                        key=_ref_key)
-        members = sorted({f"{e.ref or e.symbol_id}:{p}" for _, e, p, _ in n.members if e.symbol_id != "sb.junction"}, key=_ref_key)
+        # prvky plným označením s aspekty (+RDC1-F1:1) – X1 v různých rozvaděčích jsou různé svorkovnice
+        members = sorted({f"{_tag(project, s, e) or element_name(e, lib)}:{p}" for s, e, p, _ in n.members
+                          if e.symbol_id != "sb.junction"}, key=_ref_key)
+        sheets_ = sorted({s.name for s, _, _, _ in n.members}, key=natural_key)
         rows.append([n.name, " ".join(sorted(n.conductors, key=lambda c: c)), len(n.members), ", ".join(wires), ", ".join(members),
-                     n.short_issue() or "OK"])
+                     n.short_issue() or "OK", ", ".join(sheets_)])
     rows.sort(key=lambda r: _ref_key(r[0]))
     return head, rows
 

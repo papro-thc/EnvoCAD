@@ -149,7 +149,7 @@ Zatím bez UI – plní se CSV importem (`store.import_components_csv`).
 Aby se přístroj objevil v rozložení a ve výkazech správně, má mít atributy `manufacturer`, `poles`
 a `modules` (šířka na DIN liště v modulech 17,5 mm; `0` = nemodulový, nerozmisťuje se).
 Symboly pro list rozvaděče mají prefix `sb.` (`envocad/library/builtin/switchboard/`): sběrnice `sb.busbar`
-(porty IN + 1…10 po 15 mm), přívod `sb.feed_in`, vývod `sb.feed_out`, svorkovnice `sb.terminal_block`, PE/N můstek `sb.pe_bar`.
+(porty IN, T1…T10 shora, vývody 1…12 zdola po 15 mm), přívod `sb.feed_in`, vývod `sb.feed_out`, svorkovnice `sb.terminal_block` (šířka skupiny `modules`; prázdná = počet svorek × 6,2 mm), PE/N můstek `sb.pe_bar`.
 
 ## Footprinty (pohled do rozložení)
 
@@ -249,6 +249,13 @@ i mezi nově vytvořenými prvky). Počet musí být celé číslo 0…min(`max`
 desetinný nebo větší počet je chyba už v `resolve_values` (a `expand` ho odmítne `ValueError`). `max` proměnné počtu
 nad `MAX_REPEAT` hlásí `validate_macro`. Generátor u DC rozvaděčů drží vlastní smyčku (`resolve_values(...,
 repeat=False)`, `expand(..., repeat=False)`), `repeat` ani `max` počtu ho neomezují; slouží vkládání z GUI.
+
+**Navazující číslování** při vložení do listu, kde už instance makra jsou: hodnota `k_start` (`macros.K_START`, není to
+proměnná makra) posune opakování na `k = k_start … k_start + N − 1`, `nk = N + k`. Dialog makra ji předvyplní
+(„Číslovat od (k)“ ve skupině Další) přes `suggest_numbering(project, sheet, m)` – nejmenší `k_start`, při kterém
+žádné označení se zástupným symbolem (`X{k}`, `X{nk}`, `FU{i}.{j}`…) nekoliduje s prostorem označení listu (DC rozvaděč
+se 4 stringy: X1–X8 obsazené → `k_start = 9`). U makra bez opakování se stejně předvyplní automatická proměnná `k`
+(AC přívod do rozvaděče s X1 → `k = 2`, „od T2“). Duplicitní přívod/vývod (X1 dvakrát) hlásí kontrola jako `dup_ref`.
 
 ### Makro bez proměnných (kopie výřezu)
 Makro bez proměnných a bez `repeat` (typicky „Uložit výběr jako makro…“ bez `{x}`) se vkládá jako kopie výřezu, jako

@@ -103,7 +103,10 @@ téhož pole panelu se slučují; dialog skříně pracuje na kopii). `undo.clea
 jen při načtení projektu, po založení nového projektu z průvodce / specifikace a po obnově autosave (hlídá test
 `test_no_undo_reset_outside_allowed_places` – všechna volání v `ui/` včetně lambd a aliasů undo stacku). Zmenšení počtu řad skříně umístění nemaže: umístění v řadě mimo skříň
 zůstane v modelu (`Layout.stored_placement`), `Layout.placement` ho nevrací (přístroj je nerozmístěný) a kontrola
-hlásí `outside_enclosure`.
+hlásí `outside_enclosure`. Zmenšení počtu modulů v řadě také nic nemaže – přístroje za koncem řady a překryvy hlásí
+kontrola `layout_overflow` / `layout_overlap` (`checks.layout_problems`, varování i v panelu skříně). Kabely
+(`Cable`) jsou odvozené z vodičů JPS (`sync_cables`): kabel bez vodiče se odebere do `Project.removed_cables`
+(neukládá se) a vrácený vodič (undo/redo) dostane týž kabel zpět – undo vložení/smazání vodiče vrátí `to_dict` přesně. Kabel osiřelý už v načteném souboru (`Project.loaded_orphan_cables`) se při otevření neodebere (ruční barvy žil, artikl); kontrola ho hlásí jako INFO `cable_no_wire`.
 
 ## Rozšiřitelnost na další obory
 
@@ -122,6 +125,13 @@ Jeden model, dva pohledy nad stejnými daty:
 - Přepínání pohledu = jiný `QGraphicsScene` nad stejným `Sheet`; symboly pro vícepól se generují z jednopólových
   (N× opakovaný pólový symbol + společná spoušť), vlastní vícepólové symboly v knihovně jsou volitelné.
 - Svorkovnice a seznam kabelů se generují z `Wire.conductors` + `Wire.terminals`.
+- Geometrie vícepólu (rozmístění `auto_layout`, stránkování `paginate`, popisky přístrojů `pole_label_lines`, trasy
+  žil `conductor_route`, příčka PE svodiče `pe_join_segments`) je v `model/multipole.py`; `model/multipole_geometry.py`
+  z ní bez Qt skládá texty a čáry celého pohledu a rozmisťuje popisky žil mimo cizí čáry – stejné polohy kreslí scéna
+  (`ui/multipole_view.py`) a kontroluje F7 (`mp_text_overlap`). Se zapnutým rámečkem posune automaticky rozmístěné
+  prvky strany nahoru mimo popisové pole s QR kódem; výsledné polohy (`MultipoleGeometry.origins`) přebírá scéna.
+- Plán svorkovnice: data `model/terminal_plan.py:terminal_plan`, rozmístění na strany `layout_plan_pages` (pásy,
+  svorkovnice vedle sebe, zalomení dlouhé, další strana) – scéna `ui/terminal_plan_view.py` má `pages` jako vícepól.
 
 ## Modularita a rozšiřování
 

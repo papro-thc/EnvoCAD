@@ -246,13 +246,34 @@ def sheet_fingerprint(sheet: Sheet) -> str:
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
 
+CHANGE_SEP = "|"          # oddělovač sloupců řádku změnového listu (`meta["changes"]`)
+CHANGE_SEP_SUBST = "¦"    # náhrada znaku „|“ uvnitř hodnoty (jinak by se sloupce rozpadly)
+
+
+def change_field(text: object) -> str:
+    """Hodnota sloupce změnového listu: bez oddělovače „|“ (→ „¦“) a bez zalomení řádku."""
+    return " ".join(str(text or "").replace(CHANGE_SEP, CHANGE_SEP_SUBST).split())
+
+
 def change_list_text(changes: list[Change], revision: str, date: str, author: str) -> str:
-    """Řádky pro `meta['changes']` (revize | datum | popis | zpracoval) – jeden řádek na změnu."""
+    """Řádky pro `meta['changes']` (revize | datum | popis | zpracoval) – jeden řádek na změnu. Znak „|“ v hodnotách
+    se nahradí „¦“, aby měl každý řádek přesně 4 sloupce."""
     lines = []
+    rev, dt, au = change_field(revision), change_field(date), change_field(author)
     for c in changes:
         where = f"{c.sheet}: " if c.sheet else ""
-        lines.append(f"{revision} | {date} | {where}{c.what} {c.ref} {c.kind} – {c.detail}".rstrip(" –") + f" | {author}")
+        desc = change_field(f"{where}{c.what} {c.ref} {c.kind} – {c.detail}".rstrip(" –"))
+        lines.append(f"{rev} {CHANGE_SEP} {dt} {CHANGE_SEP} {desc} {CHANGE_SEP} {au}")
     return "\n".join(lines)
+
+
+def split_change_line(line: str) -> list[str]:
+    """Řádek změnového listu → [revize, datum, popis, zpracoval]. Ručně psaný řádek s víc než 4 sloupci (znak „|“
+    v popisu) se nerozpadne: první dva sloupce jsou revize a datum, poslední zpracoval, zbytek je popis."""
+    parts = [x.strip() for x in line.split(CHANGE_SEP)]
+    if len(parts) > 4:
+        parts = [parts[0], parts[1], f" {CHANGE_SEP_SUBST} ".join(parts[2:-1]), parts[-1]]
+    return parts + [""] * (4 - len(parts))
 
 
 def summary(changes: list[Change]) -> str:

@@ -11,7 +11,7 @@ from docx import Document
 from docx.shared import Pt
 
 from envocad.export import reports
-from envocad.export.docx_export import _table
+from envocad.export.docx_export import _table, doc_author, set_landscape, setup_document
 from envocad.library.store import LibraryStore
 from envocad.model import calc
 from envocad.model.project import Project, without_dangling
@@ -63,9 +63,14 @@ def export_tz_docx(project: Project, lib: LibraryStore, path: Path | str, templa
     st.font.name = "Calibri"
     st.font.size = Pt(10)
     m = project.meta
+    setup_document(doc, f"Technická zpráva – {project.name}", doc_author(project),
+                   " ".join(x for x in (m.get("order", ""), m.get("place", "")) if x))
     doc.add_heading(f"Technická zpráva – {project.name}", 0)
-    doc.add_paragraph(f"Investor: {m.get('investor', '')}    Místo: {m.get('place', '')}    Zakázka: {m.get('order', '')}")
-    doc.add_paragraph(f"Zpracoval: {m.get('author', '')}    Datum: {m.get('date', '')}    Revize: {m.get('revision', '')}")
+    for items in ((("Investor", m.get("investor", "")), ("Místo", m.get("place", "")), ("Zakázka", m.get("order", ""))),
+                  (("Zpracoval", m.get("author", "")), ("Datum", m.get("date", "")), ("Revize", m.get("revision", "")))):
+        line = "    ".join(f"{k}: {v}" for k, v in items if str(v or "").strip())   # prázdné údaje vynechat
+        if line:
+            doc.add_paragraph(line)
 
     doc.add_heading("1. Základní údaje stavby", 1)
     _table(doc, ["Údaj", "Hodnota"], [list(r) for r in dso_data(project, lib)])
@@ -95,13 +100,14 @@ def export_tz_docx(project: Project, lib: LibraryStore, path: Path | str, templa
     doc.add_paragraph("")
 
     doc.add_heading("4. Rozvaděče", 1)
-    from envocad.model.thermal import temperature_rise
+    from envocad.model.thermal import layout_inputs, temperature_rise
     for s in project.switchboards():
         doc.add_heading(s.name, 2)
         from envocad.model.project import switchboard_header
         _table(doc, ["Parametr", "Hodnota"], [[k, v] for k, v in switchboard_header(project, s) if v])
         try:
-            r = temperature_rise(s, project=project)
+            rdf, t_amb = layout_inputs(s.layout)
+            r = temperature_rise(s, rdf=rdf, t_ambient_c=t_amb, project=project)
             doc.add_paragraph(f"Odhad oteplení dle IEC TR 60890: ΣPv = {r.p_total_w:.0f} W, Ae = {r.ae_m2:.2f} m², "
                               f"Δt uprostřed {r.dt_mid_k:.1f} K, v horní části {r.dt_top_k:.1f} K – {r.verdict()}.")
         except Exception:  # noqa: BLE001, S110
@@ -134,6 +140,7 @@ def export_tz_docx(project: Project, lib: LibraryStore, path: Path | str, templa
     doc.add_paragraph("Doplnit: síť TN-C-S / TN-S, automatické odpojení od zdroje, proudové chrániče, nastavení síťové ochrany "
                       "(NS ochrana) dle PPDS přílohy 4 / EN 50549-1: U>, U<, f>, f<, ROCOF, LVRT, omezení výkonu.")
 
+    set_landscape(doc, True)     # výkazy mají hodně sloupců – na šířku
     doc.add_heading("8. Výkazy", 1)
     for name, fn in (("Výkaz materiálu", reports.bom), ("Kabely", reports.cables)):
         doc.add_heading(name, 2)

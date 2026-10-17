@@ -9,12 +9,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from envocad.model.designation import element_name
 from envocad.model.project import FEED_SYMBOLS, Element, Sheet, Wire
 from envocad.model.symbol import GRID, Symbol, rotate_dir
 
 POLE_PITCH = 3 * GRID  # 7,5 mm mezi póly
 COL_GAP = 30.0          # mezera mezi sloupci automatického rozmístění (ve směru toku)
 ROW_GAP = 15.0          # mezera mezi prvky ve sloupci (kolmo na tok)
+BAR_GAP = 32.0          # PE lišta pod řadou vývodů: mezera za vývody (štítek kabelu ~13 mm, příčky PE pod ním)
 SOURCE_SYMBOLS = {"sb.feed_in", "fve.pv_string", "fve.battery"}  # zdroje toku (síť je konec)
 
 # Kanonické pořadí žil (shora dolů / zleva doprava)
@@ -114,8 +116,12 @@ class ElementPoles:
     through: tuple[str, str] | None       # průchozí porty
     per_port: dict[str, set[str]] = field(default_factory=dict)
     origin: tuple[float, float] = (0.0, 0.0)  # pozice prvku ve vícepólu (ruční nebo z automatického rozmístění)
+    # žíla připojená na volnou svorku pólu jiné žíly: {žíla: žíla pólu} – např. cívka A1 = L1, A2 = N
+    # → {"N": "L1"}: N se napojí na A2 pólu L1 (prvek spíná/napájí jedním pólem dvě různé žíly)
+    joined: dict[str, str] = field(default_factory=dict)
 
     def slot(self, conductor: str) -> int:
+        conductor = self.joined.get(conductor, conductor)
         return self.slots.index(conductor) if conductor in self.slots else 0
 
     def pole_pos(self, port: str, conductor: str) -> tuple[float, float]:
@@ -350,8 +356,14 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
         ns = [n for n in nb[b] if n in out]
         d = max([depth[n] for n in ns] + [depth[x] for x in sinks], default=depth[b] - 1) + 1   # PE lišta dole pod vývody
         if d not in flow_pos:
-            flow_pos[d] = pos + (15.0 if horizontal else -15.0)   # o kus dál, ať příčky PE nevedou přes popisky vývodů
             col_w[d] = flow_extent(poles[b])
+            ds = depth[sinks[0]] if sinks else None
+            if ds is not None and ds in flow_pos and d == ds + 1:
+                # těsně pod řadou vývodů (pod jejich štítky kabelů), ne až na okraji strany
+                gap = col_w[ds] + BAR_GAP + col_w[d] / 2
+                flow_pos[d] = flow_pos[ds] + (gap if horizontal else -gap) - (col_w[d] / 2 if horizontal else -col_w[d] / 2)
+            else:
+                flow_pos[d] = pos + (15.0 if horizontal else -15.0)   # o kus dál, ať příčky PE nevedou přes popisky vývodů
             pos = pos + col_w[d] + COL_GAP if horizontal else pos - col_w[d] - COL_GAP
         fp = flow_pos[d]
         if ns:
@@ -400,7 +412,31 @@ def element_poles(sheet: Sheet, e: Element, sym: Symbol) -> ElementPoles:
                 bypass.append(c)
         if not switched and slots:
             switched.append(slots[0])
-    return ElementPoles(e, sym, slots, switched, bypass, thr, per_port)
+    joined = _join_single_port(per_port, thr, switched, bypass, slots) if thr else {}
+    if joined:
+        slots = [c for c in slots if c not in joined]
+    return ElementPoles(e, sym, slots, switched, bypass, thr, per_port, joined=joined)
+
+
+def _join_single_port(per_port: dict[str, set[str]], thr: tuple[str, str], switched: list[str], bypass: list[str],
+                      slots: list[str]) -> dict[str, str]:
+    """Žíly průchozího prvku, které nejsou spínané ani nevedou kolem (jsou jen na jednom portu – cívka A1 = L1,
+    A2 = N), se připojí na volnou svorku pólu na tomtéž portu: pól spínané žíly, která na tom portu není. PE/PEN se
+    nepřipojuje (ochranný vodič nevede přes pól)."""
+    out: dict[str, str] = {}
+    taken: dict[str, set[str]] = {p: {c for c in per_port.get(p, set()) if c in switched} for p in thr}
+    for c in slots:
+        if c in switched or c in bypass or c in NEVER_SWITCHED:   # PE nikdy nejde přes pól (SPD: svorka PE zvlášť)
+            continue
+        ports = [p for p in thr if c in per_port.get(p, set())]
+        if len(ports) != 1:
+            continue
+        port = ports[0]
+        free = next((s for s in switched if s not in taken[port]), None)
+        if free is not None:
+            out[c] = free
+            taken[port].add(free)
+    return out
 
 
 def terminal_text(w: Wire, conductor: str, side: str) -> str:
@@ -517,7 +553,7 @@ def device_terminal(sheet: Sheet, w: Wire, conductor: str, side: str) -> tuple[s
         e = sheet.element(end.element_id)
     except KeyError:
         return end.port, False
-    name = e.ref or e.symbol_id
+    name = element_name(e)
     if is_terminal_block(e):
         t = wire_end_terminal(sheet, w, conductor, side)
         return (t or f"{name}:{end.port}"), False
@@ -531,3 +567,210 @@ def device_terminal(sheet: Sheet, w: Wire, conductor: str, side: str) -> tuple[s
             k = phases.index(conductor) if conductor in phases else 0
         return f"{name}:{2 * k + 1 + POLE_NUMBERED_PORTS.index(end.port)}", True
     return f"{name}:{end.port}", False
+
+
+# ---- geometrie pohledu (sdílí ji vícepólová scéna v ui/ a kontrola překryvů textů) ------------------------------
+MP_X0 = 42.5          # začátek rozmístění – vlevo názvy potenciálů sběrnice
+MP_Y_TOP = 60.0       # odstup první řady od horního okraje listu (nahoře nadpis rozvaděče)
+MP_PAGE_GAP = 20.0    # mezera mezi stranami pod sebou
+LABEL_GAP = 1.5       # odstup popisku od značky
+
+
+def page_width(sheet: Sheet) -> float:
+    """Použitelná šířka strany vícepólu pro rozmístění (bez okrajů rámečku)."""
+    from envocad.model.frame import MARGIN
+    return sheet.width - MP_X0 - MARGIN - 10.0
+
+
+def page_pitch(sheet: Sheet) -> float:
+    return sheet.height + MP_PAGE_GAP
+
+
+def paginate(sheet: Sheet, poles: dict[str, ElementPoles]) -> tuple[dict[str, int], int]:
+    """Rozmístění (strany za sebou v x) → strany pod sebou: prvek na straně k se posune o k·šířka doleva a o
+    k·(výška + mezera) dolů (mění `origin`). Ruční pozice (`mp_pos`) jsou už stránkované – strana se jim jen určí.
+    Vrací (prvek → strana, počet stran)."""
+    x0, pw, pitch = MP_X0, page_width(sheet), page_pitch(sheet)
+    page_of: dict[str, int] = {}
+    n_pages = 1
+    for eid, ep in poles.items():
+        x, y = ep.origin
+        if ep.element.mp_pos:
+            k = max(0, int((sheet.height - y) // pitch))
+        else:
+            k = max(0, int((x - x0) // pw))
+            ep.origin = (x - k * pw, y - k * pitch)
+        page_of[eid] = k
+        n_pages = max(n_pages, k + 1)
+    return page_of, n_pages
+
+
+def pe_join_ports(ep: ElementPoles) -> list[tuple[str, list[str]]]:
+    """Porty průchozího prvku, na kterých je jen ochranný vodič (PE/PEN), který prvek nespíná ani nevede kolem –
+    svodič přepětí (SPD): konce všech pólů na portu PE se spojí příčkou a PE vodič začíná na ní. Vrací
+    [(port, [PE…])]."""
+    if not (ep.per_pole and ep.through and ep.switched) or ep.element.symbol_id in FEED_SYMBOLS:
+        return []
+    out = []
+    for port in ep.through:
+        conds = ep.per_port.get(port, set())
+        if conds and all(c in NEVER_SWITCHED and c not in ep.switched and c not in ep.bypass for c in conds):
+            out.append((port, sorted(conds, key=canon_key)))
+    return out
+
+
+def pe_join_segments(ep: ElementPoles) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+    """Příčky `pe_join_ports`: od konce prvního do konce posledního pólu včetně místa, kde začíná PE vodič."""
+    out = []
+    for port, conds in pe_join_ports(ep):
+        pts = [ep.pole_pos(port, c) for c in [*ep.switched, *conds]]
+        pts.sort()
+        if pts[0] != pts[-1]:
+            out.append((pts[0], pts[-1]))
+    return out
+
+
+def _rot_box(sym: Symbol, x: float, y: float, rotation: int) -> tuple[float, float, float, float]:
+    from envocad.model.symbol import rotate_point
+    x0, y0, x1, y1 = sym.bounds()
+    pts = [rotate_point(px, py, rotation) for px, py in ((x0, y0), (x1, y1), (x0, y1), (x1, y0))]
+    return (x + min(p[0] for p in pts), y + min(p[1] for p in pts), x + max(p[0] for p in pts), y + max(p[1] for p in pts))
+
+
+def pole_symbol_for(ep: ElementPoles, conductor: str | None) -> Symbol:
+    return ep.symbol.pole_symbol() if conductor else ep.symbol
+
+
+def pole_anchor(ep: ElementPoles, conductor: str | None) -> tuple[float, float]:
+    """Poloha položky pólu ve vícepólu (model mm) – počátek značky pólu."""
+    ox, oy = ep.pole_offset(conductor) if conductor else (0.0, 0.0)
+    return (ep.origin[0] + ox, ep.origin[1] + oy)
+
+
+def pole_label_texts(ep: ElementPoles) -> list[tuple[str, float]]:
+    """Řádky popisku prvku ve vícepólu: označení (2,5 mm) a zobrazené atributy (2 mm); u skupiny svorek bez čísel."""
+    e = ep.element
+    lines = [(e.ref, 2.5)] if e.ref else []
+    skip = {"ref", "terminal"} if is_terminal_block(e) else {"ref"}   # čísla svorek jsou u pólů
+    lines += [(a.display(e.attrs[a.key]), 2.0) for a in ep.symbol.attributes
+              if a.show and a.key not in skip and e.attrs.get(a.key)]
+    return lines
+
+
+def pole_label_lines(ep: ElementPoles) -> list[tuple[float, float, str, float, str]]:
+    """Popisek prvku ve vícepólu: [(x, y, text, výška, zarovnání)] v souřadnicích pohledu (mm, Y nahoru), texty
+    vždy vodorovně. Přívod/vývod: označení svorkovnice vlevo u svorek. Vícepólový přístroj se svislým tokem
+    (póly vedle sebe): vlevo od prvního pólu zarovnaný doprava, horní řádek u horního okraje pólů – nepřeškrtne
+    žílu prvního pólu ani nevede přes přívodní žíly nad prvkem. Skupina svorek: nad můstky. Jednopólový prvek:
+    poloha popisku značky."""
+    from envocad.model.symbol import rotate_point
+    e = ep.element
+    c0 = ep.switched[0] if ep.per_pole and ep.switched else None
+    sym = pole_symbol_for(ep, c0)
+    px, py = pole_anchor(ep, c0)
+
+    def at(lx: float, ly: float) -> tuple[float, float]:
+        rx, ry = rotate_point(lx, ly, e.rotation)
+        return (px + rx, py + ry)
+
+    if e.symbol_id in ("sb.feed_in", "sb.feed_out"):
+        if not e.ref:
+            return []
+        cy = -2.5 if e.symbol_id == "sb.feed_in" else 2.5
+        x, y = at(-2.5, cy - 0.8)
+        return [(x, y, e.ref, 2.5, "right")]
+    lines = pole_label_texts(ep)
+    if not lines:
+        return []
+    multi = len(ep.switched) > 1
+    if multi and not is_terminal_block(e) and not _flow_is_horizontal_for(ep):
+        boxes = [_rot_box(sym, *pole_anchor(ep, c), e.rotation) for c in ep.switched]
+        x = min(b[0] for b in boxes) - LABEL_GAP
+        y = max(b[3] for b in boxes) - lines[0][1]
+        out = []
+        for text, h in lines:
+            out.append((x, y, text, h, "right"))
+            y -= h + 1.0
+        return out
+    if multi:
+        x0, y0, _x1, y1 = sym.bounds()
+        stack = sum(h + 1.0 for _, h in lines[1:])
+        if e.rotation == 270 and not is_terminal_block(e):
+            lx, ly = x0, y0 - 1.5 - (stack + 2.5)
+        else:
+            lx, ly = x0, y1 + (7.5 if is_terminal_block(e) else 1.5)   # nad můstky
+            if e.symbol_id in ("sb.terminal_block", "fve.terminal"):
+                lx -= 3.5   # vedle svislé čáry svorky, ne přes ni
+    else:
+        lx, ly = sym.label_pos
+        stack = 0.0
+    x, y = at(lx, ly)
+    out = []
+    for text, h in lines:
+        out.append((x, y + stack, text, h, "left"))
+        stack -= h + 1.0
+    return out
+
+
+DIR_VEC = {"N": (0, 1), "E": (1, 0), "S": (0, -1), "W": (-1, 0)}
+
+
+def _snap(v: float) -> float:
+    return round(v / GRID) * GRID
+
+
+BREAK_PITCH = 2.5      # rozteč přerušení žil na okraji strany
+
+
+def break_y(p: tuple[float, float], d: str, n: int, used: set[float]) -> float:
+    """Výška (mm, Y nahoru) vodorovného úseku k přerušovacímu bodu na okraji strany; `n` = pořadí přerušení na tom
+    okraji, `used` = výšky přerušení, která už na okraji jsou (doplní se o vrácenou výšku).
+    Port E/W: v úrovni portu, každé další přerušení o rozteč níž (`n`). Port N/S: úsek vede za vývodem portu ven od
+    přístroje (nad / pod něj) – ne v úrovni portu, kde by šel přes sousední svorky, jejich čísla a vlastní značku;
+    další přerušení dál ven, dokud nemá od ostatních na okraji aspoň rozteč (šipky a odkazy se nekryjí)."""
+    if d in ("N", "S"):
+        step = BREAK_PITCH if d == "N" else -BREAK_PITCH
+        y = p[1] + (GRID if d == "N" else -GRID)
+        while any(abs(y - u) < BREAK_PITCH - 1e-6 for u in used):
+            y += step
+    else:
+        y = p[1] - BREAK_PITCH * n
+    used.add(y)
+    return y
+
+
+def conductor_route(pa: tuple[float, float], da: str, pb: tuple[float, float], db: str, stagger: float = 0.0,
+                    jog: float = 0.8) -> list[tuple[float, float]]:
+    """Trasa žíly ve vícepólu (model mm, Y nahoru): vývod GRID z každého portu, L/Z vedení, příčka Z-trasy v `jog`
+    délky (blízko cíle) posunutá o `stagger` (rovnoběžné žíly se nepřekrývají). Stejně kreslí scéna i kontrola."""
+    stub = GRID
+    va, vb = DIR_VEC[da], DIR_VEC[db]
+    sa = (pa[0] + va[0] * stub, pa[1] + va[1] * stub)
+    sb = (pb[0] + vb[0] * stub, pb[1] + vb[1] * stub)
+    pts = [pa, sa]
+    horizontal_first = da in ("E", "W")
+    if horizontal_first and db in ("E", "W") and abs(sa[1] - sb[1]) > 1e-6:
+        mx = _snap(sa[0] + (sb[0] - sa[0]) * jog) + stagger
+        pts += [(mx, sa[1]), (mx, sb[1])]
+    elif not horizontal_first and db in ("N", "S") and abs(sa[0] - sb[0]) > 1e-6:
+        my = _snap(sa[1] + (sb[1] - sa[1]) * jog) - stagger   # scéna má Y dolů: posun +stagger tam = −stagger tady
+        pts += [(sa[0], my), (sb[0], my)]
+    elif horizontal_first:
+        pts.append((sb[0], sa[1]))
+    else:
+        pts.append((sa[0], sb[1]))
+    pts += [sb, pb]
+    return pts
+
+
+def conductor_label_anchor(pts: list[tuple[float, float]], staggered: bool) -> tuple[float, float, str, bool]:
+    """Poloha popisku žíly (jako `geometry.wire_label_anchor`). U vodiče s více žilami vedenými Z-trasou
+    (`staggered`) se příčka Z (rovnoběžné žíly jsou od sebe jen 2,5 mm) přeskočí a popisek jde na nejdelší jiný
+    úsek – jinak by popisek jedné žíly ležel přes sousední žílu. Krátké úseky (< 6 mm) → výchozí poloha."""
+    from envocad.model.geometry import wire_label_anchor
+    if staggered and len(pts) == 6:
+        segs = [(pts[i], pts[i + 1]) for i in (1, 3)]   # úseky mezi vývodem a příčkou (příčka = pts[2]–pts[3])
+        a, b = max(segs, key=lambda s: abs(s[1][0] - s[0][0]) + abs(s[1][1] - s[0][1]))
+        if abs(b[0] - a[0]) + abs(b[1] - a[1]) >= 6.0:
+            return wire_label_anchor([a, b])
+    return wire_label_anchor(pts)

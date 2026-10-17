@@ -126,7 +126,7 @@ def test_contactor_with_coil_regression(lib):
     _, bom = reports.bom(p, lib)
     assert sum(1 for r in bom if "K1" in r[6].split(", ")) == 1
     assert [e.symbol_id for e in reports.devices(p, lib)] == ["fve.contactor"]
-    assert [r[0] for r in reports.labels(p, lib)[1]].count("K1") == 3        # stykač + 2 kontakty, cívka ne
+    assert [r[0] for r in reports.labels(p, lib)[1]].count("K1") == 1        # jen stykač: kontakty ani cívka štítek nemají
     # kontrola artiklu nehlásí cívku (artikl má stykač)
     assert not [f for f in _codes(fs, "no_article") if f.target_id == coil.id]
 

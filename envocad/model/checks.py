@@ -15,6 +15,7 @@ from envocad.model.designation import (
     MAX_FULL_LEN,
     Designation,
     designation,
+    element_name,
     full_designation,
     scope_key,
     validate_code,
@@ -38,7 +39,10 @@ from envocad.model.project import (
 
 ERROR, WARNING, INFO = "chyba", "varování", "info"
 # prvky, u kterých nevadí nezapojený port (jde o odkazy/bloky/sběrnice s rezervou)
-OPTIONAL_PORT_SYMBOLS = {"fve.switchboard", "sb.pe_bar", "sb.busbar", "fve.terminal", "sb.terminal_block"}
+OPTIONAL_PORT_SYMBOLS = {"fve.switchboard", "sb.pe_bar", "sb.busbar", "fve.terminal", "sb.terminal_block",
+                         "sb.junction"}   # uzel odbočky: počet vodičů hlídá `junction_free`
+NO_REF_OK_SYMBOLS = {"fve.earth", "fve.grid", "fve.load", "sb.junction"}   # bez označení je v pořádku
+AGGREGATED_INFO = {"no_article": "Bez artiklu / typu", "ref_syntax": "Označení s firemním oddělovačem „.“ / „-“ (přípustné jako firemní číslování)"}
 NO_ARTICLE_SYMBOLS = {"fve.grid", "fve.load", "fve.earth", "fve.terminal", "fve.switchboard", "sb.feed_in",
                       "sb.feed_out", "sb.pe_bar", "sb.busbar", "fve.pv_string", "fve.interrupt",
                       "ctl.contact_no", "ctl.contact_nc", "ctl.contact_power"}
@@ -80,6 +84,7 @@ def check_project(project: Project, lib) -> list[Finding]:
     # označení s přístrojem nebo vodičem téhož prostoru je ale duplicita.
     refs: Counter[tuple[str, str, str]] = Counter()      # vodiče
     irefs: set[tuple[str, str, str]] = set()             # přerušovací body
+    feeds: Counter[tuple[str, str, str]] = Counter()     # přívody/vývody rozvaděče (svorkovnice X1 – jen jednou)
     for s in project.sheets:
         for w in s.wires:
             if w.attrs.get("ref"):
@@ -87,6 +92,8 @@ def check_project(project: Project, lib) -> list[Finding]:
         for e in s.elements:
             if e.symbol_id == INTERRUPT_SYMBOL and e.ref:
                 irefs.add((*scope_key(s, e), e.ref))
+            if e.symbol_id in FEED_SYMBOLS and e.ref:
+                feeds[(*scope_key(s, e), e.ref)] += 1
     for s in project.sheets:
         sym_of = {}
         for e in s.elements:
@@ -106,9 +113,12 @@ def check_project(project: Project, lib) -> list[Finding]:
             key = (*scope_key(s, e), e.ref)
             if group is not None and not is_contact(e) and (group.dup or refs[key] > 0 or key in irefs):
                 out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref, f"Duplicitní označení {e.ref}", "dup_ref"))
+            if e.symbol_id in FEED_SYMBOLS and e.ref and (feeds[key] > 1 or key in idx.groups or refs[key] > 0):
+                out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref,
+                                   f"Duplicitní označení {e.ref} (přívod/vývod je na listu víckrát)", "dup_ref"))
             if e.symbol_id == INTERRUPT_SYMBOL and e.ref and (key in idx.groups or refs[key] > 0):
                 out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref, f"Duplicitní označení {e.ref}", "dup_ref"))
-            if not e.ref and e.symbol_id not in ("fve.earth", "fve.grid", "fve.load"):
+            if not e.ref and e.symbol_id not in NO_REF_OK_SYMBOLS:
                 out.append(Finding(WARNING, s.id, s.name, e.id, False, "", f"Prvek {sym.name} bez označení", "no_ref"))
             conn = _connected_ports(s, e)
             if e.symbol_id not in OPTIONAL_PORT_SYMBOLS:
@@ -127,7 +137,8 @@ def check_project(project: Project, lib) -> list[Finding]:
                 if slots and not any(mp.terminal_numbers(e, len(slots))):
                     out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                        "Skupina svorek bez čísel (Úpravy → Očíslovat svorky)", "no_terminal_no"))
-            if e.symbol_id in FEED_SYMBOLS and s.is_switchboard and linked_wire(project, s, e) is None:
+            if (e.symbol_id in FEED_SYMBOLS and s.is_switchboard and linked_wire(project, s, e) is None
+                    and not is_earthing_feed(s, e)):
                 out.append(Finding(INFO, s.id, s.name, e.id, False, e.ref,
                                    "Přívod/vývod bez vazby na vodič v JPS", "feed_unlinked"))
             if (e.symbol_id not in NO_ARTICLE_SYMBOLS and not e.component_id and not e.attrs.get("type")
@@ -150,7 +161,7 @@ def check_project(project: Project, lib) -> list[Finding]:
                 if sym is not None and not sym.placeholder and (
                         end.port in sym.orphan_ports or not any(p.name == end.port for p in sym.ports)):
                     out.append(Finding(ERROR, s.id, s.name, w.id, True, ref,
-                                       f"Vodič na neexistující port {e.ref or e.symbol_id}:{end.port}", "bad_port"))
+                                       f"Vodič na neexistující port {element_name(e)}:{end.port}", "bad_port"))
             wkey = (*scope_key(s, w), ref)
             if ref and (refs[wkey] > 1 or wkey in idx.groups or wkey in irefs):
                 out.append(Finding(ERROR, s.id, s.name, w.id, True, ref, f"Duplicitní označení {ref}", "dup_ref"))
@@ -158,6 +169,10 @@ def check_project(project: Project, lib) -> list[Finding]:
                 out.append(Finding(INFO, s.id, s.name, w.id, True, ref, "Vodič bez typu kabelu / průřezu", "no_cable"))
             if not w.conductors:
                 out.append(Finding(INFO, s.id, s.name, w.id, True, ref, "Vodič bez žil (vícepól ho kreslí jako L1)", "no_cond"))
+        if s.is_switchboard and (not s.parent_element_id or project.sheet_of_element(s.parent_element_id) is None):
+            out.append(Finding(WARNING, s.id, s.name, "", False, s.loc,
+                               "List rozvaděče bez bloku ROZVADĚČ v jednopólovém schématu (blok smazán?) – "
+                               "vlož blok a propoj ho s listem, nebo list odstraň", "sb_no_block"))
         # můstky na neexistující svorky
         terms = set()
         for e in s.elements:
@@ -179,17 +194,109 @@ def check_project(project: Project, lib) -> list[Finding]:
     out += designation_findings(project, lib, idx)
     out += revision_findings(full)
     out += note_findings(full)
+    out += cable_findings(full)
     out += calc_findings(project)
     out += potential_findings(project, lib)
     out += text_findings(project, lib)
+    out = aggregate_info(out)
     order = {ERROR: 0, WARNING: 1, INFO: 2}
     out.sort(key=lambda f: (order[f.severity], f.sheet_name, f.ref))
     return out
 
 
+def is_earthing_feed(sheet: Sheet, e: Element) -> bool:
+    """Vývod jen s PE (XPE → ekvipotenciální svorkovnice HOP): uzemnění rozvaděče, ve schématu JPS obvykle bez
+    vodiče – chybějící vazbu na JPS kontrola nehlásí."""
+    if e.symbol_id != "sb.feed_out":
+        return False
+    conds = [w.conductors for w in sheet.wires if w.touches(e.id)]
+    return bool(conds) and all(c and set(c) <= {"PE", "PEN"} for c in conds)
+
+
+def aggregate_info(findings: list[Finding], max_refs: int = 8) -> list[Finding]:
+    """Informační nálezy, kterých bývá hodně (`AGGREGATED_INFO`: bez artiklu, označení mimo konvenci), sloučí do
+    jedné položky na list s počtem a výčtem označení („Bez artiklu / typu: 12 prvků (F1, F2, …)“). Skok z položky
+    vede na list (první prvek)."""
+    out: list[Finding] = []
+    groups: dict[tuple[str, str], list[Finding]] = {}
+    for f in findings:
+        if f.severity == INFO and f.code in AGGREGATED_INFO:
+            groups.setdefault((f.code, f.sheet_id), []).append(f)
+        else:
+            out.append(f)
+    for (code, _sid), fs in groups.items():
+        if len(fs) == 1:
+            out.append(fs[0])
+            continue
+        refs = sorted({f.ref for f in fs if f.ref}, key=_natural)
+        shown = ", ".join(refs[:max_refs]) + (", …" if len(refs) > max_refs else "")
+        f0 = fs[0]
+        out.append(Finding(INFO, f0.sheet_id, f0.sheet_name, f0.target_id, f0.is_wire, "",
+                           f"{AGGREGATED_INFO[code]}: {count_label(len(fs), ('prvek', 'prvky', 'prvků'))}"
+                           + (f" ({shown})" if shown else ""), code))
+    return out
+
+
+def _natural(ref: str) -> tuple:
+    import re
+    return tuple((0, int(t)) if t.isdigit() else (1, t) for t in re.findall(r"\d+|\D+", ref))
+
+
+LAYOUT_EPS = 1e-6   # tolerance součtu modulů (desetinné šířky svorek)
+
+
+@dataclass
+class LayoutProblem:
+    """Problém rozložení řady: `layout_overflow` (součet modulů řady > modulů v řadě, přístroj za koncem řady)
+    nebo `layout_overlap` (dva přístroje v řadě se překrývají). `element` = přístroj (u součtu řady None)."""
+    code: str
+    row: int
+    element: Element | None
+    text: str
+
+
+def _m(v: float) -> str:
+    return f"{round(v, 2):g}".replace(".", ",")
+
+
+def layout_problems(sheet: Sheet, project: Project | None = None, layout=None) -> list[LayoutProblem]:
+    """Přetečení a překryvy v řadách rozložení listu rozvaděče (jen přístroje rozložení – `Layout.devices`, bez
+    kontaktů – umístěné v řadách skříně). Zmenšení počtu modulů v řadě umístění nemaže; přístroje za koncem řady
+    hlásí tato kontrola. `layout` = rozpracovaná kopie (dialog skříně), jinak `sheet.layout`."""
+    lay = layout if layout is not None else sheet.layout
+    devs = lay.devices(sheet, project)
+    rows: dict[int, list[tuple[float, float, Element]]] = {}
+    for e in devs:
+        pl = lay.placement(e.id)
+        if pl is not None:
+            rows.setdefault(pl.row, []).append((pl.pos, pl.pos + e.modules, e))
+    out: list[LayoutProblem] = []
+    cap = lay.modules_per_row
+    for r in sorted(rows):
+        items = sorted(rows[r], key=lambda t: (t[0], t[1]))
+        total = sum(b - a for a, b, _ in items)
+        if total > cap + LAYOUT_EPS:
+            out.append(LayoutProblem("layout_overflow", r, None,
+                                     f"Řada {r + 1} je přeplněná: přístroje zabírají {_m(total)} M, řada má {cap} M"))
+        for a, b, e in items:
+            if b > cap + LAYOUT_EPS:
+                out.append(LayoutProblem("layout_overflow", r, e,
+                                         f"Přístroj v řadě {r + 1} přesahuje konec řady (pozice {_m(a)}–{_m(b)} M, "
+                                         f"řada má {cap} M)"))
+        for i, (a1, b1, e1) in enumerate(items):
+            for a2, b2, e2 in items[i + 1:]:
+                if a2 >= b1 - LAYOUT_EPS:
+                    break
+                out.append(LayoutProblem("layout_overlap", r, e2,
+                                         f"Přístroj v řadě {r + 1} se překrývá s {element_name(e1)} "
+                                         f"({_m(a2)}–{_m(b2)} M × {_m(a1)}–{_m(b1)} M)"))
+    return out
+
+
 def layout_findings(project: Project) -> list[Finding]:
     """Rozložení rozvaděče: přístroj s uloženým umístěním v řadě mimo skříň (po zmenšení počtu řad) – WARNING
-    `outside_enclosure`; rozložení ho kreslí mezi nerozmístěnými, po zvětšení počtu řad se umístění vrátí."""
+    `outside_enclosure`; rozložení ho kreslí mezi nerozmístěnými, po zvětšení počtu řad se umístění vrátí.
+    Přetečení řady a překryvy přístrojů (`layout_problems`) – WARNING `layout_overflow` / `layout_overlap`."""
     out: list[Finding] = []
     for s in project.sheets:
         if not s.is_switchboard:
@@ -203,6 +310,9 @@ def layout_findings(project: Project) -> list[Finding]:
             out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                f"Přístroj je umístěn v řadě {pl.row + 1} mimo skříň (skříň má {lay.rows} řad) "
                                "– v rozložení je mezi nerozmístěnými", "outside_enclosure"))
+        for pr in layout_problems(s, project):
+            e = pr.element
+            out.append(Finding(WARNING, s.id, s.name, e.id if e else "", False, e.ref if e else "", pr.text, pr.code))
     return out
 
 
@@ -273,8 +383,8 @@ def designation_findings(project: Project, lib, index=None) -> list[Finding]:
                 out.append(Finding(INFO, s.id, s.name, "", False, s.loc,
                                    f"Umístění listu +{s.loc} se liší od označení bloku {block.ref}", "loc_mismatch"))
         for e in s.elements:
-            code_findings(s, FUNC, e.attrs.get("func", ""), e.id, e.ref, f"prvku {e.ref or e.symbol_id}", reported)
-            code_findings(s, LOC, e.attrs.get("loc", ""), e.id, e.ref, f"prvku {e.ref or e.symbol_id}", reported)
+            code_findings(s, FUNC, e.attrs.get("func", ""), e.id, e.ref, f"prvku {element_name(e)}", reported)
+            code_findings(s, LOC, e.attrs.get("loc", ""), e.id, e.ref, f"prvku {element_name(e)}", reported)
             if not e.ref or is_contact(e) or e.symbol_id == INTERRUPT_SYMBOL:
                 continue
             try:
@@ -412,6 +522,35 @@ def text_findings(project: Project, lib) -> list[Finding]:
             out.append(Finding(WARNING, s.id, s.name, a, w is not None, ref,
                                f"Překryv textu: {text} – posuň prvek / lom vodiče nebo uprav polohu popisku značky",
                                "text_overlap"))
+        if s.is_switchboard:
+            out += multipole_text_findings(project, s, lib)
+    return out
+
+
+MP_OVERLAP_DETAIL = 5   # víc překryvů ve vícepólu jednoho listu → jedna souhrnná položka
+
+
+def multipole_text_findings(project: Project, s: Sheet, lib) -> list[Finding]:
+    """Překryvy textů a čar ve vícepólovém schématu listu rozvaděče (`multipole_geometry`)."""
+    from envocad.model.multipole_geometry import multipole_text_overlaps
+    try:
+        hits = multipole_text_overlaps(project, s, lib)
+    except (KeyError, ValueError, AttributeError, StopIteration):
+        return []
+    wires = {w.id: w for w in s.wires}
+    els = {e.id: e for e in s.elements}
+    out = []
+    if len(hits) > MP_OVERLAP_DETAIL:   # velký rozvaděč: jedna položka s počtem, ať F7 nezahltí
+        examples = "; ".join(t for _a, _b, t in hits[:3])
+        return [Finding(WARNING, s.id, s.name, "", False, s.loc,
+                        f"Vícepól: {len(hits)} překryvů textů a čar (např. {examples}) – uprav rozmístění ve vícepólu",
+                        "mp_text_overlap")]
+    for a, _b, text in hits:
+        w, e = wires.get(a), els.get(a)
+        ref = (w.attrs.get("ref", "") if w else (e.ref if e else "")) or ""
+        out.append(Finding(WARNING, s.id, s.name, a if (w or e) else "", w is not None, ref,
+                           f"Vícepól: překryv textu – {text} (posuň prvek ve vícepólu nebo uprav rozmístění)",
+                           "mp_text_overlap"))
     return out
 
 
@@ -434,6 +573,13 @@ def potential_findings(project: Project, lib) -> list[Finding]:
                     out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref or "uzel",
                                        f"Uzel odbočky má jen {n} vodič(e) – odbočka chybí", "junction_free"))
     return out
+
+
+def cable_findings(project: Project) -> list[Finding]:
+    """Kabely bez vodiče JPS (osiřelé už v načteném souboru – `sync_cables` je ponechá kvůli ručním datům) → INFO."""
+    from envocad.model.project import orphan_cables
+    return [Finding(INFO, "", "", "", False, c.ref, f"Kabel {c.ref or '(bez označení)'} nemá vodič", "cable_no_wire")
+            for c in orphan_cables(project)]
 
 
 def calc_findings(project: Project) -> list[Finding]:

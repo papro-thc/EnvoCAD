@@ -422,7 +422,10 @@ def list_macros() -> list[Macro]:
 
 
 def save_macro(name: str, description: str, fragment: dict, shared: bool = False) -> Path:
-    """Uloží makro ve formátu v2; proměnné odvodí ze zástupných symbolů `{x}` ve fragmentu (typ text)."""
+    """Uloží makro ve formátu v2; proměnné odvodí ze zástupných symbolů `{x}` ve fragmentu (typ text). Vazby na
+    originál (kabel vodiče `cable_id`, vazba přívodu `wire_id`/odkud/kam) se neukládají."""
+    from envocad.model.project import detach_fragment
+    fragment = detach_fragment(fragment)   # bez kabelu originálu (cable_id) a vazeb přívodů na vodiče JPS
     d = (shared_dir() if shared else None) or user_dir()
     d.mkdir(parents=True, exist_ok=True)
     p = d / f"{_slug(name)}.json"
@@ -642,7 +645,14 @@ def condition(expr, values: dict) -> bool:
 def _expand_once(project, sheet, fragment: dict, values: dict, dx: float, dy: float, ref_prefix_of,
                  components: ComponentLookup | None, used: set[str], created: list,
                  copy: bool = False) -> tuple[list, list]:
-    from envocad.model.project import Element, Wire, WireEnd
+    from envocad.model.project import (
+        Element,
+        Wire,
+        WireEnd,
+        copy_prefix,
+        detach_element_attrs,
+        detach_wire_attrs,
+    )
     idmap: dict[str, str] = {}
     els: list[Element] = []
     for d in fragment.get("elements", []):
@@ -650,7 +660,8 @@ def _expand_once(project, sheet, fragment: dict, values: dict, dx: float, dy: fl
         when = src.attrs.get("when")
         if when is not None and not condition(when, values):
             continue
-        attrs = {k: subst(v, values) for k, v in src.attrs.items() if k != "when"}
+        # vazby na originál (vazba přívodu na vodič JPS a texty z ní) se nepřebírají – i u starších uložených maker
+        attrs = {k: subst(v, values) for k, v in detach_element_attrs(src.symbol_id, src.attrs).items() if k != "when"}
         shared = str(src.attrs.get("shared", "")).strip() in ("1", "true", "ano")
         if shared:
             ref = attrs.get("ref", "")
@@ -668,7 +679,7 @@ def _expand_once(project, sheet, fragment: dict, values: dict, dx: float, dy: fl
             comp = components(cid)
             if comp is not None:
                 comp.apply_to(new)   # parametry artiklu → atributy (mppt, strings_per_mppt → DC vstupy střídače)
-        prefix = ref_prefix_of(src.symbol_id) if ref_prefix_of else ""
+        prefix = copy_prefix(src, ref_prefix_of(src.symbol_id) if ref_prefix_of else "")
         keep = _KEEP_REF
         if copy and not shared:
             # kopie jako `paste_fragment`: čísla svorek se vymažou, přívody/vývody se přečíslují (bez zástupných symbolů)
@@ -697,7 +708,7 @@ def _expand_once(project, sheet, fragment: dict, values: dict, dx: float, dy: fl
         nw = Wire(WireEnd(idmap[w.a.element_id], subst(w.a.port, values)),
                   WireEnd(idmap[w.b.element_id], subst(w.b.port, values)),
                   points=[(x + dx, y + dy) for x, y in w.points],
-                  attrs={k: subst(v, values) for k, v in w.attrs.items() if k != "when"},
+                  attrs={k: subst(v, values) for k, v in detach_wire_attrs(w.attrs).items() if k != "when"},
                   conductors=list(w.conductors))
         if nw.attrs.get("ref") and "{" not in str(w.attrs.get("ref", "")):
             n = 1
@@ -757,7 +768,8 @@ def expand(project, sheet, m: Macro | dict, values: dict, dx: float = 0.0, dy: f
     if repeat and m.repeat is not None:
         n = repeat_count(m, base)
         pitch = m.repeat.pitch or macro_pitch(m)
-        runs = [({"k": str(k), "n": str(n), "nk": str(n + k)}, _grid((k - 1) * pitch)) for k in range(1, n + 1)]
+        k0 = repeat_start(base)   # navazující číslování (vložení do listu s existujícími instancemi)
+        runs = [({"k": str(k0 + i), "n": str(n), "nk": str(n + k0 + i)}, _grid(i * pitch)) for i in range(n)]
     else:
         runs = [({}, 0.0)]
     for ctx, off in runs:
@@ -768,6 +780,63 @@ def expand(project, sheet, m: Macro | dict, values: dict, dx: float = 0.0, dy: f
         all_els += els
         all_wires += wires
     return all_els, all_wires
+
+
+K_START = "k_start"   # hodnota: první k opakování (výchozí 1) – dialog ji předvyplní podle listu
+
+
+def repeat_start(values: dict) -> int:
+    try:
+        return max(1, int(float(str(values.get(K_START) or "1").replace(",", "."))))
+    except ValueError:
+        return 1
+
+
+def _ref_templates(m: Macro) -> list[str]:
+    """Označení prvků fragmentu se zástupnými symboly (X{k}, FU{i}.{j}) – jen ta se při vložení nepřečíslují.
+    Sdílené prvky (`shared`) se slučují s existujícími, kolizí nejsou."""
+    out = []
+    for d in m.fragment.get("elements", []):
+        attrs = d.get("attrs") or {}
+        ref = str(attrs.get("ref", ""))
+        if "{" in ref and str(attrs.get("shared", "")).strip() not in ("1", "true", "ano"):
+            out.append(ref)
+    return out
+
+
+def suggest_numbering(project, sheet, m: Macro, values: dict | None = None, limit: int = 500) -> dict[str, str]:
+    """Navazující číslování pro vložení makra do existujícího listu: nejmenší `k_start` (makro s opakováním) nebo `k`
+    (bez opakování, automatická proměnná), při kterém žádné označení se zástupným symbolem (X{k}, X{nk}, FU{i}.{j}…)
+    nekoliduje s označeními v prostoru listu. Ostatní proměnné (i, j…) zůstávají podle `values` / výchozích.
+    Vrací {} (není co měnit), {"k_start": "9"} nebo {"k": "3"}."""
+    templates = _ref_templates(m)
+    if not templates:
+        return {}
+    used = project.used_refs(sheet)
+    vals0, _ = resolve_values(m, given=dict(values or {}))
+    repeating = m.repeat is not None
+    kv = m.variable("k")
+    if not repeating and (kv is None or not kv.auto):
+        return {}
+    n = repeat_count(m, vals0) if repeating else 1
+
+    def refs_for(k0: int) -> list[str]:
+        out = []
+        for i in range(n):
+            ctx = {"k": str(k0 + i), "n": str(n), "nk": str(n + k0 + i)} if repeating else {"k": str(k0)}
+            vals = {**vals0, **ctx}
+            vals = {k: subst(v, vals) for k, v in vals.items()}
+            out += [subst(t, vals) for t in templates]
+        return out
+
+    start = repeat_start(vals0) if repeating else 1
+    for k0 in range(start, start + limit):
+        refs = refs_for(k0)
+        if not any(_PH.search(r) for r in refs) and not (set(refs) & used) and len(set(refs)) == len(refs):
+            if k0 == 1:
+                return {}
+            return {K_START: str(k0)} if repeating else {"k": str(k0)}
+    return {}
 
 
 def insert(sheet, elements: list, wires: list) -> None:

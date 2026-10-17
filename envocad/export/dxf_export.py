@@ -10,7 +10,7 @@ from envocad.model.project import Element, Project, Sheet, element_symbol
 from envocad.model.symbol import GRID, Symbol, rotate_point
 
 LAYERS = {
-    "SYMBOLY": 7, "VODICE": 7, "TEXTY": 7, "RAMECEK": 8, "PORTY": 1, "REVIZE": 1,   # REVIZE = červená
+    "SYMBOLY": 7, "VODICE": 7, "TEXTY": 7, "RAMECEK": 8, "REVIZE": 1,   # REVIZE = červená (porty se do DXF nekreslí)
 }
 NOTES_LAYER, NOTES_COLOR = "PRIPOMINKY", 6     # purpurová – odlišná od červené revize
 DIR_VEC = {"N": (0, 1), "E": (1, 0), "S": (0, -1), "W": (-1, 0)}

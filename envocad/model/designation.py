@@ -14,6 +14,38 @@ FUNC, LOC = "=", "+"
 ASPECT_NAMES = {FUNC: "Funkce", LOC: "Umístění"}
 LOCATION_SYMBOLS = {"fve.switchboard"}          # prvky, jejichž ref je kód umístění
 MAX_CODE_LEN = 10
+
+# Čitelný název prvku bez označení do textů (křížové odkazy, výkazy, TZ, kontroly) – místo symbol_id.
+# Zkratky: DS = distribuční soustava (síť), HOP = hlavní ochranná přípojnice (ekvipotenciální svorkovnice).
+SHORT_NAMES = {
+    "fve.grid": "DS", "fve.load": "spotřebič", "sb.junction": "uzel", "sb.busbar": "sběrnice",
+    "sb.pe_bar": "PE lišta", "fve.interrupt": "přerušovací bod", "sb.feed_in": "přívod", "sb.feed_out": "vývod",
+    "fve.switchboard": "rozvaděč", "fve.pv_string": "string", "fve.battery": "baterie",
+    "fve.inverter": "střídač", "fve.inverter_hybrid": "střídač",
+}
+SHORT_NAME_MAX = 20
+
+
+def element_name(e, lib=None) -> str:
+    """Jak prvek nazvat v textu: označení (`ref`), jinak zkratka druhu (`SHORT_NAMES`: síť → „DS“; uzemnění s popisem
+    HOP → „HOP“, jinak „uzemnění“), jinak název značky z knihovny zkrácený na `SHORT_NAME_MAX` znaků, jinak poslední
+    část symbol_id. Jedna funkce pro křížové odkazy, výkazy, TZ i kontroly."""
+    ref = str(getattr(e, "attrs", {}).get("ref", "") or "")
+    if ref:
+        return ref
+    sid = getattr(e, "symbol_id", "") or ""
+    if sid == "fve.earth":
+        return "HOP" if "HOP" in str(e.attrs.get("desc", "")).upper() else "uzemnění"
+    if sid in SHORT_NAMES:
+        return SHORT_NAMES[sid]
+    if lib is not None:
+        try:
+            name = str(lib.get_symbol(sid).name or "").strip()
+        except Exception:  # noqa: BLE001 – neznámá značka
+            name = ""
+        if name:
+            return name if len(name) <= SHORT_NAME_MAX else name[:SHORT_NAME_MAX - 1].rstrip() + "…"
+    return sid.split(".")[-1] or "?"
 MAX_REF_LEN = 10
 MAX_FULL_LEN = 32
 CODE_RE = re.compile(r"[A-Z][A-Z0-9_]*")

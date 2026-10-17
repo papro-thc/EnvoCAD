@@ -68,15 +68,80 @@ def _auto_link_feed(project: Project, sheet: Sheet, feed: Element, port_hint: st
                 w.conductors = list(cands[0].conductors)
 
 
+# ---- parametry šablon: neplatná hodnota = ValueError s českou hláškou (GUI ji ukáže a nic nevloží) ----------
+AC_MAX_OUTPUTS = 9      # vývody AC šablony; sběrnice sb.busbar má 12 vývodů (SPD + 9 vývodů + PE + rezerva)
+DC_MAX_STRINGS = 9
+BUSBAR_OUTPUTS = 12
+
+
+def _raw(p: dict[str, str], key: str) -> str:
+    return str(p.get(key) if p.get(key) is not None else "").strip()
+
+
+def int_param(p: dict[str, str], key: str, label: str, lo: int, hi: int) -> int:
+    """Celé číslo v rozsahu lo…hi; jinak ValueError („Počet vývodů: povolený rozsah je 1–9 (zadáno 0).“)."""
+    raw = _raw(p, key)
+    try:
+        v = float(raw.replace(",", "."))
+    except ValueError:
+        raise ValueError(f"{label}: „{raw}“ není číslo – zadejte celé číslo {lo}–{hi}.") from None
+    if not v.is_integer():
+        raise ValueError(f"{label}: zadejte celé číslo {lo}–{hi} (zadáno „{raw}“).")
+    if not lo <= v <= hi:
+        raise ValueError(f"{label}: povolený rozsah je {lo}–{hi} (zadáno {raw}).")
+    return int(v)
+
+
+def current_param(p: dict[str, str], key: str, label: str) -> str:
+    """Proud [A] > 0 (desetinná čárka i tečka); vrací zadaný text (bez mezer)."""
+    raw = _raw(p, key)
+    try:
+        v = float(raw.replace(",", "."))
+    except ValueError:
+        raise ValueError(f"{label}: „{raw}“ není číslo – zadejte proud v A (např. 32).") from None
+    if v <= 0:
+        raise ValueError(f"{label}: proud musí být větší než 0 A (zadáno {raw}).")
+    return raw
+
+
+def distribution_param(p: dict[str, str]) -> bool:
+    """Rozvod AC šablony: True = sběrnice (bus / sběrnice), False = svorky s můstky (terminals / svorky)."""
+    raw = _raw(p, "distribution") or "bus"
+    t = raw.lower()
+    if t.startswith(("b", "sb")):
+        return True
+    if t.startswith(("t", "sv")):
+        return False
+    raise ValueError(f"Rozvod: „{raw}“ – zadejte bus (sběrnice) nebo terminals (svorky).")
+
+
+ROUTE_KINDS = ("trasa", "trase", "po trase", "route", "r")
+TECH_KINDS = ("tech", "technologie", "u technologie", "t")
+
+
+def dc_kind_param(p: dict[str, str]) -> str:
+    """Druh DC rozvaděče: „tech“ (u technologie – pojistkové odpínače) nebo „route“ (po trase – odpínače DC).
+    Přijímá tech/technologie a trasa/Trasa/po trase/route (bez ohledu na velikost písmen)."""
+    raw = _raw(p, "kind") or "tech"
+    t = " ".join(raw.lower().split())
+    if t in ROUTE_KINDS or t.startswith(("tras", "po tras", "route")):
+        return "route"
+    if t in TECH_KINDS or t.startswith(("tech", "u tech")):
+        return "tech"
+    raise ValueError(f"Druh: „{raw}“ – zadejte tech (u technologie) nebo trasa (po trase).")
+
+
 def _place_sequential(sheet: Sheet, elements: list[Element]) -> None:
     """Rozmístí přístroje za sebou po řadách DIN lišt podle jejich šířky v modulech. Cívka stykače, jehož položkou
-    výkazu je stykač na stejném listu (`xref.DeviceIndex.is_bom_device`), se nerozmísťuje."""
+    výkazu je stykač na stejném listu (`xref.DeviceIndex.is_bom_device`), ani kontakty (`NON_DEVICE_SYMBOLS`) se
+    nerozmísťují."""
+    from envocad.model.project import NON_DEVICE_SYMBOLS
     from envocad.model.xref import DeviceIndex
     idx = DeviceIndex.for_sheets([sheet])
     row, pos = 0, 0.0
     for e in elements:
         m = e.modules
-        if m <= 0 or not idx.is_bom_device(e, sheet):
+        if m <= 0 or e.symbol_id in NON_DEVICE_SYMBOLS or not idx.is_bom_device(e, sheet):
             continue
         if pos + m > sheet.layout.modules_per_row:
             row, pos = row + 1, 0.0
@@ -106,10 +171,10 @@ def _bridge_groups(first_numbers: list[int], n: int) -> list[list[str]]:
 def build_ac_fve(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
     """AC rozvaděč FVE: přívod od střídače → hlavní vypínač → rozvod → SPD, vývody s jističi.
     Rozvod = sběrnice potenciálů (vodič, jako v EPLAN; `bus`) nebo rozvodné svorky X2 s můstky (`terminals`)."""
-    n_out = max(1, min(int(p.get("n_out", "3")), 9))
-    i_main = p.get("i_main", "80")
-    i_out = p.get("i_out", "32")
-    use_bus = (p.get("distribution", "bus") or "bus").strip().lower().startswith("b")
+    n_out = int_param(p, "n_out", "Počet vývodů", 1, AC_MAX_OUTPUTS)
+    i_main = current_param(p, "i_main", "In hlavního vypínače")
+    i_out = current_param(p, "i_out", "In jističů vývodů")
+    use_bus = distribution_param(p)
     y = 200.0
     x0 = 60.0
     nc = len(AC_CONDUCTORS)
@@ -157,7 +222,8 @@ def build_ac_fve(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
         _wire(project, sheet, f, "2", out, "1", AC_CONDUCTORS)
         outs.append(f)
     _auto_link_feed(project, sheet, feed, "1")
-    _place_sequential(sheet, [q, spd, *outs])
+    # skupiny rozvodných svorek zabírají na liště počet svorek × šířka svorky (`Element.modules`)
+    _place_sequential(sheet, [q, spd, *outs, *groups])
 
 
 def build_dc_strings(project: Project, sheet: Sheet, strings: list[str], kind: str = "tech", fuse_in: str = "15",
@@ -184,7 +250,7 @@ def build_dc_strings(project: Project, sheet: Sheet, strings: list[str], kind: s
         out = _el(project, sheet, "sb.feed_out", x, y - 30, "", desc=f"{g} dál")
         out.attrs["ref"] = f"X{n + k + 1}"
         s_el = _el(project, sheet, "fve.spd", x + 12.5, y - 20, "F", spd_type=f"{spd} DC", uc="1000", poles="3", modules="3",
-                   desc=f"string {g}")
+                   desc=g if g.lower().startswith("string") else f"string {g}")
         _wire(project, sheet, feed, "1", d, "1", DC_CONDUCTORS)
         _wire(project, sheet, d, "2", out, "1", DC_CONDUCTORS)
         _wire(project, sheet, d, "2", s_el, "L", DC_CONDUCTORS)
@@ -195,25 +261,34 @@ def build_dc_strings(project: Project, sheet: Sheet, strings: list[str], kind: s
 
 
 def build_dc(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
-    n_str = max(1, min(int(p.get("n_strings", "4")), 9))
-    kind = "route" if (p.get("kind", "tech").strip().lower().startswith("t") is False) else "tech"
-    build_dc_strings(project, sheet, [f"string {i + 1}" for i in range(n_str)], kind, p.get("i_fuse", "15"),
-                     p.get("i_dc", "32"), p.get("spd", "T2"))
+    n_str = int_param(p, "n_strings", "Počet stringů", 1, DC_MAX_STRINGS)
+    kind = dc_kind_param(p)
+    i_fuse = current_param(p, "i_fuse", "In pojistkových odpínačů")
+    i_dc = current_param(p, "i_dc", "In odpínačů DC")
+    build_dc_strings(project, sheet, [f"string {i + 1}" for i in range(n_str)], kind, i_fuse, i_dc,
+                     _raw(p, "spd") or "T2")
+
+
+def build_empty(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
+    """Prázdný list: přívod (navázaný na vodič JPS k bloku ROZVADĚČ, je-li) a PE můstek."""
+    feed = _el(project, sheet, "sb.feed_in", 40, 220, "X", desc="přívod")
+    _el(project, sheet, "sb.pe_bar", 40, 120, "X", kind="PE")
+    _auto_link_feed(project, sheet, feed, "1")
 
 
 TEMPLATES: list[Template] = [
     Template("ac_fve", "AC rozvaděč FVE", "Přívod od střídače, hlavní vypínač, rozvod (sběrnice potenciálů nebo svorky s můstky), SPD, vývody s jističi",
-             [TemplateParam("n_out", "Počet vývodů", "3"), TemplateParam("i_main", "In hlavního vypínače [A]", "80"),
+             [TemplateParam("n_out", f"Počet vývodů (1–{AC_MAX_OUTPUTS})", "3"), TemplateParam("i_main", "In hlavního vypínače [A]", "80"),
               TemplateParam("i_out", "In jističů vývodů [A]", "32"), TemplateParam("feed_desc", "Přívod od", "od střídače"),
               TemplateParam("distribution", "Rozvod (bus = sběrnice / terminals = svorky)", "bus")],
              build_ac_fve),
     Template("dc", "DC rozvaděč", "Každý string zvlášť: pojistkový odpínač (u technologie) nebo odpínač DC (po trase), SPD na string, vývod",
-             [TemplateParam("n_strings", "Počet stringů", "4"), TemplateParam("kind", "Druh (tech / trasa)", "tech"),
+             [TemplateParam("n_strings", f"Počet stringů (1–{DC_MAX_STRINGS})", "4"),
+              TemplateParam("kind", "Druh (tech / trasa)", "tech"),
               TemplateParam("i_fuse", "In pojistkových odpínačů [A]", "15"), TemplateParam("i_dc", "In odpínačů DC [A]", "32"),
               TemplateParam("spd", "Typ SPD", "T2")],
              build_dc),
-    Template("empty", "Prázdný list", "Jen přívod a PE můstek", [], lambda pr, sh, p: (
-        _el(pr, sh, "sb.feed_in", 40, 220, "X", desc="přívod"), _el(pr, sh, "sb.pe_bar", 40, 120, "X", kind="PE"))),
+    Template("empty", "Prázdný list", "Jen přívod a PE můstek", [], build_empty),
 ]
 
 
@@ -222,6 +297,8 @@ def template(tid: str) -> Template:
 
 
 def apply_template(project: Project, sheet: Sheet, tid: str, params: dict[str, str] | None = None) -> None:
+    """Vloží šablonu do listu. Neplatný parametr → ValueError s českou hláškou; vestavěné šablony parametry ověří
+    dřív, než cokoli vloží (list zůstane beze změny)."""
     t = template(tid)
     p = {tp.key: tp.default for tp in t.params}
     p.update(params or {})

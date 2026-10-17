@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+BUSBAR_INPUTS = 12     # přívody T1…T12 sběrnice sb.busbar (= `generate.AC_MAX_INVERTERS_BUS`)
 OUT = Path(__file__).resolve().parents[1] / "envocad" / "library" / "builtin" / "fve"
 
 
@@ -137,7 +138,7 @@ SYMBOLS = [
                        L(-5.5, 6, -1.5, 6), L(-5.5, 4.5, -3.5, 4.5), L(-2.5, 4.5, -1.5, 4.5),
                        A(2.5, -1.5, 1.5, 0, 180), A(5.5, -1.5, 1.5, 180, 360)],
         "ports": [P("DC1", -10, 5, "W"), P("DC2", -10, -5, "W"), P("AC", 10, 0, "E")],  # DC vstupy (MPPT)
-        "attributes": [REF, TYPE, attr("p_ac", "P AC [kW]", "", True), attr("p_dc_max", "P DC max [kWp]"),
+        "attributes": [REF, TYPE, attr("p_ac", "P AC [kW]", "", True, "{} kW"), attr("p_dc_max", "P DC max [kWp]"),
                        attr("mppt", "Počet MPPT"), attr("phases", "Fáze", "3"), attr("u_dc_max", "U DC max [V]"),
                        attr("u_mppt_min", "U MPPT min [V]"), attr("u_mppt_max", "U MPPT max [V]"),
                        attr("i_mppt_max", "I max na MPPT [A]"), attr("strings_per_mppt", "Stringů na MPPT")],
@@ -148,9 +149,9 @@ SYMBOLS = [
         "description": "Hybridní střídač s bateriovým vstupem",
         "primitives": [R(-10, -10, 20, 20), L(-10, -10, 10, 10), T(-5, 0.5, "DC", 2.5), T(5, -6, "AC", 2.5),
                        L(-5.5, 6, -1.5, 6), L(-5.5, 4.5, -3.5, 4.5), L(-2.5, 4.5, -1.5, 4.5),
-                       A(2.5, -1.5, 1.5, 0, 180), A(5.5, -1.5, 1.5, 180, 360), T(0, -13.5, "BAT", 2)],
+                       A(2.5, -1.5, 1.5, 0, 180), A(5.5, -1.5, 1.5, 180, 360), T(0, -9.0, "BAT", 2)],
         "ports": [P("DC1", -10, 5, "W"), P("DC2", -10, -5, "W"), P("AC", 10, 0, "E"), P("BAT", 0, -10, "S")],
-        "attributes": [REF, TYPE, attr("p_ac", "P AC [kW]", "", True), attr("p_dc_max", "P DC max [kWp]"),
+        "attributes": [REF, TYPE, attr("p_ac", "P AC [kW]", "", True, "{} kW"), attr("p_dc_max", "P DC max [kWp]"),
                        attr("mppt", "Počet MPPT"), attr("phases", "Fáze", "3"), attr("u_dc_max", "U DC max [V]"),
                        attr("u_mppt_min", "U MPPT min [V]"), attr("u_mppt_max", "U MPPT max [V]"),
                        attr("i_mppt_max", "I max na MPPT [A]"), attr("strings_per_mppt", "Stringů na MPPT")],
@@ -162,7 +163,7 @@ SYMBOLS = [
         "primitives": [L(0, 7.5, 0, 5), L(-5, 5, 5, 5), L(-2.5, 3, 2.5, 3), L(-5, 1, 5, 1), L(-2.5, -1, 2.5, -1),
                        L(0, -1, 0, -2.5), R(-7.5, -7.5, 15, 17.5), T(0, -6, "BESS", 2)],
         "ports": [P("DC", 0, 10, "N")],
-        "attributes": [REF, TYPE, attr("e_kwh", "Kapacita [kWh]", "", True), attr("p_kw", "Výkon [kW]")],
+        "attributes": [REF, TYPE, attr("e_kwh", "Kapacita [kWh]", "", True, "{} kWh"), attr("p_kw", "Výkon [kW]", fmt="{} kW")],
         "label_pos": {"x": 9, "y": 2},
     },
     {
@@ -306,12 +307,14 @@ SYMBOLS = [
     {
         "id": "sb.busbar", "name": "Sběrnice (rozvodný vodič)", "category": "Svorky a propojení", "iec_ref": "",
         "description": "Rozvod potenciálů vodičem jako v EPLAN: ve vícepólu vodorovné čáry L1 L2 L3 N PE přes stranu "
-                       "s názvy potenciálů na koncích, přístroje se na ně napojují odbočkou; 1 vstup, 10 vývodů",
-        "primitives": [{"type": "polyline", "points": [[-75, 0], [75, 0]], "closed": False},
-                       {"type": "polyline", "points": [[-75, 1], [75, 1]], "closed": False}],
-        # porty: IN vlevo nahoře, T1…T10 shora (přívody, jističe od střídačů), 1…10 zdola (vývody)
-        "ports": [P("IN", -75, 5, "N")] + [P(f"T{i + 1}", -60 + i * 15, 5, "N") for i in range(10)]
-                 + [P(f"{i + 1}", -67.5 + i * 15, -5, "S") for i in range(10)],
+                       "s názvy potenciálů na koncích, přístroje se na ně napojují odbočkou; 1 vstup, 12 přívodů shora, "
+                       "12 vývodů zdola",
+        "primitives": [{"type": "polyline", "points": [[-75, 0], [105, 0]], "closed": False},
+                       {"type": "polyline", "points": [[-75, 1], [105, 1]], "closed": False}],
+        # porty: IN vlevo nahoře, T1…T12 shora (přívody, jističe od střídačů – generátor: nejvýš 12 střídačů), 1…12 zdola (vývody) – šablona
+        # AC rozvaděče potřebuje SPD + až 9 vývodů + PE (`templates.AC_MAX_OUTPUTS`, `BUSBAR_OUTPUTS`)
+        "ports": [P("IN", -75, 5, "N")] + [P(f"T{i + 1}", -60 + i * 15, 5, "N") for i in range(BUSBAR_INPUTS)]
+                 + [P(f"{i + 1}", -67.5 + i * 15, -5, "S") for i in range(12)],
         "attributes": [attr("ref", "Označení (předpona potenciálů, např. 1 → 1L1)", "", True), attr("desc", "Popis", "", True),
                        attr("in_", "In [A]"), attr("conductors", "Vodiče", "L1 L2 L3 N PE")],
         "label_pos": {"x": -75, "y": 7.5},
@@ -340,10 +343,13 @@ SYMBOLS = [
     },
     {
         "id": "sb.terminal_block", "name": "Svorkovnice", "category": "Svorky a propojení", "iec_ref": "X",
-        "description": "Řadová svorkovnice – 1 svorka (vícenásobná = více prvků)",
+        "description": "Řadová svorkovnice – skupina svorek (čísla v atributu Svorka č.); šířka v rozložení = počet "
+                       "svorek × 6,2 mm, pokud není zadaná",
         "primitives": [C(0, 0, 1.5), L(0, 5, 0, 1.5), L(0, -1.5, 0, -5)],
         "ports": [P("1", 0, 5, "N"), P("2", 0, -5, "S")],
-        "attributes": [REF, attr("terminal", "Svorka č.", "", True), attr("cross", "Průřez [mm²]"), attr("modules", "Šířka [moduly]", "0.35")],
+        "attributes": [REF, attr("terminal", "Svorka č.", "", True), attr("cross", "Průřez [mm²]"),
+                       # šířka celé skupiny; prázdné = počet svorek × 6,2 mm (`project.TERMINAL_WIDTH_MM`, 1 svorka ≈ 0,35 M)
+                       attr("modules", "Šířka skupiny [moduly] (prázdné = počet svorek × 6,2 mm)", "")],
         "multipole": MP([C(0, 0, 1.5), L(0, 5, 0, 1.5), L(0, -1.5, 0, -5)], link=False),
         "label_pos": {"x": 2.5, "y": 1},
     },

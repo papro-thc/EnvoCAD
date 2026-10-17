@@ -30,6 +30,26 @@ def company_names() -> tuple[str, str]:
         full = COMPANY
     short = full.split()[0].rstrip(",") if full else "ENVO"
     return short, full
+TEXT_CHAR_W = 0.72   # odhad průměrné šířky znaku / výška písma (Arial, jako `textlayout.CHAR_W`)
+MIN_TEXT_H = 1.6     # nejmenší výška písma hodnoty v popisovém poli
+
+
+def fit_text(text: str, width: float, height: float, min_height: float = MIN_TEXT_H) -> tuple[str, float]:
+    """Text do buňky široké `width` mm: když je širší, zmenší se písmo (nejvýš na `min_height`), a když se nevejde
+    ani tak, zkrátí se s „…“ na konci. Šířka je odhad (`TEXT_CHAR_W`). Vrací (text, výška písma)."""
+    text = str(text or "")
+    if not text or width <= 0:
+        return text, height
+    est = TEXT_CHAR_W * len(text)
+    if est * height <= width:
+        return text, height
+    h = max(min_height, width / est)
+    if est * h <= width:
+        return text, round(h, 2)
+    n = max(1, int(width / (TEXT_CHAR_W * h)) - 1)
+    return text[:n].rstrip() + "…", h
+
+
 COLS = "ABCDEFGH"   # sloupce souřadnicové sítě (zleva doprava)
 ROWS = 6            # řádky 1…6 (shora dolů)
 
@@ -71,10 +91,16 @@ def qr_modules(text: str) -> list[list[bool]] | None:
 
 
 def sheet_revision_label(project: Project, sheet: Sheet) -> str:
-    """Revize listu do popisového pole a QR: revize listu (`revision.sheet_revision`), jinak `meta["revision"]`."""
-    from envocad.model.revision import sheet_revision
+    """Revize listu do popisového pole a QR: revize listu (`revision.sheet_revision`). Nezměněný list bez výchozí
+    revize před první revizí se značkami → prázdná (výchozí stav, ne nová revize). Projekt bez značek revizí
+    (revize se po listech nesledují) → `meta["revision"]`."""
+    from envocad.model.revision import revisions_marked, sheet_revision
     rev = sheet_revision(project, sheet)
-    return rev.label if rev is not None else str(project.meta.get("revision", "") or "")
+    if rev is not None:
+        return rev.label
+    if revisions_marked(project):
+        return ""
+    return str(project.meta.get("revision", "") or "")
 
 
 def qr_text(project: Project, sheet: Sheet, view: str = "") -> str:
@@ -135,8 +161,8 @@ def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, h
     logo_w = 34.0
     g.lines.append((tx0 + logo_w, ty0, tx0 + logo_w, ty1))
     short, full = company_names()
-    g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 2.0, short, 5.0, "center"))
-    g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 6.0, full, 1.8, "center"))
+    g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 2.0, *fit_text(short, logo_w - 3.0, 5.0, 2.5), "center"))
+    g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 6.0, *fit_text(full, logo_w - 2.0, 1.8, 1.2), "center"))
     # QR kód s identifikací výkresu vlevo od popisového pole (projekt | zakázka | list | revize)
     mods = qr_modules(qr_text(project, sheet, view))
     if mods:
@@ -160,5 +186,82 @@ def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, h
             if c:
                 g.lines.append((cx, top - rh, cx, top))
             g.texts.append((cx + 1.0, top - 2.2, label, 1.5, "left"))
-            g.texts.append((cx + 1.0, top - rh + 1.3, value, 2.5 if r < 3 else 2.2, "left"))
+            # dlouhá hodnota se zmenší, případně zkrátí s „…“ – nepřetéká do sousední buňky
+            g.texts.append((cx + 1.0, top - rh + 1.3, *fit_text(str(value or ""), colw - 2.0, 2.5 if r < 3 else 2.2),
+                            "left"))
     return g
+
+
+# ---- rozmístění obsahu na list (generátor) ----------------------------------------------------------------------
+PAPER_SIZES = (("A3", 420.0, 297.0), ("A2", 594.0, 420.0), ("A1", 841.0, 594.0), ("A0", 1189.0, 841.0))
+CONTENT_PAD = 5.0     # odstup obsahu od vnitřního rámečku a od popisového pole
+
+
+def inner_box(width: float, height: float) -> tuple[float, float, float, float]:
+    """Vnitřní rámeček (kreslicí plocha) listu daného rozměru: x0, y0, x1, y1 (mm, Y nahoru)."""
+    return (MARGIN_LEFT, MARGIN, width - MARGIN, height - MARGIN)
+
+
+def title_block_box(width: float, height: float) -> tuple[float, float, float, float]:
+    """Obálka popisového pole včetně QR kódu vlevo od něj (vpravo dole uvnitř rámečku)."""
+    del height
+    qr = (TB_H - 6.0) + 4.0
+    return (width - MARGIN - TB_W - qr, MARGIN, width - MARGIN, MARGIN + TB_H)
+
+
+def _snap(v: float) -> float:
+    return round(v / 2.5) * 2.5
+
+
+def _boxes_hit(a, b) -> bool:
+    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+
+def fit_placement(boxes: list, sizes=None) -> tuple[str, float, float, float, float]:
+    """Nejmenší formát (A3…A0, na šířku i na výšku), do jehož vnitřního rámečku se obsah (`boxes`) vejde
+    s odstupem `CONTENT_PAD` a nezasahuje do popisového pole; jinak vlastní rozměr. Vrací (formát, šířka, výška,
+    dx, dy) – posun obsahu v násobcích mřížky 2,5 mm (obsah na středu, kvůli popisovému poli případně výš)."""
+    x1 = min(b[0] for b in boxes)
+    y1 = min(b[1] for b in boxes)
+    x2 = max(b[2] for b in boxes)
+    y2 = max(b[3] for b in boxes)
+    bw, bh = x2 - x1, y2 - y1
+    pad = CONTENT_PAD
+    cands = []
+    for name, w, h in (sizes or PAPER_SIZES):
+        cands += [(w * h, 0, name, w, h), (w * h, 1, name, h, w)]
+    cands.sort()
+    custom_w = max(420.0, -(-(bw + MARGIN_LEFT + MARGIN + 2 * pad + 2.5) // 5) * 5)
+    custom_h = max(297.0, -(-(bh + 2 * MARGIN + 3 * pad + TB_H + 2.5) // 5) * 5)
+    for _, _, name, w, h in [*cands, (0, 0, "vlastní", custom_w, custom_h)]:
+        ix0, iy0, ix1, iy1 = inner_box(w, h)
+        ix0, iy0, ix1, iy1 = ix0 + pad, iy0 + pad, ix1 - pad, iy1 - pad
+        if bw > ix1 - ix0 - 2.5 or bh > iy1 - iy0 - 2.5:
+            continue
+        dx = _snap((ix0 + ix1) / 2 - (x1 + x2) / 2)
+        dy = _snap((iy0 + iy1) / 2 - (y1 + y2) / 2)
+        tb = title_block_box(w, h)
+        tb = (tb[0] - pad, tb[1] - pad, tb[2] + pad, tb[3] + pad)
+        need = max((tb[3] - (b[1] + dy) for b in boxes
+                    if _boxes_hit((b[0] + dx, b[1] + dy, b[2] + dx, b[3] + dy), tb)), default=0.0)
+        if need > 0:
+            dy += -(-need // 2.5) * 2.5
+            if y2 + dy > iy1:
+                continue
+        return name, w, h, dx, dy
+    raise AssertionError("vlastní formát se vejde vždy")   # pragma: no cover
+
+
+def fit_sheet_to_content(project: Project, sheet: Sheet, lib) -> None:
+    """Zvolí formát listu podle obsahu (`fit_placement`) a posune všechny prvky a lomy vodičů tak, aby obsah
+    (značky, popisky, vodiče) ležel celý uvnitř vnitřního rámečku a mimo popisové pole – i při zapnutém rámečku."""
+    from envocad.model.textlayout import sheet_content_boxes
+    boxes = sheet_content_boxes(project, sheet, lib)
+    if not boxes:
+        return
+    name, w, h, dx, dy = fit_placement(boxes)
+    sheet.paper, sheet.width, sheet.height = name, w, h
+    for e in sheet.elements:
+        e.x, e.y = e.x + dx, e.y + dy
+    for wire in sheet.wires:
+        wire.points = [(x + dx, y + dy) for x, y in wire.points]

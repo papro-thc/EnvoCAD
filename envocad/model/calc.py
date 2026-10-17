@@ -99,6 +99,7 @@ class StringCheck:
     u_mppt_max: float | None
     i_mppt_max: float | None
     issues: list[str] = field(default_factory=list)
+    sheet: str = ""          # název listu se stringem (filtr výkazu Výpočty pro jeden list)
 
     @property
     def ok(self) -> bool:
@@ -181,7 +182,8 @@ def check_strings(project: Project, t_min: float = T_MIN_DEFAULT, t_max: float =
             inv = _find_inverter(project, s, e)
             sc = StringCheck(e.ref, n, uoc_cold, umpp_hot, isc, inv.ref if inv else "",
                              _f(inv.attrs.get("u_dc_max")) if inv else None, _f(inv.attrs.get("u_mppt_min")) if inv else None,
-                             _f(inv.attrs.get("u_mppt_max")) if inv else None, _f(inv.attrs.get("i_mppt_max")) if inv else None)
+                             _f(inv.attrs.get("u_mppt_max")) if inv else None, _f(inv.attrs.get("i_mppt_max")) if inv else None,
+                             sheet=s.name)
             if not n or not voc:
                 sc.issues.append("chybí počet modulů nebo Uoc modulu")
             if inv is None:
@@ -265,12 +267,15 @@ def check_cables(project: Project, t_ambient: float = 30.0, du_limit_pct: float 
     return out
 
 
-def check_selectivity(project: Project) -> list[tuple[str, str, float, float, str]]:
-    """Dvojice jistič → nadřazený jistič po cestě ke zdroji; vrací (dolní, horní, In_d, In_h, hlášení)."""
+def check_selectivity(project: Project, sheet: Sheet | None = None) -> list[tuple[str, str, float, float, str]]:
+    """Dvojice jistič → nadřazený jistič po cestě ke zdroji; vrací (dolní, horní, In_d, In_h, hlášení).
+    `sheet` = jen dvojice na tomto listu (výkaz pro jeden list), jinak všechny listy."""
     from envocad.model.multipole import SOURCE_SYMBOLS
     out = []
     breakers = {"fve.breaker_mcb", "fve.breaker_mccb", "sb.rcbo", "fve.fuse"}
     for s in project.sheets:
+        if sheet is not None and s.id != sheet.id:
+            continue
         adj: dict[str, set[str]] = {e.id: set() for e in s.elements}
         for w in s.wires:
             if w.a.element_id in adj and w.b.element_id in adj:

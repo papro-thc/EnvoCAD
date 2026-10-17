@@ -47,3 +47,20 @@ def _isolated_qsettings(tmp_path_factory, monkeypatch):
         for scope in (QSettings.UserScope, QSettings.SystemScope):
             QSettings.setPath(fmt, scope, str(cfg))
     yield cfg
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _qt_czech():
+    """Jedna QApplication pro celou sadu (offscreen) s českými překlady Qt jako v `envocad.app.main` – testy GUI
+    vidí stejná tlačítka (Ano/Ne/Storno) jako uživatel. Bez PySide6 (headless modelové testy) se přeskočí."""
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    try:
+        from PySide6.QtWidgets import QApplication
+    except ImportError:
+        yield None
+        return
+    from envocad.app import install_qt_translations
+    app = QApplication.instance() or QApplication([])
+    install_qt_translations(app)
+    yield app
+

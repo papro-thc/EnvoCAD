@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import copy
 import math
+from collections import Counter
 from dataclasses import dataclass, field
 from itertools import pairwise
 
@@ -116,7 +117,15 @@ def open_revision(project: Project, label: str, date: str = "", author: str = ""
         raise ValueError(f"Revize {label} je už uzavřená – zadej jiné označení")
     rev = next((r for r in reversed(project.revisions) if not r.closed), None)
     if rev is None:
-        rev = Revision(label or next_revision_label(project), date=date, author=author)
+        base = str(project.meta.get("revision") or "").strip()
+        new_label = label or next_revision_label(project)
+        if not project.revisions and base and base != new_label:
+            # výchozí stav výkresu (revize z vlastností projektu před prvním porovnáním) jako uzavřená revize –
+            # nezměněné listy ji dál ukazují v popisovém poli (`sheet_revision`)
+            project.revisions.append(Revision(base, date=str(project.meta.get("date") or ""),
+                                              author=str(project.meta.get("author") or ""), closed=True,
+                                              description="výchozí stav před prvním porovnáním"))
+        rev = Revision(new_label, date=date, author=author)
         project.revisions.append(rev)
         return rev
     rev.label = label or rev.label
@@ -156,6 +165,32 @@ def apply_changes(project: Project, rev: Revision, changes: list[Change]) -> Non
     project.meta["revision"] = rev.label
 
 
+def merge_change_lines(current: str, labels: set[str] | list[str], new_text: str,
+                       auto_lines: list[str] | None = None) -> str:
+    """Změnový list `meta["changes"]` po porovnání do otevřené revize: řádky, které dřív vygenerovalo porovnání
+    (`auto_lines` = `Revision.auto_lines`, přesné znění), se nahradí řádky `new_text`; ručně psané řádky (i se
+    značkou otevřené revize) zůstanou. Opakované porovnání do téže revize tedy řádky nezdvojí.
+
+    `auto_lines=None` (revize ze staršího souboru, vygenerované řádky neznámé): ze řádků revizí `labels` se odeberou
+    jen ty, které `new_text` obsahuje beze změny (nezdvojí se); jiné řádky se nemažou – mohou být psané ručně."""
+    from envocad.model.diff import split_change_line
+    new = [ln for ln in (new_text or "").splitlines() if ln.strip()]
+    old = [ln for ln in (current or "").splitlines() if ln.strip()]
+    if auto_lines is not None:
+        drop = Counter(ln.strip() for ln in auto_lines if ln.strip())
+    else:
+        marks = {x for x in labels if x}
+        drop = Counter(ln.strip() for ln in new)
+        drop = Counter({k: n for k, n in drop.items() if split_change_line(k)[0] in marks})
+    kept = []
+    for ln in old:
+        if drop[ln.strip()] > 0:
+            drop[ln.strip()] -= 1
+            continue
+        kept.append(ln)
+    return "\n".join([*kept, *new])
+
+
 def close_revision(project: Project, rev: Revision, sheet_ids: list[str] | None = None) -> None:
     """Uzavře revizi (měkký zámek): uloží otisky listů. `sheet_ids=None` = celá revize (otisky všech listů
     a `closed=True`; listy uzavřené dřív si nechají dosavadní otisk), jinak jen vybrané listy (revize zůstane
@@ -178,17 +213,24 @@ def _has_mark(rev: Revision, sheet_id: str) -> bool:
 
 
 def sheet_revision(project: Project, sheet: Sheet) -> Revision | None:
-    """Revize listu do popisového pole: poslední revize se značkou na listu. List bez značky je ve stavu, ve kterém
-    se revize začaly sledovat ve výkresu – revize těsně před první revizí se značkami (bez ní první revize).
-    Projekt bez jakýchkoli značek (starý / migrovaný) → None = popisové pole použije `meta["revision"]`."""
+    """Revize listu do popisového pole: poslední revize se značkou na listu. List bez značky (od začátku sledování
+    nezměněný) je ve výchozím stavu – revize těsně před první revizí se značkami (výchozí stav z vlastností projektu
+    zakládá `open_revision` při prvním porovnání). Není-li před ní žádná revize, vrací None a popisové pole ukáže
+    prázdnou revizi (`frame.sheet_revision_label`), ne novou revizi. Projekt bez jakýchkoli značek (starý /
+    migrovaný) → None = popisové pole použije `meta["revision"]`."""
     revs = project.revisions
     for r in reversed(revs):
         if _has_mark(r, sheet.id):
             return r
     first = next((i for i, r in enumerate(revs) if r.marks), None)
-    if first is None:
+    if not first:            # bez značek, nebo první revize se značkami nemá předchůdce
         return None
-    return revs[max(first - 1, 0)]
+    return revs[first - 1]
+
+
+def revisions_marked(project: Project) -> bool:
+    """Má některá revize značky ve výkresu (revize se sledují po listech)?"""
+    return any(r.marks for r in project.revisions)
 
 
 def changed_after_close(project: Project) -> list[tuple[Sheet, Revision]]:

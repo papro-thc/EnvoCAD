@@ -10,6 +10,7 @@ import math
 import textwrap
 from dataclasses import dataclass, field
 
+from envocad.model.designation import element_name
 from envocad.model.project import NOTE_STATUSES, Note, Project, Sheet
 from envocad.model.symbol import GRID
 
@@ -129,7 +130,7 @@ def note_target_label(project: Project, n: Note) -> str:
         w = next((w for w in sheet.wires if w.id == n.target_id), None)
         return "(smazáno)" if w is None else (w.attrs.get("ref", "") or "vodič")
     e = next((e for e in sheet.elements if e.id == n.target_id), None)
-    return "(smazáno)" if e is None else (e.ref or e.symbol_id)
+    return "(smazáno)" if e is None else element_name(e)
 
 
 # ---- geometrie -------------------------------------------------------------------------------------

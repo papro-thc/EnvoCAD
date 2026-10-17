@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from itertools import pairwise
 
-from envocad.model.designation import display_designation
+from envocad.model.designation import display_designation, element_name
 from envocad.model.geometry import Point, wire_label_anchor
 from envocad.model.project import Element, Project, Sheet, element_symbol, element_xref, wire_label, wire_xref
 from envocad.model.symbol import rotate_point
@@ -146,6 +146,30 @@ class _Grid:
                 if id(item) not in seen:
                     seen.add(id(item))
                     yield item
+
+
+class _IndexGrid:
+    """Mřížka indexů obdélníků (buňka 20 mm): `near` vrátí indexy položek ze sousedních buněk vzestupně."""
+    CELL = 20.0
+
+    def __init__(self) -> None:
+        self.cells: dict[tuple[int, int], list[int]] = {}
+
+    def _keys(self, b: Box):
+        c = self.CELL
+        for i in range(int(b[0] // c), int(b[2] // c) + 1):
+            for j in range(int(b[1] // c), int(b[3] // c) + 1):
+                yield (i, j)
+
+    def add(self, b: Box, idx: int) -> None:
+        for k in self._keys(b):
+            self.cells.setdefault(k, []).append(idx)
+
+    def near(self, b: Box, after: int = -1) -> list[int]:
+        out: set[int] = set()
+        for k in self._keys(b):
+            out.update(i for i in self.cells.get(k, ()) if i > after)
+        return sorted(out)
 
 
 WEIGHT = {"text": 10.0, "line": 3.0}
@@ -379,6 +403,40 @@ def layout_wire_labels(project: Project, sheet: Sheet, lib, routes=None, xref_of
     return compute_layout(project, sheet, lib, routes, xref_of).wires
 
 
+PORT_MARK_R = 0.75   # kroužek portu v editoru přesahuje obálku značky
+
+
+def sheet_content_boxes(project: Project, sheet: Sheet, lib, layout: SheetTextLayout | None = None) -> list[Box]:
+    """Obálky všeho, co se na listu kreslí: značky (s kroužky portů), texty značek, popisky prvků a vodičů,
+    úseky tras vodičů (jako tenké obdélníky) a zrcadla kontaktů. Pro kontrolu „obsah uvnitř listu“ a rozmístění
+    generovaného schématu na list (`frame.fit_sheet_to_content`)."""
+    lay = layout or compute_layout(project, sheet, lib)
+    out: list[Box] = []
+    r = PORT_MARK_R
+    for e in sheet.elements:
+        sym = element_symbol(project, e, lib)
+        x1, y1, x2, y2 = symbol_box(e, sym)
+        out.append((x1 - r, y1 - r, x2 + r, y2 + r))
+        out += symbol_text_boxes(e, sym)
+        if e.id in lay.elements:
+            out += lay.elements[e.id].boxes
+    for pts in lay.routes.values():
+        for a, b in pairwise(pts):
+            out.append((min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])))
+    for lp in lay.wires.values():
+        out += lp.boxes
+    for m in lay.mirrors.values():
+        out += list(m.boxes)
+        out += [(min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)) for x1, y1, x2, y2 in m.lines]
+    return out
+
+
+def union_box(boxes: list[Box]) -> Box | None:
+    if not boxes:
+        return None
+    return (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
+
+
 # ---- kontrola ------------------------------------------------------------------------------------------------
 def text_overlaps(project: Project, sheet: Sheet, lib, layout: SheetTextLayout | None = None) -> list[tuple[str, str, str]]:
     """Překryvy textů na listu po automatickém rozmístění: [(id, id druhého, popis)] – text přes text,
@@ -388,7 +446,7 @@ def text_overlaps(project: Project, sheet: Sheet, lib, layout: SheetTextLayout |
     names: dict[str, str] = {}
     texts: list[tuple[Box, str, bool]] = []          # (obálka, vlastník, je text zrcadla)
     for e in sheet.elements:
-        names[e.id] = e.ref or e.symbol_id.split(".")[-1]
+        names[e.id] = element_name(e)
         for b in (lay.elements[e.id].boxes if e.id in lay.elements else []):
             texts.append((b, e.id, False))
     for w in sheet.wires:
@@ -403,8 +461,14 @@ def text_overlaps(project: Project, sheet: Sheet, lib, layout: SheetTextLayout |
         return f"zrcadlo kontaktů {names[owner]}" if mirror else f"text {names[owner]}"
 
     found: dict[tuple, tuple[str, str, str]] = {}
+    # prostorový index (mřížka po `_Grid.CELL` mm) – porovnávají se jen texty a čáry v sousedních buňkách; pořadí
+    # kandidátů zůstává jako při porovnání každý s každým (výsledek je stejný, jen O(n) místo O(n²))
+    tgrid = _IndexGrid()
+    for i, (a, _o, _m) in enumerate(texts):
+        tgrid.add(a, i)
     for i, (a, oa, ma) in enumerate(texts):
-        for b, ob, mb in texts[i + 1:]:
+        for j in tgrid.near(a, after=i):
+            b, ob, mb = texts[j]
             if (oa, ma) == (ob, mb) or not boxes_overlap(a, b):
                 continue
             key = frozenset(((oa, ma), (ob, mb)))
@@ -416,8 +480,12 @@ def text_overlaps(project: Project, sheet: Sheet, lib, layout: SheetTextLayout |
         lines += [(a, b, e.id, "značku") for a, b in symbol_segments(e, element_symbol(project, e, lib))]
     for hid, m in mirrors.items():
         lines += [((x1, y1), (x2, y2), hid, "zrcadlo") for x1, y1, x2, y2 in m.lines]
+    lgrid = _IndexGrid()
+    for k, (a, b, _lo, _kind) in enumerate(lines):
+        lgrid.add((min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])), k)
     for box, owner, mirror in texts:
-        for a, b, lo, kind in lines:
+        for k in lgrid.near(box):
+            a, b, lo, kind = lines[k]
             if mirror and lo == owner and kind in ("značku", "zrcadlo"):
                 continue                  # zrcadlo vs. vlastní značka / vlastní čáry tabulky
             key = ((owner, mirror), lo, kind == "zrcadlo")

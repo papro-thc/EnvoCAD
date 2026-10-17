@@ -238,7 +238,8 @@ def test_compare_flow_end_to_end(tmp_path, lib):
     assert any(c == pytest.approx((gone.x, gone.y)) for c in centers)    # značka odebraného prvku
     assert _revision_label(title_rows(p2, s)) == "B"
     other = p2.sheets[1]
-    assert _revision_label(title_rows(p2, other)) == "B"           # jediná revize = první → i nezměněný list
+    # nezměněný list ukazuje výchozí stav (projekt bez revize ve vlastnostech → prázdná), ne novou revizi B
+    assert _revision_label(title_rows(p2, other)) == ""
 
 
 # ---- regrese z review --------------------------------------------------------------------------------------

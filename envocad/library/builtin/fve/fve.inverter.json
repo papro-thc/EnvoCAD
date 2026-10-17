@@ -110,7 +110,8 @@
       "key": "p_ac",
       "label": "P AC [kW]",
       "default": "",
-      "show": true
+      "show": true,
+      "fmt": "{} kW"
     },
     {
       "key": "p_dc_max",
