@@ -91,7 +91,7 @@ Pořadí = priorita. Body 1, 2 a 5 jsou nejlevnější start.
 
 ## Chyby k řešení
 - [x] Generovaný projekt se 4 a více střídači: JPS přetékal list – opraveno 10/2026 (formát A3–A0 podle obsahu); rozdělení velkých JPS na víc listů zůstává otevřené
-- [ ] Rozvaděčové artikly: doplnit `t_min_c`/`t_max_c` z datasheetů (zatím 76 řádků se zdrojem; OEZ LTN/LFN/OPVP, Eaton PF7 chybí)
+- [ ] Rozvaděčové artikly: doplnit `t_min_c`/`t_max_c` z datasheetů. Stav: ověřeno z PDF/stránek výrobce – OEZ 3VA1/3VA2 (−25…70 °C, katalog MO1-2020), OEZ SVBC-DC (−40…80 °C), Hager MCB/RCD (−25…70 °C, resp. −25…40 °C). Zbývá: Eaton (eaton.com z agentního prostředí nedostupný, ~250 řádků bez nového ověření), OEZ MCB/RCD/SPD AC (minikatalog teploty neuvádí), BMR PLA33 (bez údaje), skříně (se.com 403, soubor bez sloupců `t_min_c`/`t_max_c`)
 
 ## Odloženo (analýza 10/2026 – nebrzdí práci)
 - Příkazový řádek (styl ZWCAD/CADCraft) – až bude potřeba ovládat program z agentů
