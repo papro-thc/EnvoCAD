@@ -164,15 +164,18 @@ class PropertiesPanel(QWidget):
             sc = item.scene()
             sheet = getattr(sc, "sheet", None)
             if sheet is not None and sheet.is_switchboard:
+                from envocad.model.wiring import wire_end_labels
                 from envocad.ui.dialogs import wire_auto_hints
                 hints = wire_auto_hints(sc.project, sheet, w)
+                end_labels = wire_end_labels(sheet, w)   # „Koncovka A (F2:2)“
                 for a in SWITCHBOARD_WIRE_ATTRIBUTES:
                     if a.key == "prod":
                         self._add_check("prod", "Do výrobního seznamu", str(w.attrs.get("prod", "")).strip() != "0",
                                         "Odškrtnutím se vodič vynechá z výrobního zapojovacího seznamu",
                                         on_value="", off_value="0")
                     else:
-                        self._add_field(a.key, a.label, w.attrs.get(a.key, ""), placeholder=hints.get(a.key, ""))
+                        self._add_field(a.key, end_labels.get(a.key, a.label), w.attrs.get(a.key, ""),
+                                        placeholder=hints.get(a.key, ""))
             conds = " ".join(w.conductors) or "–"
             terms = "<br>".join(f"{c}: {t.get('a', '')} → {t.get('b', '')}" for c, t in w.terminals.items()) or "–"
             self.form.addRow("Žíly", QLabel(conds))

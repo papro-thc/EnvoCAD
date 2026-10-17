@@ -1422,7 +1422,10 @@ def test_canvas_wire_dialog_scope_and_panel_prod_undo(app, tmp_path):
     panel = PropertiesPanel(lib)
     panel.show_item(sc.wire_items[w.id])
     got = labels(panel)
-    assert {"Barva vodiče", "Koncovka A", "Koncovka B", "Do výrobního seznamu"} <= set(got)
+    # (12) u popisku koncovky je konec vodiče (ref:port)
+    assert {"Barva vodiče", "Koncovka A (F1:2)", "Koncovka B (X1:1)", "Do výrobního seznamu"} <= set(got)
+    labels_dlg = {a.key: a.label for a in sc._wire_dialog_extra(w)["attributes"]}
+    assert labels_dlg["end_a"] == "Koncovka A (F1:2)" and labels_dlg["end_b"] == "Koncovka B (X1:1)"
     panel.show_item(sc2.wire_items[sc2.sheet.wires[0].id])
     assert "Barva vodiče" not in labels(panel) and "Do výrobního seznamu" not in labels(panel)
 
@@ -1453,6 +1456,35 @@ def test_enclosure_panel_keeps_unknown_params_and_saves_wire_keys(app):
     assert lay.params["wire_reserve_pct"] == "15" and lay.params["wire_end_mm"] == "80" and lay.params["ip"] == "IP 55"
     panel._edits["wire_end_mm"].setText("")
     assert "wire_end_mm" not in panel.apply().params
+
+
+def test_enclosure_panel_uncheck_wiring_removes_wire_keys(app):
+    """(11) Odškrtnutí skupiny „Výrobní data“ odebere klíče wire_* (platí standard), ostatní klíče zůstanou."""
+    from envocad.model.project import Layout, Sheet
+    from envocad.ui.dialogs import EnclosurePanel
+    s = Sheet(kind="switchboard", layout=Layout(params={"foo": "bar", "wire_end_mm": "80", "wire_unplaced": "none"}))
+    panel = EnclosurePanel(s)
+    assert panel.wiring_group.isChecked()
+    panel.wiring_group.setChecked(False)          # toggled → apply hned
+    assert s.layout.params["foo"] == "bar" and not any(k.startswith("wire_") for k in s.layout.params)
+    panel.wiring_group.setChecked(True)           # texty zůstaly → vrátí se
+    assert s.layout.params["wire_end_mm"] == "80" and s.layout.params["wire_unplaced"] == "none"
+
+
+def test_enclosure_panel_unplaced_combo_czech(app):
+    """(13) wire_unplaced jako výběr s českými popisky, uložená hodnota estimate / none."""
+    from envocad.model.project import Layout, Sheet
+    from envocad.ui.dialogs import EnclosurePanel
+    s = Sheet(kind="switchboard", layout=Layout(params={"wire_unplaced": "none"}))
+    panel = EnclosurePanel(s)
+    assert "wire_unplaced" not in panel._edits
+    texts = [panel.unplaced.itemText(i) for i in range(panel.unplaced.count())]
+    assert texts[1:] == ["odhad", "bez délky"] and texts[0].startswith("výchozí")
+    assert panel.unplaced.currentText() == "bez délky"
+    panel.unplaced.setCurrentIndex(panel.unplaced.findData("estimate"))
+    assert s.layout.params["wire_unplaced"] == "estimate"
+    panel.unplaced.setCurrentIndex(0)
+    assert "wire_unplaced" not in s.layout.params
 
 
 def test_menu_export_production_xlsx(app, tmp_path, monkeypatch):

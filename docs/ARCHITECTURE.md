@@ -68,8 +68,10 @@ Zásada: **model nezávisí na UI.** Vše, co lze, se testuje bez spuštění Qt
 - **Výrobní data rozvaděče** (`model/wiring.py`) – výrobní zapojovací seznam pro dílnu: každá žíla vnitřního vodiče
   listu rozvaděče s průřezem (`wire_cross`: atribut, nejmenší In přístrojů přes `IN_TO_CROSS`, řízení, minimum),
   barvou (`conductor_color`), typem, koncovkou (`end_for`, dutinky `FERRULE_DIN46228`, dvojitá při dvou žilách ve
-  svorce) a délkou z rozložení. Svorky: ruční `Wire.terminals`, svorkový prvek, jinak pravidlo pro přístroje s porty
-  1/2 (`multipole.device_terminal`: pól k → 2k+1 / 2k+2). Poloha svorky `terminal_point` (mm, Y nahoru, počátek levý
+  svorce stejného průřezu) a délkou z rozložení. Svorky a texty konců `conductor_end` (sdílí i zapojovací seznam
+  listu rozvaděče): ruční `Wire.terminals`, sběrnice jako potenciál („+RDC1-1L1“), svorkový prvek, pravidlo pro
+  přístroje s porty 1/2 (`multipole.device_terminal`: pól k → 2k+1 / 2k+2, spínaný N 4p = 7/8), jinak port (s více
+  žilami „F1:L1“). Nespínané N/PE vedené v JPS přes přístroj se slučují do jednoho řádku („vede kolem Q1“). Poloha svorky `terminal_point` (mm, Y nahoru, počátek levý
   horní roh montážní plochy, osa řady `-(r+0,5)·P`, žlab j na `-j·P`, výška přístroje `DEVICE_HEIGHT_MM`; cívka a
   kontakty přes umístěný stykač `xref.DeviceIndex`; neumístěné svorky/sběrnice odhadem), délka `route_length_mm` po
   žlabech (+ konce, rezerva, zaokrouhlení). Parametry `WiringParams.resolve` (kód < `standard.wiring` < `Layout.params`

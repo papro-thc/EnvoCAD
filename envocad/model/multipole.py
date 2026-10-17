@@ -505,8 +505,10 @@ def device_terminal(sheet: Sheet, w: Wire, conductor: str, side: str) -> tuple[s
     """Svorka konce žíly „F2:3“ a příznak, zda je odvozená pravidlem.
 
     Pořadí: ruční přiřazení z `Wire.terminals`; svorkový prvek přes `wire_end_terminal` (čísla svorek skupiny);
-    průchozí přístroj s porty 1/2 → pól k (pořadí fázové žíly mezi žilami portu) = vstup 2k+1 / výstup 2k+2,
-    N a PE/PEN = jméno žíly („F2:N“) – odvozeno=True; jinak jméno portu („F1:L“)."""
+    průchozí přístroj s porty 1/2 → pól k (pořadí fázové žíly mezi žilami portu) = vstup 2k+1 / výstup 2k+2;
+    spínaný N (přístroj má pól navíc – 4p jistič/vypínač, 1p+N) je další pól za fázemi (IEC 60947-1 příl. L,
+    číslování hlavních pólů 1/2, 3/4, 5/6, 7/8 → 4p: N = 7/8); nespínaný N a PE/PEN = jméno žíly („F2:N“) –
+    odvozeno=True; jinak jméno portu („F1:L“)."""
     t = terminal_text(w, conductor, side)
     if t:
         return t, False
@@ -520,9 +522,12 @@ def device_terminal(sheet: Sheet, w: Wire, conductor: str, side: str) -> tuple[s
         t = wire_end_terminal(sheet, w, conductor, side)
         return (t or f"{name}:{end.port}"), False
     if e.symbol_id not in NOT_POLE_NUMBERED and end.port in POLE_NUMBERED_PORTS:
-        if conductor in UNSWITCHED_POLES:
-            return f"{name}:{conductor}", True
         phases = [c for c in port_conductors(sheet, e.id, end.port) if c not in UNSWITCHED_POLES]
-        k = phases.index(conductor) if conductor in phases else 0
+        if conductor in NEVER_SWITCHED or (conductor == "N" and len(phases) >= e.poles):
+            return f"{name}:{conductor}", True
+        if conductor == "N":
+            k = len(phases)                       # spínaný N = pól za fázemi
+        else:
+            k = phases.index(conductor) if conductor in phases else 0
         return f"{name}:{2 * k + 1 + POLE_NUMBERED_PORTS.index(end.port)}", True
     return f"{name}:{end.port}", False

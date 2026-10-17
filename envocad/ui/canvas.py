@@ -497,8 +497,13 @@ class SchematicScene(QGraphicsScene):
         """Na listu rozvaděče navíc výrobní atributy vodiče (barva, koncovky, do výrobního seznamu) a jejich placeholdery."""
         if not self.sheet.is_switchboard:
             return {}
+        from dataclasses import replace
+
+        from envocad.model.wiring import wire_end_labels
         from envocad.ui.dialogs import wire_auto_hints
-        return {"attributes": WIRE_ATTRIBUTES + SWITCHBOARD_WIRE_ATTRIBUTES,
+        labels = wire_end_labels(self.sheet, w)   # „Koncovka A (F2:2)“ – u popisku konec vodiče
+        return {"attributes": WIRE_ATTRIBUTES + [replace(a, label=labels.get(a.key, a.label))
+                                                 for a in SWITCHBOARD_WIRE_ATTRIBUTES],
                 "hints": wire_auto_hints(self.project, self.sheet, w)}
 
     def _finish_wire(self, w: Wire, heading: str) -> None:

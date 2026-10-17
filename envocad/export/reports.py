@@ -270,7 +270,7 @@ def cable_plan(project: Project, lib: LibraryStore, sheet: Sheet | None = None) 
 def wiring_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Zapojovací seznam: každé propojení po žílách – odkud, kam, kabel/vodič, barva, průřez (pro zapojování)."""
     from envocad.model.project import CORE_COLORS, sync_cables
-    from envocad.model.wiring import conductor_color
+    from envocad.model.wiring import conductor_color, conductor_end
     sync_cables(project)
     head = ["List", "Kabel / vodič", "Žíla", "Barva", "Průřez [mm²]", "Odkud", "Kam", "Poznámka"]
     rows = []
@@ -283,10 +283,12 @@ def wiring_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None)
                 core = c.core(name) if c else None
                 if s.is_switchboard:
                     color = conductor_color(w, name)   # vnitřní vodič: barva z atributu `color`, jinak podle žíly
+                    # konce stejně jako výrobní seznam (odvozené svorky, sběrnice jako potenciál „+RDC1-1L1“)
+                    ends = [conductor_end(project, s, w, name, side).text for side in ("a", "b")]
                 else:
                     color = core.color if core and core.color else CORE_COLORS.get(name, "")
-                rows.append([s.name, label, name, color, cross, _end_text(project, s, w, "a", name),
-                             _end_text(project, s, w, "b", name), c.type if c else w.attrs.get("cable", "")])
+                    ends = [_end_text(project, s, w, side, name) for side in ("a", "b")]
+                rows.append([s.name, label, name, color, cross, *ends, c.type if c else w.attrs.get("cable", "")])
     rows.sort(key=lambda r: (r[0], _ref_key(r[1])))
     return head, rows
 
@@ -311,7 +313,8 @@ def _number(x):
 def production_wiring_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None,
                            base: dict | None = None) -> tuple[list[str], list[list]]:
     """Výrobní zapojovací seznam pro dílnu (jen listy rozvaděčů): průřez, barva, typ, délka z rozložení, koncovky.
-    Průřez a délka jsou čísla. Výpočet `model/wiring.py`; do PDF dokumentace nepatří (`NOT_IN_DOC`)."""
+    Průřez a délka jsou čísla. Sloupec Označení se vynechá, když je v celém výstupu prázdný. Výpočet
+    `model/wiring.py`; do PDF dokumentace nepatří (`NOT_IN_DOC`)."""
     from envocad.model.wiring import production_wires
     head = ["Č.", "Označení", "Žíla", "Odkud", "Kam", "Průřez [mm²]", "Barva", "Typ vodiče", "Délka [mm]",
             "Koncovka odkud", "Koncovka kam", "Poznámka", "List"]
@@ -319,12 +322,15 @@ def production_wiring_list(project: Project, lib: LibraryStore, sheet: Sheet | N
     for pw in production_wires(project, sheet, wiring_base() if base is None else base, lib):
         rows.append([pw.number, pw.ref, pw.conductor, pw.from_text, pw.to_text, _number(pw.cross), pw.color,
                      pw.wire_type, _number(pw.length_mm), pw.end_from, pw.end_to, "; ".join(pw.notes), pw.sheet])
+    if not any(r[1] for r in rows):     # Označení prázdné všude → sloupec vynechat
+        head = [h for i, h in enumerate(head) if i != 1]
+        rows = [[x for i, x in enumerate(r) if i != 1] for r in rows]
     return head, rows
 
 
 def production_subtitle(project: Project, sheet: Sheet | None = None, base: dict | None = None) -> list[str]:
     """Podnadpis výrobního seznamu: použité parametry (po rozvaděčích, liší-li se) a pravidlo odvození svorek."""
-    from envocad.model.wiring import TERMINAL_RULE, WiringParams
+    from envocad.model.wiring import NUMBER_NOTE, TERMINAL_RULE, WiringParams
     base = wiring_base() if base is None else base
     sheets = [s for s in _sheets(project, sheet) if s.is_switchboard]
     texts: OrderedDict[str, list[str]] = OrderedDict()
@@ -337,6 +343,7 @@ def production_subtitle(project: Project, sheet: Sheet | None = None, base: dict
         prefix = f"Parametry ({', '.join(names)}): " if len(texts) > 1 else "Parametry: "
         lines.append(prefix + text)
     lines.append(TERMINAL_RULE)
+    lines.append(NUMBER_NOTE)
     return lines
 
 

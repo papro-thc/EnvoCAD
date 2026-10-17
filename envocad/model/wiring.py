@@ -23,7 +23,9 @@ from envocad.model.multipole import (
     device_terminal,
     is_terminal_block,
     port_conductors,
+    terminal_text,
     wire_conductors,
+    wire_end_terminal,
 )
 from envocad.model.project import (
     CORE_COLORS,
@@ -58,7 +60,7 @@ _LABELS = {
     "wire_duct_side_mm": "Svislý žlab od konce lišty [mm]",
     "wire_cross_min": "Min. / výchozí silový průřez [mm²]",
     "wire_cross_ctl": "Výchozí průřez řízení [mm²]",
-    "wire_unplaced": "Neumístěné konce (estimate = odhad / none = bez délky)",
+    "wire_unplaced": "Neumístěné konce",
 }
 
 # (klíč, popisek, výchozí) – pro EnclosurePanel (skupina „Výrobní data (zapojení)“) a list „Parametry“
@@ -71,6 +73,8 @@ _FIELDS = {
     "wire_cross_ctl": "cross_ctl", "wire_unplaced": "unplaced",
 }
 UNPLACED_MODES = ("estimate", "none")
+# uložená hodnota `wire_unplaced` → český popisek (GUI výběr, list „Parametry“, podnadpis)
+UNPLACED_LABELS: dict[str, str] = {"estimate": "odhad", "none": "bez délky"}
 
 
 def _parse_float(v) -> float | None:
@@ -88,12 +92,13 @@ def _fmt(x: float) -> str:
     return f"{x:g}".replace(".", ",")
 
 
-def _parse_param(key: str, v):
+def parse_param(key: str, v):
     """Hodnota parametru z textu; neplatná hodnota → None (použije se hodnota nižší priority)."""
     if key == "wire_type":
         return (str(v).strip() or None) if v is not None else None
     if key == "wire_unplaced":
         t = str(v or "").strip().lower()
+        t = {lab: code for code, lab in UNPLACED_LABELS.items()}.get(t, t)   # i český popisek
         return t if t in UNPLACED_MODES else None
     x = _parse_float(v)
     return x if x is not None and x >= 0 else None
@@ -117,19 +122,24 @@ class WiringParams:
         vals: dict[str, object] = {}
         for src in (base or {}, (layout.params if layout is not None else {}) or {}):
             for key, fname in _FIELDS.items():
-                v = _parse_param(key, src.get(key))
+                v = parse_param(key, src.get(key))
                 if v is not None:
                     vals[fname] = v
         return cls(**vals)
 
     def value(self, key: str) -> str:
-        """Hodnota parametru jako text („1,5“, „H07V-K“)."""
+        """Hodnota parametru jako text („1,5“, „H07V-K“, „estimate“) – tak, jak se ukládá."""
         v = getattr(self, _FIELDS[key])
         return v if isinstance(v, str) else _fmt(v)
 
+    def display(self, key: str) -> str:
+        """Hodnota parametru česky pro výstupy („odhad“ místo „estimate“)."""
+        v = self.value(key)
+        return UNPLACED_LABELS.get(v, v) if key == "wire_unplaced" else v
+
     def describe(self) -> str:
         """Jednořádkový popis použitých parametrů (podnadpis výkazu)."""
-        unpl = "odhad" if self.unplaced == "estimate" else "bez délky"
+        unpl = UNPLACED_LABELS.get(self.unplaced, self.unplaced)
         return (f"typ {self.wire_type}, přídavek na konec {_fmt(self.end_mm)} mm, rezerva {_fmt(self.reserve_pct)} %, "
                 f"zaokrouhlení nahoru na {_fmt(self.round_mm)} mm, svislý žlab {_fmt(self.duct_side_mm)} mm od lišty, "
                 f"min. průřez {_fmt(self.cross_min)} mm², řízení {_fmt(self.cross_ctl)} mm², neumístěné konce: {unpl}, "
@@ -142,17 +152,22 @@ def param_sources(layout: Layout | None, base: dict | None = None) -> list[tuple
     out = []
     for key, label, _ in WIRING_PARAMS:
         src = "výchozí"
-        if _parse_param(key, (base or {}).get(key)) is not None:
+        if parse_param(key, (base or {}).get(key)) is not None:
             src = "firemní standard"
-        if layout is not None and _parse_param(key, (layout.params or {}).get(key)) is not None:
+        if layout is not None and parse_param(key, (layout.params or {}).get(key)) is not None:
             src = "rozvaděč"
-        out.append((key, label, p.value(key), src))
+        out.append((key, label, p.display(key), src))
     return out
 
 
 TERMINAL_RULE = ("Svorky: ruční přiřazení z vícepólu (Wire.terminals); svorkový prvek podle čísel svorek; "
-                 "přístroj s porty 1/2 odvozeně: pól k → vstup 2k+1, výstup 2k+2 (L1 = 1/2, L2 = 3/4, L3 = 5/6), "
-                 "N a PE podle žíly; jinak jméno portu. Lichá svorka nahoře, sudá dole.")
+                 "přístroj s porty 1/2 odvozeně: pól k → vstup 2k+1, výstup 2k+2 (L1 = 1/2, L2 = 3/4, L3 = 5/6, "
+                 "spínaný N jako další pól – 4p: 7/8 dle IEC 60947-1; výrobce může značit N – pak přiřadit ručně); "
+                 "nespínaný N a PE vedou kolem přístroje (jeden řádek mezi vnějšími konci); sběrnice = potenciál "
+                 "(1L1); port s více žilami = port podle žíly (F1:L1, F1:N; číselný port 3/L1); jinak jméno portu. "
+                 "Lichá svorka nahoře, sudá dole.")
+
+NUMBER_NOTE = "Č. je pořadí v seznamu, po změně projektu se může změnit."
 
 # ---- tabulky ----------------------------------------------------------------------------------------------------
 # ORIENTAČNÍ – vnitřní vodiče Cu/PVC ve žlabu (ČSN EN 61439-1 příl. H); schválí projektant. (In ≤ A, průřez mm²)
@@ -167,6 +182,21 @@ FERRULE_DIN46228: dict[float, tuple[str, int]] = {
 
 # prvky, jejichž `in_` neurčuje průřez vodiče (rozvod, svorky)
 NO_CROSS_SYMBOLS = {"sb.busbar", "sb.pe_bar", "sb.junction"} | TERMINAL_BLOCK_SYMBOLS
+# silové kontakty (prvky `ctl.*`, které nejsou řízení): bez `in_` průřez z In stykače ve skupině, jinak výchozí silový
+POWER_CONTACTS = {"ctl.contact_power"}
+# přístroje, u kterých je výchozí průřez nebezpečný: bez In na druhém konci průřez None + poznámka (zdroj = klíč)
+NO_DEFAULT_CROSS: dict[str, tuple[str, str]] = {
+    "fve.spd": ("SPD", "SPD – průřez určí projektant (dle výrobce SPD)"),
+}
+# ohebné vodiče (třída 5/6) – automatická dutinka; hledá se podřetězec v typu (velká písmena)
+FLEXIBLE_WIRE_TYPES: list[tuple[str, str]] = [
+    ("-K", "třída 5 dle HD 361: H05V-K, H07V-K, H07V2-K, H05Z1-K…"),
+    ("-F", "třída 5/6 – šňůry: H05VV-F, H07RN-F…"),
+    ("CYA", "CYA – Cu lanovaný (ČSN)"),
+    ("LGY", "LgY – Cu jemně lanovaný"),
+    ("LIY", "LiY, LiYY, LiYCY – sdělovací lanované"),
+]
+BUS = "sb.busbar"
 # neumístěné prvky s odhadem polohy: sběrnice nahoře (žlab 0), svorky a PE lišta dole (žlab `rows`), uprostřed
 TOP_ESTIMATE = {"sb.busbar"}
 BOTTOM_ESTIMATE = {"sb.feed_in", "sb.feed_out", "sb.terminal_block", "fve.terminal", "sb.pe_bar"}
@@ -193,10 +223,27 @@ def _in_of(e: Element) -> float | None:
     return x if x and x > 0 else None
 
 
-def wire_cross(project: Project, sheet: Sheet, w: Wire, params: WiringParams) -> tuple[float | None, str]:
+def _group_in(e: Element, index) -> float | None:
+    """In stykače ve skupině silového kontaktu (`xref.DeviceIndex`), jinak None."""
+    g = index.group_of(e) if index is not None else None
+    if g is None:
+        return None
+    ins = [x for _s, m in [g.device, *g.secondary, *g.members] if m is not e and (x := _in_of(m)) is not None]
+    return min(ins) if ins else None
+
+
+def _cross_for_in(m: float, params: WiringParams) -> float | None:
+    for lim, cross in IN_TO_CROSS:
+        if m <= lim:
+            return max(float(cross), params.cross_min)
+    return None
+
+
+def wire_cross(project: Project, sheet: Sheet, w: Wire, params: WiringParams, index=None) -> tuple[float | None, str]:
     """Průřez vodiče a jeho zdroj: `attrs["cross"]` („vodič“) → nejmenší In přístrojů na koncích přes `IN_TO_CROSS`,
-    nejméně `cross_min` („jištění“; In nad tabulkou → None) → konec na prvku řízení `ctl.*` („řízení“) →
-    `cross_min` („výchozí“)."""
+    nejméně `cross_min` („jištění“; In nad tabulkou → None) → silový kontakt bez In: In stykače ve skupině
+    (`index`, „stykač“) → přístroj z `NO_DEFAULT_CROSS` (SPD: None, zdroj „SPD“) → konec na prvku řízení `ctl.*`
+    mimo silové kontakty („řízení“) → `cross_min` („výchozí“)."""
     del project   # rezervováno (např. průřez z objektu kabelu)
     c = _parse_float(w.attrs.get("cross"))
     if c and c > 0:
@@ -209,14 +256,28 @@ def wire_cross(project: Project, sheet: Sheet, w: Wire, params: WiringParams) ->
             pass
     ins = [x for e in ends if e.symbol_id not in NO_CROSS_SYMBOLS and (x := _in_of(e)) is not None]
     if ins:
-        m = min(ins)
-        for lim, cross in IN_TO_CROSS:
-            if m <= lim:
-                return max(float(cross), params.cross_min), "jištění"
-        return None, "jištění"
-    if any(e.symbol_id.startswith("ctl.") for e in ends):
+        return _cross_for_in(min(ins), params), "jištění"
+    kins = [x for e in ends if e.symbol_id in POWER_CONTACTS and (x := _group_in(e, index)) is not None]
+    if kins:
+        return _cross_for_in(min(kins), params), "stykač"
+    for e in ends:
+        if e.symbol_id in NO_DEFAULT_CROSS:
+            return None, NO_DEFAULT_CROSS[e.symbol_id][0]
+    if any(e.symbol_id.startswith("ctl.") and e.symbol_id not in POWER_CONTACTS for e in ends):
         return params.cross_ctl, "řízení"
     return params.cross_min, "výchozí"
+
+
+def cross_note(cross: float | None, source: str) -> str:
+    """Poznámka k průřezu podle zdroje (prázdné = bez poznámky)."""
+    for src, note in NO_DEFAULT_CROSS.values():
+        if source == src:
+            return note
+    if cross is None:
+        return "In nad tabulkou – průřez určí projektant"
+    if source == "výchozí":
+        return "průřez výchozí – ověřit"
+    return ""
 
 
 def conductor_color(w: Wire, conductor: str) -> str:
@@ -228,9 +289,9 @@ def conductor_color(w: Wire, conductor: str) -> str:
 
 
 def is_flexible(wire_type: str) -> bool:
-    """Ohebný vodič (dutinka): třída 5/6 – „-K“, „-F“, LiY…"""
+    """Ohebný vodič (dutinka): typ obsahuje některý vzor z `FLEXIBLE_WIRE_TYPES` (-K, -F, CYA, LgY, LiY)."""
     t = (wire_type or "").upper()
-    return "-K" in t or "-F" in t or "LIY" in t
+    return any(pat in t for pat, _ in FLEXIBLE_WIRE_TYPES)
 
 
 def ferrule_for(cross: float | None, twin: bool = False) -> Ferrule | None:
@@ -243,15 +304,17 @@ def ferrule_for(cross: float | None, twin: bool = False) -> Ferrule | None:
     return None
 
 
-def end_for(w: Wire, side: str, cross: float | None, wire_type: str, twin: bool = False) -> tuple[str, Ferrule | None]:
+def end_for(w: Wire, side: str, cross: float | None, wire_type: str, twin: bool = False,
+            auto: bool = True) -> tuple[str, Ferrule | None]:
     """Koncovka konce `side` („a“/„b“): `attrs["end_a"/"end_b"]` – prázdné = automaticky, „-“ = bez koncovky,
-    jiný text doslova; automaticky dutinka jen u ohebného vodiče (dvojitá, když do svorky jdou dvě žíly)."""
+    jiný text doslova; automaticky dutinka jen u ohebného vodiče (dvojitá, když do svorky jdou dvě žíly stejného
+    průřezu); `auto=False` automatickou dutinku vypne (např. dva různé průřezy v jedné svorce)."""
     v = (w.attrs.get(f"end_{side}") or "").strip()
     if v == "-":
         return "", None
     if v:
         return v, None
-    if not is_flexible(wire_type):
+    if not auto or not is_flexible(wire_type):
         return "", None
     f = ferrule_for(cross, twin)
     return (f.text() if f else ""), f
@@ -385,7 +448,8 @@ class ProductionWire:
     ferrule_from: Ferrule | None
     ferrule_to: Ferrule | None
     notes: list[str] = field(default_factory=list)
-    wire_id: str = ""
+    wire_id: str = ""                                    # vodič konce „odkud“
+    wire_ids: list[str] = field(default_factory=list)    # všechny vodiče řádku (sloučený úsek kolem přístroje)
 
 
 def end_text(project: Project, sheet: Sheet, e: Element, terminal: str) -> str:
@@ -394,6 +458,79 @@ def end_text(project: Project, sheet: Sheet, e: Element, terminal: str) -> str:
         return f"{full_designation(project, sheet, e)}-{_terminal_number(terminal)}"
     a = designation(sheet, e).aspects if e.ref else ""
     return f"{a}-{terminal}" if a else terminal
+
+
+def end_name(e: Element) -> str:
+    """Jméno konce do poznámek: „F2“, u sběrnice „sběrnice 1“."""
+    if e.symbol_id == BUS:
+        return f"sběrnice {e.ref}".strip()
+    return e.ref or e.symbol_id
+
+
+# původ svorky konce žíly (`ConductorEnd.origin`)
+ORIGIN_MANUAL = "ruční"            # Wire.terminals z vícepólu
+ORIGIN_BLOCK = "svorkový prvek"    # čísla svorek svorkového prvku
+ORIGIN_RULE = "pravidlo"           # průchozí přístroj s porty 1/2 (pól k → 2k+1 / 2k+2)
+ORIGIN_BUS = "sběrnice"            # potenciál sběrnice „1L1“
+ORIGIN_PORT = "port"               # jen jméno portu (případně s žílou)
+SPECIFIC_ORIGINS = {ORIGIN_MANUAL, ORIGIN_BLOCK, ORIGIN_RULE}
+
+
+@dataclass(frozen=True)
+class ConductorEnd:
+    """Konec žíly vodiče: svorka bez aspektů („F2:3“, „1L1“), její původ a text s aspekty („+RDC1-F2:3“)."""
+    terminal: str
+    origin: str
+    text: str
+
+    @property
+    def specific(self) -> bool:
+        """Svorka je konkrétní (ruční / svorkový prvek / pravidlo) – klíč svorky je její označení."""
+        return self.origin in SPECIFIC_ORIGINS
+
+    @property
+    def derived(self) -> bool:
+        return self.origin == ORIGIN_RULE
+
+
+def conductor_end(project: Project, sheet: Sheet, w: Wire, conductor: str, side: str) -> ConductorEnd:
+    """Svorka a text konce žíly – společné pro výrobní i zapojovací seznam listu rozvaděče.
+
+    Pořadí: ruční `Wire.terminals` → sběrnice = potenciál `{ref}{žíla}` („+RDC1-1L1“) → `device_terminal`
+    (svorkový prvek, pravidlo 1/2) → jméno portu; nese-li port víc žil, doplní se žíla: nečíselný port → žíla
+    místo portu („F1:L1“, „F1:N“ – SPD s portem L), číselný port → „port/žíla“ („X:3/L1“)."""
+    end = w.a if side == "a" else w.b
+    e = sheet.element(end.element_id)
+    manual = terminal_text(w, conductor, side)
+    if manual:
+        t, origin = manual, ORIGIN_MANUAL
+    elif e.symbol_id == BUS:
+        t, origin = (f"{e.ref}{conductor}" if e.ref else f"sběrnice {conductor}"), ORIGIN_BUS
+    else:
+        t, derived = device_terminal(sheet, w, conductor, side)
+        if derived:
+            origin = ORIGIN_RULE
+        elif is_terminal_block(e) and wire_end_terminal(sheet, w, conductor, side):
+            origin = ORIGIN_BLOCK
+        else:
+            origin = ORIGIN_PORT
+            if len(port_conductors(sheet, e.id, end.port)) > 1:
+                name = e.ref or e.symbol_id
+                t = f"{name}:{end.port}/{conductor}" if end.port[:1].isdigit() else f"{name}:{conductor}"
+    return ConductorEnd(t, origin, end_text(project, sheet, e, t))
+
+
+def wire_end_labels(sheet: Sheet, w: Wire) -> dict[str, str]:
+    """Popisky koncovek vodiče s koncem: {"end_a": "Koncovka A (F2:2)", "end_b": "Koncovka B (X1:1)"}."""
+    out = {}
+    for side, end in (("a", w.a), ("b", w.b)):
+        try:
+            e = sheet.element(end.element_id)
+            where = f"{end_name(e)}:{end.port}" if e.symbol_id != BUS else end_name(e)
+        except KeyError:
+            where = end.port
+        out[f"end_{side}"] = f"Koncovka {side.upper()} ({where})"
+    return out
 
 
 def is_bypassed(sheet: Sheet, e: Element, port: str, conductor: str) -> bool:
@@ -410,14 +547,16 @@ def is_bypassed(sheet: Sheet, e: Element, port: str, conductor: str) -> bool:
 @dataclass
 class _End:
     side: str
+    wire: Wire
     element: Element
     port: str
-    terminal: str
-    specific: bool                 # svorka je konkrétní (ruční / svorkový prvek / odvozená), ne jen jméno portu
-    derived: bool                  # svorka odvozená pravidlem (průchozí přístroj s porty 1/2)
+    info: ConductorEnd
     point: TerminalPoint | None
-    key: tuple
-    text: str
+    key: tuple                     # řazení konců
+
+    @property
+    def text(self) -> str:
+        return self.info.text
 
 
 def _end_key(e: Element, terminal: str, point: TerminalPoint | None, found) -> tuple:
@@ -427,12 +566,86 @@ def _end_key(e: Element, terminal: str, point: TerminalPoint | None, found) -> t
     return (0 if placed else 1, row, pos, natural_key(e.ref or e.symbol_id), natural_key(_terminal_number(terminal)))
 
 
+def _clamp_key(sheet: Sheet, end: _End, conductor: str) -> tuple:
+    """Klíč fyzické svorky (počet žil → dvojitá dutinka): konkrétní svorka podle původu (ruční / svorkový prvek /
+    pravidlo) = její označení s aspekty; sběrnice a jméno portu = prvek, port a žíla."""
+    if end.info.specific:
+        a = designation(sheet, end.element).aspects if end.element.ref else ""
+        return ("t", a, end.info.terminal)
+    return ("p", end.element.id, end.port, conductor)
+
+
+@dataclass
+class _Seg:
+    """Jedna žíla jednoho vodiče se dvěma konci (a, b)."""
+    w: Wire
+    c: str
+    ends: list[_End]
+
+
+def _bypass_links(sheet: Sheet, segs: list[_Seg]) -> dict[tuple[int, int], tuple[int, int, str]]:
+    """Propojení úseků nespínané žíly přes průchozí přístroj: (úsek, konec) → (úsek, konec, přístroj).
+
+    Spojí se jen jednoznačné případy: na vstupu (port 1) i výstupu (port 2) přístroje právě jeden úsek žíly,
+    oba konce odvozené pravidlem a žíla na obou portech nespínaná (`is_bypassed`)."""
+    at: dict[tuple[str, str, str], list[tuple[int, int]]] = {}
+    for i, sg in enumerate(segs):
+        for j, end in enumerate(sg.ends):
+            if end.info.derived and sg.c in UNSWITCHED_POLES:
+                at.setdefault((end.element.id, end.port, sg.c), []).append((i, j))
+    links: dict[tuple[int, int], tuple[int, int, str]] = {}
+    for (eid, port, c), ins in at.items():
+        if port != "1":
+            continue
+        outs = at.get((eid, "2", c), [])
+        if len(ins) != 1 or len(outs) != 1:
+            continue
+        (i, j), (k, m) = ins[0], outs[0]
+        e = segs[i].ends[j].element
+        if i == k or not (is_bypassed(sheet, e, "1", c) and is_bypassed(sheet, e, "2", c)):
+            continue
+        links[(i, j)] = (k, m, end_name(e))
+        links[(k, m)] = (i, j, end_name(e))
+    return links
+
+
+def _chains(segs: list[_Seg], links) -> list[tuple[list[int], _End, _End, list[str]]]:
+    """Řetězy úseků spojených přes přístroje: (úseky, vnější konec, vnější konec, přístroje po cestě)."""
+    out = []
+    done: set[int] = set()
+    for start in range(len(segs)):
+        if start in done:
+            continue
+        si, se, seen = start, 0, {start}          # najít vnější konec: jít přes odkazy z konce a
+        while (si, se) in links:
+            k, m, _ = links[(si, se)]
+            if k in seen:
+                break
+            seen.add(k)
+            si, se = k, 1 - m
+        chain, devs = [si], []
+        done.add(si)
+        cur, cur_in = si, se
+        while (cur, 1 - cur_in) in links:
+            k, m, name = links[(cur, 1 - cur_in)]
+            if k in done:
+                break
+            devs.append(name)
+            done.add(k)
+            chain.append(k)
+            cur, cur_in = k, m
+        out.append((chain, segs[si].ends[se], segs[cur].ends[1 - cur_in], devs))
+    return out
+
+
 def production_wires(project: Project, sheet: Sheet | None = None, base: dict | None = None,
                      lib=None) -> list[ProductionWire]:
     """Výrobní zapojovací seznam: každá žíla každého vodiče listů rozvaděčů (`attrs["prod"] == "0"` vynechá;
-    můstky svorek nejsou vodiče). Konce se srovnají (umístěné první, řada, pozice, označení, svorka), řádky podle
-    listu, odkud, kam a žíly; čísla se přidělí po seřazení. `base` = `settings.json standard.wiring`."""
-    from envocad.model.xref import DeviceIndex
+    můstky svorek nejsou vodiče). Nespínaná žíla vedená v JPS přes přístroj (PE vždy, N u přístroje bez pólu pro N)
+    se sloučí do jednoho řádku mezi vnějšími konci („vede kolem Q1“; délka mezi vnějšími konci, koncovky jen na
+    nich). Konce se srovnají (umístěné první, řada, pozice, označení, svorka), řádky podle listu (přirozeně), odkud,
+    kam a žíly; čísla se přidělí po seřazení. `base` = `settings.json standard.wiring`."""
+    from envocad.model.xref import DeviceIndex, natural_key
     index = DeviceIndex.build(project)
     sheets = [sheet] if sheet is not None else list(project.sheets)
     keyed: list[tuple[tuple, ProductionWire]] = []
@@ -440,8 +653,7 @@ def production_wires(project: Project, sheet: Sheet | None = None, base: dict | 
         if not s.is_switchboard:
             continue
         params = WiringParams.resolve(s.layout, base)
-        raw: list[tuple[Wire, str, _End, _End]] = []
-        clamps: dict[tuple, int] = {}
+        segs: list[_Seg] = []
         for w in s.wires:
             if (w.attrs.get("prod") or "").strip() == "0":
                 continue
@@ -452,48 +664,76 @@ def production_wires(project: Project, sheet: Sheet | None = None, base: dict | 
             for c in wire_conductors(w):
                 ends = []
                 for side, e, port in (("a", ea, w.a.port), ("b", eb, w.b.port)):
-                    t, derived = device_terminal(s, w, c, side)
-                    specific = derived or t != f"{e.ref or e.symbol_id}:{port}"
-                    pt = terminal_point(project, s, e, port, c, t, params, index, lib)
+                    info = conductor_end(project, s, w, c, side)
+                    pt = terminal_point(project, s, e, port, c, info.terminal, params, index, lib)
                     found = placed_device(s, e, index)
-                    ends.append(_End(side, e, port, t, specific, derived, pt, _end_key(e, t, pt, found),
-                                     end_text(project, s, e, t)))
-                    ck = (e.id, port, t) if specific else (e.id, port, t, c)
-                    clamps[ck] = clamps.get(ck, 0) + 1
-                a, b = ends
-                if b.key < a.key:
-                    a, b = b, a
-                raw.append((w, c, a, b))
-        for w, c, a, b in raw:
-            cross, source = wire_cross(project, s, w, params)
-            wire_type = (w.attrs.get("cable") or "").strip() or params.wire_type
+                    ends.append(_End(side, w, e, port, info, pt, _end_key(e, info.terminal, pt, found)))
+                segs.append(_Seg(w, c, ends))
+        rows = []
+        for chain, a, b, devs in _chains(segs, _bypass_links(s, segs)):
+            if b.key < a.key:
+                a, b = b, a
+            c = segs[chain[0]].c
+            wires = [segs[i].w for i in chain]
+            crosses = [wire_cross(project, s, w, params, index) for w in wires]
+            cross, source = next((x for x in crosses if x[0] is None), None) or max(crosses, key=lambda x: x[0])
+            types = list(dict.fromkeys((w.attrs.get("cable") or "").strip() or params.wire_type for w in wires))
+            rows.append((chain, a, b, devs, c, wires, cross, source, types))
+        clamps: dict[tuple, list[tuple[float | None, str]]] = {}
+        for _chain, a, b, _devs, c, _wires, cross, _src, _types in rows:
+            for end in (a, b):
+                clamps.setdefault(_clamp_key(s, end, c), []).append((cross, _end_type(end, params)))
+        for chain, a, b, devs, c, wires, cross, source, types in rows:
+            wire_type = types[0]
             notes: list[str] = []
-            if cross is None:
-                notes.append("In nad tabulkou – průřez určí projektant")
-            elif source == "výchozí":
-                notes.append("průřez výchozí – ověřit")
+            if note := cross_note(cross, source):
+                notes.append(note)
+            if len(types) > 1:
+                notes.append("úseky různého typu vodiče – ověřit")
+            if devs:
+                notes.append(f"vede kolem {', '.join(devs)}")
             ferr: list[tuple[str, Ferrule | None]] = []
             for end in (a, b):
-                ck = (end.element.id, end.port, end.terminal) if end.specific else \
-                    (end.element.id, end.port, end.terminal, c)
-                n = clamps.get(ck, 1)
+                members = clamps.get(_clamp_key(s, end, c), [])
+                n = len(members)
+                twin, auto = False, True
                 if n >= 3:
                     notes.append(f"{n} {'žíly' if n < 5 else 'žil'} ve svorce {end.text} – ověřit")
-                ferr.append(end_for(w, end.side, cross, wire_type, twin=n == 2))
-                name = end.element.ref or end.element.symbol_id
-                if end.derived and c in UNSWITCHED_POLES and is_bypassed(s, end.element, end.port, c):
+                elif n == 2:
+                    (c1, t1), (c2, t2) = members
+                    if c1 is None or c2 is None:
+                        auto = False
+                        notes.append("2 vodiče ve svorce, průřez neurčen – ověřit")
+                    elif abs(c1 - c2) > 1e-9:
+                        auto = False
+                        notes.append("2 vodiče různého průřezu ve svorce – ověřit")
+                    elif is_flexible(t1) and is_flexible(t2):
+                        twin = True
+                    else:
+                        notes.append("2 vodiče ve svorce, jeden tuhý – ověřit")
+                ferr.append(end_for(end.wire, end.side, cross, _end_type(end, params), twin=twin, auto=auto))
+                name = end_name(end.element)
+                if not devs and end.info.derived and c in UNSWITCHED_POLES and \
+                        is_bypassed(s, end.element, end.port, c):
                     notes.append(f"{c} nespínaný – ve skutečnosti vede kolem {name}")
                 if end.point is None:
                     notes.append("konec v uzlu odbočky" if end.element.symbol_id == JUNCTION else f"neumístěno: {name}")
                 elif end.point.estimated:
-                    notes.append(f"délka odhadem – {name} neumístěn")
+                    notes.append(f"délka odhadem – {name}" if end.element.symbol_id == BUS
+                                 else f"délka odhadem – {name} neumístěn")
             length = route_length_mm(a.point, b.point, s.layout, params) if a.point and b.point else None
-            pw = ProductionWire(0, s.name, w.attrs.get("ref", ""), c, a.text, b.text, cross, source,
-                                conductor_color(w, c), wire_type, length, ferr[0][0], ferr[1][0], ferr[0][1],
-                                ferr[1][1], list(dict.fromkeys(notes)), w.id)
-            keyed.append(((s.name, a.key, b.key, canon_key(c)), pw))
+            ref = "/".join(dict.fromkeys(r for w in wires if (r := (w.attrs.get("ref") or "").strip())))
+            pw = ProductionWire(0, s.name, ref, c, a.text, b.text, cross, source, conductor_color(wires[0], c),
+                                wire_type, length, ferr[0][0], ferr[1][0], ferr[0][1], ferr[1][1],
+                                list(dict.fromkeys(notes)), a.wire.id, list(dict.fromkeys(w.id for w in wires)))
+            keyed.append(((natural_key(s.name), a.key, b.key, canon_key(c)), pw))
     keyed.sort(key=lambda kp: kp[0])
     out = [pw for _, pw in keyed]
     for i, pw in enumerate(out, start=1):
         pw.number = i
     return out
+
+
+def _end_type(end: _End, params: WiringParams) -> str:
+    """Typ vodiče na konci (úsek, ke kterému konec patří)."""
+    return (end.wire.attrs.get("cable") or "").strip() or params.wire_type

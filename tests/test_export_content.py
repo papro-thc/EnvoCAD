@@ -124,7 +124,10 @@ def test_production_xlsx_numeric_cells(proj, lib, tmp_path):
     ci, li = head.index("Průřez [mm²]"), head.index("Délka [mm]")
     for got, exp in zip(body, rows):
         assert ["" if c is None else c for c in got[:len(exp)]] == exp
-        assert isinstance(got[ci], (int, float)) and got[ci] > 0
+        # průřez je číslo; prázdný jen tam, kde ho určí projektant (SPD), s poznámkou
+        ni = head.index("Poznámka")
+        assert (isinstance(got[ci], (int, float)) and got[ci] > 0) or (got[ci] is None and "SPD" in got[ni])
+    assert any(isinstance(r[ci], (int, float)) for r in body)
     lengths = [r[li] for r in body if r[li] is not None]
     assert lengths and all(isinstance(x, int) and x % 50 == 0 for x in lengths)
     # list Parametry: rozvaděč, klíč, hodnota, zdroj

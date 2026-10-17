@@ -64,7 +64,7 @@ def export_production_xlsx(project: Project, lib: LibraryStore, path: Path | str
                            base: dict | None = None) -> None:
     """Výrobní podklad pro dílnu: list „Výrobní seznam“ (výrobní zapojovací seznam; průřez a délka jako čísla)
     a list „Parametry“ (použité parametry po rozvaděčích se zdrojem hodnoty, pravidlo svorek, tabulky)."""
-    from envocad.model.wiring import FERRULE_DIN46228, IN_TO_CROSS, TERMINAL_RULE, param_sources
+    from envocad.model.wiring import FERRULE_DIN46228, IN_TO_CROSS, NUMBER_NOTE, TERMINAL_RULE, param_sources
     base = reports.wiring_base() if base is None else base
     wb = Workbook()
     ws = wb.active
@@ -76,7 +76,7 @@ def export_production_xlsx(project: Project, lib: LibraryStore, path: Path | str
     sheets = [s for s in ([sheet] if sheet else project.sheets) if s.is_switchboard]
     prow = [[s.name, key, label, value, src] for s in sheets for key, label, value, src in param_sources(s.layout, base)]
     _write_table(wp, "Parametry výrobního seznamu", TERMINAL_RULE, ["Rozvaděč", "Klíč", "Parametr", "Hodnota", "Zdroj"],
-                 prow)
+                 prow, [NUMBER_NOTE])
     wp.append([])
     wp.append(["Průřez podle In jištění (orientační, ČSN EN 61439-1 příl. H – schválí projektant)"])
     wp.cell(row=wp.max_row, column=1).font = Font(bold=True)

@@ -122,8 +122,35 @@ vodiče přes `SetAttrCommand`; parametry skříně zůstávají mimo undo (samo
 průřez min(In) a sběrnice, barvy, koncovky a twin, neumístěné konce, řazení a priorita parametrů), xlsx s čísly,
 round-trip atributů, GUI (pole jen na rozvaděči, `EnclosurePanel.apply()` zachová neznámý klíč).
 
+## Opravy po review (10/2026)
+- **Konce** (`wiring.conductor_end`, původ `ruční | sběrnice | svorkový prvek | pravidlo | port`): sběrnice = potenciál
+  `{ref}{žíla}` s aspekty („+RDC1-1L1“), v poznámce „sběrnice 1“ („délka odhadem – sběrnice 1“, „neumístěno: sběrnice 1“).
+  Port bez pravidla nesoucí víc žil: nečíselný port → žíla místo portu („F1:L1“, „F1:N“ – SPD má svorky L1…N),
+  číselný → „port/žíla“ („U1:3/L1“); jedna žíla → jméno portu („F1:L“). `wiring_list` na listu rozvaděče používá
+  totéž (na listu schématu beze změny).
+- **Spínaný N** (`device_terminal`): přístroj má pól navíc (počet fází na portu < Póly) → N je další pól za fázemi
+  (IEC 60947-1 příl. L – hlavní póly 1/2, 3/4, 5/6, 7/8; 4p = 7/8, 1p+N = 3/4). Výrobce může značit „N“ – pak ruční
+  přiřazení ve vícepólu. Nespínaný N a PE zůstávají „F2:N“ (jen v nejednoznačných případech, jinak se slučují).
+- **Nespínané žíly kolem přístroje**: na vstupu i výstupu právě jeden úsek žíly, oba konce odvozené pravidlem a žíla na
+  obou portech nespínaná → jeden řádek vnější konec ↔ vnější konec (i řetěz přes víc přístrojů), poznámka „vede
+  kolem Q1“, délka mezi vnějšími konci, koncovky jen na nich; průřez = největší z úseků (None, je-li některý None),
+  `ProductionWire.wire_ids` = všechny vodiče řádku. Jinak beze sloučení s poznámkou „PE nespínaný – …“.
+- **Klíč svorky** podle původu: konkrétní (ruční / svorkový prvek / pravidlo) = označení svorky s aspekty; port a
+  sběrnice = prvek, port, žíla. Dvojitá dutinka jen pro 2 žíly stejného průřezu a ohebného typu; různý průřez →
+  bez dutinky + „2 vodiče různého průřezu ve svorce – ověřit“ (neurčený průřez obdobně).
+- **Průřez**: silový kontakt `ctl.contact_power` není řízení – bez `in_` z In stykače ve skupině (`DeviceIndex`,
+  zdroj „stykač“), jinak výchozí silový s „ověřit“. SPD (`NO_DEFAULT_CROSS`) bez In na druhém konci → None, zdroj
+  „SPD“, poznámka „SPD – průřez určí projektant (dle výrobce SPD)“, bez dutinky.
+- **Ohebné typy** tabulka `FLEXIBLE_WIRE_TYPES` (-K, -F, CYA, LgY, LiY).
+- **Výstup**: „Č. je pořadí v seznamu, po změně projektu se může změnit.“ v podnadpisu a na listu Parametry; sloupec
+  Označení se vynechá, je-li prázdný v celém výstupu; listy řazeny přirozeně (RDC2 < RDC10).
+- **GUI**: odškrtnutí skupiny „Výrobní data (zapojení)“ odebere klíče `wire_*` (= platí firemní standard / výchozí;
+  skupina zůstává zaškrtávací, protože právě vyjadřuje „vlastní parametry rozvaděče“, texty polí se do zavření panelu
+  drží pro opětovné zaškrtnutí). `wire_unplaced` jako výběr „výchozí / odhad / bez délky“ (ukládá `estimate`/`none`,
+  list Parametry česky). Popisky „Koncovka A (F2:2)“ / „Koncovka B (X1:1)“ v panelu Vlastnosti i WireDialogu.
+
 ## Známá omezení v1
-Konce v uzlu bez délky; neumístěné svorky odhadem; odvozené svorky jen pro pólové číslování 1/2, 3/4, 5/6;
+Konce v uzlu bez délky; neumístěné svorky odhadem; odvozené svorky jen pro pólové číslování 1/2, 3/4, 5/6 (7/8);
 tabulky orientační – schválí projektant.
 
 ## Zamítnuto
