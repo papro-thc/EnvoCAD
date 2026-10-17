@@ -17,6 +17,7 @@ POLE_PITCH = 3 * GRID  # 7,5 mm mezi póly
 COL_GAP = 30.0          # mezera mezi sloupci automatického rozmístění (ve směru toku)
 ROW_GAP = 15.0          # mezera mezi prvky ve sloupci (kolmo na tok)
 BAR_GAP = 32.0          # PE lišta pod řadou vývodů: mezera za vývody (štítek kabelu ~13 mm, příčky PE pod ním)
+MIN_BAR_GAP = 22.0      # nejmenší mezera k PE liště při zhuštění na stranu A4
 SOURCE_SYMBOLS = {"sb.feed_in", "fve.pv_string", "fve.battery"}  # zdroje toku (síť je konec)
 
 # Kanonické pořadí žil (shora dolů / zleva doprava)
@@ -185,11 +186,18 @@ def _flow_is_horizontal_for(ep: ElementPoles) -> bool:
 
 
 def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, y_top: float = 250.0,
-                bridges: dict[str, list[list[str]]] | None = None, page_w: float | None = None) -> dict[str, tuple[float, float]]:
+                bridges: dict[str, list[list[str]]] | None = None, page_w: float | None = None,
+                col_gap: float = COL_GAP, info: dict | None = None) -> dict[str, tuple[float, float]]:
     """Automatické rozmístění vícepólu po sloupcích („svorkové schéma“): hloubka od zdroje (přívod, síť, FV)
     určuje sloupec ve směru toku, uvnitř sloupce se prvky řadí podle pozice v JPS a rozestupují podle počtu pólů.
-    Prvky s ruční pozicí (`mp_pos`) zůstávají, kde jsou. `page_w` (svislý tok): šířka strany – prvek, který by
-    přesáhl hranici strany, začne na další straně (strany jsou v souřadnici x za sebou: strana k = [x0 + k·page_w, …)."""
+    Prvky s ruční pozicí (`mp_pos`) zůstávají, kde jsou. `page_w` (svislý tok): šířka strany – strany jsou
+    v souřadnici x za sebou (strana k = [x0 + k·page_w, …)). Logická skupina (podstrom: přívod/vývod se svými
+    přístroji, string = svorky X + pojistka FU + SPD), která by přesáhla hranici strany a na stranu se vejde, začne
+    celá na další straně – nikdy se nerozdělí; větší podstrom se dělí až mezi svými dětmi (vývody za sběrnicí).
+    `col_gap` = mezera mezi sloupci ve směru toku (svislý tok; menší na nízké straně A4). `info` (je-li zadán)
+    dostane `gaps` = počet mezer mezi sloupci a `horizontal` = směr toku."""
+    if info is not None:
+        info.update(gaps=0, horizontal=True)
     if not poles:
         return {}
     horizontal = sum(1 for ep in poles.values() if _flow_is_horizontal_for(ep)) * 2 >= len(poles)
@@ -287,11 +295,14 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
         return max(own, sum(width(c) for c in kids) + ROW_GAP * max(len(kids) - 1, 0))
 
     col_w = {d: max(flow_extent(poles[i]) for i in ids) for d, ids in columns.items()}
+    gap = COL_GAP if horizontal else col_gap
+    if info is not None:
+        info.update(gaps=max(len(columns) - 1, 0), horizontal=horizontal)
     flow_pos: dict[int, float] = {}
     pos = x0 if horizontal else y_top
     for d in sorted(columns):
         flow_pos[d] = pos
-        pos = pos + col_w[d] + COL_GAP if horizontal else pos - col_w[d] - COL_GAP
+        pos = pos + col_w[d] + gap if horizontal else pos - col_w[d] - gap
     out: dict[str, tuple[float, float]] = {}
     sign = -1.0 if horizontal else 1.0  # vodorovný tok: prvky ve sloupci jdou dolů; svislý: doprava
 
@@ -327,7 +338,30 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
             return None
         return (py - cy) if horizontal else (px - cx)
 
+    paging = bool(page_w) and not horizontal
+
+    def page_at(v: float) -> int:
+        return int((v - x0) // page_w)
+
+    def after(end: float) -> float:
+        """Začátek dalšího sourozence za koncem `end`: o mezeru dál; padne-li mezera přes hranici strany, začne
+        sourozenec hned na začátku nové strany (ne o kus dál)."""
+        nxt = end + sign * ROW_GAP
+        if paging and page_at(nxt) > page_at(end - 1e-6):
+            nxt = x0 + page_at(nxt) * page_w
+        return nxt
+
     def place(i: str, start: float) -> float:
+        """Umístí podstrom jako celek: když přesáhne hranici strany a na jednu stranu se vejde, umístí se znovu od
+        začátku další strany (skupina se nerozdělí). Vrátí konec podstromu (kolmo na tok)."""
+        end = place_tree(i, start)
+        if paging and page_at(start) != page_at(end - 1e-6):
+            nxt = x0 + (page_at(start) + 1) * page_w
+            if end - start <= page_w + 1e-6 and nxt > start:
+                end = place_tree(i, nxt)
+        return end
+
+    def place_tree(i: str, start: float) -> float:
         """Umístí prvek a jeho podstrom; vrátí konec podstromu (kolmo na tok) – kvůli skokům na další stranu."""
         d = depth[i]
         own = perp_extent(poles[i]) + 8.0
@@ -345,13 +379,13 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
                 if (want - cursor) * sign > 0:
                     cursor = want
             e = place(c, cursor)
-            cursor = e + sign * ROW_GAP
+            cursor = after(e)
             end = max(end, e) if sign > 0 else min(end, e)
         return end
 
     cursor = y_top if horizontal else x0
     for r in roots:
-        cursor = place(r, cursor) + sign * ROW_GAP
+        cursor = after(place(r, cursor))
     for b in bars:
         ns = [n for n in nb[b] if n in out]
         d = max([depth[n] for n in ns] + [depth[x] for x in sinks], default=depth[b] - 1) + 1   # PE lišta dole pod vývody
@@ -360,11 +394,13 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
             ds = depth[sinks[0]] if sinks else None
             if ds is not None and ds in flow_pos and d == ds + 1:
                 # těsně pod řadou vývodů (pod jejich štítky kabelů), ne až na okraji strany
-                gap = col_w[ds] + BAR_GAP + col_w[d] / 2
-                flow_pos[d] = flow_pos[ds] + (gap if horizontal else -gap) - (col_w[d] / 2 if horizontal else -col_w[d] / 2)
+                # zhuštěné sloupce (A4) zmenší i mezeru k liště, nejvýš na MIN_BAR_GAP (štítky kabelů vývodů)
+                bar_gap = BAR_GAP if horizontal else max(MIN_BAR_GAP, BAR_GAP - (COL_GAP - gap))
+                off = col_w[ds] + bar_gap + col_w[d] / 2
+                flow_pos[d] = flow_pos[ds] + (off if horizontal else -off) - (col_w[d] / 2 if horizontal else -col_w[d] / 2)
             else:
                 flow_pos[d] = pos + (15.0 if horizontal else -15.0)   # o kus dál, ať příčky PE nevedou přes popisky vývodů
-            pos = pos + col_w[d] + COL_GAP if horizontal else pos - col_w[d] - COL_GAP
+            pos = pos + col_w[d] + gap if horizontal else pos - col_w[d] - gap
         fp = flow_pos[d]
         if ns:
             vals = [(out[n][1] if horizontal else out[n][0]) for n in ns]
@@ -570,33 +606,102 @@ def device_terminal(sheet: Sheet, w: Wire, conductor: str, side: str) -> tuple[s
 
 
 # ---- geometrie pohledu (sdílí ji vícepólová scéna v ui/ a kontrola překryvů textů) ------------------------------
-MP_X0 = 42.5          # začátek rozmístění – vlevo názvy potenciálů sběrnice
+MP_X0 = 42.5          # začátek rozmístění – vlevo názvy potenciálů sběrnice a odkazy na sousední strany
+MP_X0_NO_BUS = 35.0   # začátek rozmístění listu bez sběrnice (na A4 na šířku se vejdou 3 stringy DC vedle sebe)
 MP_Y_TOP = 60.0       # odstup první řady od horního okraje listu (nahoře nadpis rozvaděče)
 MP_PAGE_GAP = 20.0    # mezera mezi stranami pod sebou
 LABEL_GAP = 1.5       # odstup popisku od značky
 
 
-def page_width(sheet: Sheet) -> float:
-    """Použitelná šířka strany vícepólu pro rozmístění (bez okrajů rámečku)."""
+MIN_COL_GAP = 10.0    # nejmenší mezera mezi sloupci při zhuštění na nízkou stranu (A4 na šířku)
+
+# ---- formát stran vícepólu a plánu svorkovnice listu rozvaděče ---------------------------------------------------
+# volba („A4“ výchozí) ve firemním standardu `standard.switchboard_paper` nebo u listu `Sheet.mp_paper`
+SWITCHBOARD_PAPERS = {"A4": (297.0, 210.0), "A4 na výšku": (210.0, 297.0), "A3": (420.0, 297.0)}
+DEFAULT_SWITCHBOARD_PAPER = "A4"
+SHEET_PAPER = "list"      # strana = rozměr listu (`Sheet.width × height`, chování do 10/2026)
+_DEFAULT_SHEET_SIZE = ("A3", 420.0, 297.0)
+
+
+def standard_switchboard_paper() -> str:
+    """Formát stran schématu rozvaděče z firemního standardu (`standard.switchboard_paper`), výchozí A4 na šířku."""
+    try:
+        from envocad.settings import load_settings
+        v = str(load_settings()["standard"].get("switchboard_paper") or "").strip()
+    except Exception:  # noqa: BLE001
+        v = ""
+    return v if v in SWITCHBOARD_PAPERS else DEFAULT_SWITCHBOARD_PAPER
+
+
+def paper_choice(sheet: Sheet) -> str:
+    """Formát stran vícepólu listu: „A4“, „A4 na výšku“, „A3“ nebo „list“ (rozměr listu).
+
+    Pořadí: volba listu `mp_paper`; list, který není rozvaděč (vícepól JPS), a list rozvaděče s ručně nastaveným
+    formátem (jiný než výchozí A3 420 × 297) nebo s ručními polohami ve vícepólu (`mp_pos` jsou v souřadnicích
+    stran původního rozměru) bez volby → „list“ (beze změny proti dřívějšku); jinak firemní standard (výchozí A4)."""
+    v = getattr(sheet, "mp_paper", "") or ""
+    if v in SWITCHBOARD_PAPERS or v == SHEET_PAPER:
+        return v
+    if not sheet.is_switchboard:
+        return SHEET_PAPER
+    if (sheet.paper, float(sheet.width), float(sheet.height)) != _DEFAULT_SHEET_SIZE \
+            or any(e.mp_pos for e in sheet.elements):
+        return SHEET_PAPER
+    return standard_switchboard_paper()
+
+
+def page_size(sheet: Sheet, choice: str | None = None) -> tuple[float, float]:
+    """Rozměr strany vícepólu / plánu svorkovnice (šířka, výška v mm)."""
+    v = choice or paper_choice(sheet)
+    return (float(sheet.width), float(sheet.height)) if v == SHEET_PAPER else SWITCHBOARD_PAPERS[v]
+
+
+def page_paper_label(sheet: Sheet, choice: str | None = None) -> str:
+    """Formát strany do popisového pole („A4“; u rozměru listu jeho formát)."""
+    v = choice or paper_choice(sheet)
+    return sheet.paper if v == SHEET_PAPER else v.split()[0]
+
+
+def layout_x0(sheet: Sheet, choice: str | None = None) -> float:
+    """Začátek rozmístění vícepólu (levý okraj strany 0): se sběrnicí místo vlevo pro názvy potenciálů a odkazy,
+    bez ní užší okraj; formát „list“ beze změny proti dřívějšku."""
+    v = choice or paper_choice(sheet)
+    if v == SHEET_PAPER or any(e.symbol_id == BUS_SYMBOL for e in sheet.elements):
+        return MP_X0
+    return MP_X0_NO_BUS
+
+
+def page_width(sheet: Sheet, size: tuple[float, float] | None = None) -> float:
+    """Použitelná šířka strany vícepólu pro rozmístění (od `layout_x0` po 10 mm před vnitřním rámečkem)."""
     from envocad.model.frame import MARGIN
-    return sheet.width - MP_X0 - MARGIN - 10.0
+    w = (size or page_size(sheet))[0]
+    return w - layout_x0(sheet) - MARGIN - 10.0
 
 
-def page_pitch(sheet: Sheet) -> float:
-    return sheet.height + MP_PAGE_GAP
+def page_pitch(sheet: Sheet, size: tuple[float, float] | None = None) -> float:
+    return (size or page_size(sheet))[1] + MP_PAGE_GAP
 
 
-def paginate(sheet: Sheet, poles: dict[str, ElementPoles]) -> tuple[dict[str, int], int]:
+def page_ref(sheet_no: str, k: int, x: float, y_local: float, size: tuple[float, float]) -> str:
+    """Křížový odkaz na místo na straně k vícepólu: „/list.strana.sloupecřádek“ (např. „/2.3.B4“); `y_local` =
+    souřadnice y uvnitř strany (jako na straně 0)."""
+    from envocad.model.frame import grid_coord
+    return f"/{sheet_no}.{k + 1}.{grid_coord(None, x, y_local, size[0], size[1])}"
+
+
+def paginate(sheet: Sheet, poles: dict[str, ElementPoles], size: tuple[float, float] | None = None
+             ) -> tuple[dict[str, int], int]:
     """Rozmístění (strany za sebou v x) → strany pod sebou: prvek na straně k se posune o k·šířka doleva a o
     k·(výška + mezera) dolů (mění `origin`). Ruční pozice (`mp_pos`) jsou už stránkované – strana se jim jen určí.
     Vrací (prvek → strana, počet stran)."""
-    x0, pw, pitch = MP_X0, page_width(sheet), page_pitch(sheet)
+    size = size or page_size(sheet)
+    x0, pw, pitch = layout_x0(sheet), page_width(sheet, size), page_pitch(sheet, size)
     page_of: dict[str, int] = {}
     n_pages = 1
     for eid, ep in poles.items():
         x, y = ep.origin
         if ep.element.mp_pos:
-            k = max(0, int((sheet.height - y) // pitch))
+            k = max(0, int((size[1] - y) // pitch))
         else:
             k = max(0, int((x - x0) // pw))
             ep.origin = (x - k * pw, y - k * pitch)

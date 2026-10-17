@@ -246,10 +246,13 @@ def test_multipole_pe_break_avoids_terminal_numbers(lib, monkeypatch):
     p = build_project({"inverters": [{"ref": "T1", **INV, "strings": [20] * 6}], "dc": {"route_boxes": 1}})
     s = next(x for x in p.sheets if x.is_switchboard and x.loc == "RDC1")
     assert not [o for o in multipole_text_overlaps(p, s, lib) if "číslo svorky" in o[2]]
-    # kontrola čísla svorek hlídá: dřívější vedení v úrovni portu (přes řadu svorek) se ohlásí
+    # kontrola čísla svorek hlídá: dřívější vedení v úrovni portu (přes řadu svorek) se ohlásí – PE z více stran
+    # do XPE vede sběrná čára (za portem XPE), ostatní přerušení `break_y`
+    from envocad.model import multipole_geometry as mg
     monkeypatch.setattr(mp, "break_y", lambda pt, d, n, used: pt[1] - 2.5 * n)
+    monkeypatch.setattr(mg, "RAIL_OFFSET", -5.0)     # čára pod portem = přes řadu čísel svorek
     hits = [o for o in multipole_text_overlaps(p, s, lib) if "číslo svorky" in o[2]]
-    assert any("X8" in o[2] for o in hits)
+    assert hits
 
 
 def test_break_y_outward_and_spaced():

@@ -325,17 +325,31 @@ class PasteCommand(QUndoCommand):
             self.scene.remove_element_item(e.id)
 
 
+def _pinned_paper(sheet) -> tuple[str, str]:
+    """(dosavadní, nová) volba formátu stran vícepólu listu při zápisu ručních poloh (`mp_pos`): ruční polohy jsou
+    v souřadnicích stran, proto se dosud platný formát (firemní standard) zapíše k listu (`Sheet.mp_paper`) –
+    pozdější změna standardu je neposune na jiné místo."""
+    from envocad.model.multipole import paper_choice
+    old = getattr(sheet, "mp_paper", "")
+    if not sheet.is_switchboard:     # vícepól listu JPS má vždy formát listu
+        return old, old
+    return old, old or paper_choice(sheet)
+
+
 class MoveMultipoleCommand(QUndoCommand):
-    """Ruční pozice prvků ve vícepólu (`Element.mp_pos`; None = automatické rozmístění)."""
+    """Ruční pozice prvků ve vícepólu (`Element.mp_pos`; None = automatické rozmístění). Zapíše k listu i formát
+    stran (`_pinned_paper`), undo ho vrátí."""
 
     def __init__(self, scene, moves: dict):
         super().__init__("Posun ve vícepólu")
         self.scene, self.moves = scene, moves
+        self.paper = _pinned_paper(scene.sheet)
 
     def _apply(self, idx: int):
         for eid, pair in self.moves.items():
             e = self.scene.sheet.element(eid)
             e.mp_pos = tuple(pair[idx]) if pair[idx] else None
+        self.scene.sheet.mp_paper = self.paper[idx]
         self.scene.rebuild()
 
     def redo(self):
@@ -355,11 +369,15 @@ class MultipoleAddCommand(QUndoCommand):
         super().__init__(text or ("Vložit prvek" if self.elements and len(self.elements) == 1 and not self.wires
                                   else ("Vodič" if not self.elements else f"Vložit ({len(self.elements)})")))
         self.scene = scene
+        # prvky vložené ve vícepólu mají ruční polohu → formát stran se zapíše k listu (viz MoveMultipoleCommand)
+        self.paper = _pinned_paper(scene.sheet) if any(e.mp_pos for e in self.elements) else None
 
     def redo(self):
         s = self.scene.sheet
         s.elements.extend(self.elements)
         s.wires.extend(self.wires)
+        if self.paper:
+            s.mp_paper = self.paper[1]
         self.scene.rebuild()
         if getattr(self.scene, "after_edit", None):
             self.scene.after_edit()   # jednopólová editace téhož listu se přestaví
@@ -370,9 +388,31 @@ class MultipoleAddCommand(QUndoCommand):
         eid = {e.id for e in self.elements}
         s.wires = [w for w in s.wires if w.id not in wid]
         s.elements = [e for e in s.elements if e.id not in eid]
+        if self.paper:
+            s.mp_paper = self.paper[0]
         self.scene.rebuild()
         if getattr(self.scene, "after_edit", None):
             self.scene.after_edit()
+
+
+class SetSheetPaperCommand(QUndoCommand):
+    """Formát stran vícepólu a plánu svorkovnice listu rozvaděče (`Sheet.mp_paper`; "" = firemní standard).
+    `on_change` přestaví pohledy listu."""
+
+    def __init__(self, sheet, old: str, new: str, on_change=None):
+        super().__init__("Formát stran schématu rozvaděče")
+        self.sheet, self.old, self.new, self.on_change = sheet, old, new, on_change
+
+    def _set(self, v: str):
+        self.sheet.mp_paper = v
+        if self.on_change:
+            self.on_change()
+
+    def redo(self):
+        self._set(self.new)
+
+    def undo(self):
+        self._set(self.old)
 
 
 class SetCableCommand(QUndoCommand):

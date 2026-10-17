@@ -115,7 +115,7 @@ COL_GAP = 10.0               # mezera mezi svorkovnicemi vedle sebe v jednom pá
 HEAD_H = 3.0                 # nadpis svorkovnice nad pásmem vnějších připojení
 TITLE_H = 3.5                # výška písma nadpisu
 TOP_PAD = 8.0                # odstup prvního nadpisu od horního okraje kreslicí plochy
-BOTTOM_PAD = 40.0            # spodek pásu nad popisovým polem (od spodního okraje kreslicí plochy)
+BOTTOM_PAD = 35.0            # spodek pásu nad popisovým polem (32 mm) s odstupem (od spodního okraje kreslicí plochy)
 LEFT_PAD = 6.0               # odstup první svorky od levého okraje kreslicí plochy
 BAND_H = HEAD_H + EXT_H + T_H + INT_H   # výška jednoho pásu (bez mezery)
 
@@ -130,10 +130,12 @@ class PlanChunk:
     x: float
     top: float
     title: str
+    ext_h: float = EXT_H     # výška pásma vnějších připojení nad svorkami (podle nejdelšího textu plánu)
+    int_h: float = INT_H     # výška pásma vnitřních připojení pod svorkami
 
     @property
     def title_pos(self) -> tuple[float, float]:
-        return self.x - 2.0, self.top + EXT_H + HEAD_H
+        return self.x - 2.0, self.top + self.ext_h + HEAD_H
 
     @property
     def width(self) -> float:
@@ -144,26 +146,32 @@ def _title_w(text: str) -> float:
     return 0.62 * TITLE_H * len(text)      # odhad šířky nadpisu (Arial ~0,55–0,6 výšky na znak)
 
 
+MIN_BAND_TEXT = 18.0      # nejnižší pásmo připojení (vývod 7 mm + krátký text)
+
+
+def band_heights(rows: list[TerminalRow]) -> tuple[float, float]:
+    """Výšky pásem vnějších a vnitřních připojení pásu svorek podle nejdelšího svislého textu (vývod 7 mm + text,
+    odhad 0,62 výšky písma na znak, + 2 mm), nejvýš `EXT_H` / `INT_H` – krátké texty (DC rozvaděč) nechají víc
+    pásů na stranu A4."""
+    def need(texts: list[tuple[str, float]], cap: float) -> float:
+        longest = max((0.62 * h * len(t) for t, h in texts if t), default=0.0)
+        return min(cap, max(MIN_BAND_TEXT, 7.0 + longest + 2.0))
+    ext = need([(r.external, 2.0) for r in rows] + [(r.ext_cable, 1.6) for r in rows], EXT_H)
+    inn = need([(r.internal, 2.0) for r in rows] + [(r.int_cable, 1.6) for r in rows], INT_H)
+    return ext, inn
+
+
 def layout_plan_pages(plans: list[StripPlan], inner: tuple[float, float, float, float]) -> list[list[PlanChunk]]:
     """Rozmístí svorkovnice listu na strany: pásy pod sebou, v pásu svorkovnice vedle sebe (další sloupec),
-    dlouhá svorkovnice se zalomí do dalšího pásu, pás, který se pod sebe nevejde, jde na další stranu. Žádná svorka
-    se nevynechá. `inner` = kreslicí plocha strany (x0, y0, x1, y1). Vrací strany (aspoň jednu, i prázdnou)."""
+    dlouhá svorkovnice se zalomí do dalšího pásu, pás, který se pod sebe nevejde, jde na další stranu. Výška pásu
+    podle jeho textů (`band_heights`). Žádná svorka se nevynechá. `inner` = kreslicí plocha strany (x0, y0, x1, y1)
+    – rozměr strany (A4 listu rozvaděče, `sheet_plan_pages`). Vrací strany (aspoň jednu, i prázdnou)."""
     x0, y0, x1, y1 = inner
     left, right = x0 + LEFT_PAD, x1 - 4.0
     per_row = max(1, int((right - left) // T_W))
-    first_band = y1 - TOP_PAD - HEAD_H            # nadpis prvního pásu
-    pages: list[list[PlanChunk]] = [[]]
-    band_title_y = first_band
+    # 1) úseky do pásů zleva doprava
+    bands: list[list[tuple[StripPlan, list[TerminalRow], str, float]]] = [[]]
     cursor = left
-
-    def new_band() -> None:
-        nonlocal band_title_y, cursor
-        cursor = left
-        band_title_y -= BAND_H + STRIP_GAP
-        if band_title_y - (BAND_H - HEAD_H) < y0 + BOTTOM_PAD:
-            pages.append([])
-            band_title_y = first_band
-
     for plan in plans:
         if not plan.rows:
             continue
@@ -172,11 +180,37 @@ def layout_plan_pages(plans: list[StripPlan], inner: tuple[float, float, float, 
             title = f"Svorkovnice {plan.strip}" + (" (pokračování)" if ci else "")
             need = max(len(rows) * T_W, _title_w(title))
             if cursor > left and cursor + need > right:
-                new_band()
-            top = band_title_y - EXT_H
-            pages[-1].append(PlanChunk(plan.strip, rows, plan.bridges, cursor, top, title))
+                bands.append([])
+                cursor = left
+            bands[-1].append((plan, rows, title, cursor))
             cursor += need + COL_GAP
+    # 2) pásy pod sebou, co se nevejde, na další stranu
+    first_band = y1 - TOP_PAD - HEAD_H            # nadpis prvního pásu
+    pages: list[list[PlanChunk]] = [[]]
+    band_title_y = first_band
+    for band in bands:
+        if not band:
+            continue
+        ext_h, int_h = band_heights([r for _p, rows, _t, _x in band for r in rows])
+        band_h = HEAD_H + ext_h + T_H + int_h
+        if pages[-1] and band_title_y - (band_h - HEAD_H) < y0 + BOTTOM_PAD:
+            pages.append([])
+            band_title_y = first_band
+        for plan, rows, title, x in band:
+            pages[-1].append(PlanChunk(plan.strip, rows, plan.bridges, x, band_title_y - ext_h, title, ext_h, int_h))
+        band_title_y -= band_h + STRIP_GAP
     return pages
+
+
+def sheet_plan_pages(project: Project, sheet: Sheet, plans: list[StripPlan] | None = None
+                     ) -> tuple[tuple[float, float], list[list[PlanChunk]]]:
+    """Plán svorkovnice listu rozmístěný na strany formátu vícepólu listu (`multipole.page_size`, list rozvaděče
+    výchozí A4 na šířku). Vrací (rozměr strany, strany)."""
+    from envocad.model.frame import inner_box
+    size = mp.page_size(sheet)
+    if plans is None:
+        plans = terminal_plan(project, sheet)
+    return size, layout_plan_pages(plans, inner_box(*size))
 
 
 def strip_numbers(project: Project, sheet: Sheet, strip: str) -> set[str]:

@@ -116,8 +116,17 @@ def sheet_number(project: Project, sheet: Sheet) -> str:
     return f"{i}/{len(ids)}"
 
 
-def title_rows(project: Project, sheet: Sheet, view: str = "", page: str = "") -> list[list[tuple[str, str]]]:
-    """Řádky popisového pole jako [(popisek, hodnota), …] – vlevo doleva, vpravo doprava."""
+def page_label(project: Project, sheet: Sheet, k: int, n: int) -> str:
+    """„Číslo listu“ strany odvozeného pohledu (vícepól, plán svorkovnice): číslo listu projektu a u více stran
+    „str. k/n“ v rámci listu („3/7, str. 2/4“)."""
+    no = sheet_number(project, sheet)
+    return f"{no}, str. {k + 1}/{n}" if n > 1 else no
+
+
+def title_rows(project: Project, sheet: Sheet, view: str = "", page: str = "", paper: str = ""
+               ) -> list[list[tuple[str, str]]]:
+    """Řádky popisového pole jako [(popisek, hodnota), …] – vlevo doleva, vpravo doprava. `paper` = formát strany
+    odvozeného pohledu (vícepól na A4), jinak formát listu."""
     m = project.meta
     date = m.get("date") or _datetime.now().astimezone().strftime("%d.%m.%Y")   # dnešní datum v místním čase
     name = sheet.name + (f" – {view}" if view else "")
@@ -126,13 +135,24 @@ def title_rows(project: Project, sheet: Sheet, view: str = "", page: str = "") -
         [("Investor", m.get("investor", "")), ("Místo", m.get("place", ""))],
         [("List", name), ("Číslo listu", page or sheet_number(project, sheet))],
         [("Zpracoval", m.get("author", "")), ("Datum", date), ("Revize", sheet_revision_label(project, sheet)),
-         ("Formát", sheet.paper)],
+         ("Formát", paper or sheet.paper)],
     ]
 
 
+QR_SIZE = TB_H - 6.0   # QR kód vlevo od popisového pole (strana čtverce)
+QR_GAP = 4.0           # mezera QR kódu od popisového pole
+
+
+def qr_fits(width: float) -> bool:
+    """Vejde se QR kód vlevo od popisového pole do vnitřního rámečku? (A4 na výšku: popisové pole 180 mm vyplní
+    celou šířku kreslicí plochy, QR se vynechá – identifikace je v popisovém poli.)"""
+    return width - MARGIN - TB_W - QR_SIZE - QR_GAP >= MARGIN_LEFT
+
+
 def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, height: float | None = None,
-                   view: str = "", page: str = "") -> FrameGeometry:
-    """Rámeček s popisovým polem vpravo dole. Pro odvozené pohledy (vícepól) lze zadat jiný rozměr listu."""
+                   view: str = "", page: str = "", paper: str = "") -> FrameGeometry:
+    """Rámeček s popisovým polem vpravo dole. Pro odvozené pohledy (vícepól) lze zadat jiný rozměr listu a jeho
+    formát (`paper`) do popisového pole. QR kód jen, když se vlevo od popisového pole vejde (`qr_fits`)."""
     w = width or sheet.width
     h = height or sheet.height
     g = FrameGeometry()
@@ -156,7 +176,7 @@ def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, h
     tx0, ty0 = x1 - TB_W, y0
     tx1, ty1 = x1, y0 + TB_H
     g.lines += [(tx0, ty0, tx0, ty1), (tx0, ty1, tx1, ty1)]
-    rows = title_rows(project, sheet, view, page)
+    rows = title_rows(project, sheet, view, page, paper)
     rh = TB_H / len(rows)
     logo_w = 34.0
     g.lines.append((tx0 + logo_w, ty0, tx0 + logo_w, ty1))
@@ -164,12 +184,12 @@ def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, h
     g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 2.0, *fit_text(short, logo_w - 3.0, 5.0, 2.5), "center"))
     g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 6.0, *fit_text(full, logo_w - 2.0, 1.8, 1.2), "center"))
     # QR kód s identifikací výkresu vlevo od popisového pole (projekt | zakázka | list | revize)
-    mods = qr_modules(qr_text(project, sheet, view))
+    mods = qr_modules(qr_text(project, sheet, view)) if qr_fits(w) else None
     if mods:
         n = len(mods)
-        size = TB_H - 6.0
+        size = QR_SIZE
         cell = size / n
-        qx0, qy0 = tx0 - size - 4.0, ty0 + 3.0
+        qx0, qy0 = tx0 - size - QR_GAP, ty0 + 3.0
         for r, row in enumerate(mods):
             for c, dark in enumerate(row):
                 if dark:
@@ -203,9 +223,9 @@ def inner_box(width: float, height: float) -> tuple[float, float, float, float]:
 
 
 def title_block_box(width: float, height: float) -> tuple[float, float, float, float]:
-    """Obálka popisového pole včetně QR kódu vlevo od něj (vpravo dole uvnitř rámečku)."""
+    """Obálka popisového pole včetně QR kódu vlevo od něj (vpravo dole uvnitř rámečku; QR jen, když se vejde)."""
     del height
-    qr = (TB_H - 6.0) + 4.0
+    qr = QR_SIZE + QR_GAP if qr_fits(width) else 0.0
     return (width - MARGIN - TB_W - qr, MARGIN, width - MARGIN, MARGIN + TB_H)
 
 

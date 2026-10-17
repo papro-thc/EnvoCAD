@@ -87,7 +87,8 @@ def test_terminal_plan_layout_keeps_every_terminal():
     for pg in pages:
         for c in pg:
             assert x0 < c.x and c.x + c.width <= x1 + 1e-6
-            assert c.top + EXT_H <= y1 and c.top - T_H - INT_H >= y0 + BOTTOM_PAD - 1e-6
+            assert c.top + c.ext_h <= y1 and c.top - T_H - c.int_h >= y0 + BOTTOM_PAD - 1e-6
+            assert c.ext_h <= EXT_H and c.int_h <= INT_H
         # úseky jedné strany se nepřekrývají (ani nadpisy vedle sebe)
         for a in pg:
             for b in pg:

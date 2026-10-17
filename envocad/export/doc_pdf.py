@@ -1,5 +1,7 @@
 """Celá dokumentace do jednoho PDF: titulní list, obsah, listy JPS, schéma + plán svorkovnice každého rozvaděče,
-tabulkové výkazy a změnový list. Všechny strany A3 na šířku.
+tabulkové výkazy a změnový list. Strany A3 na šířku; schéma (vícepól) a plán svorkovnice listu rozvaděče mají
+formát svých stran (`multipole.page_size`, výchozí A4 na šířku) – PDF má smíšené formáty stran (`QPdfWriter.
+setPageLayout` před každou novou stranou).
 
 Obsah, výkazy i změnový list jsou tabulky (`_TableLayout`): šířky sloupců podle obsahu a šířky strany, dlouhý
 text se v buňce zalomí, tabulka pokračuje na dalších stranách. Počet stran se spočítá předem (obsah ukazuje
@@ -31,13 +33,19 @@ MAX_WORD = 30.0           # delší slovo se smí lámat po znacích (nesnižuje
 FOOTER_H = 2.5            # „strana n/N“ bez rámečku
 
 
-def _page_painter_setup(painter: QPainter, writer: QPdfWriter) -> None:
+def _page_layout(size: tuple[float, float]) -> QPageLayout:
+    """Rozvržení strany PDF daného rozměru (mm) bez okrajů. Rozměr už orientaci nese (420×297 = na šířku);
+    Landscape by ji otočil podruhé → strana na výšku a nerovnoměrně roztažený obsah (oprava jako v pdf_export)."""
+    return QPageLayout(QPageSize(QSizeF(*size), QPageSize.Millimeter), QPageLayout.Portrait, QMarginsF(0, 0, 0, 0))
+
+
+def _page_painter_setup(painter: QPainter, writer: QPdfWriter, size: tuple[float, float] = (PAGE_W, PAGE_H)) -> None:
     """Souřadnice stránky v mm (model, Y nahoru → scénové Y dolů řeší sp())."""
     painter.resetTransform()
-    sx = writer.width() / PAGE_W
-    sy = writer.height() / PAGE_H
+    sx = writer.width() / size[0]
+    sy = writer.height() / size[1]
     painter.scale(sx, sy)
-    painter.translate(0, PAGE_H)  # model Y nahoru: y_scene = -y_model → posun o výšku
+    painter.translate(0, size[1])  # model Y nahoru: y_scene = -y_model → posun o výšku
 
 
 def _pseudo_sheet(name: str, project: Project) -> Sheet:
@@ -147,6 +155,8 @@ class DocBuilder:
         self.note_pages: list[tuple[int, object, list]] = []  # (fyzická strana od 0, PageMap, připomínky)
         self._layouts: dict[int, _TableLayout] = {}   # index položky → rozvržení tabulky (obsah, výkazy, změny)
         self._scenes: dict[tuple[str, str], tuple[object, QUndoStack]] = {}
+        self._size: tuple[float, float] = (PAGE_W, PAGE_H)   # rozměr aktuální strany PDF (mm)
+        self.page_sizes: list[tuple[float, float]] = []       # rozměr první strany každé položky self.pages
 
     def plan(self) -> None:
         p = self.project
@@ -299,31 +309,48 @@ class DocBuilder:
         """Bez rámečku (není popisové pole s číslem strany): malé „strana n/N“ v pravém dolním rohu."""
         if frame_enabled():
             return
-        _page_painter_setup(painter, writer)
+        _page_painter_setup(painter, writer, self._size)
         painter.setPen(QPen(theme.PRINT.ink, 0.2))
-        draw_text(painter, PAGE_W - 10.0, 4.0, f"strana {self._pdf_page + 1}/{self._total}", FOOTER_H, "right")
+        draw_text(painter, self._size[0] - 10.0, 4.0, f"strana {self._pdf_page + 1}/{self._total}", FOOTER_H, "right")
 
-    def _new_page(self, painter, writer) -> None:
+    def _new_page(self, painter, writer, size: tuple[float, float] = (PAGE_W, PAGE_H)) -> None:
+        """Další strana PDF rozměru `size` (rozvržení se nastaví těsně před `newPage`, platí pro novou stranu)."""
         self._footer(painter, writer)
+        if size != self._size:
+            writer.setPageLayout(_page_layout(size))
+            self._size = size
         writer.newPage()
         self._pdf_page += 1
         self._page = f"{self._pdf_page + 1}/{self._total}"
-        _page_painter_setup(painter, writer)
+        _page_painter_setup(painter, writer, size)
+
+    def _item_size(self, idx: int) -> tuple[float, float]:
+        """Rozměr stran položky: vícepól a plán svorkovnice listu rozvaděče = formát jejich stran (výchozí A4);
+        JPS, tabulky a vícepól ve formátu listu („list“, starší projekty) = A3 (list se do ní zmenší)."""
+        from envocad.model import multipole as mp
+        kind, _name, data = self.pages[idx]
+        if kind == "sheet":
+            sheet, view = data
+            if view != "schematic" and mp.paper_choice(sheet) != mp.SHEET_PAPER:
+                w, h = getattr(self._scene(sheet, view), "paper_size", (PAGE_W, PAGE_H))
+                return (float(w), float(h))
+        return (PAGE_W, PAGE_H)
 
     def _sheet(self, painter, writer, sheet: Sheet, kind: str):
         scene = self._scene(sheet, kind)
         pw, ph = getattr(scene, "paper_size", (sheet.width, sheet.height))
+        size = self._size
         painter.resetTransform()
-        # vejít do strany A3; vícepól a plán svorkovnice mohou mít víc stran (každá na vlastní stranu PDF)
-        scale = min(writer.width() / pw, writer.height() / ph)
-        target = QRectF(0, 0, pw * scale, ph * scale)
+        # vejít do strany (list JPS A3, vícepól a plán svorkovnice ve formátu svých stran – výchozí A4);
+        # vícepól a plán svorkovnice mohou mít víc stran (každá na vlastní stranu PDF)
         pages = getattr(scene, "pages", None) or [QRectF(0, -ph, pw, ph)]
         first = self._pdf_page
         for i, src in enumerate(pages):
             if i:
-                self._new_page(painter, writer)
+                self._new_page(painter, writer, size)
                 painter.resetTransform()
-            scene.render(painter, target, src, Qt.KeepAspectRatio)
+            scale = min(writer.width() / pw, writer.height() / ph)
+            scene.render(painter, QRectF(0, 0, pw * scale, ph * scale), src, Qt.KeepAspectRatio)
         if kind == "terminals":
             return
         from envocad.export.pdf_annots import PageMap
@@ -360,14 +387,16 @@ class DocBuilder:
             k = scene.page_of.get(eid, 0)
             x, y = ep.origin
             return k, x + 2.5, y + k * scene.page_pitch + 2.5, True
-        return 0, MARGIN_LEFT + 5.0 + 8.0 * i, sheet.height - MARGIN - 30.0, False
+        ph = getattr(scene, "paper_size", (sheet.width, sheet.height))[1]
+        return 0, MARGIN_LEFT + 5.0 + 8.0 * i, ph - MARGIN - 30.0, False
 
     def _count_pages(self) -> None:
         """Fyzické strany předem: popisové pole ukazuje „n/N“ a obsah skutečná čísla stran."""
-        self.page_starts, self.page_counts = [], []
+        self.page_starts, self.page_counts, self.page_sizes = [], [], []
         total = 0
         for idx, (kind, _name, data) in enumerate(self.pages):
             self.page_starts.append(total + 1)
+            self.page_sizes.append(self._item_size(idx))
             if kind == "sheet":
                 cnt = self._sheet_pages(*data)
             elif kind in ("table", "toc", "changes"):
@@ -391,7 +420,7 @@ class DocBuilder:
             head, rows = data
         for k in range(lay.page_count):
             if k:
-                self._new_page(painter, writer)
+                self._new_page(painter, writer, (PAGE_W, PAGE_H))
             self._draw_table(painter, name, head, rows, lay, k)
 
     # ---- export --------------------------------------------------------------------
@@ -401,12 +430,10 @@ class DocBuilder:
         self.plan()
         self._pdf_page = 0
         self.note_pages = []
+        self._size = (PAGE_W, PAGE_H)
         writer = QPdfWriter(str(path))
         writer.setPageSize(QPageSize(QSizeF(PAGE_W, PAGE_H), QPageSize.Millimeter))
-        # rozměr strany už orientaci nese (420×297); Landscape by ji otočil podruhé → strana na výšku 297×420
-        # a nerovnoměrně roztažený obsah (stejná oprava jako v pdf_export)
-        writer.setPageLayout(QPageLayout(QPageSize(QSizeF(PAGE_W, PAGE_H), QPageSize.Millimeter),
-                                         QPageLayout.Portrait, QMarginsF(0, 0, 0, 0)))
+        writer.setPageLayout(_page_layout(self._size))
         writer.setResolution(300)
         writer.setTitle(f"{self.project.name} – dokumentace")
         writer.setCreator("EnvoCAD")
@@ -418,9 +445,9 @@ class DocBuilder:
             self._count_pages()
             for idx, (kind, _name, data) in enumerate(self.pages):
                 if idx:
-                    self._new_page(painter, writer)
+                    self._new_page(painter, writer, self.page_sizes[idx])
                 else:
-                    _page_painter_setup(painter, writer)
+                    _page_painter_setup(painter, writer, self._size)
                     self._page = f"1/{self._total}"
                 if kind == "title":
                     self._title(painter, writer)

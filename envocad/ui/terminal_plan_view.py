@@ -9,8 +9,8 @@ from PySide6.QtGui import QPainter, QPen, QUndoStack
 from PySide6.QtWidgets import QGraphicsRectItem, QGraphicsScene
 
 from envocad.library.store import LibraryStore
-from envocad.model.frame import frame_geometry
-from envocad.model.multipole import MP_PAGE_GAP
+from envocad.model.frame import frame_geometry, page_label
+from envocad.model.multipole import MP_PAGE_GAP, page_paper_label, page_size
 from envocad.model.project import Project, Sheet
 from envocad.model.terminal_plan import (  # noqa: F401 – rozměry zůstávají dostupné i odsud (testy, nástroje)
     EXT_H,
@@ -22,6 +22,7 @@ from envocad.model.terminal_plan import (  # noqa: F401 – rozměry zůstávaj�
     PlanChunk,
     StripPlan,
     layout_plan_pages,
+    sheet_plan_pages,
     terminal_plan,
 )
 from envocad.ui.canvas import SchematicView
@@ -40,7 +41,8 @@ class TerminalPlanScene(QGraphicsScene):
         self.project, self.sheet, self.library, self.undo = project, sheet, library, undo
         self.draw_grid = True
         self.mode = None
-        self.paper_size = (sheet.width, sheet.height)
+        self.paper_size = page_size(sheet)      # strana jako vícepól listu (výchozí A4 na šířku)
+        self.paper_label = page_paper_label(sheet)
         w, h = self.paper_size
         self._paper = QGraphicsRectItem(QRectF(0, -h, w, h))
         self._paper.setZValue(-1)
@@ -50,16 +52,15 @@ class TerminalPlanScene(QGraphicsScene):
 
     @property
     def page_pitch(self) -> float:
-        return self.sheet.height + self.PAGE_GAP
+        return self.paper_size[1] + self.PAGE_GAP
 
     def rebuild(self) -> None:
         self._paper.setPen(QPen(colors().paper, 0.5))
         from envocad.model.project import clean_view
         self.plans: list[StripPlan] = terminal_plan(*clean_view(self.project, self.sheet))
-        w, h = self.sheet.width, self.sheet.height
-        self.paper_size = (w, h)
-        inner = frame_geometry(self.project, self.sheet, view="plán svorkovnice").inner
-        self.page_chunks: list[list[PlanChunk]] = layout_plan_pages(self.plans, inner)
+        self.paper_size, self.page_chunks = sheet_plan_pages(self.project, self.sheet, self.plans)
+        self.paper_label = page_paper_label(self.sheet)
+        w, h = self.paper_size
         n = len(self.page_chunks)
         pitch = self.page_pitch
         self.pages = [QRectF(0, k * pitch - h, w, h) for k in range(n)]
@@ -88,8 +89,8 @@ class TerminalPlanScene(QGraphicsScene):
         for k in range(n):
             painter.save()
             painter.translate(0, k * self.page_pitch)
-            page = f"{k + 1}/{n}" if n > 1 else ""
-            draw_frame(painter, frame_geometry(self.project, self.sheet, w, h, "plán svorkovnice", page), c.ink)
+            draw_frame(painter, frame_geometry(self.project, self.sheet, w, h, "plán svorkovnice",
+                                               page_label(self.project, self.sheet, k, n), self.paper_label), c.ink)
             for chunk in self.page_chunks[k] if k < len(self.page_chunks) else []:
                 self._draw_chunk(painter, chunk, c)
             painter.restore()

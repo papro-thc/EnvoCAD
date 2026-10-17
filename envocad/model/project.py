@@ -624,6 +624,9 @@ class Sheet:
     # strukturní označení listu (IEC 81346) – výchozí aspekty prvků a vodičů listu; kódy bez znaménka
     func: str = ""                        # "=" funkce
     loc: str = ""                         # "+" umístění (list rozvaděče = označení bloku)
+    # formát stran vícepólu a plánu svorkovnice listu rozvaděče („A4“, „A4 na výšku“, „A3“, „list“ = rozměr listu);
+    # prázdné = podle firemního standardu (`multipole.paper_choice`). Nepovinný klíč – ukládá se, jen když je zadaný.
+    mp_paper: str = ""
     id: str = field(default_factory=_uid)
 
     @property
@@ -650,6 +653,7 @@ class Sheet:
             "kind": self.kind, "parent_element_id": self.parent_element_id, "layout": self.layout.to_dict(),
             "elements": [e.to_dict() for e in self.elements], "wires": [w.to_dict() for w in self.wires],
             "bridges": self.bridges, "func": self.func, "loc": self.loc,
+            **({"mp_paper": self.mp_paper} if self.mp_paper else {}),
         }
 
     def restore_state(self, d: dict) -> None:
@@ -683,6 +687,7 @@ class Sheet:
             bridges={str(k): [[str(x) for x in _list(g, "bridges")] for g in _list(v, "bridges")]
                      for k, v in _dict(d.get("bridges"), "bridges").items()},
             func=str(d.get("func") or ""), loc=str(d.get("loc") or ""),
+            mp_paper=str(d.get("mp_paper") or ""),
         )
 
 
