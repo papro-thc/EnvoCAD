@@ -268,6 +268,9 @@ class MainWindow(QMainWindow):
         act(m_view, "Přizpůsobit list", lambda: self.view and self.view.zoom_fit(), "Home", "fit")
         act(m_view, "Přiblížit", lambda: self.zoom(1.25), "Ctrl++", "zoom_in")
         act(m_view, "Oddálit", lambda: self.zoom(1 / 1.25), "Ctrl+-", "zoom_out")
+        self.act_focus = act(m_view, "Jen výkres (skrýt panely)", lambda: None, "F11", "focus")
+        self.act_focus.setCheckable(True)
+        self.act_focus.toggled.connect(self.set_drawing_only)
         m_view.addSeparator()
         act(m_view, "Vícepólový pohled", self.open_multipole, "Ctrl+M", "view_multipole")
         act(m_view, "Jednopólové schéma", self.open_singlepole, "Ctrl+J", "view_singlepole")
@@ -1093,11 +1096,29 @@ class MainWindow(QMainWindow):
         self.nav_panel.filter.setText(text.strip())
         self.statusBar().showMessage(f"„{text}“ nenalezeno – v navigátoru je nastavený filtr", 4000)
 
+    CHECKS_HEIGHT = 150                          # výchozí výška panelu Kontrola – výkres má přednost
+
     def run_checks(self) -> None:
         """F7: nálezy do panelu Kontrola (dole, neblokuje práci); s otevřeným panelem se po změnách obnovují."""
         self._check_now()
-        self.checks_dock.show()
+        if self.act_focus.isChecked():
+            self.act_focus.setChecked(False)
+        if not self.checks_dock.isVisible():
+            self.checks_dock.show()
+            if not self.checks_dock.isFloating():
+                self.resizeDocks([self.checks_dock], [self.CHECKS_HEIGHT], Qt.Vertical)
         self.checks_dock.raise_()
+
+    def set_drawing_only(self, on: bool) -> None:
+        """Zobrazit → Jen výkres (F11): schová všechny panely (lišty zůstanou); druhým stiskem se vrátí, jak byly."""
+        if on:
+            self._hidden_docks = [d for d in self.findChildren(QDockWidget) if d.isVisible()]
+            for d in self._hidden_docks:
+                d.hide()
+        else:
+            for d in getattr(self, "_hidden_docks", []):
+                d.show()
+            self._hidden_docks = []
 
     def _check_now(self) -> None:
         from envocad.model.checks import check_project
@@ -1996,7 +2017,7 @@ class MainWindow(QMainWindow):
     TOOLBARS = (
         ("tb_file", "Soubor", ("new", "open", "save", None, "export_pdf", "export_dxf")),
         ("tb_edit", "Úpravy", ("undo", "redo", None, "copy", "paste", "delete", None, "find")),
-        ("tb_view", "Pohled", ("fit", "zoom_in", "zoom_out", None, "view_singlepole", "view_multipole",
+        ("tb_view", "Pohled", ("fit", "zoom_in", "zoom_out", "focus", None, "view_singlepole", "view_multipole",
                                "view_layout", "view_terminals", None, "dark")),
         ("tb_draw", "Kreslení", ("select", "wire", "insert_symbol", "note", None, "rotate", "straighten")),
         ("tb_layout", "Dispozice", ("enclosure", "production")),
@@ -2005,7 +2026,7 @@ class MainWindow(QMainWindow):
     ICONS: ClassVar[dict[str, str]] = {
         "new": "file-plus", "open": "folder-open", "save": "save", "export_pdf": "file-down",
         "export_dxf": "file-output", "undo": "undo-2", "redo": "redo-2", "copy": "copy", "paste": "clipboard-paste",
-        "delete": "trash-2", "find": "search", "fit": "scan", "zoom_in": "zoom-in", "zoom_out": "zoom-out",
+        "delete": "trash-2", "find": "search", "fit": "scan", "zoom_in": "zoom-in", "zoom_out": "zoom-out", "focus": "expand",
         "view_singlepole": "singlepole", "view_multipole": "multipole", "view_layout": "din-rail",
         "view_terminals": "terminal-strip", "dark": "moon", "select": "mouse-pointer-2", "wire": "wire",
         "insert_symbol": "component", "note": "message-square-plus", "rotate": "rotate-cw", "straighten": "straighten",
@@ -2271,6 +2292,8 @@ class MainWindow(QMainWindow):
             self.restoreState(state)
 
     def _save_window(self) -> None:
+        if self.act_focus.isChecked():            # „Jen výkres“ je dočasný – uloží se rozložení s panely
+            self.act_focus.setChecked(False)
         st = self._settings()
         st.setValue("window/geometry", self.saveGeometry())
         st.setValue("window/state", self.saveState())

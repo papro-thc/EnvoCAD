@@ -340,3 +340,28 @@ def test_checks_panel_restored_from_last_run_fills_itself():
     w2._checks_timer.timeout.emit()
     assert w2._findings is not None and w2.checks_panel.tree.topLevelItemCount() > 0
     w2.close()
+
+
+def test_drawing_only_and_compact_checks_panel():
+    from PySide6.QtWidgets import QDockWidget
+    w, _p, _s = _sb_window()
+    w.resize(1400, 900)
+    w.tabs.setCurrentIndex(0)
+    QApplication.processEvents()
+    full, full_w = w.view.viewport().height(), w.view.viewport().width()
+    w.run_checks()
+    QApplication.processEvents()
+    assert w.checks_dock.height() <= MainWindow.CHECKS_HEIGHT + 40        # výkres má přednost
+    assert w.view.viewport().height() >= full - MainWindow.CHECKS_HEIGHT - 60
+    w.actions["focus"].trigger()                                          # F11: jen výkres
+    QApplication.processEvents()
+    assert not any(d.isVisible() for d in w.findChildren(QDockWidget))
+    assert w.view.viewport().height() >= full and w.view.viewport().width() > full_w + 200   # bez bočních panelů
+    w.actions["focus"].trigger()
+    QApplication.processEvents()
+    assert w.checks_dock.isVisible() and w.findChild(QDockWidget, "Knihovna").isVisible()
+    w.actions["focus"].trigger()
+    w.close()                                                             # uloží se rozložení s panely
+    w2, _p2, _s2 = _sb_window()
+    assert w2.findChild(QDockWidget, "Knihovna").isVisible() and not w2.act_focus.isChecked()
+    w2.close()
