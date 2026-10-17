@@ -18,7 +18,7 @@ from envocad.model.project import Element
 REQUIRED = ["id", "manufacturer", "part_number", "name", "category", "symbol_id", "datasheet_url", "source"]
 CATEGORIES = {"mcb", "mccb", "rcd", "rcbo", "spd", "switch", "contactor", "fuse", "fuse_holder", "meter", "inverter",
               "inverter_hybrid", "battery", "pv_module", "enclosure", "terminal", "relay", "accessory", "connector",
-              "cable", "other"}
+              "cable", "optimizer", "other"}
 NUMERIC = {"price_czk", "in_", "poles", "icu_ka", "idn_ma", "un_v", "modules", "width_mm", "height_mm", "depth_mm",
            "p_loss_w", "p_ac_kw", "p_dc_max_kwp", "mppt", "phases", "i_ac_max_a", "e_kwh", "p_kw", "u_dc_v", "p_wp",
            "voc_v", "isc_a", "vmp_v", "imp_a", "uc_v", "up_kv", "iimp_ka", "in_ka", "rows", "modules_per_row",
@@ -26,7 +26,12 @@ NUMERIC = {"price_czk", "in_", "poles", "icu_ka", "idn_ma", "un_v", "modules", "
            "i_mppt_max_a", "strings_per_mppt", "beta_voc", "t_min_c", "t_max_c",
            # FV moduly (pv_modules.csv) a střídače – katalog pro průvodce (docs/design/katalog_fv.md)
            "alpha_isc", "gamma_pmax", "noct_c", "u_sys_max_v", "i_fuse_max_a", "weight_kg", "isc_mppt_max_a",
-           "eff_max_pct", "eff_eu_pct"}
+           "eff_max_pct", "eff_eu_pct",
+           # optimizéry (optimizers.csv) a režim stringu střídače (docs/design/optimizery.md)
+           "p_max_w", "p_tol_pct", "u_in_max_v", "isc_in_max_a", "i_out_max_a", "u_out_max_v", "modules_per_optimizer",
+           "partial_ok", "n_min_1ph", "n_max_1ph", "p_string_max_1ph_w", "n_min_3ph", "n_max_3ph", "p_string_max_3ph_w",
+           "u_string_v", "n_opt_min", "n_opt_max", "p_string_max_w"}
+STRING_MODES = ("classic", "optimizer", "fixed_voltage")   # = `model.calc.STRING_MODES` (prázdné = classic)
 SOURCES = {"catalog", "datasheet", "web", "seed", "user"}
 
 # výchozí schematická značka podle kategorie (když symbol_id chybí)
@@ -53,7 +58,21 @@ PARAM_TO_ATTR = {
     # rozsah provozní teploty okolí přístroje [°C] dle datasheetu – ověření oteplení po přístrojích (`thermal`)
     "t_min_c": "t_min", "t_max_c": "t_max",
     "contacts": "contacts",   # kontaktní obraz („1/2 3/4 5/6 13/14 21/22“) – zrcadlo kontaktů, kontroly kontaktů
+    # střídač: režim stringu, pevné napětí stringu, pravidla stringu s optimizéry (`calc.InverterData`)
+    "string_mode": "string_mode", "u_string_v": "u_string", "n_opt_min": "n_opt_min", "n_opt_max": "n_opt_max",
+    "p_string_max_w": "p_string_max",
 }
+
+# optimizér: artikl.param → atribut stringu `fve.pv_string` (vlastní předpona, nekoliduje s typem/výrobcem modulu);
+# pravidla stringu dané fáze (`n_min_1ph`…) doplní `Component.optimizer_values(phases)` jako opt_n_min/opt_n_max/
+# opt_p_string_max
+OPTIMIZER_ATTRS = {
+    "part_number": "optimizer", "manufacturer": "opt_manufacturer", "p_max_w": "opt_p_max", "p_tol_pct": "opt_p_tol",
+    "u_in_max_v": "opt_u_in_max", "u_mppt_min_v": "opt_u_mppt_min", "isc_in_max_a": "opt_isc_in_max",
+    "i_out_max_a": "opt_i_out_max", "u_out_max_v": "opt_u_out_max", "modules_per_optimizer": "opt_modules",
+    "partial_ok": "opt_partial", "compat": "opt_compat",
+}
+OPTIMIZER_PHASE_ATTRS = {"n_min": "opt_n_min", "n_max": "opt_n_max", "p_string_max": "opt_p_string_max"}
 
 
 @dataclass
@@ -93,6 +112,22 @@ class Component:
             if v in (None, ""):
                 continue
             out[akey] = str(v)
+        return out
+
+    def optimizer_values(self, phases=3) -> dict[str, str]:
+        """Atributy stringu z artiklu optimizéru (`OPTIMIZER_ATTRS`, jen neprázdné) + `optimizer_id` a pravidla stringu
+        pro danou fázi (1 → `*_1ph`, jinak `*_3ph`) jako `opt_n_min`, `opt_n_max`, `opt_p_string_max`."""
+        src = {"part_number": self.part_number, "manufacturer": self.manufacturer, **self.params}
+        out = {akey: str(src[pkey]) for pkey, akey in OPTIMIZER_ATTRS.items() if src.get(pkey) not in (None, "")}
+        out["optimizer_id"] = self.id
+        try:
+            ph = "1ph" if float(str(phases).replace(",", ".")) == 1 else "3ph"
+        except (TypeError, ValueError):
+            ph = "3ph"
+        for base, akey in OPTIMIZER_PHASE_ATTRS.items():
+            v = self.params.get(f"{base}_{ph}" if base != "p_string_max" else f"p_string_max_{ph}_w")
+            if v not in (None, ""):
+                out[akey] = str(v)
         return out
 
     def apply_to(self, e: Element) -> dict[str, str]:
@@ -216,6 +251,62 @@ def inverter_error(row: dict) -> str | None:
         errs.append(f"'u_mppt_min_v' ({lo:g} V) musí být menší než 'u_dc_max_v' ({u_dc:g} V)")
     if spm is not None and (spm < 1 or not spm.is_integer()):
         errs.append(f"'strings_per_mppt' musí být celé číslo ≥ 1, je {spm:g}")
+    mode = str(row.get("string_mode") or "").strip()
+    if mode and mode not in STRING_MODES:
+        errs.append(f"'string_mode' musí být prázdné nebo jedno z {', '.join(STRING_MODES)}, je '{mode}'")
+    u_str = _row_num(row, "u_string_v")
+    if mode == "fixed_voltage" and u_str is None:
+        errs.append("'string_mode' = fixed_voltage vyžaduje 'u_string_v'")
+    if u_str is not None and u_dc is not None and u_str > u_dc:
+        errs.append(f"'u_string_v' ({u_str:g} V) nesmí být větší než 'u_dc_max_v' ({u_dc:g} V)")
+    errs += _range_errors(row, "n_opt_min", "n_opt_max")
+    return "; ".join(errs) or None
+
+
+def _range_errors(row: dict, k_min: str, k_max: str) -> list[str]:
+    """Celá čísla ≥ 1 a k_min ≤ k_max (prázdné se přeskočí)."""
+    errs = []
+    lo, hi = _row_num(row, k_min), _row_num(row, k_max)
+    for key, v in ((k_min, lo), (k_max, hi)):
+        if v is not None and (v < 1 or not v.is_integer()):
+            errs.append(f"'{key}' musí být celé číslo ≥ 1, je {v:g}")
+    if lo is not None and hi is not None and lo > hi:
+        errs.append(f"'{k_min}' ({lo:g}) nesmí být větší než '{k_max}' ({hi:g})")
+    return errs
+
+
+def optimizer_error(row: dict) -> str | None:
+    """Česká hláška k řádku optimizéru (`category=optimizer`), nebo None. Povinné `p_max_w`, `u_in_max_v`,
+    `isc_in_max_a` (bez nich řádek neukládat), u_mppt_min < u_mppt_max ≤ u_in_max, `modules_per_optimizer` ∈ {1, 2}
+    (povinné – rozhodnutí orchestrátora 8), `string_mode` z `STRING_MODES`, `partial_ok` 0/1, n_min ≤ n_max po fázích."""
+    errs: list[str] = []
+    for key in ("p_max_w", "u_in_max_v", "isc_in_max_a"):
+        v = _row_num(row, key)
+        if v is None:
+            errs.append(f"optimizér bez '{key}'")
+        elif v <= 0:
+            errs.append(f"'{key}' musí být kladné, je {v:g}")
+    u_in, lo, hi = (_row_num(row, k) for k in ("u_in_max_v", "u_mppt_min_v", "u_mppt_max_v"))
+    if lo is not None and hi is not None and not lo < hi:
+        errs.append(f"'u_mppt_min_v' ({lo:g} V) musí být menší než 'u_mppt_max_v' ({hi:g} V)")
+    if hi is not None and u_in is not None and hi > u_in:
+        errs.append(f"'u_mppt_max_v' ({hi:g} V) nesmí být větší než 'u_in_max_v' ({u_in:g} V)")
+    if lo is not None and u_in is not None and lo >= u_in:
+        errs.append(f"'u_mppt_min_v' ({lo:g} V) musí být menší než 'u_in_max_v' ({u_in:g} V)")
+    mpo = _row_num(row, "modules_per_optimizer")
+    if mpo not in (1.0, 2.0):
+        errs.append("'modules_per_optimizer' musí být 1 nebo 2" + ("" if mpo is None else f", je {mpo:g}"))
+    mode = str(row.get("string_mode") or "").strip()
+    if mode and mode not in STRING_MODES:
+        errs.append(f"'string_mode' musí být prázdné nebo jedno z {', '.join(STRING_MODES)}, je '{mode}'")
+    part = str(row.get("partial_ok") or "").strip()
+    if part and part not in ("0", "1"):
+        errs.append(f"'partial_ok' musí být 0 nebo 1, je '{part}'")
+    tol = _row_num(row, "p_tol_pct")
+    if tol is not None and not 0 <= tol <= 100:
+        errs.append(f"'p_tol_pct' musí být 0 až 100 %, je {tol:g}")
+    for ph in ("1ph", "3ph"):
+        errs += _range_errors(row, f"n_min_{ph}", f"n_max_{ph}")
     return "; ".join(errs) or None
 
 
@@ -264,7 +355,8 @@ def validate(path: Path | str, known_symbols: set[str] | None = None) -> list[st
             if t_err:
                 errors.append(f"řádek {n} ({rid}): {t_err}")
             cat_err = (pv_module_error(row) if cat == "pv_module"
-                       else inverter_error(row) if cat in ("inverter", "inverter_hybrid") else None)
+                       else inverter_error(row) if cat in ("inverter", "inverter_hybrid")
+                       else optimizer_error(row) if cat == "optimizer" else None)
             if cat_err:
                 errors.append(f"řádek {n} ({rid}): {cat_err}")
             contacts = (row.get("contacts") or "").strip()

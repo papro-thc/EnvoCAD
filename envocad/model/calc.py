@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from envocad.model.notes import plural
 from envocad.model.project import Element, Project, Sheet, Wire
@@ -22,6 +22,8 @@ DC_INPUTS_PER_MPPT_DEFAULT = 2      # vstupů na MPPT, když střídač `strings
 #                                     (generátor, `inverter_dc_inputs`), ne pro sčítání proudů stringů na MPPT
 SAFETY_ISC = 1.25                   # ČSN 33 2000-7-712: dimenzování DC na 1,25·Isc
 SELECTIVITY_RATIO = 1.6             # orientační poměr In pro selektivitu MCB–MCB v přetížení
+# režim stringu (atribut střídače `string_mode`, prázdné = classic) – docs/design/optimizery.md
+STRING_MODES = ("classic", "optimizer", "fixed_voltage")
 
 # Iz [A] Cu, PVC 70 °C, 30 °C okolí, 3 zatížené vodiče – ČSN 33 2000-5-52 tab. B.52.4/B.52.5 (ORIENTAČNÍ)
 IZ_3 = {
@@ -107,6 +109,7 @@ class ModuleData:
     p_wp: float | None = None
     alpha_isc: float | None = None
     gamma_pmax: float | None = None
+    component_id: str = ""   # artikl modulu (jen pro porovnání paralelních stringů, `parallel_issues`)
 
     @classmethod
     def from_attrs(cls, a: dict) -> ModuleData | None:
@@ -152,6 +155,12 @@ class InverterData:
     strings_per_mppt: int | None = None
     p_ac: float | None = None
     p_dc_max: float | None = None
+    string_mode: str = "classic"      # atribut `string_mode` tak, jak je (prázdné = classic); platný režim = `mode`
+    u_string: float | None = None     # pevné napětí stringu [V] (fixed_voltage, jen informativně / věrohodnost)
+    n_opt_min: int | None = None      # optimizérů ve stringu min / max (optimizer, fixed_voltage)
+    n_opt_max: int | None = None
+    p_string_max: float | None = None  # max. výkon stringu [W] (optimizer, fixed_voltage)
+    manufacturer: str = ""            # výrobce (kompatibilita optimizéru)
 
     @classmethod
     def from_attrs(cls, a: dict) -> InverterData:
@@ -162,7 +171,68 @@ class InverterData:
                    u_mppt_max=_f(a.get("u_mppt_max")), i_mppt_max=_f(a.get("i_mppt_max")),
                    isc_mppt_max=_f(a.get("isc_mppt_max")), mppt=int(mppt) if mppt and mppt >= 1 else None,
                    strings_per_mppt=int(spm) if spm and spm >= 1 else None, p_ac=_f(a.get("p_ac")),
-                   p_dc_max=_f(a.get("p_dc_max")))
+                   p_dc_max=_f(a.get("p_dc_max")),
+                   string_mode=str(a.get("string_mode") or "").strip() or "classic", u_string=_f(a.get("u_string")),
+                   n_opt_min=_int(a.get("n_opt_min")), n_opt_max=_int(a.get("n_opt_max")),
+                   p_string_max=_f(a.get("p_string_max")), manufacturer=str(a.get("manufacturer") or "").strip())
+
+    @property
+    def mode(self) -> str:
+        """Platný režim stringu: `string_mode` z `STRING_MODES`, neznámá hodnota → classic (`string_issues` varuje)."""
+        return self.string_mode if self.string_mode in STRING_MODES else "classic"
+
+
+def _int(v) -> int | None:
+    """Kladné celé číslo z atributu („14“, „14.0“), jinak None."""
+    x = _f(v)
+    return int(x) if x is not None and x >= 1 and float(x).is_integer() else None
+
+
+@dataclass(frozen=True)
+class OptimizerData:
+    """Optimizér stringu (z atributů `opt_*` stringu, viz `Component.optimizer_values`): P max vstupu [W], U max vstupu
+    [V], Isc max vstupu [A], modulů na optimizér (1 | 2), tolerance P dle výrobce [%], U MPPT min [V], I max a U max
+    výstupu, smíšení s neoptimalizovanými moduly dovoleno, typ, výrobce, kompatibilita („SolarEdge“, „*“) a pravidla
+    stringu z listu optimizéru pro fázi střídače (n_min, n_max optimizérů, P stringu max [W])."""
+    p_max: float
+    u_in_max: float
+    isc_in_max: float | None
+    modules: int = 1
+    p_tol_pct: float = 0.0
+    u_mppt_min: float | None = None
+    i_out_max: float | None = None
+    u_out_max: float | None = None
+    partial_ok: bool = False
+    name: str = ""
+    manufacturer: str = ""
+    compat: str = ""
+    n_min: int | None = None
+    n_max: int | None = None
+    p_string_max: float | None = None
+
+    @classmethod
+    def from_attrs(cls, a: dict) -> OptimizerData | None:
+        """Z atributů stringu; bez `opt_p_max` nebo `opt_u_in_max` → None (optimizér bez parametrů)."""
+        p_max, u_in = _f(a.get("opt_p_max")), _f(a.get("opt_u_in_max"))
+        if not p_max or not u_in or p_max <= 0 or u_in <= 0:
+            return None
+        mpo = _int(a.get("opt_modules")) or 1
+        return cls(p_max=p_max, u_in_max=u_in, isc_in_max=_f(a.get("opt_isc_in_max")), modules=min(mpo, 2),
+                   p_tol_pct=_f(a.get("opt_p_tol")) or 0.0, u_mppt_min=_f(a.get("opt_u_mppt_min")),
+                   i_out_max=_f(a.get("opt_i_out_max")), u_out_max=_f(a.get("opt_u_out_max")),
+                   partial_ok=str(a.get("opt_partial") or "").strip() in ("1", "1.0", "true", "ano"),
+                   name=str(a.get("optimizer") or "").strip(), manufacturer=str(a.get("opt_manufacturer") or "").strip(),
+                   compat=str(a.get("opt_compat") or "").strip(), n_min=_int(a.get("opt_n_min")),
+                   n_max=_int(a.get("opt_n_max")), p_string_max=_f(a.get("opt_p_string_max")))
+
+    def compatible_with(self, manufacturer: str) -> bool | None:
+        """Kompatibilita se střídačem výrobce `manufacturer` podle `compat` (položky oddělené , ; /; „*“ = libovolný;
+        shoda prvního slova bez ohledu na velikost písmen). Neznámý výrobce nebo prázdné `compat` → None."""
+        man = (manufacturer or "").strip().lower().split()
+        entries = [x.strip().lower() for x in re.split(r"[,;/|]", self.compat) if x.strip()]
+        if not man or not entries:
+            return None
+        return any(x == "*" or x.split()[0] == man[0] for x in entries)
 
 
 @dataclass
@@ -173,6 +243,9 @@ class StringLimits:
     n_max: int | None
     n_par_max: int
     reasons: list[str] = field(default_factory=list)
+    step: int = 1                              # délky stringu po násobcích step (modulů na optimizér; `propose_strings`)
+    n_opt: tuple[int | None, int | None] | None = None   # rozmezí počtu optimizérů (optimizer, fixed_voltage)
+    mode: str = "classic"                      # platný režim stringu (`InverterData.mode`)
 
     @property
     def ok(self) -> bool:

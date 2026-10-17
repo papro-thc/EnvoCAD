@@ -169,6 +169,102 @@
       "label": "Tepl. součinitel Isc [%/K]",
       "default": "",
       "show": false
+    },
+    {
+      "key": "optimizer_id",
+      "label": "Optimizér – artikl",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "opt_manufacturer",
+      "label": "Optimizér – výrobce",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "opt_p_max",
+      "label": "Optimizér – P max vstupu [W]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "opt_p_tol",
+      "label": "Optimizér – tolerance P [%]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "opt_u_in_max",
+      "label": "Optimizér – U max vstupu [V]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "opt_u_mppt_min",
+      "label": "Optimizér – U MPPT min [V]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "opt_isc_in_max",
+      "label": "Optimizér – Isc max vstupu [A]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "opt_i_out_max",
+      "label": "Optimizér – I max výstupu [A]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "opt_u_out_max",
+      "label": "Optimizér – U max výstupu [V]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "opt_modules",
+      "label": "Optimizér – modulů na optimizér",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "opt_partial",
+      "label": "Optimizér – smíšení dovoleno (0/1)",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "opt_compat",
+      "label": "Optimizér – kompatibilita",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "opt_n_min",
+      "label": "Optimizérů ve stringu min",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "opt_n_max",
+      "label": "Optimizérů ve stringu max",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "opt_p_string_max",
+      "label": "P stringu max – optimizér [W]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "orientation",
+      "label": "Orientace pole",
+      "default": "",
+      "show": false
     }
   ],
   "label_pos": {
