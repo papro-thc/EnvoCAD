@@ -5,6 +5,7 @@ import logging
 import os
 from pathlib import Path
 
+import shiboken6
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction, QKeySequence, QUndoStack
 from PySide6.QtWidgets import (
@@ -124,6 +125,8 @@ class MainWindow(QMainWindow):
                                  f"Projekt nelze otevřít:\n{ex}\n\nEnvoCAD se spustí s prázdným projektem.")
             self._load_project(Project())
         self.resize(1400, 900)
+        self._default_layout = self.saveState()     # pro Zobrazit → Obnovit rozložení
+        self._restore_window()
         # automatické ukládání rozpracovaného projektu (obnova po pádu)
         self._autosave_timer = QTimer(self)
         self._autosave_timer.setInterval(120_000)
@@ -220,7 +223,7 @@ class MainWindow(QMainWindow):
         m_edit.addSeparator()
         act(m_edit, "Kopírovat", lambda: self.scene and self.scene.copy_selected())
         act(m_edit, "Vložit kopii", lambda: self.scene and self.scene.paste())
-        act(m_edit, "Uložit výběr jako makro…", self.save_macro, "Ctrl+Shift+S")
+        act(m_edit, "Uložit výběr jako makro…", self.save_macro, "Ctrl+Alt+M")
         act(m_edit, "Smazat makro…", self.delete_macro)
         act(m_edit, "Smazat", lambda: self.scene and self.scene.delete_selected(), "Delete")
         act(m_edit, "Otočit o 90°", lambda: self.draw_scene and self.draw_scene.rotate_selected(), "R")
@@ -261,6 +264,9 @@ class MainWindow(QMainWindow):
         self.act_notes.setChecked(self._notes_visible_setting())
         self.act_notes.toggled.connect(self.set_notes_visible)
         m_view.addAction(self.act_notes)
+        m_view.addSeparator()
+        act(m_view, "Obnovit rozložení panelů a lišt", self.reset_layout)
+        self._shortcut_tooltips()
 
         m_proj = mb.addMenu("&Projekt")
         act(m_proj, "Strukturní označení…", self.edit_structures)
@@ -1506,8 +1512,7 @@ class MainWindow(QMainWindow):
     # ---- poslední projekty, autosave ------------------------------------------
     @staticmethod
     def _settings():
-        from PySide6.QtCore import QSettings
-        return QSettings("ENVO", "EnvoCAD")
+        return theme.app_settings()
 
     def _recent(self) -> list[str]:
         v = self._settings().value("files/recent", [])
@@ -1933,8 +1938,47 @@ class MainWindow(QMainWindow):
         from envocad.logging_setup import log_dir
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(log_dir())))
 
+    # ---- velikost okna a rozložení panelů -------------------------------------
+    def _restore_window(self) -> None:
+        """Velikost, poloha a rozložení doků/lišt z minulého spuštění (QSettings `window/*`)."""
+        st = self._settings()
+        geo, state = st.value("window/geometry"), st.value("window/state")
+        if geo:
+            self.restoreGeometry(geo)
+        if state:
+            self.restoreState(state)
+
+    def _save_window(self) -> None:
+        st = self._settings()
+        st.setValue("window/geometry", self.saveGeometry())
+        st.setValue("window/state", self.saveState())
+
+    def reset_layout(self) -> None:
+        """Zobrazit → Obnovit rozložení: doky a lišty jako po prvním spuštění (skryté panely se znovu ukážou)."""
+        for d in self.findChildren(QDockWidget):
+            d.setFloating(False)
+            d.show()
+        self.restoreState(self._default_layout)
+        self._save_window()
+
+    def _shortcut_tooltips(self) -> None:
+        """Tooltip „název (zkratka)“ u všech akcí se zkratkou – i u Zpět/Znovu, jejichž text se mění s historií."""
+        def upd(a: QAction) -> None:
+            if not shiboken6.isValid(a):         # akce se právě ruší (zavření okna)
+                return
+            keys = a.shortcut().toString(QKeySequence.NativeText)
+            name = a.iconText().rstrip("…")          # bez & a „…“
+            tip = f"{name} ({keys})" if keys else name
+            if a.toolTip() != tip:
+                a.setToolTip(tip)
+        for a in self.findChildren(QAction):
+            if not a.shortcut().isEmpty():
+                upd(a)
+                a.changed.connect(lambda a=a: upd(a))
+
     def closeEvent(self, ev) -> None:
         if self._confirm_discard():
+            self._save_window()
             self._clear_autosave()   # uloženo nebo zahozeno – kopie tohoto okna už není potřeba
             ev.accept()
         else:
