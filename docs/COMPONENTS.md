@@ -39,6 +39,7 @@ Volitelné (podle kategorie): viz tabulka. Neznámou hodnotu nechte **prázdnou*
 | `modules` | šířka na DIN liště | moduly 17,5 mm (0,5 = 9 mm) |
 | `width_mm`, `height_mm`, `depth_mm` | rozměry | mm (u modulových: šířka, výška čela, hloubka) |
 | `p_loss_w` | ztrátový výkon při In (celý přístroj, všechny póly) | W |
+| `t_min_c`, `t_max_c` | rozsah provozní teploty okolí přístroje dle datasheetu (ne skladovací); −60 až 150, `t_min_c` < `t_max_c`. Hodnocení oteplení po přístrojích – bez údaje se počítá s 40 °C. Jen ověřené hodnoty z datasheetu, vestavěné CSV mají sloupce zatím prázdné | °C |
 | `p_ac_kw`, `p_dc_max_kwp`, `mppt`, `phases`, `i_ac_max_a` | střídače | kW, kWp, počet, 1/3, A |
 | `u_dc_max_v`, `u_mppt_min_v`, `u_mppt_max_v`, `i_mppt_max_a`, `strings_per_mppt` | střídače – pro kontrolu stringů (výpočty) | V, V, V, A, ks |
 | `p_wp`, `voc_v`, `vmp_v`, `isc_a`, `imp_a`, `beta_voc` | FV moduly (STC) + tepl. součinitel Uoc | Wp, V, V, A, A, %/K |
@@ -55,7 +56,7 @@ Volitelné (podle kategorie): viz tabulka. Neznámou hodnotu nechte **prázdnou*
 ## Propsání do prvku
 
 Při výběru artiklu v dialogu prvku se naplní atributy prvku: `type` ← `part_number`, `manufacturer`,
-`in_`, `poles`, `char`, `icu`, `idn`, `modules`, `p_loss_w`, `spd_type`, `uc`, `p_ac`, `p_dc_max`,
+`in_`, `poles`, `char`, `icu`, `idn`, `modules`, `p_loss_w`, `t_min`, `t_max`, `spd_type`, `uc`, `p_ac`, `p_dc_max`,
 `mppt`, `phases`, `e_kwh`, `p_kw`, `p_string`, `contacts`… (mapování v `envocad/library/components.py`).
 Atributy, které artikl nezná, zůstanou, jak byly.
 
