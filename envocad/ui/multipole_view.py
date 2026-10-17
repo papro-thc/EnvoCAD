@@ -178,7 +178,7 @@ class BridgeItem(QGraphicsPathItem):
 
     def __init__(self, strip: str, group: list[str], points: list[tuple[float, float]]):
         super().__init__()
-        self.strip, self.group, self.points = strip, group, points
+        self.strip, self.group, self.points = strip, list(group), list(points)
         path = QPainterPath(sp(*points[0]))
         for pt in points[1:]:
             path.lineTo(sp(*pt))
@@ -210,14 +210,18 @@ class PageBreakItem(QGraphicsItem):
     def boundingRect(self) -> QRectF:
         return QRectF(-40, -6, 80, 12)
 
+    def arrow(self) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+        """Čáry šipky relativně k hrotu (osy modelu) – stejné jako v kreslicím seznamu modelu."""
+        from envocad.model.multipole_geometry import break_arrow
+        return break_arrow(0.0, 0.0, self.outgoing)
+
     def paint(self, painter, option, widget=None):
         from envocad.model.multipole_geometry import REF_TEXT_H, break_text_pos
         c = colors().ink if self.scene() is None or self.scene().draw_grid else PRINT.ink
         painter.setPen(QPen(c, LINE_WIDTH))
-        d = 1.0 if self.outgoing else -1.0
-        # šipka k okraji strany: vpravo ven na pozdější stranu, vlevo zpět na dřívější
-        painter.drawLine(QPointF(0, 0), QPointF(-3 * d, -2))
-        painter.drawLine(QPointF(0, 0), QPointF(-3 * d, 2))
+        # šipka k okraji strany (z modelu): vpravo ven na pozdější stranu, vlevo zpět na dřívější
+        for a, b in self.arrow():
+            painter.drawLine(sp(*a), sp(*b))
         painter.setPen(QPen(c, 0.2))
         tx, ty, align = break_text_pos(0.0, 0.0, self.outgoing)
         draw_text(painter, tx, ty, self.text, REF_TEXT_H, align)
@@ -275,16 +279,16 @@ class BusItem(QGraphicsItem):
     def paint(self, painter, option, widget=None):
         c = colors()
         ink = c.selection if self.isSelected() else c.ink
+        from envocad.model.multipole_geometry import bus_arrows
         pen = QPen(ink, LINE_WIDTH * 1.5, Qt.SolidLine, Qt.FlatCap)
         for cond in self.conductors:
             y = self.ys[cond]
             painter.setPen(pen)
             painter.drawLine(sp(self.x0, y), sp(self.x1, y))
-            # šipky potenciálu na koncích + název (předpona sběrnice + žíla)
+            # šipky potenciálu na koncích (z modelu) + název (předpona sběrnice + žíla)
             name = f"{self.prefix}{cond}"
-            for x, d in ((self.x0, -1.0), (self.x1, 1.0)):
-                painter.drawLine(sp(x, y), sp(x - 2.5 * d, y + 1.2))
-                painter.drawLine(sp(x, y), sp(x - 2.5 * d, y - 1.2))
+            for a, b in bus_arrows(self.x0, self.x1, y):
+                painter.drawLine(sp(*a), sp(*b))
             painter.setPen(QPen(ink, 0.2))
             draw_text(painter, self.x0 - 1.5, y - 0.8, name, 2.0, "right")
             draw_text(painter, self.x1 + 1.5, y - 0.8, name, 2.0, "left")
@@ -359,6 +363,7 @@ class TitleItem(QGraphicsItem):
         return QRectF(-2, -2, 200, 20)
 
     def paint(self, painter, option, widget=None):
+        from envocad.model.multipole_geometry import title_underline
         ink = colors().ink if self.scene() is None or self.scene().draw_grid else PRINT.ink
         painter.setPen(QPen(ink, 0.25))
         y = 0.0
@@ -367,7 +372,8 @@ class TitleItem(QGraphicsItem):
             y -= h
             draw_text(painter, 0, y, text, h, "left")
             if i == 0:
-                painter.drawLine(sp(0, y - 1.0), sp(len(text) * h * 0.72, y - 1.0))
+                a, b = title_underline(0.0, y, text, h)
+                painter.drawLine(sp(*a), sp(*b))
                 y -= 2.8
             y -= 1.2
 
@@ -431,6 +437,7 @@ class MultipoleScene(QGraphicsScene):
     edit_element_requested = Signal(str)
     delete_requested = Signal(list, list)  # element_ids, wire_ids
     mode_changed = Signal(object)
+    followup_wires = Signal(list)     # id vodičů (i jiných listů) změněných follow-upy příkazu (commands)
 
     # ---- editace přímo ve schématu rozvaděče ---------------------------------------------------------
     def set_mode(self, mode) -> None:
@@ -470,7 +477,7 @@ class MultipoleScene(QGraphicsScene):
         dx, dy = snap(tx - (x0 + x1) / 2), snap(ty - (y0 + y1) / 2)
         els, wires = paste_fragment(self.project, fragment, lambda sid: self.library.get_symbol(sid).iec_ref, dx, dy)
         for e in els:
-            e.mp_pos = (e.x, e.y)
+            e.mp_pos = (e.x, e.y)  # model-write-ok: nové prvky makra, vloží je MultipoleAddCommand
         if els:
             self.undo.push(commands.MultipoleAddCommand(self, elements=els, wires=wires))
         return len(els)
@@ -488,7 +495,7 @@ class MultipoleScene(QGraphicsScene):
         if not els and not wires:
             return 0
         for e in els:
-            e.mp_pos = (e.x, e.y)
+            e.mp_pos = (e.x, e.y)  # model-write-ok: nové prvky makra, vloží je MultipoleAddCommand
         self.undo.push(commands.MultipoleAddCommand(self, elements=els, wires=wires, text=f"Vložit makro {m.name}"))
         return len(els)
 
@@ -522,9 +529,10 @@ class MultipoleScene(QGraphicsScene):
         sym = self.library.get_symbol(self._place_sid)
         x, y = snap(pos.x()), -snap(pos.y())
         e = Element(symbol_id=sym.id, x=x, y=y, rotation=self._place_rot)
+        # model-write-ok: nový prvek (ještě není v listu), vloží ho MultipoleAddCommand
         e.attrs = {a.key: a.default for a in sym.attributes}
-        e.attrs["ref"] = self.project.next_ref(sym.iec_ref) if sym.iec_ref else ""
-        e.mp_pos = (x, y)
+        e.attrs["ref"] = self.project.next_ref(sym.iec_ref) if sym.iec_ref else ""  # model-write-ok: nový prvek
+        e.mp_pos = (x, y)  # model-write-ok: nový prvek, viz výše
         self.undo.push(commands.MultipoleAddCommand(self, element=e))
         eid = e.id
         QTimer.singleShot(0, lambda: self.edit_element_requested.emit(eid))   # parametry hned po vložení
@@ -551,7 +559,7 @@ class MultipoleScene(QGraphicsScene):
         a, b = self.sheet.element(ea), self.sheet.element(eb)
         conds = [ca or cb] if (ca or cb) else mp.default_conductors(a, pa, b, pb)
         w = Wire(WireEnd(ea, pa), WireEnd(eb, pb), conductors=conds)
-        w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}
+        w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}  # model-write-ok: nový vodič pro MultipoleAddCommand
         self.undo.push(commands.MultipoleAddCommand(self, wire=w))
 
     def mouseMoveEvent(self, ev):
@@ -839,34 +847,11 @@ class MultipoleScene(QGraphicsScene):
         self._add(PageBreakItem(xb, yb, not right, ref_b))
 
     def _add_bridges(self, poles: dict[str, mp.ElementPoles]) -> None:
-        """Můstky svorkovnic: spojí středy svorek (posunuté k portu 1) se stejným označením X:n na tomto listu."""
-        pos: dict[tuple[str, str], tuple[float, float, float, float]] = {}  # (střed x, y, směr k portu 1)
-        for ep in poles.values():
-            e = ep.element
-            if not mp.is_terminal_block(e) or not ep.per_pole:
-                continue
-            nums = mp.terminal_numbers(e, len(ep.slots))
-            px, py = e.port_pos(ep.symbol, ep.through[0] if ep.through else ep.symbol.ports[0].name)
-            dx, dy = px - e.x, py - e.y
-            n = (dx * dx + dy * dy) ** 0.5 or 1.0
-            for c, num in zip(ep.slots, nums):
-                if num:
-                    ox, oy = ep.pole_offset(c)
-                    pos[(e.ref, num)] = (ep.origin[0] + ox, ep.origin[1] + oy, dx / n, dy / n, self.page_of.get(e.id, 0))
-        for strip, groups in self.sheet.bridges.items():
-            for gi, g in enumerate(groups):
-                hits = [pos[(strip, n)] for n in g if (strip, n) in pos]
-                if len(hits) < 2:
-                    continue
-                # každá skupina můstků v jiné výšce (od 2 mm po 0,6 mm směrem k portu 1), aby se nepřekrývaly;
-                # přes hranici stran se můstek kreslí po stranách zvlášť
-                off = 2.0 + 0.6 * (gi % 6)
-                for k in sorted({h[4] for h in hits}):
-                    part = [h for h in hits if h[4] == k]
-                    if len(part) < 2:
-                        continue
-                    pts = sorted((x + ux * off, y + uy * off) for x, y, ux, uy, _ in part)
-                    self._add(BridgeItem(strip, g, pts))
+        """Můstky svorkovnic z modelu (`MultipoleGeometry.bridges` = `multipole.bridge_paths`, stejně jako export
+        DXF a kontrola překryvů); nouzově (chyba v modelu) spočítané nad polohami scény."""
+        bridges = self._geo.bridges if self._geo is not None else mp.bridge_paths(self.sheet, poles, self.page_of)
+        for br in bridges:
+            self._add(BridgeItem(br.strip, list(br.group), list(br.pts)))
 
     def _add_fan(self, ep: mp.ElementPoles) -> None:
         """Neprůchozí prvek: od portu vede kolmá sběrná čárka přes všechny sloty."""

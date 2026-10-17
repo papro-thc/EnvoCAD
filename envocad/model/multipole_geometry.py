@@ -1,5 +1,6 @@
 """Geometrie vícepólového pohledu bez Qt – texty a čáry tak, jak je kreslí `ui/multipole_view.py`, pro kontrolu
-překryvů textů ve vícepólu (`checks.text_findings`).
+překryvů textů ve vícepólu (`checks.text_findings`) a kreslicí seznam `MultipoleGeometry.prims` pro export DXF
+(`export/dxf_export.export_multipole_dxf`).
 
 Rozmístění, stránkování, popisky prvků a trasy žil se počítají sdílenými funkcemi z `model/multipole.py`
 (`auto_layout`, `paginate`, `pole_label_lines`, `conductor_route`), které používá i scéna – kontrola tedy vidí
@@ -27,6 +28,7 @@ from envocad.model.textlayout import (
 )
 
 Point = tuple[float, float]
+Seg = tuple[Point, Point]
 BUS = "sb.busbar"
 BUS_PITCH = 5.0       # rozteč čar potenciálů sběrnice (jako `multipole_view.BUS_PITCH`)
 TAG_ROW = 3.2         # řádek štítku kabelu (`CableTagItem.ROW`)
@@ -56,6 +58,29 @@ class Rail:
     breaks: list[tuple[float, float, bool, str]] = field(default_factory=list)   # (x, y, vpravo, odkaz)
 
 
+@dataclass(frozen=True)
+class Prim:
+    """Kreslicí primitivum vícepólu (jediný zdroj pro export bez Qt). Souřadnice jsou LOKÁLNÍ na straně `page`
+    (mm, Y nahoru, počátek levý dolní roh strany) – strana k pohledu (strany pod sebou) = y + k·rozteč stran.
+
+    kind: `line` (pts = 2 body), `poly` (lomená čára), `text` (pts = (bod,), `text`, `h`, `align`, `rot`),
+    `dot` (plná tečka, pts = (střed,), `r`), `symbol` (značka pólu, pts = (počátek,), `rot`, `symbol`).
+    `style` solid | dashed, `weight` thin | wire | bus | fan, `layer` = vrstva DXF (VODICE, SBERNICE, MUSTKY…)."""
+    kind: str
+    page: int
+    pts: tuple[Point, ...] = ()
+    text: str = ""
+    h: float = 0.0
+    align: str = "left"
+    rot: float = 0.0
+    r: float = 0.0
+    layer: str = "VODICE"
+    style: str = "solid"
+    weight: str = "thin"
+    symbol_id: str = ""
+    symbol: object = field(default=None, compare=False, hash=False, repr=False)   # `Symbol` značky pólu
+
+
 @dataclass
 class MultipoleGeometry:
     texts: list[tuple[Box, str, str]] = field(default_factory=list)            # obálka, vlastník, popis
@@ -78,6 +103,9 @@ class MultipoleGeometry:
     bus_desc: dict[str, tuple[float, float, str]] = field(default_factory=dict)   # popis sběrnice: (x, y, zarovnání)
     # odbočka žíly ke sběrné čáře: (id vodiče, žíla) → (pól, směr portu, bod na čáře, směr u čáry, text svorky)
     rail_taps: dict[tuple[str, str], tuple[Point, str, Point, str, str]] = field(default_factory=dict)
+    bridges: list[mp.Bridge] = field(default_factory=list)       # můstky svorkovnic po stranách (`bridge_paths`)
+    bus_taps: dict[tuple[str, int], list[Point]] = field(default_factory=dict)   # (sběrnice, strana) → odbočky
+    prims: list[Prim] = field(default_factory=list)              # kreslicí seznam (lokální souřadnice stran)
 
     @property
     def page_pitch(self) -> float:
@@ -93,6 +121,32 @@ REF_TEXT_H = 1.8
 RAIL_BAR_SYMBOLS = {"sb.pe_bar"}   # lišta = jeden pól přes všechny svorky (sběrná čára z více stran)
 RAIL_OFFSET = 7.5     # sběrná čára za svislým portem sběrného pólu (nad svorkami vývodů, ne přes jejich čísla)
 BUS_REF_DY = -3.3     # odkaz sběrnice na sousední stranu: základna pod názvem potenciálu na konci čáry
+
+
+TITLE_UNDERLINE = 0.72  # délka podtržení nadpisu na znak (× výška písma)
+BUS_ARROW = (2.5, 1.2)  # šipka potenciálu na konci čáry sběrnice (délka, rozevření)
+
+
+def break_arrow(x: float, y: float, at_right: bool) -> list[Seg]:
+    """Šipka přerušení žíly s hrotem v x, y: vpravo ven na pozdější stranu, vlevo zpět na dřívější."""
+    d = 1.0 if at_right else -1.0
+    return [((x, y), (x - 3.0 * d, y + 2.0)), ((x, y), (x - 3.0 * d, y - 2.0))]
+
+
+def bus_arrows(x0: float, x1: float, y: float) -> list[Seg]:
+    """Šipky potenciálu na obou koncích čáry sběrnice."""
+    ln, sp = BUS_ARROW
+    return [((x, y), (x - ln * d, y + s * sp)) for x, d in ((x0, -1.0), (x1, 1.0)) for s in (1.0, -1.0)]
+
+
+def title_underline(x: float, y: float, text: str, h: float) -> Seg:
+    """Podtržení prvního řádku nadpisu rozvaděče (základna textu v y)."""
+    return ((x, y - 1.0), (x + len(text) * h * TITLE_UNDERLINE, y - 1.0))
+
+
+def page_prims(g: MultipoleGeometry, k: int) -> list[Prim]:
+    """Primitiva strany k (lokální souřadnice strany)."""
+    return [p for p in g.prims if p.page == k]
 
 
 def break_text_pos(x: float, y: float, at_right: bool) -> tuple[float, float, str]:
@@ -190,13 +244,36 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
     pitch = H + mp.MP_PAGE_GAP
     sheet_no = sheet_number(project, sheet).split("/")[0]
 
-    def text(x: float, y: float, s: str, h: float, align: str, owner: str, what: str) -> None:
+    def page_at(y: float) -> int:
+        """Strana podle výšky – jen pro kresbu bez vlastníka na straně (nadpis, sběrné čáry); prvky a jejich žíly
+        předávají stranu explicitně (`page_of`), prvek s ruční polohou nad horní hranou strany k ≥ 1 by jinak
+        skončil na straně k − 1."""
+        return max(0, min(n_pages - 1, int((H - y) // pitch)))
+
+    def prim(kind: str, pts, page: int | None = None, **kw) -> None:
+        """Primitivum do kreslicího seznamu: souřadnice pohledu → lokální souřadnice strany."""
+        k = page_at(pts[0][1]) if page is None else page
+        off = k * pitch
+        g.prims.append(Prim(kind, k, tuple((x, y + off) for x, y in pts), **kw))
+
+    def text(x: float, y: float, s: str, h: float, align: str, owner: str, what: str, layer: str = "TEXTY",
+             page: int | None = None) -> None:
         if s:
             g.texts.append((text_box(x, y, s, h, align), owner, what))
+            prim("text", ((x, y),), page, text=s, h=h, align=align, layer=layer)
 
-    def line(a: Point, b: Point, owner: str, what: str) -> None:
+    def line(a: Point, b: Point, owner: str, what: str, layer: str = "VODICE", weight: str = "thin",
+             style: str = "solid", page: int | None = None, draw: bool = True) -> None:
+        """Čára pro kontrolu překryvů (`g.lines`) a (s `draw`) i do kreslicího seznamu."""
         if a != b:
             g.lines.append((a, b, owner, what))
+            if draw:
+                prim("line", (a, b), page, layer=layer, weight=weight, style=style)
+
+    def deco(a: Point, b: Point, layer: str, weight: str = "thin", page: int | None = None) -> None:
+        """Jen kresba (šipky, oddělovače štítku, podtržení nadpisu) – kontrola překryvů ji nevidí."""
+        if a != b:
+            prim("line", (a, b), page, layer=layer, weight=weight)
 
     # prvky (póly, popisky, vazby, obtoky, příčky PE svodiče)
     for e in sheet.elements:
@@ -204,40 +281,59 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
         if e.symbol_id == BUS:
             continue
         name = element_name(e)
+        ke = page_of.get(e.id, 0)
         conds = list(ep.switched) if ep.per_pole else [None]
         for i, c in enumerate(conds):
             sym = mp.pole_symbol_for(ep, c)
             at = _At(*mp.pole_anchor(ep, c), e.rotation)
             for a, b in symbol_segments(at, sym):
-                line(a, b, e.id, f"značku {name}")
+                line(a, b, e.id, f"značku {name}", draw=False)
             for b in symbol_text_boxes(at, sym):
                 g.texts.append((b, e.id, f"text značky {name}"))
-            if i == 0 and c is not None and ep.symbol.common_symbol() is not None:
-                for a, b in symbol_segments(at, ep.symbol.common_symbol()):
-                    line(a, b, e.id, f"značku {name}")
+            prim("symbol", ((at.x, at.y),), ke, rot=e.rotation, layer="SYMBOLY", symbol_id=e.symbol_id, symbol=sym)
+            common = ep.symbol.common_symbol() if i == 0 and c is not None else None
+            if common is not None:
+                for a, b in symbol_segments(at, common):
+                    line(a, b, e.id, f"značku {name}", draw=False)
+                prim("symbol", ((at.x, at.y),), ke, rot=e.rotation, layer="SYMBOLY", symbol_id=e.symbol_id,
+                     symbol=common)
             if c is not None and mp.is_terminal_block(e):
                 num = mp.terminal_numbers(e, len(ep.slots))[ep.slot(c)] or "?"
                 _x0, y0, x1, _y1 = sym.bounds()
                 rx, ry = rotate_point(x1 + 1.0, y0 + 1.0, e.rotation)
-                text(at.x + rx, at.y + ry, num, 2.0, "left", e.id, f"{TERMINAL_NUMBER} {name}")
+                text(at.x + rx, at.y + ry, num, 2.0, "left", e.id, f"{TERMINAL_NUMBER} {name}", page=ke)
         for x, y, s, h, align in mp.pole_label_lines(ep):
-            text(x, y, s, h, align, e.id, f"popisek {name}")
+            text(x, y, s, h, align, e.id, f"popisek {name}", page=ke)
         if ep.per_pole:
             if ep.symbol.pole_link and len(ep.switched) > 1:
                 lx, ly = rotate_point(*ep.symbol.link_at, e.rotation)
                 pts = [(ep.origin[0] + ep.pole_offset(c)[0] + lx, ep.origin[1] + ep.pole_offset(c)[1] + ly)
                        for c in ep.switched]
-                line(pts[0], pts[-1], e.id, f"vazbu pólů {name}")
+                line(pts[0], pts[-1], e.id, f"vazbu pólů {name}", layer="VAZBY", style="dashed", page=ke)
             for c in ep.bypass:
                 a, b = ep.through
-                line(ep.pole_pos(a, c), ep.pole_pos(b, c), e.id, f"žílu {c} kolem {name}")
+                line(ep.pole_pos(a, c), ep.pole_pos(b, c), e.id, f"žílu {c} kolem {name}", weight="wire", page=ke)
             for a, b in mp.pe_join_segments(ep):
-                line(a, b, e.id, f"spojení PE {name}")
+                line(a, b, e.id, f"spojení PE {name}", weight="wire", page=ke)
         else:
             for port, cs in ep.per_port.items():
                 if len(cs) >= 2:
                     last = max(cs, key=ep.slot)
-                    line(ep.pole_pos(port, ep.slots[0]), ep.pole_pos(port, last), e.id, f"vývod {name}")
+                    line(ep.pole_pos(port, ep.slots[0]), ep.pole_pos(port, last), e.id, f"vývod {name}",
+                         weight="fan", page=ke)
+
+    # můstky svorkovnic (čárkovaně, s tečkami na svorkách) – i do kontroly překryvů
+    g.bridges = mp.bridge_paths(sheet, poles, page_of)
+    strip_owner: dict[str, str] = {}
+    for e in sheet.elements:
+        if mp.is_terminal_block(e):
+            strip_owner.setdefault(e.ref, e.id)
+    for bi, br in enumerate(g.bridges):
+        owner = f"{strip_owner.get(br.strip, br.strip)}#bridge{bi}"
+        for a, b in pairwise(br.pts):
+            line(a, b, owner, f"můstek {br.strip}", layer="MUSTKY", style="dashed", page=br.page)
+        for pt in br.pts:
+            prim("dot", (pt,), br.page, r=0.5, layer="MUSTKY")
 
     # žíly
     breaks: dict[tuple[int, bool], int] = {}
@@ -245,23 +341,27 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
     bus_taps: dict[tuple[str, int], list[Point]] = {}
 
     pending: list[tuple[tuple[str, str, int], str, list[Point], str, bool]] = []
+    label_page: dict[tuple[str, str, int], int] = {}     # strana popisku žíly = strana jejího úseku
 
     def conductor(w, c: str, idx: int, pa: Point, da: str, pb: Point, db: str, ends: tuple[str, str],
-                  staggered: bool = False, part: int = 0) -> None:
+                  page: int, staggered: bool = False, part: int = 0) -> None:
+        """Úsek žíly na straně `page` (strana prvku, ze kterého vede – ne podle výšky bodu)."""
         pts = mp.conductor_route(pa, da, pb, db, stagger=idx * mp.GRID, jog=0.8)
         what = f"žílu {c}" + (f" vodiče {w.attrs['ref']}" if w.attrs.get("ref") else "")
         owner = f"{w.id}#{c}"   # každá žíla zvlášť – popisek DC− přes žílu DC+ téhož vodiče je překryv
         for a, b in pairwise(pts):
-            line(a, b, owner, what)
+            line(a, b, owner, what, draw=False)
+        prim("poly", tuple(pts), page, weight="wire")
         label = c
         if idx == 0:
             lbl = wire_label(w.attrs)
             label = f"{lbl}  {c}" if lbl else c
         pending.append(((w.id, c, part), owner, pts, label, staggered))   # rozmístí se, až budou známé všechny čáry
+        label_page[(w.id, c, part)] = page
         for t, (px, py), d in ((ends[0], pts[0], da), (ends[1], pts[-1], db)):
             if t:
                 dx, dy = END_TEXT_OFFSET[d]
-                text(px + dx, py + dy, t, 1.8, "right" if d == "W" else "left", owner, f"svorku {t}")
+                text(px + dx, py + dy, t, 1.8, "right" if d == "W" else "left", owner, f"svorku {t}", page=page)
 
     def bus_y(ep: mp.ElementPoles, c: str, page: int) -> float:
         k0 = page_of.get(ep.element.id, 0)
@@ -320,7 +420,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
                 px, py = dev.pole_pos(dport, c)
                 y = bus_y(bus, c, kd)
                 t = "" if mp.is_terminal_block(dev.element) else mp.terminal_text(w, c, side)
-                conductor(w, c, 0, (px, py), ddir, (px, y), "S" if y > py else "N", (t, ""))
+                conductor(w, c, 0, (px, py), ddir, (px, y), "S" if y > py else "N", (t, ""), kd)
                 bus_taps.setdefault((bus.element.id, kd), []).append((px, y))
             continue
         for i, c in enumerate(mp.wire_conductors(w)):
@@ -333,12 +433,12 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
                 y = rail_height(key, rail_span[key]) - ks * pitch
                 tap = (ps[0], y)
                 dtap = "S" if y > ps[1] else "N"
-                conductor(w, c, 0, ps, ds, tap, dtap, (ts, ""))
+                conductor(w, c, 0, ps, ds, tap, dtap, (ts, ""), ks)
                 g.rail_taps[(w.id, c)] = (ps, ds, tap, dtap, ts)
                 rail_taps.setdefault(key, []).append((ks, tap))
                 continue
             if ka == kb:
-                conductor(w, c, i, pa, da, pb, db, (ta, tb), len(mp.wire_conductors(w)) > 1)
+                conductor(w, c, i, pa, da, pb, db, (ta, tb), ka, len(mp.wire_conductors(w)) > 1)
                 continue
             right = ka < kb
             xa = (W - MARGIN - BREAK_INSET) if right else (MARGIN_LEFT + BREAK_INSET)
@@ -349,14 +449,16 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
             breaks[(kb, not right)] = nb + 1
             ya = mp.break_y(pa, da, na, break_ys.setdefault((ka, right), set()))
             yb = mp.break_y(pb, db, nb, break_ys.setdefault((kb, not right), set()))
-            conductor(w, c, i, pa, da, (xa, ya), "W" if right else "E", (ta, ""))
-            conductor(w, c, i, (xb, yb), "E" if right else "W", pb, db, ("", tb), part=1)
+            conductor(w, c, i, pa, da, (xa, ya), "W" if right else "E", (ta, ""), ka)
+            conductor(w, c, i, (xb, yb), "E" if right else "W", pb, db, ("", tb), kb, part=1)
             ref_a = mp.page_ref(sheet_no, kb, xb, yb + kb * pitch, size)   # u zdroje: odkaz na pokračování
             ref_b = mp.page_ref(sheet_no, ka, xa, ya + ka * pitch, size)   # u cíle: odkaz zpět
             g.page_breaks[(w.id, c)] = [(xa, ya, right, ref_a), (xb, yb, not right, ref_b)]
-            for x, y, at_right, ref in g.page_breaks[(w.id, c)]:
+            for (x, y, at_right, ref), kp in zip(g.page_breaks[(w.id, c)], (ka, kb), strict=True):
                 tx, ty, align = break_text_pos(x, y, at_right)
-                text(tx, ty, ref, REF_TEXT_H, align, w.id, "odkaz přerušení")
+                text(tx, ty, ref, REF_TEXT_H, align, w.id, "odkaz přerušení", layer="ODKAZY", page=kp)
+                for a, b in break_arrow(x, y, at_right):
+                    deco(a, b, "ODKAZY", page=kp)
 
     # sběrné čáry přes strany: na každé straně od první do poslední odbočky, k okraji, kde pokračuje
     xl, xr = MARGIN_LEFT + BREAK_INSET, W - MARGIN - BREAK_INSET
@@ -383,12 +485,16 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
             if k < k1:
                 r.breaks.append((right, y, True, mp.page_ref(sheet_no, k + 1, xl, y_loc, size)))
             g.rails.append(r)
-            line((left, y), (right, y), owner, f"sběrnou čáru {c}")
+            line((left, y), (right, y), owner, f"sběrnou čáru {c}", layer="SBERNICE", weight="wire", page=k)
             if r.stub:
-                line(*r.stub, owner, f"sběrnou čáru {c}")
+                line(*r.stub, owner, f"sběrnou čáru {c}", layer="SBERNICE", weight="wire", page=k)
+            for pt in r.dots:
+                prim("dot", (pt,), k, r=0.7, layer="SBERNICE")
             for bx, by, at_right, ref in r.breaks:
                 tx, ty, align = break_text_pos(bx, by, at_right)
-                text(tx, ty, ref, REF_TEXT_H, align, owner, "odkaz sběrné čáry")
+                text(tx, ty, ref, REF_TEXT_H, align, owner, "odkaz sběrné čáry", layer="ODKAZY", page=k)
+                for a, b in break_arrow(bx, by, at_right):
+                    deco(a, b, "ODKAZY", page=k)
 
     # sběrnice potenciálů – na každé straně s odbočkami; mezi stranami křížové odkazy na koncích čar
     x0, x1 = bus_span(W)
@@ -402,9 +508,11 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
         for j, k in enumerate(pages):
             ys = {c: (bus_y(ep, c, k) if c in ep.slots else ep.origin[1] - i * BUS_PITCH) for i, c in enumerate(conds)}
             for c, y in ys.items():
-                line((x0, y), (x1, y), e.id, f"sběrnici {e.ref}{c}")
-                text(x0 - 1.5, y - 0.8, f"{e.ref}{c}", 2.0, "right", e.id, f"název potenciálu {e.ref}{c}")
-                text(x1 + 1.5, y - 0.8, f"{e.ref}{c}", 2.0, "left", e.id, f"název potenciálu {e.ref}{c}")
+                line((x0, y), (x1, y), e.id, f"sběrnici {e.ref}{c}", layer="SBERNICE", weight="bus", page=k)
+                for a, b in bus_arrows(x0, x1, y):
+                    deco(a, b, "SBERNICE", page=k)
+                text(x0 - 1.5, y - 0.8, f"{e.ref}{c}", 2.0, "right", e.id, f"název potenciálu {e.ref}{c}", page=k)
+                text(x1 + 1.5, y - 0.8, f"{e.ref}{c}", 2.0, "left", e.id, f"název potenciálu {e.ref}{c}", page=k)
                 y_loc = y + k * pitch
                 # odkaz pod názvem potenciálu na konci čáry (mimo odbočky, mezi čarami po 5 mm)
                 if j > 0:          # pokračování z předchozí strany se sběrnicí (odkaz na její pravý konec)
@@ -413,10 +521,12 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
                 if j < len(pages) - 1:   # pokračuje na další straně (odkaz na její levý konec)
                     refs.append((k, x1 + 1.5, y + BUS_REF_DY,
                                  mp.page_ref(sheet_no, pages[j + 1], x0, y_loc, size), "left"))
+            for pt in bus_taps.get((e.id, k), []):
+                prim("dot", (pt,), k, r=0.7, layer="SBERNICE")
             if k == pages[0] and e.attrs.get("desc"):
                 pos = _bus_desc_pos(g, e.id, e.attrs["desc"], x0, x1, max(ys.values()) + 4.5)
                 g.bus_desc[e.id] = pos
-                text(*pos[:2], e.attrs["desc"], 2.0, pos[2], e.id, "popis sběrnice")
+                text(*pos[:2], e.attrs["desc"], 2.0, pos[2], e.id, "popis sběrnice", page=k)
 
     # štítky kabelů u přívodů a vývodů
     for e in sheet.elements:
@@ -438,8 +548,9 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
         h = TAG_ROW * len(rows)
         y_edge = ep.origin[1] + (3.0 if up else -3.0)
         top = y_edge + h if up else y_edge
+        ke = page_of.get(e.id, 0)
         for a, b in pairwise([(tx0, top), (tx1, top), (tx1, top - h), (tx0, top - h), (tx0, top)]):
-            line(a, b, e.id, f"štítek kabelu {rows[0]}")
+            line(a, b, e.id, f"štítek kabelu {rows[0]}", layer="STITKY", page=ke)
         for i, r in enumerate(rows):
             # text štítku je uvnitř rámečku (zmenšený odhad šířky – písmo 1,7–2 mm je užší než průměr)
             y = top - (i + 1) * TAG_ROW
@@ -447,13 +558,20 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
             b = text_box(cx, y + 0.8, r, hh, "center")
             g.texts.append(((max(b[0], tx0 + 0.3), b[1], min(b[2], tx1 - 0.3), min(b[3], top - i * TAG_ROW)), e.id,
                             f"štítek kabelu {rows[0]}"))
+            prim("text", ((cx, y + 0.8),), ke, text=r, h=hh, align="center", layer="STITKY")
+            if i:
+                deco((tx0, y + TAG_ROW), (tx1, y + TAG_ROW), "STITKY", page=ke)
 
     for eid, refs in g.bus_refs.items():
-        for _k, x, y, s, align in refs:
-            text(x, y, s, REF_TEXT_H, align, eid, "odkaz sběrnice")
+        for k, x, y, s, align in refs:
+            text(x, y, s, REF_TEXT_H, align, eid, "odkaz sběrnice", layer="ODKAZY", page=k)
+    g.bus_taps = bus_taps
 
     # popisky žil: výchozí poloha, a když vede přes cizí čáru nebo text, první volná z kandidátů
     _place_conductor_labels(g, pending)
+    for key, (x, y, s, align) in g.conductor_labels.items():
+        if s:
+            prim("text", ((x, y),), label_page.get(key), text=s, h=1.8, align=align, layer="TEXTY")
 
     # nadpis rozvaděče
     title = switchboard_title(project, sheet)
@@ -466,8 +584,9 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
         for i, s in enumerate(ls):
             h = 5.0 if i == 0 else 3.0
             y -= h
-            text(tx, ty + y, s, h, "left", "#title", "nadpis rozvaděče")
+            text(tx, ty + y, s, h, "left", "#title", "nadpis rozvaděče", page=k)
             if i == 0:
+                deco(*title_underline(tx, ty + y, s, h), "TEXTY", page=k)
                 y -= 2.8
             y -= 1.2
     return g

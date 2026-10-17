@@ -1135,12 +1135,14 @@ AUTO_TEXT_TEMPLATES = ("od {}", "{} dál", "string {}", "DC rozvaděč u {}", "D
 
 @dataclass(frozen=True)
 class TextChange:
-    """Změna textu navázaná na přejmenování: `kind` = "element" (atribut `key` prvku `target_id`) nebo "sheet"
-    (název listu `target_id`)."""
+    """Změna textu navázaná na přejmenování: `kind` = "element" (atribut `key` prvku `target_id`), "sheet"
+    (název listu `target_id`) nebo "wire_port" (port konce `key` = "a"/"b" vodiče `target_id` – konec vodiče JPS
+    na bloku ROZVADĚČ po přejmenování přívodu/vývodu, `feed_port_followups`). U „element“ znamená `old` None
+    chybějící klíč – undo ho odebere (odvozené atributy nové vazby přívodu, `SetAttrCommand`)."""
     kind: str
     target_id: str
     key: str
-    old: str
+    old: str | None
     new: str
 
 
@@ -1188,7 +1190,8 @@ def rename_followups(project: Project, element: Element, old: str, new: str) -> 
       ostatních prvků, kde je staré označení samostatným slovem, a názvy listů rozvaděčů, které takový popis nesou –
       jen u prvků, které s přejmenovaným prokazatelně souvisejí (`_rename_related`: stejný prostor označení, nebo
       list rozvaděče s přívodem/vývodem navázaným na vodič k němu). Stejný text v jiném prostoru označení (=B s
-      vlastním T1) se nemění. Ručně psané texty se nemění."""
+      vlastním T1) se nemění. Ručně psané texty se nemění;
+    - přívod/vývod rozvaděče: port navázaného vodiče JPS na bloku („X1“ → „X5“, `feed_port_followups`)."""
     if not old or not new or old == new:
         return []
     out: list[TextChange] = []
@@ -1217,6 +1220,10 @@ def rename_followups(project: Project, element: Element, old: str, new: str) -> 
                 cur = sheet_names.get(bs.id, bs.name) if bs is not None else ""
                 if bs is not None and cur.endswith(" – " + desc):
                     rename_sheet(bs, cur[: -len(desc)] + nd)
+    if element.symbol_id in FEED_SYMBOLS:
+        home = project.sheet_of_element(element.id)
+        if home is not None:
+            out += feed_port_followups(project, home, element, new)
     for sid, name in sheet_names.items():
         s = project.sheet(sid)
         out.append(TextChange("sheet", sid, "name", s.name, name))
@@ -1232,15 +1239,23 @@ def rename_followups(project: Project, element: Element, old: str, new: str) -> 
 def apply_text_changes(project: Project, changes: list[TextChange], undo: bool = False) -> None:
     """Provede (nebo s `undo` vrátí) změny z `rename_followups`."""
     els = {e.id: e for s in project.sheets for e in s.elements}
+    wires = {w.id: w for s in project.sheets for w in s.wires}
     for c in (reversed(changes) if undo else changes):
         val = c.old if undo else c.new
-        if c.kind == "sheet":
+        if c.kind == "wire_port":
+            w = wires.get(c.target_id)
+            if w is not None and c.key in ("a", "b"):
+                getattr(w, c.key).port = val
+        elif c.kind == "sheet":
             try:
                 project.sheet(c.target_id).name = val
             except KeyError:
                 continue
         elif c.target_id in els:
-            els[c.target_id].attrs[c.key] = val
+            if val is None:
+                els[c.target_id].attrs.pop(c.key, None)
+            else:
+                els[c.target_id].attrs[c.key] = val
 
 
 def rename_structure(project: Project, aspect: str, old: str, new: str) -> int:
@@ -1695,38 +1710,139 @@ def feed_wire_by_port(project: Project, sheet: Sheet, feed: Element) -> Wire | N
     return None
 
 
-def sync_feed_links(project: Project) -> int:
-    """Přívody/vývody rozvaděčů se navážou na vodiče JPS podle portu bloku (X1 → port X1); vrací počet změn.
-    Ruční vazba (`wire_id` na jiný vodič) má přednost, pokud ten vodič ještě existuje."""
-    changed = 0
+def effective_feed_wire(project: Project, sheet: Sheet, feed: Element) -> Wire | None:
+    """Vodič JPS, na který je přívod/vývod skutečně navázaný – stejné pravidlo jako `sync_feed_link_attrs`:
+    vodič na portu bloku se jménem přívodu má přednost, jinak ruční vazba (`wire_id` na existující vodič)."""
+    w = feed_wire_by_port(project, sheet, feed)
+    if w is not None:
+        return w
+    if not feed.attrs.get("wire_id"):
+        return None
+    hit = linked_wire(project, sheet, feed)
+    return hit[1] if hit is not None else None
+
+
+def _feeds(project: Project):
     for s in project.sheets:
-        if not s.is_switchboard:
+        if s.is_switchboard:
+            for f in s.elements:
+                if f.symbol_id in FEED_SYMBOLS:
+                    yield s, f
+
+
+def _sync_feed_attrs(project: Project, s: Sheet, f: Element) -> tuple[bool, Wire | None]:
+    """Odvozené atributy jednoho přívodu/vývodu (`wire_id`, odkud/kam, kabel). (změněno, nově navázaný vodič)."""
+    cur = f.attrs.get("wire_id", "")
+    w = feed_wire_by_port(project, s, f)
+    if cur and w is None and linked_wire(project, s, f) is not None:
+        return False, None            # ruční vazba (nebo přejmenovaný přívod/vývod před přejmenováním portu)
+    new_id = w.id if w else ""
+    if new_id != cur or (new_id and not f.attrs.get("cable") and w.attrs.get("cable")):
+        for k, v in feed_link_attrs(project, s, f, new_id).items():
+            if f.attrs.get(k, "") != v:   # nezměněnou hodnotu ani chybějící prázdný klíč nepřepisovat
+                f.attrs[k] = v
+        return True, w
+    return False, None
+
+
+def sync_feed_link_attrs(project: Project) -> int:
+    """Jen odvozená část vazeb přívodů/vývodů na vodiče JPS: `wire_id`, odkud/kam a kabel přívodu podle portu
+    bloku (X1 → port X1); ruční vazba (`wire_id` na jiný existující vodič) má přednost, když na portu žádný vodič
+    není. Idempotentní, primární data (žíly, porty vodičů) nemění – GUI ji volá po každé změně modelu mimo undo.
+    Doplňuje jen vazbu podle portu (vodič vložený na port bloku, přejmenovaný port); její zápisy undo nevrací –
+    po undo zůstanou místo chybějících klíčů prázdné hodnoty, které porovnání revizí nevidí. Ruční vazbu
+    (`wire_id` z dialogu / panelu) i s odkud/kam a kabelem zapisuje příkaz (`SetAttrCommand`), takže ji undo vrátí
+    celou; ruční vazbu (bez vodiče na portu) tato funkce nepřepisuje. Vrací počet změněných přívodů/vývodů."""
+    return sum(_sync_feed_attrs(project, s, f)[0] for s, f in _feeds(project))
+
+
+def sync_feed_links(project: Project) -> int:
+    """Plná synchronizace vazeb (načtení projektu, generátor – mimo undo): odvozené atributy
+    (`sync_feed_link_attrs`) a navíc primární follow-upy, které v GUI dělají příkazy: přejmenování konce vodiče
+    JPS na bloku podle označení přívodu s ruční vazbou (`feed_port_followups`) a převzetí žil nově navázaného
+    vodiče JPS vodiči rozvaděče u přívodu (`feed_conductor_changes`). Vrací počet změn."""
+    changed = 0
+    for s, f in _feeds(project):
+        ports = feed_port_followups(project, s, f, f.ref)
+        if ports:
+            apply_text_changes(project, ports)
+            changed += len(ports)
             continue
-        for f in s.elements:
-            if f.symbol_id not in FEED_SYMBOLS:
-                continue
-            cur = f.attrs.get("wire_id", "")
-            if cur and linked_wire(project, s, f) is not None and feed_wire_by_port(project, s, f) is None:
-                # ruční vazba (nebo přejmenovaný přívod/vývod): konec vodiče na bloku se přejmenuje na nové označení
-                _, lw = linked_wire(project, s, f)
-                block = s.parent_element_id
-                for end in (lw.a, lw.b):
-                    if end.element_id == block and end.port != f.ref and f.ref:
-                        end.port = f.ref
-                        changed += 1
-                continue
-            w = feed_wire_by_port(project, s, f)
-            new_id = w.id if w else ""
-            if new_id != cur or (new_id and not f.attrs.get("cable") and w.attrs.get("cable")):
-                for k, v in feed_link_attrs(project, s, f, new_id).items():
-                    if f.attrs.get(k, "") != v:   # nezměněnou hodnotu ani chybějící prázdný klíč nepřepisovat
-                        f.attrs[k] = v
-                if w and w.conductors:
-                    for sw in s.wires:
-                        if sw.touches(f.id) and sw.conductors != list(w.conductors):
-                            sw.conductors = list(w.conductors)
-                changed += 1
+        hit, w = _sync_feed_attrs(project, s, f)
+        if hit:
+            changed += 1
+            if w is not None:
+                apply_conductor_changes(project, feed_conductor_changes(s, f, w))
     return changed
+
+
+def feed_port_followups(project: Project, sheet: Sheet, feed: Element, new_ref: str) -> list[TextChange]:
+    """Přívod/vývod `feed` dostane označení `new_ref`: konec jeho navázaného vodiče JPS na bloku ROZVADĚČ se
+    přejmenuje na `new_ref` (`TextChange` „wire_port“). Nic, když na portu `new_ref` už nějaký vodič je (vazba
+    pak vede podle portu), když přívod žádný vodič nemá, nebo když vodič na blok nevede."""
+    block = sheet.parent_element_id
+    if feed.symbol_id not in FEED_SYMBOLS or not new_ref or not block:
+        return []
+    probe = Element(symbol_id=feed.symbol_id, attrs={**feed.attrs, "ref": new_ref}, id=feed.id)
+    if feed_wire_by_port(project, sheet, probe) is not None:
+        return []
+    hit = linked_wire(project, sheet, feed)     # ruční vazba, jinak port podle dosavadního označení
+    if hit is None:
+        return []
+    w = hit[1]
+    return [TextChange("wire_port", w.id, k, end.port, new_ref)
+            for k, end in (("a", w.a), ("b", w.b)) if end.element_id == block and end.port != new_ref]
+
+
+@dataclass(frozen=True)
+class ConductorChange:
+    """Změna žil vodiče `wire_id` navázaná na jinou změnu (převzetí žil vodiče JPS u přívodu rozvaděče);
+    svorky žil, které zmizely, se zahodí (jako `SetConductorsCommand`)."""
+    wire_id: str
+    old: list[str]
+    new: list[str]
+    old_terminals: dict
+    new_terminals: dict
+
+
+def feed_conductor_changes(sheet: Sheet, feed: Element, wire: Wire) -> list[ConductorChange]:
+    """Vodiče listu rozvaděče `sheet` napojené na přívod/vývod `feed` převezmou žíly vodiče JPS `wire`."""
+    conds = list(wire.conductors)
+    if not conds:
+        return []
+    out = []
+    for sw in sheet.wires:
+        if sw.touches(feed.id) and sw.conductors != conds:
+            old_t = {c: dict(t) for c, t in sw.terminals.items()}
+            new_t = {c: dict(t) for c, t in sw.terminals.items() if c in conds}
+            out.append(ConductorChange(sw.id, list(sw.conductors), conds, old_t, new_t))
+    return out
+
+
+def feed_conductor_followups(project: Project, wire: Wire) -> list[ConductorChange]:
+    """Žíly, které po vložení / změně vodiče JPS `wire` převezmou vodiče rozvaděčů u přívodů/vývodů navázaných
+    na `wire` (`effective_feed_wire`). Volají je příkazy (`AddWireCommand`, `SetConductorsCommand`,
+    `SetAttrCommand` s `wire_id`), aby undo změnu vrátilo; vodič uvnitř rozvaděče nic nevyvolá."""
+    home = next((s for s in project.sheets if any(w.id == wire.id for w in s.wires)), None)
+    if home is None or home.is_switchboard or not wire.conductors:
+        return []
+    out: list[ConductorChange] = []
+    for s, f in _feeds(project):
+        lw = effective_feed_wire(project, s, f)
+        if lw is not None and lw.id == wire.id:
+            out += feed_conductor_changes(s, f, wire)
+    return out
+
+
+def apply_conductor_changes(project: Project, changes: list[ConductorChange], undo: bool = False) -> None:
+    """Provede (nebo s `undo` vrátí) změny žil z `feed_conductor_followups`."""
+    wires = {w.id: w for s in project.sheets for w in s.wires}
+    for c in (reversed(changes) if undo else changes):
+        w = wires.get(c.wire_id)
+        if w is None:
+            continue
+        w.conductors = list(c.old if undo else c.new)
+        w.terminals = {k: dict(t) for k, t in (c.old_terminals if undo else c.new_terminals).items()}
 
 
 # ---- kabely ↔ vodiče -------------------------------------------------------------------------------------
