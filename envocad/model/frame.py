@@ -272,16 +272,30 @@ def fit_placement(boxes: list, sizes=None) -> tuple[str, float, float, float, fl
     raise AssertionError("vlastní formát se vejde vždy")   # pragma: no cover
 
 
-def fit_sheet_to_content(project: Project, sheet: Sheet, lib) -> None:
-    """Zvolí formát listu podle obsahu (`fit_placement`) a posune všechny prvky a lomy vodičů tak, aby obsah
-    (značky, popisky, vodiče) ležel celý uvnitř vnitřního rámečku a mimo popisové pole – i při zapnutém rámečku."""
-    from envocad.model.textlayout import sheet_content_boxes
-    boxes = sheet_content_boxes(project, sheet, lib)
-    if not boxes:
-        return
-    name, w, h, dx, dy = fit_placement(boxes)
+def apply_placement(sheet: Sheet, placement: tuple[str, float, float, float, float]) -> None:
+    """Nastaví listu formát z `fit_placement` a posune všechny prvky a lomy vodičů o (dx, dy)."""
+    name, w, h, dx, dy = placement
     sheet.paper, sheet.width, sheet.height = name, w, h
     for e in sheet.elements:
         e.x, e.y = e.x + dx, e.y + dy
     for wire in sheet.wires:
         wire.points = [(x + dx, y + dy) for x, y in wire.points]
+
+
+def fit_sheet_to_content(project: Project, sheet: Sheet, lib, sizes=None) -> None:
+    """Zvolí formát listu podle obsahu (`fit_placement`, `sizes` = povolené formáty, jinak A3…A0) a posune všechny
+    prvky a lomy vodičů tak, aby obsah (značky, popisky, vodiče) ležel celý uvnitř vnitřního rámečku a mimo popisové
+    pole – i při zapnutém rámečku."""
+    from envocad.model.textlayout import sheet_content_boxes
+    boxes = sheet_content_boxes(project, sheet, lib)
+    if not boxes:
+        return
+    apply_placement(sheet, fit_placement(boxes, sizes))
+
+
+def paper_exceeds(name: str, limit: str) -> bool:
+    """Je formát `name` (z `fit_placement`) větší než `limit` („A2“)? Vlastní formát je větší vždy; neznámý limit = A2."""
+    order = [n for n, _, _ in PAPER_SIZES]
+    if limit not in order:
+        limit = "A2"
+    return name not in order or order.index(name) > order.index(limit)

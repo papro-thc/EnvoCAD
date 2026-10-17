@@ -9,7 +9,7 @@ from collections import OrderedDict
 
 from envocad.library.store import LibraryStore
 from envocad.model.designation import LOCATION_SYMBOLS, designation, element_name, full_designation, scope_key
-from envocad.model.project import NON_DEVICE_SYMBOLS, Element, Project, Sheet, clean_view
+from envocad.model.project import INTERRUPT_SYMBOL, NON_DEVICE_SYMBOLS, Element, Project, Sheet, clean_view
 from envocad.model.xref import natural_key
 
 TERMINAL_SYMBOLS = {"sb.feed_in", "sb.feed_out", "sb.terminal_block"}
@@ -59,7 +59,13 @@ def _tag(project: Project, s: Sheet, e: Element) -> str:
 
 def _port_text(project: Project, s: Sheet, e: Element, port: str, terminal: str = "", base: str = "") -> str:
     """Konec vodiče: „+RDC1-X1:3“ (svorka), „+RDC1-F2:1“ (prvek:port), u bloku rozvaděče „+RDC1-X1“ (port bloku =
-    přívod/vývod uvnitř). Aspekty shodné s `base` (kontext řádku, např. svorkovnice) se vynechají."""
+    přívod/vývod uvnitř). Aspekty shodné s `base` (kontext řádku, např. svorkovnice) se vynechají. Přerušovací bod
+    ve dvojici → skutečný konec za protějškem (`xref.through_interrupt`: kabel přes listy JPS „Odkud T1:AC“)."""
+    if e.symbol_id == INTERRUPT_SYMBOL and not terminal:
+        from envocad.model.xref import through_interrupt
+        hit = through_interrupt(project, s, e, port)
+        if hit is not None:
+            s, e, port = hit          # jen jeden krok – řetěz přerušení se nesleduje (nemůže se zacyklit)
     if e.symbol_id in LOCATION_SYMBOLS and e.ref:
         return f"{full_designation(project, s, e)}-{terminal or port}"
     text = terminal or f"{element_name(e)}:{port}"
@@ -282,7 +288,7 @@ def _other_end_text(project: Project, s: Sheet, w, conductor: str, side: str, ot
 def labels(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Štítky přístrojů a vývodů pro štítkovač: označení + stručný popis."""
     from envocad.model.multipole import is_terminal_block
-    from envocad.model.project import CONTACT_SYMBOLS, INTERRUPT_SYMBOL
+    from envocad.model.project import CONTACT_SYMBOLS
     head = ["Štítek", "Popis", "List"]
     keyed: list[tuple[tuple, list]] = []
     idx = _index(project)
@@ -347,7 +353,7 @@ def _end_text(project: Project, s: Sheet, w, side: str, conductor: str) -> str:
 def cable_plan(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Kabelový plán: každá žíla každého kabelu – číslo, barva, odkud, kam (jako v EPLAN)."""
     from envocad.model.project import CORE_COLORS, sync_cables
-    sync_cables(project)
+    sync_cables(project)   # úsek pokračování přes přerušení kabel nemá (`cable_of_wire` → None), řádky nedostane
     head = ["Kabel", "Typ", "Průřez [mm²]", "Žíla", "Č.", "Barva", "Odkud", "Kam", "Stínění", "Délka [m]", "List"]
     rows = []
     for s in _sheets(project, sheet):
@@ -372,7 +378,9 @@ def wiring_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None)
     """Zapojovací seznam: každé propojení po žílách – odkud, kam, kabel/vodič, barva, průřez (pro zapojování)."""
     from envocad.model.project import CORE_COLORS, sync_cables
     from envocad.model.wiring import conductor_color, merged_conductors
+    from envocad.model.xref import interrupt_groups, is_continuation
     sync_cables(project)
+    groups = interrupt_groups(project)
     head = ["List", "Kabel / vodič", "Žíla", "Barva", "Průřez [mm²]", "Odkud", "Kam", "Poznámka"]
     rows = []
     for s in _sheets(project, sheet):
@@ -390,6 +398,8 @@ def wiring_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None)
                              mc.end_a.text, mc.end_b.text, note])
             continue
         for w in s.wires:
+            if is_continuation(project, s, w, groups):   # pokračování kabelu přes přerušení – řádky má úsek s kabelem
+                continue
             c = project.cable_of_wire(w)
             label = c.ref if c else (w.attrs.get("ref") or "vodič")
             cross = (c.cross if c else "") or w.attrs.get("cross", "")

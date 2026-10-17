@@ -46,15 +46,15 @@ def test_jps_content_inside_inner_frame(lib, n):
     listu (i při zapnutém rámečku – x ≥ 20 mm) a mimo popisové pole; souřadnice zůstávají na mřížce."""
     for per in (4, 6, 12):
         p = build_project(spec(n, per))
-        s = p.sheets[0]
-        boxes = sheet_content_boxes(p, s, lib)
-        assert _inside(union_box(boxes), inner_box(s.width, s.height)), (n, per, s.width, s.height)
-        tb = title_block_box(s.width, s.height)
-        assert not [b for b in boxes if boxes_overlap(b, tb, tol=0.0)], (n, per)
-        assert all(abs(e.x / 2.5 - round(e.x / 2.5)) < 1e-9 and abs(e.y / 2.5 - round(e.y / 2.5)) < 1e-9
-                   for e in s.elements)
-        if n * per <= 24:   # menší projekty: normalizovaný formát A3–A0, ne vlastní nudle
-            assert s.paper in ("A3", "A2", "A1", "A0"), (n, per, s.paper)
+        for s in (x for x in p.sheets if not x.is_switchboard):   # velké JPS je rozdělené na listy
+            boxes = sheet_content_boxes(p, s, lib)
+            assert _inside(union_box(boxes), inner_box(s.width, s.height)), (n, per, s.name, s.width, s.height)
+            tb = title_block_box(s.width, s.height)
+            assert not [b for b in boxes if boxes_overlap(b, tb, tol=0.0)], (n, per, s.name)
+            assert all(abs(e.x / 2.5 - round(e.x / 2.5)) < 1e-9 and abs(e.y / 2.5 - round(e.y / 2.5)) < 1e-9
+                       for e in s.elements)
+            if n * per <= 24:   # menší projekty: normalizovaný formát A3–A0, ne vlastní nudle
+                assert s.paper in ("A3", "A2", "A1", "A0"), (n, per, s.paper)
 
 
 def test_fit_placement_paper_and_title_block():
@@ -74,7 +74,8 @@ def test_fit_placement_paper_and_title_block():
 # ---- 2. baterie u hybridního střídače ------------------------------------------------------------------------
 def test_hybrid_battery_below_its_inverter_cable_crosses_nothing(lib):
     p = build_project(spec(3, 4, battery={"e_kwh": 10, "p_kw": 5, "type": "BYD"}))
-    s = p.sheets[0]
+    # 3 střídače se na A2 nevejdou → JPS na listy; baterie je na listu svého střídače
+    s = next(x for x in p.sheets if any(e.ref == "T1" for e in x.elements) and not x.is_switchboard)
     t1 = next(e for e in s.elements if e.ref == "T1")
     bat = next(e for e in s.elements if e.symbol_id == "fve.battery")
     assert t1.symbol_id == "fve.inverter_hybrid" and bat.x == t1.x and bat.y < t1.y

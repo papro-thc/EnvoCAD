@@ -523,3 +523,72 @@ def interrupt_xref(project: Project, sheet: Sheet, e: Element, groups: dict | No
 def interrupt_partner_of(link: InterruptLink) -> Placed | None:
     """Jeden protějšek pro zpětnou kompatibilitu: next, jinak prev, jinak zdroj, jinak první cíl."""
     return link.next or link.prev or link.source or (link.targets[0] if link.targets else None)
+
+
+# ---- vodič přes dvojici přerušovacích bodů (velké JPS rozdělené na listy) ------------------------------------
+def has_cable_data(w) -> bool:
+    """Vodič nese údaje kabelu (označení nebo typ kabelu) – ten úsek je kabelem ve výkazech (`sync_cables`)."""
+    return bool(w.attrs.get("ref") or w.attrs.get("cable"))
+
+
+def _pair_partner_wire(project: Project, sheet: Sheet, e: Element, groups: dict | None = None):
+    """(list, protějšek, jeho jediný vodič) přerušovacího bodu ve **dvojici**; jinak None (řetěz, hvězda, osamělý,
+    protějšek bez vodiče nebo s více vodiči)."""
+    if e.symbol_id != INTERRUPT_SYMBOL or not e.ref:
+        return None
+    link = interrupt_link(project, sheet, e, groups)
+    if link.mode != "pair":
+        return None
+    ps, pe = link.next or link.prev
+    wires = [w for w in ps.wires if w.a.element_id == pe.id or w.b.element_id == pe.id]
+    if len(wires) != 1:
+        return None
+    return ps, pe, wires[0]
+
+
+def through_interrupt(project: Project, sheet: Sheet, element: Element, port: str = "",
+                      groups: dict | None = None) -> tuple[Sheet, Element, str] | None:
+    """Skutečný konec vodiče za přerušovacím bodem: pro bod ve dvojici (`interrupt_link` mode „pair“) vrátí
+    (list, prvek, port) druhého konce jediného vodiče na protějšku – např. přerušení „AC-T1“ u bloku AC rozvaděče →
+    (list střídače, T1, "AC"). Jiný prvek, řetěz, hvězda nebo protějšek s jiným počtem vodičů než 1 → None.
+    `port` = port přerušovacího bodu (má jediný, pro shodné rozhraní s konci vodičů); `groups` = `interrupt_groups`."""
+    del port
+    hit = _pair_partner_wire(project, sheet, element, groups)
+    if hit is None:
+        return None
+    ps, pe, w = hit
+    far = w.b if w.a.element_id == pe.id else w.a
+    try:
+        return ps, ps.element(far.element_id), far.port
+    except KeyError:
+        return None
+
+
+def _cabled_partner_wire(project: Project, sheet: Sheet, w, groups: dict | None = None):
+    """(list, vodič) s údaji kabelu za dvojicí přerušovacích bodů na některém konci vodiče `w`, jinak None."""
+    for end in (w.a, w.b):
+        try:
+            e = sheet.element(end.element_id)
+        except KeyError:
+            continue
+        hit = _pair_partner_wire(project, sheet, e, groups)
+        if hit is not None and hit[2] is not w and has_cable_data(hit[2]):
+            return hit[0], hit[2]
+    return None
+
+
+def continuation_main(project: Project, sheet: Sheet, w, groups: dict | None = None):
+    """Úsek pokračování kabelu přes dvojici přerušovacích bodů: vodič **bez** údajů kabelu, jehož konec je bod ve
+    dvojici a protějšek má jediný vodič s údaji kabelu → (list, vodič s údaji kabelu). Jinak None. Kabel je jeden:
+    data nese jen jeden úsek, výkazy úsek pokračování přeskakují."""
+    return None if has_cable_data(w) else _cabled_partner_wire(project, sheet, w, groups)
+
+
+def is_continuation(project: Project, sheet: Sheet, w, groups: dict | None = None) -> bool:
+    return continuation_main(project, sheet, w, groups) is not None
+
+
+def split_cable_partner(project: Project, sheet: Sheet, w, groups: dict | None = None):
+    """Údaje kabelu na **obou** úsecích přes dvojici přerušovacích bodů (riziko zdvojení kabelu ve výkazech) →
+    (list, vodič na protějšku), jinak None."""
+    return _cabled_partner_wire(project, sheet, w, groups) if has_cable_data(w) else None

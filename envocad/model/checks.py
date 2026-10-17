@@ -65,7 +65,7 @@ def _connected_ports(sheet: Sheet, e: Element) -> set[str]:
 
 
 def check_project(project: Project, lib) -> list[Finding]:
-    from envocad.model.xref import DeviceIndex, interrupt_link
+    from envocad.model.xref import DeviceIndex, interrupt_link, is_continuation, split_cable_partner
     out: list[Finding] = []
     # vodiče na neexistující prvek: nahlásit a dál počítat bez nich (výpočty a trasy by na nich padaly)
     for s in project.sheets:
@@ -165,8 +165,16 @@ def check_project(project: Project, lib) -> list[Finding]:
             wkey = (*scope_key(s, w), ref)
             if ref and (refs[wkey] > 1 or wkey in idx.groups or wkey in irefs):
                 out.append(Finding(ERROR, s.id, s.name, w.id, True, ref, f"Duplicitní označení {ref}", "dup_ref"))
-            if not s.is_switchboard and not (w.attrs.get("cable") or w.attrs.get("cross")):
+            if not s.is_switchboard and not (w.attrs.get("cable") or w.attrs.get("cross")) \
+                    and not is_continuation(project, s, w, idx.interrupts):   # pokračování kabelu přes přerušení
                 out.append(Finding(INFO, s.id, s.name, w.id, True, ref, "Vodič bez typu kabelu / průřezu", "no_cable"))
+            hit = None if s.is_switchboard else split_cable_partner(project, s, w, idx.interrupts)
+            if hit is not None and (project.sheets.index(hit[0]), hit[1].id) > (project.sheets.index(s), w.id):
+                # hlásí se jednou za dvojici úseků (u úseku na dřívějším listu)
+                out.append(Finding(WARNING, s.id, s.name, w.id, True, ref,
+                                   f"Údaje kabelu na obou úsecích přes přerušení (i {hit[1].attrs.get('ref') or 'vodič'}"
+                                   f" na listu {hit[0].name}) – kabel se ve výkazech zdvojí; nech je jen na jednom úseku",
+                                   "cable_split"))
             if not w.conductors:
                 out.append(Finding(INFO, s.id, s.name, w.id, True, ref, "Vodič bez žil (vícepól ho kreslí jako L1)", "no_cond"))
         if s.is_switchboard and (not s.parent_element_id or project.sheet_of_element(s.parent_element_id) is None):

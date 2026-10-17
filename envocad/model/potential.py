@@ -2,7 +2,8 @@
 
 Uzel sítě = (list, prvek, port, žíla). Spojuje: vodič (obě strany, každá žíla), uzel odbočky (`sb.junction` – všechny
 porty), průchozí svorka (port 1 ↔ 2 téže žíly), můstek svorkovnice (svorky stejné žíly… resp. stejného čísla),
-PE lišta (všechny porty), přívod/vývod rozvaděče ↔ vodič nadřazeného JPS (vazba), blok ROZVADĚČ ↔ jeho přívody.
+PE lišta (všechny porty), přívod/vývod rozvaděče ↔ vodič nadřazeného JPS (vazba), blok ROZVADĚČ ↔ jeho přívody,
+přerušovací body se stejným označením (dvojice, řetěz, hvězda – i mezi listy JPS).
 Výstup: seznam sítí s názvem potenciálu (žíla + zdroj) a kontrola zkratů (L–N, L–PE, DC+–DC−).
 """
 from __future__ import annotations
@@ -142,6 +143,21 @@ def nets(project: Project, lib) -> list[Net]:
                     p0 = sym_port.setdefault(e0, _first_port(project, s.element(e0), lib))
                     p1 = sym_port.setdefault(eid, _first_port(project, s.element(eid), lib))
                     uf.union((s.id, e0, p0, c0), (s.id, eid, p1, c))
+    # přerušovací body se stejným označením (dvojice, řetěz i hvězda) jsou jeden potenciál – i přes listy JPS
+    from envocad.model.xref import interrupt_groups
+    for members in interrupt_groups(project).values():
+        nodes: dict[str, tuple] = {}
+        for s, e in members:
+            for w in s.wires:
+                for end in (w.a, w.b):
+                    if end.element_id != e.id:
+                        continue
+                    for c in mp.wire_conductors(w):
+                        node = (s.id, e.id, end.port, c)
+                        if c in nodes:
+                            uf.union(nodes[c], node)
+                        else:
+                            nodes[c] = node
     groups: dict[tuple, Net] = {}
     sheets = {s.id: s for s in project.sheets}
     for key in list(uf.p):

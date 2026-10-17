@@ -12,7 +12,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from envocad.model.notes import plural
-from envocad.model.project import Element, Project, Sheet, Wire
+from envocad.model.project import INTERRUPT_SYMBOL, Element, Project, Sheet, Wire
 
 RHO_CU, RHO_AL = 0.0225, 0.036      # Ω·mm²/m při provozní teplotě ~70 °C (orientační)
 T_MIN_DEFAULT, T_MAX_DEFAULT = -10.0, 70.0  # °C: nejnižší okolí (Uoc), teplota článku při plném slunci (Umpp)
@@ -482,22 +482,37 @@ def _wire_system(w: Wire) -> tuple[str, float]:
     return "1f", 230.0
 
 
-def _source_current(project: Project, s: Sheet, w: Wire, inverter_u_dc: float | None) -> tuple[float | None, str]:
-    """Proud vodičem podle zdroje na jeho konci: string (1,25·Isc), střídač AC (P/√3U), jistič (In)."""
+def _far_ends(project: Project, s: Sheet, w: Wire) -> list[tuple[Element, str]]:
+    """Konce vodiče (prvek, port); přerušovací bod ve dvojici se nahradí skutečným koncem za protějškem
+    (`xref.through_interrupt` – AC kabel přes listy JPS vede ze střídače)."""
+    out = []
     for end in (w.a, w.b):
-        e = s.element(end.element_id)
+        e, port = s.element(end.element_id), end.port
+        if e.symbol_id == INTERRUPT_SYMBOL:
+            from envocad.model.xref import through_interrupt
+            hit = through_interrupt(project, s, e, port)
+            if hit is not None:
+                e, port = hit[1], hit[2]
+        out.append((e, port))
+    return out
+
+
+def _source_current(project: Project, s: Sheet, w: Wire, inverter_u_dc: float | None) -> tuple[float | None, str]:
+    """Proud vodičem podle zdroje na jeho konci: string (1,25·Isc), střídač AC (P/√3U), jistič (In). Konec na
+    přerušovacím bodu ve dvojici se sleduje za protějšek (`_far_ends`)."""
+    ends = _far_ends(project, s, w)
+    for e, port in ends:
         if e.symbol_id == "fve.pv_string":
             isc = _f(e.attrs.get("isc"))
             if isc:
                 return round(SAFETY_ISC * isc, 2), f"1,25·Isc stringu {e.ref}"
-        if e.symbol_id in ("fve.inverter", "fve.inverter_hybrid") and end.port == "AC":
+        if e.symbol_id in ("fve.inverter", "fve.inverter_hybrid") and port == "AC":
             p = _f(e.attrs.get("p_ac"))
             if p:
                 ph = _f(e.attrs.get("phases"), 3)
                 i = p * 1000 / (3 ** 0.5 * 400) if ph == 3 else p * 1000 / 230
                 return round(i, 1), f"P_AC střídače {e.ref}"
-    for end in (w.a, w.b):
-        e = s.element(end.element_id)
+    for e, _port in ends:
         i_n = _f(e.attrs.get("in_"))
         if i_n and e.symbol_id in ("fve.breaker_mcb", "fve.breaker_mccb", "sb.rcbo", "sb.main_switch",
                                    "fve.switch_disconnector", "fve.fuse", "fve.dc_disconnect"):
@@ -653,8 +668,7 @@ def check_cables(project: Project, t_ambient: float = 30.0, du_limit_pct: float 
             i_a, _src = _source_current(project, s, w, None)
             if system == "dc":
                 # napětí stringu pro úbytek: Umpp ≈ n·vmp z připojeného stringu
-                for end in (w.a, w.b):
-                    e = s.element(end.element_id)
+                for e, _port in _far_ends(project, s, w):
                     if e.symbol_id == "fve.pv_string":
                         n = _f(e.attrs.get("n_modules"), 0) or 0
                         vmp = _f(e.attrs.get("vmp")) or (_f(e.attrs.get("voc")) or 0) * 0.82

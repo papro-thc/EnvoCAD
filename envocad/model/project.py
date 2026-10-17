@@ -1491,9 +1491,15 @@ def feed_link_attrs(project: Project, sheet: Sheet, e: Element, wire_id: str) ->
     s, w = hit
     block = sheet.parent_element_id
     far_end = w.b if w.a.element_id == block else w.a
-    far = s.element(far_end.element_id)
+    far, far_port, far_sheet = s.element(far_end.element_id), far_end.port, s
+    if far.symbol_id == INTERRUPT_SYMBOL:   # kabel přes listy JPS: skutečný konec za přerušením („W3 T1:AC /2.C4“)
+        from envocad.model.xref import through_interrupt
+        thru = through_interrupt(project, s, far, far_port)
+        if thru is not None:
+            far_sheet, far, far_port = thru
     from envocad.model.frame import position_ref
-    text = f"{w.attrs.get('ref', '')} {element_name(far)}:{far_end.port} {position_ref(project, s, far.x, far.y)}".strip()
+    text = (f"{w.attrs.get('ref', '')} {element_name(far)}:{far_port} "
+            f"{position_ref(project, far_sheet, far.x, far.y)}").strip()
     cable = " ".join(x for x in (w.attrs.get("cable", ""), w.attrs.get("cross", "")) if x)
     return {"wire_id": wire_id, key: text, "cable": cable}
 
