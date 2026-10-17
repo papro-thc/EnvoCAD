@@ -168,3 +168,175 @@ def test_zoom_actions():
     w.actions["zoom_out"].trigger()
     assert abs(w.view.transform().m11() - m) < 1e-9
     w.close()
+
+
+# ---- krok 3: stavový řádek, Ctrl+K, panel Kontrola, kontextové menu, úvodní obrazovka ------------------
+def test_status_bar_coords_zoom_dirty():
+    import re
+
+    from PySide6.QtCore import QEvent, QPointF
+    from PySide6.QtGui import QMouseEvent
+    w, _p, _s = _sb_window()
+    w.tabs.setCurrentIndex(0)
+    QApplication.processEvents()
+    z = w._sb_zoom.text()
+    assert re.fullmatch(r"Zoom \d+ %", z)
+    w.actions["zoom_in"].trigger()
+    assert w._sb_zoom.text() != z
+    vp = w.view.viewport()
+    pt = QPointF(vp.width() / 2, vp.height() / 2)    # QTest.mouseMove nepošle nic, je-li kurzor už na místě
+    QApplication.sendEvent(vp, QMouseEvent(QEvent.MouseMove, pt, vp.mapToGlobal(pt), Qt.NoButton, Qt.NoButton,
+                                           Qt.NoModifier))
+    assert re.fullmatch(r"X -?\d+,\d  Y -?\d+,\d mm", w._sb_coords.text()), w._sb_coords.text()
+    assert w._sb_checks.text() == "F7: –" and not w._sb_dirty.isVisible()
+    w.undo.push(_noop_command(w))
+    assert w._sb_dirty.isVisible()
+    w.undo.setClean()
+    assert not w._sb_dirty.isVisible()
+    w.close()
+
+
+def _noop_command(w):
+    from PySide6.QtGui import QUndoCommand
+    return QUndoCommand("test")
+
+
+def test_checks_panel_is_dock_and_refreshes():
+    from envocad.model.checks import ERROR
+    w, _p, _s = _sb_window()
+    w.tabs.setCurrentIndex(0)
+    w.actions["checks"].trigger()                    # F7 – žádný modální dialog, panel dole
+    QApplication.processEvents()
+    assert w.checks_dock.isVisible()
+    assert w.checks_panel.tree.topLevelItemCount() == len(w._findings) > 0
+    assert w._sb_checks.text().startswith("F7: ")
+    # filtr „Chyby“
+    w.checks_panel.filter.setCurrentIndex(1)
+    shown = w.checks_panel.tree.topLevelItemCount()
+    assert shown == sum(f.severity == ERROR for f in w._findings)
+    # změna projektu → nálezy se obnoví samy (odložené)
+    before = list(w._findings)
+    w.undo.push(_noop_command(w))
+    assert w._checks_timer.isActive()
+    w._checks_timer.timeout.emit()
+    assert w._findings is not before
+    w.undo.setClean()
+    w.close()
+
+
+def test_findings_badge_czech_plural():
+    from envocad.model.checks import ERROR, WARNING, Finding
+    from envocad.ui.navigator import findings_badge
+
+    def f(sev):
+        return Finding(sev, "s", "List", "", False, "", "x")
+    assert findings_badge(None) == "F7: –"
+    assert findings_badge([]) == "F7: bez chyb"
+    assert findings_badge([f(ERROR)]) == "F7: 1 chyba"
+    assert findings_badge([f(ERROR)] * 3 + [f(WARNING)] * 2) == "F7: 3 chyby, 2 varování"
+    assert findings_badge([f(ERROR)] * 5) == "F7: 5 chyb"
+
+
+def test_command_palette_filters_and_runs():
+    from envocad.ui.command_palette import CommandPalette, collect_actions, matches
+    w, _p, _s = _sb_window()
+    labels = [lab for lab, _a in collect_actions(w.menuBar())]
+    assert "Soubor › Uložit jako" in labels and any(lab.startswith("Zobrazit › Tmavý") for lab in labels)
+    assert matches("ulozit jak", "Soubor › Uložit jako") and not matches("export xyz", "Soubor › Export DXF")
+    assert w.actions["palette"].shortcut().toString() == "Ctrl+K"
+    assert w.actions["enclosure"].shortcut().toString() == "Ctrl+Alt+K"
+    pal = CommandPalette(w.menuBar(), w)
+    pal.edit.setText("prizpusobit list")
+    assert pal.list.count() == 1 and "Přizpůsobit list" in pal.list.item(0).text()
+    hit = []
+    w.actions["fit"].triggered.connect(lambda: hit.append(1))
+    pal.run_current()
+    QApplication.processEvents()
+    assert hit == [1] and pal.result() == pal.DialogCode.Accepted
+    w.close()
+
+
+def test_context_menu_on_element_and_wire():
+    from envocad.ui.items import ElementItem, WireItem
+    from envocad.ui.multipole_view import PoleItem
+    w, _p, s = _sb_window()
+    w.open_sheet(s, "schematic")
+    QApplication.processEvents()
+    sc = w.scene
+    el = next(it for it in sc.items() if isinstance(it, ElementItem))
+    m = w.context_menu(el.sceneBoundingRect().center())
+    texts = [a.text() for a in m.actions() if not a.isSeparator()]
+    assert el.isSelected() and "Vlastnosti…" in texts and "Otočit o 90°" in texts and "Smazat" in texts
+    wi = next(it for it in sc.items() if isinstance(it, WireItem))
+    pos = next(wi.mapToScene(wi.path().pointAtPercent(t / 20)) for t in range(1, 20)
+               if not any(isinstance(i, ElementItem) for i in sc.items(wi.mapToScene(wi.path().pointAtPercent(t / 20)))))
+    m = w.context_menu(pos)
+    texts = [a.text() for a in m.actions() if not a.isSeparator()]
+    assert "Svorky vybraného vodiče…" in texts and wi.isSelected() and not el.isSelected()
+    # prázdné místo: jen vložit/vodič/přizpůsobit
+    m = w.context_menu(sc.sceneRect().topLeft())
+    assert "Smazat" not in [a.text() for a in m.actions()]
+    # schéma rozvaděče
+    w.open_sheet(s, "multipole")
+    QApplication.processEvents()
+    pole = next(it for it in w.view.scene().items() if isinstance(it, PoleItem))
+    m = w.context_menu(pole.mapToScene(pole.shape().boundingRect().center()))
+    assert "Vlastnosti…" in [a.text() for a in m.actions()]
+    # rozložení: žádné menu výkresu
+    w.open_sheet(s, "layout")
+    assert w.context_menu(sc.sceneRect().center()) is None
+    w.close()
+
+
+def test_welcome_overlay_for_empty_project(tmp_path):
+    from envocad.library.store import LibraryStore
+    from envocad.model.project import Project
+    w = MainWindow(LibraryStore(), Project())
+    w.show()
+    QApplication.processEvents()
+    assert w.welcome.isVisible()
+    assert w.welcome.btn_wizard.text().startswith("Nový projekt z průvodce")
+    w.undo.push(_noop_command(w))                     # první změna → úvodní obrazovka zmizí
+    assert not w.welcome.isVisible()
+    w.undo.setClean()
+    w.close()
+    w2, _p, _s = _sb_window()                         # projekt s obsahem → bez úvodní obrazovky
+    assert not w2.welcome.isVisible()
+    w2.close()
+
+
+def test_right_click_shows_menu_only_in_select_mode(monkeypatch):
+    from PySide6.QtCore import QPoint
+    from PySide6.QtGui import QContextMenuEvent
+    from PySide6.QtTest import QTest
+
+    from envocad.ui.canvas import Mode
+    shown = []
+    monkeypatch.setattr(MainWindow, "_exec_menu", lambda self, m, _p: shown.append([x.text() for x in m.actions()]))
+    w, _p, _s = _sb_window()
+    w.tabs.setCurrentIndex(0)
+    vp = w.view.viewport()
+    pt = QPoint(vp.width() // 2, vp.height() // 2)
+
+    def right_click():
+        QTest.mousePress(vp, Qt.RightButton, Qt.NoModifier, pt)
+        QTest.mouseRelease(vp, Qt.RightButton, Qt.NoModifier, pt)
+        QApplication.sendEvent(vp, QContextMenuEvent(QContextMenuEvent.Mouse, pt, vp.mapToGlobal(pt)))
+
+    w.scene.start_wire()
+    right_click()                                    # v režimu Vodič pravé tl. jen ukončí režim
+    assert w.scene.mode == Mode.SELECT and shown == []
+    right_click()                                    # ve výběru menu
+    assert len(shown) == 1 and "Přizpůsobit list" in shown[0]
+    w.close()
+
+
+def test_checks_panel_restored_from_last_run_fills_itself():
+    w, _p, _s = _sb_window()
+    w.run_checks()
+    w.close()                                        # stav okna s otevřeným panelem Kontrola se uloží
+    w2, _p2, _s2 = _sb_window()
+    assert w2.checks_dock.isVisible() and w2._checks_timer.isActive()
+    w2._checks_timer.timeout.emit()
+    assert w2._findings is not None and w2.checks_panel.tree.topLevelItemCount() > 0
+    w2.close()

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QHBoxLayout,
@@ -16,7 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from envocad.model.checks import ERROR, WARNING, Finding, summary
+from envocad.model.checks import ERROR, INFO, WARNING, Finding, summary
 from envocad.ui.dialogs import button_box
 
 
@@ -87,6 +88,85 @@ class NavigatorPanel(QWidget):
     def _activated(self, item: QTreeWidgetItem, _col: int) -> None:
         data = item.data(0, Qt.UserRole)
         if data:
+            self.goto.emit(*data)
+
+
+def _plural(n: int, one: str, few: str, many: str) -> str:
+    return one if n == 1 else few if 2 <= n <= 4 else many
+
+
+def findings_badge(findings: list[Finding] | None) -> str:
+    """Krátký souhrn do stavového řádku: „F7: 2 chyby, 5 varování“ / „F7: bez nálezů“ / „F7: –“ (nekontrolováno)."""
+    if findings is None:
+        return "F7: –"
+    e = sum(f.severity == ERROR for f in findings)
+    w = sum(f.severity == WARNING for f in findings)
+    if not e and not w:
+        return "F7: bez chyb"
+    parts = []
+    if e:
+        parts.append(f"{e} {_plural(e, 'chyba', 'chyby', 'chyb')}")
+    if w:
+        parts.append(f"{w} varování")
+    return "F7: " + ", ".join(parts)
+
+
+class ChecksPanel(QWidget):
+    """Kontrola projektu jako panel (dok) vedle výkresu: nálezy zůstanou vidět při opravování, filtr závažnosti,
+    „Zkontrolovat znovu“; po změně projektu ji hlavní okno obnoví samo (je-li panel otevřený)."""
+    goto = Signal(str, str, bool)
+    recheck = Signal()
+    FILTERS = (("Vše", None), ("Chyby", (ERROR,)), ("Chyby a varování", (ERROR, WARNING)), ("Informace", (INFO,)))
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.findings: list[Finding] | None = None
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(2, 2, 2, 2)
+        row = QHBoxLayout()
+        self.summary = QLabel("Projekt zatím nebyl zkontrolován (F7)")
+        row.addWidget(self.summary, 1)
+        self.filter = QComboBox()
+        for label, _sev in self.FILTERS:
+            self.filter.addItem(label)
+        self.filter.currentIndexChanged.connect(self._fill)
+        row.addWidget(self.filter)
+        btn = QPushButton("Zkontrolovat znovu")
+        btn.clicked.connect(self.recheck.emit)
+        row.addWidget(btn)
+        lay.addLayout(row)
+        self.tree = QTreeWidget()
+        self.tree.setHeaderLabels(["Závažnost", "List", "Prvek", "Nález"])
+        self.tree.setRootIsDecorated(False)
+        self.tree.itemActivated.connect(self._activated)
+        self.tree.itemDoubleClicked.connect(self._activated)
+        lay.addWidget(self.tree)
+
+    def set_findings(self, findings: list[Finding]) -> None:
+        self.findings = list(findings)
+        self.summary.setText(f"<b>{summary(self.findings)}</b> – dvojklik skočí na prvek")
+        self._fill()
+
+    def _fill(self, _i: int = 0) -> None:
+        sev = self.FILTERS[self.filter.currentIndex()][1]
+        self.tree.clear()
+        for f in self.findings or []:
+            if sev is not None and f.severity not in sev:
+                continue
+            it = QTreeWidgetItem([f.severity, f.sheet_name, f.ref, f.text])
+            it.setData(0, Qt.UserRole, (f.sheet_id, f.target_id, f.is_wire))
+            it.setToolTip(3, f.text)
+            if f.severity == ERROR:
+                it.setForeground(0, Qt.red)
+            elif f.severity == WARNING:
+                it.setForeground(0, Qt.darkYellow)
+            self.tree.addTopLevelItem(it)
+        for i in range(3):
+            self.tree.resizeColumnToContents(i)
+
+    def _activated(self, item: QTreeWidgetItem, _col: int = 0) -> None:
+        data = item.data(0, Qt.UserRole)
+        if data and data[0]:
             self.goto.emit(*data)
 
 
