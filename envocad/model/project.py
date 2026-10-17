@@ -540,11 +540,18 @@ class Revision:
     marks: list[RevisionMark] = field(default_factory=list)
     fingerprints: dict[str, str] = field(default_factory=dict)   # sheet_id → otisk při uzavření listu
     id: str = field(default_factory=_uid)
+    # řádky změnového listu (`meta["changes"]`), které do revize zapsalo porovnání (`change_list_text`), v přesném
+    # znění – opakované porovnání nahradí jen je, ručně psané řádky zůstanou. None = neznámé (starší soubor).
+    # Ukládá se jako nepovinný klíč „auto_lines“ (starší program ho ignoruje, formát se nemění).
+    auto_lines: list[str] | None = None
 
     def to_dict(self) -> dict:
-        return {"id": self.id, "label": self.label, "date": self.date, "author": self.author,
-                "description": self.description, "closed": self.closed, "marks": [m.to_dict() for m in self.marks],
-                "fingerprints": dict(self.fingerprints)}
+        d = {"id": self.id, "label": self.label, "date": self.date, "author": self.author,
+             "description": self.description, "closed": self.closed, "marks": [m.to_dict() for m in self.marks],
+             "fingerprints": dict(self.fingerprints)}
+        if self.auto_lines is not None:
+            d["auto_lines"] = list(self.auto_lines)
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> Revision:
@@ -552,7 +559,8 @@ class Revision:
                    description=d.get("description", ""), closed=bool(d.get("closed")),
                    marks=[RevisionMark.from_dict(m) for m in d.get("marks", [])],
                    fingerprints={str(k): str(v) for k, v in (d.get("fingerprints") or {}).items()},
-                   id=d.get("id") or _uid())
+                   id=d.get("id") or _uid(),
+                   auto_lines=[str(x) for x in d["auto_lines"]] if isinstance(d.get("auto_lines"), list) else None)
 
 
 NOTE_STATUSES = ("open", "resolved")          # UI „otevřeno“ / „vyřešeno“
@@ -691,6 +699,10 @@ class Project:
     # kabely odebrané `sync_cables` (žádný vodič na ně neodkazuje): id → (pořadí, kabel). Vrátí-li se vodič s tímto
     # `cable_id` (undo smazání, redo vložení), kabel se obnoví beze změny i na původním místě. Neukládá se.
     removed_cables: dict[str, tuple[int, Cable]] = field(default_factory=dict, repr=False, compare=False)
+    # kabely osiřelé už v načteném souboru (žádný vodič JPS na ně neodkazuje): `sync_cables` je při otevření
+    # neodebere (ruční barvy žil, artikl) – odebírá jen kabely osiřelé změnou v této relaci. Kontrola je hlásí
+    # jako INFO (`cable_no_wire`). Vodič, který se na takový kabel naváže, ho z množiny vyřadí. Neukládá se.
+    loaded_orphan_cables: set[str] = field(default_factory=set, repr=False, compare=False)
 
     # ---- strukturní označení ------------------------------------------
     def structure(self, aspect: str, code: str) -> StructureId | None:
@@ -839,6 +851,7 @@ class Project:
                    revisions=[_part(Revision.from_dict, r, _label(r, "revize", k)) for k, r in enumerate(_top(d, "revisions"))],
                    notes=[_part(Note.from_dict, n, f"připomínka č. {k + 1}") for k, n in enumerate(_top(d, "notes"))])
         _repair_duplicate_ids(proj)
+        proj.loaded_orphan_cables = {c.id for c in orphan_cables(proj)}
         return proj
 
     def save(self, path: Path | str | None = None) -> None:
@@ -1136,12 +1149,40 @@ def _auto_text_rename(text: str, old: str, new: str) -> str | None:
     return None
 
 
+def _rename_related(project: Project, element: Element):
+    """Predikát (list, prvek) → souvisí prvek s přejmenovaným `element` natolik, že jeho text podle šablony
+    odkazuje právě na něj? Ano, když je ve stejném prostoru označení (`scope_key`), nebo leží na listu rozvaděče,
+    jehož přívod/vývod je navázaný (`linked_wire`, `wire_id` / port bloku) na vodič vedoucí k `element`. Prvky
+    jiného prostoru označení (jiné func/loc s vlastním T1) bez takové vazby → ne."""
+    from envocad.model.designation import scope_key
+    home = project.sheet_of_element(element.id)
+    target = scope_key(home, element) if home is not None else None
+    touching = {w.id for s in project.sheets for w in s.wires if w.touches(element.id)}
+    linked: set[str] = set()     # listy rozvaděčů s přívodem/vývodem navázaným na vodič k `element`
+    if touching:
+        for s in project.sheets:
+            if not s.is_switchboard:
+                continue
+            for f in s.elements:
+                if f.symbol_id in FEED_SYMBOLS:
+                    hit = linked_wire(project, s, f)
+                    if hit is not None and hit[1].id in touching:
+                        linked.add(s.id)
+                        break
+
+    def related(s: Sheet, e: Element) -> bool:
+        return s.id in linked or (target is not None and scope_key(s, e) == target)
+    return related
+
+
 def rename_followups(project: Project, element: Element, old: str, new: str) -> list[TextChange]:
     """Co se má změnit spolu s přejmenováním prvku `old` → `new` (jeden krok undo v GUI):
     - blok ROZVADĚČ: název jeho listu začínající starým označením („RDC1 – …“ → „RDC5 – …“) a atribut `sheet` bloku;
     - automaticky vygenerované popisy (`AUTO_TEXT_TEMPLATES`: „od T1“, „G1 dál“, „string G1“, „DC rozvaděč u T1“)
-      ostatních prvků, kde je staré označení samostatným slovem, a názvy listů rozvaděčů, které takový popis nesou.
-    Ručně psané texty se nemění."""
+      ostatních prvků, kde je staré označení samostatným slovem, a názvy listů rozvaděčů, které takový popis nesou –
+      jen u prvků, které s přejmenovaným prokazatelně souvisejí (`_rename_related`: stejný prostor označení, nebo
+      list rozvaděče s přívodem/vývodem navázaným na vodič k němu). Stejný text v jiném prostoru označení (=B s
+      vlastním T1) se nemění. Ručně psané texty se nemění."""
     if not old or not new or old == new:
         return []
     out: list[TextChange] = []
@@ -1155,13 +1196,14 @@ def rename_followups(project: Project, element: Element, old: str, new: str) -> 
         s = project.switchboard_sheet(element.id)
         if s is not None and (s.name == old or s.name.startswith(old + " ")):
             rename_sheet(s, new + s.name[len(old):])
+    related = _rename_related(project, element)
     for s in project.sheets:
         for e in s.elements:
             if e is element:
                 continue
             desc = e.attrs.get("desc", "")
             nd = _auto_text_rename(desc, old, new)
-            if nd is None:
+            if nd is None or not related(s, e):
                 continue
             out.append(TextChange("element", e.id, "desc", desc, nd))
             if e.symbol_id == "fve.switchboard":
@@ -1682,12 +1724,33 @@ def sync_feed_links(project: Project) -> int:
 
 
 # ---- kabely ↔ vodiče -------------------------------------------------------------------------------------
+def _cable_wires(project: Project):
+    """Vodiče JPS, které mají kabel (označení nebo typ kabelu) – stejný výběr jako v `sync_cables`."""
+    for s in project.sheets:
+        if s.is_switchboard:
+            continue
+        for w in s.wires:
+            if w.attrs.get("ref") or w.attrs.get("cable"):
+                yield w
+
+
+def orphan_cables(project: Project) -> list[Cable]:
+    """Kabely, na které neodkazuje žádný vodič JPS (ani `cable_id`, ani označením – `Project.cable_of_wire`)."""
+    used = set()
+    for w in _cable_wires(project):
+        c = project.cable_of_wire(w)
+        if c is not None:
+            used.add(c.id)
+    return [c for c in project.cables if c.id not in used]
+
+
 def sync_cables(project: Project) -> int:
     """Z vodičů JPS (s označením nebo typem kabelu) udržuje objekty Cable: typ/průřez/délka/trasa se berou
     z atributů vodiče (ten je editační místo), žíly z `Wire.conductors` (barvy se dopočítají a ručně upravené
     zůstanou). Vodiče uvnitř rozvaděčů kabel nedostanou. Kabel, na který žádný vodič JPS neodkazuje (smazaný nebo
     vrácený vodič – undo vložení), se odebere do `Project.removed_cables`; vrátí-li se vodič s jeho `cable_id`
-    (undo/redo), obnoví se týž kabel (id, barvy žil, artikl) na původním místě. Vrací počet změn."""
+    (undo/redo), obnoví se týž kabel (id, barvy žil, artikl) na původním místě. Kabel osiřelý už v načteném souboru
+    (`Project.loaded_orphan_cables`) se neodebere – ruční data se otevřením projektu neztratí. Vrací počet změn."""
     changed = 0
     for s in project.sheets:
         if s.is_switchboard:
@@ -1721,11 +1784,11 @@ def sync_cables(project: Project) -> int:
             if w.attrs.get("cable_id") != c.id:
                 w.attrs["cable_id"] = c.id
                 changed += 1
-    used = {w.attrs.get("cable_id") for s in project.sheets if not s.is_switchboard for w in s.wires
-            if w.attrs.get("ref") or w.attrs.get("cable")}
+    used = {w.attrs.get("cable_id") for w in _cable_wires(project)}
+    project.loaded_orphan_cables -= used            # kabel už má vodič – další osiření je změna v této relaci
     for i in range(len(project.cables) - 1, -1, -1):
         c = project.cables[i]
-        if c.id not in used:                        # osiřelý kabel (vodič smazán / vložení vráceno)
+        if c.id not in used and c.id not in project.loaded_orphan_cables:   # osiřelý změnou (vodič smazán / undo)
             project.removed_cables[c.id] = (i, project.cables.pop(i))
             changed += 1
     return changed

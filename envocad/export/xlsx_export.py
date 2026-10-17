@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import re
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -19,6 +20,9 @@ BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 
 # sloupce, jejichž číselné hodnoty se zapisují jako čísla (Excel s nimi počítá a řadí je číselně)
 NUMERIC_COLUMNS = {"Průřez [mm²]", "Délka [m]", "Č.", "Svorka", "Ks", "Spojů"}
+# sloupce označení (číslo svorky / žíly): číslem jen čistě celé číslo bez úvodní nuly – „1.10“, „01“, „3,1“ = text
+INTEGER_COLUMNS = {"Č.", "Svorka"}
+_PLAIN_INT = re.compile(r"(0|[1-9][0-9]*)")
 
 
 def _number(v):
@@ -35,6 +39,13 @@ def _number(v):
     if not math.isfinite(f):
         return v
     return int(f) if f.is_integer() and "." not in t and "e" not in t.lower() else f
+
+
+def _integer(v):
+    """Text čistě celého čísla („3“, „12“) → int; jiné hodnoty („1.10“, „01“, „1,5“, „PE“) beze změny."""
+    if isinstance(v, str) and _PLAIN_INT.fullmatch(v.strip()):
+        return int(v.strip())
+    return v
 
 
 def _set_text_safe(cell) -> None:
@@ -62,9 +73,9 @@ def _write_table(ws, title: str, subtitle: str, head: list[str], rows: list[list
         cell.fill = HEAD_FILL
         cell.border = BORDER
         cell.alignment = Alignment(vertical="center", wrap_text=True)
-    numeric = [h in NUMERIC_COLUMNS for h in head]
+    conv = [_integer if h in INTEGER_COLUMNS else (_number if h in NUMERIC_COLUMNS else None) for h in head]
     for r in rows:
-        ws.append([_number(v) if c < len(numeric) and numeric[c] else v for c, v in enumerate(r)])
+        ws.append([conv[c](v) if c < len(conv) and conv[c] else v for c, v in enumerate(r)])
         for c in range(1, max(len(head), len(r)) + 1):
             cell = ws.cell(row=ws.max_row, column=c)
             _set_text_safe(cell)

@@ -719,6 +719,26 @@ def _snap(v: float) -> float:
     return round(v / GRID) * GRID
 
 
+BREAK_PITCH = 2.5      # rozteč přerušení žil na okraji strany
+
+
+def break_y(p: tuple[float, float], d: str, n: int, used: set[float]) -> float:
+    """Výška (mm, Y nahoru) vodorovného úseku k přerušovacímu bodu na okraji strany; `n` = pořadí přerušení na tom
+    okraji, `used` = výšky přerušení, která už na okraji jsou (doplní se o vrácenou výšku).
+    Port E/W: v úrovni portu, každé další přerušení o rozteč níž (`n`). Port N/S: úsek vede za vývodem portu ven od
+    přístroje (nad / pod něj) – ne v úrovni portu, kde by šel přes sousední svorky, jejich čísla a vlastní značku;
+    další přerušení dál ven, dokud nemá od ostatních na okraji aspoň rozteč (šipky a odkazy se nekryjí)."""
+    if d in ("N", "S"):
+        step = BREAK_PITCH if d == "N" else -BREAK_PITCH
+        y = p[1] + (GRID if d == "N" else -GRID)
+        while any(abs(y - u) < BREAK_PITCH - 1e-6 for u in used):
+            y += step
+    else:
+        y = p[1] - BREAK_PITCH * n
+    used.add(y)
+    return y
+
+
 def conductor_route(pa: tuple[float, float], da: str, pb: tuple[float, float], db: str, stagger: float = 0.0,
                     jog: float = 0.8) -> list[tuple[float, float]]:
     """Trasa žíly ve vícepólu (model mm, Y nahoru): vývod GRID z každého portu, L/Z vedení, příčka Z-trasy v `jog`

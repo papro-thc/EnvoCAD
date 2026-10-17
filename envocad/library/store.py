@@ -86,9 +86,13 @@ class LibraryStore:
                     sources.append((shared, "shared"))
             except Exception:  # noqa: BLE001, S110
                 pass
+        # přednost zdrojů builtin → user → shared (pozdější přebíjí stejná id): když se změní soubor jednoho zdroje,
+        # musí se znovu zapsat i všechny soubory po něm (zbytek zdroje a pozdější zdroje), jinak by přenačtený
+        # vestavěný soubor přepsal firemní přepis se stejným id. Mezipaměť podle mtime platí jen před první změnou.
+        dirty_sym = dirty_csv = False
         for root, tag in sources:
-            self._sync_symbols(root, tag, seen, rows)
-            self._sync_components(root, tag, seen)
+            dirty_sym = self._sync_symbols(root, tag, seen, rows, dirty_sym)
+            dirty_csv = self._sync_components(root, tag, seen, dirty_csv)
         n = len(rows)
         if rows:
             self.conn.executemany(
@@ -98,14 +102,17 @@ class LibraryStore:
             self.conn.commit()
         return n
 
-    def _sync_symbols(self, root: Path, tag: str, seen: dict, rows: list) -> None:
+    def _sync_symbols(self, root: Path, tag: str, seen: dict, rows: list, force: bool = False) -> bool:
+        """Značky z JSON zdroje `root`; soubor beze změny se přeskočí, dokud se v pořadí zdrojů nezměnil žádný dřívější
+        soubor (`force`). Vrací True, pokud se od tohoto místa musí přenačítat (změna tady nebo dřív)."""
         for f in sorted(root.rglob("*.json")):
             if "macros" in f.relative_to(root).parts:   # makra nejsou značky
                 continue
             key = f"{tag}:{f.relative_to(root)}"
             mtime = f.stat().st_mtime
-            if seen.get(key) == mtime:
+            if not force and seen.get(key) == mtime:
                 continue  # beze změny – přeskočit (start s ~700 symboly by jinak trval sekundy)
+            force = True
             cached = _PARSED_SYMBOLS.get((str(f), mtime, f.stat().st_size))
             if cached is None:
                 try:
@@ -118,9 +125,12 @@ class LibraryStore:
             sid, name, category, data = cached
             rows.append((sid, name, category, 1 if tag == "builtin" else 0, data))
             self.conn.execute("INSERT OR REPLACE INTO builtin_files(path, mtime) VALUES(?, ?)", (key, mtime))
+        return force
 
-    def _sync_components(self, root: Path, tag: str = "", seen: dict | None = None) -> None:
-        """Artikly z CSV; soubor beze změny (stejné mtime jako při posledním načtení) se přeskočí."""
+    def _sync_components(self, root: Path, tag: str = "", seen: dict | None = None, force: bool = False) -> bool:
+        """Artikly z CSV; soubor beze změny (stejné mtime jako při posledním načtení) se přeskočí – ale jen dokud se
+        v pořadí zdrojů (builtin → user → shared) nezměnil žádný dřívější soubor (`force`): pak se znovu zapíšou
+        všechny další, aby pozdější zdroj dál přebíjel stejná id. Vrací stav `force` pro další zdroj."""
         csvs = sorted(root.rglob("*.csv"))
         if csvs:
             from envocad.library.components import read_csv
@@ -128,8 +138,9 @@ class LibraryStore:
             for f in csvs:
                 key = f"csv:{tag}:{f.relative_to(root)}"
                 mtime = f.stat().st_mtime
-                if seen.get(key) == mtime:
+                if not force and seen.get(key) == mtime:
                     continue
+                force = True
                 comps = _PARSED_CSV.get((str(f), mtime, f.stat().st_size))
                 if comps is None:
                     try:
@@ -148,6 +159,7 @@ class LibraryStore:
                 )
                 self.conn.execute("INSERT OR REPLACE INTO builtin_files(path, mtime) VALUES(?, ?)", (key, mtime))
             self.conn.commit()
+        return force
 
     # ---- artikly (typované API) -----------------------------------------
     def component(self, cid: str):

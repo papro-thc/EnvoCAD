@@ -607,6 +607,7 @@ class MultipoleScene(QGraphicsScene):
             sym = element_symbol(self.project, e, self.library)
             poles[e.id] = mp.element_poles(self.sheet, e, sym)
         self._breaks: dict[tuple[int, bool], int] = {}
+        self._break_ys: dict[tuple[int, bool], set[float]] = {}
         # popisky žil rozmístěné modelem (stejné rozmístění a trasy jako tato scéna, viz model/multipole_geometry)
         from envocad.model.multipole_geometry import multipole_geometry
         origins: dict[str, tuple[float, float]] = {}
@@ -753,8 +754,8 @@ class MultipoleScene(QGraphicsScene):
         nb = self._breaks.setdefault((kb, not right), 0)
         self._breaks[(ka, right)] = na + 1
         self._breaks[(kb, not right)] = nb + 1
-        ya = pa[1] - 2.5 * na
-        yb = pb[1] - 2.5 * nb
+        ya = mp.break_y(pa, da, na, self._break_ys.setdefault((ka, right), set()))
+        yb = mp.break_y(pb, db, nb, self._break_ys.setdefault((kb, not right), set()))
         ea_pt = (xa, ya)
         eb_pt = (xb, yb)
         for part, (a_, da_, b_, db_, ends_) in enumerate(((pa, da, ea_pt, "W" if right else "E", (texts[0], "")),

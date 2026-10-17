@@ -106,12 +106,14 @@ def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None)
     head = ["Označení", "Přístroj", "Typ", "Výrobce", "Parametry", "Kontakty", "Moduly", "Řada", "Pozice", "List"]
     keyed: list[tuple[tuple, list]] = []
     for s in _sheets(project, sheet):
-        strips: dict[str, list[Element]] = {}
+        strips: dict[tuple[str, str, str], list[Element]] = {}
         for e in s.elements:
             if e.symbol_id in NON_DEVICE_SYMBOLS or not idx.is_bom_device(e, sheet):
                 continue
             if is_terminal_block(e) and e.ref:
-                strips.setdefault(e.ref, []).append(e)   # svorkovnice = jeden řádek za všechny skupiny svorek
+                # svorkovnice = jeden řádek za všechny skupiny svorek; klíč jako u štítků (`labels`): prostor
+                # označení + ref – skupina X1 s vlastním umístěním (override +loc) je jiná svorkovnice
+                strips.setdefault((*scope_key(s, e), e.ref), []).append(e)
                 continue
             sym = _symbol(lib, e.symbol_id)
             pl = s.layout.placement(e.id) if s.is_switchboard else None
@@ -121,7 +123,7 @@ def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None)
                           [_tag(project, s, e), sym.name, e.attrs.get("type", ""), e.attrs.get("manufacturer", ""),
                            _param_str(e), conts, e.modules or "", (pl.row + 1) if pl else "", pl.pos if pl else "",
                            s.name]))
-        for ref, grp in strips.items():
+        for (_f, _l, ref), grp in strips.items():
             e = grp[0]
             n = sum(_terminal_qty(s, g) for g in grp)
             pls = sorted((pl.row, pl.pos) for g in grp if s.is_switchboard and (pl := s.layout.placement(g.id)))

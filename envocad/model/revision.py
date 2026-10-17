@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import copy
 import math
+from collections import Counter
 from dataclasses import dataclass, field
 from itertools import pairwise
 
@@ -164,14 +165,30 @@ def apply_changes(project: Project, rev: Revision, changes: list[Change]) -> Non
     project.meta["revision"] = rev.label
 
 
-def merge_change_lines(current: str, labels: set[str] | list[str], new_text: str) -> str:
-    """Změnový list `meta["changes"]` po porovnání do otevřené revize: řádky revizí `labels` (otevřená revize, i pod
-    dřívějším označením) se nahradí řádky `new_text`, ostatní zůstanou. Opakované porovnání do téže revize tedy
-    řádky nezdvojí."""
+def merge_change_lines(current: str, labels: set[str] | list[str], new_text: str,
+                       auto_lines: list[str] | None = None) -> str:
+    """Změnový list `meta["changes"]` po porovnání do otevřené revize: řádky, které dřív vygenerovalo porovnání
+    (`auto_lines` = `Revision.auto_lines`, přesné znění), se nahradí řádky `new_text`; ručně psané řádky (i se
+    značkou otevřené revize) zůstanou. Opakované porovnání do téže revize tedy řádky nezdvojí.
+
+    `auto_lines=None` (revize ze staršího souboru, vygenerované řádky neznámé): ze řádků revizí `labels` se odeberou
+    jen ty, které `new_text` obsahuje beze změny (nezdvojí se); jiné řádky se nemažou – mohou být psané ručně."""
     from envocad.model.diff import split_change_line
-    drop = {x for x in labels if x}
-    kept = [ln for ln in (current or "").splitlines() if ln.strip() and split_change_line(ln)[0] not in drop]
-    return "\n".join([*kept, *[ln for ln in (new_text or "").splitlines() if ln.strip()]])
+    new = [ln for ln in (new_text or "").splitlines() if ln.strip()]
+    old = [ln for ln in (current or "").splitlines() if ln.strip()]
+    if auto_lines is not None:
+        drop = Counter(ln.strip() for ln in auto_lines if ln.strip())
+    else:
+        marks = {x for x in labels if x}
+        drop = Counter(ln.strip() for ln in new)
+        drop = Counter({k: n for k, n in drop.items() if split_change_line(k)[0] in marks})
+    kept = []
+    for ln in old:
+        if drop[ln.strip()] > 0:
+            drop[ln.strip()] -= 1
+            continue
+        kept.append(ln)
+    return "\n".join([*kept, *new])
 
 
 def close_revision(project: Project, rev: Revision, sheet_ids: list[str] | None = None) -> None:

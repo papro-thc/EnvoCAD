@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+BUSBAR_INPUTS = 12     # přívody T1…T12 sběrnice sb.busbar (= `generate.AC_MAX_INVERTERS_BUS`)
 OUT = Path(__file__).resolve().parents[1] / "envocad" / "library" / "builtin" / "fve"
 
 
@@ -306,13 +307,13 @@ SYMBOLS = [
     {
         "id": "sb.busbar", "name": "Sběrnice (rozvodný vodič)", "category": "Svorky a propojení", "iec_ref": "",
         "description": "Rozvod potenciálů vodičem jako v EPLAN: ve vícepólu vodorovné čáry L1 L2 L3 N PE přes stranu "
-                       "s názvy potenciálů na koncích, přístroje se na ně napojují odbočkou; 1 vstup, 10 přívodů shora, "
+                       "s názvy potenciálů na koncích, přístroje se na ně napojují odbočkou; 1 vstup, 12 přívodů shora, "
                        "12 vývodů zdola",
         "primitives": [{"type": "polyline", "points": [[-75, 0], [105, 0]], "closed": False},
                        {"type": "polyline", "points": [[-75, 1], [105, 1]], "closed": False}],
-        # porty: IN vlevo nahoře, T1…T10 shora (přívody, jističe od střídačů), 1…12 zdola (vývody) – šablona
+        # porty: IN vlevo nahoře, T1…T12 shora (přívody, jističe od střídačů – generátor: nejvýš 12 střídačů), 1…12 zdola (vývody) – šablona
         # AC rozvaděče potřebuje SPD + až 9 vývodů + PE (`templates.AC_MAX_OUTPUTS`, `BUSBAR_OUTPUTS`)
-        "ports": [P("IN", -75, 5, "N")] + [P(f"T{i + 1}", -60 + i * 15, 5, "N") for i in range(10)]
+        "ports": [P("IN", -75, 5, "N")] + [P(f"T{i + 1}", -60 + i * 15, 5, "N") for i in range(BUSBAR_INPUTS)]
                  + [P(f"{i + 1}", -67.5 + i * 15, -5, "S") for i in range(12)],
         "attributes": [attr("ref", "Označení (předpona potenciálů, např. 1 → 1L1)", "", True), attr("desc", "Popis", "", True),
                        attr("in_", "In [A]"), attr("conductors", "Vodiče", "L1 L2 L3 N PE")],

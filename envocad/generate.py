@@ -103,6 +103,9 @@ def _lib():
     return LibraryStore()
 
 
+AC_MAX_INVERTERS_BUS = 12   # přívody T1…T12 sběrnice sb.busbar (`tools/gen_builtin_fve.BUSBAR_INPUTS`)
+
+
 def build_project(spec: dict) -> Project:
     """Sestaví projekt: JPS (stringy → DC rozvaděče → střídač, každý string na vlastní DC vstup → AC rozvaděč → síť) + listy rozvaděčů."""
     global _BUILD_LIB
@@ -121,6 +124,9 @@ def _build_project(spec: dict) -> Project:
     invs = spec.get("inverters") or []
     if not invs:
         raise ValueError("Specifikace musí obsahovat alespoň jeden střídač (`inverters`).")
+    if (spec["ac"].get("distribution") or "bus") == "bus" and len(invs) > AC_MAX_INVERTERS_BUS:
+        raise ValueError(f"AC rozvaděč: sběrnice má {AC_MAX_INVERTERS_BUS} přívodů – nejvýš {AC_MAX_INVERTERS_BUS} "
+                         f"střídačů (zadáno {len(invs)}). Zvolte rozvod svorkami nebo rozdělte FVE na více rozvaděčů.")
     p = Project(name=spec["name"], meta={k: _s(v) for k, v in spec["meta"].items()})
     s = p.sheets[0]
     s.name = "Jednopólové schéma"

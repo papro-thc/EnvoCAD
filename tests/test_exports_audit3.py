@@ -224,9 +224,12 @@ def test_change_text_pipe_is_escaped_and_split_robust():
 def test_merge_change_lines_replaces_open_revision_rows():
     from envocad.model.revision import merge_change_lines
     cur = "A | 1.1. | první | PR\nB | 2.1. | stará změna | PR"
-    out = merge_change_lines(cur, {"B"}, "B | 3.1. | nová | PR\nB | 3.1. | druhá | PR")
+    new = "B | 3.1. | nová | PR\nB | 3.1. | druhá | PR"
+    out = merge_change_lines(cur, {"B"}, new, ["B | 2.1. | stará změna | PR"])
     assert out.splitlines() == ["A | 1.1. | první | PR", "B | 3.1. | nová | PR", "B | 3.1. | druhá | PR"]
-    assert merge_change_lines(out, {"B"}, "B | 3.1. | nová | PR\nB | 3.1. | druhá | PR") == out
+    assert merge_change_lines(out, {"B"}, new, new.splitlines()) == out
+    # revize bez známých vygenerovaných řádků (starší soubor): stejné řádky se nezdvojí, jiné se nemažou
+    assert merge_change_lines(out, {"B"}, new) == out
 
 
 def test_record_revision_twice_does_not_duplicate(qapp, lib, proj):

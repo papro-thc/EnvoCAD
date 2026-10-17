@@ -43,21 +43,24 @@ def export_scene_pdf(scene, path: Path | str, paper: str | None = None, notes: b
     painter = QPainter(writer)
     painter.setRenderHint(QPainter.Antialiasing)
     scene.clearSelection()
-    scene.draw_grid = False
     prev_notes = getattr(scene, "notes_visible", None)
-    set_scene_notes_visible(scene, False)     # připomínky jsou v PDF jen jako anotace, ne v obsahu
     prev_dark = theme.is_dark()
-    theme._current = theme.PRINT
-    pages = getattr(scene, "pages", None) or [QRectF(0, -ph, pw, ph)]   # vícepól může mít víc stran
-    for i, src in enumerate(pages):
-        if i:
-            writer.newPage()
-        scene.render(painter, QRectF(0, 0, writer.width(), writer.height()), src, Qt.KeepAspectRatio)
-    painter.end()
-    theme._current = theme.DARK if prev_dark else theme.LIGHT
-    set_scene_notes_visible(scene, prev_notes)
-    scene.draw_grid = True
-    scene.update()
+    try:
+        scene.draw_grid = False
+        set_scene_notes_visible(scene, False)     # připomínky jsou v PDF jen jako anotace, ne v obsahu
+        theme._current = theme.PRINT
+        pages = getattr(scene, "pages", None) or [QRectF(0, -ph, pw, ph)]   # vícepól může mít víc stran
+        for i, src in enumerate(pages):
+            if i:
+                writer.newPage()
+            scene.render(painter, QRectF(0, 0, writer.width(), writer.height()), src, Qt.KeepAspectRatio)
+    finally:
+        if painter.isActive():
+            painter.end()
+        theme._current = theme.DARK if prev_dark else theme.LIGHT
+        set_scene_notes_visible(scene, prev_notes)
+        scene.draw_grid = True
+        scene.update()
     from envocad.ui.canvas import SchematicScene
     if not notes or not isinstance(scene, SchematicScene):   # vícepól a plán svorkovnice připomínky nemají
         return 0
@@ -80,19 +83,22 @@ def export_layout_pdf(scene, path: Path | str, paper: str | None = None) -> None
     writer.setTitle(f"{scene.project.name} – {scene.sheet.name} – rozložení")
     writer.setCreator("EnvoCAD")
     prev_dark = theme.is_dark()
-    theme._current = theme.PRINT
-    scene.clearSelection()
-    scene.printing = True                 # bez nápovědy editoru v hlavičce
-    scene.rebuild()                       # lišty a obrys skříně se barví při stavbě → tiskové barvy
+    painter = None
     try:
+        # přepnutí motivu i stavba scény v tiskových barvách patří do try: při chybě se motiv i scéna vrátí
+        theme._current = theme.PRINT
+        scene.clearSelection()
+        scene.printing = True                 # bez nápovědy editoru v hlavičce
+        scene.rebuild()                       # lišty a obrys skříně se barví při stavbě → tiskové barvy
         painter = QPainter(writer)
         painter.setRenderHint(QPainter.Antialiasing)
         k = writer.width() / out_w        # px na mm
         m = 10.0 * k
         target = QRectF(m, m, writer.width() - 2 * m, writer.height() - 2 * m)
         scene.render(painter, target, scene.sceneRect(), Qt.KeepAspectRatio)
-        painter.end()
     finally:
+        if painter is not None and painter.isActive():
+            painter.end()
         theme._current = theme.DARK if prev_dark else theme.LIGHT
         scene.printing = False
         scene.rebuild()

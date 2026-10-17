@@ -1358,9 +1358,11 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Porovnání s revizí", f"{ex}.")
             return False
         apply_changes(self.project, rev, changes)
-        # řádky otevřené revize (i pod dřívějším označením) se nahradí – opakované porovnání je nezdvojí
+        # řádky, které do otevřené revize zapsalo dřívější porovnání, se nahradí (opakované porovnání je nezdvojí);
+        # ručně psané řádky zůstanou
         self.project.meta["changes"] = merge_change_lines(self.project.meta.get("changes", ""),
-                                                          {rev.label, prev_label}, change_text)
+                                                          {rev.label, prev_label}, change_text, rev.auto_lines)
+        rev.auto_lines = [ln.strip() for ln in change_text.splitlines() if ln.strip()]
         after = revisions_state(self.project)
         restore_revisions_state(self.project, before)
         self.undo.push(commands.ReplaceRevisionsCommand(self.project, before, after, "Porovnání s revizí"))

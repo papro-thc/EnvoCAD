@@ -194,6 +194,7 @@ def check_project(project: Project, lib) -> list[Finding]:
     out += designation_findings(project, lib, idx)
     out += revision_findings(full)
     out += note_findings(full)
+    out += cable_findings(full)
     out += calc_findings(project)
     out += potential_findings(project, lib)
     out += text_findings(project, lib)
@@ -572,6 +573,13 @@ def potential_findings(project: Project, lib) -> list[Finding]:
                     out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref or "uzel",
                                        f"Uzel odbočky má jen {n} vodič(e) – odbočka chybí", "junction_free"))
     return out
+
+
+def cable_findings(project: Project) -> list[Finding]:
+    """Kabely bez vodiče JPS (osiřelé už v načteném souboru – `sync_cables` je ponechá kvůli ručním datům) → INFO."""
+    from envocad.model.project import orphan_cables
+    return [Finding(INFO, "", "", "", False, c.ref, f"Kabel {c.ref or '(bez označení)'} nemá vodič", "cable_no_wire")
+            for c in orphan_cables(project)]
 
 
 def calc_findings(project: Project) -> list[Finding]:

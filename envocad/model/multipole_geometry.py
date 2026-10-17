@@ -53,6 +53,7 @@ class MultipoleGeometry:
     page_of: dict[str, int] = field(default_factory=dict)      # prvek → strana
 
 
+TERMINAL_NUMBER = "číslo svorky"   # popis textu čísla svorky (kontrola překryvů ho bere bez tolerance)
 TB_PAD = 2.5          # odstup kresby od popisového pole a QR kódu
 
 
@@ -162,7 +163,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
                 num = mp.terminal_numbers(e, len(ep.slots))[ep.slot(c)] or "?"
                 _x0, y0, x1, _y1 = sym.bounds()
                 rx, ry = rotate_point(x1 + 1.0, y0 + 1.0, e.rotation)
-                text(at.x + rx, at.y + ry, num, 2.0, "left", e.id, f"číslo svorky {name}")
+                text(at.x + rx, at.y + ry, num, 2.0, "left", e.id, f"{TERMINAL_NUMBER} {name}")
         for x, y, s, h, align in mp.pole_label_lines(ep):
             text(x, y, s, h, align, e.id, f"popisek {name}")
         if ep.per_pole:
@@ -184,6 +185,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
 
     # žíly
     breaks: dict[tuple[int, bool], int] = {}
+    break_ys: dict[tuple[int, bool], set[float]] = {}
     bus_taps: dict[tuple[str, int], list[Point]] = {}
 
     pending: list[tuple[tuple[str, str, int], str, list[Point], str, bool]] = []
@@ -248,7 +250,8 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
             nb = breaks.setdefault((kb, not right), 0)
             breaks[(ka, right)] = na + 1
             breaks[(kb, not right)] = nb + 1
-            ya, yb = pa[1] - 2.5 * na, pb[1] - 2.5 * nb
+            ya = mp.break_y(pa, da, na, break_ys.setdefault((ka, right), set()))
+            yb = mp.break_y(pb, db, nb, break_ys.setdefault((kb, not right), set()))
             conductor(w, c, i, pa, da, (xa, ya), "W" if right else "E", (ta, ""))
             conductor(w, c, i, (xb, yb), "E" if right else "W", pb, db, ("", tb), part=1)
             text(xa + (1.5 if right else -1.5), ya + 1.0, "/0.0.A1", 1.8, "left" if right else "right", w.id,
@@ -444,12 +447,14 @@ def multipole_text_overlaps(project: Project, sheet: Sheet, lib,
     for k, (a, b, _o, _w) in enumerate(g.lines):
         lgrid.add((min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])), k)
     for box, owner, what in g.texts:
+        # čísla svorek (písmo 2 mm těsně pod svorkou): bez tolerance – čára po okraji obálky už číslo přeškrtne
+        tol = 0.0 if what.startswith(TERMINAL_NUMBER) else 0.2
         for k in lgrid.near(box):
             a, b, lo, lwhat = g.lines[k]
             if lo == owner:
                 continue
             key = (owner, lo, "line")
-            if key in found or not segment_hits_box(a, b, box):
+            if key in found or not segment_hits_box(a, b, box, tol):
                 continue
             found[key] = (owner, lo, f"{what} přes {lwhat}")
     out: dict[tuple, tuple[str, str, str]] = {}
