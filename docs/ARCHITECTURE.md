@@ -95,7 +95,15 @@ Viz `docs/LIBRARY_FORMAT.md`.
 ## Undo/redo
 
 `QUndoStack` v UI; každá změna modelu je `QUndoCommand` (přidat/smazat/posunout element, přidat vodič,
-změnit atribut). Model sám o undo neví.
+změnit atribut). Model sám o undo neví. Operace nad projektem mají vlastní příkazy (`ui/commands.py`): přidání a
+smazání listu (`AddSheetCommand`, `DeleteSheetCommand` – vrací i odpojené listy rozvaděčů a atribut „sheet“ bloku,
+záložky listu se zavřou / obnoví), šablona rozvaděče (`SheetsStateCommand` – snímek změněných listů), vlastnosti
+projektu (`SetProjectMetaCommand`), skříň (`SetLayoutCommand` – snímek `Layout.to_dict`, po sobě jdoucí změny
+téhož pole panelu se slučují; dialog skříně pracuje na kopii). `undo.clear()` / `undo.resetClean()` smí GUI volat
+jen při načtení projektu a po založení nového projektu z průvodce / specifikace (hlídá test
+`test_no_undo_reset_outside_allowed_places`). Zmenšení počtu řad skříně umístění nemaže: umístění v řadě mimo skříň
+zůstane v modelu (`Layout.stored_placement`), `Layout.placement` ho nevrací (přístroj je nerozmístěný) a kontrola
+hlásí `outside_enclosure`.
 
 ## Rozšiřitelnost na další obory
 

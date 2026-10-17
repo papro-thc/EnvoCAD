@@ -218,21 +218,28 @@ class LayoutScene(QGraphicsScene):
     def mousePressEvent(self, ev):
         super().mousePressEvent(ev)
         self._drag_start = {}
+        lay = self.sheet.layout
         for it in self.selectedItems():
             if isinstance(it, DeviceItem):
-                pl = self.sheet.layout.placement(it.element.id)
-                self._drag_start[it.element.id] = (pl.row, pl.pos) if pl else None
+                # (platné umístění, uložené umístění) – uložené může ležet mimo skříň (po zmenšení počtu řad);
+                # o přesunu rozhoduje platné, undo vrací uložené
+                pl, st = lay.placement(it.element.id), lay.stored_placement(it.element.id)
+                self._drag_start[it.element.id] = ((pl.row, pl.pos) if pl else None, (st.row, st.pos) if st else None)
 
     def mouseReleaseEvent(self, ev):
         super().mouseReleaseEvent(ev)
+        self.finish_drag()
+
+    def finish_drag(self) -> None:
+        """Konec tažení: přesunuté přístroje → SetPlacementCommand (undo vrací uložené umístění), jinak snap zpět."""
         moves = []
-        for eid, old in self._drag_start.items():
+        for eid, (shown, stored) in self._drag_start.items():
             it = self.items_by_id.get(eid)
             if it is None:
                 continue
             new = self.scene_to_placement(it.pos(), it.element.modules)
-            if new != old:
-                moves.append((eid, old, new))
+            if new != shown:
+                moves.append((eid, stored, new))
         self._drag_start = {}
         if moves:
             self.undo.beginMacro("Umístit přístroje") if len(moves) > 1 else None

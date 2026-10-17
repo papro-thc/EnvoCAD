@@ -9,7 +9,7 @@ import os
 import re
 import shutil
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 
 from envocad.model.designation import CABLE_SCOPE, FUNC, LOC, scope_key, sheet_scope
@@ -342,10 +342,26 @@ class Layout:
 
     def used_modules(self, sheet: Sheet, project: Project | None = None) -> float:
         devs = {e.id: e for e in self.devices(sheet, project)}
-        return sum(devs[pl.element_id].modules for pl in self.placements if pl.element_id in devs)
+        return sum(devs[pl.element_id].modules for pl in self.placements
+                   if pl.element_id in devs and self.in_enclosure(pl))
+
+    def in_enclosure(self, pl: Placement) -> bool:
+        """Umístění leží v některé řadě skříně (po zmenšení počtu řad zůstanou umístění z vyšších řad v modelu
+        – vrátí se po zvětšení počtu řad – ale do té doby se berou jako nerozmístěná)."""
+        return 0 <= pl.row < self.rows
 
     def placement(self, eid: str) -> Placement | None:
+        """Platné umístění přístroje (v řadě skříně), jinak None – přístroj je nerozmístěný."""
+        pl = self.stored_placement(eid)
+        return pl if pl is not None and self.in_enclosure(pl) else None
+
+    def stored_placement(self, eid: str) -> Placement | None:
+        """Uložené umístění včetně umístění mimo skříň (řada ≥ počet řad) – pro undo a kontrolu."""
         return next((p for p in self.placements if p.element_id == eid), None)
+
+    def outside_placements(self) -> list[Placement]:
+        """Uložená umístění mimo skříň (řada mimo rozsah 0…rows-1)."""
+        return [p for p in self.placements if not self.in_enclosure(p)]
 
     def set_placement(self, eid: str, row: int | None, pos: float | None) -> None:
         self.placements = [p for p in self.placements if p.element_id != eid]
@@ -555,6 +571,19 @@ class Sheet:
             "elements": [e.to_dict() for e in self.elements], "wires": [w.to_dict() for w in self.wires],
             "bridges": self.bridges, "func": self.func, "loc": self.loc,
         }
+
+    def restore_state(self, d: dict) -> None:
+        """Nastaví list na stav `d` (z `to_dict`) na místě – objekt listu zůstane (drží ho pohledy a příkazy undo).
+        Prvky a vodiče, které se nezměnily, zůstanou stejné objekty; ostatní se vytvoří z `d`."""
+        new = Sheet.from_dict(d)
+        old_el = {e.id: e for e in self.elements}
+        old_w = {w.id: w for w in self.wires}
+        elements = [old_el[e.id] if e.id in old_el and old_el[e.id].to_dict() == e.to_dict() else e
+                    for e in new.elements]
+        wires = [old_w[w.id] if w.id in old_w and old_w[w.id].to_dict() == w.to_dict() else w for w in new.wires]
+        for f in fields(Sheet):
+            setattr(self, f.name, getattr(new, f.name))
+        self.elements, self.wires = elements, wires
 
     @classmethod
     def from_dict(cls, d: dict) -> Sheet:

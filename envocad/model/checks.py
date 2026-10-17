@@ -173,6 +173,7 @@ def check_project(project: Project, lib) -> list[Finding]:
                     out.append(Finding(WARNING, s.id, s.name, "", False, strip,
                                        f"Můstek {strip}:{'-'.join(g)} odkazuje na neexistující svorky {', '.join(missing)}",
                                        "bridge_missing"))
+    out += layout_findings(project)
     out += contact_findings(project, idx)
     out += interrupt_findings(project, idx)
     out += designation_findings(project, lib, idx)
@@ -183,6 +184,25 @@ def check_project(project: Project, lib) -> list[Finding]:
     out += text_findings(project, lib)
     order = {ERROR: 0, WARNING: 1, INFO: 2}
     out.sort(key=lambda f: (order[f.severity], f.sheet_name, f.ref))
+    return out
+
+
+def layout_findings(project: Project) -> list[Finding]:
+    """Rozložení rozvaděče: přístroj s uloženým umístěním v řadě mimo skříň (po zmenšení počtu řad) – WARNING
+    `outside_enclosure`; rozložení ho kreslí mezi nerozmístěnými, po zvětšení počtu řad se umístění vrátí."""
+    out: list[Finding] = []
+    for s in project.sheets:
+        if not s.is_switchboard:
+            continue
+        lay = s.layout
+        by_id = {e.id: e for e in s.elements}
+        for pl in lay.outside_placements():
+            e = by_id.get(pl.element_id)
+            if e is None:
+                continue
+            out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
+                               f"Přístroj je umístěn v řadě {pl.row + 1} mimo skříň (skříň má {lay.rows} řad) "
+                               "– v rozložení je mezi nerozmístěnými", "outside_enclosure"))
     return out
 
 

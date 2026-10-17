@@ -368,12 +368,14 @@ class MainWindow(QMainWindow):
         self.project = project
         self.nav_panel.set_project(project)
         self.notes_panel.set_project(project, self.undo)
+        # undo-reset-ok: načtení projektu (otevření, nový, obnova autosave) – historie patří předchozímu projektu
         self.undo.clear()
         while self.tabs.count():
             w = self.tabs.widget(0)
             self.tabs.removeTab(0)
             w.deleteLater()
         self._scenes.clear()
+        self._closed_sheet_tabs: dict[str, list[str]] = {}   # druhy záložek smazaných listů (undo je obnoví)
         if not self._panels_wired:
             self.lib_panel.symbol_chosen.connect(lambda sid: self.draw_scene and self.draw_scene.start_place(sid))
             self.lib_panel.macro_chosen.connect(self.insert_macro)
@@ -424,9 +426,9 @@ class MainWindow(QMainWindow):
             from envocad.ui.dialogs import EnclosurePanel
             scene = LayoutScene(project, sheet, self.library, self.undo)
             view = LayoutView(scene)
-            panel = EnclosurePanel(sheet, library=self.library, project=project)
-            panel.changed.connect(lambda sc=scene, sh=sheet: (sc.rebuild(), self._rebuild_sheet_views(sh),
-                                                            self._refresh_tab_titles(), self.undo.resetClean()))
+            # panel model sám nemění – změna jde přes SetLayoutCommand (přestavbu pohledů dělá příkaz, i při undo)
+            panel = EnclosurePanel(sheet, library=self.library, project=project,
+                                   commit=lambda b, a, k, sh=sheet: self.commit_layout(sh, b, a, k))
             scene.layout_changed.connect(panel.refresh)
             scene.enclosure_requested.connect(lambda p=panel: p.name.setFocus())
             scene.selection_info.connect(lambda it: self.props_panel.show_item(
@@ -561,9 +563,44 @@ class MainWindow(QMainWindow):
         if not ok or not name:
             return
         sheet = Sheet(name=name)
-        self.project.sheets.append(sheet)
+        self.undo.push(commands.AddSheetCommand(self.project, sheet, on_change=self._sheet_presence_changed))
         self.open_sheet(sheet)
-        self.undo.resetClean()
+
+    def _close_sheet_tabs(self, sheet: Sheet) -> list[str]:
+        """Zavře všechny záložky listu (i poslední – smazaný list nesmí zůstat zobrazený); vrátí jejich druhy."""
+        kinds = []
+        for i in reversed(range(self.tabs.count())):
+            w = self._unwrap(self.tabs.widget(i))
+            if w.scene().sheet is sheet:
+                kinds.insert(0, self._kind_of(w))
+                tab = self.tabs.widget(i)
+                self.tabs.removeTab(i)
+                tab.deleteLater()   # scéna zůstává v self._scenes – nesmí zaniknout dřív než (odložené) smazání pohledu
+        return kinds
+
+    def _sheet_presence_changed(self, sheet: Sheet, present: bool) -> None:
+        """Příkazy přidání / smazání listu (redo i undo): záložky listu se zavřou a při návratu listu obnoví
+        (stejné druhy pohledů); nadřazený list (blok ROZVADĚČ) a vazby se přepočítají."""
+        from envocad.model.project import parent_sheet
+        closed = self._closed_sheet_tabs
+        if present:
+            for kind in closed.pop(sheet.id, []):
+                self.open_sheet(sheet, kind)
+        else:
+            kinds = self._close_sheet_tabs(sheet)
+            if kinds:
+                closed[sheet.id] = kinds
+            if self.tabs.count() == 0 and self.project.sheets:
+                self.open_sheet(self.project.sheets[0])
+        ps = parent_sheet(self.project, sheet) if sheet.parent_element_id else None
+        if ps is not None:
+            self._rebuild_sheet_views(ps)   # blok dostane porty podle listu, nebo osiřelé porty „X1?“
+        else:
+            self._sync_links_and_blocks()
+        for s in self.project.sheets:       # listy rozvaděčů odpojené / připojené k bloku na tomto listu
+            if s.parent_element_id and any(e.id == s.parent_element_id for e in sheet.elements):
+                self._rebuild_sheet_views(s)
+        self._refresh_tab_titles()
 
     def rename_sheet(self) -> None:
         """Vlastnosti listu: název a strukturní označení (=funkce, +umístění)."""
@@ -656,20 +693,7 @@ class MainWindow(QMainWindow):
                      + ", ".join(f"„{c}“" for c in children) + ".")
         if QMessageBox.question(self, "Odstranit list", text) != QMessageBox.Yes:
             return
-        self.project.remove_sheet(sh)
-        for i in reversed(range(self.tabs.count())):
-            w = self._unwrap(self.tabs.widget(i))
-            if w.scene().sheet is sh:
-                tab = self.tabs.widget(i)
-                self.tabs.removeTab(i)
-                tab.deleteLater()
-        self.undo.clear()
-        self.undo.resetClean()
-        if ps is not None:
-            self._rebuild_sheet_views(ps)   # blok dostane osiřelé porty „X1?“
-        else:
-            self._sync_links_and_blocks()
-        self._refresh_tab_titles()
+        self.undo.push(commands.DeleteSheetCommand(self.project, sh, on_change=self._sheet_presence_changed))
 
     # ---- rozvaděče -------------------------------------------------------------
     def open_switchboard_from_block(self, block_id: str, kind: str = "schematic") -> None:
@@ -681,12 +705,15 @@ class MainWindow(QMainWindow):
         if not sheet_of_block:
             return
         block = sheet_of_block.element(block_id)
-        existing = self.project.switchboard_sheet(block_id)
-        sheet = self.project.create_switchboard_sheet(block)
-        if existing is None:
-            self.undo.resetClean()
-            if not self._choose_template(sheet):
-                pass
+        sheet = self.project.switchboard_sheet(block_id)
+        if sheet is None:
+            # nový list rozvaděče + volitelná šablona = jeden krok undo
+            self.undo.beginMacro(f"Nový list rozvaděče {block.ref}".strip())
+            try:
+                sheet = self.create_switchboard_sheet(block)
+                self._choose_template(sheet)
+            finally:
+                self.undo.endMacro()
         # schéma rozvaděče je vícepólové; jednopólová podoba je jen editační (Ctrl+J)
         self.open_sheet(sheet, "multipole" if kind == "schematic" else kind)
         self._sync_links_and_blocks()
@@ -714,31 +741,90 @@ class MainWindow(QMainWindow):
         else:
             self._open_selected_switchboard("layout")
 
-    def _choose_template(self, sheet: Sheet) -> bool:
-        from envocad.library.templates import TEMPLATES, apply_template
+    def create_switchboard_sheet(self, block) -> Sheet:
+        """Založí list rozvaděče pro blok ROZVADĚČ přes undo (`AddSheetCommand`: list, atribut „sheet“ bloku,
+        +umístění v registru struktur). Existující list vrátí beze změny."""
+        existing = self.project.switchboard_sheet(block.id)
+        if existing is not None:
+            return existing
+        p = self.project
+        attr_before = block.attrs.get("sheet")
+        structs_before = list(p.structures)
+        sheet = p.create_switchboard_sheet(block)       # model připraví list; změny se vrátí a provede je příkaz
+        attr_after, structs_after = block.attrs.get("sheet"), list(p.structures)
+        p.sheets.remove(sheet)
+        p.structures = structs_before
+        if attr_before is None:
+            block.attrs.pop("sheet", None)
+        else:
+            block.attrs["sheet"] = attr_before
+        self.undo.push(commands.AddSheetCommand(p, sheet, on_change=self._sheet_presence_changed,
+                                                block_attr=(block, attr_before, attr_after),
+                                                structures=(structs_before, structs_after),
+                                                text=f"Nový list rozvaděče {sheet.name}"))
+        return sheet
+
+    def _ask_template(self) -> tuple[str, dict[str, str]] | None:
+        """Výběr šablony a jejích parametrů: (id, parametry), nebo None (zrušeno)."""
+        from envocad.library.templates import TEMPLATES
         names = [t.name for t in TEMPLATES]
         name, ok = QInputDialog.getItem(self, "Šablona rozvaděče", "Nový list rozvaděče – vložit šablonu:", names, 0, False)
         if not ok:
-            return False
+            return None
         t = next(t for t in TEMPLATES if t.name == name)
         params = {}
         for tp in t.params:
             v, ok = QInputDialog.getText(self, t.name, tp.label, text=tp.default)
             if not ok:
-                return False
+                return None
             params[tp.key] = v
-        apply_template(self.project, sheet, t.id, params)
-        self._rebuild_sheet_views(sheet)
+        return t.id, params
+
+    def _choose_template(self, sheet: Sheet) -> bool:
+        chosen = self._ask_template()
+        if chosen is None:
+            return False
+        self.apply_template(sheet, *chosen)
         return True
+
+    def apply_template(self, sheet: Sheet, tid: str, params: dict[str, str]) -> None:
+        """Vloží šablonu jako jeden krok undo (`SheetsStateCommand`): prvky, vodiče, rozmístění, můstky listu
+        rozvaděče i navázání přívodu na vodič nadřazeného listu."""
+        from envocad.library.templates import apply_template, template
+        before = commands.sheets_state(self.project)
+        apply_template(self.project, sheet, tid, params)
+        after = commands.sheets_state(self.project)
+        commands.restore_sheets_state(self.project, before)
+        self.undo.push(commands.SheetsStateCommand(self.project, before, after, f"Šablona {template(tid).name}",
+                                                   on_change=self._sheets_changed))
+
+    def _sheets_changed(self, sheet_ids: list[str]) -> None:
+        """Po `SheetsStateCommand`: přestaví pohledy změněných listů (prvky a vodiče jsou nové objekty). Nejdřív se
+        přestaví všechny scény, až potom porty bloků ROZVADĚČ – staré položky vodičů by mířily na neplatné porty."""
+        from envocad.model.project import sync_cables, sync_feed_links
+        sync_feed_links(self.project)
+        sync_cables(self.project)
+        for i in range(self.tabs.count()):
+            w = self._unwrap(self.tabs.widget(i))
+            if w.scene().sheet.id in sheet_ids:
+                w.scene().rebuild()
+                if getattr(w, "side_panel", None) is not None:
+                    w.side_panel.load_from_model()
+        self._sync_links_and_blocks()
+        self._refresh_tab_titles()
 
     def insert_template(self) -> None:
         sh = self.current_sheet
         if not sh or not sh.is_switchboard:
             QMessageBox.information(self, "Šablona", "Šablonu lze vložit jen do listu rozvaděče.")
             return
-        if self._choose_template(sh):
-            self.undo.clear()
-            self.undo.resetClean()
+        if sh.elements and QMessageBox.question(
+                self, "Šablona",
+                f"List „{sh.name}“ už obsahuje {len(sh.elements)} prvků. Šablona přidá další přístroje a vodiče "
+                "a rozmístí je do rozložení od první řady – mohou se překrývat s už rozmístěnými přístroji "
+                "(upravte rozložení ručně).\n\nPřesto vložit šablonu?") != QMessageBox.Yes:
+            return
+        self._choose_template(sh)
 
     def _rebuild_sheet_views(self, sheet: Sheet) -> None:
         self._sync_links_and_blocks()
@@ -754,14 +840,30 @@ class MainWindow(QMainWindow):
         if not sh or not sh.is_switchboard:
             QMessageBox.information(self, "Skříň", "Otevřete list rozvaděče.")
             return
-        from envocad.ui.dialogs import EnclosureDialog
+        from envocad.ui.dialogs import EnclosureDialog, EnclosurePanel
         dlg = EnclosureDialog(sh, self, library=self.library, project=self.project)
         if dlg.exec() != EnclosureDialog.Accepted:
+            return    # dialog pracoval na kopii rozložení – Zrušit nic nemění
+        before, after = sh.layout.to_dict(), dlg.apply().to_dict()
+        if EnclosurePanel.real_change(before, after):   # OK beze změny = bez kroku
+            self.commit_layout(sh, before, after)
+
+    def commit_layout(self, sheet: Sheet, before: dict, after: dict, key: str | None = None) -> None:
+        """Změna skříně / rozložení jako `SetLayoutCommand`; `key` = pole panelu (po sobě jdoucí změny téhož pole
+        se slučují do jednoho kroku)."""
+        if before == after:
             return
-        dlg.apply()
-        self._rebuild_sheet_views(sh)
+        self.undo.push(commands.SetLayoutCommand(sheet, before, after, "Skříň rozvaděče",
+                                                 on_change=self._layout_changed, merge_key=key))
+
+    def _layout_changed(self, sheet: Sheet) -> None:
+        """Po `SetLayoutCommand` (i undo/redo): pohledy listu, titulky a pole panelu skříně podle modelu."""
+        self._rebuild_sheet_views(sheet)
         self._refresh_tab_titles()
-        self.undo.resetClean()
+        for i in range(self.tabs.count()):
+            w = self._unwrap(self.tabs.widget(i))
+            if w.scene().sheet is sheet and getattr(w, "side_panel", None) is not None:
+                w.side_panel.load_from_model()
 
     def set_frame(self, on: bool) -> None:
         """Zapne/vypne rámeček s popisovým polem a QR na všech listech (uloží se do ~/.envocad/settings.json)."""
@@ -1027,7 +1129,13 @@ class MainWindow(QMainWindow):
             p.meta.update({k: str(v) for k, v in (st.get("project_meta") or {}).items()})
             if st.get("author"):
                 p.meta.setdefault("author", st["author"])
-            self._load_project(p)
+            self._load_project(p)   # prázdný nový projekt bez změn zůstane čistý
+
+    def _mark_new_project_dirty(self) -> None:
+        """Projekt z průvodce / ze specifikace ještě není uložený: zavření se zeptá a autosave běží. Čistý stav
+        se zahodí (clean index -1) – na rozdíl od kroku undo ho uživatel nemůže omylem „vrátit“ do čistého stavu."""
+        # undo-reset-ok: nový projekt (po založení) – neuložený stav, kterého undo nedosáhne
+        self.undo.resetClean()
 
     def _active_schematic(self) -> SchematicScene | None:
         """Scéna JPS / jednopólové editace v aktivní záložce (ne vícepól, rozložení…)."""
@@ -1146,6 +1254,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Průvodce", f"Projekt se nepodařilo vygenerovat: {ex}")
             return
         self._load_project(project)
+        self._mark_new_project_dirty()
         self.statusBar().showMessage(f"Vygenerováno: {project.meta.get('p_installed_kwp')} kWp – zkontrolujte F7", 6000)
 
     def new_project_from_spec(self) -> None:
@@ -1161,6 +1270,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Specifikace", f"Projekt se nepodařilo vygenerovat: {ex}")
             return
         self._load_project(project)
+        self._mark_new_project_dirty()
 
     def compare_revision(self) -> None:
         """Změnový list a značky revize z porovnání se starší verzí projektu (jeden krok undo)."""
@@ -1414,20 +1524,25 @@ class MainWindow(QMainWindow):
         return self._save_to(Path(path))
 
     def edit_project_meta(self) -> None:
-        for key, label in [("name", "Název projektu"), ("investor", "Investor"), ("order", "Číslo zakázky"),
-                           ("place", "Místo"), ("author", "Zpracoval"), ("date", "Datum"), ("revision", "Revize"),
-                           ("changes", "Změnový list (řádek = revize | datum | popis | zpracoval)")]:
-            cur = self.project.name if key == "name" else self.project.meta.get(key, "")
-            if key == "changes":
-                val, ok = QInputDialog.getMultiLineText(self, "Vlastnosti projektu", label, cur)
-            else:
-                val, ok = QInputDialog.getText(self, "Vlastnosti projektu", label, text=cur)
-            if not ok:
-                return
-            if key == "name":
-                self.project.name = val
-            else:
-                self.project.meta[key] = val
+        """Vlastnosti projektu: jeden formulář; OK = jeden krok undo, Zrušit = žádná změna."""
+        from envocad.ui.dialogs import ProjectMetaDialog
+        dlg = ProjectMetaDialog(self.project, self)
+        if dlg.exec() != ProjectMetaDialog.Accepted:
+            return
+        self.set_project_meta(*dlg.values())
+
+    def set_project_meta(self, name: str, meta: dict[str, str]) -> bool:
+        """Název a metadata projektu přes `SetProjectMetaCommand`; beze změny = bez kroku (False)."""
+        old = (self.project.name, dict(self.project.meta))
+        if old == (name, meta):
+            return False
+        self.undo.push(commands.SetProjectMetaCommand(self.project, old, (name, dict(meta)),
+                                                      on_change=self._project_meta_changed))
+        return True
+
+    def _project_meta_changed(self) -> None:
+        for sc in self._scenes:   # popisové pole listů ukazuje název a metadata projektu
+            sc.update()
 
     # ---- export / import -------------------------------------------------------
     def export_dxf(self) -> None:
