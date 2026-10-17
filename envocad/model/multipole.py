@@ -710,6 +710,49 @@ def paginate(sheet: Sheet, poles: dict[str, ElementPoles], size: tuple[float, fl
     return page_of, n_pages
 
 
+@dataclass(frozen=True)
+class Bridge:
+    """Můstek svorkovnice ve vícepólu na jedné straně: čárkovaná čára přes středy svorek posunuté k portu 1."""
+    strip: str                                  # označení svorkovnice (X2)
+    group: tuple[str, ...]                      # čísla svorek skupiny můstku (celá skupina, i z jiných stran)
+    page: int
+    pts: tuple[tuple[float, float], ...]        # body na svorkách této strany (souřadnice pohledu), zleva
+
+
+def bridge_paths(sheet: Sheet, poles: dict[str, ElementPoles], page_of: dict[str, int]) -> list[Bridge]:
+    """Můstky svorkovnic listu (`Sheet.bridges`): spojí středy svorek se stejným označením X:n, posunuté ke straně
+    portu 1. Každá skupina v jiné vzdálenosti (2 mm + 0,6 mm × pořadí, po šesti dokola), aby se nepřekrývaly;
+    přes hranici stran se můstek kreslí po stranách zvlášť (strana s jedinou svorkou skupiny nic). Polohy pólů
+    (`ElementPoles.origin`) musí být už po rozmístění a stránkování."""
+    pos: dict[tuple[str, str], tuple[float, float, float, float, int]] = {}   # (x, y, směr k portu 1, strana)
+    for ep in poles.values():
+        e = ep.element
+        if not is_terminal_block(e) or not ep.per_pole:
+            continue
+        nums = terminal_numbers(e, len(ep.slots))
+        px, py = e.port_pos(ep.symbol, ep.through[0] if ep.through else ep.symbol.ports[0].name)
+        dx, dy = px - e.x, py - e.y
+        n = (dx * dx + dy * dy) ** 0.5 or 1.0
+        for c, num in zip(ep.slots, nums):
+            if num:
+                ox, oy = ep.pole_offset(c)
+                pos[(e.ref, num)] = (ep.origin[0] + ox, ep.origin[1] + oy, dx / n, dy / n, page_of.get(e.id, 0))
+    out: list[Bridge] = []
+    for strip, groups in sheet.bridges.items():
+        for gi, g in enumerate(groups):
+            hits = [pos[(strip, n)] for n in g if (strip, n) in pos]
+            if len(hits) < 2:
+                continue
+            off = 2.0 + 0.6 * (gi % 6)
+            for k in sorted({h[4] for h in hits}):
+                part = [h for h in hits if h[4] == k]
+                if len(part) < 2:
+                    continue
+                pts = sorted((x + ux * off, y + uy * off) for x, y, ux, uy, _k in part)
+                out.append(Bridge(strip, tuple(g), k, tuple(pts)))
+    return out
+
+
 def pe_join_ports(ep: ElementPoles) -> list[tuple[str, list[str]]]:
     """Porty průchozího prvku, na kterých je jen ochranný vodič (PE/PEN), který prvek nespíná ani nevede kolem –
     svodič přepětí (SPD): konce všech pólů na portu PE se spojí příčkou a PE vodič začíná na ní. Vrací
