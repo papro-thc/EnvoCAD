@@ -792,19 +792,25 @@ class MainWindow(QMainWindow):
         chosen = self._ask_template()
         if chosen is None:
             return False
-        self.apply_template(sheet, *chosen)
-        return True
+        return self.apply_template(sheet, *chosen)
 
-    def apply_template(self, sheet: Sheet, tid: str, params: dict[str, str]) -> None:
+    def apply_template(self, sheet: Sheet, tid: str, params: dict[str, str]) -> bool:
         """Vloží šablonu jako jeden krok undo (`SheetsStateCommand`): prvky, vodiče, rozmístění, můstky listu
-        rozvaděče i navázání přívodu na vodič nadřazeného listu."""
+        rozvaděče i navázání přívodu na vodič nadřazeného listu. Neplatný parametr (ValueError šablony) = hláška,
+        nic se nevloží (list i projekt zůstanou beze změny); vrací False."""
         from envocad.library.templates import apply_template, template
         before = commands.sheets_state(self.project)
-        apply_template(self.project, sheet, tid, params)
+        try:
+            apply_template(self.project, sheet, tid, params)
+        except ValueError as ex:
+            commands.restore_sheets_state(self.project, before)
+            QMessageBox.warning(self, "Šablona", f"Šablonu nelze vložit: {ex}")
+            return False
         after = commands.sheets_state(self.project)
         commands.restore_sheets_state(self.project, before)
         self.undo.push(commands.SheetsStateCommand(self.project, before, after, f"Šablona {template(tid).name}",
                                                    on_change=self._sheets_changed))
+        return True
 
     def _sheets_changed(self, sheet_ids: list[str]) -> None:
         """Po `SheetsStateCommand`: přestaví pohledy změněných listů (prvky a vodiče jsou nové objekty). Nejdřív se
@@ -1076,9 +1082,18 @@ class MainWindow(QMainWindow):
             return
         if dlg.exec() != StripDialog.Accepted:
             return
-        strip, groups = dlg.values()
-        if strip and groups != self.project.bridge_groups(strip, sh):
-            self.undo.push(commands.SetBridgesCommand(self.project, sh, strip, self.project.bridge_groups(strip, sh), groups))
+        changes = dlg.all_values()   # rozpracované můstky všech svorkovnic dialogu – jeden krok undo
+        if not changes:
+            return
+        if len(changes) > 1:
+            self.undo.beginMacro("Můstky " + ", ".join(changes))
+        try:
+            for strip, groups in changes.items():
+                self.undo.push(commands.SetBridgesCommand(self.project, sh, strip,
+                                                          self.project.bridge_groups(strip, sh), groups))
+        finally:
+            if len(changes) > 1:
+                self.undo.endMacro()
 
     def edit_cable(self) -> None:
         hit = self._selected_wire_id()

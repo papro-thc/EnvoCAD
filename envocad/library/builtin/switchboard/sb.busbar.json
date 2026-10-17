@@ -3,7 +3,7 @@
   "name": "Sběrnice (rozvodný vodič)",
   "category": "Svorky a propojení",
   "iec_ref": "",
-  "description": "Rozvod potenciálů vodičem jako v EPLAN: ve vícepólu vodorovné čáry L1 L2 L3 N PE přes stranu s názvy potenciálů na koncích, přístroje se na ně napojují odbočkou; 1 vstup, 10 vývodů",
+  "description": "Rozvod potenciálů vodičem jako v EPLAN: ve vícepólu vodorovné čáry L1 L2 L3 N PE přes stranu s názvy potenciálů na koncích, přístroje se na ně napojují odbočkou; 1 vstup, 10 přívodů shora, 12 vývodů zdola",
   "primitives": [
     {
       "type": "polyline",
@@ -13,7 +13,7 @@
           0
         ],
         [
-          75,
+          105,
           0
         ]
       ],
@@ -27,7 +27,7 @@
           1
         ],
         [
-          75,
+          105,
           1
         ]
       ],
@@ -158,6 +158,18 @@
     {
       "name": "10",
       "x": 67.5,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "11",
+      "x": 82.5,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "12",
+      "x": 97.5,
       "y": -5,
       "dir": "S"
     }

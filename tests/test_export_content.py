@@ -165,8 +165,9 @@ def test_bom_counts_every_device(proj, lib):
             seen.append(m.group(1))
             n += int(m.group(2) or 1)
         assert n == r[qi], r
-    refs = [e.ref for e in sb.elements if e.ref]
-    assert sorted(seen) == sorted(refs)
+    # plná označení s aspekty (+RDC1-F1); skupiny svorek jedné svorkovnice = jedna položka se součtem kusů
+    refs = sorted({reports._tag(proj, sb, e) for e in sb.elements if e.ref})
+    assert sorted(seen) == refs
 
 
 def test_documentation_pdf_pages(proj, lib, tmp_path, qapp):

@@ -29,13 +29,29 @@ from dataclasses import dataclass
 
 from envocad.model.project import Element, Sheet
 
-# Odhad ztrátového výkonu na pól při In [W/A] – orientační střední hodnoty z katalogů (MCB/MCCB/RCD)
+# Odhad ztrátového výkonu na pól při In [W/A] – ORIENTAČNÍ střední hodnoty z katalogů (MCB/MCCB/RCD, odpínače,
+# stykače). Pojistkový odpínač = ztráta pojistkové vložky (gG/gPV 10×38 při In ~ 1,5–3 W → ~0,15 W/A), pojistka
+# totéž; hlavní (silový) kontakt stykače jako stykač. Řadové svorky (sb.terminal_block) se nepočítají zvlášť –
+# zahrnuje je přirážka na vodiče a spoje (`wiring_pct`). Údaj výrobce (`p_loss_w`) má vždy přednost.
 LOSS_PER_A_PER_POLE = {
     "fve.breaker_mcb": 0.09, "sb.rcbo": 0.11, "sb.rcd": 0.04, "fve.breaker_mccb": 0.06,
     "sb.main_switch": 0.03, "fve.switch_disconnector": 0.03, "fve.dc_disconnect": 0.03,
-    "fve.contactor": 0.08, "fve.fuse": 0.12, "fve.meter": 0.0,
+    "fve.contactor": 0.08, "ctl.contact_power": 0.08, "fve.fuse": 0.15, "fve.fuse_disconnect": 0.15,
+    "fve.meter": 0.0,
 }
-FIXED_LOSS_W = {"fve.spd": 0.5, "fve.meter": 2.0, "fve.contactor": 2.5, "fve.transformer": 0.0}  # cívky, elektronika
+# Pevná ztráta [W] nezávislá na proudu (cívky, elektronika) – ORIENTAČNÍ. Stykač kreslený jako jeden prvek má cívku
+# v sobě; cívka (ctl.coil) kreslená zvlášť nese ztrátu sama (silové kontakty `ctl.contact_power` mají jen ztrátu
+# průchodem proudu). Cívka se nezapočítá, když položkou výkazu je stykač (`is_bom_device`) – žádná dvojí cívka.
+FIXED_LOSS_W = {"fve.spd": 0.5, "fve.meter": 2.0, "fve.contactor": 2.5, "ctl.coil": 2.5, "fve.transformer": 0.0}
+
+# Hodnocení oteplení podle teploty vzduchu uvnitř skříně (okolí + Δt v horní části), ne jen podle Δt:
+# ČSN EN 61439-1 čl. 7.1.1 – normální provozní podmínky: teplota okolí nepřekročí 40 °C, průměr za 24 h 35 °C.
+# Přístroje uvnitř (jističe, odpínače, svorky) jsou dimenzované na teplotu vzduchu kolem sebe; běžné katalogové
+# maximum pro modulové přístroje bez dalších opatření je 55 °C (`DEVICE_AIR_MAX_C`), nad referenční teplotou
+# přístrojů (`DEVICE_REF_C` 40 °C – kalibrace MCCB dle EN 60947-2; MCB dle EN 60898 je 30 °C) se proud
+# přístrojů snižuje (derating). ORIENTAČNÍ hodnoty – konkrétní mez podle katalogu použitých přístrojů.
+DEVICE_REF_C = 40.0
+DEVICE_AIR_MAX_C = 55.0
 
 # IEC TR 60890 tab. 3 – činitel b: volná horní plocha 1,4; zakrytá horní plocha (vestavěná skříň) 0,7;
 # volné boční plochy (přední, zadní, boky) 0,9; zakryté boční plochy (např. zadní stěna nástěnné skříně) 0,5;
@@ -98,13 +114,31 @@ class ThermalResult:
     def t_top_c(self) -> float:
         return self.t_ambient_c + self.dt_top_k
 
-    def verdict(self, limit_k: float = 70.0) -> str:
-        """Mez dle ČSN EN 61439-1 tab. 6: svorky pro vnější vodiče 70 K, přístupné kryty 30/40 K…"""
-        if self.dt_top_k <= 30:
-            return "vyhovuje"
-        if self.dt_top_k <= 50:
-            return "vyhovuje s rezervou pro přístroje (ověřit odvození tepla u snížených In)"
-        return "NEVYHOVUJE – zvětšit skříň, snížit zatížení nebo doplnit ventilaci"
+    def limit_k(self, limit_k: float | None = None) -> float:
+        """Přípustné oteplení vzduchu v horní části skříně nad okolím [K]: zadané, jinak tak, aby teplota uvnitř
+        nepřekročila `DEVICE_AIR_MAX_C` (55 °C – 35 °C okolí = 20 K)."""
+        return limit_k if limit_k is not None else DEVICE_AIR_MAX_C - self.t_ambient_c
+
+    def verdict(self, limit_k: float | None = None) -> str:
+        """Orientační hodnocení podle absolutní teploty uvnitř (okolí + Δt v horní části) i oteplení:
+        nad `limit_k` (výchozí = do 55 °C uvnitř) nevyhovuje; nad 40 °C (referenční teplota přístrojů) vyhovuje
+        jen s odlehčením (derating) přístrojů; jinak vyhovuje. Viz `DEVICE_AIR_MAX_C`, `DEVICE_REF_C`."""
+        t_in = self.t_top_c
+        lim = self.limit_k(limit_k)
+        if self.dt_top_k > lim or t_in > DEVICE_AIR_MAX_C:
+            return (f"NEVYHOVUJE (orientačně) – uvnitř ≈ {t_in:.0f} °C, oteplení {self.dt_top_k:.0f} K > {lim:.0f} K; "
+                    "zvětšit skříň, snížit zatížení nebo doplnit ventilaci")
+        if t_in > DEVICE_REF_C:
+            return (f"vyhovuje s podmínkou (orientačně) – uvnitř ≈ {t_in:.0f} °C nad {DEVICE_REF_C:.0f} °C: "
+                    "ověřit odlehčení (derating) jističů a přístrojů podle katalogu")
+        return f"vyhovuje (orientačně) – uvnitř ≈ {t_in:.0f} °C"
+
+
+def layout_inputs(layout) -> tuple[float, float]:
+    """(RDF, teplota okolí °C) z parametrů skříně; každá hodnota zvlášť – nezadaná nebo neplatná = výchozí
+    0,8 / 35 °C (`project.enclosure_number`)."""
+    from envocad.model.project import enclosure_number
+    return enclosure_number(layout.params, "rdf", 0.8), enclosure_number(layout.params, "t_ambient", 35.0)
 
 
 def device_power_loss(e: Element, rdf: float = 0.8) -> float:

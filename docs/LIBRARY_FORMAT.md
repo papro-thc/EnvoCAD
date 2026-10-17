@@ -149,7 +149,7 @@ Zatím bez UI – plní se CSV importem (`store.import_components_csv`).
 Aby se přístroj objevil v rozložení a ve výkazech správně, má mít atributy `manufacturer`, `poles`
 a `modules` (šířka na DIN liště v modulech 17,5 mm; `0` = nemodulový, nerozmisťuje se).
 Symboly pro list rozvaděče mají prefix `sb.` (`envocad/library/builtin/switchboard/`): sběrnice `sb.busbar`
-(porty IN + 1…10 po 15 mm), přívod `sb.feed_in`, vývod `sb.feed_out`, svorkovnice `sb.terminal_block`, PE/N můstek `sb.pe_bar`.
+(porty IN, T1…T10 shora, vývody 1…12 zdola po 15 mm), přívod `sb.feed_in`, vývod `sb.feed_out`, svorkovnice `sb.terminal_block` (šířka skupiny `modules`; prázdná = počet svorek × 6,2 mm), PE/N můstek `sb.pe_bar`.
 
 ## Footprinty (pohled do rozložení)
 

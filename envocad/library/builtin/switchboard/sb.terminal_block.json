@@ -3,7 +3,7 @@
   "name": "Svorkovnice",
   "category": "Svorky a propojení",
   "iec_ref": "X",
-  "description": "Řadová svorkovnice – 1 svorka (vícenásobná = více prvků)",
+  "description": "Řadová svorkovnice – skupina svorek (čísla v atributu Svorka č.); šířka v rozložení = počet svorek × 6,2 mm, pokud není zadaná",
   "primitives": [
     {
       "type": "circle",
@@ -61,8 +61,8 @@
     },
     {
       "key": "modules",
-      "label": "Šířka [moduly]",
-      "default": "0.35",
+      "label": "Šířka skupiny [moduly] (prázdné = počet svorek × 6,2 mm)",
+      "default": "",
       "show": false
     }
   ],

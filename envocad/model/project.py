@@ -12,7 +12,7 @@ import uuid
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 
-from envocad.model.designation import CABLE_SCOPE, FUNC, LOC, scope_key, sheet_scope
+from envocad.model.designation import CABLE_SCOPE, FUNC, LOC, LOCATION_SYMBOLS, scope_key, sheet_scope
 from envocad.model.symbol import Attribute, Port, Symbol, placeholder_symbol, rotate_point, with_orphan_ports
 
 # Atributy vodiče (vodič nemá symbol, proto jsou definované zde)
@@ -39,6 +39,26 @@ FORMAT_VERSION = 9
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 DEVICE_HEIGHT_MM = 45.0  # mm – výška modulového přístroje na liště (rozložení, délky vodičů)
 SHEET_KINDS = ("schematic", "switchboard")
+# Symboly, které nejsou přístroje k objednání ani na DIN lištu (propojení, odkazy, vnější prvky, kontakty – patří
+# k přístroji své cívky); výkazy (`export/reports.py`) i rozložení (`Layout.devices`)
+NON_DEVICE_SYMBOLS = {"fve.terminal", "fve.earth", "fve.grid", "fve.load", "fve.switchboard", "sb.feed_in", "sb.feed_out",
+                      "fve.interrupt", "ctl.contact_no", "ctl.contact_nc", "ctl.contact_power"}
+# Šířka jedné řadové svorky pro rozložení, když skupina svorek nemá zadanou šířku (`modules`): 6,2 mm = běžná
+# šroubová/pružinová průchozí svorka 2,5–4 mm² (Weidmüller, Phoenix, Bečov ~5,2–6,2 mm; push-in 1,5 mm² 3,5 mm,
+# 10 mm² ~10 mm). Přesnou šířku lze zadat atributem `modules` skupiny (celé skupiny) nebo artiklem.
+TERMINAL_WIDTH_MM = 6.2
+AUTO_WIDTH_TERMINALS = {"sb.terminal_block"}
+
+
+def terminal_count(e: Element) -> int:
+    """Počet svorek skupiny podle atributu `terminal` („1 2 3 4 5“ → 5); jedno číslo nebo nic = 1 svorka."""
+    toks = [t for t in re.split(r"[\s,;]+", str(e.attrs.get("terminal") or "")) if t]
+    return max(len(toks), 1)
+
+
+def terminal_group_modules(n: int, width_mm: float = TERMINAL_WIDTH_MM) -> float:
+    """Šířka n svorek v modulech DIN (17,5 mm), na setiny."""
+    return round(max(n, 0) * width_mm / MODULE_WIDTH, 2)
 
 
 log = logging.getLogger("envocad.model")
@@ -156,9 +176,13 @@ class Element:
 
     @property
     def modules(self) -> float:
-        """Šířka přístroje v modulech (17,5 mm) pro rozložení na DIN liště."""
+        """Šířka přístroje v modulech (17,5 mm) pro rozložení na DIN liště. Skupina řadových svorek
+        (`sb.terminal_block`) bez zadané šířky = počet svorek × `TERMINAL_WIDTH_MM` (`terminal_group_modules`)."""
+        raw = str(self.attrs.get("modules") or "").strip()
+        if not raw and self.symbol_id in AUTO_WIDTH_TERMINALS:
+            return terminal_group_modules(terminal_count(self))
         try:
-            return float(str(self.attrs.get("modules") or "0").replace(",", "."))
+            return float((raw or "0").replace(",", "."))
         except ValueError:
             return 0.0
 
@@ -334,11 +358,14 @@ class Layout:
         return self.rows * self.modules_per_row
 
     def devices(self, sheet: Sheet, project: Project | None = None) -> list[Element]:
-        """Přístroje listu pro rozložení: šířka > 0 a položka výkazu (cívka stykače se nepočítá, když skupina má
-        stykač na stejném listu – `xref.DeviceIndex.is_bom_device`). Bez `project` se skupiny hledají jen na listu."""
+        """Přístroje listu pro rozložení: šířka > 0, ne kontakt ani propojovací/vnější prvek (`NON_DEVICE_SYMBOLS`
+        – kontakty jsou součástí přístroje své cívky) a položka výkazu (cívka stykače se nepočítá, když skupina má
+        stykač na stejném listu – `xref.DeviceIndex.is_bom_device`). Cívka + hlavní kontakt = jeden přístroj
+        (cívka). Bez `project` se skupiny hledají jen na listu."""
         from envocad.model.xref import DeviceIndex
         idx = DeviceIndex.build(project) if project is not None else DeviceIndex.for_sheets([sheet])
-        return [e for e in sheet.elements if e.modules > 0 and idx.is_bom_device(e, sheet)]
+        return [e for e in sheet.elements
+                if e.modules > 0 and e.symbol_id not in NON_DEVICE_SYMBOLS and idx.is_bom_device(e, sheet)]
 
     def used_modules(self, sheet: Sheet, project: Project | None = None) -> float:
         devs = {e.id: e for e in self.devices(sheet, project)}
@@ -413,6 +440,43 @@ ENCLOSURE_PARAMS = [
     ("rdf", "RDF (Ib/In)", "0,8"),
     ("note", "Poznámka", ""),
 ]
+
+# Číselné parametry skříně: klíč → (min, max, min vyloučeno, jednotka pro hlášku). Prázdné pole = nezadáno.
+ENCLOSURE_NUMERIC: dict[str, tuple[float, float, bool, str]] = {
+    "width_mm": (0.0, 5000.0, True, "mm"), "height_mm": (0.0, 5000.0, True, "mm"),
+    "depth_mm": (0.0, 2000.0, True, "mm"), "row_pitch_mm": (50.0, 1000.0, False, "mm"),
+    "in_": (0.0, 10000.0, True, "A"), "icw": (0.0, 200.0, True, "kA"), "reserve_pct": (0.0, 100.0, False, "%"),
+    "t_ambient": (-40.0, 60.0, False, "°C"), "rdf": (0.0, 1.0, True, ""),
+}
+
+
+def enclosure_param_error(key: str, text: str) -> str | None:
+    """Česká hláška pro neplatnou hodnotu číselného parametru skříně (není číslo, mimo rozsah – RDF 0–1, teplota
+    okolí −40…60 °C…), jinak None. Prázdná hodnota a nečíselné parametry jsou vždy v pořádku."""
+    rng = ENCLOSURE_NUMERIC.get(key)
+    t = (text or "").strip()
+    if rng is None or not t:
+        return None
+    label = next((lab for k, lab, _d in ENCLOSURE_PARAMS if k == key), key)
+    lo, hi, lo_open, unit = rng
+    try:
+        v = float(t.replace(",", ".").replace(" ", ""))
+    except ValueError:
+        return f"{label}: „{t}“ není číslo"
+    if not math.isfinite(v) or v > hi or v < lo or (lo_open and v == lo):
+        u = f" {unit}" if unit and unit != "%" else unit
+        span = f"větší než {lo:g} a nejvýše {hi:g}{u}" if lo_open else f"{lo:g} až {hi:g}{u}"
+        return f"{label}: hodnota {t} je mimo rozsah ({span})"
+    return None
+
+
+def enclosure_number(params: dict[str, str], key: str, default: float) -> float:
+    """Platná číselná hodnota parametru skříně, jinak (nezadaná / neplatná) `default`. Každý parametr zvlášť –
+    neplatné RDF neshodí teplotu okolí."""
+    t = (params.get(key) or "").strip()
+    if not t or enclosure_param_error(key, t):
+        return default
+    return float(t.replace(",", ".").replace(" ", ""))
 
 
 
@@ -616,6 +680,9 @@ class Project:
     revisions: list[Revision] = field(default_factory=list)
     notes: list[Note] = field(default_factory=list)   # připomínky (redlining), viz model/notes.py
     path: Path | None = None
+    # kabely odebrané `sync_cables` (žádný vodič na ně neodkazuje): id → (pořadí, kabel). Vrátí-li se vodič s tímto
+    # `cable_id` (undo smazání, redo vložení), kabel se obnoví beze změny i na původním místě. Neukládá se.
+    removed_cables: dict[str, tuple[int, Cable]] = field(default_factory=dict, repr=False, compare=False)
 
     # ---- strukturní označení ------------------------------------------
     def structure(self, aspect: str, code: str) -> StructureId | None:
@@ -800,7 +867,8 @@ def without_dangling(project: Project) -> Project:
     for s in project.sheets:
         bad = {w.id for w in dangling_wires(s)}
         sheets.append(dataclasses.replace(s, wires=[w for w in s.wires if w.id not in bad]) if bad else s)
-    return dataclasses.replace(project, sheets=sheets)
+    # vlastní seznam kabelů: `sync_cables` nad pohledem (výkazy) by jinak odebral z modelu kabel visícího vodiče
+    return dataclasses.replace(project, sheets=sheets, cables=list(project.cables), removed_cables={})
 
 
 def _check_shape(d: dict) -> None:
@@ -1140,26 +1208,69 @@ def switchboard_title(project: Project, sheet: Sheet) -> list[str]:
     return lines
 
 
+# Atributy vazeb, které kopie nesmí převzít: vodič odkazuje na objekt kabelu originálu (`cable_id`), přívod/vývod
+# rozvaděče na vodič JPS originálu (`wire_id`) a texty z té vazby odvozené (odkud/kam, kabel)
+WIRE_LINK_ATTRS = ("cable_id",)
+FEED_LINK_ATTRS = ("wire_id", "from", "to", "cable")
+
+
+def detach_wire_attrs(attrs: dict[str, str]) -> dict[str, str]:
+    """Atributy vodiče pro kopii / makro: bez `cable_id` – kopie dostane vlastní kabel podle nového označení."""
+    return {k: v for k, v in attrs.items() if k not in WIRE_LINK_ATTRS}
+
+
+def detach_element_attrs(symbol_id: str, attrs: dict[str, str]) -> dict[str, str]:
+    """Atributy prvku pro kopii / makro: přívod/vývod navázaný na vodič JPS (`wire_id`) vazbu ani z ní odvozené texty
+    (odkud/kam, kabel) nepřevezme – naváže se znovu podle portu bloku. Nenavázaný si ruční texty nechá."""
+    if symbol_id not in FEED_SYMBOLS or not attrs.get("wire_id"):
+        return dict(attrs)
+    return {k: ("" if k in FEED_LINK_ATTRS else v) for k, v in attrs.items()}
+
+
+def detach_fragment(fragment: dict) -> dict:
+    """Výřez bez vazeb na originál (`detach_wire_attrs`, `detach_element_attrs`); vstup se nemění."""
+    out = copy.deepcopy(fragment)
+    for d in out.get("elements", []):
+        if isinstance(d, dict) and isinstance(d.get("attrs"), dict):
+            d["attrs"] = detach_element_attrs(str(d.get("symbol_id", "")), d["attrs"])
+    for d in out.get("wires", []):
+        if isinstance(d, dict) and isinstance(d.get("attrs"), dict):
+            d["attrs"] = detach_wire_attrs(d["attrs"])
+    return out
+
+
+def copy_prefix(e: Element, iec_prefix: str) -> str:
+    """Předpona označení kopie: blok rozvaděče podle svého označení („RDC1“ → „RDC“, jako ostatní bloky projektu),
+    ostatní prvky podle značky (iec_ref)."""
+    if e.symbol_id in LOCATION_SYMBOLS:
+        m = re.match(r"([^\d\s]+)\d+$", e.ref or "")
+        if m:
+            return m.group(1)
+    return iec_prefix
+
+
 def copy_fragment(sheet: Sheet, element_ids: list[str]) -> dict:
-    """Výřez listu pro schránku: vybrané prvky + vodiče mezi nimi (čistá data, přenositelná mezi listy)."""
+    """Výřez listu pro schránku a uložení makra: vybrané prvky + vodiče mezi nimi (čistá data, přenositelná mezi
+    listy), bez vazeb na originál (`detach_fragment` – kabel vodiče, vazba přívodu na vodič JPS)."""
     ids = set(element_ids)
     els = [e.to_dict() for e in sheet.elements if e.id in ids]
     wires = [w.to_dict() for w in sheet.wires if w.a.element_id in ids and w.b.element_id in ids]
-    return {"elements": els, "wires": wires}
+    return detach_fragment({"elements": els, "wires": wires})
 
 
 def paste_fragment(project: Project, fragment: dict, ref_prefix_of, dx: float = 10.0, dy: float = -10.0
                    ) -> tuple[list[Element], list[Wire]]:
-    """Vytvoří kopie s novými id a označeními (F1 → další volné), posunuté o (dx, dy). Skupiny svorek si nechají
-    označení svorkovnice, čísla svorek se vymažou (doplní automatické číslování). Nic nevkládá do listu."""
+    """Vytvoří kopie s novými id a označeními (F1 → další volné; blok rozvaděče RDC1 → RDC2, `copy_prefix`),
+    posunuté o (dx, dy). Skupiny svorek si nechají označení svorkovnice, čísla svorek se vymažou (doplní automatické
+    číslování). Vodiče nepřevezmou kabel originálu (`cable_id`), přívody vazbu na vodič JPS. Nic nevkládá do listu."""
     used = project.used_refs()
     idmap: dict[str, str] = {}
     els: list[Element] = []
     for d in fragment.get("elements", []):
         e = Element.from_dict(d)
         new = Element(symbol_id=e.symbol_id, x=e.x + dx, y=e.y + dy, rotation=e.rotation,
-                      attrs=dict(e.attrs), component_id=e.component_id)
-        prefix = ref_prefix_of(e.symbol_id)
+                      attrs=detach_element_attrs(e.symbol_id, e.attrs), component_id=e.component_id)
+        prefix = copy_prefix(e, ref_prefix_of(e.symbol_id))
         if e.symbol_id in ("sb.terminal_block", "fve.terminal"):
             new.attrs["terminal"] = ""
         elif e.ref and prefix:
@@ -1176,7 +1287,8 @@ def paste_fragment(project: Project, fragment: dict, ref_prefix_of, dx: float = 
     for d in fragment.get("wires", []):
         w = Wire.from_dict(d)
         nw = Wire(WireEnd(idmap[w.a.element_id], w.a.port), WireEnd(idmap[w.b.element_id], w.b.port),
-                  points=[(x + dx, y + dy) for x, y in w.points], attrs=dict(w.attrs), conductors=list(w.conductors))
+                  points=[(x + dx, y + dy) for x, y in w.points], attrs=detach_wire_attrs(w.attrs),
+                  conductors=list(w.conductors))
         if nw.attrs.get("ref"):
             n = 1
             while f"W{n}" in used:
@@ -1477,7 +1589,9 @@ def sync_feed_links(project: Project) -> int:
 def sync_cables(project: Project) -> int:
     """Z vodičů JPS (s označením nebo typem kabelu) udržuje objekty Cable: typ/průřez/délka/trasa se berou
     z atributů vodiče (ten je editační místo), žíly z `Wire.conductors` (barvy se dopočítají a ručně upravené
-    zůstanou). Vodiče uvnitř rozvaděčů kabel nedostanou. Vrací počet změn."""
+    zůstanou). Vodiče uvnitř rozvaděčů kabel nedostanou. Kabel, na který žádný vodič JPS neodkazuje (smazaný nebo
+    vrácený vodič – undo vložení), se odebere do `Project.removed_cables`; vrátí-li se vodič s jeho `cable_id`
+    (undo/redo), obnoví se týž kabel (id, barvy žil, artikl) na původním místě. Vrací počet změn."""
     changed = 0
     for s in project.sheets:
         if s.is_switchboard:
@@ -1487,6 +1601,11 @@ def sync_cables(project: Project) -> int:
             if not ref and not w.attrs.get("cable"):
                 continue
             c = project.cable_of_wire(w)
+            cid = w.attrs.get("cable_id", "")
+            if cid and (c is None or c.id != cid) and cid in project.removed_cables:
+                pos, c = project.removed_cables.pop(cid)       # vodič se vrátil (undo/redo) – týž kabel zpět
+                project.cables.insert(min(pos, len(project.cables)), c)
+                changed += 1
             if c is None:
                 c = Cable(ref=ref or f"W{len(project.cables) + 1}")
                 project.cables.append(c)
@@ -1506,6 +1625,13 @@ def sync_cables(project: Project) -> int:
             if w.attrs.get("cable_id") != c.id:
                 w.attrs["cable_id"] = c.id
                 changed += 1
+    used = {w.attrs.get("cable_id") for s in project.sheets if not s.is_switchboard for w in s.wires
+            if w.attrs.get("ref") or w.attrs.get("cable")}
+    for i in range(len(project.cables) - 1, -1, -1):
+        c = project.cables[i]
+        if c.id not in used:                        # osiřelý kabel (vodič smazán / vložení vráceno)
+            project.removed_cables[c.id] = (i, project.cables.pop(i))
+            changed += 1
     return changed
 
 

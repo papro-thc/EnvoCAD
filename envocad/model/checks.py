@@ -187,9 +187,61 @@ def check_project(project: Project, lib) -> list[Finding]:
     return out
 
 
+LAYOUT_EPS = 1e-6   # tolerance součtu modulů (desetinné šířky svorek)
+
+
+@dataclass
+class LayoutProblem:
+    """Problém rozložení řady: `layout_overflow` (součet modulů řady > modulů v řadě, přístroj za koncem řady)
+    nebo `layout_overlap` (dva přístroje v řadě se překrývají). `element` = přístroj (u součtu řady None)."""
+    code: str
+    row: int
+    element: Element | None
+    text: str
+
+
+def _m(v: float) -> str:
+    return f"{round(v, 2):g}".replace(".", ",")
+
+
+def layout_problems(sheet: Sheet, project: Project | None = None, layout=None) -> list[LayoutProblem]:
+    """Přetečení a překryvy v řadách rozložení listu rozvaděče (jen přístroje rozložení – `Layout.devices`, bez
+    kontaktů – umístěné v řadách skříně). Zmenšení počtu modulů v řadě umístění nemaže; přístroje za koncem řady
+    hlásí tato kontrola. `layout` = rozpracovaná kopie (dialog skříně), jinak `sheet.layout`."""
+    lay = layout if layout is not None else sheet.layout
+    devs = lay.devices(sheet, project)
+    rows: dict[int, list[tuple[float, float, Element]]] = {}
+    for e in devs:
+        pl = lay.placement(e.id)
+        if pl is not None:
+            rows.setdefault(pl.row, []).append((pl.pos, pl.pos + e.modules, e))
+    out: list[LayoutProblem] = []
+    cap = lay.modules_per_row
+    for r in sorted(rows):
+        items = sorted(rows[r], key=lambda t: (t[0], t[1]))
+        total = sum(b - a for a, b, _ in items)
+        if total > cap + LAYOUT_EPS:
+            out.append(LayoutProblem("layout_overflow", r, None,
+                                     f"Řada {r + 1} je přeplněná: přístroje zabírají {_m(total)} M, řada má {cap} M"))
+        for a, b, e in items:
+            if b > cap + LAYOUT_EPS:
+                out.append(LayoutProblem("layout_overflow", r, e,
+                                         f"Přístroj v řadě {r + 1} přesahuje konec řady (pozice {_m(a)}–{_m(b)} M, "
+                                         f"řada má {cap} M)"))
+        for i, (a1, b1, e1) in enumerate(items):
+            for a2, b2, e2 in items[i + 1:]:
+                if a2 >= b1 - LAYOUT_EPS:
+                    break
+                out.append(LayoutProblem("layout_overlap", r, e2,
+                                         f"Přístroj v řadě {r + 1} se překrývá s {e1.ref or e1.symbol_id} "
+                                         f"({_m(a2)}–{_m(b2)} M × {_m(a1)}–{_m(b1)} M)"))
+    return out
+
+
 def layout_findings(project: Project) -> list[Finding]:
     """Rozložení rozvaděče: přístroj s uloženým umístěním v řadě mimo skříň (po zmenšení počtu řad) – WARNING
-    `outside_enclosure`; rozložení ho kreslí mezi nerozmístěnými, po zvětšení počtu řad se umístění vrátí."""
+    `outside_enclosure`; rozložení ho kreslí mezi nerozmístěnými, po zvětšení počtu řad se umístění vrátí.
+    Přetečení řady a překryvy přístrojů (`layout_problems`) – WARNING `layout_overflow` / `layout_overlap`."""
     out: list[Finding] = []
     for s in project.sheets:
         if not s.is_switchboard:
@@ -203,6 +255,9 @@ def layout_findings(project: Project) -> list[Finding]:
             out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                f"Přístroj je umístěn v řadě {pl.row + 1} mimo skříň (skříň má {lay.rows} řad) "
                                "– v rozložení je mezi nerozmístěnými", "outside_enclosure"))
+        for pr in layout_problems(s, project):
+            e = pr.element
+            out.append(Finding(WARNING, s.id, s.name, e.id if e else "", False, e.ref if e else "", pr.text, pr.code))
     return out
 
 

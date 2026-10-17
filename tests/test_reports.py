@@ -137,7 +137,8 @@ def test_reports_full_designation(tmp_path):
     assert any(r[0] == "W1" and r[7] == "+RDC1-X1:3" for r in rows)
     _, rows = reports.terminals(p, lib, sb)
     # svorkovnice v RDC1: protější konec ve stejném umístění bez opakování „+RDC1“
-    assert {(r[0], r[1], r[4]) for r in rows} == {("X1", "1", "F3:1"), ("X1", "2", "F3:1"), ("X1", "3", "F3:1")}
+    # protější konec po žílách jako zapojovací seznam (`wiring.conductor_end`): fáze na pól, N/PE vedou kolem
+    assert {(r[0], r[1], r[4]) for r in rows} == {("X1", "1", "F3:1"), ("X1", "2", "F3:N"), ("X1", "3", "F3:PE")}
     sb.wires.append(Wire(WireEnd(x1.id, "2"), WireEnd(g.id, "1"), conductors=["L1"]))
     _, rows = reports.terminals(p, lib, sb)
     assert any(r[4] == "+RH-F1:1" for r in rows)

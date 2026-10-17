@@ -638,6 +638,59 @@ def _chains(segs: list[_Seg], links) -> list[tuple[list[int], _End, _End, list[s
     return out
 
 
+def _segments(project: Project, s: Sheet, index, params: WiringParams | None, lib=None,
+              prod_only: bool = True) -> list[_Seg]:
+    """Úseky žil vodičů listu (žíla × vodič) s konci. `params` None = bez poloh svorek (zapojovací seznam);
+    `prod_only` vynechá vodiče s `attrs["prod"] == "0"` (výrobní seznam)."""
+    segs: list[_Seg] = []
+    for w in s.wires:
+        if prod_only and (w.attrs.get("prod") or "").strip() == "0":
+            continue
+        try:
+            ea, eb = s.element(w.a.element_id), s.element(w.b.element_id)
+        except KeyError:
+            continue
+        for c in wire_conductors(w):
+            ends = []
+            for side, e, port in (("a", ea, w.a.port), ("b", eb, w.b.port)):
+                info = conductor_end(project, s, w, c, side)
+                pt = terminal_point(project, s, e, port, c, info.terminal, params, index, lib) if params else None
+                found = placed_device(s, e, index)
+                ends.append(_End(side, w, e, port, info, pt, _end_key(e, info.terminal, pt, found)))
+            segs.append(_Seg(w, c, ends))
+    return segs
+
+
+@dataclass
+class MergedConductor:
+    """Žíla zapojení listu rozvaděče po sloučení nespínaných úseků kolem přístrojů (stejně jako výrobní seznam):
+    vodiče úseků, vnější konce (`ConductorEnd`) a poznámky („vede kolem Q1“, „N nespínaný – … kolem Q1“)."""
+    conductor: str
+    wires: list[Wire]
+    end_a: ConductorEnd
+    end_b: ConductorEnd
+    notes: list[str]
+
+
+def merged_conductors(project: Project, sheet: Sheet) -> list[MergedConductor]:
+    """Žíly vodičů listu rozvaděče sloučené přes přístroje jako ve výrobním seznamu (`production_wires`), ale se
+    všemi vodiči (i `prod = 0`) – pro zapojovací seznam listu, aby počet a obsah řádků odpovídal výrobnímu.
+    Pořadí podle vodičů listu; konce v pořadí vodiče (a → b)."""
+    from envocad.model.xref import DeviceIndex
+    index = DeviceIndex.build(project)
+    segs = _segments(project, sheet, index, None, prod_only=False)
+    out: list[MergedConductor] = []
+    for chain, a, b, devs in _chains(segs, _bypass_links(sheet, segs)):
+        c = segs[chain[0]].c
+        notes = [f"vede kolem {', '.join(devs)}"] if devs else []
+        if not devs:
+            for end in (a, b):
+                if end.info.derived and c in UNSWITCHED_POLES and is_bypassed(sheet, end.element, end.port, c):
+                    notes.append(f"{c} nespínaný – ve skutečnosti vede kolem {end_name(end.element)}")
+        out.append(MergedConductor(c, [segs[i].w for i in chain], a.info, b.info, notes))
+    return out
+
+
 def production_wires(project: Project, sheet: Sheet | None = None, base: dict | None = None,
                      lib=None) -> list[ProductionWire]:
     """Výrobní zapojovací seznam: každá žíla každého vodiče listů rozvaděčů (`attrs["prod"] == "0"` vynechá;
@@ -653,22 +706,7 @@ def production_wires(project: Project, sheet: Sheet | None = None, base: dict | 
         if not s.is_switchboard:
             continue
         params = WiringParams.resolve(s.layout, base)
-        segs: list[_Seg] = []
-        for w in s.wires:
-            if (w.attrs.get("prod") or "").strip() == "0":
-                continue
-            try:
-                ea, eb = s.element(w.a.element_id), s.element(w.b.element_id)
-            except KeyError:
-                continue
-            for c in wire_conductors(w):
-                ends = []
-                for side, e, port in (("a", ea, w.a.port), ("b", eb, w.b.port)):
-                    info = conductor_end(project, s, w, c, side)
-                    pt = terminal_point(project, s, e, port, c, info.terminal, params, index, lib)
-                    found = placed_device(s, e, index)
-                    ends.append(_End(side, w, e, port, info, pt, _end_key(e, info.terminal, pt, found)))
-                segs.append(_Seg(w, c, ends))
+        segs = _segments(project, s, index, params, lib)
         rows = []
         for chain, a, b, devs in _chains(segs, _bypass_links(s, segs)):
             if b.key < a.key:

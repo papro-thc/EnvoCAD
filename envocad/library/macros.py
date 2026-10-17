@@ -422,7 +422,10 @@ def list_macros() -> list[Macro]:
 
 
 def save_macro(name: str, description: str, fragment: dict, shared: bool = False) -> Path:
-    """Uloží makro ve formátu v2; proměnné odvodí ze zástupných symbolů `{x}` ve fragmentu (typ text)."""
+    """Uloží makro ve formátu v2; proměnné odvodí ze zástupných symbolů `{x}` ve fragmentu (typ text). Vazby na
+    originál (kabel vodiče `cable_id`, vazba přívodu `wire_id`/odkud/kam) se neukládají."""
+    from envocad.model.project import detach_fragment
+    fragment = detach_fragment(fragment)   # bez kabelu originálu (cable_id) a vazeb přívodů na vodiče JPS
     d = (shared_dir() if shared else None) or user_dir()
     d.mkdir(parents=True, exist_ok=True)
     p = d / f"{_slug(name)}.json"
@@ -642,7 +645,14 @@ def condition(expr, values: dict) -> bool:
 def _expand_once(project, sheet, fragment: dict, values: dict, dx: float, dy: float, ref_prefix_of,
                  components: ComponentLookup | None, used: set[str], created: list,
                  copy: bool = False) -> tuple[list, list]:
-    from envocad.model.project import Element, Wire, WireEnd
+    from envocad.model.project import (
+        Element,
+        Wire,
+        WireEnd,
+        copy_prefix,
+        detach_element_attrs,
+        detach_wire_attrs,
+    )
     idmap: dict[str, str] = {}
     els: list[Element] = []
     for d in fragment.get("elements", []):
@@ -650,7 +660,8 @@ def _expand_once(project, sheet, fragment: dict, values: dict, dx: float, dy: fl
         when = src.attrs.get("when")
         if when is not None and not condition(when, values):
             continue
-        attrs = {k: subst(v, values) for k, v in src.attrs.items() if k != "when"}
+        # vazby na originál (vazba přívodu na vodič JPS a texty z ní) se nepřebírají – i u starších uložených maker
+        attrs = {k: subst(v, values) for k, v in detach_element_attrs(src.symbol_id, src.attrs).items() if k != "when"}
         shared = str(src.attrs.get("shared", "")).strip() in ("1", "true", "ano")
         if shared:
             ref = attrs.get("ref", "")
@@ -668,7 +679,7 @@ def _expand_once(project, sheet, fragment: dict, values: dict, dx: float, dy: fl
             comp = components(cid)
             if comp is not None:
                 comp.apply_to(new)   # parametry artiklu → atributy (mppt, strings_per_mppt → DC vstupy střídače)
-        prefix = ref_prefix_of(src.symbol_id) if ref_prefix_of else ""
+        prefix = copy_prefix(src, ref_prefix_of(src.symbol_id) if ref_prefix_of else "")
         keep = _KEEP_REF
         if copy and not shared:
             # kopie jako `paste_fragment`: čísla svorek se vymažou, přívody/vývody se přečíslují (bez zástupných symbolů)
@@ -697,7 +708,7 @@ def _expand_once(project, sheet, fragment: dict, values: dict, dx: float, dy: fl
         nw = Wire(WireEnd(idmap[w.a.element_id], subst(w.a.port, values)),
                   WireEnd(idmap[w.b.element_id], subst(w.b.port, values)),
                   points=[(x + dx, y + dy) for x, y in w.points],
-                  attrs={k: subst(v, values) for k, v in w.attrs.items() if k != "when"},
+                  attrs={k: subst(v, values) for k, v in detach_wire_attrs(w.attrs).items() if k != "when"},
                   conductors=list(w.conductors))
         if nw.attrs.get("ref") and "{" not in str(w.attrs.get("ref", "")):
             n = 1

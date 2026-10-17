@@ -114,8 +114,12 @@ class ElementPoles:
     through: tuple[str, str] | None       # průchozí porty
     per_port: dict[str, set[str]] = field(default_factory=dict)
     origin: tuple[float, float] = (0.0, 0.0)  # pozice prvku ve vícepólu (ruční nebo z automatického rozmístění)
+    # žíla připojená na volnou svorku pólu jiné žíly: {žíla: žíla pólu} – např. cívka A1 = L1, A2 = N
+    # → {"N": "L1"}: N se napojí na A2 pólu L1 (prvek spíná/napájí jedním pólem dvě různé žíly)
+    joined: dict[str, str] = field(default_factory=dict)
 
     def slot(self, conductor: str) -> int:
+        conductor = self.joined.get(conductor, conductor)
         return self.slots.index(conductor) if conductor in self.slots else 0
 
     def pole_pos(self, port: str, conductor: str) -> tuple[float, float]:
@@ -400,7 +404,31 @@ def element_poles(sheet: Sheet, e: Element, sym: Symbol) -> ElementPoles:
                 bypass.append(c)
         if not switched and slots:
             switched.append(slots[0])
-    return ElementPoles(e, sym, slots, switched, bypass, thr, per_port)
+    joined = _join_single_port(per_port, thr, switched, bypass, slots) if thr else {}
+    if joined:
+        slots = [c for c in slots if c not in joined]
+    return ElementPoles(e, sym, slots, switched, bypass, thr, per_port, joined=joined)
+
+
+def _join_single_port(per_port: dict[str, set[str]], thr: tuple[str, str], switched: list[str], bypass: list[str],
+                      slots: list[str]) -> dict[str, str]:
+    """Žíly průchozího prvku, které nejsou spínané ani nevedou kolem (jsou jen na jednom portu – cívka A1 = L1,
+    A2 = N), se připojí na volnou svorku pólu na tomtéž portu: pól spínané žíly, která na tom portu není. PE/PEN se
+    nepřipojuje (ochranný vodič nevede přes pól)."""
+    out: dict[str, str] = {}
+    taken: dict[str, set[str]] = {p: {c for c in per_port.get(p, set()) if c in switched} for p in thr}
+    for c in slots:
+        if c in switched or c in bypass or c in NEVER_SWITCHED:   # PE nikdy nejde přes pól (SPD: svorka PE zvlášť)
+            continue
+        ports = [p for p in thr if c in per_port.get(p, set())]
+        if len(ports) != 1:
+            continue
+        port = ports[0]
+        free = next((s for s in switched if s not in taken[port]), None)
+        if free is not None:
+            out[c] = free
+            taken[port].add(free)
+    return out
 
 
 def terminal_text(w: Wire, conductor: str, side: str) -> str:

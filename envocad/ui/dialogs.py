@@ -24,7 +24,15 @@ from PySide6.QtWidgets import (
 
 from envocad.library.macros import repeat_context_names, resolve_values
 from envocad.model import multipole as mp
-from envocad.model.project import ENCLOSURE_PARAMS, MODULE_WIDTH, Layout, Project, Sheet, Wire
+from envocad.model.project import (
+    ENCLOSURE_PARAMS,
+    MODULE_WIDTH,
+    Layout,
+    Project,
+    Sheet,
+    Wire,
+    enclosure_param_error,
+)
 from envocad.model.symbol import Attribute, Symbol
 
 _CZECH_BUTTONS = (
@@ -213,8 +221,9 @@ class StripDialog(QDialog):
         top = QHBoxLayout()
         top.addWidget(QLabel("Svorkovnice:"))
         self.strip = QComboBox()
+        from envocad.model.xref import natural_key
         strips = sorted({e.ref for e in sheet.elements if e.symbol_id in mp.TERMINAL_SYMBOLS and e.ref},
-                        key=lambda r: (len(r), r))
+                        key=natural_key)
         self.strip.addItems(strips)
         if strip in strips:
             self.strip.setCurrentText(strip)
@@ -234,6 +243,7 @@ class StripDialog(QDialog):
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
         self._shown = ""
+        self._drafts: dict[str, str] = {}   # rozpracované texty můstků všech svorkovnic (přepnutí je neztratí)
         self.strip.currentTextChanged.connect(self._load)
         self._load(self.strip.currentText())
 
@@ -285,23 +295,59 @@ class StripDialog(QDialog):
         except Exception:  # noqa: BLE001
             return []
 
+    def _model_text(self, strip: str) -> str:
+        return "\n".join("-".join(g) for g in self.project.bridge_groups(strip, self.sheet))
+
     def _load(self, strip: str) -> None:
+        if self._shown:
+            self._drafts[self._shown] = self.bridges.toPlainText()
         rows = self._rows(strip) if strip else []
         self.table.setRowCount(len(rows))
         for r, row in enumerate(rows):
             for c, v in enumerate(row):
                 self.table.setItem(r, c, QTableWidgetItem(v))
         self.table.resizeColumnsToContents()
-        self.bridges.setPlainText("\n".join("-".join(g) for g in self.project.bridge_groups(strip, self.sheet)))
+        self.bridges.setPlainText(self._drafts.get(strip, self._model_text(strip)))
         self._shown = strip
 
+    def _texts(self) -> dict[str, str]:
+        """Texty můstků všech svorkovnic, které uživatel otevřel (včetně zobrazené)."""
+        texts = dict(self._drafts)
+        if self._shown:
+            texts[self._shown] = self.bridges.toPlainText()
+        return texts
+
     def values(self) -> tuple[str, list[list[str]]]:
-        groups = []
-        for line in self.bridges.toPlainText().splitlines():
-            toks = [t.strip() for t in line.replace(",", "-").replace(" ", "-").split("-") if t.strip()]
-            if len(toks) >= 2:
-                groups.append(toks)
-        return self._shown, groups
+        """(zobrazená svorkovnice, její skupiny můstků)."""
+        from envocad.model.terminal_plan import parse_bridges
+        return self._shown, parse_bridges(self.bridges.toPlainText())
+
+    def all_values(self) -> dict[str, list[list[str]]]:
+        """Změněné můstky všech svorkovnic: {svorkovnice: skupiny} (jen ty, které se liší od modelu)."""
+        from envocad.model.terminal_plan import parse_bridges
+        out = {}
+        for strip, text in self._texts().items():
+            groups = parse_bridges(text)
+            if groups != self.project.bridge_groups(strip, self.sheet):
+                out[strip] = groups
+        return out
+
+    def errors(self) -> list[str]:
+        """Chyby zadání můstků všech upravených svorkovnic (čísla svorek, které na svorkovnici nejsou…)."""
+        from envocad.model.terminal_plan import bridge_errors, strip_numbers
+        errs: list[str] = []
+        for strip, text in self._texts().items():
+            if text.strip() == self._model_text(strip).strip():
+                continue
+            errs += bridge_errors(strip, text, strip_numbers(self.project, self.sheet, strip))
+        return errs
+
+    def accept(self) -> None:
+        errs = self.errors()
+        if errs:
+            QMessageBox.warning(self, "Svorkovnice a můstky", "Můstky nelze uložit:\n" + "\n".join(errs))
+            return
+        super().accept()
 
 
 class CableDialog(QDialog):
@@ -598,6 +644,9 @@ class ElementDialog(AttrDialog):
         self.comp_label.setText(self._comp_text())
 
 
+INVALID_COLOR = "#d32f2f"   # zvýraznění neplatného pole a varování (čitelné ve světlém i tmavém motivu)
+
+
 class EnclosurePanel(QWidget):
     """Rozměry a parametry skříně – nemodální panel vedle rozložení; změny se promítají hned.
 
@@ -640,6 +689,12 @@ class EnclosurePanel(QWidget):
         self.info = QLabel()
         self.info.setWordWrap(True)
         f1.addRow(self.info)
+        # varování: záporná rezerva, přístroje za koncem řady / překryvy (kontrola `layout_problems`)
+        self.warning = QLabel()
+        self.warning.setWordWrap(True)
+        self.warning.setStyleSheet(f"color: {INVALID_COLOR};")
+        self.warning.setVisible(False)
+        f1.addRow(self.warning)
         root.addWidget(g1)
 
         g2 = QGroupBox("Parametry skříně")
@@ -696,6 +751,13 @@ class EnclosurePanel(QWidget):
         self.unplaced.currentIndexChanged.connect(lambda *_: self._apply("wire_unplaced"))
         root.addWidget(self.wiring_group)
 
+        # neplatná čísla (pole se zvýrazní, do modelu se nepropíší – platí předchozí hodnota)
+        self.errors = QLabel()
+        self.errors.setWordWrap(True)
+        self.errors.setStyleSheet(f"color: {INVALID_COLOR};")
+        self.errors.setVisible(False)
+        root.addWidget(self.errors)
+
         g3 = QGroupBox("Oteplení (IEC 60890, orientačně)")
         v3 = QVBoxLayout(g3)
         self.thermal = QLabel()
@@ -742,21 +804,52 @@ class EnclosurePanel(QWidget):
             self._suspend = False
         self.refresh()
 
+    def invalid_fields(self) -> dict[str, str]:
+        """Pole s neplatným číslem → česká hláška (`project.enclosure_param_error`; vypnutá skupina výrobních dat
+        se nekontroluje)."""
+        own_wiring = self.wiring_group.isChecked()
+        return {k: msg for k, ed in self._edits.items()
+                if (own_wiring or k not in self._wiring_keys) and (msg := enclosure_param_error(k, ed.text()))}
+
+    def _mark_invalid(self) -> None:
+        bad = self.invalid_fields()
+        for k, ed in self._edits.items():
+            msg = bad.get(k)
+            ed.setStyleSheet(f"border: 1px solid {INVALID_COLOR};" if msg else "")
+            ed.setToolTip(msg or "")
+        if bad:
+            self.errors.setText("Neplatné hodnoty – nepoužity, platí předchozí: " + "; ".join(bad.values()))
+        self.errors.setVisible(bool(bad))
+
     def refresh(self) -> None:
         """Přepočítá informační texty (po změně rozložení nebo přístrojů)."""
-        from envocad.model.thermal import temperature_rise
+        from envocad.model.checks import layout_problems
+        from envocad.model.thermal import layout_inputs, temperature_rise
         lay = self.layout
         total = lay.total_modules
         used = lay.used_modules(self._sheet, self._project)
         pct = (used / total * 100) if total else 0
-        self.info.setText(f"{total} modulů celkem, obsazeno {used:g} ({pct:.0f} %), rezerva {total - used:g} M; "
+        reserve = total - used
+        self.info.setText(f"{total} modulů celkem, obsazeno {used:g} ({pct:.0f} %), rezerva {reserve:g} M; "
                           f"užitná šířka řady {lay.modules_per_row * MODULE_WIDTH:g} mm, "
                           f"skříň {lay.width_mm:g} × {lay.height_mm:g} mm")
-        try:
-            rdf = float((lay.params.get("rdf") or "0.8").replace(",", "."))
-            t_amb = float((lay.params.get("t_ambient") or "35").replace(",", "."))
-        except ValueError:
-            rdf, t_amb = 0.8, 35.0
+        warn = []
+        if reserve < -1e-6:
+            warn.append(f"Skříň je přeplněná: rozmístěné přístroje zabírají o {-reserve:g} M víc, než skříň má.")
+        probs = layout_problems(self._sheet, self._project, lay)
+        n_over = sum(1 for x in probs if x.code == "layout_overflow" and x.element is not None)
+        n_rows = sum(1 for x in probs if x.code == "layout_overflow" and x.element is None)
+        n_lap = sum(1 for x in probs if x.code == "layout_overlap")
+        if n_rows:
+            warn.append(f"Přeplněné řady: {n_rows}.")
+        if n_over:
+            warn.append(f"Přístroje za koncem řady: {n_over} (zůstávají umístěné, upravte rozložení).")
+        if n_lap:
+            warn.append(f"Překryvy přístrojů v řadě: {n_lap}.")
+        self.warning.setText(" ".join(warn))
+        self.warning.setVisible(bool(warn))
+        self._mark_invalid()
+        rdf, t_amb = layout_inputs(lay)   # každá hodnota zvlášť; neplatná / nezadaná = výchozí
         r = temperature_rise(self._sheet, rdf=rdf, t_ambient_c=t_amb, project=self._project, layout=lay)
         txt = (f"Ztráty přístrojů ΣPv = {r.p_devices_w:g} W, celkem s vodiči {r.p_total_w:g} W\n"
                f"Účinná chladicí plocha Ae = {r.ae_m2:g} m²\n"
@@ -826,9 +919,12 @@ class EnclosurePanel(QWidget):
         # výchozí hodnotu pole, které v parametrech nebylo (panel ji jen ukazuje), nedoplňovat – jinak by se
         # rozložení změnilo pouhým zápisem jiného pole a krok undo by po návratu hodnoty nezmizel
         defaults = {k: d for k, _l, d in ENCLOSURE_PARAMS if d}
+        bad = self.invalid_fields()
         edits = {k: e.text().strip() for k, e in self._edits.items()
-                 if e.text().strip() and (own_wiring or k not in self._wiring_keys)
+                 if k not in bad and e.text().strip() and (own_wiring or k not in self._wiring_keys)
                  and (k in lay.params or defaults.get(k) != e.text().strip())}
+        # neplatné číslo se do modelu nepropíše: zůstane předchozí hodnota (pole je zvýrazněné, viz `_mark_invalid`)
+        edits.update({k: lay.params[k] for k in bad if k in lay.params})
         if own_wiring and self.unplaced.currentData():
             edits["wire_unplaced"] = self.unplaced.currentData()
         # klíče, které panel nezná, zůstanou; wire_* spravuje skupina „Výrobní data“

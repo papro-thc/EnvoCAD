@@ -306,12 +306,14 @@ SYMBOLS = [
     {
         "id": "sb.busbar", "name": "Sběrnice (rozvodný vodič)", "category": "Svorky a propojení", "iec_ref": "",
         "description": "Rozvod potenciálů vodičem jako v EPLAN: ve vícepólu vodorovné čáry L1 L2 L3 N PE přes stranu "
-                       "s názvy potenciálů na koncích, přístroje se na ně napojují odbočkou; 1 vstup, 10 vývodů",
-        "primitives": [{"type": "polyline", "points": [[-75, 0], [75, 0]], "closed": False},
-                       {"type": "polyline", "points": [[-75, 1], [75, 1]], "closed": False}],
-        # porty: IN vlevo nahoře, T1…T10 shora (přívody, jističe od střídačů), 1…10 zdola (vývody)
+                       "s názvy potenciálů na koncích, přístroje se na ně napojují odbočkou; 1 vstup, 10 přívodů shora, "
+                       "12 vývodů zdola",
+        "primitives": [{"type": "polyline", "points": [[-75, 0], [105, 0]], "closed": False},
+                       {"type": "polyline", "points": [[-75, 1], [105, 1]], "closed": False}],
+        # porty: IN vlevo nahoře, T1…T10 shora (přívody, jističe od střídačů), 1…12 zdola (vývody) – šablona
+        # AC rozvaděče potřebuje SPD + až 9 vývodů + PE (`templates.AC_MAX_OUTPUTS`, `BUSBAR_OUTPUTS`)
         "ports": [P("IN", -75, 5, "N")] + [P(f"T{i + 1}", -60 + i * 15, 5, "N") for i in range(10)]
-                 + [P(f"{i + 1}", -67.5 + i * 15, -5, "S") for i in range(10)],
+                 + [P(f"{i + 1}", -67.5 + i * 15, -5, "S") for i in range(12)],
         "attributes": [attr("ref", "Označení (předpona potenciálů, např. 1 → 1L1)", "", True), attr("desc", "Popis", "", True),
                        attr("in_", "In [A]"), attr("conductors", "Vodiče", "L1 L2 L3 N PE")],
         "label_pos": {"x": -75, "y": 7.5},
@@ -340,10 +342,13 @@ SYMBOLS = [
     },
     {
         "id": "sb.terminal_block", "name": "Svorkovnice", "category": "Svorky a propojení", "iec_ref": "X",
-        "description": "Řadová svorkovnice – 1 svorka (vícenásobná = více prvků)",
+        "description": "Řadová svorkovnice – skupina svorek (čísla v atributu Svorka č.); šířka v rozložení = počet "
+                       "svorek × 6,2 mm, pokud není zadaná",
         "primitives": [C(0, 0, 1.5), L(0, 5, 0, 1.5), L(0, -1.5, 0, -5)],
         "ports": [P("1", 0, 5, "N"), P("2", 0, -5, "S")],
-        "attributes": [REF, attr("terminal", "Svorka č.", "", True), attr("cross", "Průřez [mm²]"), attr("modules", "Šířka [moduly]", "0.35")],
+        "attributes": [REF, attr("terminal", "Svorka č.", "", True), attr("cross", "Průřez [mm²]"),
+                       # šířka celé skupiny; prázdné = počet svorek × 6,2 mm (`project.TERMINAL_WIDTH_MM`, 1 svorka ≈ 0,35 M)
+                       attr("modules", "Šířka skupiny [moduly] (prázdné = počet svorek × 6,2 mm)", "")],
         "multipole": MP([C(0, 0, 1.5), L(0, 5, 0, 1.5), L(0, -1.5, 0, -5)], link=False),
         "label_pos": {"x": 2.5, "y": 1},
     },

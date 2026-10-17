@@ -103,7 +103,10 @@ téhož pole panelu se slučují; dialog skříně pracuje na kopii). `undo.clea
 jen při načtení projektu, po založení nového projektu z průvodce / specifikace a po obnově autosave (hlídá test
 `test_no_undo_reset_outside_allowed_places` – všechna volání v `ui/` včetně lambd a aliasů undo stacku). Zmenšení počtu řad skříně umístění nemaže: umístění v řadě mimo skříň
 zůstane v modelu (`Layout.stored_placement`), `Layout.placement` ho nevrací (přístroj je nerozmístěný) a kontrola
-hlásí `outside_enclosure`.
+hlásí `outside_enclosure`. Zmenšení počtu modulů v řadě také nic nemaže – přístroje za koncem řady a překryvy hlásí
+kontrola `layout_overflow` / `layout_overlap` (`checks.layout_problems`, varování i v panelu skříně). Kabely
+(`Cable`) jsou odvozené z vodičů JPS (`sync_cables`): kabel bez vodiče se odebere do `Project.removed_cables`
+(neukládá se) a vrácený vodič (undo/redo) dostane týž kabel zpět – undo vložení/smazání vodiče vrátí `to_dict` přesně.
 
 ## Rozšiřitelnost na další obory
 

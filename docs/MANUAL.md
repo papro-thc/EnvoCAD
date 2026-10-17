@@ -236,7 +236,9 @@ PE lišta), ruční čísla nechá.
 `Úpravy → Svorkovnice a můstky…` (`Ctrl+Shift+T`): tabulka svorek vybrané svorkovnice (vnitřní/vnější strana,
 můstek) a editace **můstků** – jedna skupina na řádek, čísla svorek pomlčkou (`1-6-11-16`). Můstky se kreslí
 ve vícepólu, v JPS čárkovaně mezi skupinami, a jsou ve výkazech a BOM. Můstky patří listu rozvaděče –
-svorkovnice X1 v RDC1 a X1 v RH jsou dvě různé.
+svorkovnice X1 v RDC1 a X1 v RH jsou dvě různé. Přepnutí svorkovnice v dialogu rozpracované můstky nezahodí;
+OK uloží změny všech svorkovnic jedním krokem undo a odmítne číslo svorky, které na svorkovnici není.
+Šířka skupiny svorek v rozložení = počet svorek × 6,2 mm, pokud atribut „Šířka skupiny“ nevyplníš.
 
 `Ctrl+T` (Svorky vybraného vodiče) přiřadí svorky ručně po žílách (`X1:3`, `F2:1`) – pro PE lištu a
 prvky bez skupin svorek.
