@@ -576,6 +576,26 @@ class ProjectWizard(QDialog):
         form.addRow("Kabel do HDS / průřez / délka", self._triple(self.grid_cable, self.grid_cross, self.grid_len))
         self.dso = QLineEdit("")
         form.addRow("Distributor (DSO)", self.dso)
+        # připojení k DS: nn (AC rozvaděč FVE do HDS) nebo VN (hlavní rozvaděč nn, transformátor, rozvaděč VN)
+        self.conn_level = QComboBox()
+        self.conn_level.addItem("nn – AC rozvaděč FVE do HDS", "nn")
+        self.conn_level.addItem("VN – hlavní rozvaděč nn, transformátor, rozvaděč VN", "vn")
+        self.conn_metering = QComboBox()
+        self.conn_metering.addItem("fakturační měření na straně nn", "nn")
+        self.conn_metering.addItem("fakturační měření na straně VN", "vn")
+        self.tr_sn = QLineEdit("630")
+        self.tr_sn.setPlaceholderText("Sn [kVA]")
+        self.conn_loop = QCheckBox("smyčka (2 kabelová pole)")
+        self.conn_loop.setChecked(True)
+        form.addRow("Připojení k DS", self.conn_level)
+        form.addRow("Měření / Sn trafa [kVA]", self._triple(self.conn_metering, self.tr_sn, self.conn_loop))
+
+        def _conn_enabled() -> None:
+            on = self.conn_level.currentData() == "vn"
+            for w in (self.conn_metering, self.tr_sn, self.conn_loop):
+                w.setEnabled(on)
+        self.conn_level.currentIndexChanged.connect(lambda _i: _conn_enabled())
+        _conn_enabled()
         body = QWidget()      # dlouhý formulář v posuvné oblasti, tlačítka OK / Zrušit zůstávají vidět
         body.setLayout(form)
         scroll = QScrollArea()
@@ -842,6 +862,7 @@ class ProjectWizard(QDialog):
         ("t_min", "Návrhová teplota min [°C]", {"temperature": True}),
         ("t_max", "Návrhová teplota max [°C]", {"temperature": True}),
         ("mod_total", "Celkem modulů", {"integer": True}),
+        ("tr_sn", "Sn transformátoru [kVA]", {}),
     )
 
     def _values(self) -> tuple[dict, list[str]]:
@@ -931,6 +952,8 @@ class ProjectWizard(QDialog):
                    "grid_cable": self.grid_cable.text().strip(), "grid_cross": v["grid_cross"],
                    "grid_length": v["grid_len"], "distribution": "bus" if self.ac_bus.isChecked() else "terminals"},
             "grid": {"dso": self.dso.text().strip()},
+            "connection": {"level": self.conn_level.currentData(), "metering": self.conn_metering.currentData(),
+                           "loop": self.conn_loop.isChecked(), "transformer": {"sn": v.get("tr_sn") or 630}},
         }
 
 

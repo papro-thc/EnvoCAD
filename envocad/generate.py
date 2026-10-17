@@ -27,6 +27,11 @@ Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
          "distribution": "bus"},                                      # rozvod v AC rozvaděči: "bus" (sběrnice potenciálů) | "terminals" (svorky s můstky)
   "switchboard": {"ref": "RH", "desc": "AC rozvaděč FVE"},
   "grid": {"dso": "ČEZ Distribuce", "voltage": "3×400 V"},
+  "connection": {"level": "vn", "metering": "nn",                     # "nn" = do HDS (výchozí), "vn" = přípojka VN
+                 "u_vn": "22 kV", "loop": true,                       # smyčka = 2 kabelová pole v rozvaděči VN
+                 "transformer": {"sn": 630, "ratio": "22/0,42 kV", "group": "Dyn1", "uk": 6},
+                 "main_board": {"ref": "RHN", "main_in": "", "load_in": ""},   # "" = ze Sn transformátoru
+                 "ct_ratio": "", "fuse_vn": "", "vn_cable": "22-AXEKVCEY 3×1×70", "tr_cable": "4× 1-AYKY 3×240+120"},
   "battery": {"e_kwh": 10, "p_kw": 5, "type": "…"},       # volitelné, jen u hybridního střídače
   "macros": {"dc_tech": "DC string v rozvaděči", "dc_route": "DC string po trase",   # rozvaděče se skládají z maker
              "ac_feed": "AC přívod střídače", "ac_core": "AC jádro rozvaděče"}       # (knihovna → Makra); "" = kód
@@ -95,6 +100,17 @@ DEFAULT_SPEC = {
            "distribution": "bus"},
     "switchboard": {"ref": "RH", "desc": "AC rozvaděč FVE"},
     "grid": {"dso": "", "voltage": "3×400 V"},
+    # připojení k DS: "nn" = AC rozvaděč FVE přímo do DS (HDS); "vn" = přes hlavní rozvaděč nn, transformátor a
+    # rozvaděč VN (kobky) – fakturační měření na straně nn (MTP + elektroměr v hlavním rozvaděči) nebo vn (MTP + MTN
+    # v měřicím poli VN). Prázdné hodnoty (main_in, ct_ratio, fuse_vn) se dopočtou ze Sn transformátoru.
+    "connection": {"level": "nn", "metering": "nn", "u_vn": "22 kV", "loop": True,
+                   "transformer": {"sn": 630, "type": "", "ratio": "22/0,42 kV", "group": "Dyn1", "uk": 6},
+                   "mv_board": {"ref": "RVN", "desc": "rozvaděč VN"},
+                   "main_board": {"ref": "RHN", "desc": "hlavní rozvaděč nn", "main_in": "", "load_in": ""},
+                   "ct_ratio": "", "fuse_vn": "",
+                   "vn_cable": "22-AXEKVCEY 3×1×70", "vn_cross": 70, "vn_length": 10,
+                   "tr_cable": "4× 1-AYKY 3×240+120", "tr_cross": 240, "tr_length": 10,
+                   "load": "spotřeba objektu"},
     # makra, ze kterých se rozvaděče skládají (název makra z knihovny; "" = vestavěný kód); výkresy ladí projektant
     "macros": {"dc_tech": "DC string v rozvaděči", "dc_route": "DC string po trase",
                "ac_feed": "AC přívod střídače", "ac_core": "AC jádro rozvaděče"},
@@ -295,12 +311,19 @@ def _build_project(spec: dict) -> Project:
         s.elements.append(bat)
         s.wires.append(Wire(WireEnd(t0.id, "BAT"), WireEnd(bat.id, "DC"), conductors=list(DC_CONDUCTORS),
                             attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": "25", "length": "5"}))
-    grid = Element("fve.grid", x_grid, 150.0, attrs={"ref": "", "voltage": _s(spec["grid"].get("voltage")), "dso": _s(spec["grid"].get("dso"))})
-    s.elements.append(grid)
-    w_grid = Wire(WireEnd(blk.id, "XOUT"), WireEnd(grid.id, "1"), conductors=list(AC_CONDUCTORS),
-                  attrs={"ref": p.next_ref("W"), "cable": _s(ac.get("grid_cable")), "cross": _s(ac.get("grid_cross")),
-                         "length": _s(ac.get("grid_length")), "method": "D"})
-    s.wires.append(w_grid)
+    conn = spec.get("connection") or {}
+    chain = None
+    if _s(conn.get("level")).lower() == "vn":
+        # přípojka VN: RH → hlavní rozvaděč nn → transformátor → rozvaděč VN → DS (listy rozvaděčů níže)
+        chain = _connection_blocks(p, s, spec, blk, x_blk)
+        grid = chain["grids"][0]
+    else:
+        grid = Element("fve.grid", x_grid, 150.0, attrs={"ref": "", "voltage": _s(spec["grid"].get("voltage")),
+                                                         "dso": _s(spec["grid"].get("dso"))})
+        s.elements.append(grid)
+        s.wires.append(Wire(WireEnd(blk.id, "XOUT"), WireEnd(grid.id, "1"), conductors=list(AC_CONDUCTORS),
+                            attrs={"ref": p.next_ref("W"), "cable": _s(ac.get("grid_cable")),
+                                   "cross": _s(ac.get("grid_cross")), "length": _s(ac.get("grid_length")), "method": "D"}))
     earth = None
     if (ac.get("distribution") or "bus") == "bus":
         # PE rozvaděče je uzemněný na ekvipotenciální svorkovnici (HOP) vně rozvaděče – vývod XPE → uzemnění
@@ -330,8 +353,13 @@ def _build_project(spec: dict) -> Project:
     sb.layout.params.setdefault("in_", _s(ac.get("main_in") or 125))
     if not _ac_box_from_macros(p, sb, invs, ac, macros):
         _build_ac_switchboard(p, sb, invs, ac, spec)
+    if chain is not None:
+        _build_main_lv_board(p, p.create_switchboard_sheet(chain["rhn"]), conn, ac)
+        _build_mv_board(p, p.create_switchboard_sheet(chain["rvn"]), conn)
     _align_bends(p)
-    _align_outputs(p, blk, grid, earth)
+    _align_outputs(p, blk, None if chain else grid, earth)
+    if chain is not None:
+        _align_connection(p, blk, chain)
     from envocad.model.frame import fit_sheet_to_content
     fit_sheet_to_content(p, s, _lib())
     # až po rozmístění na list: vazby přívodů ukládají texty s polohou v JPS („W3 T1:DC1 /1.F3“)
@@ -387,16 +415,254 @@ def _apply_spd_component(sheet: Sheet, cid) -> None:
             comp.apply_to(e)
 
 
-def _align_outputs(project: Project, blk: Element, grid: Element, earth: Element | None) -> None:
+def _align_outputs(project: Project, blk: Element, grid: Element | None, earth: Element | None) -> None:
     """Síť (DS) na výšku vývodu XOUT bloku AC rozvaděče (vodič vede rovně) a uzemnění (HOP) pod vývod XPE –
     porty bloku jsou známé až po vytvoření listu rozvaděče."""
     from envocad.model.project import element_symbol
     sym = element_symbol(project, blk, _lib())
     names = {pt.name for pt in sym.ports}
-    if "XOUT" in names:
+    if "XOUT" in names and grid is not None:
         grid.y = blk.port_pos(sym, "XOUT")[1]
     if earth is not None and "XPE" in names:
         earth.y = blk.port_pos(sym, "XPE")[1] - 20.0
+
+
+# ---- přípojka VN: hlavní rozvaděč nn, transformátor, rozvaděč VN -------------------------------------------------
+LV_BREAKER_SIZES = (100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3200, 4000)
+CT_PRIMARY_SIZES = (5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 100, 150, 200, 250, 300, 400, 500, 600, 750, 800, 1000,
+                    1200, 1250, 1500, 1600, 2000, 2500, 3000, 4000)
+VN_FUSE_SIZES = (6.3, 10, 16, 20, 25, 31.5, 40, 50, 63, 80, 100)
+VN_FUSE_FACTOR = 1.8          # pojistka VN transformátoru ≈ 1,8 × In VN (tabulky výrobců pojistek – ověřit)
+VN_BREAKER_FROM_KVA = 1000.0  # nad 1000 kVA transformátorové pole s vypínačem a ochranou místo pojistek
+U_LV, U_MV_DEFAULT = 400.0, 22000.0
+VN_CONDUCTORS = ["L1", "L2", "L3"]
+CT_CONDUCTORS, VT_CONDUCTORS = ["S1", "S2"], ["a", "n"]   # sekundár MTP / MTN k elektroměru
+
+
+def _next_size(value: float, sizes) -> float:
+    """Nejmenší normalizovaná hodnota ≥ value (nad řadou největší)."""
+    return next((x for x in sizes if x >= value - 1e-9), sizes[-1])
+
+
+def _num_or(v, default: float) -> float:
+    try:
+        return float(str(v).replace(",", ".").split()[0])
+    except (TypeError, ValueError, IndexError):
+        return default
+
+
+def connection_currents(conn: dict) -> dict:
+    """Jmenovité proudy přípojky VN ze Sn transformátoru: In nn / vn, hlavní jistič nn, převod MTP, pojistky VN.
+    Zadané `main_board.main_in`, `ct_ratio`, `fuse_vn` mají přednost."""
+    tr = conn.get("transformer") or {}
+    sn = _num_or(tr.get("sn"), 630.0)
+    u_mv = _num_or(conn.get("u_vn"), U_MV_DEFAULT / 1000) * 1000
+    i_lv = sn * 1000 / (math.sqrt(3) * U_LV)
+    i_mv = sn * 1000 / (math.sqrt(3) * u_mv)
+    mb = conn.get("main_board") or {}
+    main_in = _num_or(mb.get("main_in"), 0) or _next_size(i_lv, LV_BREAKER_SIZES)
+    metering = _s(conn.get("metering") or "nn").lower()
+    i_ct = i_lv if metering == "nn" else i_mv
+    ct = _s(conn.get("ct_ratio")) or f"{_next_size(i_ct, CT_PRIMARY_SIZES):g}/5 A"
+    fuse = _s(conn.get("fuse_vn")) or f"{_next_size(i_mv * VN_FUSE_FACTOR, VN_FUSE_SIZES):g}".replace(".", ",")
+    return {"sn": sn, "u_mv": u_mv, "i_lv": i_lv, "i_mv": i_mv, "main_in": f"{main_in:g}", "ct_ratio": ct,
+            "fuse_vn": fuse, "metering": metering, "breaker_vn": sn > VN_BREAKER_FROM_KVA}
+
+
+def _connection_blocks(p: Project, s: Sheet, spec: dict, blk: Element, x0: float) -> dict:
+    """Bloky přípojky VN v blokovém schématu: RH (XOUT) → hlavní rozvaděč nn → transformátor → rozvaděč VN → DS.
+    Rozvaděče nn a VN jsou napájené ze strany DS (přívod = XT u hlavního rozvaděče, XDS1/XDS2 u rozvaděče VN), FVE
+    je vývod X1 hlavního rozvaděče – bloky i transformátor jsou zrcadlené, aby přívody ležely vpravo (k DS) a vodiče
+    vedly zleva doprava rovně. Spotřeba objektu (vývod XS) leží pod vývodem FVE."""
+    conn, ac = spec["connection"], spec["ac"]
+    tr_spec, mb, vb = conn.get("transformer") or {}, conn.get("main_board") or {}, conn.get("mv_board") or {}
+    x_rhn = x0 + 85.0
+    x_tr = x_rhn + 75.0
+    x_rvn = x_tr + 75.0
+    x_grid = x_rvn + 70.0
+    rhn = Element("fve.switchboard", x_rhn, 150.0, mirror=True, attrs={
+        "ref": _s(mb.get("ref") or "RHN"), "desc": _s(mb.get("desc") or "hlavní rozvaděč nn")})
+    s.elements.append(rhn)
+    tr = Element("fve.transformer", x_tr, 150.0, mirror=True, attrs={
+        "ref": p.next_ref("TR"), "type": _s(tr_spec.get("type")), "sn": _s(tr_spec.get("sn")),
+        "ratio": _s(tr_spec.get("ratio")), "group": _s(tr_spec.get("group")), "uk": _s(tr_spec.get("uk"))})
+    s.elements.append(tr)
+    rvn = Element("fve.switchboard", x_rvn, 150.0, mirror=True, attrs={
+        "ref": _s(vb.get("ref") or "RVN"), "desc": _s(vb.get("desc") or "rozvaděč VN")})
+    s.elements.append(rvn)
+    u = _s(conn.get("u_vn") or "22 kV")
+    grids = []
+    for k in range(2 if conn.get("loop") else 1):
+        g = Element("fve.grid", x_grid, 150.0 - 10.0 * k, attrs={"ref": "", "voltage": f"3~ {u}, 50 Hz",
+                                                                 "dso": _s(spec["grid"].get("dso"))})
+        s.elements.append(g)
+        grids.append(g)
+    # spotřeba objektu: vývod XS je vlevo (zrcadlený blok) – značka pod blokem, otočená portem nahoru
+    load = Element("fve.load", x_rhn, 110.0, attrs={"ref": "", "desc": _s(conn.get("load") or "spotřeba objektu")})
+    s.elements.append(load)
+
+    def cable(a, pa, b, pb, conductors, prefix, points=None):
+        s.wires.append(Wire(WireEnd(a.id, pa), WireEnd(b.id, pb), conductors=list(conductors), points=points or [],
+                            attrs={"ref": p.next_ref("W"), "cable": _s(conn.get(f"{prefix}_cable")),
+                                   "cross": _s(conn.get(f"{prefix}_cross")), "length": _s(conn.get(f"{prefix}_length")),
+                                   "method": "D"}))
+
+    s.wires.append(Wire(WireEnd(blk.id, "XOUT"), WireEnd(rhn.id, "X1"), conductors=list(AC_CONDUCTORS),
+                        attrs={"ref": p.next_ref("W"), "cable": _s(ac.get("grid_cable")), "cross": _s(ac.get("grid_cross")),
+                               "length": _s(ac.get("grid_length")), "method": "D"}))
+    cable(rhn, "XT", tr, "2", AC_CONDUCTORS, "tr")
+    cable(tr, "1", rvn, "XT", VN_CONDUCTORS, "vn")
+    for k, g in enumerate(grids):
+        cable(rvn, f"XDS{k + 1}", g, "1", VN_CONDUCTORS, "vn")
+    # stávající rozvod objektu – bez kabelu (projektant doplní podle skutečnosti)
+    s.wires.append(Wire(WireEnd(rhn.id, "XS"), WireEnd(load.id, "1"), conductors=list(AC_CONDUCTORS), attrs={"ref": ""}))
+    return {"rhn": rhn, "tr": tr, "rvn": rvn, "grids": grids, "load": load}
+
+
+def _build_main_lv_board(p: Project, sheet: Sheet, conn: dict, ac: dict) -> None:
+    """Hlavní rozvaděč nn (napájený z transformátoru): přívod XT → [MTP + elektroměr, měření na nn] → hlavní jistič
+    → přípojnice nn → vývody: FVE (jistič → X1 k RH), SPD T1, spotřeba objektu (jistič → XS)."""
+    c = connection_currents(conn)
+    mb = conn.get("main_board") or {}
+    sheet.layout.params.setdefault("network", "3NPE, 50 Hz")
+    sheet.layout.params.setdefault("un", "230/400 V")
+    sheet.layout.params.setdefault("in_", c["main_in"])
+    x0, y = 60.0, 165.0
+    feed = _el(p, sheet, "sb.feed_in", x0, y + 70, "", desc="od transformátoru")
+    feed.attrs["ref"] = "XT"
+    qm = _el(p, sheet, "fve.breaker_mccb", x0, y + 10, "Q", rot=270, in_=c["main_in"], poles="3", modules="9")
+    bus = _el(p, sheet, "sb.busbar", x0 + 75, y - 25, "", desc="přípojnice nn", in_=c["main_in"],
+              conductors=" ".join(AC_CONDUCTORS))
+    bus.attrs["ref"] = "2"
+    if c["metering"] == "nn":
+        ta = _el(p, sheet, "fve.ct", x0, y + 40, "TA", rot=270, ratio=c["ct_ratio"], cls="0,5S", burden="5", n="3",
+                 poles="3")
+        # elektroměr svisle nad přípojnicí vpravo: proud (1, nahoře) z MTP, napětí (2, dole) z přípojnice
+        pm = _el(p, sheet, "fve.meter", x0 + 105, y + 5, "P", rot=270, kind="fakturační (DS)", modules="0")
+        _wire(p, sheet, feed, "1", ta, "1", AC_CONDUCTORS)
+        _wire(p, sheet, ta, "2", qm, "1", AC_CONDUCTORS)
+        _wire(p, sheet, bus, "T7", pm, "2", AC_CONDUCTORS[:4])
+        _wire(p, sheet, ta, "S", pm, "1", CT_CONDUCTORS).points = [(x0 + 105, y + 40)]
+    else:
+        _wire(p, sheet, feed, "1", qm, "1", AC_CONDUCTORS)
+    _wire(p, sheet, qm, "2", bus, "IN", AC_CONDUCTORS)
+    qf = _el(p, sheet, "fve.breaker_mccb", x0 + 7.5, y - 60, "Q", rot=270, in_=str(ac.get("main_in") or 125), poles="3",
+             modules="6")
+    out_f = _el(p, sheet, "sb.feed_out", x0 + 7.5, y - 95, "", desc="k RH (FVE)")
+    out_f.attrs["ref"] = "X1"
+    spd = _el(p, sheet, "fve.spd", x0 + 37.5, y - 60, "F", spd_type="T1", poles="4", modules="4")
+    pe = _el(p, sheet, "sb.pe_bar", x0 + 37.5, y - 90, "X", kind="PE")
+    # vývod spotřeby nejvýš In hlavního jističe / 1,6 (selektivita – poměr jako kontrola `calc_selectivity`)
+    load_in = _s(mb.get("load_in")) or f"{max([x for x in LV_BREAKER_SIZES if x * 1.6 <= float(c['main_in'])] or [100]):g}"
+    qs = _el(p, sheet, "fve.breaker_mccb", x0 + 67.5, y - 60, "Q", rot=270, in_=load_in,
+             poles="3", modules="6")
+    out_s = _el(p, sheet, "sb.feed_out", x0 + 67.5, y - 95, "", desc=_s(conn.get("load") or "spotřeba objektu"))
+    out_s.attrs["ref"] = "XS"
+    _wire(p, sheet, bus, "1", qf, "1", AC_CONDUCTORS)
+    _wire(p, sheet, qf, "2", out_f, "1", AC_CONDUCTORS)
+    _wire(p, sheet, bus, "3", spd, "L", AC_CONDUCTORS[:4])
+    _wire(p, sheet, spd, "PE", pe, "1", ["PE"])
+    _wire(p, sheet, bus, "5", qs, "1", AC_CONDUCTORS)
+    _wire(p, sheet, qs, "2", out_s, "1", AC_CONDUCTORS)
+    _place_sequential(sheet, [qm, qf, qs, spd])
+
+
+def _build_mv_board(p: Project, sheet: Sheet, conn: dict) -> None:
+    """Rozvaděč VN (kobky, napájený z DS): kabelová pole (XDS1, u smyčky i XDS2 → uzemňovač, odpínač) → přípojnice
+    VN → [měřicí pole: odpínač, MTP, MTN + elektroměr, měření na vn] → transformátorové pole (odpínač + pojistky VN,
+    nad 1000 kVA vypínač s ochranou; uzemňovač) → vývod XT k transformátoru. Přístroje se na DIN lišty nerozmísťují."""
+    c = connection_currents(conn)
+    u = _s(conn.get("u_vn") or "22 kV")
+    sheet.layout.params.setdefault("network", "3~ 50 Hz")
+    sheet.layout.params.setdefault("un", u)
+    sheet.layout.params["voltage_level"] = "vn"     # bez vícepólu a plánu svorkovnice (`multipole.has_multipole`)
+    x0, y = 60.0, 165.0
+    bus = _el(p, sheet, "sb.busbar", x0 + 75, y, "", desc="přípojnice VN", conductors=" ".join(VN_CONDUCTORS))
+    bus.attrs["ref"] = "1"
+    for k in range(2 if conn.get("loop") else 1):
+        x = x0 + 15 * (k + 1)                      # porty T1, T2 přípojnice
+        feed = _el(p, sheet, "sb.feed_in", x, y + 60, "", desc="z DS")
+        feed.attrs["ref"] = f"XDS{k + 1}"
+        ql = _el(p, sheet, "fve.switch_disconnector", x, y + 25, "Q", rot=270, poles="3", modules="0", type="odpínač VN")
+        qe = _el(p, sheet, "fve.earthing_switch", x + 10, y + 45, "Q", rot=270)
+        _wire(p, sheet, feed, "1", ql, "1", VN_CONDUCTORS)
+        _wire(p, sheet, feed, "1", qe, "1", VN_CONDUCTORS)
+        _wire(p, sheet, ql, "2", bus, f"T{k + 1}", VN_CONDUCTORS)
+    xc = x0 + 7.5                                  # port 1 přípojnice (dolů)
+    last, port = bus, "1"
+    if c["metering"] == "vn":
+        qm = _el(p, sheet, "fve.switch_disconnector", xc, y - 22.5, "Q", rot=270, poles="3", modules="0", type="odpínač VN")
+        ta = _el(p, sheet, "fve.ct", xc, y - 45, "TA", rot=270, ratio=c["ct_ratio"], cls="0,2S", burden="5", n="3",
+                 poles="3")
+        tv = _el(p, sheet, "fve.vt", xc + 35, y - 67.5, "TV", rot=270, ratio=f"{u.split()[0]}/√3 / 0,1/√3 kV", cls="0,2",
+                 n="3")
+        # elektroměr svisle vpravo: proud z MTP shora (1), napětí z MTN zdola (2)
+        pm = _el(p, sheet, "fve.meter", xc + 60, y - 60, "P", rot=270, kind="fakturační (DS)", modules="0")
+        _wire(p, sheet, bus, "1", qm, "1", VN_CONDUCTORS)
+        _wire(p, sheet, qm, "2", ta, "1", VN_CONDUCTORS)
+        _wire(p, sheet, ta, "2", tv, "1", VN_CONDUCTORS).points = [(xc + 35, y - 52.5)]
+        _wire(p, sheet, ta, "S", pm, "1", CT_CONDUCTORS).points = [(xc + 60, y - 45)]
+        _wire(p, sheet, tv, "S", pm, "2", VT_CONDUCTORS).points = [(xc + 35, y - 80), (xc + 60, y - 80)]
+        last, port = ta, "2"
+    y_t = y - 90 if c["metering"] == "vn" else y - 30
+    if c["breaker_vn"]:
+        qt = _el(p, sheet, "fve.breaker_mccb", xc, y_t, "Q", rot=270, type="VN vypínač s ochranou", poles="3", modules="0")
+        _wire(p, sheet, last, port, qt, "1", VN_CONDUCTORS)
+        cable_end = qt
+    else:
+        qt = _el(p, sheet, "fve.switch_disconnector", xc, y_t, "Q", rot=270, poles="3", modules="0", type="odpínač VN")
+        fu = _el(p, sheet, "fve.fuse", xc, y_t - 22.5, "F", rot=270, in_=c["fuse_vn"], poles="3", modules="0",
+                 type="pojistka VN")
+        _wire(p, sheet, last, port, qt, "1", VN_CONDUCTORS)
+        _wire(p, sheet, qt, "2", fu, "1", VN_CONDUCTORS)
+        cable_end = fu
+    out = _el(p, sheet, "sb.feed_out", xc, y_t - 55, "", desc="k transformátoru")
+    out.attrs["ref"] = "XT"
+    qe = _el(p, sheet, "fve.earthing_switch", xc + 10, y_t - 40, "Q", rot=270)
+    _wire(p, sheet, cable_end, "2", out, "1", VN_CONDUCTORS)
+    _wire(p, sheet, cable_end, "2", qe, "1", VN_CONDUCTORS)
+
+
+def _align_connection(project: Project, blk: Element, chain: dict) -> None:
+    """Bloky přípojky na výšku vodičů (vodiče vedou rovně): hlavní rozvaděč nn na XOUT bloku RH, transformátor na
+    přívod XT, rozvaděč VN vývodem XT na transformátor, sítě na přívody XDS; spotřeba pod vývod XS."""
+    lib = _lib()
+
+    def port_pos(e: Element, port: str) -> tuple[float, float] | None:
+        sym = element_symbol(project, e, lib)
+        return e.port_pos(sym, port) if any(pt.name == port for pt in sym.ports) else None
+
+    def align(e: Element, port: str, target) -> None:
+        pos = port_pos(e, port)
+        if pos is not None and target is not None:
+            e.y += target[1] - pos[1]
+
+    align(chain["rhn"], "X1", port_pos(blk, "XOUT"))
+    align(chain["tr"], "2", port_pos(chain["rhn"], "XT"))
+    align(chain["rvn"], "XT", port_pos(chain["tr"], "1"))
+    for k, g in enumerate(chain["grids"]):
+        pos = port_pos(chain["rvn"], f"XDS{k + 1}")
+        if pos is None:
+            continue
+        align(g, "1", (pos[0], pos[1] - 15.0 * k))
+        if k:
+            x_bend = port_pos(g, "1")[0] - 20.0
+            for w in project.sheets[0].wires:
+                if w.touches(g.id):
+                    w.points = [(x_bend, pos[1]), (x_bend, pos[1] - 15.0 * k)]
+    xs = port_pos(chain["rhn"], "XS")
+    if xs is not None:
+        # spotřeba pod blokem: z XS (vlevo, blok je zrcadlený) kousek vlevo, svisle dolů pod blok a vpravo do značky
+        load = chain["load"]
+        sym = element_symbol(project, chain["rhn"], lib)
+        bottom = chain["rhn"].y - max(abs(pt.y) for pt in sym.ports) - 25.0
+        x_bend = xs[0] - 5.0
+        lp = port_pos(load, "1")
+        load.x += xs[0] + 7.5 - lp[0]
+        load.y += bottom - lp[1]
+        for w in project.sheets[0].wires:
+            if w.touches(load.id):
+                w.points = [(x_bend, xs[1]), (x_bend, bottom)]
 
 
 def _int_attr(v) -> int | None:

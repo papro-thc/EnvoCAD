@@ -515,6 +515,25 @@ jen chyby zadání (např. text místo čísla).
 Vygeneruje se blokové schéma (stringy → DC rozvaděče → střídače → AC rozvaděč → síť) a listy všech rozvaděčů včetně
 kabelů a vazeb. Hned potom spusť `F7`.
 
+**Připojení k DS** (pole pod Distributorem): **nn** = AC rozvaděč FVE jde vývodem XOUT přímo do HDS (jako dřív).
+**VN** = kompletní přípojka: AC rozvaděč FVE → **hlavní rozvaděč nn** RHN (přívod XT od transformátoru, hlavní jistič,
+přípojnice nn, vývod X1 k FVE, SPD T1, vývod XS spotřeba objektu) → **transformátor** TR1 → **rozvaděč VN** RVN (kobky:
+kabelová pole s odpínačem a uzemňovačem – u smyčky dvě –, přípojnice VN, transformátorové pole s odpínačem a pojistkami
+VN, nad 1000 kVA vypínač s ochranou) → DS. **Fakturační měření** na straně nn (MTP + elektroměr v RHN, napětí
+z přípojnice) nebo VN (měřicí pole RVN: odpínač, MTP, MTN, elektroměr). Ze Sn transformátoru se dopočte hlavní jistič
+(In nn → nejbližší vyšší řada), převod MTP (x/5 A), pojistky VN (≈ 1,8 × In VN – ověř podle tabulky výrobce) a jistič
+spotřeby (≤ hlavní / 1,6 kvůli selektivitě); ve specifikaci je mění `connection.main_board.main_in`, `ct_ratio`,
+`fuse_vn`, `main_board.load_in`. Rozvaděč VN nemá vícepól ani plán svorkovnice (dokumentuje se jednopólovým schématem),
+přístroje VN se na DIN lištu nerozmísťují.
+
+**Jednopólové schéma** (Zobrazit → Jednopólové schéma, `Ctrl+Shift+J`) se **odvozuje** z blokového schématu a listů
+rozvaděčů – nic se nekreslí znovu, po změně rozvaděče se samo přepočítá. Vede od DS dolů: každý rozvaděč je čárkovaný
+rámeček s označením, přístroj jedna značka s popiskem (označení, In, typ…), přípojnice vodorovná čára, kabely mezi
+rozvaděči a transformátorem s označením, typem a délkou, elektroměr čárkovaně vedle měřicího transformátoru; vodiče
+jen s PE, PE lišty a uzemnění se vynechají. Končí u střídačů (popisek „DC: 3 stringy“ – DC část mají listy DC
+rozvaděčů). Formát A3–A0 podle velikosti (1 : 1). Je v PDF dokumentaci hned za blokovým schématem (číslo listu
+„1/8 JPS“) a jde exportovat do DXF (Soubor → Export DXF na záložce jednopólového schématu).
+
 DC strana se dělá jako na stavbě: ke každému střídači vznikne **DC rozvaděč po trase** (počet zadáš, i 0 –
 odpínač DC a SPD na každý string, stringy jím procházejí odděleně) a **DC rozvaděč u technologie**
 (pojistkové odpojovače gPV a SPD DC na každý string). Výchozí přístroje podle praxe ENVO: **pojistkový odpojovač
@@ -550,8 +569,8 @@ Výchozí hodnoty (kabely, zpracoval) bere průvodce z **firemního standardu** 
 | Výstup | Kde |
 |---|---|
 | PDF listu (skutečný formát / zmenšený na A4) – z blokového schématu, schématu (vícepólu) i plánu svorkovnice rozvaděče (strany A4); z rozložení celý pohled zmenšený na A3 (A4) | Soubor → Export PDF / Export PDF na A4 |
-| DXF listu – jen z blokového schématu a listu rozvaděče v editoru (z vícepólu, plánu svorkovnice a rozložení program upozorní, ať se použije PDF) | Soubor → Export DXF |
-| **Celá dokumentace do jednoho PDF**: titulní list, obsah, listy blokového schématu, schéma + plán svorkovnice každého rozvaděče, výkazy, změnový list – strany schématu a plánu svorkovnice A4, ostatní A3 (smíšené formáty v jednom PDF, obsah i „n/N“ počítají skutečné strany) | Výstupy → Celá dokumentace (`Ctrl+Shift+E`) |
+| DXF listu – z blokového schématu, listu rozvaděče v editoru, vícepólu a jednopólového schématu (z plánu svorkovnice a rozložení program upozorní, ať se použije PDF) | Soubor → Export DXF |
+| **Celá dokumentace do jednoho PDF**: titulní list, obsah, listy blokového schématu, jednopólové schéma, schéma + plán svorkovnice každého rozvaděče (kromě rozvaděče VN), výkazy, změnový list – strany schématu a plánu svorkovnice A4, ostatní A3 (smíšené formáty v jednom PDF, obsah i „n/N“ počítají skutečné strany) | Výstupy → Celá dokumentace (`Ctrl+Shift+E`) |
 | Výkazy xlsx (Data pro DS, Výpočty, Přístroje, Výkaz materiálu, Kabely, Kabelový plán, Kabely a vodiče k objednání, Zapojovací seznam, Svorkovnice, Plán svorkovnice, Štítky) | Výstupy → Výkazy listu / projektu |
 | Protokol kusového ověření rozvaděče (docx) | Výstupy → Protokol kusového ověření |
 | Technická zpráva (docx) – kostra s tabulkami z modelu a výpočty | Výstupy → Technická zpráva |
@@ -711,6 +730,7 @@ v projektu je ověř u výrobce.
 | `Ctrl++` / `Ctrl+-` | přiblížit / oddálit |
 | `N` | narovnat vybrané vodiče |
 | `Ctrl+M` / `Ctrl+J` | vícepól / jednopól |
+| `Ctrl+Shift+J` | jednopólové schéma (odvozené z rozvaděčů) |
 | `Ctrl+Shift+M` | plán svorkovnice |
 | `Ctrl+L` | rozložení rozvaděče |
 | `Ctrl+Alt+K` | skříň rozvaděče |

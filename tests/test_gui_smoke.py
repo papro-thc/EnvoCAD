@@ -1510,3 +1510,29 @@ def test_menu_export_production_xlsx(app, tmp_path, monkeypatch):
         assert seen
     finally:
         win.close()
+
+
+def test_wizard_vn_connection_and_single_line_tab(app, tmp_path):
+    from envocad.generate import build_project
+    from envocad.ui.dialogs import ProjectWizard
+    from envocad.ui.single_line_view import SingleLineView
+    d = ProjectWizard()
+    d.strings.setText("20,20; 18")
+    assert not d.tr_sn.isEnabled()
+    d.conn_level.setCurrentIndex(d.conn_level.findData("vn"))
+    d.conn_metering.setCurrentIndex(d.conn_metering.findData("vn"))
+    d.tr_sn.setText("1000")
+    assert d.tr_sn.isEnabled()
+    spec = d.spec()
+    assert spec["connection"] == {"level": "vn", "metering": "vn", "loop": True, "transformer": {"sn": 1000}}
+    p = build_project(spec)
+    assert {s.name[:3] for s in p.switchboards()} >= {"RHN", "RVN"}
+    w = MainWindow(LibraryStore(), p)
+    w.open_single_line()
+    assert isinstance(w.view, SingleLineView) and w.current_sheet is None and w.scene is None
+    sc = w.view.scene()
+    assert sc.geometry.root is not None and sc.paper_label in ("A2", "A1")
+    w.open_single_line()                         # druhé otevření aktivuje stejnou záložku
+    assert sum(isinstance(w._unwrap(w.tabs.widget(i)), SingleLineView) for i in range(w.tabs.count())) == 1
+    w.undo.setClean()
+    w.close()

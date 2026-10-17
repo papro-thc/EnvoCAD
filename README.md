@@ -1,6 +1,6 @@
 # EnvoCAD
 
-Open-source CAD pro elektro dokumentaci fotovoltaických elektráren – bloková schémata, rozvaděče
+Open-source CAD pro elektro dokumentaci fotovoltaických elektráren – bloková a jednopólová schémata, rozvaděče
 (vícepól, rozložení, oteplení), výkazy a technická zpráva z jednoho datového modelu. Vzniká v ENVO s.r.o.
 jako náhrada EPLAN pro FVE: data-driven – projekt se dá vygenerovat ze specifikace (stringy, střídače, rozvaděče)
 a rozvaděče se skládají z maker, která si projektant vyladí sám.
@@ -45,6 +45,8 @@ Build pro Windows se musí dělat na Windows, pro Linux na Linuxu.
 
 - **Blokové schéma FVE** – stringy s počtem modulů a optimizérů, DC rozvaděče po trase a u technologie, střídače
   (DC vstup na každý string), AC rozvaděč, uzemnění na HOP; křížové odkazy blokové schéma ↔ rozvaděče.
+- **Jednopólové schéma** – odvozené z blokového schématu a rozvaděčů (od DS přes rozvaděč VN, transformátor
+  a hlavní rozvaděč nn po střídače), v PDF dokumentaci i DXF; generátor umí přípojku VN s měřením na nn i VN.
 - **Generátor projektu** – průvodce nebo JSON specifikace → celý projekt; rozvaděče z parametrických maker
   (`{k}`, `{string}`, `{fuse_in}`…), vlastní makro přepíše vestavěné.
 - **Rozvaděče** – vícepólové schéma jako v EPLAN (sběrnice potenciálů, svorky s můstky, více stran s odkazy,

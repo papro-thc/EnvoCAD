@@ -30,9 +30,10 @@ from envocad.ui.canvas import Mode, SchematicScene, SchematicView
 from envocad.ui.layout_view import LayoutScene, LayoutView
 from envocad.ui.multipole_view import MultipoleScene, MultipoleView
 from envocad.ui.notes_panel import NotesPanel
+from envocad.ui.single_line_view import SingleLineScene, SingleLineView
 from envocad.ui.terminal_plan_view import TerminalPlanScene, TerminalPlanView
 
-DERIVED_VIEWS = (MultipoleView, TerminalPlanView)  # pohledy odvozené z modelu – po změně se přestaví
+DERIVED_VIEWS = (MultipoleView, TerminalPlanView, SingleLineView)  # odvozené z modelu – po změně se přestaví
 from envocad.ui.panels import LibraryPanel, PropertiesPanel
 
 FILE_FILTER = "Projekt EnvoCAD (*.ecp)"
@@ -187,6 +188,8 @@ class MainWindow(QMainWindow):
     @property
     def current_sheet(self) -> Sheet | None:
         v = self.view
+        if isinstance(v, SingleLineView):      # jednopólové schéma je z celého projektu, ne z listu
+            return None
         return v.scene().sheet if isinstance(v, (SchematicView, LayoutView)) else None
 
     # ---- sestavení UI --------------------------------------------------------
@@ -278,6 +281,8 @@ class MainWindow(QMainWindow):
         m_view.addSeparator()
         act(m_view, "Vícepólový pohled", self.open_multipole, "Ctrl+M", "view_multipole")
         act(m_view, "Blokové schéma / jednopólová editace", self.open_singlepole, "Ctrl+J", "view_singlepole")
+        act(m_view, "Jednopólové schéma (odvozené z rozvaděčů)", self.open_single_line, "Ctrl+Shift+J",
+            "view_single_line")
         act(m_view, "Plán svorkovnice", lambda: self.current_sheet and self.open_sheet(self.current_sheet, "terminals"),
             "Ctrl+Shift+M", "view_terminals")
         act(m_view, "Vícepól: rozmístit automaticky", lambda: isinstance(self.view, MultipoleView)
@@ -480,7 +485,8 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _kind_of(view) -> str:
-        for cls, kind in ((LayoutView, "layout"), (MultipoleView, "multipole"), (TerminalPlanView, "terminals")):
+        for cls, kind in ((LayoutView, "layout"), (MultipoleView, "multipole"), (TerminalPlanView, "terminals"),
+                          (SingleLineView, "single_line")):
             if isinstance(view, cls):
                 return kind
         return "schematic"
@@ -1187,6 +1193,19 @@ class MainWindow(QMainWindow):
             return
         self.open_sheet(sh, "multipole")
 
+    def open_single_line(self) -> None:
+        """Záložka jednopólového schématu (odvozené z blokového schématu a listů rozvaděčů, jen pro čtení)."""
+        for i in range(self.tabs.count()):
+            if isinstance(self._unwrap(self.tabs.widget(i)), SingleLineView):
+                self.tabs.setCurrentIndex(i)
+                self.view.scene().rebuild()
+                return
+        scene = SingleLineScene(self.project, None, self.library, self.undo)
+        view = SingleLineView(scene)
+        view._scene_ref = scene
+        self._add_tab(view, view, scene, "Jednopólové schéma")
+        view.zoom_fit()
+
     def open_singlepole(self) -> None:
         sh = self.current_sheet
         if sh is None:
@@ -1804,7 +1823,13 @@ class MainWindow(QMainWindow):
         return {one: False, split: True}.get(box.clickedButton())
 
     def export_dxf(self) -> None:
-        from envocad.export.dxf_export import export_multipole_dxf, export_sheet_dxf
+        from envocad.export.dxf_export import export_multipole_dxf, export_sheet_dxf, export_single_line_dxf
+        if isinstance(self.view, SingleLineView):
+            path, _ = QFileDialog.getSaveFileName(self, "Export DXF jednopólového schématu", "", "DXF (*.dxf)")
+            if path:
+                out = export_single_line_dxf(self.project, self.library, path)
+                self.statusBar().showMessage(f"Exportováno: {out}", 3000)
+            return
         if isinstance(self.view, MultipoleView):       # vícepól: strany z kreslicího seznamu modelu
             split = self._ask_multipole_dxf_split()
             if split is None:

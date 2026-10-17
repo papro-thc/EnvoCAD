@@ -559,7 +559,7 @@ def text_findings(project: Project, lib) -> list[Finding]:
             out.append(Finding(WARNING, s.id, s.name, a, w is not None, ref,
                                f"Překryv textu: {text} – posuň prvek / lom vodiče nebo uprav polohu popisku značky",
                                "text_overlap"))
-        if s.is_switchboard:
+        if s.is_switchboard and mp.has_multipole(s):
             out += multipole_text_findings(project, s, lib)
     return out
 

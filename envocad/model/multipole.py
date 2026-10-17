@@ -76,6 +76,12 @@ def default_conductors(a: Element, pa: str, b: Element, pb: str) -> list[str]:
     return ["L1", "L2", "L3", "N", "PE"] if poles >= 3 else ["L1", "N", "PE"]
 
 
+def has_multipole(sheet) -> bool:
+    """List rozvaděče má vícepól a plán svorkovnice – ne rozvaděč VN (kobky, `layout.params["voltage_level"] == "vn"`),
+    ten se dokumentuje jednopólovým schématem."""
+    return sheet.layout.params.get("voltage_level", "") != "vn"
+
+
 def is_terminal_block(e: Element) -> bool:
     return e.symbol_id in TERMINAL_BLOCK_SYMBOLS
 
@@ -106,10 +112,18 @@ def wire_conductors(w: Wire) -> list[str]:
 
 
 def through_ports(sym: Symbol, rotation: int) -> tuple[str, str] | None:
-    """Dvojice průchozích portů (proti sobě), pokud má symbol právě dva porty s opačným směrem."""
-    if len(sym.ports) != 2:
+    """Dvojice průchozích portů (proti sobě), pokud má symbol právě dva porty s opačným směrem – nebo dvojice
+    `multipole["through"]` u značky s dalšími porty (MTP: primár 1–2 v sérii, sekundár S zvlášť)."""
+    names = (sym.multipole or {}).get("through")
+    if names and len(names) == 2:
+        by_name = {p.name: p for p in sym.ports}
+        if names[0] not in by_name or names[1] not in by_name:
+            return None
+        p, q = by_name[names[0]], by_name[names[1]]
+    elif len(sym.ports) != 2:
         return None
-    p, q = sym.ports
+    else:
+        p, q = sym.ports
     if OPPOSITE.get(rotate_dir(p.dir, rotation)) == rotate_dir(q.dir, rotation):
         return (p.name, q.name)
     return None

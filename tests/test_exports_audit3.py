@@ -149,7 +149,9 @@ def test_toc_lists_all_items_with_page_and_sheet_numbers(qapp, lib, tmp_path):
         assert r[0] == (str(st) if cnt == 1 else f"{st}–{st + cnt - 1}")
     assert b.page_starts[-1] + b.page_counts[-1] - 1 == n
     sheet_rows = [r for r, pg in zip(rows, b.pages) if pg[0] == "sheet"]
-    assert all(r[2] == sheet_number(p, pg[2][0]) for r, pg in zip(sheet_rows, [x for x in b.pages if x[0] == "sheet"]))
+    from envocad.model.single_line import page_label
+    assert all(r[2] == (page_label(p) if pg[2][1] == "single_line" else sheet_number(p, pg[2][0]))
+               for r, pg in zip(sheet_rows, [x for x in b.pages if x[0] == "sheet"]))
 
 
 def test_change_list_paginated_and_above_title_block(qapp, lib, proj, tmp_path):

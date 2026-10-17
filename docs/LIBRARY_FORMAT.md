@@ -35,7 +35,8 @@ a při startu se nahrají do SQLite (`~/.envocad/library.db`), kde přibývají 
     "pole": [ ...primitiva jednoho pólu... ],   // kreslí se pro každou spínanou žílu (rozteč 7,5 mm)
     "common": [ ...kreslí se jednou u 1. pólu... ],  // spoušť, cívka, sumační transformátor…
     "link": true,                     // čárkovaná mechanická vazba pólů
-    "link_at": [0, 2]                 // bod pólu, kterým vazba prochází
+    "link_at": [0, 2],                // bod pólu, kterým vazba prochází
+    "through": ["1", "2"]             // nepovinné: průchozí porty u značky s dalšími porty (MTP: primár 1–2, sekundár S)
   }
 }
 ```

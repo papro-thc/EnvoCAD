@@ -242,6 +242,34 @@ def _page_layout(doc, name: str, w: float, h: float, cx: float) -> None:
     lay.add_viewport(center=(w / 2, h / 2), size=(w, h), view_center_point=(cx, h / 2), view_height=h)
 
 
+def export_single_line_dxf(project: Project, lib: LibraryStore, path: Path | str) -> Path:
+    """DXF jednopólového schématu (`single_line.single_line_geometry`): strana v počátku modelspace, rámeček
+    s popisovým polem a paperspace layout 1 : 1. Vrací cestu zapsaného souboru."""
+    from envocad.model.frame import frame_enabled, frame_geometry
+    from envocad.model.project import without_dangling
+    from envocad.model.single_line import TITLE, page_label, single_line_geometry
+    project = without_dangling(project)
+    g = single_line_geometry(project, lib)
+    w, h = g.page_size
+    path = Path(path)
+    if path.suffix.lower() != ".dxf":
+        path = path.with_name(path.name + ".dxf")
+    doc = _new_doc()
+    doc.layers.add("ROZVADECE", color=8, linetype="DASHED")
+    msp = doc.modelspace()
+    sheet = Sheet(name=TITLE, paper=g.paper, width=w, height=h)
+    if frame_enabled():
+        _draw_geometry(msp, frame_geometry(project, sheet, w, h, "", page_label(project), g.paper), "RAMECEK")
+    else:
+        msp.add_lwpolyline([(0, 0), (w, 0), (w, h), (0, h)], close=True, dxfattribs={"layer": "RAMECEK"})
+    for p in g.prims:
+        _draw_prim(msp, p)
+    _page_layout(doc, TITLE, w, h, w / 2)
+    doc.layouts.delete("Layout1")
+    doc.saveas(str(path))
+    return path
+
+
 def export_multipole_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Path | str,
                          split_pages: bool = False) -> list[Path]:
     """DXF vícepólového schématu listu (strany podle `multipole.paper_choice`, např. A4 297 × 210).
