@@ -572,7 +572,9 @@ def _cabled_partner_wire(project: Project, sheet: Sheet, w, groups: dict | None 
         except KeyError:
             continue
         hit = _pair_partner_wire(project, sheet, e, groups)
-        if hit is not None and hit[2] is not w and has_cable_data(hit[2]):
+        if hit is None or hit[2] is w or not has_cable_data(hit[2]):
+            continue
+        if sum(1 for x in sheet.wires if x.a.element_id == e.id or x.b.element_id == e.id) == 1:   # bez odbočky
             return hit[0], hit[2]
     return None
 

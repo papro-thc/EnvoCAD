@@ -253,7 +253,8 @@ def test_through_interrupt_none_for_alone_chain_star_and_branching():
     g = Element("fve.breaker_mcb", 50, -30, attrs={"ref": "F2"})        # protějšek se 2 vodiči
     a.elements.append(g)
     a.wires.append(Wire(WireEnd(ia.id, "1"), WireEnd(g.id, "1")))
-    assert through_interrupt(p, b, ib) is None and not is_continuation(p, a, cont)
+    assert through_interrupt(p, b, ib) is None
+    assert not is_continuation(p, a, cont)          # odbočka na přerušení: úsek není jednoznačné pokračování
 
 
 def test_manual_pair_reports_calc_potential_checks(lib):
@@ -297,7 +298,8 @@ def test_documentation_pdf_contains_all_jps_sheets_a2(lib, tmp_path):
     assert len(reader.pages) == n
     b2 = DocBuilder(p, lib)
     b2.export(tmp_path / "jps2.pdf")
-    a2 = (594 / 25.4 * 72, 420 / 25.4 * 72)
-    for i, _s in sheet_items:
-        mb = reader.pages[b2.page_starts[i] - 1].mediabox
-        assert abs(float(mb.width) - a2[0]) < 2 and abs(float(mb.height) - a2[1]) < 2
+    # dokumentace zmenší každý list JPS na stranu A3 (jako dřív jeden list) – každý list má vlastní stranu s obsahem
+    texts = [reader.pages[b2.page_starts[i] - 1].extract_text() for i, _s in sheet_items]
+    assert all(f"AC-T{k}" in texts[0] for k in (1, 2, 3)) and "RH" in texts[0]
+    assert "AC-T1" in texts[1] and "AC-T2" in texts[1] and "AC-T3" not in texts[1]
+    assert "AC-T3" in texts[2] and "AC-T1" not in texts[2]
