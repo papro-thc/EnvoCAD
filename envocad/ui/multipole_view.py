@@ -437,6 +437,7 @@ class MultipoleScene(QGraphicsScene):
     edit_element_requested = Signal(str)
     delete_requested = Signal(list, list)  # element_ids, wire_ids
     mode_changed = Signal(object)
+    followup_wires = Signal(list)     # id vodičů (i jiných listů) změněných follow-upy příkazu (commands)
 
     # ---- editace přímo ve schématu rozvaděče ---------------------------------------------------------
     def set_mode(self, mode) -> None:
@@ -476,7 +477,7 @@ class MultipoleScene(QGraphicsScene):
         dx, dy = snap(tx - (x0 + x1) / 2), snap(ty - (y0 + y1) / 2)
         els, wires = paste_fragment(self.project, fragment, lambda sid: self.library.get_symbol(sid).iec_ref, dx, dy)
         for e in els:
-            e.mp_pos = (e.x, e.y)
+            e.mp_pos = (e.x, e.y)  # model-write-ok: nové prvky makra, vloží je MultipoleAddCommand
         if els:
             self.undo.push(commands.MultipoleAddCommand(self, elements=els, wires=wires))
         return len(els)
@@ -494,7 +495,7 @@ class MultipoleScene(QGraphicsScene):
         if not els and not wires:
             return 0
         for e in els:
-            e.mp_pos = (e.x, e.y)
+            e.mp_pos = (e.x, e.y)  # model-write-ok: nové prvky makra, vloží je MultipoleAddCommand
         self.undo.push(commands.MultipoleAddCommand(self, elements=els, wires=wires, text=f"Vložit makro {m.name}"))
         return len(els)
 
@@ -528,6 +529,7 @@ class MultipoleScene(QGraphicsScene):
         sym = self.library.get_symbol(self._place_sid)
         x, y = snap(pos.x()), -snap(pos.y())
         e = Element(symbol_id=sym.id, x=x, y=y, rotation=self._place_rot)
+        # model-write-ok: nový prvek (ještě není v listu), vloží ho MultipoleAddCommand
         e.attrs = {a.key: a.default for a in sym.attributes}
         e.attrs["ref"] = self.project.next_ref(sym.iec_ref) if sym.iec_ref else ""
         e.mp_pos = (x, y)
@@ -557,7 +559,7 @@ class MultipoleScene(QGraphicsScene):
         a, b = self.sheet.element(ea), self.sheet.element(eb)
         conds = [ca or cb] if (ca or cb) else mp.default_conductors(a, pa, b, pb)
         w = Wire(WireEnd(ea, pa), WireEnd(eb, pb), conductors=conds)
-        w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}
+        w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}  # model-write-ok: nový vodič pro MultipoleAddCommand
         self.undo.push(commands.MultipoleAddCommand(self, wire=w))
 
     def mouseMoveEvent(self, ev):

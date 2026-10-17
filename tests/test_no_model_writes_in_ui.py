@@ -19,16 +19,6 @@ MUTATORS = {"update", "pop", "setdefault", "clear", "popitem"}
 OK = re.compile(r"#\s*model-write-ok:\s*\S")
 NEAR = 3      # komentář výjimky smí být až tři řádky nad zápisem (víceřádkový blok nového objektu)
 
-# Soubor, který souběžně upravuje jiná práce (export vícepólu do DXF) – výjimky jsou zde s důvodem místo komentáře
-# v kódu; po sloučení větví je převést na komentáře `# model-write-ok` a seznam vyprázdnit.
-ALLOWED_WITHOUT_COMMENT = {
-    ("multipole_view.py", "insert_fragment", ".mp_pos ="): "nové prvky makra před MultipoleAddCommand",
-    ("multipole_view.py", "insert_macro", ".mp_pos ="): "nové prvky makra před MultipoleAddCommand",
-    ("multipole_view.py", "_place_at", ".attrs ="): "nový prvek před MultipoleAddCommand",
-    ("multipole_view.py", "_place_at", ".attrs[…] ="): "nový prvek před MultipoleAddCommand",
-    ("multipole_view.py", "_place_at", ".mp_pos ="): "nový prvek před MultipoleAddCommand",
-    ("multipole_view.py", "_wire_click", ".attrs ="): "nový vodič před MultipoleAddCommand",
-}
 
 
 def model_writes(src: str) -> list[tuple[str, str, int]]:
@@ -90,20 +80,14 @@ def test_model_writes_detector():
 
 
 def test_no_model_writes_outside_undo_commands():
-    """Každý zápis do modelu v `envocad/ui/` mimo `commands.py` má komentář `# model-write-ok: <důvod>`
-    (nebo je v `ALLOWED_WITHOUT_COMMENT` s důvodem)."""
-    bad, used = [], set()
+    """Každý zápis do modelu v `envocad/ui/` mimo `commands.py` má komentář `# model-write-ok: <důvod>`."""
+    bad = []
     for path in sorted(UI.glob("*.py")):
         if path.name == "commands.py":
             continue
         lines = path.read_text(encoding="utf-8").splitlines()
         for fn, what, lineno in model_writes("\n".join(lines)):
-            key = (path.name, fn, what)
-            if key in ALLOWED_WITHOUT_COMMENT:
-                used.add(key)
-                continue
             near = lines[max(0, lineno - 1 - NEAR):lineno]
             if not any(OK.search(ln) for ln in near):
                 bad.append(f"{path.name}:{lineno} {fn}: {what} – {lines[lineno - 1].strip()}")
     assert not bad, "Zápis do modelu mimo undo příkaz (chybí `# model-write-ok: <důvod>`):\n" + "\n".join(bad)
-    assert used == set(ALLOWED_WITHOUT_COMMENT), f"Nepoužité výjimky: {set(ALLOWED_WITHOUT_COMMENT) - used}"

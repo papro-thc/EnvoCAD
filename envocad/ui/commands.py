@@ -22,9 +22,10 @@ class _FeedFollowups:
         if self._ports is None:
             self._ports, self._conds = [], []
             compute(project)        # naplní _ports / _conds a rovnou je provede (výpočet závisí na pořadí)
-            return
-        apply_text_changes(project, self._ports)
-        apply_conductor_changes(project, self._conds)
+        else:
+            apply_text_changes(project, self._ports)
+            apply_conductor_changes(project, self._conds)
+        self._notify_followups()
 
     def _followups_undo(self) -> None:
         from envocad.model.project import apply_conductor_changes, apply_text_changes
@@ -33,6 +34,21 @@ class _FeedFollowups:
             return
         apply_conductor_changes(project, self._conds, undo=True)
         apply_text_changes(project, self._ports, undo=True)
+        self._notify_followups()
+
+    def followup_wire_ids(self) -> list[str]:
+        """Vodiče (i na jiných listech), kterým follow-upy změnily port nebo žíly."""
+        ids = {c.target_id for c in self._ports or [] if c.kind == "wire_port"}
+        ids |= {c.wire_id for c in self._conds or []}
+        return sorted(ids)
+
+    def _notify_followups(self) -> None:
+        """Položky dotčených vodičů v ostatních pohledech se překreslí (signál scény `followup_wires`, hlavní okno
+        přepočítá trasy ve všech scénách JPS – port na bloku má jinou polohu, žíly jiný popisek)."""
+        ids = self.followup_wire_ids()
+        sig = getattr(self.scene, "followup_wires", None)
+        if ids and sig is not None:
+            sig.emit(ids)
 
     def _wire_conductors(self, project, wires) -> None:
         from envocad.model.project import apply_conductor_changes, feed_conductor_followups
@@ -385,8 +401,9 @@ class SetBridgesCommand(QUndoCommand):
         self._set(self.old)
 
 
-class PasteCommand(QUndoCommand):
-    """Vložení kopie prvků a vodičů ze schránky."""
+class PasteCommand(_FeedFollowups, QUndoCommand):
+    """Vložení kopie prvků a vodičů ze schránky; vložený vodič JPS na port bloku ROZVADĚČ předá žíly vodičům
+    u přívodu (follow-up jako `AddWireCommand`, undo ho vrátí)."""
 
     def __init__(self, scene, elements: list[Element], wires: list[Wire], text: str | None = None):
         super().__init__(text or f"Vložit kopii ({len(elements)})")
@@ -398,12 +415,15 @@ class PasteCommand(QUndoCommand):
             self.scene.add_element_item(e)
         for w in self.wires:
             self.scene.sheet.wires.append(w)
+        self._followups_redo(lambda p: self._wire_conductors(p, self.wires))
+        for w in self.wires:
             self.scene.add_wire_item(w)
         self.scene.clearSelection()
         for e in self.elements:
             self.scene.element_items[e.id].setSelected(True)
 
     def undo(self):
+        self._followups_undo()
         wid = {w.id for w in self.wires}
         eid = {e.id for e in self.elements}
         s = self.scene.sheet
@@ -449,8 +469,9 @@ class MoveMultipoleCommand(QUndoCommand):
         self._apply(0)
 
 
-class MultipoleAddCommand(QUndoCommand):
-    """Vložení prvku nebo žíly přímo ve vícepólu (schématu rozvaděče): zapíše se do modelu listu, pohled se přestaví."""
+class MultipoleAddCommand(_FeedFollowups, QUndoCommand):
+    """Vložení prvku nebo žíly přímo ve vícepólu (schématu rozvaděče): zapíše se do modelu listu, pohled se přestaví.
+    Vodič vícepólu listu JPS na port bloku ROZVADĚČ předá žíly vodičům u přívodu (follow-up, undo ho vrátí)."""
 
     def __init__(self, scene, element: Element | None = None, wire: Wire | None = None,
                  elements: list[Element] | None = None, wires: list[Wire] | None = None, text: str | None = None):
@@ -468,11 +489,13 @@ class MultipoleAddCommand(QUndoCommand):
         s.wires.extend(self.wires)
         if self.paper:
             s.mp_paper = self.paper[1]
+        self._followups_redo(lambda p: self._wire_conductors(p, self.wires))
         self.scene.rebuild()
         if getattr(self.scene, "after_edit", None):
             self.scene.after_edit()   # jednopólová editace téhož listu se přestaví
 
     def undo(self):
+        self._followups_undo()
         s = self.scene.sheet
         wid = {w.id for w in self.wires}
         eid = {e.id for e in self.elements}

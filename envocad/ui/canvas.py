@@ -45,6 +45,7 @@ class SchematicScene(QGraphicsScene):
     attrs_changed = Signal(str)           # id elementu/vodiče
     mode_changed = Signal(object)         # Mode
     open_switchboard = Signal(str)        # id bloku ROZVADĚČ
+    followup_wires = Signal(list)         # id vodičů (i jiných listů) změněných follow-upy příkazu (commands)
 
     def __init__(self, project: Project, sheet: Sheet, library: LibraryStore, undo: QUndoStack):
         super().__init__()
