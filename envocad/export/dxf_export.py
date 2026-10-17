@@ -91,7 +91,13 @@ def _wire_points(project: Project, sheet: Sheet, lib: LibraryStore, w) -> list[t
 
 
 def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Path | str, notes: bool = False) -> None:
-    """DXF listu. `notes=True` přidá otevřené připomínky (s textem) do vrstvy `PRIPOMINKY` – jen tehdy vrstva vznikne."""
+    """DXF listu. `notes=True` přidá otevřené připomínky (s textem) do vrstvy `PRIPOMINKY` – jen tehdy vrstva vznikne.
+    Vodiče na neexistující prvek (poškozený soubor) se vynechají, neznámá značka se kreslí jako zástupná."""
+    from envocad.model.project import without_dangling
+    clean = without_dangling(project)
+    if clean is not project:
+        sheet = next((s for s in clean.sheets if s.id == sheet.id), sheet)
+        project = clean
     doc = ezdxf.new("R2010", setup=True)
     doc.header["$INSUNITS"] = 4  # mm
     for name, color in LAYERS.items():

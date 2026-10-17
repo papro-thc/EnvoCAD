@@ -599,15 +599,24 @@ class ElementDialog(AttrDialog):
 
 
 class EnclosurePanel(QWidget):
-    """Rozměry a parametry skříně – nemodální panel vedle rozložení; změny se promítají hned."""
+    """Rozměry a parametry skříně – nemodální panel vedle rozložení; změny se promítají hned.
+
+    Bez `commit` panel zapisuje přímo do rozložení (`layout`, jinak `sheet.layout`) – dialog skříně tak pracuje
+    na kopii. S `commit(before, after, key)` panel model sám nemění: předá snímky `Layout.to_dict()` před a po
+    změně a klíč měněného pole (pro slučování kroků undo) – okno z nich udělá `SetLayoutCommand`. Po undo/redo
+    se pole panelu načtou z modelu (`load_from_model`)."""
 
     changed = Signal()
 
-    def __init__(self, sheet: Sheet, parent=None, library=None, project: Project | None = None):
+    def __init__(self, sheet: Sheet, parent=None, library=None, project: Project | None = None,
+                 layout: Layout | None = None, commit=None):
         super().__init__(parent)
         self._sheet = sheet
         self._project = project   # bez projektu se skupiny přístrojů (cívka × stykač) hledají jen na listu
-        lay = sheet.layout
+        self._layout = layout
+        self._commit = commit
+        self._suspend = False     # načítání z modelu / výběr z knihovny – změny polí se nepropisují po jedné
+        lay = self.layout
         root = QVBoxLayout(self)
         root.setContentsMargins(6, 6, 6, 6)
 
@@ -683,8 +692,8 @@ class EnclosurePanel(QWidget):
         gl.addWidget(self._wiring_body)
         self._wiring_body.setVisible(self.wiring_group.isChecked())
         self.wiring_group.toggled.connect(self._wiring_body.setVisible)
-        self.wiring_group.toggled.connect(self._apply)
-        self.unplaced.currentIndexChanged.connect(self._apply)
+        self.wiring_group.toggled.connect(lambda *_: self._apply("wiring"))
+        self.unplaced.currentIndexChanged.connect(lambda *_: self._apply("wire_unplaced"))
         root.addWidget(self.wiring_group)
 
         g3 = QGroupBox("Oteplení (IEC 60890, orientačně)")
@@ -695,17 +704,48 @@ class EnclosurePanel(QWidget):
         root.addWidget(g3)
         root.addStretch()
 
-        self.name.editingFinished.connect(self._apply)
-        self.rows.valueChanged.connect(self._apply)
-        self.mods.valueChanged.connect(self._apply)
-        for ed in self._edits.values():
-            ed.editingFinished.connect(self._apply)
+        self.name.editingFinished.connect(lambda: self._apply("enclosure"))
+        self.rows.valueChanged.connect(lambda *_: self._apply("rows"))
+        self.mods.valueChanged.connect(lambda *_: self._apply("modules_per_row"))
+        for key, ed in self._edits.items():
+            ed.editingFinished.connect(lambda k=key: self._apply(k))
+        self.refresh()
+
+    @property
+    def layout(self) -> Layout:
+        """Rozložení, které panel zobrazuje (kopie v dialogu, jinak rozložení listu)."""
+        return self._layout if self._layout is not None else self._sheet.layout
+
+    def load_from_model(self) -> None:
+        """Načte pole z rozložení (po undo/redo); texty vypnuté skupiny „Výrobní data“ zůstanou."""
+        from envocad.model.wiring import parse_param
+        lay = self.layout
+        self._suspend = True
+        try:
+            if self.name.text().strip() != lay.enclosure:
+                self.name.setText(lay.enclosure)
+            self.rows.setValue(lay.rows)
+            self.mods.setValue(lay.modules_per_row)
+            own_wiring = any(k in lay.params for k in self._wiring_keys)
+            self.wiring_group.setChecked(own_wiring)
+            defaults = {k: d for k, _l, d in ENCLOSURE_PARAMS}
+            for key, ed in self._edits.items():
+                if key in self._wiring_keys and not own_wiring:
+                    continue
+                text = lay.params.get(key, "" if key in self._wiring_keys else defaults.get(key, ""))
+                if ed.text().strip() != text:
+                    ed.setText(text)
+            if own_wiring:
+                cur = parse_param("wire_unplaced", lay.params.get("wire_unplaced")) or ""
+                self.unplaced.setCurrentIndex(max(self.unplaced.findData(cur), 0))
+        finally:
+            self._suspend = False
         self.refresh()
 
     def refresh(self) -> None:
         """Přepočítá informační texty (po změně rozložení nebo přístrojů)."""
         from envocad.model.thermal import temperature_rise
-        lay = self._sheet.layout
+        lay = self.layout
         total = lay.total_modules
         used = lay.used_modules(self._sheet, self._project)
         pct = (used / total * 100) if total else 0
@@ -717,7 +757,7 @@ class EnclosurePanel(QWidget):
             t_amb = float((lay.params.get("t_ambient") or "35").replace(",", "."))
         except ValueError:
             rdf, t_amb = 0.8, 35.0
-        r = temperature_rise(self._sheet, rdf=rdf, t_ambient_c=t_amb, project=self._project)
+        r = temperature_rise(self._sheet, rdf=rdf, t_ambient_c=t_amb, project=self._project, layout=lay)
         txt = (f"Ztráty přístrojů ΣPv = {r.p_devices_w:g} W, celkem s vodiči {r.p_total_w:g} W\n"
                f"Účinná chladicí plocha Ae = {r.ae_m2:g} m²\n"
                f"Oteplení: střed Δt = {r.dt_mid_k:g} K, horní část Δt = {r.dt_top_k:g} K "
@@ -732,51 +772,84 @@ class EnclosurePanel(QWidget):
         dlg = ComponentPicker(self.library, category="enclosure", parent=self, title="Vybrat skříň z knihovny")
         if dlg.exec() != ComponentPicker.Accepted or not dlg.selected:
             return
-        c = dlg.selected
-        self.name.setText(f"{c.manufacturer} {c.part_number}")
-        mapping = {"manufacturer": c.manufacturer, "type": c.part_number}
-        for k in ("width_mm", "height_mm", "depth_mm", "ip", "ik", "material", "mounting", "door"):
-            if c.params.get(k):
-                mapping[k] = c.params[k]
-        for k, v in mapping.items():
-            if k in self._edits:
-                self._edits[k].setText(str(v))
-        if c.num("rows"):
-            self.rows.setValue(int(c.num("rows")))
-        if c.num("modules_per_row"):
-            self.mods.setValue(int(c.num("modules_per_row")))
-        self._apply()
+        self.set_enclosure_component(dlg.selected)
 
-    def _apply(self, *_) -> None:
-        self.apply()
+    def set_enclosure_component(self, c) -> None:
+        """Skříň z knihovny: vyplní pole artiklem a propíše je jako jednu změnu (jeden krok undo)."""
+        self._suspend = True
+        try:
+            self.name.setText(f"{c.manufacturer} {c.part_number}")
+            mapping = {"manufacturer": c.manufacturer, "type": c.part_number}
+            for k in ("width_mm", "height_mm", "depth_mm", "ip", "ik", "material", "mounting", "door"):
+                if c.params.get(k):
+                    mapping[k] = c.params[k]
+            for k, v in mapping.items():
+                if k in self._edits:
+                    self._edits[k].setText(str(v))
+            if c.num("rows"):
+                self.rows.setValue(int(c.num("rows")))
+            if c.num("modules_per_row"):
+                self.mods.setValue(int(c.num("modules_per_row")))
+        finally:
+            self._suspend = False
+        self._apply(None)
+
+    def _apply(self, key: str | None = None) -> None:
+        if self._suspend:
+            return
+        self.apply(key)
         self.refresh()
         self.changed.emit()
 
-    def apply(self) -> Layout:
-        lay = self._sheet.layout
+    def apply(self, key: str | None = None) -> Layout:
+        """Propíše pole do rozložení: bez `commit` přímo, s `commit` jako snímky před/po (model mění až příkaz)."""
+        if self._commit is None:
+            return self._write(self.layout)
+        import copy
+        before = copy.deepcopy(self.layout.to_dict())
+        after = self._write(Layout.from_dict(copy.deepcopy(before))).to_dict()
+        if self.real_change(before, after):
+            self._commit(before, after, key)
+        return self.layout
+
+    @staticmethod
+    def real_change(before: dict, after: dict) -> bool:
+        """Liší se rozložení? `_write` výchozí hodnoty nevyplněných polí nedoplňuje, takže stačí porovnat obsah
+        (průchod polem beze změny není změna ani krok undo)."""
+        return after != before
+
+    def _write(self, lay: Layout) -> Layout:
         lay.enclosure = self.name.text().strip()
         lay.rows = self.rows.value()
         lay.modules_per_row = self.mods.value()
         own_wiring = self.wiring_group.isChecked()
+        # výchozí hodnotu pole, které v parametrech nebylo (panel ji jen ukazuje), nedoplňovat – jinak by se
+        # rozložení změnilo pouhým zápisem jiného pole a krok undo by po návratu hodnoty nezmizel
+        defaults = {k: d for k, _l, d in ENCLOSURE_PARAMS if d}
         edits = {k: e.text().strip() for k, e in self._edits.items()
-                 if e.text().strip() and (own_wiring or k not in self._wiring_keys)}
+                 if e.text().strip() and (own_wiring or k not in self._wiring_keys)
+                 and (k in lay.params or defaults.get(k) != e.text().strip())}
         if own_wiring and self.unplaced.currentData():
             edits["wire_unplaced"] = self.unplaced.currentData()
         # klíče, které panel nezná, zůstanou; wire_* spravuje skupina „Výrobní data“
         unknown = {k: v for k, v in lay.params.items() if k not in self._edits and k not in self._wiring_keys}
         lay.params = {**unknown, **edits}
-        lay.placements = [p for p in lay.placements if p.row < lay.rows]
+        # umístění v řadách nad novým počtem řad zůstanou (vrátí se po zvětšení počtu řad); do té doby je rozložení
+        # kreslí mezi nerozmístěnými a kontrola je hlásí (`outside_enclosure`)
         return lay
 
 
 class EnclosureDialog(QDialog):
-    """Totéž jako panel, ale modálně (z menu List)."""
+    """Totéž jako panel, ale modálně (z menu List). Pracuje na kopii rozložení – list se nemění; po OK si okno
+    výsledek (`apply()`) propíše příkazem `SetLayoutCommand`, Zrušit = žádná změna."""
 
     def __init__(self, sheet: Sheet, parent=None, library=None, project: Project | None = None):
         super().__init__(parent)
+        import copy
         self.setWindowTitle(f"Skříň rozvaděče – {sheet.name}")
         self.setMinimumWidth(480)
-        self.panel = EnclosurePanel(sheet, library=library, project=project)
+        self.working = Layout.from_dict(copy.deepcopy(sheet.layout.to_dict()))
+        self.panel = EnclosurePanel(sheet, library=library, project=project, layout=self.working)
         lay = QVBoxLayout(self)
         lay.addWidget(self.panel)
         bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -1153,3 +1226,46 @@ class NoteDialog(QDialog):
         n.reply = self.reply.text().strip()
         n.status = self.status.currentData()
         return n
+
+
+# Vlastnosti projektu: (klíč, popisek); „name“ = Project.name, ostatní Project.meta
+PROJECT_META_FIELDS = [
+    ("name", "Název projektu"), ("investor", "Investor"), ("order", "Číslo zakázky"), ("place", "Místo"),
+    ("author", "Zpracoval"), ("date", "Datum"), ("revision", "Revize"),
+]
+PROJECT_CHANGES_LABEL = "Změnový list (řádek = revize | datum | popis | zpracoval)"
+
+
+class ProjectMetaDialog(QDialog):
+    """Vlastnosti projektu – všechna pole v jednom formuláři; Zrušit = žádná změna."""
+
+    def __init__(self, project: Project, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Vlastnosti projektu")
+        self.setMinimumWidth(480)
+        self._project = project
+        form = QFormLayout(self)
+        form.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
+        self.edits: dict[str, QLineEdit] = {}
+        for key, label in PROJECT_META_FIELDS:
+            ed = QLineEdit(project.name if key == "name" else project.meta.get(key, ""))
+            self.edits[key] = ed
+            form.addRow(label, ed)
+        self.changes = QPlainTextEdit(project.meta.get("changes", ""))
+        self.changes.setMinimumHeight(90)
+        form.addRow(QLabel(PROJECT_CHANGES_LABEL))
+        form.addRow(self.changes)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        form.addRow(bb)
+
+    def values(self) -> tuple[str, dict[str, str]]:
+        """(název, meta): ostatní klíče meta zůstanou; prázdné pole klíč, který v meta nebyl, nepřidá."""
+        meta = dict(self._project.meta)
+        texts = {k: ed.text() for k, ed in self.edits.items() if k != "name"}
+        texts["changes"] = self.changes.toPlainText()
+        for k, v in texts.items():
+            if v or k in meta:
+                meta[k] = v
+        return self.edits["name"].text(), meta

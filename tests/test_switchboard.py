@@ -153,7 +153,9 @@ def test_feed_link_to_jps_wire():
     assert feed.attrs["wire_id"] == w.id and feed.attrs["from"].startswith("W2 T1:AC /1.") and feed.attrs["cable"] == "CYKY-J 5x16 16"
     assert linked_wire(p, sb, feed)[1] is w
     assert wire_xref(p, w.id) .startswith("→ R1:X1 /2.")
-    assert feed_link_attrs(p, sb, feed, "") == {"wire_id": "", "from": "", "to": "", "cable": ""}
+    assert feed_link_attrs(p, sb, feed, "") == {"wire_id": "", "from": "", "cable": ""}
+    out = next(e for e in sb.elements if e.symbol_id == "sb.feed_out")
+    assert feed_link_attrs(p, sb, out, "") == {"wire_id": "", "to": "", "cable": ""}
     # seznam kabelů celého projektu: kabel je jen jednou (W2 v JPS) a má odkaz na rozvaděč
     from envocad.export import reports
     _, rows = reports.cables(p, LibraryStore())

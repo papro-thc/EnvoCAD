@@ -8,7 +8,9 @@ Point = tuple[float, float]
 
 
 def longest_segment(pts: list[Point]) -> tuple[Point, Point]:
-    """Nejdelší úsek lomené čáry (pro umístění popisku)."""
+    """Nejdelší úsek lomené čáry (pro umístění popisku). Prázdná čára → bod (0, 0)."""
+    if not pts:
+        return ((0.0, 0.0), (0.0, 0.0))
     best, best_len = (pts[0], pts[-1]), -1.0
     for a, b in pairwise(pts):
         d = abs(b[0] - a[0]) + abs(b[1] - a[1])

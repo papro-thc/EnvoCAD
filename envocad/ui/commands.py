@@ -549,3 +549,194 @@ class ReplaceNoteCommand(QUndoCommand):
         else:
             self.project.meta[NOTE_SEQ_KEY] = self._seq_before
         self._changed()
+
+
+class DeleteSheetCommand(QUndoCommand):
+    """Smazání listu (`Project.remove_sheet`). Uloží list, jeho index, odpojené listy rozvaděčů (jejich
+    `parent_element_id`) a atribut „sheet“ bloku ROZVADĚČ, který `remove_sheet` odebere; undo vše vrátí.
+    `on_change(sheet, present)` zavře / obnoví záložky listu."""
+
+    def __init__(self, project, sheet, on_change=None):
+        super().__init__(f"Odstranit list {sheet.name}")
+        self.project, self.sheet, self.on_change = project, sheet, on_change
+        self.index = project.sheets.index(sheet)
+        self.orphans: list = []          # [(list, původní parent_element_id)]
+        self.block_attr = None           # (blok, hodnota atributu „sheet“) – odebraná při redo
+
+    def redo(self):
+        p, sh = self.project, self.sheet
+        self.index = p.sheets.index(sh)
+        block = None
+        if sh.parent_element_id:
+            ps = p.sheet_of_element(sh.parent_element_id)
+            block = ps.element(sh.parent_element_id) if ps is not None else None
+        had = block is not None and "sheet" in block.attrs
+        old_val = block.attrs.get("sheet") if block is not None else None
+        self.orphans = [(s, s.parent_element_id) for s in p.sheets if s is not sh]   # odpojené se vyberou níže
+        detached = p.remove_sheet(sh)
+        self.orphans = [(s, pid) for s, pid in self.orphans if s in detached]
+        self.block_attr = (block, old_val) if had and "sheet" not in block.attrs else None
+        if self.on_change:
+            self.on_change(sh, False)
+
+    def undo(self):
+        p, sh = self.project, self.sheet
+        p.sheets.insert(self.index, sh)
+        for s, pid in self.orphans:
+            s.parent_element_id = pid
+        if self.block_attr is not None:
+            block, val = self.block_attr
+            block.attrs["sheet"] = val
+        if self.on_change:
+            self.on_change(sh, True)
+
+
+class AddSheetCommand(QUndoCommand):
+    """Přidání listu (nový list schématu, list rozvaděče). U listu rozvaděče i atribut „sheet“ bloku ROZVADĚČ
+    (`block_attr` = (blok, před, po); „před“ None = atribut nebyl) a registr struktur (`structures` = (před, po)).
+    `on_change(sheet, present)` otevře / zavře záložky listu."""
+
+    def __init__(self, project, sheet, on_change=None, index: int | None = None, block_attr=None,
+                 structures=None, text: str | None = None):
+        super().__init__(text or f"Nový list {sheet.name}")
+        self.project, self.sheet, self.on_change = project, sheet, on_change
+        self.index = len(project.sheets) if index is None else index
+        self.block_attr = block_attr
+        self.structures = (list(structures[0]), list(structures[1])) if structures else None
+
+    def _attr(self, value):
+        block = self.block_attr[0]
+        if value is None:
+            block.attrs.pop("sheet", None)
+        else:
+            block.attrs["sheet"] = value
+
+    def redo(self):
+        self.project.sheets.insert(self.index, self.sheet)
+        if self.block_attr is not None:
+            self._attr(self.block_attr[2])
+        if self.structures is not None:
+            self.project.structures = list(self.structures[1])
+        if self.on_change:
+            self.on_change(self.sheet, True)
+
+    def undo(self):
+        self.project.sheets.remove(self.sheet)
+        if self.block_attr is not None:
+            self._attr(self.block_attr[1])
+        if self.structures is not None:
+            self.project.structures = list(self.structures[0])
+        if self.on_change:
+            self.on_change(self.sheet, False)
+
+
+def sheets_state(project) -> dict:
+    """Stav listů a registru struktur pro `SheetsStateCommand`: {"sheets": {id: to_dict}, "structures": [...]}.
+    Hluboká kopie – `to_dict` sdílí slovníky atributů s modelem."""
+    import copy
+    return copy.deepcopy({"sheets": {s.id: s.to_dict() for s in project.sheets},
+                          "structures": [x.to_dict() for x in project.structures]})
+
+
+def restore_sheets_state(project, state: dict) -> None:
+    """Vrátí listy (na místě, `Sheet.restore_state`) a registr struktur ze `sheets_state`."""
+    from envocad.model.project import StructureId
+    for s in project.sheets:
+        d = state["sheets"].get(s.id)
+        if d is not None and s.to_dict() != d:   # nezměněné listy zůstanou beze změny i objektově
+            s.restore_state(d)
+    project.structures = [StructureId.from_dict(x) for x in state["structures"]]
+
+
+class SheetsStateCommand(QUndoCommand):
+    """Obecný makro-příkaz nad obsahem listů (prvky, vodiče, rozložení, můstky…) a registrem struktur – např.
+    vložení šablony rozvaděče, která mění list rozvaděče i vodiče nadřazeného listu. `before`/`after` ze
+    `sheets_state`; ukládají se jen změněné listy. Listy se mění na místě (objekty listů drží pohledy).
+    `on_change(sheet_ids)` přestaví pohledy."""
+
+    def __init__(self, project, before: dict, after: dict, text: str = "Změna listu", on_change=None):
+        super().__init__(text)
+        import copy
+        changed = {sid for sid, d in after["sheets"].items() if before["sheets"].get(sid) != d}
+        self.project, self.on_change = project, on_change
+        self.before = {"sheets": {sid: copy.deepcopy(before["sheets"][sid]) for sid in changed if sid in before["sheets"]},
+                       "structures": copy.deepcopy(before["structures"])}
+        self.after = {"sheets": {sid: copy.deepcopy(after["sheets"][sid]) for sid in changed},
+                      "structures": copy.deepcopy(after["structures"])}
+
+    def _set(self, state):
+        restore_sheets_state(self.project, state)
+        if self.on_change:
+            self.on_change(list(state["sheets"]))
+
+    def redo(self):
+        self._set(self.after)
+
+    def undo(self):
+        self._set(self.before)
+
+
+class SetProjectMetaCommand(QUndoCommand):
+    """Vlastnosti projektu: název (`Project.name`) a metadata (`Project.meta`) jedním krokem."""
+
+    def __init__(self, project, old: tuple[str, dict], new: tuple[str, dict], on_change=None):
+        super().__init__("Vlastnosti projektu")
+        self.project, self.on_change = project, on_change
+        self.old = (old[0], dict(old[1]))
+        self.new = (new[0], dict(new[1]))
+
+    def _set(self, v):
+        self.project.name = v[0]
+        self.project.meta = dict(v[1])
+        if self.on_change:
+            self.on_change()
+
+    def redo(self):
+        self._set(self.new)
+
+    def undo(self):
+        self._set(self.old)
+
+
+SET_LAYOUT_ID = 0x4C41   # id pro slučování po sobě jdoucích změn téhož pole skříně (mergeWith)
+
+
+class SetLayoutCommand(QUndoCommand):
+    """Rozložení / skříň rozvaděče: snímek `Layout.to_dict()` před a po. Po sobě jdoucí změny téhož pole
+    (`merge_key`, např. počet řad šipkami nebo psaním) se slučují do jednoho kroku. `on_change(sheet)` přestaví
+    pohledy a panel skříně."""
+
+    def __init__(self, sheet, before: dict, after: dict, text: str = "Skříň rozvaděče", on_change=None,
+                 merge_key: str | None = None):
+        super().__init__(text)
+        import copy
+        self.sheet, self.on_change, self.merge_key = sheet, on_change, merge_key
+        self.before, self.after = copy.deepcopy(before), copy.deepcopy(after)
+
+    def id(self) -> int:
+        return SET_LAYOUT_ID if self.merge_key else -1
+
+    def mergeWith(self, other) -> bool:
+        if not isinstance(other, SetLayoutCommand) or other.sheet is not self.sheet or not self.merge_key \
+                or other.merge_key != self.merge_key:
+            return False
+        import copy
+        self.after = copy.deepcopy(other.after)
+        if self.after == self.before:
+            self.setObsolete(True)    # změna se vrátila na původní hodnotu → krok zmizí
+        return True
+
+    def _set(self, d: dict):
+        from envocad.model.project import Layout
+        new = Layout.from_dict(d)
+        lay = self.sheet.layout
+        lay.rows, lay.modules_per_row, lay.enclosure = new.rows, new.modules_per_row, new.enclosure
+        lay.params, lay.placements = new.params, new.placements
+        if self.on_change:
+            self.on_change(self.sheet)
+
+    def redo(self):
+        self._set(self.after)
+
+    def undo(self):
+        self._set(self.before)

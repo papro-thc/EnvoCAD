@@ -64,6 +64,9 @@ class Symbol:
     # povolené třídy označení dle IEC 81346-2 (1–2 písmena) nebo firemní prefix ENVO (3 písmena, např. SPD);
     # shoda prefixem; None = odvodit z iec_ref, [] = nekontrolovat
     function_class: list[str] | None = None
+    # jen za běhu, neukládá se: zástupná značka za neznámé symbol_id / porty, které značka nemá (vedou na ně vodiče)
+    placeholder: bool = field(default=False, compare=False, repr=False)
+    orphan_ports: tuple[str, ...] = field(default=(), compare=False, repr=False)
 
     @property
     def classes(self) -> list[str]:
@@ -140,7 +143,7 @@ class Symbol:
 
     @classmethod
     def from_json(cls, path: Path | str) -> Symbol:
-        return cls.from_dict(json.loads(Path(path).read_text(encoding="utf-8")))
+        return cls.from_dict(json.loads(Path(path).read_text(encoding="utf-8-sig")))
 
     # ---- geometrie ---------------------------------------------------
     def port(self, name: str) -> Port:
@@ -195,6 +198,60 @@ class Symbol:
         if self.iec_ref and self.classes and not class_matches(self.iec_ref + "1", self.classes):
             issues.append(f"prefix označení {self.iec_ref!r} neodpovídá třídám {', '.join(self.classes)}")
         return issues
+
+
+ORPHAN_PITCH = 5.0   # mm – rozestup osiřelých portů pod značkou
+
+
+def _snap(v: float) -> float:
+    return round(v / GRID) * GRID
+
+
+def with_orphan_ports(sym: Symbol, names) -> Symbol:
+    """Kopie značky doplněná o „osiřelé“ porty `names`, na které vedou vodiče, ale značka je nemá (přejmenovaný
+    port, smazaný přívod rozvaděče…). Porty leží na mřížce pod značkou a jsou označené „název?“; nic se
+    nerozpojí a kontrola je hlásí jako vodič na neexistující port (`Symbol.orphan_ports`)."""
+    have = {p.name for p in sym.ports}
+    missing = sorted({str(n) for n in names} - have)
+    if not missing:
+        return sym
+    x0, y0, _x1, _y1 = sym.bounds()
+    y = math.floor(y0 / GRID + 1e-9) * GRID - GRID     # na mřížce, pod spodním okrajem značky
+    xs = math.ceil(x0 / GRID - 1e-9) * GRID
+    ports = list(sym.ports)
+    prims = list(sym.primitives)
+    for k, name in enumerate(missing):
+        x = xs + k * ORPHAN_PITCH
+        ports.append(Port(name, x, y, "S"))
+        prims.append({"type": "circle", "cx": x, "cy": y, "r": 0.6})
+        prims.append({"type": "text", "x": x, "y": y + 1.0, "text": f"{name}?", "height": 1.8, "align": "center"})
+    return Symbol(id=sym.id, name=sym.name, category=sym.category, description=sym.description, iec_ref=sym.iec_ref,
+                  primitives=prims, ports=ports, attributes=sym.attributes, label_pos=sym.label_pos,
+                  multipole=sym.multipole, function_class=sym.function_class, placeholder=sym.placeholder,
+                  orphan_ports=tuple(sym.orphan_ports) + tuple(missing))
+
+
+def placeholder_symbol(symbol_id: str, port_names=()) -> Symbol:
+    """Zástupná značka za symbol, který v knihovně není: obdélník s „?“ a porty podle vodičů (střídavě vlevo
+    a vpravo, na mřížce). Projekt jde otevřít, kreslit i exportovat; kontrola hlásí „Neznámá značka“."""
+    names = sorted({str(n) for n in port_names})
+    rows = max(1, (len(names) + 1) // 2)
+    h = max(10.0, rows * 5.0 + 5.0)
+    half = _snap(h / 2)
+    ports = []
+    for k, name in enumerate(names):
+        y = half - 5.0 - (k // 2) * 5.0
+        ports.append(Port(name, -10.0 if k % 2 == 0 else 10.0, y, "W" if k % 2 == 0 else "E"))
+    prims: list[Primitive] = [
+        {"type": "rect", "x": -10.0, "y": -half, "w": 20.0, "h": 2 * half},
+        {"type": "text", "x": 0.0, "y": -1.5, "text": "?", "height": 5.0, "align": "center"},
+        {"type": "text", "x": 0.0, "y": -half - 3.0, "text": symbol_id, "height": 1.8, "align": "center"},
+    ]
+    for p in ports:
+        prims.append({"type": "text", "x": p.x + (1.0 if p.x < 0 else -1.0), "y": p.y + 0.5, "text": p.name,
+                      "height": 1.8, "align": "left" if p.x < 0 else "right"})
+    return Symbol(id=symbol_id, name=f"Neznámá značka {symbol_id}", category="?", primitives=prims, ports=ports,
+                  label_pos=(0.0, half + 3.0), function_class=[], placeholder=True)
 
 
 def rotate_point(x: float, y: float, rot: int) -> tuple[float, float]:

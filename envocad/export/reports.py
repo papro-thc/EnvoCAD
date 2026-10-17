@@ -4,11 +4,12 @@ Každá funkce vrací (hlavička, řádky) – stejné tabulky použije xlsx, do
 """
 from __future__ import annotations
 
+import functools
 from collections import OrderedDict
 
 from envocad.library.store import LibraryStore
 from envocad.model.designation import LOCATION_SYMBOLS, designation, full_designation
-from envocad.model.project import Element, Project, Sheet
+from envocad.model.project import Element, Project, Sheet, clean_view
 
 # Symboly, které nejsou přístroje k objednání (propojení, odkazy, vnější prvky)
 NON_DEVICE_SYMBOLS = {"fve.terminal", "fve.earth", "fve.grid", "fve.load", "fve.switchboard", "sb.feed_in", "sb.feed_out",
@@ -16,6 +17,17 @@ NON_DEVICE_SYMBOLS = {"fve.terminal", "fve.earth", "fve.grid", "fve.load", "fve.
 TERMINAL_SYMBOLS = {"sb.feed_in", "sb.feed_out", "sb.terminal_block"}
 
 DEVICE_PARAMS = ["in_", "char", "poles", "idn", "spd_type", "uc", "icu", "ir", "p_ac", "e_kwh", "sn"]
+
+
+def over_clean(fn):
+    """Výkaz počítá nad `without_dangling` (vodiče na neexistující prvek vynechá) – i když ho volá přímo plugin
+    nebo GUI bez předchozího `clean_view`. List `sheet` se nahradí odpovídajícím listem čistého pohledu.
+    Bez visících vodičů je to jen průchod (`clean_view` vrátí projekt i list beze změny)."""
+    @functools.wraps(fn)
+    def wrapper(project: Project, lib: LibraryStore, sheet: Sheet | None = None, *args, **kwargs):
+        project, sheet = clean_view(project, sheet)
+        return fn(project, lib, sheet, *args, **kwargs)
+    return wrapper
 
 
 def _sheets(project: Project, sheet: Sheet | None) -> list[Sheet]:
@@ -62,6 +74,7 @@ def _index(project: Project):
     return DeviceIndex.build(project)
 
 
+@over_clean
 def devices(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> list[Element]:
     """Přístroje k objednání; cívka stykače se vynechá, když položkou výkazu je stykač (`is_bom_device`). U výkazu
     jednoho listu (`sheet`) jen tehdy, když stykač leží na stejném listu."""
@@ -79,6 +92,16 @@ def _contacts_text(idx, e: Element) -> str:
     return ", ".join(sorted(g.used_pairs(), key=natural_key))
 
 
+def _symbol(lib, symbol_id: str):
+    """Značka z knihovny; neznámé symbol_id → zástupná značka (výkaz nespadne, kontrola hlásí „Neznámá značka“)."""
+    try:
+        return lib.get_symbol(symbol_id)
+    except KeyError:
+        from envocad.model.symbol import placeholder_symbol
+        return placeholder_symbol(symbol_id)
+
+
+@over_clean
 def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Seznam přístrojů (každý zvlášť) – pro štítky a kontrolu."""
     idx = _index(project)
@@ -88,7 +111,7 @@ def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None)
         for e in s.elements:
             if e.symbol_id in NON_DEVICE_SYMBOLS or not idx.is_bom_device(e, sheet):
                 continue
-            sym = lib.get_symbol(e.symbol_id)
+            sym = _symbol(lib, e.symbol_id)
             pl = s.layout.placement(e.id) if s.is_switchboard else None
             conts = _contacts_text(idx, e)
             d = designation(s, e)
@@ -100,6 +123,7 @@ def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None)
     return head, [r for _, r in keyed]
 
 
+@over_clean
 def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Výkaz materiálu – sloučeno podle přístroje/typu/výrobce/parametrů."""
     head = ["Pol.", "Přístroj", "Typ", "Výrobce", "Parametry", "Ks", "Označení"]
@@ -135,7 +159,7 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
                     groups.setdefault(key, []).append(f"{e.ref} ({n})")
                     qty[key] = qty.get(key, 0) + n
                 continue
-            key = (lib.get_symbol(e.symbol_id).name, e.attrs.get("type", ""), e.attrs.get("manufacturer", ""), _param_str(e))
+            key = (_symbol(lib, e.symbol_id).name, e.attrs.get("type", ""), e.attrs.get("manufacturer", ""), _param_str(e))
             groups.setdefault(key, []).append(e.ref)
             qty[key] = qty.get(key, 0) + 1
         # můstky: za každou skupinu můstků jeden (vícepólový) můstek dané svorkovnice
@@ -152,6 +176,7 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
     return head, rows
 
 
+@over_clean
 def cables(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Seznam kabelů / vodičů s označením nebo typem kabelu."""
     from envocad.model.project import feed_link_index, wire_xref
@@ -170,6 +195,7 @@ def cables(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> t
     return head, rows
 
 
+@over_clean
 def terminals(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Svorkovnice: každá žíla každého vodiče napojeného na svorku/přívod/vývod + ruční přiřazení z Wire.terminals."""
     from envocad.model.multipole import wire_end_terminal
@@ -194,6 +220,7 @@ def terminals(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -
     return head, rows
 
 
+@over_clean
 def labels(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Štítky přístrojů a vývodů pro štítkovač: označení + stručný popis."""
     head = ["Štítek", "Popis", "List"]
@@ -203,7 +230,7 @@ def labels(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> t
         for e in s.elements:
             if not e.ref or not idx.is_bom_device(e, sheet):   # cívka stykače = jeden štítek se stykačem
                 continue
-            sym = lib.get_symbol(e.symbol_id)
+            sym = _symbol(lib, e.symbol_id)
             desc = e.attrs.get("desc") or " ".join(x for x in (sym.name, e.attrs.get("in_", "") and e.attrs["in_"] + " A") if x)
             d = designation(s, e)
             keyed.append(((d.func, d.loc, _ref_key(e.ref), s.name), [_tag(project, s, e), desc, s.name]))
@@ -222,6 +249,7 @@ def _ref_key(ref: str) -> tuple:
     return (prefix, m.group(1), int(m.group(2) or 0)) if m else (prefix, ref, 0)
 
 
+@over_clean
 def terminal_plan_report(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Plán svorkovnice: vnější strana | svorka | můstek | vnitřní strana (jako v EPLAN)."""
     from envocad.model.terminal_plan import terminal_plan
@@ -244,6 +272,7 @@ def _end_text(project: Project, s: Sheet, w, side: str, conductor: str) -> str:
     return _port_text(project, s, s.element(end.element_id), end.port, terminal=t)
 
 
+@over_clean
 def cable_plan(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Kabelový plán: každá žíla každého kabelu – číslo, barva, odkud, kam (jako v EPLAN)."""
     from envocad.model.project import CORE_COLORS, sync_cables
@@ -267,6 +296,7 @@ def cable_plan(project: Project, lib: LibraryStore, sheet: Sheet | None = None) 
     return head, rows
 
 
+@over_clean
 def wiring_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Zapojovací seznam: každé propojení po žílách – odkud, kam, kabel/vodič, barva, průřez (pro zapojování)."""
     from envocad.model.project import CORE_COLORS, sync_cables
@@ -310,6 +340,7 @@ def _number(x):
     return int(x) if float(x).is_integer() else x
 
 
+@over_clean
 def production_wiring_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None,
                            base: dict | None = None) -> tuple[list[str], list[list]]:
     """Výrobní zapojovací seznam pro dílnu (jen listy rozvaděčů): průřez, barva, typ, délka z rozložení, koncovky.
@@ -347,6 +378,7 @@ def production_subtitle(project: Project, sheet: Sheet | None = None, base: dict
     return lines
 
 
+@over_clean
 def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Výkaz výpočtů: stringy vs. střídač, kabely (I, Iz, In, ΔU), selektivita."""
     from envocad.model import calc
@@ -368,6 +400,7 @@ def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None
     return head, rows
 
 
+@over_clean
 def dso_report(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Data pro žádost o připojení výrobny k DS."""
     from envocad.export.tz_export import dso_data
@@ -376,6 +409,7 @@ def dso_report(project: Project, lib: LibraryStore, sheet: Sheet | None = None) 
     return ["Údaj", "Hodnota"], ([list(r) for r in dso_data(project, lib)] if has_plant else [])
 
 
+@over_clean
 def potentials(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Potenciály (sítě): název, žíly, počet spojů, vodiče, prvky:porty, stav (zkrat)."""
     from envocad.model.potential import nets

@@ -84,7 +84,8 @@ class SchematicScene(QGraphicsScene):
         for e in self.sheet.elements:
             self.add_element_item(e)
         for w in self.sheet.wires:
-            self.add_wire_item(w)
+            if w.a.element_id in self.element_items and w.b.element_id in self.element_items:
+                self.add_wire_item(w)   # vodič na neexistující prvek se nekreslí (kontrola ho hlásí)
         from envocad.model.routing import route_sheet
         for wid, pts in route_sheet(self.project, self.sheet, self.library).items():   # stejné trasy jako PDF/DXF
             if wid in self.wire_items:

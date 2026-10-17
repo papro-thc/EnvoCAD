@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer
@@ -32,7 +33,31 @@ DERIVED_VIEWS = (MultipoleView, TerminalPlanView)  # pohledy odvozené z modelu 
 from envocad.ui.panels import LibraryPanel, PropertiesPanel
 
 FILE_FILTER = "Projekt EnvoCAD (*.ecp)"
+REJECTED_AUTOSAVE_DIR = "odmitnute"   # podsložka autosave pro kopie, které uživatel při startu odmítl obnovit
+REJECTED_KEEP_DAYS = 30
 log = logging.getLogger("envocad.ui")
+
+
+def error_text(ex: BaseException) -> str:
+    """Česky srozumitelný popis chyby souboru (uložení, otevření, import)."""
+    import errno
+    if isinstance(ex, OSError) and not isinstance(ex, ValueError):
+        what = {errno.ENOENT: "soubor nebo složka neexistuje", errno.EACCES: "chybí oprávnění",
+                errno.EPERM: "chybí oprávnění", errno.ENOSPC: "na disku není místo", errno.EROFS: "disk je jen pro čtení",
+                errno.EFBIG: "soubor je příliš velký (kvóta / plný disk)", errno.EISDIR: "cesta je složka",
+                errno.EDQUOT: "překročena kvóta disku"}.get(ex.errno or 0)
+        if what:
+            return f"{what} ({ex.filename or ''})".replace(" ()", "")
+        return f"chyba souboru: {ex.strerror or ex}"
+    return str(ex) or type(ex).__name__
+
+
+def free_symbol_id(library, sid: str) -> str:
+    """První volné ID ve tvaru `<sid>_2`, `<sid>_3`…"""
+    n = 2
+    while library.has_symbol(f"{sid}_{n}"):
+        n += 1
+    return f"{sid}_{n}"
 
 
 class MainWindow(QMainWindow):
@@ -68,7 +93,19 @@ class MainWindow(QMainWindow):
         self.setStatusBar(QStatusBar())
         self._build_actions()
         self._load_plugins()
-        self._load_project(self.project)
+        import uuid
+        self._autosave_token = uuid.uuid4().hex[:8]   # nepojmenovaný projekt: vlastní autosave pro každé okno
+        # autosave patřící TOMUTO oknu: poslední zapsaná kopie a obnovená kopie (z ní okno vzniklo). Okno maže jen
+        # tyto soubory – kopie jiného okna / procesu se stejným projektem se nikdy nedotkne.
+        self._last_autosave: Path | None = None
+        self._recovered_autosave: Path | None = None
+        try:
+            self._load_project(self.project)
+        except Exception as ex:
+            log.exception("projekt nejde zobrazit")
+            QMessageBox.critical(self, "Projekt nelze otevřít",
+                                 f"Projekt nelze otevřít:\n{ex}\n\nEnvoCAD se spustí s prázdným projektem.")
+            self._load_project(Project())
         self.resize(1400, 900)
         # automatické ukládání rozpracovaného projektu (obnova po pádu)
         self._autosave_timer = QTimer(self)
@@ -255,6 +292,11 @@ class MainWindow(QMainWindow):
     def _load_plugins(self) -> None:
         from envocad.plugins import load_plugins
         self.plugins = load_plugins(self.library)
+        from envocad.plugins import failed_message
+        msg = failed_message(self.plugins)
+        if msg:   # až po startu (app.py hned po vytvoření okna ukazuje cestu k logu)
+            log.warning(msg)
+            QTimer.singleShot(0, lambda: self.statusBar().showMessage(msg, 20_000))
         menus = {m.title().replace("&", ""): m for m in self.menuBar().findChildren(QMenu) if m.title()}
         for menu_name, text, cb in self.plugins.menu_actions:
             menu = menus.get(menu_name)
@@ -285,32 +327,78 @@ class MainWindow(QMainWindow):
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(home_dir())))
 
     # ---- projekt ---------------------------------------------------------------
+    def _verify_project(self, project: Project) -> int:
+        """Ověří, že jde projekt zobrazit (značky, porty vodičů), dřív než se okno přepne. Chyba → ValueError
+        s listem a prvkem. Vrací počet prvků se zástupnou (neznámou) značkou."""
+        from envocad.model.project import element_symbol
+        unknown = 0
+        for sheet in project.sheets:
+            syms = {}
+            for e in sheet.elements:
+                try:
+                    syms[e.id] = sym = element_symbol(project, e, self.library)
+                    sym.bounds()
+                except Exception as ex:
+                    raise ValueError(f"list „{sheet.name}“, prvek {e.ref or e.symbol_id} ({e.id}): {ex}") from ex
+                unknown += sym.placeholder
+            for w in sheet.wires:
+                for end in (w.a, w.b):
+                    sym = syms.get(end.element_id)
+                    if sym is None:
+                        continue   # vodič na neexistující prvek se nekreslí, kontrola ho hlásí
+                    e = sheet.element(end.element_id)
+                    try:
+                        e.port_pos(sym, end.port)
+                    except Exception as ex:
+                        raise ValueError(f"list „{sheet.name}“, vodič {w.attrs.get('ref') or w.id} na prvek "
+                                         f"{e.ref or e.symbol_id}: {ex}") from ex
+        return unknown
+
     def _load_project(self, project: Project) -> None:
-        from envocad.model.project import sync_feed_links
+        """Zobrazí projekt. Nejdřív ověří projekt a postaví scény do dočasných objektů; okno (projekt, záložky,
+        undo) se přepne až po úspěchu. Při chybě vyhodí výjimku s listem a prvkem a okno zůstane beze změny."""
+        from envocad.model.project import sync_cables, sync_feed_links
+        built = []
+        try:
+            sync_feed_links(project)
+            sync_cables(project)
+            unknown = self._verify_project(project)
+            for sheet in project.sheets:
+                try:
+                    built.append(self._build_tab(project, sheet, "schematic"))
+                except Exception as ex:
+                    raise ValueError(f"list „{sheet.name}“ nejde zobrazit: {ex}") from ex
+        except Exception:
+            for widget, _view, _scene, _title in built:
+                widget.deleteLater()
+            raise
+        self._clear_autosave()   # předchozí projekt byl uložen nebo zahozen (`_confirm_discard`) – jeho kopie okna pryč
         self.project = project
-        sync_feed_links(project)
-        from envocad.model.project import sync_cables
-        sync_cables(project)
         self.nav_panel.set_project(project)
         self.notes_panel.set_project(project, self.undo)
+        # undo-reset-ok: načtení projektu (otevření, nový, obnova autosave) – historie patří předchozímu projektu
         self.undo.clear()
         while self.tabs.count():
             w = self.tabs.widget(0)
             self.tabs.removeTab(0)
             w.deleteLater()
         self._scenes.clear()
+        self._closed_sheet_tabs: dict[str, list[str]] = {}   # druhy záložek smazaných listů (undo je obnoví)
         if not self._panels_wired:
             self.lib_panel.symbol_chosen.connect(lambda sid: self.draw_scene and self.draw_scene.start_place(sid))
             self.lib_panel.macro_chosen.connect(self.insert_macro)
             self.props_panel.attr_edited.connect(lambda *a: self.scene and self.scene.set_attr(*a))
             self._panels_wired = True
-        for sheet in project.sheets:
-            self.open_sheet(sheet, "schematic")
+        for tab in built:
+            self._add_tab(*tab)
         self.tabs.setCurrentIndex(0)
         self.props_panel.show_item(None)
         self._update_title()
         if self.view:
             self.view.zoom_fit()
+        if unknown:
+            self.statusBar().showMessage(f"Projekt obsahuje neznámé značky ({unknown}×) – kreslí se jako „?“, "
+                                         "viz Kontrola projektu (F7)", 15_000)
 
     # ---- listy / záložky -------------------------------------------------------
     def _find_tab(self, sheet: Sheet, kind: str) -> int:
@@ -337,13 +425,18 @@ class MainWindow(QMainWindow):
         if i >= 0:
             self.tabs.setCurrentIndex(i)
             return
+        self._add_tab(*self._build_tab(self.project, sheet, kind))
+
+    def _build_tab(self, project: Project, sheet: Sheet, kind: str):
+        """Postaví pohled listu (scéna + view + případný boční panel) bez přidání záložky:
+        (widget, view, scene, title). Chyba při stavbě okno nezmění."""
         if kind == "layout":
             from envocad.ui.dialogs import EnclosurePanel
-            scene = LayoutScene(self.project, sheet, self.library, self.undo)
+            scene = LayoutScene(project, sheet, self.library, self.undo)
             view = LayoutView(scene)
-            panel = EnclosurePanel(sheet, library=self.library, project=self.project)
-            panel.changed.connect(lambda sc=scene, sh=sheet: (sc.rebuild(), self._rebuild_sheet_views(sh),
-                                                            self._refresh_tab_titles(), self.undo.resetClean()))
+            # panel model sám nemění – změna jde přes SetLayoutCommand (přestavbu pohledů dělá příkaz, i při undo)
+            panel = EnclosurePanel(sheet, library=self.library, project=project,
+                                   commit=lambda b, a, k, sh=sheet: self.commit_layout(sh, b, a, k))
             scene.layout_changed.connect(panel.refresh)
             scene.enclosure_requested.connect(lambda p=panel: p.name.setFocus())
             scene.selection_info.connect(lambda it: self.props_panel.show_item(
@@ -351,7 +444,7 @@ class MainWindow(QMainWindow):
             view.side_panel = panel
             title = f"{sheet.name} – rozložení"
         elif kind == "multipole":
-            scene = MultipoleScene(self.project, sheet, self.library, self.undo)
+            scene = MultipoleScene(project, sheet, self.library, self.undo)
             view = MultipoleView(scene)
             scene.selection_info.connect(lambda it: self.props_panel.show_item(
                 self._element_item_for(sheet, it.element.id) if it is not None and hasattr(it, "element") else None))
@@ -361,11 +454,11 @@ class MainWindow(QMainWindow):
             scene.after_edit = lambda sh=sheet: self._rebuild_peer(sh, "schematic")
             title = f"{sheet.name} – schéma" if sheet.is_switchboard else f"{sheet.name} – vícepól"
         elif kind == "terminals":
-            scene = TerminalPlanScene(self.project, sheet, self.library, self.undo)
+            scene = TerminalPlanScene(project, sheet, self.library, self.undo)
             view = TerminalPlanView(scene)
             title = f"{sheet.name} – svorkovnice"
         else:
-            scene = SchematicScene(self.project, sheet, self.library, self.undo)
+            scene = SchematicScene(project, sheet, self.library, self.undo)
             view = SchematicView(scene)
             scene.selection_info.connect(self.props_panel.show_item)
             scene.attrs_changed.connect(lambda _id: self.props_panel.show_item(self._selected_item()))
@@ -374,7 +467,6 @@ class MainWindow(QMainWindow):
             scene.notes_visible = self._notes_visible_setting()
             scene.rebuild_notes()
             title = sheet.name if not sheet.is_switchboard else f"{sheet.name} – jednopól (editace)"
-        self._scenes.append(scene)  # držet referenci – scéna musí přežít stejně dlouho jako pohled
         view._scene_ref = scene
         widget = view
         if getattr(view, "side_panel", None) is not None:
@@ -391,6 +483,10 @@ class MainWindow(QMainWindow):
             widget.scene = view.scene  # záložka se chová jako pohled
             widget.zoom_fit = view.zoom_fit
             widget._view = view
+        return widget, view, scene, title
+
+    def _add_tab(self, widget, view, scene, title: str) -> None:
+        self._scenes.append(scene)  # držet referenci – scéna musí přežít stejně dlouho jako pohled
         idx = self.tabs.addTab(widget, title)
         self.tabs.setCurrentIndex(idx)
         view.zoom_fit()
@@ -475,9 +571,44 @@ class MainWindow(QMainWindow):
         if not ok or not name:
             return
         sheet = Sheet(name=name)
-        self.project.sheets.append(sheet)
+        self.undo.push(commands.AddSheetCommand(self.project, sheet, on_change=self._sheet_presence_changed))
         self.open_sheet(sheet)
-        self.undo.resetClean()
+
+    def _close_sheet_tabs(self, sheet: Sheet) -> list[str]:
+        """Zavře všechny záložky listu (i poslední – smazaný list nesmí zůstat zobrazený); vrátí jejich druhy."""
+        kinds = []
+        for i in reversed(range(self.tabs.count())):
+            w = self._unwrap(self.tabs.widget(i))
+            if w.scene().sheet is sheet:
+                kinds.insert(0, self._kind_of(w))
+                tab = self.tabs.widget(i)
+                self.tabs.removeTab(i)
+                tab.deleteLater()   # scéna zůstává v self._scenes – nesmí zaniknout dřív než (odložené) smazání pohledu
+        return kinds
+
+    def _sheet_presence_changed(self, sheet: Sheet, present: bool) -> None:
+        """Příkazy přidání / smazání listu (redo i undo): záložky listu se zavřou a při návratu listu obnoví
+        (stejné druhy pohledů); nadřazený list (blok ROZVADĚČ) a vazby se přepočítají."""
+        from envocad.model.project import parent_sheet
+        closed = self._closed_sheet_tabs
+        if present:
+            for kind in closed.pop(sheet.id, []):
+                self.open_sheet(sheet, kind)
+        else:
+            kinds = self._close_sheet_tabs(sheet)
+            if kinds:
+                closed[sheet.id] = kinds
+            if self.tabs.count() == 0 and self.project.sheets:
+                self.open_sheet(self.project.sheets[0])
+        ps = parent_sheet(self.project, sheet) if sheet.parent_element_id else None
+        if ps is not None:
+            self._rebuild_sheet_views(ps)   # blok dostane porty podle listu, nebo osiřelé porty „X1?“
+        else:
+            self._sync_links_and_blocks()
+        for s in self.project.sheets:       # listy rozvaděčů odpojené / připojené k bloku na tomto listu
+            if s.parent_element_id and any(e.id == s.parent_element_id for e in sheet.elements):
+                self._rebuild_sheet_views(s)
+        self._refresh_tab_titles()
 
     def rename_sheet(self) -> None:
         """Vlastnosti listu: název a strukturní označení (=funkce, +umístění)."""
@@ -548,18 +679,29 @@ class MainWindow(QMainWindow):
             self.undo.push(commands.SetStructuresCommand(self.project, old, new_list))
 
     def delete_sheet(self) -> None:
+        """Odstraní aktuální list (s potvrzením). List rozvaděče: blok ROZVADĚČ v JPS zůstane a vodiče na jeho porty
+        zůstanou na portech „X1?“ (hlásí je kontrola); listy rozvaděčů s blokem na mazaném listu se odpojí."""
+        from envocad.model.project import parent_sheet
         sh = self.current_sheet
         if not sh or len(self.project.sheets) <= 1:
             return
-        if QMessageBox.question(self, "Odstranit list", f"Opravdu odstranit list „{sh.name}“ se vším obsahem?") != QMessageBox.Yes:
+        text = f"Opravdu odstranit list „{sh.name}“ se vším obsahem?"
+        ps = parent_sheet(self.project, sh) if sh.is_switchboard else None
+        if ps is not None:
+            block = ps.element(sh.parent_element_id)
+            n = sum(1 for w in ps.wires if w.touches(block.id))
+            text = (f"„{sh.name}“ je list rozvaděče {block.ref or ''} (blok ROZVADĚČ na listu „{ps.name}“).\n\n"
+                    "Odstranit list rozvaděče se vším obsahem?\n\nBlok ROZVADĚČ v jednopólovém schématu zůstane"
+                    + (f" a {n} vodič(ů) na něm zůstane připojeno na portech označených „?“ (ukáže je Kontrola projektu)."
+                       if n else "."))
+        ids = {e.id for e in sh.elements}
+        children = [s.name for s in self.project.sheets if s.parent_element_id in ids]
+        if children:
+            text += ("\n\nListy rozvaděčů, jejichž blok je na tomto listu, zůstanou bez nadřazeného bloku: "
+                     + ", ".join(f"„{c}“" for c in children) + ".")
+        if QMessageBox.question(self, "Odstranit list", text) != QMessageBox.Yes:
             return
-        self.project.sheets.remove(sh)
-        for kind in ("layout", "schematic"):
-            i = self._find_tab(sh, kind)
-            if i >= 0:
-                self.tabs.removeTab(i)
-        self.undo.clear()
-        self.undo.resetClean()
+        self.undo.push(commands.DeleteSheetCommand(self.project, sh, on_change=self._sheet_presence_changed))
 
     # ---- rozvaděče -------------------------------------------------------------
     def open_switchboard_from_block(self, block_id: str, kind: str = "schematic") -> None:
@@ -571,12 +713,15 @@ class MainWindow(QMainWindow):
         if not sheet_of_block:
             return
         block = sheet_of_block.element(block_id)
-        existing = self.project.switchboard_sheet(block_id)
-        sheet = self.project.create_switchboard_sheet(block)
-        if existing is None:
-            self.undo.resetClean()
-            if not self._choose_template(sheet):
-                pass
+        sheet = self.project.switchboard_sheet(block_id)
+        if sheet is None:
+            # nový list rozvaděče + volitelná šablona = jeden krok undo
+            self.undo.beginMacro(f"Nový list rozvaděče {block.ref}".strip())
+            try:
+                sheet = self.create_switchboard_sheet(block)
+                self._choose_template(sheet)
+            finally:
+                self.undo.endMacro()
         # schéma rozvaděče je vícepólové; jednopólová podoba je jen editační (Ctrl+J)
         self.open_sheet(sheet, "multipole" if kind == "schematic" else kind)
         self._sync_links_and_blocks()
@@ -604,31 +749,90 @@ class MainWindow(QMainWindow):
         else:
             self._open_selected_switchboard("layout")
 
-    def _choose_template(self, sheet: Sheet) -> bool:
-        from envocad.library.templates import TEMPLATES, apply_template
+    def create_switchboard_sheet(self, block) -> Sheet:
+        """Založí list rozvaděče pro blok ROZVADĚČ přes undo (`AddSheetCommand`: list, atribut „sheet“ bloku,
+        +umístění v registru struktur). Existující list vrátí beze změny."""
+        existing = self.project.switchboard_sheet(block.id)
+        if existing is not None:
+            return existing
+        p = self.project
+        attr_before = block.attrs.get("sheet")
+        structs_before = list(p.structures)
+        sheet = p.create_switchboard_sheet(block)       # model připraví list; změny se vrátí a provede je příkaz
+        attr_after, structs_after = block.attrs.get("sheet"), list(p.structures)
+        p.sheets.remove(sheet)
+        p.structures = structs_before
+        if attr_before is None:
+            block.attrs.pop("sheet", None)
+        else:
+            block.attrs["sheet"] = attr_before
+        self.undo.push(commands.AddSheetCommand(p, sheet, on_change=self._sheet_presence_changed,
+                                                block_attr=(block, attr_before, attr_after),
+                                                structures=(structs_before, structs_after),
+                                                text=f"Nový list rozvaděče {sheet.name}"))
+        return sheet
+
+    def _ask_template(self) -> tuple[str, dict[str, str]] | None:
+        """Výběr šablony a jejích parametrů: (id, parametry), nebo None (zrušeno)."""
+        from envocad.library.templates import TEMPLATES
         names = [t.name for t in TEMPLATES]
         name, ok = QInputDialog.getItem(self, "Šablona rozvaděče", "Nový list rozvaděče – vložit šablonu:", names, 0, False)
         if not ok:
-            return False
+            return None
         t = next(t for t in TEMPLATES if t.name == name)
         params = {}
         for tp in t.params:
             v, ok = QInputDialog.getText(self, t.name, tp.label, text=tp.default)
             if not ok:
-                return False
+                return None
             params[tp.key] = v
-        apply_template(self.project, sheet, t.id, params)
-        self._rebuild_sheet_views(sheet)
+        return t.id, params
+
+    def _choose_template(self, sheet: Sheet) -> bool:
+        chosen = self._ask_template()
+        if chosen is None:
+            return False
+        self.apply_template(sheet, *chosen)
         return True
+
+    def apply_template(self, sheet: Sheet, tid: str, params: dict[str, str]) -> None:
+        """Vloží šablonu jako jeden krok undo (`SheetsStateCommand`): prvky, vodiče, rozmístění, můstky listu
+        rozvaděče i navázání přívodu na vodič nadřazeného listu."""
+        from envocad.library.templates import apply_template, template
+        before = commands.sheets_state(self.project)
+        apply_template(self.project, sheet, tid, params)
+        after = commands.sheets_state(self.project)
+        commands.restore_sheets_state(self.project, before)
+        self.undo.push(commands.SheetsStateCommand(self.project, before, after, f"Šablona {template(tid).name}",
+                                                   on_change=self._sheets_changed))
+
+    def _sheets_changed(self, sheet_ids: list[str]) -> None:
+        """Po `SheetsStateCommand`: přestaví pohledy změněných listů (prvky a vodiče jsou nové objekty). Nejdřív se
+        přestaví všechny scény, až potom porty bloků ROZVADĚČ – staré položky vodičů by mířily na neplatné porty."""
+        from envocad.model.project import sync_cables, sync_feed_links
+        sync_feed_links(self.project)
+        sync_cables(self.project)
+        for i in range(self.tabs.count()):
+            w = self._unwrap(self.tabs.widget(i))
+            if w.scene().sheet.id in sheet_ids:
+                w.scene().rebuild()
+                if getattr(w, "side_panel", None) is not None:
+                    w.side_panel.load_from_model()
+        self._sync_links_and_blocks()
+        self._refresh_tab_titles()
 
     def insert_template(self) -> None:
         sh = self.current_sheet
         if not sh or not sh.is_switchboard:
             QMessageBox.information(self, "Šablona", "Šablonu lze vložit jen do listu rozvaděče.")
             return
-        if self._choose_template(sh):
-            self.undo.clear()
-            self.undo.resetClean()
+        if sh.elements and QMessageBox.question(
+                self, "Šablona",
+                f"List „{sh.name}“ už obsahuje {len(sh.elements)} prvků. Šablona přidá další přístroje a vodiče "
+                "a rozmístí je do rozložení od první řady – mohou se překrývat s už rozmístěnými přístroji "
+                "(upravte rozložení ručně).\n\nPřesto vložit šablonu?") != QMessageBox.Yes:
+            return
+        self._choose_template(sh)
 
     def _rebuild_sheet_views(self, sheet: Sheet) -> None:
         self._sync_links_and_blocks()
@@ -644,14 +848,30 @@ class MainWindow(QMainWindow):
         if not sh or not sh.is_switchboard:
             QMessageBox.information(self, "Skříň", "Otevřete list rozvaděče.")
             return
-        from envocad.ui.dialogs import EnclosureDialog
+        from envocad.ui.dialogs import EnclosureDialog, EnclosurePanel
         dlg = EnclosureDialog(sh, self, library=self.library, project=self.project)
         if dlg.exec() != EnclosureDialog.Accepted:
+            return    # dialog pracoval na kopii rozložení – Zrušit nic nemění
+        before, after = sh.layout.to_dict(), dlg.apply().to_dict()
+        if EnclosurePanel.real_change(before, after):   # OK beze změny = bez kroku
+            self.commit_layout(sh, before, after)
+
+    def commit_layout(self, sheet: Sheet, before: dict, after: dict, key: str | None = None) -> None:
+        """Změna skříně / rozložení jako `SetLayoutCommand`; `key` = pole panelu (po sobě jdoucí změny téhož pole
+        se slučují do jednoho kroku)."""
+        if before == after:
             return
-        dlg.apply()
-        self._rebuild_sheet_views(sh)
+        self.undo.push(commands.SetLayoutCommand(sheet, before, after, "Skříň rozvaděče",
+                                                 on_change=self._layout_changed, merge_key=key))
+
+    def _layout_changed(self, sheet: Sheet) -> None:
+        """Po `SetLayoutCommand` (i undo/redo): pohledy listu, titulky a pole panelu skříně podle modelu."""
+        self._rebuild_sheet_views(sheet)
         self._refresh_tab_titles()
-        self.undo.resetClean()
+        for i in range(self.tabs.count()):
+            w = self._unwrap(self.tabs.widget(i))
+            if w.scene().sheet is sheet and getattr(w, "side_panel", None) is not None:
+                w.side_panel.load_from_model()
 
     def set_frame(self, on: bool) -> None:
         """Zapne/vypne rámeček s popisovým polem a QR na všech listech (uloží se do ~/.envocad/settings.json)."""
@@ -904,6 +1124,8 @@ class MainWindow(QMainWindow):
                                  QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
         if r == QMessageBox.Save:
             return self.save_project()
+        # Zahodit: kopie se smaže až po úspěšném otevření jiného projektu (`_load_project`) nebo zavření okna
+        # (`closeEvent`) – když otevření selže, okno zůstane s neuloženou prací a ta musí být dál na disku.
         return r == QMessageBox.Discard
 
     def new_project(self) -> None:
@@ -914,7 +1136,13 @@ class MainWindow(QMainWindow):
             p.meta.update({k: str(v) for k, v in (st.get("project_meta") or {}).items()})
             if st.get("author"):
                 p.meta.setdefault("author", st["author"])
-            self._load_project(p)
+            self._load_project(p)   # prázdný nový projekt bez změn zůstane čistý
+
+    def _mark_new_project_dirty(self) -> None:
+        """Projekt z průvodce / ze specifikace ještě není uložený: zavření se zeptá a autosave běží. Čistý stav
+        se zahodí (clean index -1) – na rozdíl od kroku undo ho uživatel nemůže omylem „vrátit“ do čistého stavu."""
+        # undo-reset-ok: nový projekt (po založení) – neuložený stav, kterého undo nedosáhne
+        self.undo.resetClean()
 
     def _active_schematic(self) -> SchematicScene | None:
         """Scéna JPS / jednopólové editace v aktivní záložce (ne vícepól, rozložení…)."""
@@ -1033,6 +1261,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Průvodce", f"Projekt se nepodařilo vygenerovat: {ex}")
             return
         self._load_project(project)
+        self._mark_new_project_dirty()
         self.statusBar().showMessage(f"Vygenerováno: {project.meta.get('p_installed_kwp')} kWp – zkontrolujte F7", 6000)
 
     def new_project_from_spec(self) -> None:
@@ -1048,6 +1277,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Specifikace", f"Projekt se nepodařilo vygenerovat: {ex}")
             return
         self._load_project(project)
+        self._mark_new_project_dirty()
 
     def compare_revision(self) -> None:
         """Změnový list a značky revize z porovnání se starší verzí projektu (jeden krok undo)."""
@@ -1141,19 +1371,39 @@ class MainWindow(QMainWindow):
             return
         path, _ = QFileDialog.getOpenFileName(self, "Otevřít projekt", "", FILE_FILTER)
         if path:
-            try:
-                self._load_project(Project.load(path))
-            except Exception as ex:  # noqa: BLE001
-                QMessageBox.critical(self, "Chyba", f"Projekt nelze otevřít:\n{ex}")
+            self._open_file(path)
+
+    def _open_file(self, path) -> bool:
+        """Načte a zobrazí projekt; při chybě hláška a okno (projekt, záložky) zůstane beze změny."""
+        try:
+            self._load_project(Project.load(path))
+        except Exception as ex:  # noqa: BLE001
+            log.warning("projekt %s nejde otevřít: %s", path, ex)
+            QMessageBox.critical(self, "Chyba", f"Projekt nelze otevřít:\n{path}\n\n{error_text(ex)}")
+            return False
+        return True
 
     def save_project(self) -> bool:
         if self.project.path is None:
             return self.save_project_as()
-        self.project.save()
+        return self._save_to(self.project.path)
+
+    def _save_to(self, path) -> bool:
+        """Uloží projekt do `path`. Cesta projektu se změní až po úspěšném zápisu (`Project.save` je atomický);
+        chyba → česká hláška, projekt i titulek zůstanou, jak byly."""
+        try:
+            self.project.save(path)
+        except Exception as ex:  # noqa: BLE001
+            log.warning("uložení %s selhalo: %s", path, ex)
+            QMessageBox.critical(self, "Uložení selhalo",
+                                 f"Projekt se nepodařilo uložit do\n{path}\n\n{error_text(ex)}\n\n"
+                                 "Předchozí verze souboru zůstala beze změny.")
+            self._update_title()
+            return False
         self.undo.setClean()
         self._update_title()
         self._add_recent(self.project.path)
-        self._clear_autosave()
+        self._clear_autosave()   # jen kopie tohoto okna (stejný projekt může mít rozpracovaný i jiné okno)
         self.statusBar().showMessage(f"Uloženo: {self.project.path}", 3000)
         return True
 
@@ -1185,43 +1435,59 @@ class MainWindow(QMainWindow):
     def open_path(self, path: str) -> None:
         if not self._confirm_discard():
             return
-        try:
-            self._load_project(Project.load(path))
+        if self._open_file(path):
             self._add_recent(path)
-        except Exception as ex:  # noqa: BLE001
-            QMessageBox.critical(self, "Chyba", f"Projekt nelze otevřít:\n{ex}")
 
     def _autosave_path(self) -> Path:
+        """Soubor automatické kopie: jméno + otisk celé cesty projektu (stejně pojmenované projekty v různých
+        složkách se nepřepisují); nepojmenovaný projekt má kopii pro každé okno zvlášť."""
+        import hashlib
+
         from envocad.library.store import home_dir
         d = home_dir() / "autosave"
         d.mkdir(parents=True, exist_ok=True)
-        name = (self.project.path.stem if self.project.path else "nepojmenovany") + ".autosave.ecp"
-        return d / name
+        if self.project.path:
+            full = str(Path(self.project.path).expanduser().absolute())
+            name = f"{self.project.path.stem}-{hashlib.sha1(full.encode('utf-8')).hexdigest()[:10]}"
+        else:
+            name = f"nepojmenovany-{self._autosave_token}"
+        return d / f"{name}.autosave.ecp"
 
     def autosave(self) -> None:
+        """Automatická kopie rozpracovaného projektu – zapisuje `to_dict()` do vlastního souboru, `project.path` se
+        nemění (ani při chybě zápisu)."""
         if self.undo.isClean():
             return
         try:
+            from envocad.model.project import write_json_atomic
             p = self._autosave_path()
-            orig = self.project.path
-            self.project.path = p
-            self.project.save()
-            self.project.path = orig
-            (p.with_suffix(".orig")).write_text(str(orig or ""), encoding="utf-8")
-            self._last_autosave = p
-            log.info("autosave %s", p)
+            write_json_atomic(self.project.to_dict(), p)
+            (p.with_suffix(".orig")).write_text(str(self.project.path or ""), encoding="utf-8")
         except Exception as ex:  # noqa: BLE001
             log.warning("autosave selhal: %s", ex)
+            return
+        log.info("autosave %s", p)
+        old = {self._last_autosave, self._recovered_autosave} - {p, None}
+        self._last_autosave = p
+        self._recovered_autosave = None
+        # obnovená (nebo starší, jinak pojmenovaná) kopie tohoto okna je teď nahrazena novou → smazat
+        self._unlink_autosaves(old)
 
-    def _clear_autosave(self) -> None:
-        for p in {self._autosave_path(), getattr(self, "_last_autosave", None)}:
-            if p is None:
-                continue
+    @staticmethod
+    def _unlink_autosaves(paths) -> None:
+        for p in paths:
             try:
                 p.unlink(missing_ok=True)
                 p.with_suffix(".orig").unlink(missing_ok=True)
-            except OSError:
-                pass
+            except OSError as ex:
+                log.warning("autosave %s nejde smazat: %s", p, ex)
+
+    def _clear_autosave(self) -> None:
+        """Smaže automatické kopie, které patří tomuto oknu (zapsaná `_last_autosave` a obnovená kopie) – po uložení,
+        po zahození změn a otevření jiného projektu, po zavření okna. Čisté okno, které nic nezapsalo, nemaže nic."""
+        self._unlink_autosaves({self._last_autosave, self._recovered_autosave} - {None})
+        self._last_autosave = None
+        self._recovered_autosave = None
 
     def offer_recovery(self) -> None:
         """Po startu: pokud existuje automaticky uložená kopie, nabídne její obnovení."""
@@ -1229,26 +1495,65 @@ class MainWindow(QMainWindow):
         d = home_dir() / "autosave"
         if not d.exists():
             return
-        files = sorted(d.glob("*.autosave.ecp"), key=lambda f: f.stat().st_mtime, reverse=True)
+        def mtime(f: Path) -> float:
+            try:
+                return f.stat().st_mtime
+            except OSError:
+                return 0.0
+        own = {self._last_autosave, self._recovered_autosave}   # vlastní kopie okna se nenabízejí
+        files = sorted((f for f in d.glob("*.autosave.ecp") if f not in own), key=mtime, reverse=True)
         if not files:
             return
-        f = files[0]
+        f = files[0]           # nejnovější; ostatní zůstanou a nabídnou se při dalším startu
         orig_file = f.with_suffix(".orig")
-        orig = orig_file.read_text(encoding="utf-8").strip() if orig_file.exists() else ""
+        try:
+            orig = orig_file.read_text(encoding="utf-8-sig").strip() if orig_file.exists() else ""
+        except (OSError, UnicodeDecodeError):
+            orig = ""
+        more = (f"\n\nDalší automaticky uložené kopie ({len(files) - 1}) zůstanou ve složce\n{d}\n"
+                "a nabídnou se při příštím spuštění.") if len(files) > 1 else ""
+        rejected = d / REJECTED_AUTOSAVE_DIR
         r = QMessageBox.question(self, "Obnova rozpracované práce",
                                  f"Byla nalezena automaticky uložená kopie projektu\n{orig or '(nepojmenovaný)'}.\n"
-                                 "Obnovit ji? (Ne = kopie se smaže)", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
-        if r == QMessageBox.Yes:
-            try:
-                proj = Project.load(f)
-                proj.path = Path(orig) if orig else None
-                self._load_project(proj)
-                self.undo.resetClean()
-            except Exception as ex:  # noqa: BLE001
-                QMessageBox.warning(self, "Obnova", f"Kopii nejde načíst: {ex}")
-        for x in files:
-            x.unlink(missing_ok=True)
-            x.with_suffix(".orig").unlink(missing_ok=True)
+                                 f"Obnovit ji? (Ne = kopie se přesune do složky\n{rejected}\n"
+                                 f"a už se nebude nabízet){more}", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+        if r != QMessageBox.Yes:
+            # „Ne“ kopii nemaže: může patřit oknu, které právě běží (druhý proces se stejným projektem) nebo jde o
+            # omyl. Přesune se do podsložky „odmitnute“ – nenabízí se znovu (ani při dalším startu), zůstává ručně
+            # dostupná a běžící okno si při příštím autosave zapíše novou kopii. Staré odmítnuté kopie se promazávají.
+            self._reject_autosave(f, rejected)
+            return
+        try:
+            proj = Project.load(f)
+            proj.path = Path(orig) if orig else None
+            self._load_project(proj)
+        except Exception as ex:  # noqa: BLE001 – kopie zůstává, nic se nemaže
+            log.warning("autosave %s nejde načíst: %s", f, ex)
+            QMessageBox.warning(self, "Obnova", f"Kopii nejde načíst:\n{error_text(ex)}\n\n"
+                                f"Soubor zůstává ve složce\n{d}")
+            return
+        # obnovený projekt není uložený v původním souboru → neuložený stav (zavření se zeptá, autosave běží);
+        # undo-reset-ok: obnova autosave – čistý stav se zahodí, žádný krok undo ho nevrátí
+        self.undo.resetClean()
+        self._update_title()
+        # kopie zůstává na disku, dokud okno nezapíše novou (autosave) nebo projekt neuloží / nezahodí
+        self._recovered_autosave = f
+
+    @staticmethod
+    def _reject_autosave(f: Path, rejected: Path) -> None:
+        """Přesune odmítnutou kopii (a její .orig) do `rejected`; kopie starší než REJECTED_KEEP_DAYS tam smaže."""
+        import time
+        try:
+            rejected.mkdir(parents=True, exist_ok=True)
+            for src in (f, f.with_suffix(".orig")):
+                if src.exists():
+                    os.replace(src, rejected / src.name)
+            limit = time.time() - REJECTED_KEEP_DAYS * 86400
+            for old in rejected.iterdir():
+                if old.is_file() and old.stat().st_mtime < limit:
+                    old.unlink(missing_ok=True)
+        except OSError as ex:
+            log.warning("odmítnutou kopii %s nejde přesunout: %s", f, ex)
 
     def save_project_as(self) -> bool:
         path, _ = QFileDialog.getSaveFileName(self, "Uložit projekt", "", FILE_FILTER)
@@ -1256,24 +1561,28 @@ class MainWindow(QMainWindow):
             return False
         if not path.endswith(".ecp"):
             path += ".ecp"
-        self.project.path = Path(path)
-        return self.save_project()
+        return self._save_to(Path(path))
 
     def edit_project_meta(self) -> None:
-        for key, label in [("name", "Název projektu"), ("investor", "Investor"), ("order", "Číslo zakázky"),
-                           ("place", "Místo"), ("author", "Zpracoval"), ("date", "Datum"), ("revision", "Revize"),
-                           ("changes", "Změnový list (řádek = revize | datum | popis | zpracoval)")]:
-            cur = self.project.name if key == "name" else self.project.meta.get(key, "")
-            if key == "changes":
-                val, ok = QInputDialog.getMultiLineText(self, "Vlastnosti projektu", label, cur)
-            else:
-                val, ok = QInputDialog.getText(self, "Vlastnosti projektu", label, text=cur)
-            if not ok:
-                return
-            if key == "name":
-                self.project.name = val
-            else:
-                self.project.meta[key] = val
+        """Vlastnosti projektu: jeden formulář; OK = jeden krok undo, Zrušit = žádná změna."""
+        from envocad.ui.dialogs import ProjectMetaDialog
+        dlg = ProjectMetaDialog(self.project, self)
+        if dlg.exec() != ProjectMetaDialog.Accepted:
+            return
+        self.set_project_meta(*dlg.values())
+
+    def set_project_meta(self, name: str, meta: dict[str, str]) -> bool:
+        """Název a metadata projektu přes `SetProjectMetaCommand`; beze změny = bez kroku (False)."""
+        old = (self.project.name, dict(self.project.meta))
+        if old == (name, meta):
+            return False
+        self.undo.push(commands.SetProjectMetaCommand(self.project, old, (name, dict(meta)),
+                                                      on_change=self._project_meta_changed))
+        return True
+
+    def _project_meta_changed(self) -> None:
+        for sc in self._scenes:   # popisové pole listů ukazuje název a metadata projektu
+            sc.update()
 
     # ---- export / import -------------------------------------------------------
     def export_dxf(self) -> None:
@@ -1386,21 +1695,39 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(self, "Import symbolu z DXF", "", "DXF (*.dxf)")
         if not path:
             return
-        blocks = ["(modelspace)"] + list_blocks(path)
+        try:
+            blocks = ["(modelspace)"] + list_blocks(path)
+        except Exception as ex:  # noqa: BLE001 – poškozený / jiný soubor
+            QMessageBox.warning(self, "Import DXF", f"Soubor nejde načíst jako DXF:\n{path}\n\n{error_text(ex)}")
+            return
         blk, ok = QInputDialog.getItem(self, "Import DXF", "Zdroj geometrie:", blocks, 0, False)
         if not ok:
             return
-        sid, ok = QInputDialog.getText(self, "Import DXF", "ID symbolu (např. fve.vyrobce.typ):")
-        if not ok or not sid:
-            return
+        sid = ""
+        while True:
+            sid, ok = QInputDialog.getText(self, "Import DXF", "ID symbolu (např. fve.vyrobce.typ):", text=sid)
+            sid = sid.strip()
+            if not ok or not sid:
+                return
+            if not self.library.has_symbol(sid):
+                break
+            kind = "vestavěná značka" if self.library.is_builtin(sid) else "značka v knihovně"
+            sid = free_symbol_id(self.library, sid)
+            QMessageBox.warning(self, "Import DXF", f"ID už má {kind} – existující značky se importem nepřepisují.\n"
+                                f"Zadejte jiné ID (návrh: {sid}).")
         name, ok = QInputDialog.getText(self, "Import DXF", "Název symbolu:", text=Path(path).stem)
         if not ok:
             return
         scale, ok = QInputDialog.getDouble(self, "Import DXF", "Měřítko (DXF jednotka → mm):", 1.0, 0.0001, 10000, 4)
         if not ok:
             return
-        sym = import_dxf(path, sid, name, None if blk == "(modelspace)" else blk, scale, True, True)
-        self.library.put_symbol(sym)
+        try:
+            sym = import_dxf(path, sid, name, None if blk == "(modelspace)" else blk, scale, True, True)
+            self.library.put_symbol(sym)
+        except Exception as ex:  # noqa: BLE001
+            log.warning("import DXF %s selhal: %s", path, ex)
+            QMessageBox.warning(self, "Import DXF", f"Import se nezdařil:\n{error_text(ex)}")
+            return
         self.lib_panel.refresh()
         QMessageBox.information(self, "Import DXF", f"Symbol {sid} importován ({len(sym.primitives)} primitiv).\n"
                                 "Porty zatím doplňte v JSON (viz docs/LIBRARY_FORMAT.md).")
@@ -1414,6 +1741,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, ev) -> None:
         if self._confirm_discard():
+            self._clear_autosave()   # uloženo nebo zahozeno – kopie tohoto okna už není potřeba
             ev.accept()
         else:
             ev.ignore()

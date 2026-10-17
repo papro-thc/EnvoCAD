@@ -37,7 +37,8 @@ class TerminalPlanScene(QGraphicsScene):
 
     def rebuild(self) -> None:
         self._paper.setPen(QPen(colors().paper, 0.5))
-        self.plans: list[StripPlan] = terminal_plan(self.project, self.sheet)
+        from envocad.model.project import clean_view
+        self.plans: list[StripPlan] = terminal_plan(*clean_view(self.project, self.sheet))
         self.update()
 
     def retheme(self) -> None:

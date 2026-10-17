@@ -10,7 +10,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from envocad.model import multipole as mp
-from envocad.model.project import FEED_SYMBOLS, Element, Project, Sheet, Wire, WireEnd, linked_wire
+from envocad.model.project import (
+    FEED_SYMBOLS,
+    Element,
+    Project,
+    Sheet,
+    Wire,
+    WireEnd,
+    element_symbol,
+    linked_wire,
+)
 
 JUNCTION = "sb.junction"
 BUS = "sb.busbar"
@@ -64,6 +73,13 @@ def _slots(sheet: Sheet, e: Element) -> list[str]:
                    for c in mp.wire_conductors(w)}, key=mp.canon_key)
 
 
+def _first_port(project: Project, e: Element, lib) -> str:
+    if lib is None:
+        return "1"
+    sym = element_symbol(project, e, lib)
+    return sym.ports[0].name if sym.ports else "1"
+
+
 def nets(project: Project, lib) -> list[Net]:
     uf = _UF()
     wire_nodes: list[tuple[Sheet, Wire, str, tuple]] = []
@@ -88,7 +104,7 @@ def nets(project: Project, lib) -> list[Net]:
                     if not set(a) & set(b):
                         uf.union((s.id, eid, port, a[0]), (s.id, eid, port, b[0]))
         for e in s.elements:
-            sym = lib.get_symbol(e.symbol_id) if lib else None
+            sym = element_symbol(project, e, lib) if lib else None
             slots = _slots(s, e)
             if e.symbol_id in (JUNCTION, BUS, "sb.pe_bar"):
                 ports = [p.name for p in (sym.ports if sym else [])] or ["N", "E", "S", "W"]
@@ -103,7 +119,7 @@ def nets(project: Project, lib) -> list[Net]:
                 hit = linked_wire(project, s, e)
                 if hit is not None:
                     ps, pw = hit
-                    port = sym.ports[0].name if sym else "1"
+                    port = sym.ports[0].name if sym and sym.ports else "1"
                     block = s.parent_element_id
                     for c in mp.wire_conductors(pw):
                         for end in (pw.a, pw.b):
@@ -123,8 +139,8 @@ def nets(project: Project, lib) -> list[Net]:
                 hits = [owner[(strip, n)] for n in g if (strip, n) in owner]
                 for (eid, c) in hits[1:]:
                     e0, c0 = hits[0]
-                    p0 = sym_port.setdefault(e0, (lib.get_symbol(s.element(e0).symbol_id).ports[0].name if lib else "1"))
-                    p1 = sym_port.setdefault(eid, (lib.get_symbol(s.element(eid).symbol_id).ports[0].name if lib else "1"))
+                    p0 = sym_port.setdefault(e0, _first_port(project, s.element(e0), lib))
+                    p1 = sym_port.setdefault(eid, _first_port(project, s.element(eid), lib))
                     uf.union((s.id, e0, p0, c0), (s.id, eid, p1, c))
     groups: dict[tuple, Net] = {}
     sheets = {s.id: s for s in project.sheets}
