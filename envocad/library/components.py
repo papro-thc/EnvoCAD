@@ -13,6 +13,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from envocad.model.calc import STRING_MODES   # režimy stringu (prázdné = classic) – jediná definice v calc
 from envocad.model.project import Element
 
 REQUIRED = ["id", "manufacturer", "part_number", "name", "category", "symbol_id", "datasheet_url", "source"]
@@ -31,7 +32,6 @@ NUMERIC = {"price_czk", "in_", "poles", "icu_ka", "idn_ma", "un_v", "modules", "
            "p_max_w", "p_tol_pct", "u_in_max_v", "isc_in_max_a", "i_out_max_a", "u_out_max_v", "modules_per_optimizer",
            "partial_ok", "n_min_1ph", "n_max_1ph", "p_string_max_1ph_w", "n_min_3ph", "n_max_3ph", "p_string_max_3ph_w",
            "u_string_v", "n_opt_min", "n_opt_max", "p_string_max_w"}
-STRING_MODES = ("classic", "optimizer", "fixed_voltage")   # = `model.calc.STRING_MODES` (prázdné = classic)
 SOURCES = {"catalog", "datasheet", "web", "seed", "user"}
 
 # výchozí schematická značka podle kategorie (když symbol_id chybí)
@@ -68,7 +68,8 @@ PARAM_TO_ATTR = {
 # opt_p_string_max
 OPTIMIZER_ATTRS = {
     "part_number": "optimizer", "manufacturer": "opt_manufacturer", "p_max_w": "opt_p_max", "p_tol_pct": "opt_p_tol",
-    "u_in_max_v": "opt_u_in_max", "u_mppt_min_v": "opt_u_mppt_min", "isc_in_max_a": "opt_isc_in_max",
+    "u_in_max_v": "opt_u_in_max", "u_mppt_min_v": "opt_u_mppt_min", "u_mppt_max_v": "opt_u_mppt_max",
+    "isc_in_max_a": "opt_isc_in_max",
     "i_out_max_a": "opt_i_out_max", "u_out_max_v": "opt_u_out_max", "modules_per_optimizer": "opt_modules",
     "partial_ok": "opt_partial", "compat": "opt_compat",
 }
