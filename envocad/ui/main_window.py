@@ -1061,7 +1061,7 @@ class MainWindow(QMainWindow):
             for wid in wire_ids:
                 it = sc.wire_items.get(wid)
                 if it is not None:
-                    sc._route(it)
+                    sc.route_wire(it)
                     it.update()
 
     def _refresh_switchboard_blocks(self) -> None:

@@ -1137,11 +1137,12 @@ AUTO_TEXT_TEMPLATES = ("od {}", "{} dál", "string {}", "DC rozvaděč u {}", "D
 class TextChange:
     """Změna textu navázaná na přejmenování: `kind` = "element" (atribut `key` prvku `target_id`), "sheet"
     (název listu `target_id`) nebo "wire_port" (port konce `key` = "a"/"b" vodiče `target_id` – konec vodiče JPS
-    na bloku ROZVADĚČ po přejmenování přívodu/vývodu, `feed_port_followups`)."""
+    na bloku ROZVADĚČ po přejmenování přívodu/vývodu, `feed_port_followups`). U „element“ znamená `old` None
+    chybějící klíč – undo ho odebere (odvozené atributy nové vazby přívodu, `SetAttrCommand`)."""
     kind: str
     target_id: str
     key: str
-    old: str
+    old: str | None
     new: str
 
 
@@ -1251,7 +1252,10 @@ def apply_text_changes(project: Project, changes: list[TextChange], undo: bool =
             except KeyError:
                 continue
         elif c.target_id in els:
-            els[c.target_id].attrs[c.key] = val
+            if val is None:
+                els[c.target_id].attrs.pop(c.key, None)
+            else:
+                els[c.target_id].attrs[c.key] = val
 
 
 def rename_structure(project: Project, aspect: str, old: str, new: str) -> int:
@@ -1744,8 +1748,11 @@ def _sync_feed_attrs(project: Project, s: Sheet, f: Element) -> tuple[bool, Wire
 def sync_feed_link_attrs(project: Project) -> int:
     """Jen odvozená část vazeb přívodů/vývodů na vodiče JPS: `wire_id`, odkud/kam a kabel přívodu podle portu
     bloku (X1 → port X1); ruční vazba (`wire_id` na jiný existující vodič) má přednost, když na portu žádný vodič
-    není. Idempotentní, primární data (žíly, porty vodičů) nemění – GUI ji smí volat po každé změně modelu mimo
-    undo. Vrací počet změněných přívodů/vývodů."""
+    není. Idempotentní, primární data (žíly, porty vodičů) nemění – GUI ji volá po každé změně modelu mimo undo.
+    Doplňuje jen vazbu podle portu (vodič vložený na port bloku, přejmenovaný port); její zápisy undo nevrací –
+    po undo zůstanou místo chybějících klíčů prázdné hodnoty, které porovnání revizí nevidí. Ruční vazbu
+    (`wire_id` z dialogu / panelu) i s odkud/kam a kabelem zapisuje příkaz (`SetAttrCommand`), takže ji undo vrátí
+    celou; ruční vazbu (bez vodiče na portu) tato funkce nepřepisuje. Vrací počet změněných přívodů/vývodů."""
     return sum(_sync_feed_attrs(project, s, f)[0] for s, f in _feeds(project))
 
 

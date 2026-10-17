@@ -57,17 +57,61 @@ class _FeedFollowups:
             apply_conductor_changes(project, ch)
             self._conds += ch
 
+    def _feed_link_followups(self, project, sheet, feed, attrs: bool = False) -> None:
+        """Přívod/vývod `feed` listu rozvaděče s vazbou na vodič JPS: konec vodiče na bloku se přejmenuje podle
+        označení přívodu (`feed_port_followups`) a vodiče u přívodu převezmou jeho žíly (`feed_conductor_changes`).
+        S `attrs` navíc odvozené atributy vazby (odkud/kam, kabel – `feed_link_attrs`) jako navázaná změna, aby je
+        undo vrátilo (chybějící klíč = `old` None, undo ho zase odebere)."""
+        from envocad.model.project import (
+            FEED_SYMBOLS,
+            TextChange,
+            apply_conductor_changes,
+            apply_text_changes,
+            effective_feed_wire,
+            feed_conductor_changes,
+            feed_link_attrs,
+            feed_port_followups,
+        )
+        if feed.symbol_id not in FEED_SYMBOLS or not sheet.is_switchboard:
+            return
+        ports = feed_port_followups(project, sheet, feed, feed.ref)
+        if attrs:
+            for k, v in feed_link_attrs(project, sheet, feed, feed.attrs.get("wire_id", "")).items():
+                cur = feed.attrs.get(k)
+                if k != "wire_id" and cur != v and not (cur is None and v == ""):
+                    ports.append(TextChange("element", feed.id, k, cur, v))
+        apply_text_changes(project, ports)
+        self._ports += ports
+        w = effective_feed_wire(project, sheet, feed)
+        if w is not None:
+            ch = feed_conductor_changes(sheet, feed, w)
+            apply_conductor_changes(project, ch)
+            self._conds += ch
 
-class AddElementCommand(QUndoCommand):
+    def _feed_elements(self, project, elements) -> None:
+        """Vložené přívody/vývody s ruční vazbou (`wire_id`) na listu rozvaděče – follow-upy jako u `SetAttrCommand`
+        (port vodiče JPS na bloku, žíly vodičů u přívodu)."""
+        sheet = self.scene.sheet
+        for e in elements:
+            if e.attrs.get("wire_id"):
+                self._feed_link_followups(project, sheet, e)
+
+
+class AddElementCommand(_FeedFollowups, QUndoCommand):
+    """Vložení prvku; přívod/vývod s vazbou na vodič JPS (`wire_id` z dialogu) na listu rozvaděče přejmenuje konec
+    vodiče na bloku a předá žíly (follow-upy `_feed_elements`, undo je vrátí)."""
+
     def __init__(self, scene, element: Element):
         super().__init__(f"Vložit {element.ref or element.symbol_id}")
         self.scene, self.element = scene, element
 
     def redo(self):
         self.scene.sheet.elements.append(self.element)
+        self._followups_redo(lambda p: self._feed_elements(p, [self.element]))
         self.scene.add_element_item(self.element)
 
     def undo(self):
+        self._followups_undo()
         self.scene.sheet.remove_element(self.element.id)
         self.scene.remove_element_item(self.element.id)
 
@@ -156,7 +200,7 @@ class SetWirePointsCommand(QUndoCommand):
             w.points = [tuple(p) for p in pair[idx]]
             it = self.scene.wire_items.get(wid)
             if it is not None:
-                self.scene._route(it)
+                self.scene.route_wire(it)
 
     def redo(self):
         self._apply(1)
@@ -255,42 +299,31 @@ class SetAttrCommand(_FeedFollowups, QUndoCommand):
             t.attrs.pop(self.key, None)
         else:
             t.attrs[self.key] = v
+
+    def _changed(self) -> None:
+        """Překreslení a signál `attrs_changed` až po navázaných změnách – panel vlastností a pohledy tak vidí
+        výsledný stav (i odkud/kam a kabel z vazby)."""
         (self.scene.wire_items if self.is_wire else self.scene.element_items)[self.tid].update()
+        if self._conds:
+            _refresh_wires(self.scene, [c.wire_id for c in self._conds])
         if hasattr(self.scene, "invalidate_text_layout"):
             self.scene.invalidate_text_layout()   # popisek (ref / aspekty) se přepočítá
         self.scene.attrs_changed.emit(self.tid)
 
     def _feed_link(self, project) -> None:
-        from envocad.model.project import (
-            FEED_SYMBOLS,
-            apply_conductor_changes,
-            apply_text_changes,
-            effective_feed_wire,
-            feed_conductor_changes,
-            feed_port_followups,
-        )
-        sheet = self.scene.sheet
-        feed = self._target()
-        if self.is_wire or self.key != "wire_id" or feed.symbol_id not in FEED_SYMBOLS or not sheet.is_switchboard:
+        if self.is_wire or self.key != "wire_id":
             return
-        self._ports = feed_port_followups(project, sheet, feed, feed.ref)
-        apply_text_changes(project, self._ports)
-        w = effective_feed_wire(project, sheet, feed)
-        if w is not None:
-            self._conds = feed_conductor_changes(sheet, feed, w)
-            apply_conductor_changes(project, self._conds)
+        self._feed_link_followups(project, self.scene.sheet, self._target(), attrs=True)
 
     def redo(self):
         self._set(self.new)
         self._followups_redo(self._feed_link)
-        if self._conds:
-            _refresh_wires(self.scene, [c.wire_id for c in self._conds])
+        self._changed()
 
     def undo(self):
         self._followups_undo()
         self._set(self.old, remove=not self.had_key)
-        if self._conds:
-            _refresh_wires(self.scene, [c.wire_id for c in self._conds])
+        self._changed()
 
 
 class SetComponentCommand(QUndoCommand):
@@ -415,7 +448,7 @@ class PasteCommand(_FeedFollowups, QUndoCommand):
             self.scene.add_element_item(e)
         for w in self.wires:
             self.scene.sheet.wires.append(w)
-        self._followups_redo(lambda p: self._wire_conductors(p, self.wires))
+        self._followups_redo(lambda p: (self._feed_elements(p, self.elements), self._wire_conductors(p, self.wires)))
         for w in self.wires:
             self.scene.add_wire_item(w)
         self.scene.clearSelection()
@@ -489,7 +522,7 @@ class MultipoleAddCommand(_FeedFollowups, QUndoCommand):
         s.wires.extend(self.wires)
         if self.paper:
             s.mp_paper = self.paper[1]
-        self._followups_redo(lambda p: self._wire_conductors(p, self.wires))
+        self._followups_redo(lambda p: (self._feed_elements(p, self.elements), self._wire_conductors(p, self.wires)))
         self.scene.rebuild()
         if getattr(self.scene, "after_edit", None):
             self.scene.after_edit()   # jednopólová editace téhož listu se přestaví

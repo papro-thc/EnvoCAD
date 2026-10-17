@@ -109,7 +109,7 @@ class SchematicScene(QGraphicsScene):
         it = WireItem(w)
         self.addItem(it)
         self.wire_items[w.id] = it
-        self._route(it)
+        self.route_wire(it)
         return it
 
     def remove_wire_item(self, wid: str) -> None:
@@ -117,7 +117,7 @@ class SchematicScene(QGraphicsScene):
         if it:
             self.removeItem(it)
 
-    def _route(self, it: WireItem) -> None:
+    def route_wire(self, it: WireItem) -> None:
         """Trasa z modelu (model/routing.py): ruční lomy, jinak Z-trasa s odstupem od ostatních vodičů."""
         from envocad.model.routing import _inner_segments, best_route, ends
         from envocad.ui.items import path_points
@@ -272,7 +272,7 @@ class SchematicScene(QGraphicsScene):
     def update_wires_of(self, eid: str) -> None:
         for it in self.wire_items.values():
             if it.wire.touches(eid):
-                self._route(it)
+                self.route_wire(it)
 
     _dragging = False
     _seg = None
@@ -378,7 +378,7 @@ class SchematicScene(QGraphicsScene):
             new = drag_segment(pts, idx, off) if off else None
             # model-write-ok: živý náhled tažení úseku, uzavře ho SetWirePointsCommand při puštění
             it.wire.points = new if new is not None else list(_old)
-            self._route(it)
+            self.route_wire(it)
             return
         super().mouseMoveEvent(ev)
 
@@ -599,6 +599,9 @@ class SchematicScene(QGraphicsScene):
         changed = [(k, v) for k, v in new.items() if old.get(k, "") != v]
         if not changed:
             return
+        # vazba přívodu (`wire_id`) před označením: přejmenování (`feed_port_followups`) pak přejmenuje port nově
+        # navázaného vodiče JPS; v opačném pořadí by port dostal dosavadní vodič a nová vazba by se ztratila
+        changed.sort(key=lambda kv: kv[0] != "wire_id")
         self.undo.beginMacro(label)
         for k, v in changed:
             self.set_attr(tid, is_wire, k, v)
