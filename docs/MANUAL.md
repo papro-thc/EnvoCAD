@@ -351,6 +351,11 @@ DC− černá – jdou přepsat), stínění, poznámku a artikl kabelu z knihov
 Výkazy **Kabely** (přehled), **Kabelový plán** (po žílách odkud–kam, i na svorky) a **Zapojovací seznam**
 (všechna propojení včetně vnitřku rozvaděčů s barvou a průřezem).
 
+Výkaz **Kabely a vodiče k objednání** (jen v xlsx, do PDF dokumentace nejde) sečte materiál pro nákup: kabely
+JPS podle typu a průřezu (počet a metry z délky kabelu, kabel přes svorky jen jednou), vnitřní vodiče rozvaděčů
+podle typu, průřezu a barvy (metry z výrobního zapojovacího seznamu – s rezervou na konce) a dutinky podle druhu.
+Sloupec „Bez délky“ ukáže, kolika položkám délka chybí – součet metrů je pak neúplný.
+
 ---
 
 ## 6. Kontrola projektu a výpočty
@@ -507,7 +512,7 @@ Výchozí hodnoty (kabely, zpracoval) bere průvodce z **firemního standardu** 
 | PDF listu (skutečný formát / zmenšený na A4) – z JPS, schématu (vícepólu) i plánu svorkovnice rozvaděče (strany A4); z rozložení celý pohled zmenšený na A3 (A4) | Soubor → Export PDF / Export PDF na A4 |
 | DXF listu – jen z jednopólového schématu a listu rozvaděče v editoru (z vícepólu, plánu svorkovnice a rozložení program upozorní, ať se použije PDF) | Soubor → Export DXF |
 | **Celá dokumentace do jednoho PDF**: titulní list, obsah, listy JPS, schéma + plán svorkovnice každého rozvaděče, výkazy, změnový list – strany schématu a plánu svorkovnice A4, ostatní A3 (smíšené formáty v jednom PDF, obsah i „n/N“ počítají skutečné strany) | Výstupy → Celá dokumentace (`Ctrl+Shift+E`) |
-| Výkazy xlsx (Data pro DS, Výpočty, Přístroje, Výkaz materiálu, Kabely, Kabelový plán, Zapojovací seznam, Svorkovnice, Plán svorkovnice, Štítky) | Výstupy → Výkazy listu / projektu |
+| Výkazy xlsx (Data pro DS, Výpočty, Přístroje, Výkaz materiálu, Kabely, Kabelový plán, Kabely a vodiče k objednání, Zapojovací seznam, Svorkovnice, Plán svorkovnice, Štítky) | Výstupy → Výkazy listu / projektu |
 | Protokol kusového ověření rozvaděče (docx) | Výstupy → Protokol kusového ověření |
 | Technická zpráva (docx) – kostra s tabulkami z modelu a výpočty | Výstupy → Technická zpráva |
 | Štítky pro tiskárnu (CSV, `;`, UTF-8 BOM) | Výstupy → Štítky pro tiskárnu |

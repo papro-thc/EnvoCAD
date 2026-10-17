@@ -101,7 +101,7 @@ Pokyny pro AI agenty: `CLAUDE.md`, `docs/AGENTS.md`.
 | Makra | `Ctrl+Alt+M` uloží výběr jako makro, uzel Makra v knihovně – dvojklik vloží |
 | Vazba na JPS | u přívodu/vývodu rozvaděče v dialogu „Vodič v JPS“ – přebere kabel a žíly, křížový odkaz u vodiče |
 | Kontrola / navigace | `F7` otevře panel Kontrola pod výkresem (filtr závažnosti, dvojklik na nález skočí do výkresu, po změnách se obnoví sám), `Ctrl+F` najít označení, dok Navigátor |
-| Kabely | `Ctrl+Shift+K` kabel vybraného vodiče: žíly, čísla, barvy, stínění, artikl; výkazy Kabelový plán a Zapojovací seznam |
+| Kabely | `Ctrl+Shift+K` kabel vybraného vodiče: žíly, čísla, barvy, stínění, artikl; výkazy Kabelový plán, Zapojovací seznam a Kabely a vodiče k objednání (metry podle typu, vodiče rozvaděče, dutinky) |
 | Dokumentace | `Ctrl+Shift+E` celá dokumentace do jednoho PDF (titulní list, obsah, listy, výkazy, změnový list) |
 | Ovládací obvody | značky Cívka / Kontakt NO / NC / silový (Relé a stykače); kontakt dostane označení cívky, pod cívkou se kreslí zrcadlo kontaktů |
 | Výpočty | `F7` ukáže i výpočty (stringy, Iz, In ≤ Iz, úbytky, selektivita); výkaz Výpočty; uložení kabelu v atributu „Uložení dle ČSN“ nebo v textu trasy (zem, vzduch, trubka, stěna) |

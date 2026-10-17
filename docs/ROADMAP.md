@@ -28,7 +28,7 @@
 - [ ] BMEcat/ETIM importér (volná data výrobců)
 - [ ] Footprinty z DXF výrobců (OEZ, Hager) a editor portů importovaných symbolů
 - [ ] Ceny v artiklech + výkaz s cenami
-- [ ] Výkaz materiálu (.xlsx) a seznam kabelů z modelu
+- [x] Výkaz materiálu (.xlsx) a seznam kabelů z modelu – Výkaz materiálu, Kabely, Kabelový plán; nově Kabely a vodiče k objednání (metry kabelů podle typu, vodiče rozvaděče, dutinky; 10/2026)
 - [ ] Hromadný import DXF knihoven výrobců (SMA, Huawei, SolarEdge, Eaton, Schneider, OEZ…)
 
 ## v0.2 – Rozvaděče  ← hotovo v základu
