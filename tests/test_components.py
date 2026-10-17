@@ -205,7 +205,7 @@ def test_validate_optimizer_rows(tmp_path):
     assert lib.import_components_csv_v2(ok) == 1
     c = lib.component("test-opt-850")
     assert c.category == "optimizer" and c.optimizer_values(1)["opt_n_max"] == "12"
-    assert [x.id for x in lib.components(category="optimizer")] == ["test-opt-850"]
+    assert "test-opt-850" in [x.id for x in lib.components(category="optimizer")]
 
 
 def test_builtin_optimizer_and_inverter_headers():

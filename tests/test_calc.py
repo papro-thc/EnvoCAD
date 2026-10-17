@@ -1,5 +1,7 @@
 """Výpočty z modelu (bez Qt)."""
 
+from dataclasses import replace
+
 from envocad.library.store import LibraryStore
 from envocad.model import calc
 from envocad.model.checks import WARNING, check_project
@@ -314,8 +316,6 @@ def test_limit_reasons_plural():
 
 
 # ---- optimizéry a režimy stringu (docs/design/optimizery.md) – fixture hodnoty, ne vestavěné CSV -----------------
-from dataclasses import replace  # noqa: E402
-
 MOD430 = calc.ModuleData(voc=49.5, vmp=41.5, isc=13.9, imp=13.2, beta_voc=-0.27, p_wp=430)   # Uoc(−10) 54,18 V
 SE_OPT = calc.OptimizerData(p_max=440, u_in_max=60, isc_in_max=14.5, u_mppt_min=8, u_out_max=60, name="S440",
                             manufacturer="SolarEdge", compat="SolarEdge", n_min=14, n_max=50, p_string_max=13500)
