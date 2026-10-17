@@ -8003,7 +8003,8 @@
        "i_mppt_max": "30",
        "p_dc_max": "37.5",
        "manufacturer": "SMA",
-       "un": "400"
+       "un": "400",
+       "isc_mppt_max": "37.5"
       },
       "component_id": "sma-stp-25-50"
      },

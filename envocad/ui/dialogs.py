@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -15,6 +16,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QTableWidget,
     QTableWidgetItem,
@@ -433,6 +435,15 @@ class CableDialog(QDialog):
         return d
 
 
+_MODULE_WORDS = ("modul", "moduly", "modulů")
+
+
+def _n_word(n: int, words: tuple[str, str, str]) -> str:
+    """„1 modul“, „3 moduly“, „5 modulů“."""
+    from envocad.model.notes import plural
+    return f"{n} {plural(n, *words)}"
+
+
 class ProjectWizard(QDialog):
     """Průvodce novým projektem FVE → specifikace pro `envocad.generate.build_project`."""
 
@@ -441,6 +452,7 @@ class ProjectWizard(QDialog):
         self.library = library
         self.setWindowTitle("Nový projekt FVE – průvodce")
         self.setMinimumWidth(560)
+
         try:
             from envocad.settings import load_settings
             std = load_settings()["standard"]
@@ -463,10 +475,20 @@ class ProjectWizard(QDialog):
         self.mod_voc = QLineEdit("49.5")
         self.mod_vmp = QLineEdit("41.5")
         self.mod_isc = QLineEdit("13.9")
+        self._mod_comp = None        # artikl z katalogu (Component) – id se uloží do spec, údaje navíc do asistenta
+        self._inv_comp = None
+        self.mod_imp = QLineEdit()
+        self.mod_beta = QLineEdit()
+        self.mod_imp.setToolTip("Nepovinné – Impp modulu (hlášení omezení výkonu při paralelních stringích)")
+        self.mod_beta.setToolTip("Nepovinné – teplotní součinitel Uoc [%/K], záporný; prázdné = −0,27 %/K")
+        self.mod_label = QLabel()
+        self.mod_label.setWordWrap(True)
         form.addRow("FV modul – typ", self.mod_type)
+        form.addRow("", self._catalog_row("Z katalogu…", self.pick_module, self.clear_module, self.mod_label))
         form.addRow("P modulu [Wp]", self.mod_p)
         form.addRow("Uoc / Umpp modulu [V]", self._pair(self.mod_voc, self.mod_vmp))
-        form.addRow("Isc modulu [A]", self.mod_isc)
+        form.addRow("Isc / Impp modulu [A]", self._pair(self.mod_isc, self.mod_imp))
+        form.addRow("β Uoc [%/K]", self.mod_beta)
         self.opt_type = QLineEdit("")
         self.opt_per = QLineEdit("1")
         self.opt_type.setToolTip("Prázdné = bez optimizérů")
@@ -479,11 +501,35 @@ class ProjectWizard(QDialog):
         self.inv_imax = QLineEdit("30")
         self.strings = QLineEdit("20,20,18,18; 20,20")
         self.strings.setToolTip("Stringy po střídačích: počty modulů oddělené čárkou, střídače středníkem")
+        self.inv_isc_mppt = QLineEdit()
+        self.inv_spm = QLineEdit()
+        self.inv_isc_mppt.setToolTip("Nepovinné – max. zkratový proud na MPPT [A]")
+        self.inv_spm.setToolTip("Nepovinné – počet stringů na jeden MPPT; prázdné = podle artiklu / 2")
+        self.inv_label = QLabel()
+        self.inv_label.setWordWrap(True)
         form.addRow("Střídač – typ", self.inv_type)
+        form.addRow("", self._catalog_row("Z katalogu…", self.pick_inverter, self.clear_inverter, self.inv_label))
         form.addRow("P AC střídače [kW]", self.inv_p)
         form.addRow("U DC max / MPPT min / MPPT max [V]", self._triple(self.inv_udc, self.inv_mppt, self.inv_mppt_max))
-        form.addRow("I max na MPPT [A]", self.inv_imax)
+        form.addRow("I max / Isc max na MPPT [A]", self._pair(self.inv_imax, self.inv_isc_mppt))
+        form.addRow("Stringů na MPPT", self.inv_spm)
+        self.t_min = QLineEdit(str(std.get("pv_t_min", -20)))
+        self.t_max = QLineEdit(str(std.get("pv_t_max", 70)))
+        self.t_min.setToolTip("Návrhová teplota pro Uoc (za studena) [°C]; výchozí z firemního standardu")
+        self.t_max.setToolTip("Návrhová teplota pro Umpp (za tepla) [°C]; výchozí z firemního standardu")
+        form.addRow("Návrhové teploty min / max [°C]", self._pair(self.t_min, self.t_max))
+        self.mod_total = QLineEdit()
+        self.mod_total.setToolTip("Nepovinné – celkový počet modulů FVE; pro návrh stringů a počtu střídačů")
+        form.addRow("Celkem modulů (nepovinné)", self.mod_total)
         form.addRow("Stringy (moduly; střídače ;)", self.strings)
+        self.assist = QLabel()
+        self.assist.setWordWrap(True)
+        self.assist.setTextFormat(Qt.RichText)
+        self.btn_propose = QPushButton("Navrhnout stringy")
+        self.btn_propose.setToolTip("Rozdělí „Celkem modulů“ (jinak součet zadaných stringů) do stringů v mezích střídače")
+        self.btn_propose.clicked.connect(self.propose_strings)
+        form.addRow("Asistent stringů", self.assist)
+        form.addRow("", self.btn_propose)
         self.dc_cable = QLineEdit(str(std.get("dc_cable") or "H1Z2Z2-K 1x6"))
         self.dc_cross = QLineEdit(str(std.get("dc_cross") or "6"))
         self.dc_len = QLineEdit("30")
@@ -515,11 +561,196 @@ class ProjectWizard(QDialog):
         form.addRow("Kabel do HDS / průřez / délka", self._triple(self.grid_cable, self.grid_cross, self.grid_len))
         self.dso = QLineEdit("")
         form.addRow("Distributor (DSO)", self.dso)
-        lay.addLayout(form)
+        body = QWidget()      # dlouhý formulář v posuvné oblasti, tlačítka OK / Zrušit zůstávají vidět
+        body.setLayout(form)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setWidget(body)
+        lay.addWidget(scroll, 1)
+        self.resize(920, 760)
         bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
+        for w in (self.mod_p, self.mod_voc, self.mod_vmp, self.mod_isc, self.mod_imp, self.mod_beta, self.inv_p,
+                  self.inv_udc, self.inv_mppt, self.inv_mppt_max, self.inv_imax, self.inv_isc_mppt, self.inv_spm,
+                  self.t_min, self.t_max, self.mod_total, self.strings):
+            w.textChanged.connect(self.update_assistant)
+        self.update_assistant()
+
+    # ---- katalog (docs/design/katalog_fv.md §4): pole se vyplní z artiklu, ruční úprava pole vyhrává --------------
+    def _catalog_row(self, text, pick, clear, label) -> QWidget:
+        w = QWidget()
+        h = QHBoxLayout(w)
+        h.setContentsMargins(0, 0, 0, 0)
+        btn = QPushButton(text)
+        btn.setEnabled(self.library is not None)
+        btn.clicked.connect(pick)
+        x = QPushButton("×")
+        x.setToolTip("Zrušit vazbu na artikl (pole zůstanou beze změny)")
+        x.setMaximumWidth(28)
+        x.clicked.connect(clear)
+        h.addWidget(btn)
+        h.addWidget(x)
+        h.addWidget(label, 1)
+        self._set_catalog_label(label, None)
+        return w
+
+    @staticmethod
+    def _set_catalog_label(label: QLabel, comp) -> None:
+        label.setText(f"Artikl: <b>{comp.label}</b>" if comp else "<i>Artikl nevybrán – údaje lze zadat ručně</i>")
+
+    def _pick(self, categories: tuple[str, ...], title: str):
+        from envocad.ui.component_picker import ComponentPicker
+        dlg = ComponentPicker(self.library, category=categories[0], categories=categories, parent=self, title=title)
+        return dlg.selected if dlg.exec() == ComponentPicker.Accepted else None
+
+    def pick_module(self) -> None:
+        comp = self._pick(("pv_module",), "Vybrat FV modul")
+        if comp:
+            self.set_module_component(comp)
+
+    def pick_inverter(self) -> None:
+        comp = self._pick(("inverter", "inverter_hybrid"), "Vybrat střídač")
+        if comp:
+            self.set_inverter_component(comp)
+
+    @staticmethod
+    def _fill(edit: QLineEdit, value) -> None:
+        if value not in (None, ""):
+            edit.setText(str(value).replace(",", "."))
+
+    def set_module_component(self, comp) -> None:
+        """Vyplní pole modulu z artiklu a zapamatuje si ho (`module.component_id` ve `spec()`)."""
+        a = comp.attr_values()
+        self._mod_comp = comp
+        for edit, key in ((self.mod_type, "type"), (self.mod_p, "p_module"), (self.mod_voc, "voc"),
+                          (self.mod_vmp, "vmp"), (self.mod_isc, "isc"), (self.mod_imp, "imp"),
+                          (self.mod_beta, "beta_voc")):
+            self._fill(edit, a.get(key))
+        self._set_catalog_label(self.mod_label, comp)
+        self.update_assistant()
+
+    def set_inverter_component(self, comp) -> None:
+        """Vyplní pole střídače z artiklu a zapamatuje si ho (`inverters[i].component_id` ve `spec()`)."""
+        a = comp.attr_values()
+        self._inv_comp = comp
+        for edit, key in ((self.inv_type, "type"), (self.inv_p, "p_ac"), (self.inv_udc, "u_dc_max"),
+                          (self.inv_mppt, "u_mppt_min"), (self.inv_mppt_max, "u_mppt_max"),
+                          (self.inv_imax, "i_mppt_max"), (self.inv_isc_mppt, "isc_mppt_max"),
+                          (self.inv_spm, "strings_per_mppt")):
+            self._fill(edit, a.get(key))
+        self._set_catalog_label(self.inv_label, comp)
+        self.update_assistant()
+
+    def clear_module(self) -> None:
+        self._mod_comp = None
+        self._set_catalog_label(self.mod_label, None)
+        self.update_assistant()
+
+    def clear_inverter(self) -> None:
+        self._inv_comp = None
+        self._set_catalog_label(self.inv_label, None)
+        self.update_assistant()
+
+    # ---- asistent stringů (výpočty jen v model/calc) ---------------------------------------------------------------
+    @staticmethod
+    def _num(edit: QLineEdit) -> float | None:
+        try:
+            return float(edit.text().strip().replace(",", "."))
+        except ValueError:
+            return None
+
+    def _calc_data(self):
+        """(ModuleData | None, InverterData, t_min, t_max) z polí a artiklů; neplatná pole se berou jako neznámá."""
+        from envocad.model.calc import T_MAX_DEFAULT, T_MIN_DEFAULT, InverterData, ModuleData
+        ma = dict(self._mod_comp.attr_values()) if self._mod_comp else {}
+        ia = dict(self._inv_comp.attr_values()) if self._inv_comp else {}
+        for a, pairs in ((ma, (("p_module", self.mod_p), ("voc", self.mod_voc), ("vmp", self.mod_vmp),
+                                ("isc", self.mod_isc), ("imp", self.mod_imp), ("beta_voc", self.mod_beta))),
+                         (ia, (("p_ac", self.inv_p), ("u_dc_max", self.inv_udc), ("u_mppt_min", self.inv_mppt),
+                               ("u_mppt_max", self.inv_mppt_max), ("i_mppt_max", self.inv_imax),
+                               ("isc_mppt_max", self.inv_isc_mppt), ("strings_per_mppt", self.inv_spm)))):
+            for key, edit in pairs:   # zadané pole má přednost před artiklem; prázdné/neplatné pole artikl nepřebije
+                v = self._num(edit)
+                if v is not None:
+                    a[key] = str(v)
+                elif edit.text().strip():
+                    a.pop(key, None)
+        t_min, t_max = self._num(self.t_min), self._num(self.t_max)
+        return (ModuleData.from_attrs(ma), InverterData.from_attrs(ia),
+                T_MIN_DEFAULT if t_min is None else t_min, T_MAX_DEFAULT if t_max is None else t_max)
+
+    def _string_groups(self) -> list[list[int]]:
+        from envocad.generate import parse_strings
+        try:
+            return parse_strings(self.strings.text())
+        except ValueError:
+            return []
+
+    def assistant_text(self) -> str:
+        """Text asistenta (HTML): rozsah modulů ve stringu, stav stringů, DC/AC a doporučený počet střídačů."""
+        from envocad.model.calc import string_issues, string_limits, suggest_inverter_count
+        mod, inv, t_min, t_max = self._calc_data()
+        if mod is None:
+            return "<i>Zadejte Uoc modulu – asistent pak spočítá rozsah stringu.</i>"
+        lim = string_limits(mod, inv, t_min, t_max)
+        hi = "?" if lim.n_max is None else str(lim.n_max)
+        lines = [f"<b>Modulů ve stringu: {lim.n_min}–{hi}</b>"
+                 + (f" ({'; '.join(lim.reasons)})" if lim.reasons else "")
+                 + f"<br>Stringů na MPPT ≤ {lim.n_par_max}"]
+        groups = self._string_groups()
+        for i, g in enumerate(groups):
+            n_par = max(1, min(lim.n_par_max or 1, -(-len(g) // inv.mppt) if inv.mppt else len(g)))
+            res: dict[tuple, int] = {}
+            for n in g:
+                issues = tuple(string_issues(mod, inv, n, n_par, t_min, t_max))
+                res[(n, issues)] = res.get((n, issues), 0) + 1
+            for (n, issues), cnt in res.items():
+                warn_only = bool(issues) and all("omezení výkonu" in x for x in issues)
+                color = "#2e7d32" if not issues else ("#b26a00" if warn_only else INVALID_COLOR)
+                state = "OK" if not issues else "; ".join(issues)
+                lines.append(f"T{i + 1}: {cnt}× {_n_word(n, _MODULE_WORDS)} – <span style='color:{color}'>{state}</span>")
+        total = self._num(self.mod_total)
+        n_mod = sum(sum(g) for g in groups)
+        n_all = int(total) if total else n_mod
+        if mod.p_wp and inv.p_ac and n_all:
+            p_dc = n_all * mod.p_wp / 1000
+            n_inv = max(len(groups), 1)
+            lines.append(f"DC/AC = {p_dc / (n_inv * inv.p_ac):.2f} ({p_dc:.1f} kWp / {n_inv * inv.p_ac:g} kW); "
+                         f"doporučeno {_n_word(suggest_inverter_count(p_dc, inv.p_ac), ('střídač', 'střídače', 'střídačů'))}")
+        if total and total > n_mod:
+            lines.append(f"Ve stringích zbývá umístit {_n_word(int(total) - n_mod, _MODULE_WORDS)}.")
+        return "<br>".join(lines)
+
+    def update_assistant(self) -> None:
+        self.assist.setText(self.assistant_text())
+
+    def propose_strings(self) -> None:
+        """Navrhne stringy (`calc.propose_strings`) pro „Celkem modulů“ (jinak součet zadaných) a vyplní pole."""
+        from envocad.model.calc import propose_strings, string_limits, suggest_inverter_count
+        mod, inv, t_min, t_max = self._calc_data()
+        groups = self._string_groups()
+        total = self._num(self.mod_total)
+        n_total = int(total) if total else sum(sum(g) for g in groups)
+        if mod is None or not n_total:
+            QMessageBox.information(self, "Navrhnout stringy", "Zadejte Uoc modulu a „Celkem modulů“ "
+                                    "(nebo aspoň jeden string), pak lze stringy navrhnout.")
+            return
+        n_inv = len(groups) or 1
+        if total and mod.p_wp and inv.p_ac:
+            n_inv = max(n_inv, suggest_inverter_count(n_total * mod.p_wp / 1000, inv.p_ac))
+        out, left = propose_strings(n_total, n_inv, string_limits(mod, inv, t_min, t_max), inv)
+        out = [g for g in out if g]
+        if not out:
+            QMessageBox.warning(self, "Navrhnout stringy", "Pro tento modul a střídač nelze stringy navrhnout – "
+                                "viz důvody v asistentu.")
+            return
+        self.strings.setText("; ".join(",".join(str(n) for n in g) for g in out))
+        if left:
+            QMessageBox.warning(self, "Navrhnout stringy", f"Nevešlo se {left} modulů (omezení střídače). "
+                                "Přidejte střídač nebo zvolte jiný.")
 
     @staticmethod
     def _pair(a, b) -> QWidget:
@@ -556,6 +787,15 @@ class ProjectWizard(QDialog):
         ("grid_len", "Délka kabelu do HDS [m]", {"strict": False, "allow_empty": True}),
     )
 
+    # nepovinná pole (prázdné = nezadáno); β a teploty smí být záporné
+    _OPTIONAL = (
+        ("mod_imp", "Impp modulu [A]", {}), ("mod_beta", "β Uoc [%/K]", {"minimum": -1.0}),
+        ("inv_isc_mppt", "Isc max na MPPT [A]", {}), ("inv_spm", "Stringů na MPPT", {"integer": True}),
+        ("t_min", "Návrhová teplota min [°C]", {"minimum": -60.0, "strict": False}),
+        ("t_max", "Návrhová teplota max [°C]", {"minimum": -60.0, "strict": False}),
+        ("mod_total", "Celkem modulů", {"integer": True}),
+    )
+
     def _values(self) -> tuple[dict, list[str]]:
         """Čísla a stringy z polí: ({pole: hodnota}, české chyby). Chybné pole v hodnotách chybí."""
         from envocad.generate import parse_number, parse_strings
@@ -566,6 +806,9 @@ class ProjectWizard(QDialog):
         except ValueError as ex:
             errs.append(str(ex))
         fields = list(self._NUMBERS)
+        for name, label, kw in self._OPTIONAL:
+            if getattr(self, name).text().strip():
+                fields.append((name, label, kw))
         if self.opt_type.text().strip():
             fields.append(("opt_per", "Optimizérů na modul", {}))
         for name, label, kw in fields:
@@ -573,6 +816,11 @@ class ProjectWizard(QDialog):
                 vals[name] = parse_number(getattr(self, name).text(), label, **kw)
             except ValueError as ex:
                 errs.append(str(ex))
+        if isinstance(vals.get("mod_beta"), (int, float)) and vals["mod_beta"] >= 0:
+            errs.append("β Uoc [%/K]: hodnota musí být záporná (typicky −0,27).")
+        if isinstance(vals.get("t_min"), (int, float)) and isinstance(vals.get("t_max"), (int, float)) \
+                and vals["t_min"] >= vals["t_max"]:
+            errs.append("Návrhová teplota min musí být menší než max.")
         return vals, errs
 
     def errors(self) -> list[str]:
@@ -595,12 +843,31 @@ class ProjectWizard(QDialog):
                       "u_dc_max": v["inv_udc"], "u_mppt_min": v["inv_mppt"],
                       "u_mppt_max": v["inv_mppt_max"], "i_mppt_max": v["inv_imax"],
                       "strings": st} for i, st in enumerate(v["strings"])]
+        for inv in inverters:   # nepovinné údaje a artikl střídače
+            if v.get("inv_isc_mppt") not in (None, ""):
+                inv["isc_mppt_max"] = v["inv_isc_mppt"]
+            if v.get("inv_spm") not in (None, ""):
+                inv["strings_per_mppt"] = v["inv_spm"]
+            if self._inv_comp is not None:
+                inv["component_id"] = self._inv_comp.id
+        module = {"type": self.mod_type.text().strip(), "p_wp": v["mod_p"], "voc": v["mod_voc"],
+                  "vmp": v["mod_vmp"], "isc": v["mod_isc"]}
+        if v.get("mod_imp") not in (None, ""):
+            module["imp"] = v["mod_imp"]
+        if v.get("mod_beta") not in (None, ""):
+            module["beta_voc"] = v["mod_beta"]
+        if self._mod_comp is not None:
+            module["component_id"] = self._mod_comp.id
+            u_sys = self._mod_comp.attr_values().get("u_sys_max")
+            if u_sys:
+                module["u_sys_max"] = float(u_sys.replace(",", "."))
+        site = {k: v[k] for k in ("t_min", "t_max") if v.get(k) not in (None, "")}
         return {
             "name": self.name.text().strip() or "Nový projekt FVE",
             "meta": {"investor": self.investor.text().strip(), "place": self.place.text().strip(),
                      "order": self.order.text().strip(), "author": self.author.text().strip()},
-            "module": {"type": self.mod_type.text().strip(), "p_wp": v["mod_p"], "voc": v["mod_voc"],
-                       "vmp": v["mod_vmp"], "isc": v["mod_isc"]},
+            "module": module,
+            "site": site,
             "optimizer": {"type": self.opt_type.text().strip(), "per_module": v.get("opt_per") or 1},
             "inverters": inverters,
             "dc": {"cable": self.dc_cable.text().strip(), "cross": v["dc_cross"], "length": v["dc_len"],

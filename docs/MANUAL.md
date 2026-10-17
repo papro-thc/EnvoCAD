@@ -395,6 +395,22 @@ je firemní číslování ENVO a kontrola ji nehlásí; pomlčka uvnitř označe
 
 `Ctrl+Shift+N` (Soubor → Nový projekt z průvodce): zadej projekt a investora, modul (typ, Wp, Uoc, Umpp, Isc),
 optimizéry (typ a kusy na modul – prázdné = bez optimizérů), střídač (typ, P AC, Umax, rozsah MPPT, Imax), stringy po střídačích (`20,20,18; 20,20`), kabely a jištění.
+
+**Modul a střídač z katalogu:** tlačítko **Z katalogu…** u modulu a střídače otevře výběr artiklu (tabulka s Voc, Isc,
+Imp, β, Usys resp. P AC, MPPT, okno MPPT, I/MPPT…, filtr „Výkon od–do“ a u střídačů „Fáze“). Vybraný artikl vyplní
+pole průvodce a uloží se k projektu (štítek „Artikl: …“); **ruční úprava pole má přednost** před artiklem, **×** vazbu
+na artikl zruší (pole zůstanou). Šedě kurzívou jsou neúplné nebo neověřené řádky (zdroj `web`/`seed`, chybí Voc/Isc
+resp. U DC max/okno MPPT) – důvod je v tooltipu; před použitím je zkontroluj podle datasheetu. Nepovinná pole: Impp,
+β Uoc, Isc max na MPPT, stringů na MPPT, návrhové teploty min/max (předvyplněné z firemního standardu, uloží se do
+projektu pro kontrolu `F7`) a „Celkem modulů“.
+
+**Asistent stringů** pod polem Stringy se přepočítá při každé změně a ukazuje: rozsah počtu modulů ve stringu
+(n min–n max) s důvody (Uoc za studena, Umppt, Umax systému modulu), nejvýš stringů na MPPT, stav každého zadaného
+stringu (OK, nebo hláška – „omezení výkonu“ je jen upozornění), poměr DC/AC a doporučený počet střídačů. Tlačítko
+**Navrhnout stringy** rozdělí „Celkem modulů“ (jinak součet zadaných stringů) do co nejméně vyrovnaných stringů
+v mezích střídače a vyplní pole Stringy. Chyby stringů v průvodci jen varují – projekt jde vygenerovat i tak; blokují
+jen chyby zadání (např. text místo čísla).
+
 Vygeneruje se JPS (stringy → DC rozvaděče → střídače → AC rozvaděč → síť) a listy všech rozvaděčů včetně
 kabelů a vazeb. Hned potom spusť `F7`.
 
