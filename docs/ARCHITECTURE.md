@@ -64,7 +64,11 @@ Zásada: **model nezávisí na UI.** Vše, co lze, se testuje bez spuštění Qt
 - **Přístroj a křížové odkazy** (`model/xref.py`) – přístroj = skupina prvků se stejným `ref` v jednom prostoru
   označení (`DeviceIndex.build(project)`, O(N), hostitel = cívka, jinak první prvek). Přes skupinu se počítají
   kontakty (`contacts`, zrcadlo pod hostitelem), stykač s cívkou a přerušovací body (dvojice, řetěz, hvězda).
-  Čistá data bez Qt; návrh v `docs/design/xref_zrcadleni_kontaktu.md`.
+  Čistá data bez Qt; návrh v `docs/design/xref_zrcadleni_kontaktu.md`. Vodič přes dvojici přerušovacích bodů:
+  `through_interrupt` vrátí skutečný konec za protějškem (jediný vodič na protějšku); úsek bez údajů kabelu je
+  pokračování (`is_continuation`) – výkazy (Odkud/Kam, zapojovací seznam), výpočet kabelů, vazba přívodu a potenciály
+  vidí jeden kabel. Generátor tak dělí velké JPS na listy (nad `standard.jps_max_paper` = A2): AC list první, listy
+  střídačů za ním, AC kabel přes pár přerušení „AC-T1“ s daty jen u bloku AC rozvaděče (`generate._split_jps`).
 - **Výrobní data rozvaděče** (`model/wiring.py`) – výrobní zapojovací seznam pro dílnu: každá žíla vnitřního vodiče
   listu rozvaděče s průřezem (`wire_cross`: atribut, nejmenší In přístrojů přes `IN_TO_CROSS`, řízení, minimum),
   barvou (`conductor_color`), typem, koncovkou (`end_for`, dutinky `FERRULE_DIN46228`, dvojitá při dvou žilách ve

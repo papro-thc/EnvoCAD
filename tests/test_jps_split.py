@@ -134,7 +134,7 @@ def test_ac_cable_once_data_on_switchboard_side(big):
 def test_reports_same_as_one_sheet(big, big_one_sheet, lib):
     """Seznam kabelů, kabelový plán, kusovník a výpočet kabelů jsou stejné jako u nerozděleného JPS (kabel se
     nezdvojí, „Odkud“ = T1:AC) – liší se jen sloupce List a odkaz na místo."""
-    head, rows = reports.cables(big, lib)
+    _head, rows = reports.cables(big, lib)
     refs = [r[0] for r in rows]
     assert len(refs) == len(set(refs)) == len(big.cables)
     w13 = next(r for r in rows if r[1] == "T1:AC")
@@ -240,7 +240,7 @@ def test_through_interrupt_pair():
 
 
 def test_through_interrupt_none_for_alone_chain_star_and_branching():
-    p, a, b, t, ia, ib, f, cont, main = _manual()
+    p, a, b, _t, ia, ib, _f, cont, _main = _manual()
     ia.attrs["ref"] = "Q"                                               # osamělý
     assert through_interrupt(p, b, ib) is None and through_interrupt(p, a, ia) is None
     ia.attrs["ref"] = "P"
@@ -258,7 +258,7 @@ def test_through_interrupt_none_for_alone_chain_star_and_branching():
 
 
 def test_manual_pair_reports_calc_potential_checks(lib):
-    p, a, b, t, ia, ib, f, cont, main = _manual()
+    p, _a, b, t, _ia, _ib, f, _cont, main = _manual()
     row = next(r for r in reports.cables(p, lib)[1] if r[0] == "W1")
     assert row[1] == "T1:AC" and row[2] == "F1:1"
     assert [r[0] for r in reports.cables(p, lib)[1]] == ["W1"]
@@ -303,3 +303,15 @@ def test_documentation_pdf_contains_all_jps_sheets_a2(lib, tmp_path):
     assert all(f"AC-T{k}" in texts[0] for k in (1, 2, 3)) and "RH" in texts[0]
     assert "AC-T1" in texts[1] and "AC-T2" in texts[1] and "AC-T3" not in texts[1]
     assert "AC-T3" in texts[2] and "AC-T1" not in texts[2]
+
+
+def test_dxf_export_each_jps_sheet(lib, tmp_path):
+    import ezdxf
+
+    from envocad.export.dxf_export import export_sheet_dxf
+    p = build_project(spec(3))
+    for k, s in enumerate(jps_sheets(p)):
+        out = tmp_path / f"jps{k}.dxf"
+        export_sheet_dxf(p, s, lib, out)
+        texts = " ".join(e.dxf.text for e in ezdxf.readfile(out).modelspace().query("TEXT"))
+        assert "AC-T" in texts, s.name
