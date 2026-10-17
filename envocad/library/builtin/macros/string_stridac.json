@@ -56,8 +56,8 @@
      "method": "E"
     },
     "conductors": [
-     "DC+",
-     "DC-"
+     "L+",
+     "L-"
     ],
     "terminals": {}
    }

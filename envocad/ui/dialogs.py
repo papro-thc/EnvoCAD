@@ -108,7 +108,7 @@ class AttrDialog(QDialog):
 
 
 CONDUCTOR_PRESETS = ["L1 L2 L3 N PE", "L1 L2 L3 PE", "L1 L2 L3 N", "L1 N PE", "L1 N", "L1", "N", "PE",
-                     "DC+ DC-", "DC+", "DC-", "PEN"]
+                     "L+ L-", "L+", "L-", "PEN"]
 
 
 def wire_auto_hints(project: Project, sheet: Sheet, w: Wire) -> dict[str, str]:
@@ -1068,7 +1068,7 @@ class EnclosurePanel(QWidget):
         root.addWidget(g2)
 
         from envocad.export.reports import wiring_base
-        from envocad.model.wiring import UNPLACED_LABELS, WIRING_PARAMS, WiringParams, parse_param
+        from envocad.model.wiring import CHOICE_LABELS, WIRING_PARAMS, WiringParams, parse_param
         eff = WiringParams.resolve(None, wiring_base())   # firemní standard, jinak výchozí hodnoty
         self._wiring_keys = {k for k, _l, _d in WIRING_PARAMS}
         # zaškrtnutá skupina = vlastní parametry rozvaděče; odškrtnutím se klíče wire_* z parametrů odeberou
@@ -1083,15 +1083,17 @@ class EnclosurePanel(QWidget):
         self._wiring_body = QWidget()
         f4 = QFormLayout(self._wiring_body)
         f4.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
-        self.unplaced = QComboBox()
+        self._choices: dict[str, QComboBox] = {}   # výběrové parametry (české popisky, ukládá se kód)
         for key, label, _default in WIRING_PARAMS:
-            if key == "wire_unplaced":   # výběr s českými popisky, ukládá se estimate / none
-                self.unplaced.addItem(f"výchozí ({eff.display(key)})", "")
-                for code, text in UNPLACED_LABELS.items():
-                    self.unplaced.addItem(text, code)
+            if key in CHOICE_LABELS:
+                combo = QComboBox()
+                combo.addItem(f"výchozí ({eff.display(key)})", "")
+                for code, text in CHOICE_LABELS[key].items():
+                    combo.addItem(text, code)
                 cur = parse_param(key, lay.params.get(key)) or ""
-                self.unplaced.setCurrentIndex(max(self.unplaced.findData(cur), 0))
-                f4.addRow(label, self.unplaced)
+                combo.setCurrentIndex(max(combo.findData(cur), 0))
+                f4.addRow(label, combo)
+                self._choices[key] = combo
                 continue
             ed = QLineEdit(lay.params.get(key, ""))
             ed.setPlaceholderText(eff.value(key))
@@ -1102,7 +1104,9 @@ class EnclosurePanel(QWidget):
         self._wiring_body.setVisible(self.wiring_group.isChecked())
         self.wiring_group.toggled.connect(self._wiring_body.setVisible)
         self.wiring_group.toggled.connect(lambda *_: self._apply("wiring"))
-        self.unplaced.currentIndexChanged.connect(lambda *_: self._apply("wire_unplaced"))
+        self.unplaced = self._choices["wire_unplaced"]
+        for key, combo in self._choices.items():
+            combo.currentIndexChanged.connect(lambda *_, key=key: self._apply(key))
         root.addWidget(self.wiring_group)
 
         # neplatná čísla (pole se zvýrazní, do modelu se nepropíší – platí předchozí hodnota)
@@ -1152,8 +1156,9 @@ class EnclosurePanel(QWidget):
                 if ed.text().strip() != text:
                     ed.setText(text)
             if own_wiring:
-                cur = parse_param("wire_unplaced", lay.params.get("wire_unplaced")) or ""
-                self.unplaced.setCurrentIndex(max(self.unplaced.findData(cur), 0))
+                for key, combo in self._choices.items():
+                    cur = parse_param(key, lay.params.get(key)) or ""
+                    combo.setCurrentIndex(max(combo.findData(cur), 0))
         finally:
             self._suspend = False
         self.refresh()
@@ -1282,8 +1287,9 @@ class EnclosurePanel(QWidget):
                  and (k in lay.params or defaults.get(k) != e.text().strip())}
         # neplatné číslo se do modelu nepropíše: zůstane předchozí hodnota (pole je zvýrazněné, viz `_mark_invalid`)
         edits.update({k: lay.params[k] for k in bad if k in lay.params})
-        if own_wiring and self.unplaced.currentData():
-            edits["wire_unplaced"] = self.unplaced.currentData()
+        for key, combo in self._choices.items():
+            if own_wiring and combo.currentData():
+                edits[key] = combo.currentData()
         # klíče, které panel nezná, zůstanou; wire_* spravuje skupina „Výrobní data“
         unknown = {k: v for k, v in lay.params.items() if k not in self._edits and k not in self._wiring_keys}
         lay.params = {**unknown, **edits}

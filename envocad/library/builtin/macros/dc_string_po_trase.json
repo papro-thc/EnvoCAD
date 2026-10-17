@@ -184,8 +184,8 @@
      "ref": ""
     },
     "conductors": [
-     "DC+",
-     "DC-"
+     "L+",
+     "L-"
     ],
     "terminals": {}
    },
@@ -204,8 +204,8 @@
      "ref": ""
     },
     "conductors": [
-     "DC+",
-     "DC-"
+     "L+",
+     "L-"
     ],
     "terminals": {}
    },
@@ -224,8 +224,8 @@
      "ref": ""
     },
     "conductors": [
-     "DC+",
-     "DC-"
+     "L+",
+     "L-"
     ],
     "terminals": {}
    },

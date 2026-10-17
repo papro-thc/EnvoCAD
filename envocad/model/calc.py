@@ -474,8 +474,9 @@ class CableCheck:
 
 
 def _wire_system(w: Wire) -> tuple[str, float]:
-    conds = set(w.conductors)
-    if conds & {"DC+", "DC-", "+", "-", "L+", "L-"}:
+    from envocad.model.project import conductor_name
+    conds = {conductor_name(c) for c in w.conductors}
+    if conds & {"+", "-", "L+", "L-"}:
         return "dc", 0.0
     if {"L1", "L2", "L3"} <= conds:
         return "3f", 400.0

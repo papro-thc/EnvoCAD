@@ -1,7 +1,7 @@
 {
  "default_1inv": {
   "format": "envocad-project",
-  "format_version": 10,
+  "format_version": 11,
   "name": "Nový projekt FVE",
   "meta": {
    "p_installed_kwp": "26.1"
@@ -202,8 +202,8 @@
        "cable_id": "#12"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -227,8 +227,8 @@
        "cable_id": "#14"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -261,8 +261,8 @@
        "cable_id": "#16"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -295,8 +295,8 @@
        "cable_id": "#18"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -320,8 +320,8 @@
        "cable_id": "#20"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -354,8 +354,8 @@
        "cable_id": "#22"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -388,8 +388,8 @@
        "cable_id": "#24"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -413,8 +413,8 @@
        "cable_id": "#26"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -447,8 +447,8 @@
        "cable_id": "#28"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -799,8 +799,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -819,8 +819,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -839,8 +839,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -891,8 +891,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -911,8 +911,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -931,8 +931,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -983,8 +983,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -1003,8 +1003,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -1023,8 +1023,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -1331,8 +1331,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -1351,8 +1351,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -1371,8 +1371,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -1423,8 +1423,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -1443,8 +1443,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -1463,8 +1463,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -1515,8 +1515,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -1535,8 +1535,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -1555,8 +1555,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -1905,12 +1905,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -1928,12 +1928,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -1951,12 +1951,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -1974,12 +1974,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -1997,12 +1997,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -2020,12 +2020,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -2043,12 +2043,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -2066,12 +2066,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -2089,12 +2089,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -2222,7 +2222,7 @@
  },
  "two_inv": {
   "format": "envocad-project",
-  "format_version": 10,
+  "format_version": 11,
   "name": "FVE Test",
   "meta": {
    "investor": "Test s.r.o.",
@@ -2513,8 +2513,8 @@
        "cable_id": "#17"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2538,8 +2538,8 @@
        "cable_id": "#19"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2572,8 +2572,8 @@
        "cable_id": "#21"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2606,8 +2606,8 @@
        "cable_id": "#23"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2631,8 +2631,8 @@
        "cable_id": "#25"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2665,8 +2665,8 @@
        "cable_id": "#27"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2699,8 +2699,8 @@
        "cable_id": "#29"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2724,8 +2724,8 @@
        "cable_id": "#31"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2758,8 +2758,8 @@
        "cable_id": "#33"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2820,8 +2820,8 @@
        "cable_id": "#37"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2845,8 +2845,8 @@
        "cable_id": "#39"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2879,8 +2879,8 @@
        "cable_id": "#41"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2913,8 +2913,8 @@
        "cable_id": "#43"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2938,8 +2938,8 @@
        "cable_id": "#45"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2972,8 +2972,8 @@
        "cable_id": "#47"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -3324,8 +3324,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -3344,8 +3344,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -3364,8 +3364,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -3416,8 +3416,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -3436,8 +3436,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -3456,8 +3456,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -3508,8 +3508,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -3528,8 +3528,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -3548,8 +3548,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -3856,8 +3856,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -3876,8 +3876,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -3896,8 +3896,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -3948,8 +3948,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -3968,8 +3968,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -3988,8 +3988,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -4040,8 +4040,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -4060,8 +4060,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -4080,8 +4080,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -4314,8 +4314,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -4334,8 +4334,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -4354,8 +4354,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -4406,8 +4406,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -4426,8 +4426,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -4446,8 +4446,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -4682,8 +4682,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -4702,8 +4702,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -4722,8 +4722,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -4774,8 +4774,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -4794,8 +4794,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -4814,8 +4814,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -5245,12 +5245,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5268,12 +5268,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5291,12 +5291,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5314,12 +5314,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5337,12 +5337,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5360,12 +5360,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5383,12 +5383,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5406,12 +5406,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5429,12 +5429,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5490,12 +5490,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5513,12 +5513,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5536,12 +5536,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5559,12 +5559,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5582,12 +5582,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5605,12 +5605,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5748,7 +5748,7 @@
  },
  "route2_terminals": {
   "format": "envocad-project",
-  "format_version": 10,
+  "format_version": 11,
   "name": "Nový projekt FVE",
   "meta": {
    "p_installed_kwp": "17.1"
@@ -5929,8 +5929,8 @@
        "cable_id": "#11"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -5954,8 +5954,8 @@
        "cable_id": "#13"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -5979,8 +5979,8 @@
        "cable_id": "#15"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6013,8 +6013,8 @@
        "cable_id": "#17"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6047,8 +6047,8 @@
        "cable_id": "#19"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6072,8 +6072,8 @@
        "cable_id": "#21"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6097,8 +6097,8 @@
        "cable_id": "#23"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6131,8 +6131,8 @@
        "cable_id": "#25"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6389,8 +6389,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6409,8 +6409,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6429,8 +6429,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6481,8 +6481,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6501,8 +6501,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6521,8 +6521,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6755,8 +6755,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6775,8 +6775,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6795,8 +6795,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6847,8 +6847,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6867,8 +6867,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6887,8 +6887,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -7123,8 +7123,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -7143,8 +7143,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -7163,8 +7163,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -7215,8 +7215,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -7235,8 +7235,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -7255,8 +7255,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -7668,12 +7668,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -7691,12 +7691,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -7714,12 +7714,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -7737,12 +7737,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -7760,12 +7760,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -7783,12 +7783,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -7806,12 +7806,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -7829,12 +7829,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -7949,7 +7949,7 @@
  },
  "with_component": {
   "format": "envocad-project",
-  "format_version": 10,
+  "format_version": 11,
   "name": "Nový projekt FVE",
   "meta": {
    "p_installed_kwp": "34.2"
@@ -8174,8 +8174,8 @@
        "cable_id": "#13"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8199,8 +8199,8 @@
        "cable_id": "#15"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8233,8 +8233,8 @@
        "cable_id": "#17"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8267,8 +8267,8 @@
        "cable_id": "#19"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8292,8 +8292,8 @@
        "cable_id": "#21"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8326,8 +8326,8 @@
        "cable_id": "#23"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8360,8 +8360,8 @@
        "cable_id": "#25"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8385,8 +8385,8 @@
        "cable_id": "#27"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8419,8 +8419,8 @@
        "cable_id": "#29"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8453,8 +8453,8 @@
        "cable_id": "#31"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8478,8 +8478,8 @@
        "cable_id": "#33"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8512,8 +8512,8 @@
        "cable_id": "#35"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8935,8 +8935,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8955,8 +8955,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8975,8 +8975,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9027,8 +9027,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9047,8 +9047,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9067,8 +9067,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9119,8 +9119,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9139,8 +9139,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9159,8 +9159,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9211,8 +9211,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9231,8 +9231,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9251,8 +9251,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9631,8 +9631,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9651,8 +9651,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9671,8 +9671,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9723,8 +9723,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9743,8 +9743,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9763,8 +9763,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9815,8 +9815,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9835,8 +9835,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9855,8 +9855,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9907,8 +9907,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9927,8 +9927,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9947,8 +9947,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -10297,12 +10297,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10320,12 +10320,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10343,12 +10343,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10366,12 +10366,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10389,12 +10389,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10412,12 +10412,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10435,12 +10435,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10458,12 +10458,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10481,12 +10481,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10504,12 +10504,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10527,12 +10527,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10550,12 +10550,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }

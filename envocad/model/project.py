@@ -43,7 +43,7 @@ SWITCHBOARD_WIRE_ATTRIBUTES = [
     Attribute("prod", "Do výrobního seznamu (0 = ne)"),
 ]
 
-FORMAT_VERSION = 10
+FORMAT_VERSION = 11
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 DEVICE_HEIGHT_MM = 45.0  # mm – výška modulového přístroje na liště (rozložení, délky vodičů)
@@ -224,8 +224,16 @@ class Element:
 
 # Barvy žil dle ČSN 33 0165 ed. 2 / HD 308 S2 (kabely CYKY, NYY…); DC podle zvyklosti FVE (červená +, černá −)
 CORE_COLORS = {"L1": "hnědá", "L2": "černá", "L3": "šedá", "L": "hnědá", "N": "modrá", "PE": "zelenožlutá",
-               "PEN": "zelenožlutá", "DC+": "červená", "DC-": "černá", "+": "červená", "-": "černá",
-               "L+": "červená", "L-": "černá"}
+               "PEN": "zelenožlutá", "+": "červená", "-": "černá", "L+": "červená", "L-": "černá", "M": "modrá"}
+# Označení žil dle ČSN EN 60445 (v11): stejnosměrné L+ / L− (kladný / záporný), střed M. Starší názvy z projektů
+# do v10, maker a ručního zadání se při načtení převedou (`conductor_name`).
+CONDUCTOR_ALIASES = {"DC+": "L+", "DC-": "L-", "DC−": "L-", "L−": "L-", "+DC": "L+", "-DC": "L-"}
+
+
+def conductor_name(c: str) -> str:
+    """Název žíly dle ČSN EN 60445: „DC+“ → „L+“, „DC−“/„DC-“ → „L-“; ostatní beze změny."""
+    c = str(c).strip()
+    return CONDUCTOR_ALIASES.get(c.upper(), c)
 
 
 @dataclass
@@ -273,7 +281,7 @@ class Cable:
     @classmethod
     def from_dict(cls, d: dict) -> Cable:
         return cls(ref=d.get("ref", ""), type=d.get("type", ""), cross=d.get("cross", ""),
-                   cores=[Core(c["name"], c.get("number", ""), c.get("color", "")) for c in d.get("cores", [])],
+                   cores=[Core(conductor_name(c["name"]), c.get("number", ""), c.get("color", "")) for c in d.get("cores", [])],
                    shield=bool(d.get("shield")), length=d.get("length", ""), route=d.get("route", ""),
                    note=d.get("note", ""), component_id=d.get("component_id"), id=d["id"])
 
@@ -317,8 +325,8 @@ class Wire:
         return cls(
             a=end("a"), b=end("b"),
             points=[_point(p, "points") for p in _list(d.get("points"), "points")], attrs=_str_attrs(d.get("attrs")),
-            conductors=[str(c) for c in _list(d.get("conductors"), "conductors")],
-            terminals={str(k): _str_attrs(v, "terminals") for k, v in _dict(d.get("terminals"), "terminals").items()},
+            conductors=[conductor_name(c) for c in _list(d.get("conductors"), "conductors")],
+            terminals={conductor_name(k): _str_attrs(v, "terminals") for k, v in _dict(d.get("terminals"), "terminals").items()},
             id=str(d["id"]),
         )
 
@@ -1136,7 +1144,7 @@ def migrate(d: dict, ver: int) -> dict:
                         end["port"] = m[end["port"]]
                 if not w.get("conductors") and any(
                         sym_of.get(end["element_id"]) in port_map for end in (w["a"], w["b"])):
-                    w["conductors"] = ["DC+", "DC-"]
+                    w["conductors"] = ["L+", "L-"]
     if ver < 7 and d.get("bridges"):
         # v7: můstky patří listu (svorkovnice X1 je v každém rozvaděči jiná) – přesun k listu, kde svorkovnice je
         sheets = d.get("sheets", [])
@@ -1169,6 +1177,15 @@ def migrate(d: dict, ver: int) -> dict:
         d.setdefault("notes", [])
     # v10: zrcadlení prvku (`Element.mirror`, jen když je True) a volné texty listu (`Sheet.texts`) – nepovinné,
     # bez migrace dat. Starší program v10 odmítne místo tichého zahození zrcadlení a textů při uložení.
+    if ver < 11:
+        # v11: žíly dle ČSN EN 60445 – DC+ / DC− → L+ / L− (vodiče, svorky žil a kabely převádí už `from_dict`
+        # přes `conductor_name`); tady atribut `conductors` prvků (svorky, póly ve vícepólu)
+        for s in d.get("sheets", []):
+            for e in s.get("elements", []):
+                attrs = e.get("attrs") or {}
+                if isinstance(attrs.get("conductors"), str) and attrs["conductors"]:
+                    toks = attrs["conductors"].replace(",", " ").replace(";", " ").split()
+                    attrs["conductors"] = " ".join(conductor_name(t) for t in toks)
     d["format_version"] = FORMAT_VERSION
     return d
 

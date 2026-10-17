@@ -348,7 +348,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
         """Úsek žíly na straně `page` (strana prvku, ze kterého vede – ne podle výšky bodu)."""
         pts = mp.conductor_route(pa, da, pb, db, stagger=idx * mp.GRID, jog=0.8)
         what = f"žílu {c}" + (f" vodiče {w.attrs['ref']}" if w.attrs.get("ref") else "")
-        owner = f"{w.id}#{c}"   # každá žíla zvlášť – popisek DC− přes žílu DC+ téhož vodiče je překryv
+        owner = f"{w.id}#{c}"   # každá žíla zvlášť – popisek L− přes žílu L+ téhož vodiče je překryv
         for a, b in pairwise(pts):
             line(a, b, owner, what, draw=False)
         prim("poly", tuple(pts), page, weight="wire")

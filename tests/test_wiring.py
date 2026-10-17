@@ -384,7 +384,7 @@ def test_switchboard_wire_attrs_roundtrip(tmp_path):
     path = tmp_path / "v.ecp"
     p.save(path)
     import json
-    assert json.loads(path.read_text(encoding="utf-8"))["format_version"] == FORMAT_VERSION == 10
+    assert json.loads(path.read_text(encoding="utf-8"))["format_version"] == FORMAT_VERSION == 11
     q = Project.load(path)
     s2 = q.sheets[-1]
     assert s2.wires[0].attrs == attrs and s2.wires[0].id == w.id
@@ -643,3 +643,57 @@ def test_spd_cross_left_to_designer(lib):
     assert pw.end_from == pw.end_to == "" and pw.ferrule_from is None
     fb = _el(s, "fve.fuse", "F0", in_=25)
     assert wire_cross(p, s, _w(s, fb, "2", spd, "L", ["L1"]), WiringParams()) == (4.0, "jištění")
+
+
+def test_wire_markers_modes_and_local_text():
+    """Návlečky dle ČSN EN 62491: adresné (výchozí), odkud/kam, číslo vodiče, bez; konce bez vlastního umístění."""
+    from envocad.model.project import Sheet
+    from envocad.model.wiring import (
+        CHOICE_LABELS,
+        ProductionWire,
+        WiringParams,
+        local_end_text,
+        parse_param,
+        wire_markers,
+    )
+    sh = Sheet(kind="switchboard", func="AC", loc="RDC1")
+    assert local_end_text(sh, "=AC+RDC1-F2:3") == "F2:3"
+    assert local_end_text(sh, "+RH-X1:2") == "+RH-X1:2"          # jiné umístění zůstane celé
+    assert local_end_text(Sheet(kind="switchboard"), "F2:3") == "F2:3"
+    pw = ProductionWire(7, "RDC1", "", "L1", "+RDC1-F2:3", "+RDC1-X1:1", 1.5, "", "hnědá", "H07V-K", 500,
+                        "", "", None, None, local_from="F2:3", local_to="X1:1")
+    assert wire_markers(pw) == ("X1:1", "F2:3")
+    pw.marking = "both"
+    assert wire_markers(pw) == ("F2:3 / X1:1", "X1:1 / F2:3")
+    pw.marking = "number"
+    assert wire_markers(pw) == ("7", "7")
+    pw.ref = "W12"
+    assert wire_markers(pw) == ("W12", "W12")
+    pw.marking = "none"
+    assert wire_markers(pw) == ("", "")
+    assert parse_param("wire_marking", "odkud / kam") == "both" and parse_param("wire_marking", "x") is None
+    assert WiringParams().marking == "address" and "wire_marking" in CHOICE_LABELS
+
+
+def test_marking_report_cable_tags_and_sleeves():
+    from envocad.export.reports import NOT_IN_DOC, marking, production_wiring_list
+    from envocad.model.project import Element, Project, Wire, WireEnd
+    lib = LibraryStore()
+    p = Project()
+    blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
+    g = Element("fve.pv_string", 0, 150, attrs={"ref": "G1"})
+    p.sheets[0].elements += [blk, g]
+    sb = p.create_switchboard_sheet(blk)
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
+    p.sheets[0].wires.append(Wire(WireEnd(g.id, "DC"), WireEnd(blk.id, "X1"), attrs={"ref": "W1", "cable": "H1Z2Z2-K"}))
+    _head, rows = marking(p, lib)
+    tags = [r for r in rows if r[0] == "Štítek kabelu"]
+    assert len(tags) == 2 and {r[1] for r in tags} == {"W1"}
+    assert {r[2] for r in tags} == {"→ +R1-X1", "→ G1:DC"} and "Značení vodičů a kabelů" in NOT_IN_DOC
+    sleeves = [r for r in rows if r[0] == "Návlečka"]
+    assert sleeves and not any(r[1].startswith("+R1") for r in sleeves)   # vlastní umístění se na návlečce neopakuje
+    ph, prow = production_wiring_list(p, lib, sb)
+    assert "Návlečka odkud" in ph and prow[0][ph.index("Návlečka odkud")]
+    sb.layout.params["wire_marking"] = "none"
+    ph, _ = production_wiring_list(p, lib, sb)
+    assert "Návlečka odkud" not in ph

@@ -99,8 +99,10 @@ podle písmene IEC 81346 a program hlídá duplicity.
 
 ### Vodiče
 `W` (nebo tlačítko Vodič) → klik na port prvního prvku → klik na port druhého → dialog: označení (W1…), typ
-kabelu, průřez, délka, trasa/uložení a **žíly** (např. `L1 L2 L3 N PE`, `DC+ DC-` – předvolby v rozbalovacím
-seznamu). Výchozí žíly se odvodí z portů a pólů (DC port → `DC+ DC-`, 3pólový prvek → `L1 L2 L3 N PE`).
+kabelu, průřez, délka, trasa/uložení a **žíly** (např. `L1 L2 L3 N PE`, `L+ L-` – předvolby v rozbalovacím
+seznamu). Žíly se značí podle **ČSN EN 60445**: střídavé L1, L2, L3, N, PE (PEN), stejnosměrné **L+ / L−** (střed M);
+napsané `DC+ DC-` se samo převede na `L+ L-`. Výchozí žíly se odvodí z portů a pólů (DC port → `L+ L-`,
+3pólový prvek → `L1 L2 L3 N PE`).
 
 V JPS je každá čára jednopólová – jedna čára = jeden kabel se všemi žílami. FV string má jeden port DC,
 střídač vstupy DC1…DCn (jeden na string) a AC.
@@ -297,7 +299,7 @@ listu než výchozí A3 zůstává ve formátu listu (A3), dokud v Vlastnostech 
 
 **Kreslit jde přímo ve schématu rozvaděče**: dvojklik na značku v knihovně → klik umístí prvek (průchozí přístroje
 se otočí svisle, `R` otočí, Esc / pravé tlačítko ukončí) a hned se otevřou jeho parametry; `W` (nebo Vodič) →
-klik na konec pólu jednoho prvku a na konec pólu druhého nakreslí žílu (převezme označení žíly L1/N/PE/DC+…
+klik na konec pólu jednoho prvku a na konec pólu druhého nakreslí žílu (převezme označení žíly L1/N/PE/L+…
 z pólu, na který klikneš). Makra z knihovny se vkládají taky. Totéž jde v záložce `R1 – jednopól (editace)`
 (`Ctrl+J`), obě záložky drží stejný model; `Ctrl+M` vrátí do schématu.
 
@@ -363,11 +365,25 @@ Pozor: hodnoty křivek k a c v tabulkách jsou orientační – pro průkaz ově
 
 Kabel je objekt: vzniká automaticky z vodiče JPS, který má označení nebo typ kabelu, a drží s ním krok
 (typ, průřez, délka, trasa se editují ve vodiči). `Úpravy → Kabel vybraného vodiče…` (`Ctrl+Shift+K`) otevře
-žíly s čísly a **barvami** (ČSN 33 0165: L1 hnědá, L2 černá, L3 šedá, N modrá, PE zelenožlutá, DC+ červená,
-DC− černá – jdou přepsat), stínění, poznámku a artikl kabelu z knihovny (CYKY, AYKY, H1Z2Z2-K…).
+žíly s čísly a **barvami** (ČSN 33 0165: L1 hnědá, L2 černá, L3 šedá, N modrá, PE zelenožlutá, L+ červená,
+L− černá – jdou přepsat), stínění, poznámku a artikl kabelu z knihovny (CYKY, AYKY, H1Z2Z2-K…).
 
 Výkazy **Kabely** (přehled), **Kabelový plán** (po žílách odkud–kam, i na svorky) a **Zapojovací seznam**
 (všechna propojení včetně vnitřku rozvaděčů s barvou a průřezem).
+
+**Značení vodičů a kabelů (ČSN EN 62491)** – výkaz **Značení vodičů a kabelů** (xlsx, pro tisk; do PDF dokumentace
+nejde), jeden řádek = jeden štítek:
+- **štítek kabelu** na obou koncích kabelu JPS: označení kabelu dle IEC 81346 (`W3`, se strukturou `=DC-W3`) a ve
+  druhém řádku adresa protějšího konce (`→ +RDC1-X1`);
+- **návlečka** na obou koncích každé žíly vnitřního vodiče rozvaděče. Druh značení je parametr výrobních dat
+  **Značení vodičů (návlečky)** – v panelu skříně rozvaděče (skupina Výrobní data) nebo pro celou firmu
+  v `settings.json` → `standard.wiring.wire_marking`: **adresné – protější konec** (výchozí; na konci u F2:3 je
+  „X1:1“, kam vodič vede), **odkud / kam** („F2:3 / X1:1“), **číslo vodiče** (označení vodiče, jinak pořadové
+  číslo – stejné na obou koncích) nebo **bez návleček**. Vlastní umístění rozvaděče se na návlečce neopakuje
+  (`F2:3`, ne `+RDC1-F2:3`), konec v jiném rozvaděči zůstane celý.
+
+Návlečky jsou i ve **Výrobním zapojovacím seznamu** (sloupce Návlečka odkud / kam) a ve Výrobních datech
+rozvaděče (xlsx) na listu **Návlečky**.
 
 Výkaz **Kabely a vodiče k objednání** (jen v xlsx, do PDF dokumentace nejde) sečte materiál pro nákup: kabely
 JPS podle typu a průřezu (počet a metry z délky kabelu, kabel přes svorky jen jednou), vnitřní vodiče rozvaděčů
@@ -388,8 +404,8 @@ stavovém řádku. Co kontrola hlásí:
 - varování: nezapojené porty/prvky, skupiny svorek bez čísel, rozvaděč bez listu, můstky na neexistující
   svorky, přerušovací bod nebo kontakt bez protějšku, úbytek napětí přes mez, uzel odbočky bez odbočky;
 - **potenciály**: program sleduje, co je vodivě spojené přes vodiče, uzly, svorky, můstky, PE lištu i přes
-  přívody/vývody rozvaděčů. Spojení L–N, L–PE, DC+–DC− nebo dvou fází v jedné síti je chyba. Panel Vlastnosti
-  ukazuje u vodiče potenciál každé žíly (`L1 X1`, `DC+ G1`, `N (W3)`), výkaz **Potenciály** vypíše všechny sítě;
+  přívody/vývody rozvaděčů. Spojení L–N, L–PE, L+–L− nebo dvou fází v jedné síti je chyba. Panel Vlastnosti
+  ukazuje u vodiče potenciál každé žíly (`L1 X1`, `L+ G1`, `N (W3)`), výkaz **Potenciály** vypíše všechny sítě;
 - informace: přívod bez vazby na JPS, prvek bez artiklu, vodič bez kabelu/žil, selektivita nejistá.
 
 Kontakty a přerušovací body:

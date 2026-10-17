@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from envocad.model.project import Element, Project, Sheet, Wire, WireEnd
 
 AC_CONDUCTORS = ["L1", "L2", "L3", "N", "PE"]
-DC_CONDUCTORS = ["DC+", "DC-"]
+DC_CONDUCTORS = ["L+", "L-"]   # ČSN EN 60445
 
 
 @dataclass

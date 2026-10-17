@@ -427,14 +427,16 @@ def production_wiring_list(project: Project, lib: LibraryStore, sheet: Sheet | N
     `model/wiring.py`; do PDF dokumentace nepatří (`NOT_IN_DOC`)."""
     from envocad.model.wiring import production_wires
     head = ["Č.", "Označení", "Žíla", "Odkud", "Kam", "Průřez [mm²]", "Barva", "Typ vodiče", "Délka [mm]",
-            "Koncovka odkud", "Koncovka kam", "Poznámka", "List"]
+            "Koncovka odkud", "Koncovka kam", "Návlečka odkud", "Návlečka kam", "Poznámka", "List"]
     rows = []
     for pw in production_wires(project, sheet, wiring_base() if base is None else base, lib):
         rows.append([pw.number, pw.ref, pw.conductor, pw.from_text, pw.to_text, _number(pw.cross), pw.color,
-                     pw.wire_type, _number(pw.length_mm), pw.end_from, pw.end_to, "; ".join(pw.notes), pw.sheet])
-    if not any(r[1] for r in rows):     # Označení prázdné všude → sloupec vynechat
-        head = [h for i, h in enumerate(head) if i != 1]
-        rows = [[x for i, x in enumerate(r) if i != 1] for r in rows]
+                     pw.wire_type, _number(pw.length_mm), pw.end_from, pw.end_to, pw.marker_from, pw.marker_to,
+                     "; ".join(pw.notes), pw.sheet])
+    drop = {i for i in (1, 11, 12) if not any(r[i] for r in rows)}   # prázdné všude (bez označení / bez návleček)
+    if drop:
+        head = [h for i, h in enumerate(head) if i not in drop]
+        rows = [[x for i, x in enumerate(r) if i not in drop] for r in rows]
     return head, rows
 
 
@@ -576,14 +578,49 @@ def cable_material(project: Project, lib: LibraryStore, sheet: Sheet | None = No
     return head, rows
 
 
+def _cable_tag(project: Project, s: Sheet, w) -> str:
+    """Označení kabelu na štítek: plné „=DC-W3“, bez aspektů „W3“."""
+    from envocad.model.designation import full_designation
+    t = full_designation(project, s, w) if w.attrs.get("ref") else ""
+    return t.removeprefix("-")
+
+
+@over_clean
+def marking(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
+    """Značení vodičů a kabelů pro tisk (ČSN EN 62491): štítek kabelu JPS na obou koncích (označení kabelu
+    a adresa protějšího konce) a návlečky vnitřních vodičů rozvaděčů na obou koncích podle druhu značení
+    (`wire_marking`: adresné / odkud-kam / číslo). Každý řádek = jeden štítek / návlečka."""
+    from envocad.model.wiring import production_wires
+    head = ["Druh", "Text", "Druhý řádek", "Umístění", "Vodič / kabel", "Žíla", "List"]
+    rows = []
+    for s in _sheets(project, sheet):
+        if s.is_switchboard:
+            continue
+        for w in s.wires:
+            tag = _cable_tag(project, s, w)
+            if not tag:
+                continue
+            a, b = s.element(w.a.element_id), s.element(w.b.element_id)
+            ea, eb = _port_text(project, s, a, w.a.port), _port_text(project, s, b, w.b.port)
+            rows.append(["Štítek kabelu", tag, f"→ {eb}", ea, tag, "", s.name])
+            rows.append(["Štítek kabelu", tag, f"→ {ea}", eb, tag, "", s.name])
+    for pw in production_wires(project, sheet, wiring_base(), lib):
+        name = pw.ref or str(pw.number)
+        if pw.marker_from:
+            rows.append(["Návlečka", pw.marker_from, "", pw.local_from or pw.from_text, name, pw.conductor, pw.sheet])
+        if pw.marker_to:
+            rows.append(["Návlečka", pw.marker_to, "", pw.local_to or pw.to_text, name, pw.conductor, pw.sheet])
+    return head, rows
+
+
 ALL_REPORTS = [("Data pro DS", dso_report), ("Výpočty", calculations), ("Přístroje", device_list), ("Výkaz materiálu", bom), ("Kabely", cables),
                ("Kabelový plán", cable_plan), ("Kabely a vodiče k objednání", cable_material),
                ("Zapojovací seznam", wiring_list),
-               ("Výrobní zapojovací seznam", production_wiring_list),
+               ("Výrobní zapojovací seznam", production_wiring_list), ("Značení vodičů a kabelů", marking),
                ("Svorkovnice", terminals), ("Plán svorkovnice", terminal_plan_report), ("Potenciály", potentials), ("Štítky", labels)]
 
 # výkazy, které nejsou součástí PDF dokumentace (výrobní podklad pro dílnu) – `doc_pdf.DocBuilder.plan` je přeskočí
-NOT_IN_DOC = {"Výrobní zapojovací seznam", "Kabely a vodiče k objednání"}
+NOT_IN_DOC = {"Výrobní zapojovací seznam", "Kabely a vodiče k objednání", "Značení vodičů a kabelů"}
 
 # doplňkové řádky podnadpisu výkazu v xlsx: název → fn(project, sheet) -> list[str]
 REPORT_SUBTITLES = {"Výrobní zapojovací seznam": production_subtitle}

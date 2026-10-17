@@ -50,6 +50,7 @@ WIRING_DEFAULTS: dict[str, str] = {
     "wire_cross_min": "1,5",
     "wire_cross_ctl": "1",
     "wire_unplaced": "estimate",
+    "wire_marking": "address",
 }
 
 _LABELS = {
@@ -61,6 +62,7 @@ _LABELS = {
     "wire_cross_min": "Min. / výchozí silový průřez [mm²]",
     "wire_cross_ctl": "Výchozí průřez řízení [mm²]",
     "wire_unplaced": "Neumístěné konce",
+    "wire_marking": "Značení vodičů (návlečky)",
 }
 
 # (klíč, popisek, výchozí) – pro EnclosurePanel (skupina „Výrobní data (zapojení)“) a list „Parametry“
@@ -70,11 +72,17 @@ WIRING_PARAMS: list[tuple[str, str, str]] = [(k, _LABELS[k], v) for k, v in WIRI
 _FIELDS = {
     "wire_type": "wire_type", "wire_end_mm": "end_mm", "wire_reserve_pct": "reserve_pct",
     "wire_round_mm": "round_mm", "wire_duct_side_mm": "duct_side_mm", "wire_cross_min": "cross_min",
-    "wire_cross_ctl": "cross_ctl", "wire_unplaced": "unplaced",
+    "wire_cross_ctl": "cross_ctl", "wire_unplaced": "unplaced", "wire_marking": "marking",
 }
 UNPLACED_MODES = ("estimate", "none")
 # uložená hodnota `wire_unplaced` → český popisek (GUI výběr, list „Parametry“, podnadpis)
 UNPLACED_LABELS: dict[str, str] = {"estimate": "odhad", "none": "bez délky"}
+# značení konců vodičů návlečkami dle ČSN EN 62491: adresné (na konci adresa protějšího konce), odkud/kam (vlastní
+# a protější), nezávislé (číslo vodiče na obou koncích), bez návleček
+MARKING_LABELS: dict[str, str] = {"address": "adresné – protější konec", "both": "odkud / kam",
+                                  "number": "číslo vodiče", "none": "bez návleček"}
+# výběrové parametry: klíč → {uložená hodnota: český popisek}
+CHOICE_LABELS: dict[str, dict[str, str]] = {"wire_unplaced": UNPLACED_LABELS, "wire_marking": MARKING_LABELS}
 
 
 def _parse_float(v) -> float | None:
@@ -96,10 +104,11 @@ def parse_param(key: str, v):
     """Hodnota parametru z textu; neplatná hodnota → None (použije se hodnota nižší priority)."""
     if key == "wire_type":
         return (str(v).strip() or None) if v is not None else None
-    if key == "wire_unplaced":
+    if key in CHOICE_LABELS:
+        labels = CHOICE_LABELS[key]
         t = str(v or "").strip().lower()
-        t = {lab: code for code, lab in UNPLACED_LABELS.items()}.get(t, t)   # i český popisek
-        return t if t in UNPLACED_MODES else None
+        t = {lab: code for code, lab in labels.items()}.get(t, t)   # i český popisek
+        return t if t in labels else None
     x = _parse_float(v)
     return x if x is not None and x >= 0 else None
 
@@ -116,6 +125,7 @@ class WiringParams:
     cross_min: float = 1.5
     cross_ctl: float = 1.0
     unplaced: str = "estimate"
+    marking: str = "address"
 
     @classmethod
     def resolve(cls, layout: Layout | None, base: dict | None = None) -> WiringParams:
@@ -135,7 +145,7 @@ class WiringParams:
     def display(self, key: str) -> str:
         """Hodnota parametru česky pro výstupy („odhad“ místo „estimate“)."""
         v = self.value(key)
-        return UNPLACED_LABELS.get(v, v) if key == "wire_unplaced" else v
+        return CHOICE_LABELS[key].get(v, v) if key in CHOICE_LABELS else v
 
     def describe(self) -> str:
         """Jednořádkový popis použitých parametrů (podnadpis výkazu)."""
@@ -143,6 +153,7 @@ class WiringParams:
         return (f"typ {self.wire_type}, přídavek na konec {_fmt(self.end_mm)} mm, rezerva {_fmt(self.reserve_pct)} %, "
                 f"zaokrouhlení nahoru na {_fmt(self.round_mm)} mm, svislý žlab {_fmt(self.duct_side_mm)} mm od lišty, "
                 f"min. průřez {_fmt(self.cross_min)} mm², řízení {_fmt(self.cross_ctl)} mm², neumístěné konce: {unpl}, "
+                f"značení vodičů: {MARKING_LABELS.get(self.marking, self.marking)}, "
                 f"výška přístroje {_fmt(DEVICE_HEIGHT_MM)} mm")
 
 
@@ -450,6 +461,11 @@ class ProductionWire:
     notes: list[str] = field(default_factory=list)
     wire_id: str = ""                                    # vodič konce „odkud“
     wire_ids: list[str] = field(default_factory=list)    # všechny vodiče řádku (sloučený úsek kolem přístroje)
+    marking: str = "address"                             # druh značení (`WiringParams.marking`)
+    marker_from: str = ""                                # text návlečky na konci „odkud“ (ČSN EN 62491)
+    marker_to: str = ""                                  # text návlečky na konci „kam“
+    local_from: str = ""                                 # konce bez vlastního umístění rozvaděče („F2:3“)
+    local_to: str = ""
 
 
 def end_text(project: Project, sheet: Sheet, e: Element, terminal: str) -> str:
@@ -458,6 +474,32 @@ def end_text(project: Project, sheet: Sheet, e: Element, terminal: str) -> str:
         return f"{full_designation(project, sheet, e)}-{_terminal_number(terminal)}"
     a = designation(sheet, e).aspects if e.ref else ""
     return f"{a}-{terminal}" if a else terminal
+
+
+def local_end_text(sheet: Sheet, text: str) -> str:
+    """Konec uvnitř rozvaděče bez jeho vlastních aspektů: „=AC+RDC1-F2:3“ na listu =AC+RDC1 → „F2:3“; konec
+    v jiném umístění (+RH-X1:2) zůstane celý – návlečka musí říct, kam vodič vede."""
+    t = text
+    if sheet.func and t.startswith(f"={sheet.func}") and t[len(sheet.func) + 1:len(sheet.func) + 2] in ("+", "-"):
+        t = t[len(sheet.func) + 1:]
+    if sheet.loc and t.startswith(f"+{sheet.loc}-"):
+        t = t[len(sheet.loc) + 1:]
+    return t.removeprefix("-")
+
+
+def wire_markers(pw: ProductionWire) -> tuple[str, str]:
+    """Texty návleček (odkud, kam) podle druhu značení `pw.marking` (ČSN EN 62491): adresné = na každém konci
+    adresa protějšího konce, odkud/kam = „vlastní / protější“, číslo = označení vodiče (jinak pořadové číslo)
+    na obou koncích, bez návleček = prázdné."""
+    a, b = pw.local_from or pw.from_text, pw.local_to or pw.to_text
+    if pw.marking == "none":
+        return "", ""
+    if pw.marking == "number":
+        n = pw.ref or str(pw.number)
+        return n, n
+    if pw.marking == "both":
+        return f"{a} / {b}", f"{b} / {a}"
+    return b, a
 
 
 def end_name(e: Element) -> str:
@@ -763,12 +805,14 @@ def production_wires(project: Project, sheet: Sheet | None = None, base: dict | 
             ref = "/".join(dict.fromkeys(r for w in wires if (r := (w.attrs.get("ref") or "").strip())))
             pw = ProductionWire(0, s.name, ref, c, a.text, b.text, cross, source, conductor_color(wires[0], c),
                                 wire_type, length, ferr[0][0], ferr[1][0], ferr[0][1], ferr[1][1],
-                                list(dict.fromkeys(notes)), a.wire.id, list(dict.fromkeys(w.id for w in wires)))
+                                list(dict.fromkeys(notes)), a.wire.id, list(dict.fromkeys(w.id for w in wires)),
+                                params.marking, local_from=local_end_text(s, a.text), local_to=local_end_text(s, b.text))
             keyed.append(((natural_key(s.name), a.key, b.key, canon_key(c)), pw))
     keyed.sort(key=lambda kp: kp[0])
     out = [pw for _, pw in keyed]
     for i, pw in enumerate(out, start=1):
         pw.number = i
+        pw.marker_from, pw.marker_to = wire_markers(pw)
     return out
 
 

@@ -67,8 +67,8 @@ def test_v4_dc_ports_and_conductors():
     w1, w2 = p.sheets[0].wires
     assert (w1.a.port, w1.b.port) == ("DC", "DC1")
     assert (w2.a.port, w2.b.port) == ("DC", "DC2")
-    assert w1.conductors == ["DC+", "DC-"]
-    assert w2.conductors == ["DC-"]          # ručně zadané žíly migrace nepřepíše
+    assert w1.conductors == ["L+", "L-"]
+    assert w2.conductors == ["L-"]           # ručně zadané žíly migrace nepřepíše (jen název dle ČSN EN 60445)
     _ports_ok(p, LibraryStore())
     _roundtrip_stable(p)
 
@@ -189,7 +189,7 @@ def test_v7_revisions_from_meta_skips_header_and_free_text():
 
 def test_example_migrates_to_current():
     p = Project.load(EXAMPLE)
-    assert FORMAT_VERSION == 10
+    assert FORMAT_VERSION == 11
     assert all(s.func == "" and s.loc == "" for s in p.sheets)
     assert p.structures == [] and p.revisions == [] and p.notes == []
 
@@ -244,7 +244,7 @@ def test_v9_to_v10_mirror_and_texts():
     p.sheets[0].elements[0].mirror = True
     p.sheets[0].texts.append(SheetText(10, 20, "Řádek 1\nŘádek 2", 3.5))
     d = json.loads(json.dumps(p.to_dict()))
-    assert d["format_version"] == 10 and d["sheets"][0]["elements"][0]["mirror"] is True
+    assert d["format_version"] == FORMAT_VERSION and d["sheets"][0]["elements"][0]["mirror"] is True
     q = Project.from_dict(d)
     assert q.sheets[0].elements[0].mirror and q.sheets[0].texts[0].lines() == ["Řádek 1", "Řádek 2"]
     _roundtrip_stable(q)
@@ -260,3 +260,21 @@ def test_v9_to_v10_mirror_and_texts():
     bad["sheets"][0]["texts"][0]["height"] = 0
     with pytest.raises(ValueError, match="height"):
         Project.from_dict(bad)
+
+
+def test_v10_to_v11_conductor_names_en60445():
+    """v11: žíly DC+ / DC− → L+ / L− (ČSN EN 60445) ve vodičích, svorkách žil, kabelech i atributu `conductors`."""
+    from envocad.model.project import conductor_name
+    sh = _sheet("s1", [_el("g", "fve.pv_string", "G1"), _el("t", "fve.inverter", "T1"),
+                       {"id": "x", "symbol_id": "sb.terminal_block", "x": 0, "y": 0,
+                        "attrs": {"ref": "X1", "conductors": "DC+, DC-"}}])
+    sh["wires"] = [{"id": "w1", "a": {"element_id": "g", "port": "DC"}, "b": {"element_id": "t", "port": "DC1"},
+                    "conductors": ["DC+", "DC−"], "terminals": {"DC+": {"a": "X1:1"}}, "attrs": {"ref": "W1"}}]
+    d = _v(10, [sh], cables=[{"id": "k", "ref": "W1", "cores": [{"name": "DC+"}, {"name": "DC-", "color": "černá"}]}])
+    p = Project.from_dict(d)
+    s = p.sheets[0]
+    assert s.wires[0].conductors == ["L+", "L-"] and s.wires[0].terminals == {"L+": {"a": "X1:1"}}
+    assert [c.name for c in p.cables[0].cores] == ["L+", "L-"]
+    assert s.element("x").attrs["conductors"] == "L+ L-"
+    assert p.to_dict()["format_version"] == 11
+    assert conductor_name("dc-") == "L-" and conductor_name("PE") == "PE"

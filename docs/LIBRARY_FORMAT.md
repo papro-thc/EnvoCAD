@@ -20,7 +20,7 @@ a při startu se nahrají do SQLite (`~/.envocad/library.db`), kde přibývají 
     {"type": "text",    "x": 0, "y": 12, "text": "DC", "height": 2.5, "align": "center"}
   ],
   "ports": [
-    {"name": "DC1", "x": -10, "y": 5,  "dir": "W"},   // v JPS je čára vždy jednopólová; pár DC+/DC- jsou žíly vodiče
+    {"name": "DC1", "x": -10, "y": 5,  "dir": "W"},   // v JPS je čára vždy jednopólová; pár L+/L- jsou žíly vodiče (ČSN EN 60445)
     {"name": "DC2", "x": -10, "y": -5, "dir": "W"},
     {"name": "AC",  "x": 10,  "y": 0,  "dir": "E"}
   ],

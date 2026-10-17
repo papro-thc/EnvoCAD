@@ -21,7 +21,7 @@ MIN_BAR_GAP = 22.0      # nejmenší mezera k PE liště při zhuštění na str
 SOURCE_SYMBOLS = {"sb.feed_in", "fve.pv_string", "fve.battery"}  # zdroje toku (síť je konec)
 
 # Kanonické pořadí žil (shora dolů / zleva doprava)
-CANON = ["L1", "L2", "L3", "N", "PE", "PEN", "DC+", "DC-", "+", "-", "L+", "L-"]
+CANON = ["L1", "L2", "L3", "N", "PE", "PEN", "L+", "L-", "M", "+", "-"]   # DC dle ČSN EN 60445: L+ / L− / M
 NEVER_SWITCHED = {"PE", "PEN"}
 TERMINAL_SYMBOLS = {"sb.feed_in", "sb.feed_out", "sb.terminal_block", "fve.terminal", "sb.pe_bar"}
 # řadové svorky: prvek v JPS = skupina svorek (jedna na žílu), čísla v atributu `terminal` ("1 2 3 4 5" nebo "1")
@@ -37,9 +37,10 @@ def canon_key(c: str) -> tuple[int, str]:
 
 
 def parse_conductors(text: str) -> list[str]:
-    """„L1 L2 L3 N PE“ / „L1,L2“ → seznam žil (bez duplicit, pořadí zachováno)."""
+    """„L1 L2 L3 N PE“ / „L1,L2“ → seznam žil (bez duplicit, pořadí zachováno); „DC+ DC-“ → „L+ L-“ (ČSN EN 60445)."""
+    from envocad.model.project import conductor_name
     out: list[str] = []
-    for tok in text.replace(",", " ").replace(";", " ").split():
+    for tok in (conductor_name(t) for t in text.replace(",", " ").replace(";", " ").split()):
         if tok not in out:
             out.append(tok)
     return out
@@ -58,10 +59,11 @@ def default_conductors(a: Element, pa: str, b: Element, pb: str) -> list[str]:
                 return cores
     for p in (pa, pb):
         up = p.upper()
-        if up in ("DC+", "DC-", "+", "-"):
-            return [p]
-        if up.startswith("DC") or up == "BAT":  # jednopólová DC čára = pár DC+ / DC-
-            return ["DC+", "DC-"]
+        if up in ("DC+", "DC-", "+", "-", "L+", "L-"):
+            from envocad.model.project import conductor_name
+            return [conductor_name(p)]
+        if up.startswith("DC") or up == "BAT":  # jednopólová DC čára = pár L+ / L− (ČSN EN 60445)
+            return ["L+", "L-"]
         if up == "PE":
             return ["PE"]
     poles = 1

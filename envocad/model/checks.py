@@ -562,7 +562,7 @@ def multipole_text_findings(project: Project, s: Sheet, lib) -> list[Finding]:
 
 
 def potential_findings(project: Project, lib) -> list[Finding]:
-    """Potenciály: nepřípustně spojené potenciály v jedné síti (L–N, L–PE, DC+–DC−, fáze), uzel odbočky bez odbočky."""
+    """Potenciály: nepřípustně spojené potenciály v jedné síti (L–N, L–PE, L+–L−, fáze), uzel odbočky bez odbočky."""
     from envocad.model.potential import JUNCTION, nets
     out: list[Finding] = []
     for net in nets(project, lib):
