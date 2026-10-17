@@ -93,11 +93,14 @@ class Symbol:
         return Symbol(id=self.id + "#pole", name=self.name, primitives=list(pole), ports=list(self.ports),
                       attributes=self.attributes, label_pos=self.label_pos)
 
-    def common_symbol(self) -> Symbol | None:
-        common = self.multipole.get("common")
+    def common_symbol(self, texts: bool = False) -> Symbol | None:
+        """Společná část vícepólové značky: tvary (`texts=False`, kreslí se u prvního pólu) nebo texty
+        (`texts=True`, např. „DC“ – kreslí se u posledního pólu, aby neležely přes další póly)."""
+        common = [p for p in self.multipole.get("common") or [] if (p.get("type") == "text") == texts]
         if not common:
             return None
-        return Symbol(id=self.id + "#common", name=self.name, primitives=list(common), ports=[])
+        return Symbol(id=self.id + ("#common_text" if texts else "#common"), name=self.name,
+                      primitives=common, ports=[])
 
     @property
     def pole_link(self) -> bool:

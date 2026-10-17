@@ -28,7 +28,7 @@ class PoleItem(QGraphicsItem):
     """Jeden pól prvku (opakovaný symbol) nebo celý neprůchozí prvek."""
     Type = QGraphicsItem.UserType + 11
 
-    def __init__(self, ep: mp.ElementPoles, conductor: str | None, first: bool):
+    def __init__(self, ep: mp.ElementPoles, conductor: str | None, first: bool, last: bool = True):
         super().__init__()
         self.ep, self.conductor, self.first = ep, conductor, first
         self.element: Element = ep.element
@@ -36,6 +36,8 @@ class PoleItem(QGraphicsItem):
         # průchozí prvek ve vícepólu: značka jednoho pólu (+ společná část u prvního pólu)
         self.symbol: Symbol = ep.symbol.pole_symbol() if conductor else ep.symbol
         self.common: Symbol | None = ep.symbol.common_symbol() if (conductor and first) else None
+        # texty společné části („DC“) u posledního pólu – u prvního by ležely přes další póly
+        self.common_text: Symbol | None = ep.symbol.common_symbol(texts=True) if (conductor and last) else None
         self._path = symbol_path(self.symbol)
         self.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsMovable)
         self.setZValue(10)
@@ -90,8 +92,9 @@ class PoleItem(QGraphicsItem):
         color = c.selection if self.isSelected() else c.ink
         pen = QPen(color, LINE_WIDTH, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
         paint_symbol(painter, self.symbol, pen)
-        if self.common is not None:
-            paint_symbol(painter, self.common, pen)
+        for common in (self.common, self.common_text):
+            if common is not None:
+                paint_symbol(painter, common, pen)
         painter.setPen(QPen(c.port, 0.2))
         painter.setBrush(Qt.NoBrush)
         for p in self.symbol.ports:
@@ -687,7 +690,7 @@ class MultipoleScene(QGraphicsScene):
                 continue   # sběrnice se kreslí jako čáry potenciálů až podle odboček (níže)
             if ep.per_pole:
                 for i, c in enumerate(ep.switched):
-                    self._add(PoleItem(ep, c, first=(i == 0)))
+                    self._add(PoleItem(ep, c, first=(i == 0), last=(i == len(ep.switched) - 1)))
                 if ep.symbol.pole_link and len(ep.switched) > 1:
                     self._add(PoleLinkItem(ep))
                 for c in ep.bypass:

@@ -31,6 +31,7 @@ Point = tuple[float, float]
 Seg = tuple[Point, Point]
 BUS = "sb.busbar"
 BUS_PITCH = 5.0       # rozteč čar potenciálů sběrnice (jako `multipole_view.BUS_PITCH`)
+LABEL_CLEAR = 2.5     # odstup popisku žíly od cizích čar (mm), bližší čára zhorší skóre polohy
 TAG_ROW = 3.2         # řádek štítku kabelu (`CableTagItem.ROW`)
 END_TEXT_OFFSET = {"E": (1.5, 0.8), "W": (-1.5, 0.8), "N": (0.8, 1.5), "S": (0.8, -3.0)}
 
@@ -291,8 +292,12 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
             for b in symbol_text_boxes(at, sym):
                 g.texts.append((b, e.id, f"text značky {name}"))
             prim("symbol", ((at.x, at.y),), ke, rot=e.rotation, layer="SYMBOLY", symbol_id=e.symbol_id, symbol=sym)
-            common = ep.symbol.common_symbol() if i == 0 and c is not None else None
-            if common is not None:
+            commons = []      # tvary společné části u prvního pólu, její texty („DC“) u posledního
+            if c is not None and i == 0:
+                commons.append(ep.symbol.common_symbol())
+            if c is not None and i == len(conds) - 1:
+                commons.append(ep.symbol.common_symbol(texts=True))
+            for common in filter(None, commons):
                 for a, b in symbol_segments(at, common):
                     line(a, b, e.id, f"značku {name}", draw=False)
                 prim("symbol", ((at.x, at.y),), ke, rot=e.rotation, layer="SYMBOLY", symbol_id=e.symbol_id,
@@ -709,10 +714,16 @@ def _place_conductor_labels(g: MultipoleGeometry, pending) -> None:
 
     def score(box: Box, owner: str) -> float:
         s = 0.0
-        for k in lgrid.near(box):
+        # okolí popisku: cizí čára těsně vedle (např. PE nad sběrnou čárou u žíly L+) svádí číst popisek k ní
+        near = (box[0] - LABEL_CLEAR, box[1] - LABEL_CLEAR, box[2] + LABEL_CLEAR, box[3] + LABEL_CLEAR)
+        for k in lgrid.near(near):
             a, b, lo, _w = g.lines[k]
-            if lo != owner and segment_hits_box(a, b, box):
+            if lo == owner:
+                continue
+            if segment_hits_box(a, b, box):
                 s += 3.0
+            elif segment_hits_box(a, b, near):
+                s += 1.0
         for i in tgrid.near(box):
             ob, oo, _w = g.texts[i]
             if oo != owner and boxes_overlap(box, ob):

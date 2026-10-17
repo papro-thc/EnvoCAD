@@ -7,7 +7,7 @@ a rozvaděče se skládají z maker, která si projektant vyladí sám.
 
 ![Jednopólové schéma vygenerované ze specifikace](docs/img/jps.png)
 
-![DC rozvaděč – schéma z makra](docs/img/rozvadec.png)
+![DC rozvaděč ve vícepólu – každý string L+ / L− přes dvoupólový odpínač, svodič přepětí L+ / L− + PE](docs/img/rozvadec.png)
 
 ## Stažení
 
