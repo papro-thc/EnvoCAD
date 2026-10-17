@@ -574,7 +574,9 @@ def test_multipole_pagination(app):
                                            "u_mppt_max": 1000, "i_mppt_max": 30, "strings": [20] * 12}], "dc": {"route_boxes": 0}}
     p = build_project(spec)
     sc = MultipoleScene(p, p.sheets[1], LibraryStore(), QUndoStack())
-    assert len(sc.pages) == 3 and set(sc.page_of.values()) == {0, 1, 2}
+    # list rozvaděče na A4 na šířku: 3 stringy na stranu → 12 stringů na 4 strany
+    assert sc.paper_size == (297.0, 210.0)
+    assert len(sc.pages) == 4 and set(sc.page_of.values()) == {0, 1, 2, 3}
     # prvky nepřesahují okraj své strany
     for e in p.sheets[1].elements:
         k = sc.page_of[e.id]

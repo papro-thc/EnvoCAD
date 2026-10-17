@@ -42,6 +42,21 @@ class _At:
 
 
 @dataclass
+class Rail:
+    """Sběrná čára jedné strany: žíly z více stran do jednoho pólu (PE stringů do XPE) se na každé straně spojí
+    do vodorovné čáry, která pokračuje přes strany s jedním přerušením a odkazem na každém okraji."""
+    page: int
+    y: float                                     # výška čáry (souřadnice pohledu, strany pod sebou)
+    x0: float
+    x1: float
+    owner: str                                   # „id pólu#rail…“ – vlastník čar a odkazů (kontrola překryvů)
+    conductor: str
+    stub: tuple[Point, Point] | None = None      # svislý úsek od sběrného pólu k čáře (jen na jeho straně)
+    dots: list[Point] = field(default_factory=list)                     # tečky odboček
+    breaks: list[tuple[float, float, bool, str]] = field(default_factory=list)   # (x, y, vpravo, odkaz)
+
+
+@dataclass
 class MultipoleGeometry:
     texts: list[tuple[Box, str, str]] = field(default_factory=list)            # obálka, vlastník, popis
     lines: list[tuple[Point, Point, str, str]] = field(default_factory=list)   # úsečka, vlastník, popis
@@ -51,88 +66,129 @@ class MultipoleGeometry:
     conductor_labels: dict[tuple[str, str, int], tuple[float, float, str, str]] = field(default_factory=dict)
     origins: dict[str, Point] = field(default_factory=dict)    # prvek → poloha (po stránkování a posunu)
     page_of: dict[str, int] = field(default_factory=dict)      # prvek → strana
+    layout_pos: dict[str, Point] = field(default_factory=dict)  # automatické rozmístění před stránkováním
+    page_size: tuple[float, float] = (420.0, 297.0)            # rozměr strany (A4 na šířku = 297 × 210)
+    paper: str = "A3"                                          # formát strany do popisového pole
+    col_gap: float = mp.COL_GAP                                # mezera mezi sloupci po zhuštění na stranu
+    # přerušení žíly na okraji strany: (id vodiče, žíla) → [(x, y, vpravo, odkaz) na straně zdroje, … na straně cíle]
+    page_breaks: dict[tuple[str, str], list[tuple[float, float, bool, str]]] = field(default_factory=dict)
+    # křížové odkazy na koncích čar sběrnice: id sběrnice → [(strana, x, y, text, zarovnání)]
+    bus_refs: dict[str, list[tuple[int, float, float, str, str]]] = field(default_factory=dict)
+    rails: list[Rail] = field(default_factory=list)              # sběrné čáry přes strany (PE stringů do XPE)
+    bus_desc: dict[str, tuple[float, float, str]] = field(default_factory=dict)   # popis sběrnice: (x, y, zarovnání)
+    # odbočka žíly ke sběrné čáře: (id vodiče, žíla) → (pól, směr portu, bod na čáře, směr u čáry, text svorky)
+    rail_taps: dict[tuple[str, str], tuple[Point, str, Point, str, str]] = field(default_factory=dict)
+
+    @property
+    def page_pitch(self) -> float:
+        return self.page_size[1] + mp.MP_PAGE_GAP
 
 
 TERMINAL_NUMBER = "číslo svorky"   # popis textu čísla svorky (kontrola překryvů ho bere bez tolerance)
 TB_PAD = 2.5          # odstup kresby od popisového pole a QR kódu
+BREAK_INSET = 4.0     # hrot šipky přerušení od vnitřního rámečku (odkaz je uvnitř rámečku před šipkou)
+BREAK_TEXT_DX = 3.5   # odkaz přerušení: vodorovně od hrotu šipky (za křidélky šipky, směrem do strany)
+REF_TEXT_DY = 0.7     # odkaz přerušení / sběrnice: základna nad čarou (text 1,8 mm se vejde mezi čáry po 2,5 mm)
+REF_TEXT_H = 1.8
+RAIL_BAR_SYMBOLS = {"sb.pe_bar"}   # lišta = jeden pól přes všechny svorky (sběrná čára z více stran)
+RAIL_OFFSET = 7.5     # sběrná čára za svislým portem sběrného pólu (nad svorkami vývodů, ne přes jejich čísla)
+BUS_REF_DY = -3.3     # odkaz sběrnice na sousední stranu: základna pod názvem potenciálu na konci čáry
+
+
+def break_text_pos(x: float, y: float, at_right: bool) -> tuple[float, float, str]:
+    """Poloha odkazu u přerušení žíly (hrot šipky v x, y): nad žílou, před šipkou směrem dovnitř strany."""
+    return (x - BREAK_TEXT_DX, y + REF_TEXT_DY, "right") if at_right else (x + BREAK_TEXT_DX, y + REF_TEXT_DY, "left")
+
+
+def title_height(title: list[str]) -> float:
+    """Výška nadpisu rozvaděče (první řádek 5 mm + podtržení, další po 3 mm)."""
+    return 9.0 + 4.2 * max(len(title) - 1, 0) if title else 0.0
+
+
+def _layout(sheet: Sheet, poles: dict[str, mp.ElementPoles], size: tuple[float, float], y_top: float,
+            col_gap: float, info: dict) -> tuple[dict[str, Point], dict[str, int], int]:
+    layout = mp.auto_layout(sheet, poles, x0=mp.layout_x0(sheet), y_top=y_top, bridges=sheet.bridges,
+                            page_w=mp.page_width(sheet, size), col_gap=col_gap, info=info)
+    for eid, ep in poles.items():
+        ep.origin = layout.get(eid, (ep.element.x, ep.element.y))
+    page_of, n_pages = mp.paginate(sheet, poles, size)
+    return layout, page_of, n_pages
 
 
 def multipole_geometry(project: Project, sheet: Sheet, lib) -> MultipoleGeometry:
     """Texty a čáry vícepólu listu rozvaděče (souřadnice pohledu, strany pod sebou).
 
-    Se zapnutým rámečkem se automaticky rozmístěné prvky strany, jejichž kresba by zasahovala do popisového pole
-    nebo QR kódu vedle něj, posunou nahoru (o násobek mřížky, nejvýš pod nadpis rozvaděče). Výsledné polohy
-    prvků jsou v `origins` – scéna (`ui/multipole_view.py`) je převezme, takže kreslí totéž."""
+    Strana má formát `multipole.paper_choice` (list rozvaděče výchozí A4 na šířku). Když kresba automaticky
+    rozmístěných prvků sahá pod horní hranu popisového pole (s rámečkem i bez něj – rozmístění na zapnutí rámečku
+    nezávisí), posune se nejdřív celé rozmístění nahoru (nejvýš pod nadpis rozvaděče) a pak se zmenší mezery mezi
+    sloupci (nejvýš na `multipole.MIN_COL_GAP`). Posun i mezery jsou stejné na všech stranách (sběrnice zůstane
+    ve stejné výšce). Výsledné polohy prvků jsou v `origins` – scéna (`ui/multipole_view.py`) je převezme, takže
+    kreslí totéž."""
+    from envocad.model.frame import MARGIN, TB_H
+    choice = mp.paper_choice(sheet)
+    size = mp.page_size(sheet, choice)
     poles: dict[str, mp.ElementPoles] = {}
     for e in sheet.elements:
         poles[e.id] = mp.element_poles(sheet, e, element_symbol(project, e, lib))
-    layout = mp.auto_layout(sheet, poles, x0=mp.MP_X0, y_top=sheet.height - mp.MP_Y_TOP, bridges=sheet.bridges,
-                            page_w=mp.page_width(sheet))
-    for eid, ep in poles.items():
-        ep.origin = layout.get(eid, (ep.element.x, ep.element.y))
-    page_of, n_pages = mp.paginate(sheet, poles)
-    g = _build(project, sheet, poles, page_of, n_pages)
-    shifts = _title_block_shifts(project, sheet, g, poles, page_of)
-    if shifts:
-        for eid, ep in poles.items():
-            dy = shifts.get(page_of.get(eid, 0), 0.0)
-            if dy and not ep.element.mp_pos:
-                ep.origin = (ep.origin[0], ep.origin[1] + dy)
-        g = _build(project, sheet, poles, page_of, n_pages)
+    title = switchboard_title(project, sheet)
+    top_limit = size[1] - MARGIN - 4.0 - title_height(title) - TB_PAD
+    bottom_limit = MARGIN + TB_H + TB_PAD
+    y_top, gap = size[1] - mp.MP_Y_TOP, mp.COL_GAP
+    for _attempt in range(4):
+        info: dict = {}
+        layout, page_of, n_pages = _layout(sheet, poles, size, y_top, gap, info)
+        g = _build(project, sheet, poles, page_of, n_pages, size)
+        if info.get("horizontal", True):
+            break
+        lo, hi = _auto_extent(g, poles, page_of, size[1])
+        deficit = bottom_limit - lo
+        if lo == float("inf") or deficit <= 0.01:
+            break
+        dy = max(0.0, min(deficit, top_limit - hi))
+        dy = (dy // mp.GRID) * mp.GRID
+        rest = deficit - dy
+        new_gap = gap
+        if rest > 0.01 and info.get("gaps"):
+            new_gap = max(mp.MIN_COL_GAP, gap - -(-rest / info["gaps"] // 0.5) * 0.5)   # po 0,5 mm
+        if dy <= 0 and new_gap >= gap:
+            break
+        y_top, gap = y_top + dy, new_gap
     g.origins = {eid: ep.origin for eid, ep in poles.items()}
     g.page_of = dict(page_of)
+    g.layout_pos = dict(layout)
+    g.paper = mp.page_paper_label(sheet, choice)
+    g.col_gap = gap
     return g
 
 
-def _title_block_shifts(project: Project, sheet: Sheet, g: MultipoleGeometry, poles, page_of) -> dict[int, float]:
-    """Posun nahoru (mm, na mřížce) pro každou stranu, na které kresba automaticky rozmístěných prvků zasahuje do
-    popisového pole s QR kódem. Jen se zapnutým rámečkem; nejvýš tolik, aby kresba nezasáhla nadpis rozvaděče."""
-    from envocad.model.frame import MARGIN, frame_enabled, title_block_box
-    if not frame_enabled():
-        return {}
-    tb = title_block_box(sheet.width, sheet.height)
-    tb = (tb[0] - TB_PAD, tb[1], tb[2], tb[3] + TB_PAD)
-    pitch = mp.page_pitch(sheet)
-    title = switchboard_title(project, sheet)
-    top_limit = sheet.height - MARGIN - 4.0 - (9.0 + 4.2 * max(len(title) - 1, 0) if title else 0.0) - TB_PAD
-    auto = {eid for eid, ep in poles.items() if not ep.element.mp_pos}
-    low: dict[int, float] = {}      # strana → nejnižší bod kresby v oblasti popisového pole (lokální y strany)
-    top: dict[int, float] = {}      # strana → nejvyšší bod kresby automatických prvků
+def _auto_extent(g: MultipoleGeometry, poles, page_of: dict[str, int], height: float) -> tuple[float, float]:
+    """Nejnižší a nejvyšší bod kresby automaticky rozmístěných prvků (souřadnice strany, přes všechny strany).
+    Sběrnice a sběrné čáry se nepočítají (kreslí se i na jiných stranách a leží uvnitř rozmístění)."""
+    pitch = height + mp.MP_PAGE_GAP
+    auto = {eid for eid, ep in poles.items() if not ep.element.mp_pos and ep.element.symbol_id != BUS}
+    lo, hi = float("inf"), float("-inf")
     for box, owner, _w in g.texts:
-        eid = owner.split("#")[0]
-        if eid not in auto:
-            continue
-        k = page_of.get(eid, 0)
-        x0, y0, x1, y1 = box[0], box[1] + k * pitch, box[2], box[3] + k * pitch
-        top[k] = max(top.get(k, y1), y1)
-        if x1 > tb[0] and x0 < tb[2] and y0 < tb[3]:
-            low[k] = min(low.get(k, y0), y0)
+        eid, _, part = owner.partition("#")
+        if eid in auto and not part.startswith("rail"):
+            k = page_of.get(eid, 0) * pitch
+            lo, hi = min(lo, box[1] + k), max(hi, box[3] + k)
     for a, b, owner, _w in g.lines:
-        eid = owner.split("#")[0]
-        if eid not in auto:
-            continue
-        k = page_of.get(eid, 0)
-        ys = (a[1] + k * pitch, b[1] + k * pitch)
-        top[k] = max(top.get(k, max(ys)), max(ys))
-        if max(a[0], b[0]) > tb[0] and min(a[0], b[0]) < tb[2] and min(ys) < tb[3]:
-            low[k] = min(low.get(k, min(ys)), min(ys))
-    out: dict[int, float] = {}
-    for k, y in low.items():
-        need = tb[3] - y
-        room = top_limit - top.get(k, top_limit)
-        dy = min(need, max(room, 0.0))
-        dy = -(-dy // mp.GRID) * mp.GRID if dy == need else (dy // mp.GRID) * mp.GRID
-        if dy > 0:
-            out[k] = dy
-    return out
+        eid, _, part = owner.partition("#")
+        if eid in auto and not part.startswith("rail"):
+            k = page_of.get(eid, 0) * pitch
+            lo, hi = min(lo, a[1] + k, b[1] + k), max(hi, a[1] + k, b[1] + k)
+    return lo, hi
 
 
 def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], page_of: dict[str, int],
-           n_pages: int) -> MultipoleGeometry:
-    from envocad.model.frame import MARGIN, MARGIN_LEFT
+           n_pages: int, size: tuple[float, float]) -> MultipoleGeometry:
+    from envocad.model.frame import MARGIN, MARGIN_LEFT, sheet_number
     g = MultipoleGeometry()
     g.pages = n_pages
-    pitch = mp.page_pitch(sheet)
+    g.page_size = size
+    W, H = size
+    pitch = H + mp.MP_PAGE_GAP
+    sheet_no = sheet_number(project, sheet).split("/")[0]
 
     def text(x: float, y: float, s: str, h: float, align: str, owner: str, what: str) -> None:
         if s:
@@ -211,6 +267,37 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
         k0 = page_of.get(ep.element.id, 0)
         return ep.origin[1] + k0 * pitch - ep.slot(c) * BUS_PITCH - page * pitch
 
+    rail_of = _rail_hubs(sheet, poles, page_of)
+    rail_span: dict[tuple[str, str, str], tuple[int, int]] = {}         # sběrný pól → rozsah stran čáry
+    wires_by_id = {w.id: w for w in sheet.wires}
+    for (wid, _c), (key, side) in rail_of.items():
+        w = wires_by_id[wid]
+        ks = page_of.get(w.a.element_id if side == "a" else w.b.element_id, 0)
+        k0, k1 = rail_span.get(key, (page_of.get(key[0], 0),) * 2)
+        rail_span[key] = (min(k0, ks), max(k1, ks))
+    rail_taps: dict[tuple[str, str, str], list[tuple[int, Point]]] = {}    # sběrný pól → [(strana, bod odbočky)]
+    rail_y: dict[tuple[str, str, str], float] = {}                        # sběrný pól → výška čáry (strana 0)
+    used_rails: list[tuple[int, int, float]] = []                        # (od strany, do strany, výška)
+
+    def rail_height(key: tuple[str, str, str], pages: tuple[int, int]) -> float:
+        """Výška sběrné čáry (souřadnice strany): u sběrného pólu se svislým portem 3 rozteče mřížky za ním
+        (nad svorkami vývodů, ne přes jejich čísla), u vodorovného v úrovni portu; jiná čára na týchž stranách
+        o rozteč přerušení dál."""
+        if key in rail_y:
+            return rail_y[key]
+        eid, port, c = key
+        ep = poles[eid]
+        d = rotate_dir(ep.symbol.port(port).dir, ep.element.rotation)
+        py = ep.pole_pos(port, c)[1]
+        k = page_of.get(eid, 0)
+        step = -mp.BREAK_PITCH if d == "S" else mp.BREAK_PITCH
+        y = py + k * pitch + {"N": RAIL_OFFSET, "S": -RAIL_OFFSET}.get(d, 0.0)
+        while any(a <= pages[1] and pages[0] <= b and abs(y - u) < mp.BREAK_PITCH - 1e-6 for a, b, u in used_rails):
+            y += step
+        used_rails.append((pages[0], pages[1], y))
+        rail_y[key] = y
+        return y
+
     for w in sheet.wires:
         ea, eb = poles.get(w.a.element_id), poles.get(w.b.element_id)
         if not ea or not eb:
@@ -240,12 +327,22 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
             pa, pb = ea.pole_pos(w.a.port, c), eb.pole_pos(w.b.port, c)
             ta = "" if mp.is_terminal_block(ea.element) else mp.terminal_text(w, c, "a")
             tb = "" if mp.is_terminal_block(eb.element) else mp.terminal_text(w, c, "b")
+            if (w.id, c) in rail_of:      # do sběrné čáry: odbočka svisle od pólu zdroje k čáře
+                key, side = rail_of[(w.id, c)]
+                ks, ps, ds, ts = (ka, pa, da, ta) if side == "a" else (kb, pb, db, tb)
+                y = rail_height(key, rail_span[key]) - ks * pitch
+                tap = (ps[0], y)
+                dtap = "S" if y > ps[1] else "N"
+                conductor(w, c, 0, ps, ds, tap, dtap, (ts, ""))
+                g.rail_taps[(w.id, c)] = (ps, ds, tap, dtap, ts)
+                rail_taps.setdefault(key, []).append((ks, tap))
+                continue
             if ka == kb:
                 conductor(w, c, i, pa, da, pb, db, (ta, tb), len(mp.wire_conductors(w)) > 1)
                 continue
             right = ka < kb
-            xa = (sheet.width - MARGIN - 6.0) if right else (MARGIN_LEFT + 6.0)
-            xb = (MARGIN_LEFT + 6.0) if right else (sheet.width - MARGIN - 6.0)
+            xa = (W - MARGIN - BREAK_INSET) if right else (MARGIN_LEFT + BREAK_INSET)
+            xb = (MARGIN_LEFT + BREAK_INSET) if right else (W - MARGIN - BREAK_INSET)
             na = breaks.setdefault((ka, right), 0)
             nb = breaks.setdefault((kb, not right), 0)
             breaks[(ka, right)] = na + 1
@@ -254,27 +351,72 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
             yb = mp.break_y(pb, db, nb, break_ys.setdefault((kb, not right), set()))
             conductor(w, c, i, pa, da, (xa, ya), "W" if right else "E", (ta, ""))
             conductor(w, c, i, (xb, yb), "E" if right else "W", pb, db, ("", tb), part=1)
-            text(xa + (1.5 if right else -1.5), ya + 1.0, "/0.0.A1", 1.8, "left" if right else "right", w.id,
-                 "odkaz přerušení")
-            text(xb + (1.5 if not right else -1.5), yb + 1.0, "/0.0.A1", 1.8, "left" if not right else "right", w.id,
-                 "odkaz přerušení")
+            ref_a = mp.page_ref(sheet_no, kb, xb, yb + kb * pitch, size)   # u zdroje: odkaz na pokračování
+            ref_b = mp.page_ref(sheet_no, ka, xa, ya + ka * pitch, size)   # u cíle: odkaz zpět
+            g.page_breaks[(w.id, c)] = [(xa, ya, right, ref_a), (xb, yb, not right, ref_b)]
+            for x, y, at_right, ref in g.page_breaks[(w.id, c)]:
+                tx, ty, align = break_text_pos(x, y, at_right)
+                text(tx, ty, ref, REF_TEXT_H, align, w.id, "odkaz přerušení")
 
-    # sběrnice potenciálů
-    x0, x1 = MARGIN_LEFT + 12.0, sheet.width - MARGIN - 14.0
+    # sběrné čáry přes strany: na každé straně od první do poslední odbočky, k okraji, kde pokračuje
+    xl, xr = MARGIN_LEFT + BREAK_INSET, W - MARGIN - BREAK_INSET
+    for key, taps in rail_taps.items():
+        eid, port, c = key
+        ep = poles[eid]
+        kh = page_of.get(eid, 0)
+        ph = ep.pole_pos(port, c)
+        y_loc = rail_y[key]
+        owner = f"{eid}#rail{port}{c}"
+        pages = [kh] + [k for k, _pt in taps]
+        k0, k1 = min(pages), max(pages)
+        for k in range(k0, k1 + 1):
+            y = y_loc - k * pitch
+            xs = [pt[0] for kk, pt in taps if kk == k] + ([ph[0]] if k == kh else [])
+            left = xl if k > k0 else min(xs)
+            right = xr if k < k1 else max(xs)
+            r = Rail(k, y, left, right, owner, c)
+            if k == kh and abs(ph[1] - y) > 1e-6:
+                r.stub = (ph, (ph[0], y))
+            r.dots = [(x, y) for x in xs if left + 1e-6 < x < right - 1e-6]
+            if k > k0:
+                r.breaks.append((left, y, False, mp.page_ref(sheet_no, k - 1, xr, y_loc, size)))
+            if k < k1:
+                r.breaks.append((right, y, True, mp.page_ref(sheet_no, k + 1, xl, y_loc, size)))
+            g.rails.append(r)
+            line((left, y), (right, y), owner, f"sběrnou čáru {c}")
+            if r.stub:
+                line(*r.stub, owner, f"sběrnou čáru {c}")
+            for bx, by, at_right, ref in r.breaks:
+                tx, ty, align = break_text_pos(bx, by, at_right)
+                text(tx, ty, ref, REF_TEXT_H, align, owner, "odkaz sběrné čáry")
+
+    # sběrnice potenciálů – na každé straně s odbočkami; mezi stranami křížové odkazy na koncích čar
+    x0, x1 = bus_span(W)
     for e in sheet.elements:
         if e.symbol_id != BUS:
             continue
         ep = poles[e.id]
         conds = list(ep.slots) or mp.parse_conductors(e.attrs.get("conductors", "")) or ["L1"]
         pages = sorted({page_of.get(e.id, 0)} | {k for (bid, k) in bus_taps if bid == e.id})
-        for k in pages:
+        refs = g.bus_refs.setdefault(e.id, [])
+        for j, k in enumerate(pages):
             ys = {c: (bus_y(ep, c, k) if c in ep.slots else ep.origin[1] - i * BUS_PITCH) for i, c in enumerate(conds)}
             for c, y in ys.items():
                 line((x0, y), (x1, y), e.id, f"sběrnici {e.ref}{c}")
                 text(x0 - 1.5, y - 0.8, f"{e.ref}{c}", 2.0, "right", e.id, f"název potenciálu {e.ref}{c}")
                 text(x1 + 1.5, y - 0.8, f"{e.ref}{c}", 2.0, "left", e.id, f"název potenciálu {e.ref}{c}")
+                y_loc = y + k * pitch
+                # odkaz pod názvem potenciálu na konci čáry (mimo odbočky, mezi čarami po 5 mm)
+                if j > 0:          # pokračování z předchozí strany se sběrnicí (odkaz na její pravý konec)
+                    refs.append((k, x0 - 1.5, y + BUS_REF_DY,
+                                 mp.page_ref(sheet_no, pages[j - 1], x1, y_loc, size), "right"))
+                if j < len(pages) - 1:   # pokračuje na další straně (odkaz na její levý konec)
+                    refs.append((k, x1 + 1.5, y + BUS_REF_DY,
+                                 mp.page_ref(sheet_no, pages[j + 1], x0, y_loc, size), "left"))
             if k == pages[0] and e.attrs.get("desc"):
-                text(x1, max(ys.values()) + 4.5, e.attrs["desc"], 2.0, "right", e.id, "popis sběrnice")
+                pos = _bus_desc_pos(g, e.id, e.attrs["desc"], x0, x1, max(ys.values()) + 4.5)
+                g.bus_desc[e.id] = pos
+                text(*pos[:2], e.attrs["desc"], 2.0, pos[2], e.id, "popis sběrnice")
 
     # štítky kabelů u přívodů a vývodů
     for e in sheet.elements:
@@ -306,6 +448,10 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
             g.texts.append(((max(b[0], tx0 + 0.3), b[1], min(b[2], tx1 - 0.3), min(b[3], top - i * TAG_ROW)), e.id,
                             f"štítek kabelu {rows[0]}"))
 
+    for eid, refs in g.bus_refs.items():
+        for _k, x, y, s, align in refs:
+            text(x, y, s, REF_TEXT_H, align, eid, "odkaz sběrnice")
+
     # popisky žil: výchozí poloha, a když vede přes cizí čáru nebo text, první volná z kandidátů
     _place_conductor_labels(g, pending)
 
@@ -315,7 +461,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
         ls = list(title)
         if g.pages > 1:
             ls[0] = f"{ls[0]}  ({k + 1}/{g.pages})"
-        tx, ty = MARGIN_LEFT + 5.0, sheet.height - MARGIN - 4.0 - k * pitch
+        tx, ty = MARGIN_LEFT + 5.0, H - MARGIN - 4.0 - k * pitch
         y = 0.0
         for i, s in enumerate(ls):
             h = 5.0 if i == 0 else 3.0
@@ -325,6 +471,64 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
                 y -= 2.8
             y -= 1.2
     return g
+
+
+def _bus_desc_pos(g: MultipoleGeometry, owner: str, desc: str, x0: float, x1: float, y: float
+                  ) -> tuple[float, float, str]:
+    """Poloha popisu sběrnice nad horní čarou: vpravo na konci, jinak vlevo na začátku, jinak první volné místo
+    zprava (odbočky přístrojů u konce sběrnice by ho přeškrtly)."""
+    cands = [(x1, y, "right"), (x0 + 1.5, y, "left")]
+    x = x1 - 5.0
+    while x - len(desc) * 2.0 * CHAR_W > x0:
+        cands.append((x, y, "right"))
+        x -= 5.0
+    for cx, cy, align in cands:
+        box = text_box(cx, cy, desc, 2.0, align)
+        if not any(o.split("#")[0] != owner and segment_hits_box(a, b, box) for a, b, o, _w in g.lines) and \
+                not any(o != owner and boxes_overlap(box, tb) for tb, o, _w in g.texts):
+            return cx, cy, align
+    return cands[0]
+
+
+def _rail_hubs(sheet: Sheet, poles: dict[str, mp.ElementPoles], page_of: dict[str, int]
+               ) -> dict[tuple[str, str], tuple[tuple[str, str, str], str]]:
+    """Žíly vedené přes sběrnou čáru: pól (prvek, port, žíla), do kterého vedou žíly aspoň ze dvou prvků na
+    jiných stranách (PE svodičů všech stringů do XPE). Na čáru se napojí všechny jeho žíly, i z jeho strany.
+    PE lišta (`sb.pe_bar`) je jeden pól přes všechny své svorky (sběrná čára vede k první použité).
+    Vrací {(id vodiče, žíla): (sběrný pól, konec zdroje a/b)}."""
+    cross: dict[tuple[str, str, str], int] = {}
+    ends: list[tuple[str, str, tuple[str, str, str], tuple[str, str, str]]] = []
+    bar_port: dict[tuple[str, str], str] = {}
+
+    def key(eid: str, port: str, c: str) -> tuple[str, str, str]:
+        if poles[eid].element.symbol_id in RAIL_BAR_SYMBOLS:
+            port = bar_port.setdefault((eid, c), port)
+        return (eid, port, c)
+
+    for w in sheet.wires:
+        ea, eb = poles.get(w.a.element_id), poles.get(w.b.element_id)
+        if not ea or not eb or BUS in (ea.element.symbol_id, eb.element.symbol_id):
+            continue
+        other_page = page_of.get(w.a.element_id, 0) != page_of.get(w.b.element_id, 0)
+        for c in mp.wire_conductors(w):
+            ka, kb = key(w.a.element_id, w.a.port, c), key(w.b.element_id, w.b.port, c)
+            ends.append((w.id, c, ka, kb))
+            if other_page:
+                cross[ka] = cross.get(ka, 0) + 1
+                cross[kb] = cross.get(kb, 0) + 1
+    out: dict[tuple[str, str], tuple[tuple[str, str, str], str]] = {}
+    for wid, c, ka, kb in ends:
+        na, nb = cross.get(ka, 0), cross.get(kb, 0)
+        if max(na, nb) < 2:
+            continue
+        out[(wid, c)] = (ka, "b") if na >= nb else (kb, "a")
+    return out
+
+
+def bus_span(page_w: float) -> tuple[float, float]:
+    """Začátek a konec čar sběrnice na straně šířky `page_w` (vlevo a vpravo názvy potenciálů)."""
+    from envocad.model.frame import MARGIN, MARGIN_LEFT
+    return MARGIN_LEFT + 12.0, page_w - MARGIN - 14.0
 
 
 def _label_candidates(pts: list[Point], staggered: bool, label: str) -> list[tuple[float, float, str]]:
@@ -349,6 +553,30 @@ def _label_candidates(pts: list[Point], staggered: bool, label: str) -> list[tup
                 for f in (0.5, 0.25, 0.75, 0.1, 0.9):
                     yy = y1 + (y2 - y1) * f - 1.0
                     out += [(a[0] + GAP, yy, "left"), (a[0] - GAP, yy, "right")]
+    # nakonec svislé běhy složené z navazujících úseků (vývod + úsek + vývod): krátká odbočka ke sběrnici na
+    # zhuštěné straně A4 nemá úsek ≥ 6 mm, celý běh ale ano – popisek se vejde mezi čáru sběrnice a přístroj
+    run: list[Point] = []
+    for i, (a, b) in enumerate(pairwise(pts)):
+        vertical = abs(a[0] - b[0]) < 1e-6 and not (staggered and len(pts) == 6 and i == 2)
+        if vertical and run and abs(run[-1][0] - a[0]) < 1e-6 and abs(run[-1][1] - a[1]) < 1e-6:
+            run.append(b)
+            continue
+        if len(run) > 2:
+            out += _run_candidates(run)
+        run = [a, b] if vertical else []
+    if len(run) > 2:
+        out += _run_candidates(run)
+    return out
+
+
+def _run_candidates(run: list[Point]) -> list[tuple[float, float, str]]:
+    y1, y2 = sorted((run[0][1], run[-1][1]))
+    if y2 - y1 < 6.0:
+        return []
+    out = []
+    for f in (0.2, 0.3, 0.7, 0.8, 0.4, 0.6):
+        yy = y1 + (y2 - y1) * f - 1.0
+        out += [(run[0][0] + GAP, yy, "left"), (run[0][0] - GAP, yy, "right")]
     return out
 
 

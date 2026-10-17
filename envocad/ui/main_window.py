@@ -632,13 +632,15 @@ class MainWindow(QMainWindow):
         dlg = SheetPropsDialog(sh, self)
         if dlg.exec() != SheetPropsDialog.Accepted:
             return
-        self.set_sheet_props(sh, *dlg.values())
+        self.set_sheet_props(sh, *dlg.values(), mp_paper=dlg.mp_paper())
 
-    def set_sheet_props(self, sh: Sheet, name: str, func: str, loc: str) -> bool:
-        """Název a označení listu jako jeden krok undo (makro). False = neplatný kód, nic se nezmění."""
+    def set_sheet_props(self, sh: Sheet, name: str, func: str, loc: str, mp_paper: str | None = None) -> bool:
+        """Název, označení listu a formát stran schématu rozvaděče (`mp_paper`, None = beze změny) jako jeden krok
+        undo (makro). False = neplatný kód, nic se nezmění."""
         rename = bool(name) and name != sh.name
         designate = (func, loc) != (sh.func, sh.loc)
-        if not (rename or designate):
+        repaper = mp_paper is not None and mp_paper != sh.mp_paper
+        if not (rename or designate or repaper):
             return True
         if designate and not self._valid_sheet_codes(sh, func, loc):
             return False
@@ -647,6 +649,9 @@ class MainWindow(QMainWindow):
             self.set_sheet_designation(sh, func, loc)
         if rename:
             self.undo.push(commands.RenameSheetCommand(sh, sh.name, name, on_change=self._refresh_tab_titles))
+        if repaper:
+            self.undo.push(commands.SetSheetPaperCommand(sh, sh.mp_paper, mp_paper,
+                                                         on_change=lambda: self._rebuild_sheet_views(sh)))
         self.undo.endMacro()
         return True
 
@@ -1283,7 +1288,16 @@ class MainWindow(QMainWindow):
             if not ok:
                 return
             s[key] = v.strip()
+        from envocad.model.multipole import SWITCHBOARD_PAPERS, standard_switchboard_paper
+        papers = list(SWITCHBOARD_PAPERS)
+        v, ok = QInputDialog.getItem(self, "Firemní standard", "Formát stran schématu rozvaděče a plánu svorkovnice",
+                                     papers, papers.index(standard_switchboard_paper()), False)
+        if not ok:
+            return
+        s["switchboard_paper"] = v
         save_settings(st)
+        for sh in self.project.switchboards():     # listy bez vlastní volby formátu se přestaví
+            self._rebuild_sheet_views(sh)
         self.statusBar().showMessage("Firemní standard uložen (~/.envocad/settings.json)", 4000)
 
     def new_project_wizard(self) -> None:

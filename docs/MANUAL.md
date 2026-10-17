@@ -212,12 +212,28 @@ pojistky, SPD a svorky po pólech bez vazby. Automatické rozmístění je po sl
 prvky jdou chytit a posunout myší, `Zobrazit → Vícepól: rozmístit automaticky` vrátí
 automatiku. Dvojklik na prvek = parametry, dvojklik na žílu = svorky, `Delete` maže.
 
+**Strany A4**: schéma rozvaděče a plán svorkovnice jsou na stranách **A4 na šířku** (297 × 210 mm) – vytisknou
+se na běžné tiskárně. Formát se volí ve `Firemní standard…` (poslední otázka: `A4`, `A4 na výšku`, `A3`; klíč
+`standard.switchboard_paper` v `settings.json`) nebo pro jeden list rozvaděče v `List → Vlastnosti listu` →
+**Formát stran schématu** (podle standardu / A4 na šířku / A4 na výšku / A3 na šířku / jako list); změna jde vrátit
+`Ctrl+Z`. Na každé straně je rámeček s popisovým polem (číslo listu a strany „2/5, str. 1/3“, formát A4); QR kód
+vlevo od popisového pole je na A4 na šířku i A3, na A4 na výšku se nevejde (popisové pole 180 mm vyplní celou
+šířku) a vynechá se. Na nízké straně A4 se rozmístění samo zhustí (posune nahoru pod nadpis, zmenší mezery mezi
+řadami), aby kresba nezasahovala do popisového pole – na obrazovce, v PDF i v kontrole F7 stejně.
+
 **Více stran s odkazy**: když se rozvaděč nevejde na jednu stranu, rozmístění pokračuje na dalších stranách
-(na obrazovce pod sebou, v PDF každá zvlášť, v popisovém poli `2/3`). Prvek nikdy nepřesahuje okraj strany.
-Žíla, která pokračuje jinde, končí na okraji **přerušovacím bodem** se šipkou a odkazem `/3.2.B4` = list 3,
-strana 2, sloupec B, řádek 4 – na druhé straně vstupuje stejně s odkazem zpět. Svorkovnice s můstky
-pokračuje přes strany, PE lišta je na straně, kde má nejvíc sousedů. Ručně posunuté prvky zůstávají tam,
-kam je dáš (i na jiné straně).
+(na obrazovce pod sebou, v PDF každá zvlášť, v nadpisu `RDC1 (2/3)`). **Logická skupina se nikdy nerozdělí**:
+přívod/vývod se svými přístroji (u DC rozvaděče string = svorky X + pojistka FU + SPD + vývod), který by přesáhl
+okraj strany, začne celý na další straně (A4 na šířku: 3 stringy na stranu, 21 stringů = 7 stran). Žíla, která
+pokračuje jinde, končí na okraji **přerušovacím bodem** se šipkou a odkazem `/3.2.B4` = list 3, strana 2, sloupec B,
+řádek 4 – na druhé straně vstupuje stejně s odkazem zpět; odkaz je nad žílou uvnitř rámečku. **Sběrnice** se kreslí
+na každé straně se svými odbočkami a pod názvem potenciálu na konci čáry má odkaz na předchozí / další stranu.
+**PE z více stran** (PE svodičů všech stringů do XPE nebo do PE lišty) vede **sběrná čára**: na každé straně
+vodorovná čára s odbočkami (tečky) a jedním přerušením na okraji s odkazem na sousední stranu – ne 20 samostatných
+přerušení. Svorkovnice s můstky pokračuje přes strany, PE lišta je na straně, kde má nejvíc sousedů. Ručně posunuté
+prvky zůstávají tam, kam je dáš (i na jiné straně); první ruční posun zapíše k listu platný formát stran, aby ho
+pozdější změna standardu nepřesunula. Starší list rozvaděče s ručními polohami ve vícepólu nebo s jiným rozměrem
+listu než výchozí A3 zůstává ve formátu listu (A3), dokud v Vlastnostech listu nezvolíš jiný.
 
 **Kreslit jde přímo ve schématu rozvaděče**: dvojklik na značku v knihovně → klik umístí prvek (průchozí přístroje
 se otočí svisle, `R` otočí, Esc / pravé tlačítko ukončí) a hned se otevřou jeho parametry; `W` (nebo Vodič) →
@@ -247,8 +263,9 @@ prvky bez skupin svorek.
 `Zobrazit → Plán svorkovnice` (`Ctrl+Shift+M`): svorky v řadě, nahoře vnější připojení (kabel z JPS),
 dole vnitřní (přístroj), můstky. Krátké svorkovnice jsou vedle sebe, další pod nimi; dlouhá svorkovnice se
 zalomí do dalšího pásu („(pokračování)“) a co se nevejde na stranu, pokračuje na další straně (v editoru pod
-sebou, v PDF listu i v dokumentaci každá strana zvlášť, popisové pole „n/N“). Žádná svorka se nevynechá.
-Export do PDF, stejná data jsou i jako list ve výkazech.
+sebou, v PDF listu i v dokumentaci každá strana zvlášť, popisové pole „2/5, str. 1/3“). Žádná svorka se nevynechá.
+Strany mají formát schématu rozvaděče (výchozí A4 na šířku); výška pásů se řídí délkou textů připojení, takže
+krátké texty (DC rozvaděč) dají dva pásy na stranu A4. Export do PDF, stejná data jsou i jako list ve výkazech.
 
 ### Rozložení a skříň
 `Ctrl+L` otevře rozložení: DIN lišty podle řad, přístroje se přetahují na lišty (snap 0,5 modulu), vpravo
@@ -407,9 +424,9 @@ Výchozí hodnoty (kabely, zpracoval) bere průvodce z **firemního standardu** 
 
 | Výstup | Kde |
 |---|---|
-| PDF listu (skutečný formát / zmenšený na A4) – z JPS, schématu (vícepólu) i plánu svorkovnice rozvaděče; z rozložení celý pohled zmenšený na A3 (A4) | Soubor → Export PDF / Export PDF na A4 |
+| PDF listu (skutečný formát / zmenšený na A4) – z JPS, schématu (vícepólu) i plánu svorkovnice rozvaděče (strany A4); z rozložení celý pohled zmenšený na A3 (A4) | Soubor → Export PDF / Export PDF na A4 |
 | DXF listu – jen z jednopólového schématu a listu rozvaděče v editoru (z vícepólu, plánu svorkovnice a rozložení program upozorní, ať se použije PDF) | Soubor → Export DXF |
-| **Celá dokumentace do jednoho PDF**: titulní list, obsah, listy JPS, schéma + plán svorkovnice každého rozvaděče, výkazy, změnový list | Výstupy → Celá dokumentace (`Ctrl+Shift+E`) |
+| **Celá dokumentace do jednoho PDF**: titulní list, obsah, listy JPS, schéma + plán svorkovnice každého rozvaděče, výkazy, změnový list – strany schématu a plánu svorkovnice A4, ostatní A3 (smíšené formáty v jednom PDF, obsah i „n/N“ počítají skutečné strany) | Výstupy → Celá dokumentace (`Ctrl+Shift+E`) |
 | Výkazy xlsx (Data pro DS, Výpočty, Přístroje, Výkaz materiálu, Kabely, Kabelový plán, Zapojovací seznam, Svorkovnice, Plán svorkovnice, Štítky) | Výstupy → Výkazy listu / projektu |
 | Protokol kusového ověření rozvaděče (docx) | Výstupy → Protokol kusového ověření |
 | Technická zpráva (docx) – kostra s tabulkami z modelu a výpočty | Výstupy → Technická zpráva |
@@ -538,7 +555,8 @@ prvku, rozměry pro rozložení a ztrátový výkon pro oteplení.
   (formát `docs/LIBRARY_FORMAT.md`, včetně vícepólové podoby `multipole`).
 - **Sdílená knihovna (síťová složka)…** – složka s JSON/CSV, kterou sdílí celá firma; načítá se navíc
   k vestavěné a stejná id přebíjí.
-- **Firemní standard…** – výchozí kabely, zpracoval, název firmy (`~/.envocad/settings.json`).
+- **Firemní standard…** – výchozí kabely, zpracoval, název firmy, formát stran schématu rozvaděče a plánu
+  svorkovnice (výchozí A4 na šířku) (`~/.envocad/settings.json`).
 - Pluginy: `~/.envocad/plugins/*.py` s funkcí `register(ctx)` přidají menu, šablony, importéry nebo výkazy.
 
 Data artiklů jsou opsaná z veřejných katalogů (zdroj a strana je u každého řádku) – před použitím

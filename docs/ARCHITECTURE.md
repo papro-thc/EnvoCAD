@@ -128,10 +128,26 @@ Jeden model, dva pohledy nad stejnými daty:
 - Geometrie vícepólu (rozmístění `auto_layout`, stránkování `paginate`, popisky přístrojů `pole_label_lines`, trasy
   žil `conductor_route`, příčka PE svodiče `pe_join_segments`) je v `model/multipole.py`; `model/multipole_geometry.py`
   z ní bez Qt skládá texty a čáry celého pohledu a rozmisťuje popisky žil mimo cizí čáry – stejné polohy kreslí scéna
-  (`ui/multipole_view.py`) a kontroluje F7 (`mp_text_overlap`). Se zapnutým rámečkem posune automaticky rozmístěné
-  prvky strany nahoru mimo popisové pole s QR kódem; výsledné polohy (`MultipoleGeometry.origins`) přebírá scéna.
+  (`ui/multipole_view.py`) a kontroluje F7 (`mp_text_overlap`). Scéna přebírá z modelu vše: polohy
+  (`MultipoleGeometry.origins`), strany, přerušení s odkazy (`page_breaks`), sběrné čáry (`rails`, `rail_taps`),
+  odkazy sběrnice (`bus_refs`) a popis sběrnice (`bus_desc`).
+- Formát stran vícepólu a plánu svorkovnice: `multipole.paper_choice` – `Sheet.mp_paper` (nepovinný klíč), jinak
+  firemní standard `standard.switchboard_paper` (výchozí „A4“ = 297 × 210); list, který není rozvaděč, a starší list
+  rozvaděče s jiným rozměrem než A3 nebo s `mp_pos` → „list“ (rozměr listu jako dřív). `page_size`, `page_width`,
+  `page_pitch`, `layout_x0` (bez sběrnice užší levý okraj). Ruční poloha ve vícepólu (`MoveMultipoleCommand`,
+  `MultipoleAddCommand`) zapíše platný formát do `Sheet.mp_paper`.
+- Stránkování po logických skupinách: `auto_layout` umisťuje podstrom jako celek – přesáhne-li hranici strany a vejde se
+  na stranu, začne celý na další (string = X + FU + SPD + vývod; za sběrnicí každý vývod zvlášť). Nízká strana A4:
+  `multipole_geometry` posune rozmístění nahoru pod nadpis a zmenší `col_gap` (≥ `MIN_COL_GAP`), dokud kresba nesahá
+  pod horní hranu popisového pole (nezávisle na zapnutí rámečku). Žíly z více stran do jednoho pólu (PE svodičů do
+  XPE / PE lišty) vede sběrná čára (`Rail`) s jedním přerušením a odkazem na každém okraji strany.
 - Plán svorkovnice: data `model/terminal_plan.py:terminal_plan`, rozmístění na strany `layout_plan_pages` (pásy,
-  svorkovnice vedle sebe, zalomení dlouhé, další strana) – scéna `ui/terminal_plan_view.py` má `pages` jako vícepól.
+  svorkovnice vedle sebe, zalomení dlouhé, další strana, výška pásu podle textů `band_heights`), formát strany
+  `sheet_plan_pages` – scéna `ui/terminal_plan_view.py` má `pages` jako vícepól.
+- Rámeček (`model/frame.py`): QR kód jen, když se vlevo od popisového pole vejde (`qr_fits` – na A4 na výšku ne),
+  „Číslo listu“ stran odvozených pohledů `page_label` („2/5, str. 1/3“), formát strany v popisovém poli (`paper`).
+  PDF dokumentace (`export/doc_pdf.py`) má smíšené formáty stran: `QPdfWriter.setPageLayout` před každou novou
+  stranou (`DocBuilder.page_sizes`).
 
 ## Modularita a rozšiřování
 

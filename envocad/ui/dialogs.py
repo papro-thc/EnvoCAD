@@ -1017,6 +1017,18 @@ class SheetPropsDialog(QDialog):
         form.addRow("Název:", self.name)
         form.addRow("Funkce (=):", self.func)
         form.addRow("Umístění (+):", self.loc)
+        self.paper: QComboBox | None = None
+        if sheet.is_switchboard:
+            # formát stran schématu (vícepólu) a plánu svorkovnice listu rozvaděče
+            from envocad.model.multipole import SHEET_PAPER, SWITCHBOARD_PAPERS, standard_switchboard_paper
+            self.paper = QComboBox()
+            self.paper.addItem(f"podle firemního standardu ({_paper_text(standard_switchboard_paper())})", "")
+            for key in SWITCHBOARD_PAPERS:
+                self.paper.addItem(_paper_text(key), key)
+            self.paper.addItem(f"jako list ({sheet.paper}, {sheet.width:g} × {sheet.height:g} mm)", SHEET_PAPER)
+            i = self.paper.findData(sheet.mp_paper or "")
+            self.paper.setCurrentIndex(max(i, 0))
+            form.addRow("Formát stran schématu:", self.paper)
         bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
@@ -1024,6 +1036,15 @@ class SheetPropsDialog(QDialog):
 
     def values(self) -> tuple[str, str, str]:
         return self.name.text().strip(), self.func.text().strip().upper(), self.loc.text().strip().upper()
+
+    def mp_paper(self) -> str | None:
+        """Zvolený formát stran schématu rozvaděče („“ = standard); None = list není rozvaděč."""
+        return None if self.paper is None else str(self.paper.currentData() or "")
+
+
+def _paper_text(key: str) -> str:
+    """Popis formátu stran pro výběr: „A4“ → „A4 na šířku“."""
+    return key if "výšku" in key else f"{key} na šířku"
 
 
 class StructuresDialog(QDialog):
