@@ -19,3 +19,6 @@ Claude outputs/
 .hypothesis/
 .coverage
 htmlcov/
+
+# pracovní kopie agentů Claude Code
+.claude/worktrees/
