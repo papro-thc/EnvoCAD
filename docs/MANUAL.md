@@ -36,8 +36,39 @@ balíčky v `library/`), pluginy, nastavení (`settings.json`), logy (`log/`) a 
 ## 2. Okno programu
 
 Vlevo jsou doky **Knihovna** (značky podle druhu prvku, s hledáním) a **Navigátor** (záložky **Prvky** – listy →
-prvky a vodiče, s filtrem – a **Připomínky**, viz sekce 9), uprostřed záložky listů, vpravo **Vlastnosti** vybraného prvku nebo vodiče. Nahoře je nástrojová
-lišta s nejčastějšími akcemi, dole stavový řádek s nápovědou k aktuálnímu režimu.
+prvky a vodiče, s filtrem – a **Připomínky**, viz sekce 9), uprostřed záložky listů, vpravo **Vlastnosti** vybraného prvku nebo vodiče.
+Po `F7` přibude dole panel **Kontrola** (viz sekce 6).
+
+Nahoře jsou lišty s ikonami (tooltip ukáže název a zkratku):
+
+| Lišta | Obsah |
+|---|---|
+| Soubor | nový, otevřít, uložit, export PDF a DXF |
+| Úpravy | zpět, znovu, kopírovat, vložit, smazat, najít označení |
+| Pohled | přizpůsobit list, přiblížit, oddálit, Jen výkres; přepínač Jednopól / Vícepól / Rozložení / Svorkovnice (zamáčknutý = zobrazený pohled); tmavý režim |
+| Kreslení | výběr, vodič, vložit značku, připomínka, otočit, narovnat vodič – jen v JPS a schématu rozvaděče, aktivní nástroj je zamáčknutý |
+| Dispozice | skříň rozvaděče, výrobní data – jen v rozložení rozvaděče (místo lišty Kreslení) |
+| Kontrola a výstupy | kontrola F7, výkazy, celá dokumentace PDF, štítky |
+
+**Vložit značku** vloží značku označenou v Knihovně; když žádná označená není, ukáže Knihovnu. Co v aktuálním
+pohledu nejde použít, je zašedlé. Lišty i panely se dají přetáhnout jinam a okno si rozložení i velikost pamatuje;
+`Zobrazit → Obnovit rozložení panelů a lišt` vrátí výchozí stav. `F11` (Zobrazit → Jen výkres) schová všechny
+panely, druhým stiskem se vrátí.
+
+**Hledat příkaz** (`Ctrl+K`): napiš část názvu příkazu, třeba „export dxf“ nebo „svorkovnice“ – hledá ve všech
+položkách menu (i bez diakritiky), šipkami vybereš, Enter spustí.
+
+**Pravé tlačítko** ve výkresu (JPS i schéma rozvaděče) vybere položku pod kurzorem a nabídne Vlastnosti, Otočit,
+Kopírovat, Smazat a Uložit jako makro; u vodiče navíc Svorky, Kabel a Narovnat, u bloku ROZVADĚČ Otevřít rozvaděč,
+na prázdném místě Vložit, Vložit značku, Vodič a Přizpůsobit list. V režimu Vodič nebo Vkládání pravé tlačítko jen
+ukončí režim. Připomínky mají vlastní menu (sekce 9).
+
+**Stavový řádek** vlevo ukazuje nápovědu k aktuálnímu režimu, vpravo souřadnice kurzoru v mm (Y nahoru jako ve
+výkresu), mřížku 2,5 mm, zoom (100 % = skutečná velikost na monitoru), souhrn kontroly („F7: 2 chyby, 5 varování“,
+klik otevře panel Kontrola) a „● neuloženo“, když má projekt neuložené změny.
+
+Nový prázdný projekt ukáže **úvodní obrazovku** s průvodcem, otevřením a posledními projekty; zmizí po první změně
+nebo křížkem.
 
 Tmavý a světlý režim přepíná `Ctrl+D` (menu Zobrazit). Tisk a export jsou vždy černobílé na bílém.
 
@@ -84,7 +115,7 @@ kopíruje vybrané prvky včetně vodičů mezi nimi – kopie dostanou nová oz
 tažením rámečku v prázdné ploše. Kolečko zoomuje, střední tlačítko posouvá pohled, `Home` přizpůsobí list.
 
 ### Makra (sestavy)
-Vyber prvky (vodiče mezi nimi se přiberou) a `Úpravy → Uložit výběr jako makro…` (`Ctrl+Shift+S`): makro se
+Vyber prvky (vodiče mezi nimi se přiberou) a `Úpravy → Uložit výběr jako makro…` (`Ctrl+Alt+M`): makro se
 uloží do `~/.envocad/macros/` nebo – když je nastavená sdílená knihovna – na dotaz do `<sdílená>/macros/`
 pro všechny. V panelu Knihovna je dole uzel **Makra**; dvojklik vloží sestavu doprostřed pohledu s novými
 označeními (makro bez proměnných se vloží jako kopie výřezu: čísla svorek se vymažou a doplní automatické
@@ -270,7 +301,7 @@ krátké texty (DC rozvaděč) dají dva pásy na stranu A4. Export do PDF, stej
 ### Rozložení a skříň
 `Ctrl+L` otevře rozložení: DIN lišty podle řad, přístroje se přetahují na lišty (snap 0,5 modulu), vpravo
 panel **skříně**: označení, řady, moduly na řadu, rozměry, rozteč řad, IP/IK, montáž, materiál, dveře, Un/In/Icw,
-síť, rezerva, teplota okolí, nejnižší teplota okolí (nepovinné), RDF (`Ctrl+K` otevře totéž jako dialog; skříň lze
+síť, rezerva, teplota okolí, nejnižší teplota okolí (nepovinné), RDF (`Ctrl+Alt+K` otevře totéž jako dialog; skříň lze
 vybrat z artiklů).
 Panel ukazuje obsazenost a **odhad oteplení** podle IEC TR 60890 (ΣPv z atributů `p_loss_w` nebo odhad
 z In a pólů, chladicí plocha podle montáže, Δt uprostřed a v horní části, kritický přístroj, hodnocení). Parametry
@@ -313,7 +344,10 @@ Výkazy **Kabely** (přehled), **Kabelový plán** (po žílách odkud–kam, i 
 
 ## 6. Kontrola projektu a výpočty
 
-`F7` (Úpravy → Kontrola projektu) projde celý projekt a vypíše nálezy – dvojklik skočí na prvek:
+`F7` (Úpravy → Kontrola projektu) projde celý projekt a vypíše nálezy do panelu **Kontrola** pod výkresem – dvojklik
+skočí na prvek, filtr nahoře ukáže jen chyby, chyby a varování nebo informace. Panel neblokuje práci: dokud je
+otevřený, nálezy se po každé změně projektu obnoví samy (tlačítko „Zkontrolovat znovu“ hned). Souhrn je i ve
+stavovém řádku. Co kontrola hlásí:
 
 - chyby: duplicitní označení, vodič na neexistující port, vodič na smazaný prvek, string mimo rozsah střídače,
   kabel přetížený (I > Iz) nebo nechráněný (In jističe > Iz);
@@ -611,13 +645,17 @@ v projektu je ověř u výrobce.
 | `Delete` | smazat |
 | `Ctrl+Z` / `Ctrl+Y` | zpět / znovu |
 | `Ctrl+C` / `Ctrl+V` | kopírovat / vložit kopii |
-| `Ctrl+Shift+S` | uložit výběr jako makro |
+| `Ctrl+Alt+M` | uložit výběr jako makro |
 | `Ctrl+F` | najít označení |
-| `F7` | kontrola projektu |
+| `F7` | kontrola projektu (panel Kontrola) |
+| `Ctrl+K` | hledat příkaz |
+| `F11` | jen výkres (skrýt panely) |
+| `Ctrl++` / `Ctrl+-` | přiblížit / oddálit |
+| `N` | narovnat vybrané vodiče |
 | `Ctrl+M` / `Ctrl+J` | vícepól / jednopól |
 | `Ctrl+Shift+M` | plán svorkovnice |
 | `Ctrl+L` | rozložení rozvaděče |
-| `Ctrl+K` | skříň rozvaděče |
+| `Ctrl+Alt+K` | skříň rozvaděče |
 | `Ctrl+T` | svorky vodiče |
 | `Ctrl+Shift+T` | svorkovnice a můstky |
 | `Ctrl+Shift+K` | kabel vodiče |

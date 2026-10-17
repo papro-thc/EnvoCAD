@@ -56,7 +56,11 @@ Build pro Windows se musí dělat na Windows, pro Linux na Linuxu.
 - **Výstupy** – výkazy xlsx (BOM, kabely, svorky, potenciály…), protokol kusového ověření a TZ (docx),
   PDF celé dokumentace, DXF pro ZWCAD/AutoCAD.
 - **Knihovna** – ~460 artiklů (OEZ, Eaton, Schneider, Hager, SMA, SolaX, Huawei, BMR…), 673 značek QElectroTech,
-  import DXF/EPLAN, sdílená firemní knihovna, pluginy; tmavý režim.
+  import DXF/EPLAN, sdílená firemní knihovna, pluginy.
+- **Rozhraní** – lišty s ikonami, které se mění podle pohledu (Kreslení v JPS a schématu rozvaděče, Dispozice
+  v rozložení), hledání příkazů `Ctrl+K`, menu na pravém tlačítku, kontrola F7 jako panel vedle výkresu, stavový
+  řádek se souřadnicemi, zoomem a počtem chyb, úvodní obrazovka, režim Jen výkres (`F11`), tmavý režim; okno si
+  pamatuje velikost a rozložení panelů.
 
 Dokumentace: **`docs/MANUAL.md` (uživatelská příručka)**, `docs/ARCHITECTURE.md`, `docs/LIBRARY_FORMAT.md`,
 `docs/ROADMAP.md`, `docs/COMPONENTS.md`, `docs/ENVO_STYL.md` (konvence výkresů ENVO).
@@ -67,18 +71,23 @@ Pokyny pro AI agenty: `CLAUDE.md`, `docs/AGENTS.md`.
 
 | Akce | Jak |
 |---|---|
-| Vložit symbol | dvojklik v panelu Knihovna, klik do výkresu, vyplnit parametry v dialogu (Esc zruší režim) |
+| Lišty | Soubor, Úpravy, Pohled, Kreslení, Dispozice, Kontrola a výstupy; tooltip ukáže název a zkratku. Kreslení je jen v JPS a schématu rozvaděče, v rozložení je místo ní Dispozice. Lišty i panely jdou přetáhnout, `Zobrazit → Obnovit rozložení panelů a lišt` vrátí výchozí stav |
+| Hledat příkaz | `Ctrl+K` – napište část názvu (i bez diakritiky), Enter spustí |
+| Pravé tlačítko | ve výkresu nabídne Vlastnosti, Otočit, Kopírovat, Smazat, u vodiče Svorky/Kabel/Narovnat, u bloku ROZVADĚČ Otevřít rozvaděč; v režimu Vodič/Vkládání jen ukončí režim |
+| Jen výkres | `F11` schová všechny panely, druhým stiskem se vrátí |
+| Stavový řádek | vpravo souřadnice kurzoru v mm, mřížka, zoom, souhrn kontroly F7 (klik otevře panel Kontrola), „● neuloženo“ |
+| Vložit symbol | dvojklik v panelu Knihovna, nebo značku v Knihovně označit a tlačítko Vložit značku; klik do výkresu, vyplnit parametry v dialogu (Esc zruší režim) |
 | Upravit parametry | dvojklik na prvek nebo vodič |
 | Posun | tažení myší (snap na mřížku 2,5 mm); ruční lomy vodičů jdou s prvky |
 | Úprava trasy vodiče | chytit úsek vodiče a táhnout (vodorovný nahoru/dolů, svislý do stran); `N` narovná vybrané vodiče |
 | Rotace | `R` (o 90°) |
 | Vodič | `W`, klik na port → klik na port, vyplnit parametry (označení, kabel, průřez) |
 | Smazat | `Delete` |
-| Zoom / posun pohledu | kolečko / střední tlačítko |
+| Zoom / posun pohledu | kolečko / střední tlačítko; `Ctrl++` / `Ctrl+-` přiblížit / oddálit, `Home` přizpůsobit list |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Y` |
 | Tmavý / světlý režim | `Ctrl+D` |
 | Otevřít rozvaděč | dvojklik na blok ROZVADĚČ (poprvé nabídne šablonu) – otevře vícepólové schéma; `Ctrl+J` přepne na jednopólovou editaci (vkládání, vodiče) |
-| Rozložení rozvaděče | `Ctrl+L` na listu rozvaděče; přístroje přetáhnout na DIN lišty; parametry skříně a oteplení v panelu vpravo (`Ctrl+K`) |
+| Rozložení rozvaděče | `Ctrl+L` na listu rozvaděče; přístroje přetáhnout na DIN lišty; parametry skříně a oteplení v panelu vpravo (`Ctrl+Alt+K`) |
 | Výkazy / protokol | menu Výstupy (xlsx, docx) |
 | Vícepól | `Ctrl+M` otevře vícepólový pohled listu (odvozený z JPS, `Ctrl+J` zpět); žíly vodiče se zadávají v dialogu vodiče („Žíly“), dvojklik na žílu / `Ctrl+T` = svorky, Úpravy → Očíslovat svorky |
 | Svorkovnice a můstky | `Ctrl+Shift+T` – tabulka svorek vybrané svorkovnice, můstky jako „1-6-11“ (jedna skupina na řádek); skupina svorek v JPS = prvek Svorky s čísly v atributu „terminal“ |
@@ -88,9 +97,9 @@ Pokyny pro AI agenty: `CLAUDE.md`, `docs/AGENTS.md`.
 | Rozvaděč na více stran | vícepól se stránkuje sám, přerušovací body s odkazy `/3.2.B4`, PDF po stranách |
 | T-odbočka | v režimu Vodič klik na vodič → uzel, odbočka z něj (vodič z vodiče) |
 | Potenciály | sítě přes vodiče, uzly, svorky, můstky, přívody; kontrola zkratů v F7, potenciál žíly ve Vlastnostech, výkaz Potenciály |
-| Makra | `Ctrl+Shift+S` uloží výběr jako makro, uzel Makra v knihovně – dvojklik vloží |
+| Makra | `Ctrl+Alt+M` uloží výběr jako makro, uzel Makra v knihovně – dvojklik vloží |
 | Vazba na JPS | u přívodu/vývodu rozvaděče v dialogu „Vodič v JPS“ – přebere kabel a žíly, křížový odkaz u vodiče |
-| Kontrola / navigace | `F7` kontrola projektu (dvojklik na nález skočí do výkresu), `Ctrl+F` najít označení, dok Navigátor |
+| Kontrola / navigace | `F7` otevře panel Kontrola pod výkresem (filtr závažnosti, dvojklik na nález skočí do výkresu, po změnách se obnoví sám), `Ctrl+F` najít označení, dok Navigátor |
 | Kabely | `Ctrl+Shift+K` kabel vybraného vodiče: žíly, čísla, barvy, stínění, artikl; výkazy Kabelový plán a Zapojovací seznam |
 | Dokumentace | `Ctrl+Shift+E` celá dokumentace do jednoho PDF (titulní list, obsah, listy, výkazy, změnový list) |
 | Ovládací obvody | značky Cívka / Kontakt NO / NC / silový (Relé a stykače); kontakt dostane označení cívky, pod cívkou se kreslí zrcadlo kontaktů |
@@ -122,6 +131,9 @@ Neošetřená chyba se zapíše do logu a zobrazí v dialogu; program většinou
 ## Licence
 
 Kód EnvoCAD je pod licencí **MIT** (viz `LICENSE`). Součástí repozitáře jsou i data třetích stran:
+
+- ikony lišt v `envocad/resources/icons/` jsou z [Lucide](https://lucide.dev) 0.460, licence **ISC**
+  (`LICENSE-lucide.txt`); elektro ikony (vodič, vícepól, DIN lišta, svorkovnice…) jsou vlastní ve stejném stylu;
 
 - značky `envocad/library/builtin/qet/` jsou převedené z kolekce QElectroTech, **CC BY 3.0**, autorství viz
   `envocad/library/builtin/qet/ATTRIBUTION.md`;
