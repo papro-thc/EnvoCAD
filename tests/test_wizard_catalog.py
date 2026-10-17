@@ -277,3 +277,115 @@ def test_picker_filters_keep_unknown_values(app):
     d.p_from.setText("")
     d.phases.setCurrentText("1")
     assert [c.id for c in d._rows] == ["i3"] and "filtr Fáze" in d.table.item(0, 0).toolTip()
+
+
+# ---- optimizéry (docs/design/optimizery.md §4) --------------------------------------------------------------------
+def _optimizer(**kw):
+    params = {"p_max_w": "440", "u_in_max_v": "60", "isc_in_max_a": "14.5", "u_out_max_v": "60",
+              "modules_per_optimizer": "1", "compat": "SolarEdge", "n_min_3ph": "14", "n_max_3ph": "50",
+              "p_string_max_3ph_w": "11250", "string_mode": "fixed_voltage"}
+    params.update(kw.pop("params", {}))
+    return Component(id="t-opt", manufacturer="Test", part_number="TO-440", name="Testovací optimizér",
+                     category="optimizer", symbol_id="", source="datasheet", params=params, **kw)
+
+
+def test_picker_optimizer_columns_and_unverified(app):
+    web = _optimizer(params={"note": "WebSearch 2026-10-17"})
+    web.id, web.part_number = "t-opt-web", "TO-WEB"
+    d = ComponentPicker(FakeLibrary([_optimizer(), web, _module(), _inverter()]), categories=("optimizer",))
+    heads = [d.table.horizontalHeaderItem(i).text() for i in range(d.table.columnCount())]
+    assert heads == ["Výrobce", "Typ", "P [W]", "Uin max [V]", "Isc in [A]", "Moduly/opt.", "Kompatibilita", "Zdroj"]
+    assert len(d._rows) == 2 and d.p_unit.text() == "[W]"
+    ok = next(r for r, c in enumerate(d._rows) if c.id == "t-opt")
+    assert d.table.item(ok, 2).text() == "440" and not d.table.item(ok, 0).toolTip()
+    assert "WebSearch" in d.table.item(1 - ok, 0).toolTip()
+    d.p_to.setText("400")
+    assert [c.id for c in d._rows] == [] or all(c.num("p_max_w") is None for c in d._rows)
+
+
+def test_wizard_optimizer_component_mode_and_spec(app):
+    d = ProjectWizard(library=FakeLibrary([_optimizer()]))
+    assert d.spec()["optimizer"] == {"type": "", "per_module": 1}   # bez artiklu beze změny
+    assert "string_mode" not in d.spec()["inverters"][0]
+    d.set_optimizer_component(_optimizer())
+    assert d.opt_type.text() == "TO-440" and d.opt_per.text() == "1" and "Testovací optimizér" in d.opt_label.text()
+    assert d.spec()["optimizer"]["component_id"] == "t-opt"
+    d.set_optimizer_component(_optimizer(params={"modules_per_optimizer": "2"}))
+    assert d.opt_per.text() == "0.5" and d.spec()["optimizer"]["per_module"] == 0.5
+    assert [d.string_mode.itemText(i) for i in range(4)] == [
+        "Automaticky (z artiklu)", "Klasický", "S optimizéry", "Pevné napětí"]
+    d.string_mode.setCurrentIndex(2)
+    assert d.spec()["inverters"][0]["string_mode"] == "optimizer"
+    d.clear_optimizer()
+    assert "component_id" not in d.spec()["optimizer"] and "nevybrán" in d.opt_label.text()
+
+
+def test_wizard_optimizer_assistant_lines(app):
+    d = ProjectWizard(library=FakeLibrary([]))
+    d.set_module_component(_module(params={"p_wp": "400", "isc_a": "13.9"}))
+    d.set_inverter_component(_inverter(params={"u_string_v": "750", "u_dc_max_v": "900"}))
+    d.set_optimizer_component(_optimizer())          # režim z artiklu optimizéru: fixed_voltage
+    d.strings.setText("20,13,14")
+    txt = d.assistant_text()
+    assert "Režim stringů: pevné napětí" in txt and "optimizérů 14–50" in txt and "P stringu ≤ 11250 W" in txt
+    assert "Optimizér TO-440:" in txt and "Uin max 60 V" in txt
+    assert "13 modulů" in txt and "13 optimizérů ve stringu < min 14" in txt
+    d.string_mode.setCurrentIndex(1)                 # Klasický přebije artikl
+    assert "Režim stringů: klasický" in d.assistant_text() and "pevné napětí" not in d.assistant_text()
+
+
+def _same_as_f7(d):
+    from envocad.model import calc
+    assistant = [issues for group in d.string_results() for _n, issues in group]
+    f7 = [sc.issues for sc in calc.check_strings(build_project(d.spec()))]
+    assert assistant == f7
+    for issues in assistant:
+        for msg in issues:
+            assert msg in d.assistant_text()
+    return assistant
+
+
+@pytest.mark.parametrize("opt_id, inv_id, mode, strings, fields", [
+    ("solaredge-s440-1gm4mrm", "solaredge-se5k-rw0teben4", 0, "10,14,20,30", {}),
+    ("solaredge-s440-1gm4mrm", "solaredge-se5k-rw0teben4", 1, "14,20", {}),          # classic + vstup optimizéru
+    ("huawei-sun2000-450w-p2", "huawei-sun2000-50ktl-m3", 0, "20,20,18; 22", {}),
+    ("huawei-sun2000-450w-p2", "huawei-sun2000-50ktl-m3", 3, "20,14", {}),
+    (None, "sma-stp-25-50", 0, "20,18,22,22,20,16,20", {"mod_isc": "10"}),           # classic, různé délky na MPPT
+    (None, "huawei-sun2000-50ktl-m3", 0, "20,18,22,24,20,16,20", {}),
+])
+def test_assistant_optimizer_matches_f7(app, builtin_lib, opt_id, inv_id, mode, strings, fields):
+    d = ProjectWizard(library=builtin_lib)
+    d.set_module_component(builtin_lib.component("ja-solar-jam54d40-445-mb"))
+    d.set_inverter_component(builtin_lib.component(inv_id))
+    if opt_id:
+        d.set_optimizer_component(builtin_lib.component(opt_id))
+    d.string_mode.setCurrentIndex(mode)
+    for name, text in fields.items():
+        getattr(d, name).setText(text)
+    d.strings.setText(strings)
+    _same_as_f7(d)
+    if opt_id:
+        assert "Optimizér " in d.assistant_text()
+
+
+def test_assistant_parallel_strings_warning(app, builtin_lib):
+    d = ProjectWizard(library=builtin_lib)
+    d.set_module_component(builtin_lib.component("ja-solar-jam54d40-445-mb"))
+    d.set_inverter_component(builtin_lib.component("sma-stp-25-50"))   # 3 MPPT × 2 stringy
+    d.strings.setText("20,16,20,20")                  # 1. a 2. string sdílejí MPPT 1
+    res = _same_as_f7(d)
+    assert any("nestejná délka" in m for issues in res for m in issues)
+    assert "#b26a00" in d.assistant_text()           # jen varování → oranžově
+
+
+def test_propose_strings_with_optimizer_step(app, builtin_lib, warned):
+    d = ProjectWizard(library=builtin_lib)
+    d.set_module_component(builtin_lib.component("ja-solar-jam54d40-445-mb"))
+    d.set_inverter_component(builtin_lib.component("huawei-sun2000-50ktl-m3"))
+    d.set_optimizer_component(builtin_lib.component("huawei-sun2000-450w-p2"))
+    d.mod_total.setText("60")
+    d.strings.setText("20")
+    d.propose_strings()
+    assert d.strings.text()
+    res = _same_as_f7(d)
+    assert all(not any("není dovoleno" in m for m in issues) for issues in res)

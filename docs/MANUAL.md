@@ -366,6 +366,15 @@ Podrobnosti kontroly stringů (sdílí ji `F7`, výkaz Výpočty i asistent prů
 - **MPPT** – stringy se sčítají na MPPT podle vstupu střídače: DCk → MPPT (k − 1) div „stringů na MPPT“. Když
   střídač počet stringů na MPPT nemá, MPPT se nezjišťuje a proudy paralelních stringů se nesčítají (výchozí 2 na
   MPPT platí jen pro počet DC vstupů značky).
+- **Režim stringů a optimizéry** – atribut střídače `string_mode` (prázdné = klasický). *S optimizéry*: navíc počet
+  optimizérů ve stringu a výkon stringu proti pravidlům střídače a optimizéru (nejpřísnější platí), smíšení
+  s neoptimalizovanými moduly (chyba, nemá-li optimizér `opt_partial`) a Uoc stringu s omezením napětí výstupu optimizéru.
+  *Pevné napětí*: místo Uoc·n a okna MPPT se kontroluje počet optimizérů, optimizér na každém modulu, výkon stringu a
+  věrohodnost pevného napětí vůči střídači a modulu; stringy na jednom MPPT se neporovnávají. Vstup optimizéru
+  (Uoc při t min × moduly na optimizér ≤ Uin max, Isc STC modulu ≤ Isc max vstupu, P modulu ≤ P max, kompatibilita
+  s výrobcem střídače) se kontroluje ve všech režimech. V režimech klasický a s optimizéry se paralelní stringy na MPPT
+  porovnávají: nestejná délka, různé moduly a různá orientace (nepovinný atribut `orientation`) jsou varování.
+  Texty hlášek jsou jen v `calc.string_issues`, závažnost určuje `calc.is_warning`.
 - **Počet vstupů** – zná-li střídač počet MPPT i stringů na MPPT a je na něm zapojeno víc stringů, je to chyba
   „Střídač T1 má jen N vstupů (MPPT × stringů), zapojeno M stringů“ u stringů nad kapacitu.
 
@@ -408,7 +417,7 @@ je firemní číslování ENVO a kontrola ji nehlásí; pomlčka uvnitř označe
 ## 7. Nový projekt z průvodce (a pro agenty)
 
 `Ctrl+Shift+N` (Soubor → Nový projekt z průvodce): zadej projekt a investora, modul (typ, Wp, Uoc, Umpp, Isc),
-optimizéry (typ a kusy na modul – prázdné = bez optimizérů), střídač (typ, P AC, Umax, rozsah MPPT, Imax), stringy po střídačích (`20,20,18; 20,20`), kabely a jištění.
+optimizéry (typ a kusy na modul – prázdné = bez optimizérů; nebo **Z katalogu…**), střídač (typ, P AC, Umax, rozsah MPPT, Imax), stringy po střídačích (`20,20,18; 20,20`), kabely a jištění.
 
 **Modul a střídač z katalogu:** tlačítko **Z katalogu…** u modulu a střídače otevře výběr artiklu (tabulka s Voc, Isc,
 Imp, β, Usys resp. P AC, MPPT, okno MPPT, I/MPPT…, filtr „Výkon od–do“ a u střídačů „Fáze“). Vybraný artikl vyplní
@@ -419,13 +428,25 @@ podle datasheetu. Filtry „Výkon“ a „Fáze“ neskrývají artikly, které
 β Uoc, Isc max na MPPT, stringů na MPPT, návrhové teploty min/max (předvyplněné z firemního standardu, uloží se do
 projektu pro kontrolu `F7`) a „Celkem modulů“.
 
+**Optimizéry a režim stringů:** **Z katalogu…** u optimizéru otevře výběr (výrobce, typ, P, Uin max, Isc in, moduly na
+optimizér, kompatibilita, zdroj; neúplné a neověřené řádky šedě) a vyplní typ a kusy na modul (1 nebo 0,5 při dvou
+modulech na optimizér); **×** vazbu zruší. Artikl se uloží do specifikace (`optimizer.component_id`) a generátor z něj
+doplní stringům parametry optimizéru a pravidla stringu pro fáze střídače. Volba **Režim stringů** má hodnoty
+*Automaticky (z artiklu)* (režim z artiklu střídače, jinak z artiklu optimizéru, jinak klasický), *Klasický*,
+*S optimizéry* (klasické meze Uoc a MPPT, navíc počet optimizérů, výkon stringu a vstup optimizéru) a *Pevné napětí*
+(SolarEdge – délku stringu určuje počet optimizérů, Uoc·n a okno MPPT se nekontrolují). Údaje, které artikl nezná,
+kontrola hlásí jako „chybí údaj“ (varování) – nic se neodhaduje.
+
 **Asistent stringů** pod polem Stringy se přepočítá při každé změně a ukazuje: rozsah počtu modulů ve stringu
 (n min–n max) s důvody (Uoc za studena, Umppt, Umax systému modulu, „Umpp z β_Voc – zjednodušení“), nejvýš stringů na
-MPPT, stav každého zadaného stringu (OK, nebo hláška – „omezení výkonu“ je jen upozornění), poměr DC/AC (bez P AC
+MPPT, **řádek režimu stringů** (např. „pevné napětí 750 V – Uoc·n se nekontroluje; optimizérů 14–50, P stringu ≤ … W“;
+jen při optimizérech nebo neklasickém režimu) a **řádek vstupu optimizéru** (Uoc modulu při t min, Isc a P modulu vůči
+limitům optimizéru), stav každého zadaného stringu (OK, nebo hláška; **oranžově** jsou jen varování – chybějící údaj,
+omezení výkonu, tolerance výrobce, nestejné paralelní stringy –, **červeně** chyby), poměr DC/AC (bez P AC
 „P AC střídače není zadán“) a doporučený počet střídačů. Stav stringů je **stejný jako v `F7`** po vygenerování:
-asistent přiřazuje stringy na MPPT stejně jako generátor a počítá stejnými funkcemi (viz Výpočty v kapitole 6). Tlačítko
-**Navrhnout stringy** rozdělí „Celkem modulů“ (jinak součet zadaných stringů) do co nejméně vyrovnaných stringů
-v mezích střídače a vyplní pole Stringy. Chyby stringů v průvodci jen varují – projekt jde vygenerovat i tak; blokují
+asistent přiřazuje stringy na MPPT stejně jako generátor, počítá stejnými funkcemi (viz Výpočty v kapitole 6) a hlásí i
+nestejné paralelní stringy na jednom MPPT. Tlačítko **Navrhnout stringy** rozdělí „Celkem modulů“ (jinak součet
+zadaných stringů) do co nejméně vyrovnaných stringů v mezích střídače (u optimizérů po násobcích modulů na optimizér) a vyplní pole Stringy. Chyby stringů v průvodci jen varují – projekt jde vygenerovat i tak; blokují
 jen chyby zadání (např. text místo čísla).
 
 Vygeneruje se JPS (stringy → DC rozvaděče → střídače → AC rozvaděč → síť) a listy všech rozvaděčů včetně
