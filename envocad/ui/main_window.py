@@ -463,6 +463,7 @@ class MainWindow(QMainWindow):
             scene.delete_requested.connect(lambda eids, wids, sh=sheet: self._delete_anywhere(sh, eids, wids))
             scene.mode_changed.connect(self._show_mode)
             scene.after_edit = lambda sh=sheet: self._rebuild_peer(sh, "schematic")
+            scene.followup_wires.connect(self._refresh_followup_wires)
             title = f"{sheet.name} – schéma" if sheet.is_switchboard else f"{sheet.name} – vícepól"
         elif kind == "terminals":
             scene = TerminalPlanScene(project, sheet, self.library, self.undo)
@@ -475,6 +476,7 @@ class MainWindow(QMainWindow):
             scene.attrs_changed.connect(lambda _id: self.props_panel.show_item(self._selected_item()))
             scene.mode_changed.connect(self._show_mode)
             scene.open_switchboard.connect(self.open_switchboard_from_block)
+            scene.followup_wires.connect(self._refresh_followup_wires)
             scene.ask_delete_block_sheets = self._ask_delete_block_sheets
             scene.sheet_presence_changed = self._sheet_presence_changed
             scene.notes_visible = self._notes_visible_setting()
@@ -1047,6 +1049,20 @@ class MainWindow(QMainWindow):
             if isinstance(sc, SchematicScene):
                 sc.invalidate_xrefs()
         self._refresh_switchboard_blocks()
+
+    def _refresh_followup_wires(self, wire_ids: list) -> None:
+        """Follow-up příkazu (`commands._FeedFollowups`) změnil port nebo žíly vodičů i na jiných listech: jejich
+        položky ve všech otevřených schématech dostanou novou trasu a překreslí se (odvozené pohledy přestaví
+        `_on_undo_changed`)."""
+        for i in range(self.tabs.count()):
+            sc = self._unwrap(self.tabs.widget(i)).scene()
+            if not isinstance(sc, SchematicScene):
+                continue
+            for wid in wire_ids:
+                it = sc.wire_items.get(wid)
+                if it is not None:
+                    sc._route(it)
+                    it.update()
 
     def _refresh_switchboard_blocks(self) -> None:
         """Bloky ROZVADĚČ v JPS mají porty podle přívodů/vývodů svého listu – po změně listu se přestaví."""

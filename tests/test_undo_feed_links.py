@@ -272,3 +272,94 @@ def test_split_wire_on_block_keeps_undo_exact(app, lib):
     w.undo.undo()
     assert _state(sb.wires[0]) == before
     _done(w)
+
+
+# ---- schránka, vícepól, překreslení, revize ---------------------------------------------------------------------
+def test_paste_wire_on_block_port_copies_conductors_and_undoes(app, lib):
+    """Vložení ze schránky / makra (PasteCommand) s vodičem JPS na port bloku: žíly přebere přívod příkazem,
+    undo je vrátí, redo zopakuje (dřív to dělala jen synchronizace mimo undo)."""
+    p, s, sb, _t, blk, feed, _ = _project()
+    w = _win(lib, p)
+    jps = w._jps_scene(s)
+    before = _state(p)
+    t2 = Element("fve.inverter", 50, 100, attrs={"ref": "T2"})
+    wire = Wire(WireEnd(t2.id, "AC"), WireEnd(blk.id, "X1"), attrs={"ref": "W2"}, conductors=list(FULL))
+    w.undo.push(commands.PasteCommand(jps, [t2], [wire]))
+    assert sb.wires[0].conductors == FULL and feed.attrs["wire_id"] == wire.id
+    after = _state(p)
+    w.undo.undo()
+    assert sb.wires[0].conductors == SHORT
+    assert json.loads(_state(p))["sheets"][1]["wires"] == json.loads(before)["sheets"][1]["wires"]
+    w.undo.redo()
+    assert sb.wires[0].conductors == FULL and _state(p) == after
+    _done(w)
+
+
+def test_multipole_add_wire_on_block_port_copies_conductors_and_undoes(app, lib):
+    """Totéž pro vodič vložený ve vícepólu listu JPS (MultipoleAddCommand)."""
+    p, s, sb, t, blk, _feed, _ = _project()
+    w = _win(lib, p)
+    w.open_sheet(s, "multipole")
+    mps = w.view.scene()
+    assert mps.sheet is s and not hasattr(mps, "wire_items")
+    wire = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "X1"), conductors=list(FULL))
+    w.undo.push(commands.MultipoleAddCommand(mps, wire=wire))
+    assert sb.wires[0].conductors == FULL
+    w.undo.undo()
+    assert sb.wires[0].conductors == SHORT and wire not in s.wires
+    w.undo.redo()
+    assert sb.wires[0].conductors == FULL
+    _done(w)
+
+
+def _ends(item):
+    path = item.path()
+    first, last = path.elementAt(0), path.elementAt(path.elementCount() - 1)
+    return {(round(first.x, 3), round(first.y, 3)), (round(last.x, 3), round(last.y, 3))}
+
+
+def test_set_attr_wire_id_reroutes_jps_wire_item(app, lib):
+    """Ruční vazba přívodu X1 na vodič JPS vedoucí na port X2 bloku: port vodiče se přejmenuje na X1 a položka
+    vodiče v otevřeném JPS se hned přetrasuje (bez přestavby scény); undo ji vrátí na X2. Porty bloku se nemění
+    (přívod X2 existuje), takže obnovu nezajistí ani přestavba bloku."""
+    p, s, sb, t, blk, feed, _ = _project()
+    sb.elements.append(Element("sb.feed_in", 40, 120, attrs={"ref": "X2"}))
+    other = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "X2"), attrs={"ref": "W7"}, conductors=list(FULL))
+    s.wires.append(other)
+    w = _win(lib, p)
+    jps = w._jps_scene(s)
+    item, blk_item = jps.wire_items[other.id], jps.element_items[blk.id]
+    pos = {n: (round(blk_item.port_scene_pos(n).x(), 3), round(blk_item.port_scene_pos(n).y(), 3))
+           for n in ("X1", "X2")}
+    assert pos["X1"] != pos["X2"] and pos["X2"] in _ends(item)
+    w.open_sheet(sb)
+    sc = w.scene
+    assert sc.sheet is sb
+    sc.set_attr(feed.id, False, "wire_id", other.id)
+    assert other.b.port == "X1"
+    assert jps.wire_items[other.id] is item            # stejná položka, scéna se nepřestavěla
+    assert pos["X1"] in _ends(item) and pos["X2"] not in _ends(item)
+    w.undo.undo()
+    assert other.b.port == "X2" and pos["X2"] in _ends(item) and pos["X1"] not in _ends(item)
+    w.undo.redo()
+    assert pos["X1"] in _ends(item)
+    _done(w)
+
+
+def test_derived_empty_attrs_after_undo_do_not_affect_revision(app, lib):
+    """Po vložení a undo vodiče JPS má přívod místo chybějících klíčů `wire_id`/`from`/`cable` prázdné hodnoty
+    (odvozená synchronizace). Porovnání revizí ani otisk listu je nevidí – prázdná hodnota = chybějící klíč."""
+    from envocad.model.diff import diff_projects, sheet_fingerprint
+    p, s, _sb, t, blk, feed, _ = _project()
+    w = _win(lib, p)
+    old = Project.from_dict(p.to_dict())
+    fps = {x.id: sheet_fingerprint(x) for x in p.sheets}
+    wire = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "X1"), attrs={"ref": "W1", "cable": "CYKY"},
+                conductors=list(FULL))
+    w.undo.push(commands.AddWireCommand(w._jps_scene(s), wire))
+    assert feed.attrs["cable"] == "CYKY" and diff_projects(old, p)
+    w.undo.undo()
+    assert {k: feed.attrs.get(k) for k in ("wire_id", "from", "cable")} == {"wire_id": "", "from": "", "cable": ""}
+    assert diff_projects(old, p) == []
+    assert {x.id: sheet_fingerprint(x) for x in p.sheets} == fps
+    _done(w)
