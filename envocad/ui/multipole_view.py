@@ -977,6 +977,13 @@ class MultipoleScene(QGraphicsScene):
         if moves:
             self.undo.push(commands.MoveMultipoleCommand(self, moves))
 
+    def delete_selected(self) -> None:
+        """Smaže vybrané prvky (póly) a žíly – přes hlavní okno, které maže v modelu listu (jeden krok undo)."""
+        eids = sorted({it.element.id for it in self.selectedItems() if isinstance(it, PoleItem)})
+        wids = sorted({it.wire.id for it in self.selectedItems() if isinstance(it, ConductorItem)})
+        if eids or wids:
+            self.delete_requested.emit(eids, wids)
+
     def keyPressEvent(self, ev):
         if ev.key() == Qt.Key_Escape and self.mode in (Mode.PLACE, Mode.WIRE):
             self.set_mode(Mode.SELECT)
@@ -987,10 +994,7 @@ class MultipoleScene(QGraphicsScene):
         elif ev.key() == Qt.Key_Escape:
             self.clearSelection()
         elif ev.key() == Qt.Key_Delete:
-            eids = sorted({it.element.id for it in self.selectedItems() if isinstance(it, PoleItem)})
-            wids = sorted({it.wire.id for it in self.selectedItems() if isinstance(it, ConductorItem)})
-            if eids or wids:
-                self.delete_requested.emit(eids, wids)
+            self.delete_selected()
         else:
             super().keyPressEvent(ev)
 
