@@ -80,6 +80,7 @@ Pokyny pro AI agenty: `CLAUDE.md`, `docs/AGENTS.md`.
 | Upravit parametry | dvojklik na prvek nebo vodič |
 | Posun | tažení myší (snap na mřížku 2,5 mm); ruční lomy vodičů jdou s prvky |
 | Úprava trasy vodiče | chytit úsek vodiče a táhnout (vodorovný nahoru/dolů, svislý do stran); `N` narovná vybrané vodiče |
+| Svorky střídače | střídač s artiklem (Huawei, SolaX, GoodWe, Growatt, Sigenergy, SolarEdge) má pod značkou pás svorek BACKUP / BMS / METER / RS485 / LAN / DI…; atribut Svorky střídače (`io`) je přepíše |
 | Rotace / zrcadlení | `R` (o 90°), `M` zrcadlí podle svislé osy značky (i během vkládání) |
 | Text | `T`, klik do výkresu, text a výška písma; dvojklik upraví, `Delete` smaže |
 | Vodič | `W`, klik na port → klik na port, vyplnit parametry (označení, kabel, průřez) |

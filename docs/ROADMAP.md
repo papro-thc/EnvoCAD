@@ -67,7 +67,7 @@
 ## Proti EPLAN (analýza 10/2026) – zbývá
 - [x] Potenciály: T-odbočka vodiče do vodiče, sledování potenciálu přes svorky a můstky, kontrola N/PE (10/2026)
 - [ ] Funkční šablony artiklů (střídač → porty podle MPPT, jistič → příslušenství), přiřazení příslušenství k rámu – částečně: střídač → porty podle MPPT z artiklu (makra v2 / průvodce), jistič → příslušenství makrem
-- [ ] **Bloky typů střídačů**: každý typ střídače jako blok s vlastními svorkami – DC vstupy, AC, baterie, komunikace (RS485, Ethernet, CAN), DRMS / řízení výkonu (RTU, NS ochrana), měřicí smyčka – z katalogu `inverters.csv`; dnes má střídač jen DC1…DCn, AC (a BAT)
+- [x] **Bloky typů střídačů** (10/2026: pás svorek záloha/BMS/METER/RS485/LAN/DI/DRM/RSD podle profilu řady – Huawei, SolaX, GoodWe, Growatt, Sigenergy, SolarEdge; `model/inverter_io.py`, atribut `io`; zbývá: piny ověřit z návodů, katalog Sigenergy/Growatt/SolarEdge, měřicí smyčka/NA ochrana jako makra): každý typ střídače jako blok s vlastními svorkami – DC vstupy, AC, baterie, komunikace (RS485, Ethernet, CAN), DRMS / řízení výkonu (RTU, NS ochrana), měřicí smyčka – z katalogu `inverters.csv`; dnes má střídač jen DC1…DCn, AC (a BAT)
 - [ ] Rozložení jako výkres: montážní deska, žlaby a lišty podle artiklu s délkami, vrtací plán, výkaz montážního materiálu
 - [ ] Vícepatrové svorky, N-odpojovací svorky jako druh (svorkovnice přes více stran – hotovo 10/2026 stránkováním vícepólu)
 - [x] Makra (oblíbené sestavy) – hotovo 10/2026; zbývá: kopírování celého listu, hromadné přečíslování, editor značek v GUI

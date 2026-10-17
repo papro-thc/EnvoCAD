@@ -105,6 +105,15 @@ seznamu). Výchozí žíly se odvodí z portů a pólů (DC port → `DC+ DC-`, 
 V JPS je každá čára jednopólová – jedna čára = jeden kabel se všemi žílami. FV string má jeden port DC,
 střídač vstupy DC1…DCn (jeden na string) a AC.
 
+**Svorky typu střídače**: střídač s výrobcem a typem z artiklu dostane pod značkou pás svorek své řady – záložní
+výstup (BACKUP), komunikace s baterií (BMS, CAN), elektroměr (METER), RS485, Ethernet (LAN), řízení výkonu (DI,
+DRM, DIDO) a dálkové vypnutí (RSD); hybridní střídač má baterii (BAT) až pod pásem. Profily řad: Huawei SUN2000
+KTL-M1/M2/M3 a MAP0, SolaX X3-Ultra a X1/X3-Hybrid G4, GoodWe ET a DT/SDT G2, Growatt MOD, Sigenergy Sigen
+Hybrid / SigenStor, SolarEdge Home Hub a třífázové SetApp. Jsou podle datasheetů a návodů výrobce – čísla pinů
+a varianty trhu ověř v návodu konkrétního modelu. Atribut **Svorky střídače** (`io`) profil přepíše (např.
+„BACKUP BMS METER RS485“), „-“ svorky vypne. Vodič na komunikační svorku dostane žíly A, B (RS485, METER), H, L
+(BMS, CAN), LAN nebo DI; nezapojené komunikační svorky kontrola nehlásí.
+
 **T-odbočka (vodič z vodiče)**: v režimu Vodič klikni místo na port rovnou **na vodič** – vodič se v tom místě
 rozdělí uzlem (tečka, značka *Odbočka*) a z volného portu uzlu kreslíš dál; odbočka přebere žíly původního
 vodiče. Stejně jde vodič na jiném vodiči i ukončit. Uzel má čtyři porty, všechny jsou jeden potenciál.

@@ -68,7 +68,7 @@ from envocad.model.project import (
     Sheet,
     Wire,
     WireEnd,
-    inverter_dc_inputs,
+    element_symbol,
     sync_cables,
     sync_feed_links,
 )
@@ -193,6 +193,9 @@ def _build_project(spec: dict) -> Project:
             t.attrs["isc_mppt_max"] = _s(inv["isc_mppt_max"])
         # artikl dřív než dopočet MPPT: jeho strings_per_mppt / mppt určí počet DC vstupů
         _apply_inverter_component(t, inv)
+        # pás svorek typu střídače (záloha, komunikace – `inverter_io`) visí pod značkou: místo v řadě
+        from envocad.model.inverter_io import inverter_io
+        row_extra[i] += 5.0 * len(inverter_io(t.attrs))
         # neznámé stringů na MPPT zůstane prázdné (kontrola pak proudy na MPPT nesčítá); výchozí 2 jen pro DC vstupy
         spm_known, mppt_known = _int_attr(t.attrs.get("strings_per_mppt")), _int_attr(t.attrs.get("mppt"))
         if not spm_known:
@@ -277,10 +280,10 @@ def _build_project(spec: dict) -> Project:
     if spec.get("battery"):
         b = spec["battery"]
         t0 = inverter_elements[0]
-        n_in0 = inverter_dc_inputs(p, t0)
-        inv_half = max(20.0, 5.0 * n_in0 + 5.0) / 2 if n_in0 > 2 else 10.0
-        # baterie přímo pod svým (hybridním) střídačem: port BAT dole → port DC baterie nahoře, svisle 15 mm
-        bat = Element("fve.battery", t0.x, t0.y - inv_half - 25.0, attrs={
+        # baterie přímo pod svým (hybridním) střídačem: port BAT dole (pod pásem svorek, je-li) → port DC baterie
+        # nahoře, svisle 15 mm
+        bat_y = element_symbol(p, t0, _lib()).port("BAT").y
+        bat = Element("fve.battery", t0.x, t0.y + bat_y - 25.0, attrs={
             "ref": "G" + str(len([e for e in s.elements if e.symbol_id == "fve.pv_string"]) + 1),
             "type": _s(b.get("type")), "e_kwh": _s(b.get("e_kwh")), "p_kw": _s(b.get("p_kw"))})
         s.elements.append(bat)

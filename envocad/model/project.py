@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import json
 import logging
 import math
@@ -1701,12 +1702,22 @@ def inverter_dc_inputs(project: Project, e: Element) -> int:
     return max(n, 2)
 
 
+IO_ATTRIBUTE = Attribute("io", "Svorky střídače (záloha, komunikace) – prázdné = podle typu, „-“ = žádné", "", False)
+
+
 def inverter_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
-    """Značka střídače s DC vstupem na každý string (DC1…DCn vlevo); základní značka má DC1/DC2."""
+    """Značka střídače s DC vstupem na každý string (DC1…DCn vlevo); základní značka má DC1/DC2. Svorky typu
+    střídače (`inverter_io`: záložní výstup, generátor, komunikace, řízení výkonu) jsou v pásu pod značkou s porty
+    vpravo a popisem; baterie (BAT) je pak pod pásem. Atribut `io` je u střídače vždy (i bez svorek)."""
+    from envocad.model.inverter_io import inverter_io
+    attributes = list(base.attributes)
+    if not any(a.key == "io" for a in attributes):
+        attributes.append(IO_ATTRIBUTE)
     n = inverter_dc_inputs(project, e)
-    if n <= 2:
-        return base
-    h = max(20.0, 5.0 * n + 5.0)
+    io = [p for p in inverter_io(e.attrs) if p not in {q.name for q in base.ports}]
+    if n <= 2 and not io:
+        return dataclasses.replace(base, attributes=attributes)
+    h = max(20.0, 5.0 * n + 5.0) if n > 2 else 20.0
     half = h / 2
     prims = []
     for pr in base.primitives:
@@ -1718,11 +1729,21 @@ def inverter_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
             prims.append({**pr, "y": -half + 1.0})   # u spodní hrany uvnitř (port BAT je dole uprostřed)
         else:
             prims.append(pr)
-    ports = [Port(f"DC{k + 1}", -10, 2.5 * (n - 1) - 5 * k, "W") for k in range(n)]
-    ports += [p for p in base.ports if not p.name.startswith("DC")]
-    ports = [Port(p.name, p.x, (-half if p.y == -10 else (half if p.y == 10 else p.y)), p.dir) for p in ports]
+    if n > 2:
+        ports = [Port(f"DC{k + 1}", -10, 2.5 * (n - 1) - 5 * k, "W") for k in range(n)]
+        ports += [p for p in base.ports if not p.name.startswith("DC")]
+    else:
+        ports = list(base.ports)
+    bottom = -half - 5.0 * len(io)            # spodní hrana pásu svorek (bez svorek = spodní hrana značky)
+    ports = [Port(p.name, p.x, (bottom if p.y == -10 else (half if p.y == 10 else p.y)), p.dir) for p in ports]
+    if io:
+        prims.append({"type": "rect", "x": -10, "y": bottom, "w": 20, "h": -bottom - half})
+        for k, name in enumerate(io):
+            y = -half - 5.0 * k - 2.5
+            ports.append(Port(name, 10, y, "E"))
+            prims.append({"type": "text", "x": -8.5, "y": y - 0.7, "text": name, "height": 2.0, "align": "left"})
     return Symbol(id=base.id, name=base.name, category=base.category, description=base.description, iec_ref=base.iec_ref, function_class=base.function_class,
-                  primitives=prims, ports=ports, attributes=base.attributes, multipole=base.multipole,
+                  primitives=prims, ports=ports, attributes=attributes, multipole=base.multipole,
                   label_pos=(base.label_pos[0], half + 10.0))
 
 

@@ -50,6 +50,12 @@ def default_conductors(a: Element, pa: str, b: Element, pb: str) -> list[str]:
     for e in (a, b):
         if e.symbol_id.startswith("ctl."):  # ovládací obvod: jedna žíla
             return ["L"]
+    from envocad.model.inverter_io import io_conductors
+    for e, p in ((a, pa), (b, pb)):       # komunikační svorka střídače (RS485 → A, B; LAN; DI…)
+        if e.symbol_id in ("fve.inverter", "fve.inverter_hybrid"):
+            cores = io_conductors(p)
+            if cores is not None:
+                return cores
     for p in (pa, pb):
         up = p.upper()
         if up in ("DC+", "DC-", "+", "-"):
