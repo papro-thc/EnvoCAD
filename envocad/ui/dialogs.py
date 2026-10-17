@@ -553,8 +553,11 @@ class ProjectWizard(QDialog):
         self.dc_tech_box = QCheckBox("DC rozvaděč u technologie (pojistkové odpínače + SPD)")
         self.dc_tech_box.setChecked(True)
         self.dc_tech_len = QLineEdit("5")
-        self.dc_fuse_in = QLineEdit("15")
-        self.dc_spd = QLineEdit("T2")
+        self.dc_fuse_in = QLineEdit("")
+        self.dc_fuse_in.setPlaceholderText("podle stringu")
+        self.dc_fuse_in.setToolTip("Prázdné = podle stringu: gPV ≥ 1,5 × Isc modulu (do 2,4 × Isc a max. jištění "
+                                   "modulu), SolarEdge 25 A. Pojistkový odpojovač ETI EFH 10 DC 2p (max 25 A).")
+        self.dc_spd = QLineEdit("T1+T2")
         form.addRow("", self.dc_tech_box)
         form.addRow("Délka ke střídači [m] / In pojistek [A] / SPD DC", self._triple(self.dc_tech_len, self.dc_fuse_in, self.dc_spd))
         self.ac_cable = QLineEdit(str(std.get("ac_cable") or "CYKY-J 5x16"))
@@ -824,7 +827,7 @@ class ProjectWizard(QDialog):
         ("dc_route_boxes", "Počet DC rozvaděčů po trase", {"integer": True, "strict": False}),
         ("dc_route_len", "Délka kabelu mezi DC rozvaděči [m]", {"strict": False, "allow_empty": True}),
         ("dc_tech_len", "Délka ke střídači [m]", {"strict": False, "allow_empty": True}),
-        ("dc_fuse_in", "In pojistek [A]", {}), ("ac_cross", "Průřez AC kabelu", {}),
+        ("ac_cross", "Průřez AC kabelu", {}),
         ("ac_len", "Délka AC kabelu [m]", {"strict": False, "allow_empty": True}),
         ("ac_breaker", "In jističe střídače [A]", {}), ("ac_main", "In hlavního vypínače [A]", {}),
         ("grid_cross", "Průřez kabelu do HDS", {}),
@@ -835,6 +838,7 @@ class ProjectWizard(QDialog):
     _OPTIONAL = (
         ("mod_imp", "Impp modulu [A]", {}), ("mod_beta", "β Uoc [%/K]", {"minimum": -1.0}),
         ("inv_isc_mppt", "Isc max na MPPT [A]", {}), ("inv_spm", "Stringů na MPPT", {"integer": True}),
+        ("dc_fuse_in", "In pojistek [A]", {}),
         ("t_min", "Návrhová teplota min [°C]", {"temperature": True}),
         ("t_max", "Návrhová teplota max [°C]", {"temperature": True}),
         ("mod_total", "Celkem modulů", {"integer": True}),
@@ -920,7 +924,7 @@ class ProjectWizard(QDialog):
             "dc": {"cable": self.dc_cable.text().strip(), "cross": v["dc_cross"], "length": v["dc_len"],
                    "route_boxes": v["dc_route_boxes"], "route_length": v["dc_route_len"],
                    "tech_box": self.dc_tech_box.isChecked(), "tech_length": v["dc_tech_len"],
-                   "fuse_in": v["dc_fuse_in"], "spd": self.dc_spd.text().strip() or "T2",
+                   "fuse_in": v.get("dc_fuse_in") or "", "spd": self.dc_spd.text().strip() or "T1+T2",
                    "disconnect": not self.dc_tech_box.isChecked() and not v["dc_route_boxes"]},
             "ac": {"cable": self.ac_cable.text().strip(), "cross": v["ac_cross"], "length": v["ac_len"],
                    "breaker_in": v["ac_breaker"], "main_in": v["ac_main"],

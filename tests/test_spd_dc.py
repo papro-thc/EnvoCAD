@@ -112,3 +112,28 @@ def test_spd_on_string_side_is_reported():
     s.wires[-1] = Wire(WireEnd(qs.id, "1"), WireEnd(f.id, "L"), conductors=["L+", "L-"])
     fs = spd_findings(p)
     assert [x.code for x in fs] == ["spd_side"] and "QS1:1" in fs[0].text
+
+
+# ---- pojistky stringů (ETI EFH 10 DC 2p, gPV CH10x38) -----------------------------------------------------------
+def test_string_fuse_in_rules():
+    from envocad.model.calc import string_fuse_in
+    assert string_fuse_in(13.9) == 25.0             # 1,5 × 13,9 = 20,9 → 25 A (≤ 2,4 × Isc = 33 A)
+    assert string_fuse_in(9.0) == 15.0              # 13,5 → 15 A
+    assert string_fuse_in(13.9, i_fuse_max=20) is None   # modul snese jen 20 A < 20,9 → projektant
+    assert string_fuse_in(None) is None
+    assert string_fuse_in(None, optimizer=True) == 25.0  # SolarEdge
+
+
+@pytest.mark.parametrize(("extra", "expect"), [
+    ({}, "25"),                                                            # Isc 13,9 A
+    ({"module": {"isc": 9.0}}, "15"),
+    ({"module": {"isc": 9.0}, "optimizer": {"type": "SolarEdge S440"}}, "25"),
+    ({"dc": {"fuse_in": 16}}, "16"),                                       # zadané ve specifikaci
+])
+def test_generator_fuses_by_string_and_efh(extra, expect):
+    spec = {"name": "t", "inverters": [{"ref": "T1", "strings": [20] * 3}], **extra}
+    p = build_project(spec)
+    fus = [e for s in p.switchboards() for e in s.elements if e.symbol_id == "fve.fuse_disconnect"]
+    assert fus and {e.attrs["in_"] for e in fus} == {expect}
+    assert all(e.component_id == "eti-efh-10-dc-2p" and e.attrs["poles"] == "2" and e.attrs["cross_max"] == "25"
+               for e in fus)

@@ -50,6 +50,8 @@ PARAM_TO_ATTR = {
     "imp_a": "imp", "u_sys_max_v": "u_sys_max", "isc_mppt_max_a": "isc_mppt_max",
     # FV modul: teplotní součinitele [%/K] – oba zadané → součinitel Umpp = γ_Pmax − α_Isc (`calc.ModuleData`)
     "gamma_pmax": "gamma_pmax", "alpha_isc": "alpha_isc",
+    # FV modul: max. jištění modulu (IMOD_MAX_OCPR) – horní mez pojistky gPV stringu (`calc.string_fuse_in`)
+    "i_fuse_max_a": "i_fuse_max",
     # rozsah provozní teploty okolí přístroje [°C] dle datasheetu – ověření oteplení po přístrojích (`thermal`)
     "t_min_c": "t_min", "t_max_c": "t_max",
     # SPD do výkresu: ochranná úroveň Up, zkratová odolnost ISCPV (DC SPD bez vlastní pojistky)

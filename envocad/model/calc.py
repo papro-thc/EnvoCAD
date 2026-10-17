@@ -348,6 +348,27 @@ def _strings(n: int) -> str:
     return f"{n} {plural(n, 'string', 'stringy', 'stringů')}"
 
 
+# jmenovité proudy vložek gPV CH10x38 1000 V DC (ETI, katalog Green Protect – 10 až 25 A; EFH 10 DC max 25 A)
+GPV_FUSE_SIZES = (10.0, 12.0, 13.0, 15.0, 16.0, 20.0, 25.0)
+OPTIMIZER_FUSE_IN = 25.0     # SolarEdge (optimizéry): string má pevný proud, praxe ENVO 25 A
+
+
+def string_fuse_in(isc: float | None, i_fuse_max: float | None = None, optimizer: bool = False,
+                   sizes: tuple[float, ...] = GPV_FUSE_SIZES) -> float | None:
+    """Jmenovitý proud pojistky gPV stringu (IEC 62548, ETI Green Protect): nejmenší řada In ≥ 1,5·Isc modulu
+    (STC), nejvýš 2,4·Isc a max. jištění modulu (`i_fuse_max`, IMOD_MAX_OCPR). String s optimizéry (SolarEdge)
+    25 A. Bez Isc nebo bez vyhovující velikosti → None (projektant)."""
+    if optimizer:
+        return OPTIMIZER_FUSE_IN
+    if not isc or isc <= 0:
+        return None
+    hi = min(2.4 * isc, i_fuse_max) if i_fuse_max else 2.4 * isc
+    for s in sizes:
+        if s >= 1.5 * isc - 1e-9 and s <= hi + 1e-9:
+            return s
+    return None
+
+
 def string_ports(n_strings: int, inv: InverterData | None) -> list[int]:
     """Čísla DC vstupů střídače (k v „DCk“, od 1) pro stringy v pořadí – tak je zapojí generátor. Se známým počtem
     MPPT rovnoměrně: vstupy {m·s + j + 1} pro k-tý string (m = k mod mppt, j = k div mppt, s = stringů na MPPT,

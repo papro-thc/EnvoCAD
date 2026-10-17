@@ -1156,13 +1156,17 @@
       "rotation": 270,
       "attrs": {
        "ref": "FU1.1",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
       "id": "#69",
@@ -1237,13 +1241,17 @@
       "rotation": 270,
       "attrs": {
        "ref": "FU1.2",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
       "id": "#72",
@@ -1305,13 +1313,17 @@
       "rotation": 270,
       "attrs": {
        "ref": "FU1.3",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
       "id": "#74",
@@ -3717,13 +3729,17 @@
       "rotation": 270,
       "attrs": {
        "ref": "FU1.1",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
       "id": "#88",
@@ -3798,13 +3814,17 @@
       "rotation": 270,
       "attrs": {
        "ref": "FU1.2",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
       "id": "#91",
@@ -3866,13 +3886,17 @@
       "rotation": 270,
       "attrs": {
        "ref": "FU1.3",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
       "id": "#93",
@@ -4635,13 +4659,17 @@
       "rotation": 270,
       "attrs": {
        "ref": "FU2.1",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
       "id": "#130",
@@ -4716,13 +4744,17 @@
       "rotation": 270,
       "attrs": {
        "ref": "FU2.2",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
       "id": "#133",
@@ -7116,9 +7148,13 @@
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
       "id": "#72",
@@ -7197,9 +7233,13 @@
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
       "id": "#75",
@@ -9532,13 +9572,17 @@
       "rotation": 270,
       "attrs": {
        "ref": "FU1.1",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
       "id": "#86",
@@ -9613,13 +9657,17 @@
       "rotation": 270,
       "attrs": {
        "ref": "FU1.2",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
       "id": "#89",
@@ -9681,13 +9729,17 @@
       "rotation": 270,
       "attrs": {
        "ref": "FU1.3",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
       "id": "#91",
@@ -9749,13 +9801,17 @@
       "rotation": 270,
       "attrs": {
        "ref": "FU1.4",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
       "id": "#93",

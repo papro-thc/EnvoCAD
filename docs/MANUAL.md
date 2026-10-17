@@ -517,7 +517,13 @@ kabelů a vazeb. Hned potom spusť `F7`.
 
 DC strana se dělá jako na stavbě: ke každému střídači vznikne **DC rozvaděč po trase** (počet zadáš, i 0 –
 odpínač DC a SPD na každý string, stringy jím procházejí odděleně) a **DC rozvaděč u technologie**
-(pojistkové odpínače gPV a SPD DC na každý string). **Stringy se v rozvaděči nikdy nespojují** – každý jde
+(pojistkové odpojovače gPV a SPD DC na každý string). Výchozí přístroje podle praxe ENVO: **pojistkový odpojovač
+ETI EFH 10 DC 2p** (vložky CH10x38 gPV 1000 V, max 25 A; kategorie DC-20B – **nespínat pod zátěží**, vypíná se
+odpínačem střídače / rozvaděče po trase), **svodič Weidmüller VPU PV I+II 3 1000** (ve výkresu typ, Uc 1000 V DC,
+Up ≤ 3,8 kV, ISCPV 11 kA – proto bez vlastní pojistky) připojený z výstupních svorek odpojovače / odpínače (strana
+střídače) dvojitou dutinkou. **In pojistek** se při prázdném poli určí podle stringu (IEC 62548): nejmenší vložka
+≥ 1,5 × Isc modulu, nejvýš 2,4 × Isc a max. jištění modulu z katalogu; SolarEdge (střídač nebo optimizéry) 25 A.
+Artikly mění `dc.fuse_component` a `dc.spd_component` ve specifikaci. **Stringy se v rozvaděči nikdy nespojují** – každý jde
 zvlášť až na vlastní DC vstup střídače (DC1…DCn podle počtu MPPT × stringů na MPPT; zná-li střídač počet MPPT
 (zadáním nebo z artiklu), stringy se rozdělí na MPPT rovnoměrně – 1. string na MPPT 1, 2. na MPPT 2… –, jinak jdou
 na DC1, DC2… za sebou; paralelní spojení dělá

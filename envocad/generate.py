@@ -18,7 +18,8 @@ Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
   "dc": {"cable": "H1Z2Z2-K 1x6", "cross": 6, "length": 40,          # string → první DC rozvaděč
          "route_boxes": 1, "route_length": 20,                        # DC rozvaděče po trase (odpínač + SPD), kabel mezi nimi
          "tech_box": true, "tech_length": 5,                          # DC rozvaděč u technologie (pojistkové odpínače + SPD), kabel ke střídači
-         "spd": "T1+T2", "fuse_in": 15, "disconnect_in": 32,
+         "spd": "T1+T2", "fuse_in": "",                              # "" = podle stringu (gPV ≥ 1,5·Isc; SolarEdge 25 A)
+         "disconnect_in": 32, "fuse_component": "eti-efh-10-dc-2p",   # pojistkový odpojovač ETI EFH 10 DC 2p
          "spd_component": "weidmuller-vpu-pv-i-ii-3-1000",            # artikl SPD (typ, Uc, Up, ISCPV), když typ odpovídá
          "disconnect": false},                                        # jen samostatný odpínač v JPS bez DC rozvaděčů (stará varianta)
   "ac": {"cable": "CYKY-J 5x16", "cross": 16, "length": 30, "breaker_in": 40, "main_in": 125,
@@ -84,7 +85,9 @@ DEFAULT_SPEC = {
     "site": {},   # {"t_min": -20, "t_max": 70} – návrhové teploty stringů (průvodce předvyplní ze standardu)
     "optimizer": {"type": "", "per_module": 1},
     "dc": {"cable": "H1Z2Z2-K 1x6", "cross": 6, "length": 30, "route_boxes": 1, "route_length": 20,
-           "tech_box": True, "tech_length": 5, "spd": "T1+T2", "fuse_in": 15, "disconnect_in": 32, "disconnect": False,
+           "tech_box": True, "tech_length": 5, "spd": "T1+T2", "fuse_in": "", "disconnect_in": 32, "disconnect": False,
+           # pojistkový odpojovač stringu (DC-20B – nespínat pod zátěží); "" = bez artiklu
+           "fuse_component": "eti-efh-10-dc-2p",
            # artikl svodiče DC (typ, Uc, Up, ISCPV do výkresu) – použije se, když typ `spd` odpovídá artiklu; "" = bez
            "spd_component": "weidmuller-vpu-pv-i-ii-3-1000"},
     "ac": {"cable": "CYKY-J 5x16", "cross": 16, "length": 30, "breaker_in": 40, "main_in": 125,
@@ -309,15 +312,18 @@ def _build_project(spec: dict) -> Project:
     p.meta.setdefault("p_installed_kwp", f"{p_total:g}")
     # listy DC rozvaděčů a AC rozvaděče
     macros = spec.get("macros") or {}
+    inv_by_ref = {t.ref: t for t in inverter_elements}
     for b, gens, kind, inv_no, inv_ref in dc_boxes:
         sheet = p.create_switchboard_sheet(b)
         sheet.layout.params.setdefault("network", "DC IT")
         sheet.layout.params.setdefault("un", "max. 1000 V DC")
         entry = macros.get("dc_tech" if kind == "tech" else "dc_route", "")
-        if not _dc_box_from_macro(p, sheet, [g.ref for g in gens], entry, dc, inv_no, inv_ref):
-            build_dc_strings(p, sheet, [g.ref for g in gens], kind, _s(dc.get("fuse_in") or 15),
+        dc_box = {**dc, "fuse_in": _fuse_in(dc, mod, opt, inv_by_ref.get(inv_ref))}
+        if not _dc_box_from_macro(p, sheet, [g.ref for g in gens], entry, dc_box, inv_no, inv_ref):
+            build_dc_strings(p, sheet, [g.ref for g in gens], kind, _s(dc_box["fuse_in"]),
                              _s(dc.get("disconnect_in") or 32), _s(dc.get("spd") or "T2"))
         _apply_spd_component(sheet, dc.get("spd_component"))
+        _apply_component(sheet, dc.get("fuse_component"), "fve.fuse_disconnect")
     sb = p.create_switchboard_sheet(blk)
     sb.layout.params.setdefault("network", "3NPE, 50 Hz")
     sb.layout.params.setdefault("un", "230/400 V")
@@ -332,6 +338,37 @@ def _build_project(spec: dict) -> Project:
     sync_feed_links(p)
     sync_cables(p)
     return p
+
+
+def _fuse_in(dc: dict, mod: dict, opt: dict, inv: Element | None) -> str:
+    """In pojistek stringů DC rozvaděče: zadané `dc.fuse_in`, jinak podle stringu (`calc.string_fuse_in`) –
+    SolarEdge (střídač nebo optimizéry) 25 A, jinak gPV ≥ 1,5·Isc modulu do 2,4·Isc a max. jištění modulu;
+    bez údajů 15 A."""
+    if _s(dc.get("fuse_in")).strip() not in ("", "auto"):
+        return _s(dc["fuse_in"])
+    from envocad.model.calc import string_fuse_in
+
+    def num(v) -> float | None:
+        try:
+            return float(str(v).replace(",", "."))
+        except (TypeError, ValueError):
+            return None
+
+    mfr = (inv.attrs.get("manufacturer", "") if inv is not None else "") + " " + _s(opt.get("type"))
+    se = "solaredge" in mfr.lower().replace(" ", "")
+    fin = string_fuse_in(num(mod.get("isc")), num(mod.get("i_fuse_max")), optimizer=se)
+    return f"{fin:g}" if fin else "15"
+
+
+def _apply_component(sheet: Sheet, cid, symbol_id: str) -> None:
+    """Artikl (`dc.fuse_component`) na všechny prvky `symbol_id` listu – typ, výrobce, póly, šířka; In vložky
+    zůstává (artikl držáku In nemá). Neznámý nebo prázdný artikl → beze změny."""
+    comp = _lib().component(cid) if cid else None
+    if comp is None:
+        return
+    for e in sheet.elements:
+        if e.symbol_id == symbol_id:
+            comp.apply_to(e)
 
 
 def _apply_spd_component(sheet: Sheet, cid) -> None:
@@ -374,7 +411,7 @@ def _int_attr(v) -> int | None:
 # údaje modulu ve specifikaci ← atribut prvku `fve.pv_string` (`Component.attr_values()`)
 MODULE_SPEC_FROM_ATTR = {"p_module": "p_wp", "voc": "voc", "vmp": "vmp", "isc": "isc", "imp": "imp",
                          "beta_voc": "beta_voc", "u_sys_max": "u_sys_max", "type": "type", "manufacturer": "manufacturer",
-                         "alpha_isc": "alpha_isc", "gamma_pmax": "gamma_pmax"}
+                         "alpha_isc": "alpha_isc", "gamma_pmax": "gamma_pmax", "i_fuse_max": "i_fuse_max"}
 
 
 def _apply_module_component(mod: dict) -> dict:
@@ -444,6 +481,7 @@ def _align_bends(project: Project) -> None:
 
 def _macro_vars(dc: dict, ac: dict) -> dict:
     """Základ hodnot proměnných maker ze specifikace (v `resolve_values` hned za výchozími hodnotami makra)."""
+    # prázdné / „auto“ `fuse_in` (podle stringu) doplní `_fuse_in` před voláním; sem jde už číslo
     return {"fuse_in": _s(dc.get("fuse_in") or 15), "disc_in": _s(dc.get("disconnect_in") or 32), "spd": _s(dc.get("spd") or "T2"),
             "breaker_in": _s(ac.get("breaker_in") or 40), "main_in": _s(ac.get("main_in") or 125), "ac_spd": _s(ac.get("spd") or "T1+T2")}
 
