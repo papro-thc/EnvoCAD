@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from envocad.model import multipole as mp
+from envocad.model.designation import element_name
 from envocad.model.project import FEED_SYMBOLS, Element, Project, Sheet, Wire, linked_wire
 from envocad.model.xref import natural_key
 
@@ -58,7 +59,7 @@ def _external_of_feed(project: Project, sheet: Sheet, e: Element) -> tuple[str, 
         far_end = w.b if w.a.element_id == sheet.parent_element_id else w.a
         far = s.element(far_end.element_id)
         cable = " ".join(x for x in (w.attrs.get("cable", ""), w.attrs.get("cross", "")) if x)
-        return f"{far.ref or far.symbol_id}:{far_end.port}", (w.attrs.get("ref", "") + " " + cable).strip()
+        return f"{element_name(far)}:{far_end.port}", (w.attrs.get("ref", "") + " " + cable).strip()
     return e.attrs.get("from") or e.attrs.get("to") or e.attrs.get("desc", ""), e.attrs.get("cable", "")
 
 

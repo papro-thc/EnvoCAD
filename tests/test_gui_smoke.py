@@ -1135,7 +1135,7 @@ def test_insert_macro_count_zero_status_message(app, tmp_path, monkeypatch):
                      "wires": []}}), encoding="utf-8")
 
     class FakeDialog:
-        def __init__(self, macro, library, parent=None):
+        def __init__(self, macro, library, parent=None, **_kw):   # project, sheet (navazující číslování)
             self.macro, self.library = macro, library
 
         def exec(self):

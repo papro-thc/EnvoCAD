@@ -169,10 +169,28 @@ def wire_overlaps(sheet: Sheet, routes: dict[str, list[Point]]) -> list[tuple[st
     """Dvojice vodičů, které vedou přes sebe (souběh blíž než 5 mm)."""
     segs = {wid: _inner_segments(pts) for wid, pts in routes.items()}
     wires = {w.id: w for w in sheet.wires}
-    ids = [w.id for w in sheet.wires if w.id in segs]
+    ids = [w.id for w in sheet.wires if segs.get(w.id)]
+    # prostorový index obálek (zvětšených o MIN_GAP): porovnají se jen vodiče v sousedních buňkách mřížky
+    cell = 20.0
+    grid: dict[tuple[int, int], list[int]] = {}
+    boxes = []
+    for i, wid in enumerate(ids):
+        xs = [x for s in segs[wid] for x in (s[0][0], s[1][0])]
+        ys = [y for s in segs[wid] for y in (s[0][1], s[1][1])]
+        b = (min(xs) - MIN_GAP, min(ys) - MIN_GAP, max(xs) + MIN_GAP, max(ys) + MIN_GAP)
+        boxes.append(b)
+        for gx in range(int(b[0] // cell), int(b[2] // cell) + 1):
+            for gy in range(int(b[1] // cell), int(b[3] // cell) + 1):
+                grid.setdefault((gx, gy), []).append(i)
     out = []
     for i, a in enumerate(ids):
-        for b in ids[i + 1:]:
+        ba = boxes[i]
+        near = set()
+        for gx in range(int(ba[0] // cell), int(ba[2] // cell) + 1):
+            for gy in range(int(ba[1] // cell), int(ba[3] // cell) + 1):
+                near.update(j for j in grid.get((gx, gy), ()) if j > i)
+        for j in sorted(near):
+            b = ids[j]
             if ends(wires[a]) & ends(wires[b]):
                 continue   # odbočka ze stejného portu
             if any(segments_conflict(s, o) for s in segs[a] for o in segs[b]):

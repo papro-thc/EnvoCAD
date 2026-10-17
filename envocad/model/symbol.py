@@ -41,7 +41,13 @@ class Attribute:
     fmt: str = ""        # formát zobrazené hodnoty ve výkresu, např. "{} modulů" (prázdné = hodnota sama)
 
     def display(self, value: str) -> str:
-        return self.fmt.format(value) if self.fmt and value else value
+        """Hodnota pro výkres podle `fmt`; hodnota, která už jednotku z formátu nese („25 kW“), se nezdvojí."""
+        if not (self.fmt and value):
+            return value
+        suffix = self.fmt.split("{}", 1)[-1].strip() if "{}" in self.fmt else ""
+        if suffix and str(value).strip().lower().endswith(suffix.lower()):
+            return str(value)
+        return self.fmt.format(value)
 
     def to_dict(self) -> dict:
         return asdict(self)

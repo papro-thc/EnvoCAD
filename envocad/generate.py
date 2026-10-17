@@ -33,6 +33,7 @@ které specifikace nezadala (typ, výrobce, mppt…).
 from __future__ import annotations
 
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -54,9 +55,13 @@ from envocad.model.project import (
     Sheet,
     Wire,
     WireEnd,
+    inverter_dc_inputs,
     sync_cables,
     sync_feed_links,
 )
+
+BATTERY_ROW_EXTRA = 40.0   # místo pro baterii pod hybridním střídačem (mm)
+INV_LABEL_SPACE = 40.0     # popisek DC kabelu („W12  2× H1Z2Z2-K 1x6 mm²“) mezi blokem rozvaděče a lomy ke střídači
 
 DEFAULT_SPEC = {
     "name": "Nový projekt FVE",
@@ -99,12 +104,13 @@ def build_project(spec: dict) -> Project:
     mod, dc, ac = spec["module"], spec["dc"], spec["ac"]
     opt = spec.get("optimizer") or {}
     opt_per = float(opt.get("per_module") or 1) if opt.get("type") else 0.0
-    # svislé rozestupy řad střídačů podle počtu stringů
+    # svislé rozestupy řad střídačů podle počtu stringů; souřadnice jsou zatím pracovní – na list (formát, střed,
+    # vnitřní rámeček, popisové pole) se obsah rozmístí až na konci (`frame.fit_sheet_to_content`)
     row_h = [max(60.0, 45.0 * max(len(inv.get("strings") or [1]), 1) + 15.0) for inv in invs]   # 45 mm na string (popisek nad ním)
-    total_h = sum(row_h)
-    if total_h + 70.0 > s.height:   # hodně stringů → vyšší list
-        s.height, s.paper = total_h + 70.0, "vlastní"
-    y_top = min(s.height - 45.0, 150.0 + total_h / 2)
+    # hybridní střídač: baterie pod ním, v řadě se pro ni přidá místo (kabel jde krátce dolů, přes nic jiného)
+    row_extra = [BATTERY_ROW_EXTRA if spec.get("battery") and i == 0 else 0.0 for i in range(len(invs))]
+    total_h = sum(row_h) + sum(row_extra)
+    y_top = 150.0 + total_h / 2
     n_route = max(0, int(dc.get("route_boxes") or 0))
     n_boxes = n_route + (1 if dc.get("tech_box") else 0)
     box_pitch = 85.0            # mezi rozvaděči se vejde popisek kabelu i dvojitý křížový odkaz
@@ -113,10 +119,9 @@ def build_project(spec: dict) -> Project:
     x_box0 = x_str + 60.0 + 5.0 * n_max   # lomy stringů až za popisky kabelů u stringů
     x_boxes = [x_box0 + j * box_pitch for j in range(n_boxes)]
     x_dc = 130.0                                                   # samostatný odpínač DC (bez rozvaděčů)
-    x_inv = (x_boxes[-1] + 80.0) if n_boxes else 200.0             # před střídačem víc místa: stringy se slévají do DC1/DC2
+    # před střídačem: popisek kabelu za blokem rozvaděče + vějíř lomů (5 mm na string) před DC vstupy střídače
+    x_inv = (x_boxes[-1] + max(80.0, 15.0 + INV_LABEL_SPACE + 5.0 * n_max + 10.0)) if n_boxes else 200.0
     x_blk, x_grid = x_inv + 110.0, x_inv + 185.0   # mezi střídačem a rozvaděčem se vejde popisek AC kabelu
-    if x_grid + 25.0 > s.width:    # víc DC rozvaděčů po trase → širší list (A2 na výšku A3)
-        s.width, s.paper = x_grid + 25.0, "vlastní"
     p_total = 0.0
     blk = Element("fve.switchboard", x_blk, 150.0, attrs={"ref": spec["switchboard"]["ref"], "desc": spec["switchboard"]["desc"]})
     s.elements.append(blk)
@@ -176,7 +181,9 @@ def build_project(spec: dict) -> Project:
                                         attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": _s(dc.get("cross")),
                                                "length": _s(length), "method": "E"}))
                     prev, prev_port = b, f"X{n_str + k + 1}"
-                xb = prev.x + 50.0 + 5.0 * k   # lomy až za popisky
+                # vějíř lomů těsně před DC vstupy střídače (5 mm rozestup) – za popiskem kabelu, mimo značku střídače;
+                # pořadí lomů bez křížení doladí `_align_bends`
+                xb = t.x - 10.0 - 5.0 * (n_str - k)
                 y_inv = t.y + (2.5 * (n_in - 1) - 5.0 * k if n_in > 2 else (5.0 if k == 0 else -5.0))
                 s.wires.append(Wire(WireEnd(prev.id, prev_port), WireEnd(t.id, port_inv), conductors=list(DC_CONDUCTORS),
                                     points=[(xb, port_y[k]), (xb, y_inv)],
@@ -199,13 +206,18 @@ def build_project(spec: dict) -> Project:
                     attrs={"ref": p.next_ref("W"), "cable": _s(ac.get("cable")), "cross": _s(ac.get("cross")),
                            "length": _s(ac.get("length")), "method": "B1"})
         s.wires.append(w_ac)
-        y -= row_h[i]
+        y -= row_h[i] + row_extra[i]
     if spec.get("battery"):
         b = spec["battery"]
-        bat = Element("fve.battery", x_inv, y_top - total_h - 15.0, attrs={"ref": "G" + str(len([e for e in s.elements if e.symbol_id == "fve.pv_string"]) + 1),
-                                                                            "type": _s(b.get("type")), "e_kwh": _s(b.get("e_kwh")), "p_kw": _s(b.get("p_kw"))})
+        t0 = inverter_elements[0]
+        n_in0 = inverter_dc_inputs(p, t0)
+        inv_half = max(20.0, 5.0 * n_in0 + 5.0) / 2 if n_in0 > 2 else 10.0
+        # baterie přímo pod svým (hybridním) střídačem: port BAT dole → port DC baterie nahoře, svisle 15 mm
+        bat = Element("fve.battery", t0.x, t0.y - inv_half - 25.0, attrs={
+            "ref": "G" + str(len([e for e in s.elements if e.symbol_id == "fve.pv_string"]) + 1),
+            "type": _s(b.get("type")), "e_kwh": _s(b.get("e_kwh")), "p_kw": _s(b.get("p_kw"))})
         s.elements.append(bat)
-        s.wires.append(Wire(WireEnd(inverter_elements[0].id, "BAT"), WireEnd(bat.id, "DC"), conductors=list(DC_CONDUCTORS),
+        s.wires.append(Wire(WireEnd(t0.id, "BAT"), WireEnd(bat.id, "DC"), conductors=list(DC_CONDUCTORS),
                             attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": "25", "length": "5"}))
     grid = Element("fve.grid", x_grid, 150.0, attrs={"ref": "", "voltage": _s(spec["grid"].get("voltage")), "dso": _s(spec["grid"].get("dso"))})
     s.elements.append(grid)
@@ -213,6 +225,7 @@ def build_project(spec: dict) -> Project:
                   attrs={"ref": p.next_ref("W"), "cable": _s(ac.get("grid_cable")), "cross": _s(ac.get("grid_cross")),
                          "length": _s(ac.get("grid_length")), "method": "D"})
     s.wires.append(w_grid)
+    earth = None
     if (ac.get("distribution") or "bus") == "bus":
         # PE rozvaděče je uzemněný na ekvipotenciální svorkovnici (HOP) vně rozvaděče – vývod XPE → uzemnění
         earth = Element("fve.earth", x_blk + 35.0, 150.0 - 40.0, attrs={"ref": "", "desc": "ekvipotenciální svorkovnice (HOP)"})
@@ -237,10 +250,28 @@ def build_project(spec: dict) -> Project:
     sb.layout.params.setdefault("in_", _s(ac.get("main_in") or 125))
     if not _ac_box_from_macros(p, sb, invs, ac, macros):
         _build_ac_switchboard(p, sb, invs, ac, spec)
+    _align_bends(p)
+    _align_outputs(p, blk, grid, earth)
+    from envocad.library.store import LibraryStore
+    from envocad.model.frame import fit_sheet_to_content
+    fit_sheet_to_content(p, s, LibraryStore())
+    # až po rozmístění na list: vazby přívodů ukládají texty s polohou v JPS („W3 T1:DC1 /1.F3“)
     sync_feed_links(p)
     sync_cables(p)
-    _align_bends(p)
     return p
+
+
+def _align_outputs(project: Project, blk: Element, grid: Element, earth: Element | None) -> None:
+    """Síť (DS) na výšku vývodu XOUT bloku AC rozvaděče (vodič vede rovně) a uzemnění (HOP) pod vývod XPE –
+    porty bloku jsou známé až po vytvoření listu rozvaděče."""
+    from envocad.library.store import LibraryStore
+    from envocad.model.project import element_symbol
+    sym = element_symbol(project, blk, LibraryStore())
+    names = {pt.name for pt in sym.ports}
+    if "XOUT" in names:
+        grid.y = blk.port_pos(sym, "XOUT")[1]
+    if earth is not None and "XPE" in names:
+        earth.y = blk.port_pos(sym, "XPE")[1] - 20.0
 
 
 def _apply_inverter_component(t: Element, inv: dict) -> None:
@@ -440,9 +471,57 @@ def _build_ac_switchboard(project: Project, sheet: Sheet, invs: list[dict], ac: 
         _wire(project, sheet, g_out, "2", q, "1", AC_CONDUCTORS)
         _wire(project, sheet, spd, "PE", pe, "1", ["PE"])
     _wire(project, sheet, q, "2", out, "1", AC_CONDUCTORS)
-    _place_sequential(sheet, [q, spd, *breakers])
+    # skupiny rozvodných svorek zabírají na liště počet svorek × šířka svorky (`Element.modules`)
+    _place_sequential(sheet, [q, spd, *breakers, *groups, *([g_spd, g_out] if not use_bus else [])])
     if ac.get("enclosure"):
         sheet.layout.params["type"] = _s(ac["enclosure"])
+
+
+# ---- vstupy průvodce (bez Qt, testovatelné) -------------------------------------------------------------------
+def parse_strings(text: str) -> list[list[int]]:
+    """„20,20,18; 20 20“ → [[20, 20, 18], [20, 20]]: střídače oddělené středníkem, stringy čárkou nebo mezerou.
+    Počet modulů musí být celé kladné číslo; prázdné úseky (koncový středník) se přeskočí. Chyba → ValueError
+    s českou hláškou."""
+    out: list[list[int]] = []
+    for i, part in enumerate(str(text or "").split(";"), start=1):
+        tokens = [t for t in part.replace(",", " ").split() if t]
+        if not tokens:
+            continue
+        nums = []
+        for t in tokens:
+            if not t.isdigit() or int(t) <= 0:
+                raise ValueError(f"Stringy (střídač {i}): „{t}“ není celé kladné číslo (počet modulů ve stringu).")
+            nums.append(int(t))
+        out.append(nums)
+    if not out:
+        raise ValueError("Stringy: zadejte alespoň jeden string (počty modulů oddělené čárkou nebo mezerou, "
+                         "střídače středníkem).")
+    return out
+
+
+def parse_number(text: str, label: str, *, integer: bool = False, minimum: float = 0.0, strict: bool = True,
+                 allow_empty: bool = False) -> int | float | str:
+    """Číslo z pole průvodce (desetinná čárka i tečka). `strict` = musí být > minimum, jinak ≥ minimum.
+    Prázdné pole s `allow_empty` → "". Chyba → ValueError s českou hláškou s názvem pole."""
+    t = str(text or "").strip().replace(",", ".")
+    if not t:
+        if allow_empty:
+            return ""
+        raise ValueError(f"{label}: zadejte hodnotu.")
+    try:
+        v = float(t)
+    except ValueError:
+        raise ValueError(f"{label}: „{text.strip()}“ není číslo.") from None
+    if not math.isfinite(v):
+        raise ValueError(f"{label}: „{text.strip()}“ není číslo.")
+    if integer and not v.is_integer():
+        raise ValueError(f"{label}: zadejte celé číslo (ne „{text.strip()}“).")
+    if (strict and v <= minimum) or (not strict and v < minimum):
+        cmp = "větší než" if strict else "alespoň"
+        raise ValueError(f"{label}: hodnota musí být {cmp} {minimum:g}.")
+    if integer or v.is_integer() and "." not in t:
+        return int(v)
+    return v
 
 
 def load_spec(path: Path | str) -> dict:

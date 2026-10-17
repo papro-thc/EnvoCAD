@@ -75,7 +75,7 @@
     {
       "type": "text",
       "x": 0,
-      "y": -13.5,
+      "y": -9.0,
       "text": "BAT",
       "height": 2,
       "align": "center"
@@ -124,7 +124,8 @@
       "key": "p_ac",
       "label": "P AC [kW]",
       "default": "",
-      "show": true
+      "show": true,
+      "fmt": "{} kW"
     },
     {
       "key": "p_dc_max",

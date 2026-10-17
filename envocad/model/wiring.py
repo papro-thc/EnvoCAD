@@ -14,7 +14,7 @@ import math
 import re
 from dataclasses import dataclass, field
 
-from envocad.model.designation import LOCATION_SYMBOLS, designation, full_designation
+from envocad.model.designation import LOCATION_SYMBOLS, designation, element_name, full_designation
 from envocad.model.multipole import (
     NEVER_SWITCHED,
     TERMINAL_BLOCK_SYMBOLS,
@@ -464,7 +464,7 @@ def end_name(e: Element) -> str:
     """Jméno konce do poznámek: „F2“, u sběrnice „sběrnice 1“."""
     if e.symbol_id == BUS:
         return f"sběrnice {e.ref}".strip()
-    return e.ref or e.symbol_id
+    return element_name(e)
 
 
 # původ svorky konce žíly (`ConductorEnd.origin`)
@@ -515,7 +515,7 @@ def conductor_end(project: Project, sheet: Sheet, w: Wire, conductor: str, side:
         else:
             origin = ORIGIN_PORT
             if len(port_conductors(sheet, e.id, end.port)) > 1:
-                name = e.ref or e.symbol_id
+                name = element_name(e)
                 t = f"{name}:{end.port}/{conductor}" if end.port[:1].isdigit() else f"{name}:{conductor}"
     return ConductorEnd(t, origin, end_text(project, sheet, e, t))
 

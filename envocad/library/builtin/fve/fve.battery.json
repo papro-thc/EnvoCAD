@@ -88,13 +88,15 @@
       "key": "e_kwh",
       "label": "Kapacita [kWh]",
       "default": "",
-      "show": true
+      "show": true,
+      "fmt": "{} kWh"
     },
     {
       "key": "p_kw",
       "label": "Výkon [kW]",
       "default": "",
-      "show": false
+      "show": false,
+      "fmt": "{} kW"
     }
   ],
   "label_pos": {

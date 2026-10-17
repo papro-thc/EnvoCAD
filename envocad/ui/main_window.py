@@ -41,6 +41,15 @@ log = logging.getLogger("envocad.ui")
 def error_text(ex: BaseException) -> str:
     """Česky srozumitelný popis chyby souboru (uložení, otevření, import)."""
     import errno
+    import xml.etree.ElementTree as ET
+    import zipfile
+    if isinstance(ex, ET.ParseError):
+        line, col = getattr(ex, "position", (0, 0)) or (0, 0)
+        return f"soubor není platné XML (chyba na řádku {line}, sloupci {col + 1})"
+    if isinstance(ex, zipfile.BadZipFile):
+        return "soubor není platný archiv ZIP/EDZ (poškozený nebo jiný formát)"
+    if isinstance(ex, UnicodeDecodeError):
+        return "soubor má neznámé kódování textu (čekám UTF-8)"
     if isinstance(ex, OSError) and not isinstance(ex, ValueError):
         what = {errno.ENOENT: "soubor nebo složka neexistuje", errno.EACCES: "chybí oprávnění",
                 errno.EPERM: "chybí oprávnění", errno.ENOSPC: "na disku není místo", errno.EROFS: "disk je jen pro čtení",
@@ -277,8 +286,10 @@ class MainWindow(QMainWindow):
 
         m_lib = mb.addMenu("&Knihovna")
         act(m_lib, "Importovat symbol z DXF…", self.import_dxf_symbol)
+        act(m_lib, "Importovat značku z QElectroTech (.elmt)…", self.import_qet_symbol)
         act(m_lib, "Prohlížet artikly…", self.browse_components)
         act(m_lib, "Importovat artikly z CSV…", self.import_components_csv)
+        act(m_lib, "Importovat artikly z EPLAN (XML / CSV / ZIP)…", self.import_eplan)
         m_lib.addSeparator()
         act(m_lib, "Sdílená knihovna (síťová složka)…", self.set_shared_library)
         act(m_lib, "Firemní standard (výchozí kabely, zpracoval)…", self.edit_standard)
@@ -464,6 +475,8 @@ class MainWindow(QMainWindow):
             scene.attrs_changed.connect(lambda _id: self.props_panel.show_item(self._selected_item()))
             scene.mode_changed.connect(self._show_mode)
             scene.open_switchboard.connect(self.open_switchboard_from_block)
+            scene.ask_delete_block_sheets = self._ask_delete_block_sheets
+            scene.sheet_presence_changed = self._sheet_presence_changed
             scene.notes_visible = self._notes_visible_setting()
             scene.rebuild_notes()
             title = sheet.name if not sheet.is_switchboard else f"{sheet.name} – jednopól (editace)"
@@ -677,6 +690,17 @@ class MainWindow(QMainWindow):
         key = lambda lst: [(x.aspect, x.code, x.description) for x in lst]
         if key(old) != key(new_list):
             self.undo.push(commands.SetStructuresCommand(self.project, old, new_list))
+
+    def _ask_delete_block_sheets(self, sheets: list) -> bool:
+        """Mazání bloku ROZVADĚČ: smazat i list rozvaděče? (Ano = jeden krok undo s blokem.)"""
+        names = ", ".join(f"„{s.name}“" for s in sheets)
+        word = "list" if len(sheets) == 1 else "listy"
+        r = QMessageBox.question(
+            self, "Smazat rozvaděč",
+            f"Mazaný blok ROZVADĚČ má {word} {names}.\n\nSmazat i {word} rozvaděče se vším obsahem?\n"
+            f"(Ne = {word} zůstane bez bloku, Kontrola projektu ho ohlásí.)",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+        return r == QMessageBox.Yes
 
     def delete_sheet(self) -> None:
         """Odstraní aktuální list (s potvrzením). List rozvaděče: blok ROZVADĚČ v JPS zůstane a vodiče na jeho porty
@@ -908,6 +932,7 @@ class MainWindow(QMainWindow):
     def _on_undo_changed(self, _value=None) -> None:
         self._update_title()
         self._sync_links_and_blocks()
+        self._refresh_tab_titles()   # název listu se mění i navázaně (přejmenování bloku rozvaděče)
         self.nav_panel._schedule()
         self.notes_panel.refresh()
         for sc in self._scenes:   # popisky (označení, aspekty) a značky revize se po změně modelu přepočítají
@@ -1214,7 +1239,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Makro", f"Makro se nepodařilo načíst (nebo je z novější verze programu): {path}")
             return
         if m.has_parameters:
-            dlg = MacroValuesDialog(m, self.library, parent=self)
+            dlg = MacroValuesDialog(m, self.library, parent=self, project=self.project, sheet=sc.sheet)
             if not dlg.exec():
                 return
             values = dlg.values()
@@ -1704,6 +1729,69 @@ class MainWindow(QMainWindow):
             return
         n = self.library.import_components_csv_v2(path)
         QMessageBox.information(self, "Import artiklů", f"Načteno {n} artiklů.")
+
+    def import_qet_symbol(self) -> None:
+        """Značka QElectroTech (.elmt, XML) → knihovna. Poškozené XML → česká hláška, knihovna beze změny."""
+        from envocad.library.qet_import import parse_elmt, slug
+        path, _ = QFileDialog.getOpenFileName(self, "Import značky QElectroTech", "", "QElectroTech (*.elmt)")
+        if not path:
+            return
+        sid = f"qet.{slug(Path(path).stem)}"
+        if self.library.has_symbol(sid):
+            sid = free_symbol_id(self.library, sid)
+        try:
+            sym = parse_elmt(path, sid, "QET")
+            self.library.put_symbol(sym)
+        except Exception as ex:  # noqa: BLE001 – ParseError, chybějící soubor, nesmyslná geometrie…
+            log.warning("import QET %s selhal: %s", path, ex)
+            QMessageBox.warning(self, "Import QElectroTech", f"Značku nejde načíst:\n{path}\n\n{error_text(ex)}")
+            return
+        self.lib_panel.refresh()
+        QMessageBox.information(self, "Import QElectroTech", f"Značka {sid} importována ({len(sym.primitives)} primitiv, "
+                                f"{len(sym.ports)} portů).")
+
+    def import_eplan(self) -> None:
+        """EPLAN: artikly z XML (Data Portal) nebo CSV, ZIP/EDZ s DXF footprinty a XML artikly → uživatelská
+        knihovna (`~/.envocad/library/eplan/`). Poškozený soubor (ParseError, BadZipFile…) → česká hláška."""
+        import tempfile
+        import zipfile
+
+        from envocad.library import eplan_import as ei
+        from envocad.library.store import user_library_dir
+        path, _ = QFileDialog.getOpenFileName(self, "Import z EPLAN", "", "EPLAN (*.xml *.csv *.zip *.edz)")
+        if not path:
+            return
+        src = Path(path)
+        out_dir = user_library_dir() / "eplan"
+        n_fp = 0
+        try:
+            if src.suffix.lower() in (".zip", ".edz"):
+                n_fp = len(ei.footprints_from_zip(src, out_dir / "footprints"))
+                rows = []
+                with zipfile.ZipFile(src) as z, tempfile.TemporaryDirectory() as tmp:
+                    for name in (n for n in z.namelist() if n.lower().endswith(".xml")):
+                        t = Path(tmp) / "parts.xml"
+                        t.write_bytes(z.read(name))
+                        rows += ei.rows_from_parts_xml(t)[0]
+            elif src.suffix.lower() == ".xml":
+                rows = ei.rows_from_parts_xml(src)[0]
+            else:
+                rows = ei.rows_from_commercial_csv(src)[0]
+            n = 0
+            if rows:
+                out_dir.mkdir(parents=True, exist_ok=True)
+                csv_path = out_dir / f"{src.stem}.csv"
+                ei.write_components_csv(rows, csv_path)
+                n = self.library.import_components_csv_v2(csv_path)
+        except Exception as ex:  # noqa: BLE001
+            log.warning("import EPLAN %s selhal: %s", path, ex)
+            QMessageBox.warning(self, "Import z EPLAN", f"Soubor nejde načíst:\n{path}\n\n{error_text(ex)}")
+            return
+        if n_fp:
+            self.library.sync_builtin()   # footprinty v uživatelské knihovně (jen u výchozí databáze)
+            self.lib_panel.refresh()
+        QMessageBox.information(self, "Import z EPLAN", f"Načteno {n} artiklů" + (f" a {n_fp} footprintů" if n_fp else "")
+                                + f".\nUloženo do {out_dir}.")
 
     def import_dxf_symbol(self) -> None:
         from envocad.library.dxf_import import import_dxf, list_blocks

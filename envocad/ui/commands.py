@@ -434,6 +434,27 @@ class RenameSheetCommand(QUndoCommand):
         self._set(self.old)
 
 
+class TextChangesCommand(QUndoCommand):
+    """Navázané změny textů po přejmenování prvku (`model.project.rename_followups`): popisy jiných prvků a názvy
+    listů. `on_change` obnoví pohledy (titulky záložek, popisky)."""
+
+    def __init__(self, project, changes: list, on_change=None):
+        super().__init__("Upravit navázané texty")
+        self.project, self.changes, self.on_change = project, list(changes), on_change
+
+    def _apply(self, undo: bool):
+        from envocad.model.project import apply_text_changes
+        apply_text_changes(self.project, self.changes, undo=undo)
+        if self.on_change:
+            self.on_change()
+
+    def redo(self):
+        self._apply(False)
+
+    def undo(self):
+        self._apply(True)
+
+
 class RenameStructureCommand(QUndoCommand):
     """Přejmenování kódu funkce/umístění v celém projektu (registr, listy, override prvků) přes `rename_structure`."""
 

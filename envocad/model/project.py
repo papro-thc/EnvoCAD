@@ -12,7 +12,15 @@ import uuid
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 
-from envocad.model.designation import CABLE_SCOPE, FUNC, LOC, LOCATION_SYMBOLS, scope_key, sheet_scope
+from envocad.model.designation import (
+    CABLE_SCOPE,
+    FUNC,
+    LOC,
+    LOCATION_SYMBOLS,
+    element_name,
+    scope_key,
+    sheet_scope,
+)
 from envocad.model.symbol import Attribute, Port, Symbol, placeholder_symbol, rotate_point, with_orphan_ports
 
 # Atributy vodiče (vodič nemá symbol, proto jsou definované zde)
@@ -1101,6 +1109,92 @@ def migrate(d: dict, ver: int) -> dict:
     return d
 
 
+# Texty, které generátor / šablony / makra skládají z označení jiného prvku – při přejmenování se přepíší
+# (ručně psané texty zůstávají). „{}“ = označení jako samostatné slovo.
+AUTO_TEXT_TEMPLATES = ("od {}", "{} dál", "string {}", "DC rozvaděč u {}", "DC rozvaděč po trase {}")
+
+
+@dataclass(frozen=True)
+class TextChange:
+    """Změna textu navázaná na přejmenování: `kind` = "element" (atribut `key` prvku `target_id`) nebo "sheet"
+    (název listu `target_id`)."""
+    kind: str
+    target_id: str
+    key: str
+    old: str
+    new: str
+
+
+def _auto_text_rename(text: str, old: str, new: str) -> str | None:
+    """Automaticky vygenerovaný text s označením `old` (podle `AUTO_TEXT_TEMPLATES`, volitelně s „ (2)“ na konci)
+    → text s `new`; jiný text → None."""
+    m = re.fullmatch(r"(.*?)( \(\d+\))?", text or "")
+    body, tail = m.group(1), m.group(2) or ""
+    for tpl in AUTO_TEXT_TEMPLATES:
+        if body == tpl.format(old):
+            return tpl.format(new) + tail
+    return None
+
+
+def rename_followups(project: Project, element: Element, old: str, new: str) -> list[TextChange]:
+    """Co se má změnit spolu s přejmenováním prvku `old` → `new` (jeden krok undo v GUI):
+    - blok ROZVADĚČ: název jeho listu začínající starým označením („RDC1 – …“ → „RDC5 – …“) a atribut `sheet` bloku;
+    - automaticky vygenerované popisy (`AUTO_TEXT_TEMPLATES`: „od T1“, „G1 dál“, „string G1“, „DC rozvaděč u T1“)
+      ostatních prvků, kde je staré označení samostatným slovem, a názvy listů rozvaděčů, které takový popis nesou.
+    Ručně psané texty se nemění."""
+    if not old or not new or old == new:
+        return []
+    out: list[TextChange] = []
+    sheet_names: dict[str, str] = {}
+
+    def rename_sheet(s: Sheet, name: str) -> None:
+        if name != sheet_names.get(s.id, s.name):
+            sheet_names[s.id] = name
+
+    if element.symbol_id == "fve.switchboard":
+        s = project.switchboard_sheet(element.id)
+        if s is not None and (s.name == old or s.name.startswith(old + " ")):
+            rename_sheet(s, new + s.name[len(old):])
+    for s in project.sheets:
+        for e in s.elements:
+            if e is element:
+                continue
+            desc = e.attrs.get("desc", "")
+            nd = _auto_text_rename(desc, old, new)
+            if nd is None:
+                continue
+            out.append(TextChange("element", e.id, "desc", desc, nd))
+            if e.symbol_id == "fve.switchboard":
+                bs = project.switchboard_sheet(e.id)
+                cur = sheet_names.get(bs.id, bs.name) if bs is not None else ""
+                if bs is not None and cur.endswith(" – " + desc):
+                    rename_sheet(bs, cur[: -len(desc)] + nd)
+    for sid, name in sheet_names.items():
+        s = project.sheet(sid)
+        out.append(TextChange("sheet", sid, "name", s.name, name))
+        block = None
+        if s.parent_element_id:
+            ps = project.sheet_of_element(s.parent_element_id)
+            block = ps.element(s.parent_element_id) if ps is not None else None
+        if block is not None and block.attrs.get("sheet") == s.name:
+            out.append(TextChange("element", block.id, "sheet", s.name, name))
+    return out
+
+
+def apply_text_changes(project: Project, changes: list[TextChange], undo: bool = False) -> None:
+    """Provede (nebo s `undo` vrátí) změny z `rename_followups`."""
+    els = {e.id: e for s in project.sheets for e in s.elements}
+    for c in (reversed(changes) if undo else changes):
+        val = c.old if undo else c.new
+        if c.kind == "sheet":
+            try:
+                project.sheet(c.target_id).name = val
+            except KeyError:
+                continue
+        elif c.target_id in els:
+            els[c.target_id].attrs[c.key] = val
+
+
 def rename_structure(project: Project, aspect: str, old: str, new: str) -> int:
     """Přejmenuje kód struktury `aspect` („=“/„+“) ze `old` na `new` v registru, na listech (`func`/`loc`)
     i v overridech prvků (`attrs func/loc`). Vrací počet změněných míst. Kód `new`, který už v projektu existuje
@@ -1317,7 +1411,7 @@ def wire_choices(project: Project, sheet: Sheet) -> list[tuple[str, str]]:
     out = []
     for w in ps.wires:
         a, b = ps.element(w.a.element_id), ps.element(w.b.element_id)
-        label = f"{w.attrs.get('ref') or '(bez označení)'}: {a.ref or a.symbol_id}:{w.a.port} → {b.ref or b.symbol_id}:{w.b.port}"
+        label = f"{w.attrs.get('ref') or '(bez označení)'}: {element_name(a)}:{w.a.port} → {element_name(b)}:{w.b.port}"
         cable = " ".join(x for x in (w.attrs.get("cable", ""), w.attrs.get("cross", "")) if x)
         if cable:
             label += f"  [{cable}]"
@@ -1351,7 +1445,7 @@ def feed_link_attrs(project: Project, sheet: Sheet, e: Element, wire_id: str) ->
     far_end = w.b if w.a.element_id == block else w.a
     far = s.element(far_end.element_id)
     from envocad.model.frame import position_ref
-    text = f"{w.attrs.get('ref', '')} {far.ref or far.symbol_id}:{far_end.port} {position_ref(project, s, far.x, far.y)}".strip()
+    text = f"{w.attrs.get('ref', '')} {element_name(far)}:{far_end.port} {position_ref(project, s, far.x, far.y)}".strip()
     cable = " ".join(x for x in (w.attrs.get("cable", ""), w.attrs.get("cross", "")) if x)
     return {"wire_id": wire_id, key: text, "cable": cable}
 
@@ -1501,6 +1595,8 @@ def inverter_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
             prims.append({**pr, "y": -half, "h": h})
         elif pr.get("type") == "line" and pr.get("x1") == -10 and pr.get("y1") == -10 and pr.get("x2") == 10 and pr.get("y2") == 10:
             prims.append({**pr, "y1": -half, "y2": half})
+        elif pr.get("type") == "text" and pr.get("text") == "BAT":
+            prims.append({**pr, "y": -half + 1.0})   # u spodní hrany uvnitř (port BAT je dole uprostřed)
         else:
             prims.append(pr)
     ports = [Port(f"DC{k + 1}", -10, 2.5 * (n - 1) - 5 * k, "W") for k in range(n)]

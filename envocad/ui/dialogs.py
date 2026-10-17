@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from envocad.library.macros import repeat_context_names, resolve_values
 from envocad.model import multipole as mp
+from envocad.model.designation import element_name
 from envocad.model.project import (
     ENCLOSURE_PARAMS,
     MODULE_WIDTH,
@@ -270,7 +271,7 @@ class StripDialog(QDialog):
                             other = w.b if side == "a" else w.a
                             try:
                                 oe = s.element(other.element_id)
-                                txt.append(f"{oe.ref or oe.symbol_id}:{other.port}" + (f" ({w.attrs['ref']})" if w.attrs.get("ref") else ""))
+                                txt.append(f"{element_name(oe)}:{other.port}" + (f" ({w.attrs['ref']})" if w.attrs.get("ref") else ""))
                             except KeyError:
                                 pass
                     conn.append(", ".join(txt))
@@ -538,41 +539,79 @@ class ProjectWizard(QDialog):
             h.addWidget(x)
         return w
 
-    @staticmethod
-    def _num(ed: QLineEdit):
-        t = ed.text().strip().replace(",", ".")
+    # (pole, popisek v hlášce, parse_number kwargs) – kladná čísla, délky ≥ 0 (smí být prázdné), počty celé
+    _NUMBERS = (
+        ("mod_p", "P modulu [Wp]", {}), ("mod_voc", "Uoc modulu [V]", {}), ("mod_vmp", "Umpp modulu [V]", {}),
+        ("mod_isc", "Isc modulu [A]", {}), ("inv_p", "P AC střídače [kW]", {}),
+        ("inv_udc", "U DC max střídače [V]", {}), ("inv_mppt", "U MPPT min [V]", {}),
+        ("inv_mppt_max", "U MPPT max [V]", {}), ("inv_imax", "I max na MPPT [A]", {}),
+        ("dc_cross", "Průřez DC kabelu", {}), ("dc_len", "Délka DC kabelu [m]", {"strict": False, "allow_empty": True}),
+        ("dc_route_boxes", "Počet DC rozvaděčů po trase", {"integer": True, "strict": False}),
+        ("dc_route_len", "Délka kabelu mezi DC rozvaděči [m]", {"strict": False, "allow_empty": True}),
+        ("dc_tech_len", "Délka ke střídači [m]", {"strict": False, "allow_empty": True}),
+        ("dc_fuse_in", "In pojistek [A]", {}), ("ac_cross", "Průřez AC kabelu", {}),
+        ("ac_len", "Délka AC kabelu [m]", {"strict": False, "allow_empty": True}),
+        ("ac_breaker", "In jističe střídače [A]", {}), ("ac_main", "In hlavního vypínače [A]", {}),
+        ("grid_cross", "Průřez kabelu do HDS", {}),
+        ("grid_len", "Délka kabelu do HDS [m]", {"strict": False, "allow_empty": True}),
+    )
+
+    def _values(self) -> tuple[dict, list[str]]:
+        """Čísla a stringy z polí: ({pole: hodnota}, české chyby). Chybné pole v hodnotách chybí."""
+        from envocad.generate import parse_number, parse_strings
+        vals: dict = {}
+        errs: list[str] = []
         try:
-            return float(t) if "." in t else int(t)
-        except ValueError:
-            return t
+            vals["strings"] = parse_strings(self.strings.text())
+        except ValueError as ex:
+            errs.append(str(ex))
+        fields = list(self._NUMBERS)
+        if self.opt_type.text().strip():
+            fields.append(("opt_per", "Optimizérů na modul", {}))
+        for name, label, kw in fields:
+            try:
+                vals[name] = parse_number(getattr(self, name).text(), label, **kw)
+            except ValueError as ex:
+                errs.append(str(ex))
+        return vals, errs
+
+    def errors(self) -> list[str]:
+        """Chyby vstupu česky (prázdné = lze generovat)."""
+        return self._values()[1]
+
+    def accept(self) -> None:
+        errs = self.errors()
+        if errs:   # dialog zůstane otevřený, uživatel opraví pole
+            QMessageBox.warning(self, "Nový projekt FVE", "Opravte prosím zadání:\n\n" + "\n".join(f"• {e}" for e in errs))
+            return
+        super().accept()
 
     def spec(self) -> dict:
-        inv_strings = []
-        for part in self.strings.text().split(";"):
-            nums = [int(x) for x in part.replace(" ", "").split(",") if x.strip().isdigit()]
-            if nums:
-                inv_strings.append(nums)
-        inverters = [{"ref": f"T{i + 1}", "type": self.inv_type.text().strip(), "p_ac": self._num(self.inv_p),
-                      "u_dc_max": self._num(self.inv_udc), "u_mppt_min": self._num(self.inv_mppt),
-                      "u_mppt_max": self._num(self.inv_mppt_max), "i_mppt_max": self._num(self.inv_imax),
-                      "strings": st} for i, st in enumerate(inv_strings or [[1]])]
+        """Specifikace pro `build_project`; neplatný vstup → ValueError s českými hláškami (viz `errors`)."""
+        v, errs = self._values()
+        if errs:
+            raise ValueError("\n".join(errs))
+        inverters = [{"ref": f"T{i + 1}", "type": self.inv_type.text().strip(), "p_ac": v["inv_p"],
+                      "u_dc_max": v["inv_udc"], "u_mppt_min": v["inv_mppt"],
+                      "u_mppt_max": v["inv_mppt_max"], "i_mppt_max": v["inv_imax"],
+                      "strings": st} for i, st in enumerate(v["strings"])]
         return {
             "name": self.name.text().strip() or "Nový projekt FVE",
             "meta": {"investor": self.investor.text().strip(), "place": self.place.text().strip(),
                      "order": self.order.text().strip(), "author": self.author.text().strip()},
-            "module": {"type": self.mod_type.text().strip(), "p_wp": self._num(self.mod_p), "voc": self._num(self.mod_voc),
-                       "vmp": self._num(self.mod_vmp), "isc": self._num(self.mod_isc)},
-            "optimizer": {"type": self.opt_type.text().strip(), "per_module": self._num(self.opt_per) or 1},
+            "module": {"type": self.mod_type.text().strip(), "p_wp": v["mod_p"], "voc": v["mod_voc"],
+                       "vmp": v["mod_vmp"], "isc": v["mod_isc"]},
+            "optimizer": {"type": self.opt_type.text().strip(), "per_module": v.get("opt_per") or 1},
             "inverters": inverters,
-            "dc": {"cable": self.dc_cable.text().strip(), "cross": self._num(self.dc_cross), "length": self._num(self.dc_len),
-                   "route_boxes": self._num(self.dc_route_boxes) or 0, "route_length": self._num(self.dc_route_len),
-                   "tech_box": self.dc_tech_box.isChecked(), "tech_length": self._num(self.dc_tech_len),
-                   "fuse_in": self._num(self.dc_fuse_in), "spd": self.dc_spd.text().strip() or "T2",
-                   "disconnect": not self.dc_tech_box.isChecked() and not self._num(self.dc_route_boxes)},
-            "ac": {"cable": self.ac_cable.text().strip(), "cross": self._num(self.ac_cross), "length": self._num(self.ac_len),
-                   "breaker_in": self._num(self.ac_breaker), "main_in": self._num(self.ac_main),
-                   "grid_cable": self.grid_cable.text().strip(), "grid_cross": self._num(self.grid_cross),
-                   "grid_length": self._num(self.grid_len), "distribution": "bus" if self.ac_bus.isChecked() else "terminals"},
+            "dc": {"cable": self.dc_cable.text().strip(), "cross": v["dc_cross"], "length": v["dc_len"],
+                   "route_boxes": v["dc_route_boxes"], "route_length": v["dc_route_len"],
+                   "tech_box": self.dc_tech_box.isChecked(), "tech_length": v["dc_tech_len"],
+                   "fuse_in": v["dc_fuse_in"], "spd": self.dc_spd.text().strip() or "T2",
+                   "disconnect": not self.dc_tech_box.isChecked() and not v["dc_route_boxes"]},
+            "ac": {"cable": self.ac_cable.text().strip(), "cross": v["ac_cross"], "length": v["ac_len"],
+                   "breaker_in": v["ac_breaker"], "main_in": v["ac_main"],
+                   "grid_cable": self.grid_cable.text().strip(), "grid_cross": v["grid_cross"],
+                   "grid_length": v["grid_len"], "distribution": "bus" if self.ac_bus.isChecked() else "terminals"},
             "grid": {"dso": self.dso.text().strip()},
         }
 
@@ -1063,12 +1102,17 @@ class MacroValuesDialog(QDialog):
 
     CUSTOM = "— vlastní —"
 
-    def __init__(self, macro, library, context: dict | None = None, parent=None):
+    def __init__(self, macro, library, context: dict | None = None, parent=None, project=None, sheet=None):
         super().__init__(parent)
         self.macro, self.library, self.context = macro, library, dict(context or {})
         self.errors: list[str] = []
         self._fields: dict[str, QWidget] = {}
         self._loaded: dict[str, str] = {}   # hodnota pole nastavená dialogem (výchozí, kontext, sada) – ne uživatelem
+        # navazující číslování podle listu (X9…, X3 „od T3“) – předvyplněné, ale posílá se jako zadané
+        self._prefill: dict[str, str] = {}
+        if project is not None and sheet is not None:
+            from envocad.library.macros import suggest_numbering
+            self._prefill = {k: v for k, v in suggest_numbering(project, sheet, macro).items() if k not in self.context}
         # názvy opakování (k, nk) doplní při vložení každá instance zvlášť → pole zakázaná
         self._per_run = repeat_context_names(macro) - set(self.context)
         self.setWindowTitle(f"Makro – {macro.name}")
@@ -1096,13 +1140,21 @@ class MacroValuesDialog(QDialog):
         for v in macro.variables:
             if v in auto:
                 continue
-            main.addRow(self._label(v), self._make_field(v))
+            # počet opakování je vždy povinný (hvězdička jako u povinných proměnných)
+            main.addRow(self._label(v, required=v.required or v.name == count), self._make_field(v))
         self.extra = None
-        if auto:
+        self.k_start: QLineEdit | None = None
+        editable = [v for v in auto if v.name not in self._per_run]
+        if auto and (editable or macro.repeat):   # skupina jen s neaktivními poli (k, nk) se neukazuje
             self.extra = QGroupBox("Další (číslování)")
             self.extra.setCheckable(True)
-            self.extra.setChecked(False)
+            self.extra.setChecked(bool(self._prefill))   # navazující číslování: rovnou vidět, odkud se čísluje
             ef = QFormLayout()
+            if macro.repeat:
+                from envocad.library.macros import K_START
+                self.k_start = QLineEdit(self._prefill.get(K_START, "1"))
+                self.k_start.setToolTip("První pořadové číslo k opakování (X{k}…) – předvyplněno další volné na listu")
+                ef.addRow("Číslovat od (k)", self.k_start)
             for v in auto:
                 ef.addRow(self._label(v), self._make_field(v))
             holder = QWidget()
@@ -1110,7 +1162,7 @@ class MacroValuesDialog(QDialog):
             lay = QVBoxLayout(self.extra)
             lay.setContentsMargins(6, 6, 6, 6)
             lay.addWidget(holder)
-            holder.setVisible(False)
+            holder.setVisible(self.extra.isChecked())
             self.extra.toggled.connect(holder.setVisible)
             root.addWidget(self.extra)
         self.error_label = QLabel()
@@ -1125,10 +1177,11 @@ class MacroValuesDialog(QDialog):
         self._load_defaults()
 
     # ---- pole ----------------------------------------------------------------
-    def _label(self, v) -> QLabel:
-        text = v.title + (f" [{v.unit}]" if v.unit else "") + (" *" if v.required else "")
+    def _label(self, v, required: bool | None = None) -> QLabel:
+        required = v.required if required is None else required
+        text = v.title + (f" [{v.unit}]" if v.unit else "") + (" *" if required else "")
         lab = QLabel(text)
-        if v.required:
+        if required:
             f = lab.font()
             f.setBold(True)
             lab.setFont(f)
@@ -1201,6 +1254,8 @@ class MacroValuesDialog(QDialog):
             self._set(v.name, v.default)
         for k, val in self.context.items():
             self._set(k, str(val))
+        for k, val in self._prefill.items():
+            self._set(k, str(val))
 
     def _apply_set(self) -> None:
         vs = self.macro.value_set(self.set_combo.currentText())
@@ -1243,9 +1298,17 @@ class MacroValuesDialog(QDialog):
         auto = {v.name for v in self.macro.variables if v.auto}
         given = {name: self._get(name) for name in self._fields
                  if name not in self._per_run
-                 and (name not in auto or self._get(name) != self._loaded.get(name, ""))}
-        return resolve_values(self.macro, given=given, value_set=self.value_set(),
-                              components=self.library.component, context=self.context)
+                 and (name not in auto or name in self._prefill or self._get(name) != self._loaded.get(name, ""))}
+        if self.k_start is not None and self.k_start.text().strip() not in ("", "1"):
+            from envocad.library.macros import K_START
+            given[K_START] = self.k_start.text().strip()
+        vals, errs = resolve_values(self.macro, given=given, value_set=self.value_set(),
+                                    components=self.library.component, context=self.context)
+        if self.k_start is not None:
+            raw = self.k_start.text().strip() or "1"
+            if not raw.isdigit() or int(raw) < 1:
+                errs = [*errs, f"Číslovat od (k): „{raw}“ není celé kladné číslo."]
+        return vals, errs
 
     def values(self) -> dict[str, str]:
         vals, self.errors = self._resolve()

@@ -125,6 +125,10 @@ Jeden model, dva pohledy nad stejnými daty:
 - Přepínání pohledu = jiný `QGraphicsScene` nad stejným `Sheet`; symboly pro vícepól se generují z jednopólových
   (N× opakovaný pólový symbol + společná spoušť), vlastní vícepólové symboly v knihovně jsou volitelné.
 - Svorkovnice a seznam kabelů se generují z `Wire.conductors` + `Wire.terminals`.
+- Geometrie vícepólu (rozmístění `auto_layout`, stránkování `paginate`, popisky přístrojů `pole_label_lines`, trasy
+  žil `conductor_route`, příčka PE svodiče `pe_join_segments`) je v `model/multipole.py`; `model/multipole_geometry.py`
+  z ní bez Qt skládá texty a čáry celého pohledu a rozmisťuje popisky žil mimo cizí čáry – stejné polohy kreslí scéna
+  (`ui/multipole_view.py`) a kontroluje F7 (`mp_text_overlap`).
 
 ## Modularita a rozšiřování
 

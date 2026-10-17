@@ -13,12 +13,11 @@ from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QGraphicsRectIte
 
 from envocad.library.store import LibraryStore
 from envocad.model import multipole as mp
-from envocad.model.geometry import wire_label_anchor
 from envocad.model.project import Element, Project, Sheet, Wire, element_symbol, wire_label
 from envocad.model.symbol import GRID, Symbol, rotate_dir
 from envocad.ui import commands
 from envocad.ui.canvas import Mode, SchematicView
-from envocad.ui.items import PORT_R, path_points, route, snap
+from envocad.ui.items import PORT_R, path_points, snap
 from envocad.ui.render import LINE_WIDTH, draw_frame, draw_text, paint_symbol, sp, symbol_path
 from envocad.ui.theme import PRINT, colors
 
@@ -54,7 +53,17 @@ class PoleItem(QGraphicsItem):
 
     def boundingRect(self) -> QRectF:
         x0, y0, x1, y1 = self.full_symbol.bounds()
-        return QRectF(x0, -y1, x1 - x0, y1 - y0).adjusted(-3, -8, 20, 3).united(self.shape().boundingRect())
+        r = QRectF(x0, -y1, x1 - x0, y1 - y0).adjusted(-3, -8, 20, 3).united(self.shape().boundingRect())
+        if self.first:
+            from envocad.model.symbol import rotate_point
+            from envocad.model.textlayout import text_box
+            for dx, dy, text, h, align in self._label_lines():
+                bx0, by0, bx1, by1 = text_box(dx, dy, text, h, align)
+                # osy scény → lokální osy položky (otočené o −rotation)
+                pts = [rotate_point(px, py, -self.element.rotation) for px, py in ((bx0, by0), (bx1, by1), (bx0, by1), (bx1, by0))]
+                xs, ys = [q[0] for q in pts], [q[1] for q in pts]
+                r = r.united(QRectF(min(xs) - 1, -max(ys) - 1, max(xs) - min(xs) + 2, max(ys) - min(ys) + 2))
+        return r
 
     def _terminal_num(self) -> str | None:
         """Číslo svorky kreslené vedle pólu svorkovnice (None, když se nekreslí)."""
@@ -91,7 +100,7 @@ class PoleItem(QGraphicsItem):
         if num is not None:
             # číslo svorky vedle značky (vždy vodorovně)
             painter.save()
-            x0, y0, x1, _y1 = self.symbol.bounds()
+            _x0, y0, x1, _y1 = self.symbol.bounds()
             painter.translate(sp(x1 + 1.0, y0 + 1.0))
             painter.rotate(self.element.rotation)
             painter.setPen(QPen(color, 0.2))
@@ -99,42 +108,19 @@ class PoleItem(QGraphicsItem):
             painter.restore()
         if not self.first:
             return
-        if self.element.symbol_id in ("sb.feed_in", "sb.feed_out"):
-            # přívod/vývod: jen označení svorkovnice vlevo u svorek; kabel je ve štítku (CableTagItem)
-            painter.setPen(QPen(color, 0.2))
-            cy = -2.5 if self.element.symbol_id == "sb.feed_in" else 2.5
-            draw_text(painter, -2.5, cy - 0.8, self.element.ref, 2.5, "right")
-            return
-        lines = [(self.element.ref, 2.5)] if self.element.ref else []
-        skip = {"ref", "terminal"} if mp.is_terminal_block(self.element) else {"ref"}  # čísla svorek jsou u pólů
-        lines += [(a.display(self.element.attrs[a.key]), 2.0) for a in self.symbol.attributes
-                  if a.show and a.key not in skip and self.element.attrs.get(a.key)]
-        multi = len(self.ep.switched) > 1
-        if multi:
-            # vícepólový prvek: popisek nad prvním pólem, řádky skládané nahoru (pod ním jsou další póly);
-            # vývod má popisek pod sebou (nad ním vedou žíly)
-            x0, y0, _x1, y1 = self.symbol.bounds()
-            y = sum(h + 1.0 for _, h in lines[1:])
-            if self.element.symbol_id == "sb.feed_out":
-                lx, ly = x0, y0 - 3.0 - (y + 2.5)
-            elif self.element.rotation == 270 and not mp.is_terminal_block(self.element):
-                # svislý tok (otočení 270°): strana -y je vlevo od prvního pólu – popisek vedle, ne mezi póly
-                lx, ly = x0, y0 - 1.5 - (y + 2.5)
-            else:
-                lx, ly = x0, y1 + (7.5 if mp.is_terminal_block(self.element) else 1.5)  # nad můstky
-                if self.element.symbol_id in ("sb.terminal_block", "fve.terminal"):
-                    lx -= 3.5   # vedle svislé čáry svorky, ne přes ni
-        else:
-            lx, ly = self.symbol.label_pos
-            y = 0.0
-        painter.save()
-        painter.translate(sp(lx, ly))
-        painter.rotate(self.element.rotation)
+        # popisek prvku (označení, parametry) – poloha z modelu (`mp.pole_label_lines`, stejně počítá kontrola
+        # překryvů); kreslí se vodorovně relativně k položce, aby se při tažení posouval s ní
         painter.setPen(QPen(color, 0.2))
-        for text, h in lines:
-            draw_text(painter, 0, y, text, h, "left")
-            y -= h + 1.0
-        painter.restore()
+        for dx, dy, text, h, align in self._label_lines():
+            painter.save()
+            painter.rotate(self.element.rotation)   # zpět do os scény (položka je otočená o −rotation)
+            draw_text(painter, dx, dy, text, h, align)
+            painter.restore()
+
+    def _label_lines(self) -> list[tuple[float, float, str, float, str]]:
+        """Řádky popisku relativně k počátku položky (osy scény, Y nahoru)."""
+        ax, ay = self.ep.origin[0] + self._offset[0], self.ep.origin[1] + self._offset[1]
+        return [(x - ax, y - ay, text, h, align) for x, y, text, h, align in mp.pole_label_lines(self.ep)]
 
 
 class PoleLinkItem(QGraphicsPathItem):
@@ -170,6 +156,18 @@ class BypassItem(QGraphicsPathItem):
         pa, pb = ep.pole_pos(a, conductor), ep.pole_pos(b, conductor)
         path = QPainterPath(sp(*pa))
         path.lineTo(sp(*pb))
+        self.setPath(path)
+        self.setZValue(5)
+        self.setPen(QPen(colors().wire, LINE_WIDTH * 1.5, Qt.SolidLine, Qt.RoundCap))
+
+
+class PeJoinItem(QGraphicsPathItem):
+    """Příčka spojující konce pólů na portu PE (svodič přepětí) s PE vodičem; tečka v místě odbočky PE."""
+
+    def __init__(self, a: tuple[float, float], b: tuple[float, float]):
+        super().__init__()
+        path = QPainterPath(sp(*a))
+        path.lineTo(sp(*b))
         self.setPath(path)
         self.setZValue(5)
         self.setPen(QPen(colors().wire, LINE_WIDTH * 1.5, Qt.SolidLine, Qt.RoundCap))
@@ -348,10 +346,16 @@ class ConductorItem(QGraphicsPathItem):
         super().__init__()
         self.wire, self.conductor, self.idx = wire, conductor, idx
         self.end_text = end_text
+        self.staggered = False   # žíla vícežilového vodiče na Z-trase (popisek mimo příčku) – nastaví scéna
+        self.label: tuple[float, float, str, str] | None = None   # (x, y, text, zarovnání) z modelu – nastaví scéna
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.setZValue(5)
         self.setPen(QPen(colors().wire, LINE_WIDTH * 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
-        self.setPath(route(pa, da, pb, db, [], stagger=idx * GRID, jog=0.8))
+        pts = mp.conductor_route((pa.x(), -pa.y()), da, (pb.x(), -pb.y()), db, stagger=idx * GRID, jog=0.8)
+        path = QPainterPath(sp(*pts[0]))
+        for q in pts[1:]:
+            path.lineTo(sp(*q))
+        self.setPath(path)
         self._da, self._db = da, db
 
     def type(self) -> int:
@@ -370,11 +374,14 @@ class ConductorItem(QGraphicsPathItem):
         painter.drawPath(self.path())
         painter.setPen(QPen(pen.color(), 0.2))
         pts = path_points(self.path())
-        x, y, align, _vertical = wire_label_anchor(pts)
-        text = self.conductor
-        if self.idx == 0:
-            lbl = wire_label(self.wire.attrs)
-            text = f"{lbl}  {text}" if lbl else text
+        if self.label is not None:   # rozmístěno modelem (`multipole_geometry`) mimo cizí čáry a texty
+            x, y, text, align = self.label
+        else:
+            x, y, align, _vertical = mp.conductor_label_anchor(pts, self.staggered)
+            text = self.conductor
+            if self.idx == 0:
+                lbl = wire_label(self.wire.attrs)
+                text = f"{lbl}  {text}" if lbl else text
         draw_text(painter, x, y, text, 1.8, align)
         # svorky na koncích
         for t, (px, py), d in ((self.end_text[0], pts[0], self._da), (self.end_text[1], pts[-1], self._db)):
@@ -548,9 +555,9 @@ class MultipoleScene(QGraphicsScene):
         self.selectionChanged.connect(self._on_selection)
         self.rebuild()
 
-    PAGE_GAP = 20.0   # mezera mezi stranami pod sebou (mm)
-    X0 = 42.5         # začátek rozmístění – vlevo názvy potenciálů sběrnice
-    Y_TOP = 60.0      # odstup první řady od horního okraje listu (nahoře nadpis rozvaděče)
+    PAGE_GAP = mp.MP_PAGE_GAP   # mezera mezi stranami pod sebou (mm)
+    X0 = mp.MP_X0               # začátek rozmístění – vlevo názvy potenciálů sběrnice
+    Y_TOP = mp.MP_Y_TOP         # odstup první řady od horního okraje listu (nahoře nadpis rozvaděče)
 
     @property
     def page_pitch(self) -> float:
@@ -570,25 +577,14 @@ class MultipoleScene(QGraphicsScene):
     @property
     def page_w(self) -> float:
         """Použitelná šířka strany pro rozmístění (bez okrajů rámečku)."""
-        from envocad.model.frame import MARGIN
-        return self.sheet.width - self.X0 - MARGIN - 10.0
+        return mp.page_width(self.sheet)
 
     def _paginate(self, poles: dict[str, mp.ElementPoles]) -> None:
         """Rozmístění (strany za sebou v x) → strany pod sebou: prvek na straně k se posune o k·šířka doleva
         a o k·(výška + mezera) dolů. Ruční pozice (`mp_pos`) jsou už scénové – strana se jim jen určí."""
         from envocad.model.frame import MARGIN_LEFT
-        x0, pw, pitch = self.X0, self.page_w, self.page_pitch
-        self.page_of = {}
-        n_pages = 1
-        for eid, ep in poles.items():
-            x, y = ep.origin
-            if ep.element.mp_pos:
-                k = self.page_index_at(y)
-            else:
-                k = max(0, int((x - x0) // pw))
-                ep.origin = (x - k * pw, y - k * pitch)
-            self.page_of[eid] = k
-            n_pages = max(n_pages, k + 1)
+        pitch = self.page_pitch
+        self.page_of, n_pages = mp.paginate(self.sheet, poles)
         w, h = self.sheet.width, self.sheet.height
         # strana k: model y ∈ [−k·pitch, h − k·pitch] → scéna y ∈ [k·pitch − h, k·pitch]
         self.pages = [QRectF(0, k * pitch - h, w, h) for k in range(n_pages)]
@@ -611,6 +607,13 @@ class MultipoleScene(QGraphicsScene):
             sym = element_symbol(self.project, e, self.library)
             poles[e.id] = mp.element_poles(self.sheet, e, sym)
         self._breaks: dict[tuple[int, bool], int] = {}
+        # popisky žil rozmístěné modelem (stejné rozmístění a trasy jako tato scéna, viz model/multipole_geometry)
+        from envocad.model.multipole_geometry import multipole_geometry
+        try:
+            self._labels = multipole_geometry(self.project, self.sheet, self.library).conductor_labels
+        except Exception:
+            log.exception("vícepól: rozmístění popisků žil selhalo")
+            self._labels = {}
         bus_taps: dict[tuple[str, int], list[tuple[float, float]]] = {}
         self.layout_pos = mp.auto_layout(self.sheet, poles, x0=self.X0, y_top=self.sheet.height - self.Y_TOP,
                                          bridges=self.sheet.bridges, page_w=self.page_w)
@@ -628,6 +631,8 @@ class MultipoleScene(QGraphicsScene):
                     self._add(PoleLinkItem(ep))
                 for c in ep.bypass:
                     self._add(BypassItem(ep, c))
+                for a, b in mp.pe_join_segments(ep):   # SPD: spodní konce pólů spojené s PE
+                    self._add(PeJoinItem(a, b))
             else:
                 self._add(PoleItem(ep, None, first=True))
                 self._add_fan(ep)
@@ -647,7 +652,10 @@ class MultipoleScene(QGraphicsScene):
                 ta = "" if mp.is_terminal_block(ea.element) else mp.terminal_text(w, c, "a")
                 tb = "" if mp.is_terminal_block(eb.element) else mp.terminal_text(w, c, "b")
                 if ka == kb:
-                    self._add(ConductorItem(w, c, i, sp(*pa), da, sp(*pb), db, (ta, tb)))
+                    it = ConductorItem(w, c, i, sp(*pa), da, sp(*pb), db, (ta, tb))
+                    it.staggered = len(mp.wire_conductors(w)) > 1
+                    it.label = self._labels.get((w.id, c, 0))
+                    self._add(it)
                 else:
                     self._add_page_break(w, c, i, pa, da, ka, pb, db, kb, (ta, tb))
         self._add_bridges(poles)
@@ -710,7 +718,9 @@ class MultipoleScene(QGraphicsScene):
             y = self._bus_y(bus, c, kd)
             tap = (px, y)
             t = "" if mp.is_terminal_block(dev.element) else mp.terminal_text(w, c, side)
-            self._add(ConductorItem(w, c, 0, sp(px, py), ddir, sp(*tap), "S" if y > py else "N", (t, "")))
+            it = ConductorItem(w, c, 0, sp(px, py), ddir, sp(*tap), "S" if y > py else "N", (t, ""))
+            it.label = self._labels.get((w.id, c, 0))
+            self._add(it)
             bus_taps.setdefault((bus.element.id, kd), []).append(tap)
 
     def _add_buses(self, poles, bus_taps) -> None:
@@ -742,8 +752,11 @@ class MultipoleScene(QGraphicsScene):
         yb = pb[1] - 2.5 * nb
         ea_pt = (xa, ya)
         eb_pt = (xb, yb)
-        self._add(ConductorItem(w, c, i, sp(*pa), da, sp(*ea_pt), "W" if right else "E", (texts[0], "")))
-        self._add(ConductorItem(w, c, i, sp(*eb_pt), "E" if right else "W", sp(*pb), db, ("", texts[1])))
+        for part, (a_, da_, b_, db_, ends_) in enumerate(((pa, da, ea_pt, "W" if right else "E", (texts[0], "")),
+                                                           (eb_pt, "E" if right else "W", pb, db, ("", texts[1])))):
+            it = ConductorItem(w, c, i, sp(*a_), da_, sp(*b_), db_, ends_)
+            it.label = self._labels.get((w.id, c, part))
+            self._add(it)
         self._add(PageBreakItem(xa, ya, right, self.page_ref(kb, xb, yb)))
         self._add(PageBreakItem(xb, yb, not right, self.page_ref(ka, xa, ya)))
 

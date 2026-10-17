@@ -807,10 +807,20 @@ class SchematicScene(QGraphicsScene):
         eids = [it.element.id for it in self.selectedItems() if isinstance(it, ElementItem)]
         wids = [it.wire.id for it in self.selectedItems() if isinstance(it, WireItem)]
         nids = [it.note.id for it in self.selectedItems() if isinstance(it, NoteItem)]
-        if nids and (eids or wids):
+        # mazaný blok ROZVADĚČ: nabídnout smazání i jeho listu (jeden krok undo); bez dotazu list zůstane a kontrola
+        # ho hlásí jako „list rozvaděče bez bloku“
+        block_sheets = [s for s in (self.project.switchboard_sheet(eid) for eid in eids) if s is not None]
+        ask = getattr(self, "ask_delete_block_sheets", None)
+        drop_sheets = bool(block_sheets) and ask is not None and bool(ask(block_sheets))
+        macro = (nids and (eids or wids)) or drop_sheets
+        if macro:
             self.undo.beginMacro("Smazat")
         if eids or wids:
             self.undo.push(commands.RemoveItemsCommand(self, eids, wids))
+        if drop_sheets:
+            on_change = getattr(self, "sheet_presence_changed", None)
+            for s in block_sheets:
+                self.undo.push(commands.DeleteSheetCommand(self.project, s, on_change=on_change))
         if nids:
             from envocad.model.notes import note
             for nid in nids:
@@ -818,7 +828,7 @@ class SchematicScene(QGraphicsScene):
                 if n is not None:
                     self.undo.push(commands.ReplaceNoteCommand(self.project, n, None, f"Smazat připomínku č. {n.no}",
                                                                self.rebuild_notes))
-        if nids and (eids or wids):
+        if macro:
             self.undo.endMacro()
 
     def rotate_selected(self) -> None:
@@ -837,14 +847,31 @@ class SchematicScene(QGraphicsScene):
             old = self.sheet.element(target_id).attrs.get(key, "")
         if old == value:
             return
-        if key == "ref" and not is_wire and self._renames_location(target_id, old, value):
-            # ref bloku rozvaděče je kód umístění: přejmenuje se i v registru, na listech a v overridech prvků
-            self.undo.beginMacro(f"Přejmenovat umístění {old} na {value}")
-            self.undo.push(commands.SetAttrCommand(self, target_id, is_wire, key, old, value))
-            self.undo.push(commands.RenameStructureCommand(self.project, "+", old, value, self.invalidate_xrefs))
-            self.undo.endMacro()
-            return
+        if key == "ref" and not is_wire:
+            from envocad.model.project import rename_followups
+            location = self._renames_location(target_id, old, value)
+            texts = rename_followups(self.project, self.sheet.element(target_id), old, value)
+            if location or texts:
+                # jeden krok undo: ref, kód umístění (blok rozvaděče = umístění: registr, listy, override prvků)
+                # a automaticky vygenerované texty se starým označením (název listu, „od T1“…)
+                self.undo.beginMacro(f"Přejmenovat {old} na {value}")
+                self.undo.push(commands.SetAttrCommand(self, target_id, is_wire, key, old, value))
+                if location:
+                    self.undo.push(commands.RenameStructureCommand(self.project, "+", old, value, self.invalidate_xrefs))
+                if texts:
+                    self.undo.push(commands.TextChangesCommand(self.project, texts, self._project_texts_changed))
+                self.undo.endMacro()
+                return
         self.undo.push(commands.SetAttrCommand(self, target_id, is_wire, key, old, value))
+
+    def _project_texts_changed(self) -> None:
+        """Navázané texty jiných prvků / názvy listů se změnily: popisky tohoto listu a obnova oken (`on_project_texts`)."""
+        self.invalidate_xrefs()
+        for it in self.element_items.values():
+            it.update()
+        cb = getattr(self, "on_project_texts", None)
+        if cb is not None:
+            cb()
 
     def _renames_location(self, element_id: str, old: str, new: str) -> bool:
         from envocad.model.designation import LOCATION_SYMBOLS

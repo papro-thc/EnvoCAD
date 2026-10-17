@@ -8,7 +8,7 @@ import functools
 from collections import OrderedDict
 
 from envocad.library.store import LibraryStore
-from envocad.model.designation import LOCATION_SYMBOLS, designation, full_designation, scope_key
+from envocad.model.designation import LOCATION_SYMBOLS, designation, element_name, full_designation, scope_key
 from envocad.model.project import NON_DEVICE_SYMBOLS, Element, Project, Sheet, clean_view
 from envocad.model.xref import natural_key
 
@@ -62,7 +62,7 @@ def _port_text(project: Project, s: Sheet, e: Element, port: str, terminal: str 
     přívod/vývod uvnitř). Aspekty shodné s `base` (kontext řádku, např. svorkovnice) se vynechají."""
     if e.symbol_id in LOCATION_SYMBOLS and e.ref:
         return f"{full_designation(project, s, e)}-{terminal or port}"
-    text = terminal or f"{e.ref or e.symbol_id}:{port}"
+    text = terminal or f"{element_name(e)}:{port}"
     a = _aspects(s, e) if (terminal or e.ref) else ""
     return f"{a}-{text}" if a and a != base else text
 
@@ -168,7 +168,7 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
                 params = ", ".join(x for x in (e.attrs.get("cross", "") and f"{e.attrs['cross']} mm²",
                                                e.attrs.get("kind", "")) if x)
                 key = ("Řadová svorka", e.attrs.get("type", ""), e.attrs.get("manufacturer", ""), params)
-                sk = (key, _tag(project, s, e) or e.symbol_id)
+                sk = (key, _tag(project, s, e) or element_name(e, lib))
                 strip_qty[sk] = strip_qty.get(sk, 0) + n
                 qty[key] = qty.get(key, 0) + n
                 continue
@@ -496,7 +496,7 @@ def potentials(project: Project, lib: LibraryStore, sheet: Sheet | None = None) 
         wires = sorted({w.attrs.get("ref") or w.attrs.get("cable", "") for _, w, _ in n.wires if w.attrs.get("ref") or w.attrs.get("cable")},
                        key=_ref_key)
         # prvky plným označením s aspekty (+RDC1-F1:1) – X1 v různých rozvaděčích jsou různé svorkovnice
-        members = sorted({f"{_tag(project, s, e) or e.symbol_id}:{p}" for s, e, p, _ in n.members
+        members = sorted({f"{_tag(project, s, e) or element_name(e, lib)}:{p}" for s, e, p, _ in n.members
                           if e.symbol_id != "sb.junction"}, key=_ref_key)
         sheets_ = sorted({s.name for s, _, _, _ in n.members}, key=natural_key)
         rows.append([n.name, " ".join(sorted(n.conductors, key=lambda c: c)), len(n.members), ", ".join(wires), ", ".join(members),

@@ -250,6 +250,13 @@ desetinný nebo větší počet je chyba už v `resolve_values` (a `expand` ho o
 nad `MAX_REPEAT` hlásí `validate_macro`. Generátor u DC rozvaděčů drží vlastní smyčku (`resolve_values(...,
 repeat=False)`, `expand(..., repeat=False)`), `repeat` ani `max` počtu ho neomezují; slouží vkládání z GUI.
 
+**Navazující číslování** při vložení do listu, kde už instance makra jsou: hodnota `k_start` (`macros.K_START`, není to
+proměnná makra) posune opakování na `k = k_start … k_start + N − 1`, `nk = N + k`. Dialog makra ji předvyplní
+(„Číslovat od (k)“ ve skupině Další) přes `suggest_numbering(project, sheet, m)` – nejmenší `k_start`, při kterém
+žádné označení se zástupným symbolem (`X{k}`, `X{nk}`, `FU{i}.{j}`…) nekoliduje s prostorem označení listu (DC rozvaděč
+se 4 stringy: X1–X8 obsazené → `k_start = 9`). U makra bez opakování se stejně předvyplní automatická proměnná `k`
+(AC přívod do rozvaděče s X1 → `k = 2`, „od T2“). Duplicitní přívod/vývod (X1 dvakrát) hlásí kontrola jako `dup_ref`.
+
 ### Makro bez proměnných (kopie výřezu)
 Makro bez proměnných a bez `repeat` (typicky „Uložit výběr jako makro…“ bez `{x}`) se vkládá jako kopie výřezu, jako
 dřív `paste_fragment`: nesdíleným skupinám svorek se vymaže číslo svorky (`terminal`, doplní automatické číslování),
