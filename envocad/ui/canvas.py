@@ -219,6 +219,7 @@ class SchematicScene(QGraphicsScene):
         n = Note(self.sheet.id, x=ax, y=ay, target_id=target, is_wire=is_wire, author=current_user(),
                  created=now_iso())
         if w >= GRID and h >= GRID:
+            # model-write-ok: nová připomínka (ještě není v projektu), vloží ji příkaz připomínek
             n.x, n.y, n.w, n.h = min(ax, bx), min(ay, by), w, h
         return n
 
@@ -279,6 +280,7 @@ class SchematicScene(QGraphicsScene):
     _move_wire_pts: ClassVar[dict] = {}   # při stisku se nahradí vlastním slovníkem instance
 
     def element_moved(self, it: ElementItem) -> None:
+        # model-write-ok: živý náhled tažení prvku, výslednou polohu zapíše MoveElementsCommand při puštění
         it.element.x, it.element.y = it.pos().x(), -it.pos().y()
         if self._dragging and it.element.id in self._move_start:
             self._follow_bends(it.element.id)
@@ -392,7 +394,7 @@ class SchematicScene(QGraphicsScene):
             e = Element(symbol_id=sym.id, x=snap(p.x()), y=-snap(p.y()), rotation=self._ghost.element.rotation)
             # model-write-ok: nový prvek (ještě není v listu), vloží ho AddElementCommand
             e.attrs = {a.key: a.default for a in sym.attributes}
-            e.attrs["ref"] = self.project.next_ref(sym.iec_ref)
+            e.attrs["ref"] = self.project.next_ref(sym.iec_ref)  # model-write-ok: nový prvek, viz výše
             if self.ask_attributes:
                 # modální dialog až po doběhnutí události myši (uvnitř obsluhy stisku padá Qt na Windows)
                 QTimer.singleShot(0, lambda: self._finish_place(sym, e))
@@ -429,7 +431,7 @@ class SchematicScene(QGraphicsScene):
                             break
                     # model-write-ok: nový vodič (ještě není v listu), vloží ho AddWireCommand
                     w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}
-                    w.attrs["ref"] = self.project.next_ref("W")
+                    w.attrs["ref"] = self.project.next_ref("W")  # model-write-ok: nový vodič, viz výše
                     if self.ask_attributes:
                         heading = f"<b>Vodič</b> {a.element.ref}:{pa} → {b.element.ref}:{pb}"
                         QTimer.singleShot(0, lambda: self._finish_wire(w, heading))
@@ -497,8 +499,10 @@ class SchematicScene(QGraphicsScene):
         # model-write-ok: nový prvek z dialogu, do modelu ho vloží AddElementCommand
         e.attrs = dlg.values()
         if dlg.wire_combo is not None:
+            # model-write-ok: odvozené atributy vazby nového prvku; port a žíly navázaného vodiče JPS mění
+            # follow-upy AddElementCommand (undo je vrátí)
             e.attrs.update(feed_link_attrs(self.project, self.sheet, e, dlg.wire_id))
-        e.component_id = dlg.component_id
+        e.component_id = dlg.component_id  # model-write-ok: artikl nového prvku z dialogu, viz výše
         self.undo.push(commands.AddElementCommand(self, e))
 
     def _wire_dialog_extra(self, w: Wire) -> dict:
@@ -524,7 +528,7 @@ class SchematicScene(QGraphicsScene):
             return
         # model-write-ok: nový vodič z dialogu, do modelu ho vloží AddWireCommand
         w.attrs = dlg.values()
-        w.conductors = dlg.conductors()
+        w.conductors = dlg.conductors()  # model-write-ok: nový vodič z dialogu, viz výše
         self.undo.push(commands.AddWireCommand(self, w))
 
     def mouseDoubleClickEvent(self, ev):
@@ -719,7 +723,7 @@ class SchematicScene(QGraphicsScene):
             nx, ny = it.pos().x(), -it.pos().y()
             if (nx, ny) != (ox, oy):
                 new = copy.deepcopy(n)
-                new.x, new.y = nx, ny
+                new.x, new.y = nx, ny  # model-write-ok: kopie připomínky (nový stav pro undo příkaz), ne model
                 moves.append((n, new))
         return moves
 
@@ -844,6 +848,7 @@ class SchematicScene(QGraphicsScene):
 
     def rotate_selected(self) -> None:
         if self.mode == Mode.PLACE and self._ghost:
+            # model-write-ok: prvek náhledu vkládání (ghost) není v listu; rotaci převezme nový prvek
             self._ghost.element.rotation = (self._ghost.element.rotation + 90) % 360
             self._ghost.sync_from_model()
             return

@@ -531,8 +531,8 @@ class MultipoleScene(QGraphicsScene):
         e = Element(symbol_id=sym.id, x=x, y=y, rotation=self._place_rot)
         # model-write-ok: nový prvek (ještě není v listu), vloží ho MultipoleAddCommand
         e.attrs = {a.key: a.default for a in sym.attributes}
-        e.attrs["ref"] = self.project.next_ref(sym.iec_ref) if sym.iec_ref else ""
-        e.mp_pos = (x, y)
+        e.attrs["ref"] = self.project.next_ref(sym.iec_ref) if sym.iec_ref else ""  # model-write-ok: nový prvek
+        e.mp_pos = (x, y)  # model-write-ok: nový prvek, viz výše
         self.undo.push(commands.MultipoleAddCommand(self, element=e))
         eid = e.id
         QTimer.singleShot(0, lambda: self.edit_element_requested.emit(eid))   # parametry hned po vložení

@@ -95,21 +95,23 @@ def _text(msp, x, y, text, height, align, rot, layer="SYMBOLY"):
     t.set_placement((x, y), align=getattr(ezdxf.enums.TextEntityAlignment, al))
 
 
-def _draw_geometry(msp, g, layer: str) -> None:
+def _draw_geometry(msp, g, layer: str, dx: float = 0.0) -> None:
     """Geometrie z modelu (rámeček `FrameGeometry`, revize `RevisionGeometry`, zrcadlo `MirrorGeometry`) do vrstvy:
-    `lines` → LINE, `texts` → TEXT, `rects` → SOLID (QR kód), `polylines` → uzavřená LWPOLYLINE."""
+    `lines` → LINE, `texts` → TEXT, `rects` → SOLID (QR kód), `polylines` → uzavřená LWPOLYLINE. `dx` = posun
+    v ose X (strana vícepólu vedle ostatních v modelspace)."""
     if g is None:
         return
     a = {"layer": layer}
     for x1, y1, x2, y2 in getattr(g, "lines", ()):
-        msp.add_line((x1, y1), (x2, y2), dxfattribs=a)
+        msp.add_line((x1 + dx, y1), (x2 + dx, y2), dxfattribs=a)
     for pts in getattr(g, "polylines", ()):
-        msp.add_lwpolyline(pts, close=True, dxfattribs=a)
+        msp.add_lwpolyline([(x + dx, y) for x, y in pts], close=True, dxfattribs=a)
     for x, y, w, h in getattr(g, "rects", ()):
+        x += dx
         msp.add_solid([(x, y), (x + w, y), (x, y + h), (x + w, y + h)], dxfattribs=a)
     for x, y, text, h, align in getattr(g, "texts", ()):
         if text:
-            _text(msp, x, y, text, h, align, 0, layer=layer)
+            _text(msp, x + dx, y, text, h, align, 0, layer=layer)
 
 
 def _wire_points(project: Project, sheet: Sheet, lib: LibraryStore, w) -> list[tuple[float, float]]:
@@ -185,26 +187,28 @@ def _new_doc():
     return doc
 
 
-def _draw_prim(msp, p) -> None:
-    """Jedno primitivum `multipole_geometry.Prim` (lokální souřadnice strany)."""
+def _draw_prim(msp, p, dx: float = 0.0) -> None:
+    """Jedno primitivum `multipole_geometry.Prim` (lokální souřadnice strany posunuté o `dx` v ose X)."""
     a: dict = {"layer": p.layer}
+    pts = [(x + dx, y) for x, y in p.pts]
     if p.kind in ("line", "poly"):
         a["lineweight"] = LINEWEIGHT.get(p.weight, 18)
         if p.style == "dashed":
             a["linetype"] = "DASHED"
             a["ltscale"] = DASH_SCALE
         if p.kind == "line":
-            msp.add_line(p.pts[0], p.pts[1], dxfattribs=a)
+            msp.add_line(pts[0], pts[1], dxfattribs=a)
         else:
-            msp.add_lwpolyline(p.pts, dxfattribs=a)
+            msp.add_lwpolyline(pts, dxfattribs=a)
     elif p.kind == "text":
-        _text(msp, p.pts[0][0], p.pts[0][1], p.text, p.h, p.align, p.rot, layer=p.layer)
+        _text(msp, pts[0][0], pts[0][1], p.text, p.h, p.align, p.rot, layer=p.layer)
     elif p.kind == "dot":
-        msp.add_circle(p.pts[0], p.r, dxfattribs=a)
+        a["linetype"] = "CONTINUOUS"     # tečka i na čárkované vrstvě (MUSTKY) má plný obrys
+        msp.add_circle(pts[0], p.r, dxfattribs=a)
         h = msp.add_hatch(color=7, dxfattribs=a)
-        h.paths.add_edge_path().add_arc(p.pts[0], p.r, 0, 360)
+        h.paths.add_edge_path().add_arc(pts[0], p.r, 0, 360)
     elif p.kind == "symbol" and p.symbol is not None:
-        _draw_symbol_at(msp, _At(p.pts[0][0], p.pts[0][1], p.rot), p.symbol)
+        _draw_symbol_at(msp, _At(pts[0][0], pts[0][1], p.rot), p.symbol)
 
 
 def _draw_mp_page(msp, project: Project, sheet: Sheet, g, k: int, dx: float) -> None:
@@ -212,17 +216,13 @@ def _draw_mp_page(msp, project: Project, sheet: Sheet, g, k: int, dx: float) -> 
     from envocad.model.frame import frame_enabled, frame_geometry, page_label
     from envocad.model.multipole_geometry import page_prims
     w, h = g.page_size
-    n0 = len(msp)
     if frame_enabled():
         _draw_geometry(msp, frame_geometry(project, sheet, w, h, "vícepólové schéma",
-                                           page_label(project, sheet, k, g.pages), g.paper), "RAMECEK")
+                                           page_label(project, sheet, k, g.pages), g.paper), "RAMECEK", dx)
     else:      # obrys strany, aby byly strany vedle sebe rozlišitelné i bez rámečku
-        msp.add_lwpolyline([(0, 0), (w, 0), (w, h), (0, h)], close=True, dxfattribs={"layer": "RAMECEK"})
+        msp.add_lwpolyline([(dx, 0), (dx + w, 0), (dx + w, h), (dx, h)], close=True, dxfattribs={"layer": "RAMECEK"})
     for p in page_prims(g, k):
-        _draw_prim(msp, p)
-    if dx:
-        for ent in list(msp)[n0:]:
-            ent.translate(dx, 0, 0)
+        _draw_prim(msp, p, dx)
 
 
 def _page_layout(doc, name: str, w: float, h: float, cx: float) -> None:
@@ -250,12 +250,14 @@ def export_multipole_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path
     g = multipole_geometry(project, sheet, lib)
     w, h = g.page_size
     path = Path(path)
+    if path.suffix.lower() != ".dxf":     # bez přípony (i „projekt.v2“) se doplní – stejně pro jeden i více souborů
+        path = path.with_name(path.name + ".dxf")
     if split_pages:
         out = []
         for k in range(g.pages):
             doc = _new_doc()
             _draw_mp_page(doc.modelspace(), project, sheet, g, k, 0.0)
-            pk = path.with_name(f"{path.stem}_s{k + 1}{path.suffix or '.dxf'}")
+            pk = path.with_name(f"{path.stem}_s{k + 1}{path.suffix}")
             doc.saveas(str(pk))
             out.append(pk)
         return out

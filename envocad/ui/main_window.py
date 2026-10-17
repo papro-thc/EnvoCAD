@@ -69,6 +69,14 @@ def free_symbol_id(library, sid: str) -> str:
     return f"{sid}_{n}"
 
 
+def export_files_message(files: list) -> str:
+    """Hláška po exportu do jednoho nebo více souborů („Exportováno 2 soubory: …“)."""
+    from envocad.model.notes import count_label
+    if len(files) == 1:
+        return f"Exportováno: {files[0]}"
+    return f"Exportováno {count_label(len(files), ('soubor', 'soubory', 'souborů'))}: {files[0]} …"
+
+
 class MainWindow(QMainWindow):
     def __init__(self, library: LibraryStore | None = None, project: Project | None = None):
         super().__init__()
@@ -788,16 +796,20 @@ class MainWindow(QMainWindow):
             return existing
         p = self.project
         attr_before = block.attrs.get("sheet")
-        structs_before = list(p.structures)
-        sheet = p.create_switchboard_sheet(block)       # model připraví list; změny se vrátí a provede je příkaz
-        attr_after, structs_after = block.attrs.get("sheet"), list(p.structures)
-        p.sheets.remove(sheet)
-        p.structures = structs_before
-        # model-write-ok: návrat dočasné změny z create_switchboard_sheet (provede ji AddSheetCommand)
-        if attr_before is None:
-            block.attrs.pop("sheet", None)
-        else:
-            block.attrs["sheet"] = attr_before  # model-write-ok: návrat dočasné změny, viz výše
+        structs_before, sheets_before = list(p.structures), list(p.sheets)
+        # model připraví list dočasně; změny se vrátí (i při výjimce – model nesmí zůstat napůl změněný mimo undo)
+        # a provede je příkaz
+        try:
+            sheet = p.create_switchboard_sheet(block)
+            attr_after, structs_after = block.attrs.get("sheet"), list(p.structures)
+        finally:
+            # model-write-ok: návrat dočasné změny z create_switchboard_sheet (provede ji AddSheetCommand)
+            p.sheets[:] = sheets_before
+            p.structures = structs_before  # model-write-ok: návrat dočasné změny, viz výše
+            if attr_before is None:
+                block.attrs.pop("sheet", None)  # model-write-ok: návrat dočasné změny, viz výše
+            else:
+                block.attrs["sheet"] = attr_before  # model-write-ok: návrat dočasné změny, viz výše
         self.undo.push(commands.AddSheetCommand(p, sheet, on_change=self._sheet_presence_changed,
                                                 block_attr=(block, attr_before, attr_after),
                                                 structures=(structs_before, structs_after),
@@ -1196,9 +1208,10 @@ class MainWindow(QMainWindow):
             from envocad.settings import load_settings
             st = load_settings()["standard"]
             p = Project()
+            # model-write-ok: nový projekt před načtením do okna (`_load_project`), zatím bez undo historie
             p.meta.update({k: str(v) for k, v in (st.get("project_meta") or {}).items()})
             if st.get("author"):
-                p.meta.setdefault("author", st["author"])
+                p.meta.setdefault("author", st["author"])  # model-write-ok: nový projekt, viz výše
             self._load_project(p)   # prázdný nový projekt bez změn zůstane čistý
 
     def _mark_new_project_dirty(self) -> None:
@@ -1395,6 +1408,7 @@ class MainWindow(QMainWindow):
             apply_changes(self.project, rev, changes)
             # řádky, které do otevřené revize zapsalo dřívější porovnání, se nahradí (opakované porovnání je
             # nezdvojí); ručně psané řádky zůstanou
+            # model-write-ok: dočasná změna se snímkem `after`, finally ji vrátí a zapíše ReplaceRevisionsCommand
             self.project.meta["changes"] = merge_change_lines(self.project.meta.get("changes", ""),
                                                               {rev.label, prev_label}, change_text, rev.auto_lines)
             rev.auto_lines = [ln.strip() for ln in change_text.splitlines() if ln.strip()]
@@ -1693,8 +1707,7 @@ class MainWindow(QMainWindow):
             if path:
                 files = export_multipole_dxf(self.project, self.view.scene().sheet, self.library, path,
                                              split_pages=split)
-                msg = f"Exportováno: {path}" if len(files) == 1 else f"Exportováno {len(files)} souborů: {files[0]} …"
-                self.statusBar().showMessage(msg, 3000)
+                self.statusBar().showMessage(export_files_message(files), 3000)
             return
         if not self.scene:
             QMessageBox.information(self, "Export DXF", self.DXF_ONLY_SCHEMATIC if self.view is not None

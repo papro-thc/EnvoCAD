@@ -245,6 +245,9 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
     sheet_no = sheet_number(project, sheet).split("/")[0]
 
     def page_at(y: float) -> int:
+        """Strana podle výšky – jen pro kresbu bez vlastníka na straně (nadpis, sběrné čáry); prvky a jejich žíly
+        předávají stranu explicitně (`page_of`), prvek s ruční polohou nad horní hranou strany k ≥ 1 by jinak
+        skončil na straně k − 1."""
         return max(0, min(n_pages - 1, int((H - y) // pitch)))
 
     def prim(kind: str, pts, page: int | None = None, **kw) -> None:
@@ -338,24 +341,27 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
     bus_taps: dict[tuple[str, int], list[Point]] = {}
 
     pending: list[tuple[tuple[str, str, int], str, list[Point], str, bool]] = []
+    label_page: dict[tuple[str, str, int], int] = {}     # strana popisku žíly = strana jejího úseku
 
     def conductor(w, c: str, idx: int, pa: Point, da: str, pb: Point, db: str, ends: tuple[str, str],
-                  staggered: bool = False, part: int = 0) -> None:
+                  page: int, staggered: bool = False, part: int = 0) -> None:
+        """Úsek žíly na straně `page` (strana prvku, ze kterého vede – ne podle výšky bodu)."""
         pts = mp.conductor_route(pa, da, pb, db, stagger=idx * mp.GRID, jog=0.8)
         what = f"žílu {c}" + (f" vodiče {w.attrs['ref']}" if w.attrs.get("ref") else "")
         owner = f"{w.id}#{c}"   # každá žíla zvlášť – popisek DC− přes žílu DC+ téhož vodiče je překryv
         for a, b in pairwise(pts):
             line(a, b, owner, what, draw=False)
-        prim("poly", tuple(pts), weight="wire")
+        prim("poly", tuple(pts), page, weight="wire")
         label = c
         if idx == 0:
             lbl = wire_label(w.attrs)
             label = f"{lbl}  {c}" if lbl else c
         pending.append(((w.id, c, part), owner, pts, label, staggered))   # rozmístí se, až budou známé všechny čáry
+        label_page[(w.id, c, part)] = page
         for t, (px, py), d in ((ends[0], pts[0], da), (ends[1], pts[-1], db)):
             if t:
                 dx, dy = END_TEXT_OFFSET[d]
-                text(px + dx, py + dy, t, 1.8, "right" if d == "W" else "left", owner, f"svorku {t}")
+                text(px + dx, py + dy, t, 1.8, "right" if d == "W" else "left", owner, f"svorku {t}", page=page)
 
     def bus_y(ep: mp.ElementPoles, c: str, page: int) -> float:
         k0 = page_of.get(ep.element.id, 0)
@@ -414,7 +420,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
                 px, py = dev.pole_pos(dport, c)
                 y = bus_y(bus, c, kd)
                 t = "" if mp.is_terminal_block(dev.element) else mp.terminal_text(w, c, side)
-                conductor(w, c, 0, (px, py), ddir, (px, y), "S" if y > py else "N", (t, ""))
+                conductor(w, c, 0, (px, py), ddir, (px, y), "S" if y > py else "N", (t, ""), kd)
                 bus_taps.setdefault((bus.element.id, kd), []).append((px, y))
             continue
         for i, c in enumerate(mp.wire_conductors(w)):
@@ -427,12 +433,12 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
                 y = rail_height(key, rail_span[key]) - ks * pitch
                 tap = (ps[0], y)
                 dtap = "S" if y > ps[1] else "N"
-                conductor(w, c, 0, ps, ds, tap, dtap, (ts, ""))
+                conductor(w, c, 0, ps, ds, tap, dtap, (ts, ""), ks)
                 g.rail_taps[(w.id, c)] = (ps, ds, tap, dtap, ts)
                 rail_taps.setdefault(key, []).append((ks, tap))
                 continue
             if ka == kb:
-                conductor(w, c, i, pa, da, pb, db, (ta, tb), len(mp.wire_conductors(w)) > 1)
+                conductor(w, c, i, pa, da, pb, db, (ta, tb), ka, len(mp.wire_conductors(w)) > 1)
                 continue
             right = ka < kb
             xa = (W - MARGIN - BREAK_INSET) if right else (MARGIN_LEFT + BREAK_INSET)
@@ -443,16 +449,16 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
             breaks[(kb, not right)] = nb + 1
             ya = mp.break_y(pa, da, na, break_ys.setdefault((ka, right), set()))
             yb = mp.break_y(pb, db, nb, break_ys.setdefault((kb, not right), set()))
-            conductor(w, c, i, pa, da, (xa, ya), "W" if right else "E", (ta, ""))
-            conductor(w, c, i, (xb, yb), "E" if right else "W", pb, db, ("", tb), part=1)
+            conductor(w, c, i, pa, da, (xa, ya), "W" if right else "E", (ta, ""), ka)
+            conductor(w, c, i, (xb, yb), "E" if right else "W", pb, db, ("", tb), kb, part=1)
             ref_a = mp.page_ref(sheet_no, kb, xb, yb + kb * pitch, size)   # u zdroje: odkaz na pokračování
             ref_b = mp.page_ref(sheet_no, ka, xa, ya + ka * pitch, size)   # u cíle: odkaz zpět
             g.page_breaks[(w.id, c)] = [(xa, ya, right, ref_a), (xb, yb, not right, ref_b)]
-            for x, y, at_right, ref in g.page_breaks[(w.id, c)]:
+            for (x, y, at_right, ref), kp in zip(g.page_breaks[(w.id, c)], (ka, kb), strict=True):
                 tx, ty, align = break_text_pos(x, y, at_right)
-                text(tx, ty, ref, REF_TEXT_H, align, w.id, "odkaz přerušení", layer="ODKAZY")
+                text(tx, ty, ref, REF_TEXT_H, align, w.id, "odkaz přerušení", layer="ODKAZY", page=kp)
                 for a, b in break_arrow(x, y, at_right):
-                    deco(a, b, "ODKAZY")
+                    deco(a, b, "ODKAZY", page=kp)
 
     # sběrné čáry přes strany: na každé straně od první do poslední odbočky, k okraji, kde pokračuje
     xl, xr = MARGIN_LEFT + BREAK_INSET, W - MARGIN - BREAK_INSET
@@ -563,9 +569,9 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
 
     # popisky žil: výchozí poloha, a když vede přes cizí čáru nebo text, první volná z kandidátů
     _place_conductor_labels(g, pending)
-    for x, y, s, align in g.conductor_labels.values():
+    for key, (x, y, s, align) in g.conductor_labels.items():
         if s:
-            prim("text", ((x, y),), text=s, h=1.8, align=align, layer="TEXTY")
+            prim("text", ((x, y),), label_page.get(key), text=s, h=1.8, align=align, layer="TEXTY")
 
     # nadpis rozvaděče
     title = switchboard_title(project, sheet)

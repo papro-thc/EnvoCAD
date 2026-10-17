@@ -256,6 +256,59 @@ def test_record_revision_twice_does_not_duplicate(qapp, lib, proj):
         w.close()
 
 
+def test_record_revision_exception_restores_model(qapp, lib, proj, monkeypatch):
+    """Výjimka uprostřed dočasné změny (`apply_changes`): try/finally vrátí revize i `meta` do původního stavu
+    a do undo nic nepřibude."""
+    import envocad.model.revision as revision
+    from envocad.model.diff import change_list_text, diff_projects
+    from envocad.model.revision import revisions_state
+    from envocad.ui.main_window import MainWindow
+    old = Project.from_dict(proj.to_dict())
+    proj.sheets[0].elements[0].attrs["type"] = "jiný typ"
+    ch = diff_projects(old, proj, lib)
+    w = MainWindow(library=lib, project=proj)
+    try:
+        w.undo.clear()
+        before, meta = revisions_state(proj), dict(proj.meta)
+
+        def boom(*a, **k):
+            raise RuntimeError("selhalo")
+        monkeypatch.setattr(revision, "apply_changes", boom)
+        with pytest.raises(RuntimeError):
+            w.record_revision(ch, "B", "1.1.2026", "PR", change_list_text(ch, "B", "1.1.2026", "PR"))
+        assert revisions_state(proj) == before and proj.meta == meta
+        assert w.undo.count() == 0
+    finally:
+        w.undo.setClean()
+        w.close()
+
+
+def test_create_switchboard_sheet_exception_restores_model(qapp, lib, monkeypatch):
+    """Výjimka v modelu při zakládání listu rozvaděče: list, registr struktur i atribut „sheet“ bloku se vrátí
+    (try/finally), undo zůstane prázdné."""
+    from envocad.ui.main_window import MainWindow
+    p = Project(name="SB")
+    blk = Element("fve.switchboard", 100, 100, attrs={"ref": "RDC9"})
+    p.sheets[0].elements.append(blk)
+    orig = Project.create_switchboard_sheet
+
+    def half(self, block):
+        orig(self, block)
+        raise RuntimeError("selhalo")
+    w = MainWindow(library=lib, project=p)
+    try:
+        w.undo.clear()
+        state = p.to_dict()
+        monkeypatch.setattr(Project, "create_switchboard_sheet", half)
+        with pytest.raises(RuntimeError):
+            w.create_switchboard_sheet(blk)
+        assert p.to_dict() == state and "sheet" not in blk.attrs
+        assert w.undo.count() == 0
+    finally:
+        w.undo.setClean()
+        w.close()
+
+
 # ---- 6. výpočty pro jeden list -------------------------------------------------------------------------------
 def test_calculations_filtered_by_sheet(lib, proj):
     rh = proj.switchboards()[-1]
