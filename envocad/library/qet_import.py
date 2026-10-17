@@ -29,11 +29,18 @@ IEC_BY_KIND = {"protection": "F", "switch": "Q", "transformer": "T", "generator"
                "terminal": "X", "relay": "K", "converter": "T", "measurement": "P", "lamp": "E"}
 
 
+class _SkipEntity(Exception):
+    """Primitivum s nečíselnou / nekonečnou souřadnicí (nan, inf) – přeskočí se."""
+
+
 def _f(v: str | None, default: float = 0.0) -> float:
     try:
-        return float(v) if v not in (None, "") else default
+        f = float(v) if v not in (None, "") else default
     except ValueError:
         return default
+    if not math.isfinite(f):
+        raise _SkipEntity(v)
+    return f
 
 
 def _snap(v: float) -> float:
@@ -86,71 +93,11 @@ def parse_elmt(path: Path | str, symbol_id: str, category: str = "QET", scale: f
     if desc is None:
         raise ValueError("Prvek nemá <description>")
     for el in desc:
-        t = el.tag
-        a = el.attrib
-        if t == "line":
-            x1, y1 = c.pt(_f(a.get("x1")), _f(a.get("y1")))
-            x2, y2 = c.pt(_f(a.get("x2")), _f(a.get("y2")))
-            prims.append({"type": "line", "x1": x1, "y1": y1, "x2": x2, "y2": y2})
-        elif t == "rect":
-            x, y = c.pt(_f(a.get("x")), _f(a.get("y")) + _f(a.get("height")))  # levý dolní roh v mm
-            prims.append({"type": "rect", "x": x, "y": y, "w": c.len(_f(a.get("width"))), "h": c.len(_f(a.get("height")))})
-        elif t in ("ellipse", "circle"):
-            if t == "circle":
-                d = _f(a.get("diameter"))
-                w = h = d
-            else:
-                w, h = _f(a.get("width")), _f(a.get("height"))
-            cx, cy = c.pt(_f(a.get("x")) + w / 2, _f(a.get("y")) + h / 2)
-            if abs(w - h) < 1e-6:
-                prims.append({"type": "circle", "cx": cx, "cy": cy, "r": c.len(w / 2)})
-            else:  # elipsu aproximovat polyline
-                rx, ry = c.len(w / 2), c.len(h / 2)
-                pts = [[round(cx + rx * math.cos(2 * math.pi * i / 32), 3), round(cy + ry * math.sin(2 * math.pi * i / 32), 3)]
-                       for i in range(32)]
-                prims.append({"type": "polyline", "points": pts, "closed": True})
-        elif t == "arc":
-            w, h = _f(a.get("width")), _f(a.get("height"))
-            cx, cy = c.pt(_f(a.get("x")) + w / 2, _f(a.get("y")) + h / 2)
-            start, span = _f(a.get("start")), _f(a.get("angle"))
-            # QET/Qt: úhly proti směru hod. ručiček v Y-dolů systému = po převrácení stejné hodnoty v Y-nahoru
-            if abs(w - h) < 1e-6:
-                s, e = start, start + span
-                if span < 0:
-                    s, e = e, s
-                prims.append({"type": "arc", "cx": cx, "cy": cy, "r": c.len(w / 2), "start": s % 360, "end": e % 360 or 360})
-            else:
-                rx, ry = c.len(w / 2), c.len(h / 2)
-                n = max(8, int(abs(span) / 10))
-                pts = []
-                for i in range(n + 1):
-                    ang = math.radians(start + span * i / n)
-                    pts.append([round(cx + rx * math.cos(ang), 3), round(cy + ry * math.sin(ang), 3)])
-                prims.append({"type": "polyline", "points": pts, "closed": False})
-        elif t == "polygon":
-            pts = []
-            i = 1
-            while f"x{i}" in a:
-                pts.append(list(c.pt(_f(a.get(f"x{i}")), _f(a.get(f"y{i}")))))
-                i += 1
-            if len(pts) >= 2:
-                prims.append({"type": "polyline", "points": pts, "closed": a.get("closed", "true") == "true"})
-        elif t == "text":
-            txt = (a.get("text") or "").replace("\n", " ").strip()
-            if not txt:
-                continue
-            size = _font_size_px(a.get("font"))
-            x, y = c.pt(_f(a.get("x")), _f(a.get("y")))
-            prims.append({"type": "text", "x": x, "y": y, "text": txt, "height": round(size * scale * 0.9, 2), "align": "left"})
-        elif t == "dynamic_text":
-            if el.findtext("info_name") == "label" and label_pos is None:
-                label_pos = c.pt(_f(a.get("x")), _f(a.get("y")) + 10)
-        elif t == "terminal":
-            x, y = c.pt(_f(a.get("x")), _f(a.get("y")))
-            pname = (a.get("name") or "").strip() or str(len(ports) + 1)
-            if any(p.name == pname for p in ports):
-                pname = f"{pname}_{len(ports) + 1}"
-            ports.append(Port(pname, _snap(x), _snap(y), ORIENT.get(a.get("orientation", "n"), "N")))
+        n_prims, n_ports = len(prims), len(ports)
+        try:
+            label_pos = _parse_entity(el, c, scale, prims, ports, label_pos)
+        except (_SkipEntity, OverflowError, ValueError):   # nan/inf/obří čísla → entitu přeskočit
+            del prims[n_prims:], ports[n_ports:]
 
     sym = Symbol(id=symbol_id, name=name, category=category, iec_ref=IEC_BY_KIND.get(kind, ""),
                  description=f"Zdroj: QElectroTech (CC BY 3.0){', autor: ' + author if author else ''}; {Path(path).name}",
@@ -158,6 +105,87 @@ def parse_elmt(path: Path | str, symbol_id: str, category: str = "QET", scale: f
                  attributes=[Attribute("ref", "Označení", "", True), Attribute("type", "Typ", "", True)],
                  label_pos=label_pos or _default_label(sym_bounds(prims, ports)))
     return sym
+
+
+def _finite(*vals: float) -> None:
+    if not all(math.isfinite(v) for v in vals):
+        raise _SkipEntity(vals)
+
+
+def _parse_entity(el, c: _Conv, scale: float, prims: list[Primitive], ports: list[Port],
+                  label_pos: tuple[float, float] | None) -> tuple[float, float] | None:
+    """Jedno primitivum / svorka z <description>; vrací (případně nově nalezenou) polohu popisku."""
+    t = el.tag
+    a = el.attrib
+    if t == "line":
+        x1, y1 = c.pt(_f(a.get("x1")), _f(a.get("y1")))
+        x2, y2 = c.pt(_f(a.get("x2")), _f(a.get("y2")))
+        prims.append({"type": "line", "x1": x1, "y1": y1, "x2": x2, "y2": y2})
+    elif t == "rect":
+        x, y = c.pt(_f(a.get("x")), _f(a.get("y")) + _f(a.get("height")))  # levý dolní roh v mm
+        prims.append({"type": "rect", "x": x, "y": y, "w": c.len(_f(a.get("width"))), "h": c.len(_f(a.get("height")))})
+    elif t in ("ellipse", "circle"):
+        if t == "circle":
+            d = _f(a.get("diameter"))
+            w = h = d
+        else:
+            w, h = _f(a.get("width")), _f(a.get("height"))
+        cx, cy = c.pt(_f(a.get("x")) + w / 2, _f(a.get("y")) + h / 2)
+        if abs(w - h) < 1e-6:
+            prims.append({"type": "circle", "cx": cx, "cy": cy, "r": c.len(w / 2)})
+        else:  # elipsu aproximovat polyline
+            rx, ry = c.len(w / 2), c.len(h / 2)
+            pts = [[round(cx + rx * math.cos(2 * math.pi * i / 32), 3), round(cy + ry * math.sin(2 * math.pi * i / 32), 3)]
+                   for i in range(32)]
+            prims.append({"type": "polyline", "points": pts, "closed": True})
+    elif t == "arc":
+        w, h = _f(a.get("width")), _f(a.get("height"))
+        cx, cy = c.pt(_f(a.get("x")) + w / 2, _f(a.get("y")) + h / 2)
+        start, span = _f(a.get("start")), _f(a.get("angle"))
+        # QET/Qt: úhly proti směru hod. ručiček v Y-dolů systému = po převrácení stejné hodnoty v Y-nahoru
+        if abs(w - h) < 1e-6:
+            s, e = start, start + span
+            if span < 0:
+                s, e = e, s
+            prims.append({"type": "arc", "cx": cx, "cy": cy, "r": c.len(w / 2), "start": s % 360, "end": e % 360 or 360})
+        else:
+            rx, ry = c.len(w / 2), c.len(h / 2)
+            n = min(max(8, int(abs(span) / 10)), 72)
+            pts = []
+            for i in range(n + 1):
+                ang = math.radians(start + span * i / n)
+                pts.append([round(cx + rx * math.cos(ang), 3), round(cy + ry * math.sin(ang), 3)])
+            prims.append({"type": "polyline", "points": pts, "closed": False})
+    elif t == "polygon":
+        pts = []
+        i = 1
+        while f"x{i}" in a:
+            pts.append(list(c.pt(_f(a.get(f"x{i}")), _f(a.get(f"y{i}")))))
+            i += 1
+        if len(pts) >= 2:
+            prims.append({"type": "polyline", "points": pts, "closed": a.get("closed", "true") == "true"})
+    elif t == "text":
+        txt = (a.get("text") or "").replace("\n", " ").strip()
+        if not txt:
+            return label_pos
+        size = _font_size_px(a.get("font"))
+        x, y = c.pt(_f(a.get("x")), _f(a.get("y")))
+        prims.append({"type": "text", "x": x, "y": y, "text": txt, "height": round(size * scale * 0.9, 2), "align": "left"})
+    elif t == "dynamic_text":
+        if el.findtext("info_name") == "label" and label_pos is None:
+            label_pos = c.pt(_f(a.get("x")), _f(a.get("y")) + 10)
+    elif t == "terminal":
+        x, y = c.pt(_f(a.get("x")), _f(a.get("y")))
+        pname = (a.get("name") or "").strip() or str(len(ports) + 1)
+        if any(p.name == pname for p in ports):
+            pname = f"{pname}_{len(ports) + 1}"
+        _finite(x, y)
+        ports.append(Port(pname, _snap(x), _snap(y), ORIENT.get(a.get("orientation", "n"), "N")))
+    for pr in prims[-1:]:   # poslední přidané primitivum: všechna čísla konečná (přetečení po převodu)
+        nums = [v for v in pr.values() if isinstance(v, float)] + [
+            v for pt in pr.get("points", []) for v in pt]
+        _finite(*nums)
+    return label_pos
 
 
 def sym_bounds(prims, ports):

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
 import os
 import sqlite3
 from pathlib import Path
@@ -10,6 +11,7 @@ from pathlib import Path
 from envocad.model.symbol import Symbol
 
 BUILTIN_DIR = Path(__file__).parent / "builtin"
+log = logging.getLogger("envocad.library")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS symbols (
@@ -101,7 +103,7 @@ class LibraryStore:
             try:
                 sym = Symbol.from_json(f)
             except Exception as ex:  # noqa: BLE001 – vadný uživatelský soubor nesmí shodit start
-                print(f"[knihovna] {f}: {ex}")
+                log.warning("knihovna: značka %s se nenačetla: %s", f, ex)
                 continue
             rows.append((sym.id, sym.name, sym.category, 1 if tag == "builtin" else 0,
                          json.dumps(sym.to_dict(), ensure_ascii=False)))
@@ -115,7 +117,7 @@ class LibraryStore:
                 try:
                     comps = read_csv(f)
                 except Exception as ex:  # noqa: BLE001 – vadný soubor nesmí shodit start
-                    print(f"[knihovna] {f.name}: {ex}")
+                    log.warning("knihovna: artikly %s se nenačetly: %s", f, ex)
                     continue
                 self.conn.executemany(
                     "INSERT INTO components(id,manufacturer,part_number,name,symbol_id,params,price,url) "
@@ -154,7 +156,17 @@ class LibraryStore:
                                c.price, c.datasheet_url)
         return len(comps)
 
+    def is_builtin(self, sid: str) -> bool:
+        row = self.conn.execute("SELECT builtin FROM symbols WHERE id=?", (sid,)).fetchone()
+        return bool(row and row["builtin"])
+
+    def has_symbol(self, sid: str) -> bool:
+        return self.conn.execute("SELECT 1 FROM symbols WHERE id=?", (sid,)).fetchone() is not None
+
     def put_symbol(self, sym: Symbol, builtin: bool = False) -> None:
+        """Uloží značku. Vestavěnou značku (z `library/builtin`) uživatelskou nikdy nepřepíše → ValueError."""
+        if not builtin and self.is_builtin(sym.id):
+            raise ValueError(f"Značka „{sym.id}“ je vestavěná a nelze ji přepsat – zvolte jiné ID")
         self.conn.execute(
             "INSERT INTO symbols(id,name,category,builtin,data) VALUES(?,?,?,?,?) "
             "ON CONFLICT(id) DO UPDATE SET name=excluded.name, category=excluded.category, "

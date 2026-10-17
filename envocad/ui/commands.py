@@ -6,6 +6,20 @@ from PySide6.QtGui import QUndoCommand
 from envocad.model.project import Element, Wire
 
 
+class MarkDirtyCommand(QUndoCommand):
+    """Bez změny modelu – jen označí projekt jako neuložený (např. po obnově automatické kopie, která není uložená
+    v původním souboru). Undo/redo nic nemění."""
+
+    def __init__(self, text: str = "Neuloženo"):
+        super().__init__(text)
+
+    def redo(self) -> None:
+        pass
+
+    def undo(self) -> None:
+        pass
+
+
 class AddElementCommand(QUndoCommand):
     def __init__(self, scene, element: Element):
         super().__init__(f"Vložit {element.ref or element.symbol_id}")

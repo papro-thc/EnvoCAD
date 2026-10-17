@@ -102,7 +102,10 @@ def _num(v: str) -> str:
 def rows_from_commercial_csv(path: Path | str) -> tuple[list[dict], dict[str, str]]:
     raw = Path(path).read_bytes()
     text = raw.decode("utf-8-sig", errors="replace")
-    delim = ";" if text.splitlines()[0].count(";") >= text.splitlines()[0].count(",") else ","
+    lines = text.splitlines()
+    if not lines or not text.strip():
+        raise ValueError(f"Soubor {Path(path).name} je prázdný – čekám CSV export artiklů z EPLAN")
+    delim = ";" if lines[0].count(";") >= lines[0].count(",") else ","
     reader = csv.DictReader(io.StringIO(text), delimiter=delim)
     mapping = map_columns(reader.fieldnames or [])
     rows = [_convert(r, mapping, "user") for r in reader]

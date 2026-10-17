@@ -1,14 +1,19 @@
 """Projekt → listy → elementy a vodiče. Čistá data, bez Qt."""
 from __future__ import annotations
 
+import copy
 import json
+import logging
+import math
+import os
 import re
+import shutil
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from envocad.model.designation import CABLE_SCOPE, FUNC, LOC, scope_key, sheet_scope
-from envocad.model.symbol import Attribute, Port, Symbol, rotate_point
+from envocad.model.symbol import Attribute, Port, Symbol, placeholder_symbol, rotate_point, with_orphan_ports
 
 # Atributy vodiče (vodič nemá symbol, proto jsou definované zde)
 WIRE_ATTRIBUTES = [
@@ -36,8 +41,94 @@ DEVICE_HEIGHT_MM = 45.0  # mm – výška modulového přístroje na liště (ro
 SHEET_KINDS = ("schematic", "switchboard")
 
 
+log = logging.getLogger("envocad.model")
+
+
 def _uid() -> str:
     return uuid.uuid4().hex[:12]
+
+
+# ---- validace při načítání (poškozený soubor → ValueError s českou hláškou místo syrové výjimky) -----------
+class CorruptProjectError(ValueError):
+    """Soubor projektu je poškozený – zpráva je česky a míří na list / prvek / vodič."""
+
+
+def _float(v, key: str) -> float:
+    if isinstance(v, bool):
+        raise ValueError(f"položka „{key}“ není číslo: {v!r}")  # noqa: TRY004 – poškozený soubor = ValueError
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        raise ValueError(f"položka „{key}“ není číslo: {v!r}") from None
+    if not math.isfinite(f):
+        raise ValueError(f"položka „{key}“ není konečné číslo: {v!r}")
+    return f
+
+
+def _int(v, key: str) -> int:
+    f = _float(v, key)
+    if f != int(f):
+        raise ValueError(f"položka „{key}“ není celé číslo: {v!r}")
+    return int(f)
+
+
+def _dict(v, key: str) -> dict:
+    if v is None:
+        return {}
+    if not isinstance(v, dict):
+        raise ValueError(f"položka „{key}“ má být objekt, je {type(v).__name__}")  # noqa: TRY004 – poškozený soubor = ValueError
+    return v
+
+
+def _list(v, key: str) -> list:
+    if v is None:
+        return []
+    if not isinstance(v, list):
+        raise ValueError(f"položka „{key}“ má být seznam, je {type(v).__name__}")  # noqa: TRY004 – poškozený soubor = ValueError
+    return v
+
+
+def _str_attrs(v, key: str = "attrs") -> dict[str, str]:
+    """Atributy jako {str: str}; None → prázdné, čísla → text."""
+    return {str(k): ("" if x is None else x if isinstance(x, str) else str(x)) for k, x in _dict(v, key).items()}
+
+
+def _point(v, key: str) -> tuple[float, float]:
+    if not isinstance(v, (list, tuple)) or len(v) != 2:
+        raise ValueError(f"položka „{key}“ má být bod [x, y], je {v!r}")
+    return (_float(v[0], key), _float(v[1], key))
+
+
+def _reason(ex: BaseException) -> str:
+    if isinstance(ex, KeyError):
+        return f"chybí položka „{ex.args[0] if ex.args else '?'}“"
+    if isinstance(ex, ValueError) and str(ex):
+        return str(ex)
+    return f"neplatná data ({type(ex).__name__}: {ex})"
+
+
+_LOAD_ERRORS = (KeyError, TypeError, ValueError, AttributeError, IndexError)
+
+
+def _label(d, kind: str, k: int) -> str:
+    """„prvek F1“ / „vodič W2“ / „prvek č. 3“ – pro hlášku o poškozeném souboru."""
+    if isinstance(d, dict):
+        attrs = d.get("attrs") if isinstance(d.get("attrs"), dict) else {}
+        name = attrs.get("ref") or d.get("name") or d.get("ref") or d.get("label") or d.get("id")
+        if name and isinstance(name, (str, int)):
+            return f"{kind} „{name}“"
+    return f"{kind} č. {k + 1}" if k >= 0 else kind
+
+
+def _part(fn, d, where: str):
+    if not isinstance(d, dict):
+        raise CorruptProjectError(f"Soubor je poškozen: {where} – položka má být objekt")
+    try:
+        return fn(d)
+    except CorruptProjectError:
+        raise
+    except _LOAD_ERRORS as ex:
+        raise CorruptProjectError(f"Soubor je poškozen: {where} – {_reason(ex)}") from ex
 
 
 @dataclass
@@ -85,10 +176,14 @@ class Element:
 
     @classmethod
     def from_dict(cls, d: dict) -> Element:
+        rot = _int(d.get("rotation") or 0, "rotation") % 360
+        if rot % 90:
+            raise ValueError(f"položka „rotation“ musí být násobek 90°: {d.get('rotation')!r}")
+        cid = d.get("component_id")
         return cls(
-            symbol_id=d["symbol_id"], x=d["x"], y=d["y"], rotation=d.get("rotation", 0),
-            attrs=dict(d.get("attrs", {})), component_id=d.get("component_id"), id=d["id"],
-            mp_pos=tuple(d["mp_pos"]) if d.get("mp_pos") else None,
+            symbol_id=str(d["symbol_id"]), x=_float(d["x"], "x"), y=_float(d["y"], "y"), rotation=rot,
+            attrs=_str_attrs(d.get("attrs")), component_id=str(cid) if cid else None, id=str(d["id"]),
+            mp_pos=_point(d["mp_pos"], "mp_pos") if d.get("mp_pos") else None,
         )
 
 
@@ -181,10 +276,15 @@ class Wire:
 
     @classmethod
     def from_dict(cls, d: dict) -> Wire:
+        def end(key: str) -> WireEnd:
+            e = _dict(d[key], key)
+            return WireEnd(str(e["element_id"]), str(e["port"]))
         return cls(
-            a=WireEnd(**d["a"]), b=WireEnd(**d["b"]),
-            points=[tuple(p) for p in d.get("points", [])], attrs=dict(d.get("attrs", {})),
-            conductors=list(d.get("conductors", [])), terminals=dict(d.get("terminals", {})), id=d["id"],
+            a=end("a"), b=end("b"),
+            points=[_point(p, "points") for p in _list(d.get("points"), "points")], attrs=_str_attrs(d.get("attrs")),
+            conductors=[str(c) for c in _list(d.get("conductors"), "conductors")],
+            terminals={str(k): _str_attrs(v, "terminals") for k, v in _dict(d.get("terminals"), "terminals").items()},
+            id=str(d["id"]),
         )
 
     def touches(self, element_id: str) -> bool:
@@ -258,10 +358,14 @@ class Layout:
 
     @classmethod
     def from_dict(cls, d: dict | None) -> Layout:
-        d = d or {}
-        return cls(rows=int(d.get("rows", 3)), modules_per_row=int(d.get("modules_per_row", 24)),
-                   enclosure=d.get("enclosure", ""), params=dict(d.get("params", {})),
-                   placements=[Placement(**p) for p in d.get("placements", [])])
+        d = _dict(d, "layout")
+        pls = []
+        for p in _list(d.get("placements"), "placements"):
+            p = _dict(p, "placements")
+            pls.append(Placement(str(p["element_id"]), _int(p.get("row", 0), "row"), _float(p.get("pos", 0), "pos")))
+        return cls(rows=_int(d.get("rows", 3), "rows"), modules_per_row=_int(d.get("modules_per_row", 24), "modules_per_row"),
+                   enclosure=str(d.get("enclosure") or ""), params=_str_attrs(d.get("params"), "params"),
+                   placements=pls)
 
 
 def _num(v) -> float:
@@ -454,14 +558,22 @@ class Sheet:
 
     @classmethod
     def from_dict(cls, d: dict) -> Sheet:
+        where = _label(d, "list", -1)
+        def part(fn, kind):
+            key = "elements" if kind == "prvek" else "wires"
+            return [_part(fn, x, f"{where}, {_label(x, kind, k)}") for k, x in enumerate(_list(d.get(key), key))]
+        pid = d.get("parent_element_id")
         return cls(
-            name=d.get("name", ""), paper=d.get("paper", "A3"), width=d.get("width", 420), height=d.get("height", 297),
-            kind=d.get("kind", "schematic"), parent_element_id=d.get("parent_element_id"),
+            name=str(d.get("name") or ""), paper=str(d.get("paper") or "A3"), width=_float(d.get("width", 420), "width"),
+            height=_float(d.get("height", 297), "height"),
+            kind=d.get("kind") if d.get("kind") in SHEET_KINDS else "schematic",
+            parent_element_id=str(pid) if pid else None,
             layout=Layout.from_dict(d.get("layout")),
-            elements=[Element.from_dict(e) for e in d.get("elements", [])],
-            wires=[Wire.from_dict(w) for w in d.get("wires", [])], id=d["id"],
-            bridges={k: [[str(x) for x in g] for g in v] for k, v in d.get("bridges", {}).items()},
-            func=d.get("func", ""), loc=d.get("loc", ""),
+            elements=part(Element.from_dict, "prvek"),
+            wires=part(Wire.from_dict, "vodič"), id=str(d["id"]),
+            bridges={str(k): [[str(x) for x in _list(g, "bridges")] for g in _list(v, "bridges")]
+                     for k, v in _dict(d.get("bridges"), "bridges").items()},
+            func=str(d.get("func") or ""), loc=str(d.get("loc") or ""),
         )
 
 
@@ -566,6 +678,21 @@ class Project:
             self.structures.append(StructureId(LOC, block.ref, desc))
         return sheet
 
+    def remove_sheet(self, sheet: Sheet) -> list[Sheet]:
+        """Odstraní list. Blok ROZVADĚČ smazaného listu rozvaděče zůstane (vodiče na jeho porty zůstanou, porty bez
+        přívodu se kreslí jako „X1?“ a hlásí je kontrola); listy rozvaděčů, jejichž blok byl na smazaném listu, se
+        odpojí (`parent_element_id` = None). Vrací odpojené listy."""
+        self.sheets.remove(sheet)
+        if sheet.parent_element_id:
+            ps = self.sheet_of_element(sheet.parent_element_id)
+            if ps is not None and self.switchboard_sheet(sheet.parent_element_id) is None:
+                ps.element(sheet.parent_element_id).attrs.pop("sheet", None)
+        ids = {e.id for e in sheet.elements}
+        orphans = [s for s in self.sheets if s.parent_element_id in ids]
+        for s in orphans:
+            s.parent_element_id = None
+        return orphans
+
     def switchboards(self) -> list[Sheet]:
         return [s for s in self.sheets if s.is_switchboard]
 
@@ -582,36 +709,182 @@ class Project:
 
     @classmethod
     def from_dict(cls, d: dict) -> Project:
-        if d.get("format") != "envocad-project":
+        """Projekt ze slovníku (vstup se nemění). Poškozená struktura → `CorruptProjectError` (ValueError) s českou
+        hláškou „Soubor je poškozen: list X, prvek Y – …“. Odkazy uvnitř projektu se nevalidují: vodič na
+        neexistující prvek se načte (kreslení ho přeskočí, kontrola hlásí `dangling`), duplicitní id prvků a vodičů
+        dostanou nová id."""
+        if not isinstance(d, dict) or d.get("format") != "envocad-project":
             raise ValueError("Soubor není projekt EnvoCAD")
         ver = d.get("format_version", 1)
+        if isinstance(ver, bool) or not isinstance(ver, (int, float)) or ver != int(ver) or ver < 1:
+            raise CorruptProjectError(f"Soubor je poškozen: neplatná verze formátu {ver!r}")
+        ver = int(ver)
         if ver > FORMAT_VERSION:
             raise ValueError(f"Projekt je z novější verze programu (formát {ver})")
-        d = migrate(d, ver)
-        return cls(name=d.get("name", ""), meta=dict(d.get("meta", {})),
-                   sheets=[Sheet.from_dict(s) for s in d.get("sheets", [])] or [Sheet()],
-                   cables=[Cable.from_dict(c) for c in d.get("cables", [])],
-                   structures=[StructureId.from_dict(x) for x in d.get("structures", [])],
-                   revisions=[Revision.from_dict(r) for r in d.get("revisions", [])],
-                   notes=[Note.from_dict(n) for n in d.get("notes", [])])
+        _check_shape(d)
+        try:
+            d = migrate(d, ver)
+        except _LOAD_ERRORS as ex:
+            raise CorruptProjectError(f"Soubor je poškozen: převod ze starší verze formátu – {_reason(ex)}") from ex
+        sheets = [_part(Sheet.from_dict, sd, _label(sd, "list", k)) for k, sd in enumerate(_top(d, "sheets"))]
+        proj = cls(name=str(d.get("name") or ""), meta=_part(lambda x: _str_attrs(x, "meta"), d.get("meta") or {}, "meta"),
+                   sheets=sheets or [Sheet()],
+                   cables=[_part(Cable.from_dict, c, _label(c, "kabel", k)) for k, c in enumerate(_top(d, "cables"))],
+                   structures=[_part(StructureId.from_dict, x, f"struktura č. {k + 1}")
+                               for k, x in enumerate(_top(d, "structures"))],
+                   revisions=[_part(Revision.from_dict, r, _label(r, "revize", k)) for k, r in enumerate(_top(d, "revisions"))],
+                   notes=[_part(Note.from_dict, n, f"připomínka č. {k + 1}") for k, n in enumerate(_top(d, "notes"))])
+        _repair_duplicate_ids(proj)
+        return proj
 
     def save(self, path: Path | str | None = None) -> None:
+        """Uloží projekt atomicky (zápis do dočasného souboru + přejmenování) a ponechá zálohu předchozí verze
+        „<název>.ecp.bak“. Při chybě zůstane původní soubor beze změny a `path` se nemění."""
         p = Path(path) if path else self.path
         if p is None:
             raise ValueError("Projekt nemá cestu")
-        p.write_text(json.dumps(self.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+        write_json_atomic(self.to_dict(), p, backup=True)
         self.path = p
 
     @classmethod
     def load(cls, path: Path | str) -> Project:
         p = Path(path)
-        proj = cls.from_dict(json.loads(p.read_text(encoding="utf-8")))
+        proj = cls.from_dict(read_project_json(p))
         proj.path = p
         return proj
 
 
+def dangling_wires(sheet: Sheet) -> list[Wire]:
+    """Vodiče listu, jejichž konec vede na prvek, který na listu není (ručně upravený / poškozený soubor)."""
+    ids = {e.id for e in sheet.elements}
+    return [w for w in sheet.wires if w.a.element_id not in ids or w.b.element_id not in ids]
+
+
+def without_dangling(project: Project) -> Project:
+    """Pohled na projekt bez vodičů na neexistující prvky – pro kontroly, výkazy a export, které s takovým vodičem
+    neumí počítat. Bez visících vodičů vrací `project` samotný, jinak mělkou kopii (listy jsou kopie se stejným id,
+    prvky a ostatní vodiče sdílené; model se nemění). Visící vodiče hlásí kontrola (`dangling`)."""
+    import dataclasses
+    if not any(dangling_wires(s) for s in project.sheets):
+        return project
+    sheets = []
+    for s in project.sheets:
+        bad = {w.id for w in dangling_wires(s)}
+        sheets.append(dataclasses.replace(s, wires=[w for w in s.wires if w.id not in bad]) if bad else s)
+    return dataclasses.replace(project, sheets=sheets)
+
+
+def _check_shape(d: dict) -> None:
+    """Tvar dat před migrací (migrace starších verzí sahá do listů, prvků a vodičů): seznamy a objekty tam, kde
+    mají být – jinak hláška s listem a prvkem / vodičem."""
+    for k, sd in enumerate(_top(d, "sheets")):
+        where = _label(sd, "list", k)
+        if not isinstance(sd, dict):
+            raise CorruptProjectError(f"Soubor je poškozen: {where} – položka má být objekt")
+        for key, kind in (("elements", "prvek"), ("wires", "vodič")):
+            try:
+                items = _list(sd.get(key), key)
+            except ValueError as ex:
+                raise CorruptProjectError(f"Soubor je poškozen: {where} – {ex}") from None
+            for i, x in enumerate(items):
+                if not isinstance(x, dict):
+                    raise CorruptProjectError(f"Soubor je poškozen: {where}, {_label(x, kind, i)} – položka má být objekt")
+                if kind == "vodič":
+                    for end in ("a", "b"):
+                        if end not in x:
+                            raise CorruptProjectError(f"Soubor je poškozen: {where}, {_label(x, kind, i)} – "
+                                                      f"chybí položka „{end}“")
+                        if not isinstance(x[end], dict) or "element_id" not in x[end] or "port" not in x[end]:
+                            raise CorruptProjectError(f"Soubor je poškozen: {where}, {_label(x, kind, i)} – konec "
+                                                      f"„{end}“ musí mít element_id a port")
+
+
+def clean_view(project: Project, sheet: Sheet | None = None) -> tuple[Project, Sheet | None]:
+    """`without_dangling` + odpovídající list v čistém pohledu (pro export / výkaz jednoho listu)."""
+    clean = without_dangling(project)
+    if clean is project or sheet is None:
+        return clean, sheet
+    return clean, next((s for s in clean.sheets if s.id == sheet.id), sheet)
+
+
+def _top(d: dict, key: str) -> list:
+    try:
+        return _list(d.get(key), key)
+    except ValueError as ex:
+        raise CorruptProjectError(f"Soubor je poškozen: {ex}") from None
+
+
+def _repair_duplicate_ids(proj: Project) -> None:
+    """Duplicitní id prvků / vodičů / listů (ručně upravený soubor) → nová id pro druhý a další výskyt. Vodiče
+    dál vedou na první prvek s daným id (tak je hledá `Sheet.element`)."""
+    seen_s: set[str] = set()
+    seen_e: set[str] = set()
+    seen_w: set[str] = set()
+    for s in proj.sheets:
+        if s.id in seen_s:
+            log.warning("duplicitní id listu %s – nové id", s.id)
+            s.id = _uid()
+        seen_s.add(s.id)
+        for e in s.elements:
+            if e.id in seen_e:
+                log.warning("duplicitní id prvku %s (%s) – nové id", e.id, e.ref)
+                e.id = _uid()
+            seen_e.add(e.id)
+        for w in s.wires:
+            if w.id in seen_w:
+                log.warning("duplicitní id vodiče %s – nové id", w.id)
+                w.id = _uid()
+            seen_w.add(w.id)
+
+
+def read_project_json(path: Path | str) -> dict:
+    """Načte JSON projektu (UTF-8, i s BOM). Nečitelný obsah → `CorruptProjectError` s českou hláškou."""
+    p = Path(path)
+    data = p.read_bytes()
+    if not data.strip():
+        raise CorruptProjectError("Soubor je poškozen: soubor je prázdný")
+    try:
+        text = data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise CorruptProjectError("Soubor je poškozen: není to textový soubor UTF-8 (projekt EnvoCAD je JSON)") from None
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as ex:
+        raise CorruptProjectError(f"Soubor je poškozen: neplatný JSON (řádek {ex.lineno}, sloupec {ex.colno}) – "
+                                  "soubor je asi useknutý nebo ručně upravený") from None
+    except RecursionError:
+        raise CorruptProjectError("Soubor je poškozen: příliš hluboce vnořený JSON") from None
+
+
+def write_json_atomic(data: dict, path: Path | str, backup: bool = False) -> None:
+    """Zapíše JSON do `<cesta>.tmp` ve stejné složce a přejmenuje ho na cíl (`os.replace` – atomické). S `backup`
+    nejdřív zkopíruje dosavadní soubor na `<cesta>.bak` (jedna záloha předchozí verze). Při chybě zůstane cíl
+    beze změny a dočasný soubor se smaže."""
+    p = Path(path)
+    text = json.dumps(data, ensure_ascii=False, indent=2)
+    tmp = p.with_name(p.name + ".tmp")
+    try:
+        with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        if backup and p.is_file():
+            try:
+                shutil.copy2(p, p.with_name(p.name + ".bak"))
+            except OSError as ex:   # záloha je jen pojistka – uložení kvůli ní neselže
+                log.warning("záloha %s se nevytvořila: %s", p, ex)
+        os.replace(tmp, p)
+    except BaseException:
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
+
+
 def migrate(d: dict, ver: int) -> dict:
-    """Převede slovník projektu ze starší verze formátu na aktuální."""
+    """Převede slovník projektu ze starší verze formátu na aktuální. Vstupní slovník se nemění (pracuje na kopii)."""
+    d = copy.deepcopy(d)
     if ver < 2:
         # v1: listy bez kind/layout, vodiče bez conductors – doplní se výchozí hodnoty při from_dict
         for s in d.get("sheets", []):
@@ -944,15 +1217,15 @@ def switchboard_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
     pojmenovaný označením svorky (X1, X4…). Bez listu zůstává základní značka. Porty, na které ještě vedou
     vodiče se starými názvy (1–4), se zachovají, aby se nic nerozpojilo."""
     sheet = project.switchboard_sheet(e.id)
-    if sheet is None:
-        return base
+    if sheet is None:   # list smazán / ještě nezaložen: vodiče na porty přívodů zůstanou na „?“ portech
+        return with_orphan_ports(base, _used_ports(project, e))
     def nat(f: Element) -> tuple:
         m = re.match(r"([A-Za-z]*)(\d*)(.*)", f.ref)
         return (m.group(1), int(m.group(2)) if m.group(2) else 10**9, m.group(3))
     feeds_in = sorted((f for f in sheet.elements if f.symbol_id == "sb.feed_in" and f.ref), key=nat)
     feeds_out = sorted((f for f in sheet.elements if f.symbol_id == "sb.feed_out" and f.ref), key=nat)
     if not feeds_in and not feeds_out:
-        return base
+        return with_orphan_ports(base, _used_ports(project, e))
     n = max(len(feeds_in), len(feeds_out), 1)
     h = max(20.0, n * PORT_PITCH + PORT_PITCH)
     half = h / 2
@@ -977,13 +1250,14 @@ def switchboard_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
             ports.append(Port(p.name, p.x, p.y if abs(p.y) < half else (half if p.y > 0 else -half), p.dir))
             names.add(p.name)
     # vodiče na smazaný/přejmenovaný přívod či vývod: port zůstane dole (nic se nerozpojí), označený „?“
-    for k, name in enumerate(sorted(used - names)):
+    orphans = sorted(used - names)
+    for k, name in enumerate(orphans):
         x = round((-10 + k * 10) / 2.5) * 2.5
         ports.append(Port(name, x, -half, "S"))
         prims.append({"type": "text", "x": x, "y": -half + 1.0, "text": f"{name}?", "height": 1.8, "align": "center"})
     return Symbol(id=base.id, name=base.name, category=base.category, description=base.description,
                   iec_ref=base.iec_ref, function_class=base.function_class, primitives=prims, ports=ports, attributes=base.attributes,
-                  label_pos=(-15, -half - 3))
+                  label_pos=(-15, -half - 3), orphan_ports=tuple(orphans))
 
 
 INVERTER_SYMBOLS = {"fve.inverter", "fve.inverter_hybrid"}
@@ -1032,14 +1306,31 @@ def inverter_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
                   label_pos=(base.label_pos[0], half + 10.0))
 
 
+def _used_ports(project: Project, e: Element) -> set[str]:
+    """Porty prvku, na které vedou vodiče jeho listu."""
+    sheet = project.sheet_of_element(e.id)
+    return {end.port for w in (sheet.wires if sheet else []) for end in (w.a, w.b) if end.element_id == e.id}
+
+
 def element_symbol(project: Project, e: Element, lib) -> Symbol:
-    """Značka prvku – blok ROZVADĚČ podle jeho listu, střídač podle počtu DC vstupů, jinak z knihovny."""
-    base = lib.get_symbol(e.symbol_id)
+    """Značka prvku – blok ROZVADĚČ podle jeho listu, střídač podle počtu DC vstupů, jinak z knihovny.
+    Nikdy nepadá na stavu projektu: symbol, který v knihovně není, nahradí zástupná značka (`placeholder`)
+    s porty podle vodičů a port, na který vede vodič, ale značka ho nemá, se doplní jako osiřelý („X1?“,
+    `orphan_ports`). Obojí hlásí kontrola projektu (`symbol`, `bad_port`)."""
+    try:
+        base = lib.get_symbol(e.symbol_id)
+    except KeyError:
+        return placeholder_symbol(e.symbol_id, _used_ports(project, e))
     if e.symbol_id == "fve.switchboard":
-        return switchboard_symbol(project, e, base)
-    if e.symbol_id in INVERTER_SYMBOLS:
-        return inverter_symbol(project, e, base)
-    return base
+        sym = switchboard_symbol(project, e, base)
+    elif e.symbol_id in INVERTER_SYMBOLS:
+        sym = inverter_symbol(project, e, base)
+    else:
+        sym = base
+    used = _used_ports(project, e)
+    if used and not used <= {p.name for p in sym.ports}:
+        sym = with_orphan_ports(sym, used)
+    return sym
 
 
 def feed_wire_by_port(project: Project, sheet: Sheet, feed: Element) -> Wire | None:

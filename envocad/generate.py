@@ -446,7 +446,7 @@ def _build_ac_switchboard(project: Project, sheet: Sheet, invs: list[dict], ac: 
 
 
 def load_spec(path: Path | str) -> dict:
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
 
 
 def main(argv: list[str] | None = None) -> int:

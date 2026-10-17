@@ -40,7 +40,7 @@ def load_settings() -> dict:
     data = {}
     if p.exists():
         try:
-            data = json.loads(p.read_text(encoding="utf-8"))
+            data = json.loads(p.read_text(encoding="utf-8-sig"))
         except (OSError, ValueError):
             data = {}
     out = json.loads(json.dumps(DEFAULTS))

@@ -29,9 +29,11 @@ from envocad.model.project import (
     Project,
     Sheet,
     contact_terminals,
+    dangling_wires,
     element_symbol,
     is_contact,
     linked_wire,
+    without_dangling,
 )
 
 ERROR, WARNING, INFO = "chyba", "varování", "info"
@@ -61,6 +63,13 @@ def _connected_ports(sheet: Sheet, e: Element) -> set[str]:
 def check_project(project: Project, lib) -> list[Finding]:
     from envocad.model.xref import DeviceIndex, interrupt_link
     out: list[Finding] = []
+    # vodiče na neexistující prvek: nahlásit a dál počítat bez nich (výpočty a trasy by na nich padaly)
+    for s in project.sheets:
+        for w in dangling_wires(s):
+            out.append(Finding(ERROR, s.id, s.name, w.id, True, w.attrs.get("ref", ""),
+                               "Vodič na neexistující prvek", "dangling"))
+    full = project
+    project = without_dangling(project)
     idx = DeviceIndex.build(project)
     # duplicitní označení: jako v EPLAN je úplné označení „=funkce+umístění-X1“ – v každém prostoru (func, loc)
     # musí být označení jedinečné, mezi umístěními se smí opakovat (X1 v +RDC1 i v +RH). Listy se stejným
@@ -87,6 +96,9 @@ def check_project(project: Project, lib) -> list[Finding]:
                 out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref, f"Neznámá značka {e.symbol_id}", "symbol"))
                 continue
             sym_of[e.id] = sym
+            if sym.placeholder:   # zástupná značka (symbol není v knihovně) – porty jsou jen podle vodičů
+                out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref, f"Neznámá značka {e.symbol_id}", "symbol"))
+                continue
             group = idx.group_of(e)
             if is_contact(e) and e.ref and group is None:
                 out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
@@ -100,10 +112,11 @@ def check_project(project: Project, lib) -> list[Finding]:
                 out.append(Finding(WARNING, s.id, s.name, e.id, False, "", f"Prvek {sym.name} bez označení", "no_ref"))
             conn = _connected_ports(s, e)
             if e.symbol_id not in OPTIONAL_PORT_SYMBOLS:
-                free = [p.name for p in sym.ports if p.name not in conn]
+                real = [p.name for p in sym.ports if p.name not in sym.orphan_ports]   # osiřelé hlásí bad_port
+                free = [p for p in real if p not in conn]
                 if e.symbol_id in INVERTER_SYMBOLS and any(p.startswith("DC") for p in conn):
                     free = [p for p in free if not p.startswith("DC")]   # volné DC vstupy střídače jsou rezerva
-                if free and (free != [p.name for p in sym.ports]):
+                if free and (free != real):
                     out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                        f"Nezapojené porty: {', '.join(free)}", "free_port"))
                 elif free:
@@ -134,7 +147,8 @@ def check_project(project: Project, lib) -> list[Finding]:
                 continue
             for e, end in ((a, w.a), (b, w.b)):
                 sym = sym_of.get(e.id)
-                if sym is not None and not any(p.name == end.port for p in sym.ports):
+                if sym is not None and not sym.placeholder and (
+                        end.port in sym.orphan_ports or not any(p.name == end.port for p in sym.ports)):
                     out.append(Finding(ERROR, s.id, s.name, w.id, True, ref,
                                        f"Vodič na neexistující port {e.ref or e.symbol_id}:{end.port}", "bad_port"))
             wkey = (*scope_key(s, w), ref)
@@ -162,8 +176,8 @@ def check_project(project: Project, lib) -> list[Finding]:
     out += contact_findings(project, idx)
     out += interrupt_findings(project, idx)
     out += designation_findings(project, lib, idx)
-    out += revision_findings(project)
-    out += note_findings(project)
+    out += revision_findings(full)
+    out += note_findings(full)
     out += calc_findings(project)
     out += potential_findings(project, lib)
     out += text_findings(project, lib)

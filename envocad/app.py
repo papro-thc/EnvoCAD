@@ -13,16 +13,18 @@ def main() -> None:
     app = QApplication(sys.argv)
     app.setApplicationName("EnvoCAD")
     app.setOrganizationName("ENVO")
-    from envocad.model.project import Project
     from envocad.ui import theme
     from envocad.ui.main_window import MainWindow
 
     theme.apply(theme.load_saved(), app)
 
-    project = Project.load(sys.argv[1]) if len(sys.argv) > 1 else None
+    project, error = load_start_project(sys.argv[1:])
     win = MainWindow(project=project)
     win.statusBar().showMessage(f"Log: {log_path}", 5000)
     win.show()
+    if error:
+        from PySide6.QtWidgets import QMessageBox
+        QMessageBox.critical(win, "Projekt nelze otevřít", error)
     log.info("Okno zobrazeno")
     rc = app.exec()
     log.info("Konec, kód %s", rc)
@@ -30,6 +32,22 @@ def main() -> None:
     logging_setup.SHUTTING_DOWN = True  # chyby při likvidaci objektů už jen do logu, bez dialogu
     del win
     sys.exit(rc)
+
+
+def load_start_project(args: list[str]):
+    """Projekt z příkazové řádky: (projekt, None), bez argumentu (None, None); vadný soubor → (None, česká hláška)
+    a start s prázdným projektem."""
+    from envocad.logging_setup import log
+    from envocad.model.project import Project
+    if not args:
+        return None, None
+    try:
+        return Project.load(args[0]), None
+    except Exception as ex:  # noqa: BLE001 – start nesmí spadnout na vadném souboru
+        log.warning("projekt %s nejde otevřít: %s", args[0], ex)
+        from envocad.ui.main_window import error_text
+        return None, (f"Projekt nelze otevřít:\n{args[0]}\n\n{error_text(ex)}\n\n"
+                      "EnvoCAD se spustí s prázdným projektem.")
 
 
 if __name__ == "__main__":

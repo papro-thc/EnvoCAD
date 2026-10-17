@@ -49,6 +49,8 @@ def _subtitle(project: Project, sheet: Sheet | None) -> str:
 
 
 def export_reports_xlsx(project: Project, lib: LibraryStore, path: Path | str, sheet: Sheet | None = None) -> None:
+    from envocad.model.project import clean_view
+    project, sheet = clean_view(project, sheet)     # vodiče na neexistující prvek se do výkazů nedostanou
     wb = Workbook()
     wb.remove(wb.active)
     sub = _subtitle(project, sheet)
@@ -64,7 +66,9 @@ def export_production_xlsx(project: Project, lib: LibraryStore, path: Path | str
                            base: dict | None = None) -> None:
     """Výrobní podklad pro dílnu: list „Výrobní seznam“ (výrobní zapojovací seznam; průřez a délka jako čísla)
     a list „Parametry“ (použité parametry po rozvaděčích se zdrojem hodnoty, pravidlo svorek, tabulky)."""
+    from envocad.model.project import clean_view
     from envocad.model.wiring import FERRULE_DIN46228, IN_TO_CROSS, NUMBER_NOTE, TERMINAL_RULE, param_sources
+    project, sheet = clean_view(project, sheet)
     base = reports.wiring_base() if base is None else base
     wb = Workbook()
     ws = wb.active

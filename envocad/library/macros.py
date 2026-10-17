@@ -232,7 +232,7 @@ def load_macro(path: Path | str, source: str = "vlastní") -> Macro | None:
     """Načte makro ze souboru. Nečitelné, neplatné nebo vyšší verze (`version` > MACRO_VERSION) → None + záznam v logu."""
     path = Path(path)
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as ex:
         log.warning("Makro %s nelze načíst: %s", path, ex)
         return None

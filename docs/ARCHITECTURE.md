@@ -131,4 +131,9 @@ Tři vrstvy rozšíření, od nejjednodušší:
 
 Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **9** – připomínky `Project.notes`;
 v8 přidala strukturní označení a revize v `Project`, `Sheet.func/loc`; migrace v `model/project.py:migrate`), takže
-rozšíření modelu nerozbije staré soubory.
+rozšíření modelu nerozbije staré soubory. Načítání validuje strukturu (`Project.from_dict` → `CorruptProjectError`, česky „Soubor je poškozen: list X,
+prvek Y – …“; vstupní slovník se nemění), odkazy uvnitř projektu ale nevaliduje: vodič na neexistující prvek se načte,
+editor ho nekreslí, kontroly/výkazy/exporty pracují nad `without_dangling(project)` a kontrola ho hlásí (`dangling`).
+`element_symbol` nikdy nepadá: neznámé `symbol_id` → zástupná značka „?“ (`Symbol.placeholder`, kontrola `symbol`),
+port, na který vede vodič a značka ho nemá → osiřelý port „X1?“ (`Symbol.orphan_ports`, kontrola `bad_port`).
+`Project.save` je atomický (`.tmp` + `os.replace`) a nechává zálohu `<název>.ecp.bak`.

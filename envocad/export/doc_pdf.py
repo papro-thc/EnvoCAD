@@ -42,7 +42,8 @@ class DocBuilder:
     """Sestaví seznam stran (pro obsah) a pak je vykreslí."""
 
     def __init__(self, project: Project, library):
-        self.project, self.library = project, library
+        from envocad.model.project import without_dangling
+        self.project, self.library = without_dangling(project), library   # bez vodičů na neexistující prvek
         self.pages: list[tuple[str, str, object]] = []  # (druh, název, data)
         self._page = ""  # „3/16“ aktuální strany pro popisové pole
         self._pdf_page = 0  # index aktuální fyzické strany PDF (od 0), zvyšuje se u každého newPage()

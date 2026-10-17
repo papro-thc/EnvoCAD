@@ -79,6 +79,15 @@ def _contacts_text(idx, e: Element) -> str:
     return ", ".join(sorted(g.used_pairs(), key=natural_key))
 
 
+def _symbol(lib, symbol_id: str):
+    """Značka z knihovny; neznámé symbol_id → zástupná značka (výkaz nespadne, kontrola hlásí „Neznámá značka“)."""
+    try:
+        return lib.get_symbol(symbol_id)
+    except KeyError:
+        from envocad.model.symbol import placeholder_symbol
+        return placeholder_symbol(symbol_id)
+
+
 def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Seznam přístrojů (každý zvlášť) – pro štítky a kontrolu."""
     idx = _index(project)
@@ -88,7 +97,7 @@ def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None)
         for e in s.elements:
             if e.symbol_id in NON_DEVICE_SYMBOLS or not idx.is_bom_device(e, sheet):
                 continue
-            sym = lib.get_symbol(e.symbol_id)
+            sym = _symbol(lib, e.symbol_id)
             pl = s.layout.placement(e.id) if s.is_switchboard else None
             conts = _contacts_text(idx, e)
             d = designation(s, e)
@@ -135,7 +144,7 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
                     groups.setdefault(key, []).append(f"{e.ref} ({n})")
                     qty[key] = qty.get(key, 0) + n
                 continue
-            key = (lib.get_symbol(e.symbol_id).name, e.attrs.get("type", ""), e.attrs.get("manufacturer", ""), _param_str(e))
+            key = (_symbol(lib, e.symbol_id).name, e.attrs.get("type", ""), e.attrs.get("manufacturer", ""), _param_str(e))
             groups.setdefault(key, []).append(e.ref)
             qty[key] = qty.get(key, 0) + 1
         # můstky: za každou skupinu můstků jeden (vícepólový) můstek dané svorkovnice
@@ -203,7 +212,7 @@ def labels(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> t
         for e in s.elements:
             if not e.ref or not idx.is_bom_device(e, sheet):   # cívka stykače = jeden štítek se stykačem
                 continue
-            sym = lib.get_symbol(e.symbol_id)
+            sym = _symbol(lib, e.symbol_id)
             desc = e.attrs.get("desc") or " ".join(x for x in (sym.name, e.attrs.get("in_", "") and e.attrs["in_"] + " A") if x)
             d = designation(s, e)
             keyed.append(((d.func, d.loc, _ref_key(e.ref), s.name), [_tag(project, s, e), desc, s.name]))
