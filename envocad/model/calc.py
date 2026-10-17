@@ -8,14 +8,18 @@ from __future__ import annotations
 
 import math
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 
+from envocad.model.notes import plural
 from envocad.model.project import Element, Project, Sheet, Wire
 
 RHO_CU, RHO_AL = 0.0225, 0.036      # Ω·mm²/m při provozní teplotě ~70 °C (orientační)
 T_MIN_DEFAULT, T_MAX_DEFAULT = -10.0, 70.0  # °C: nejnižší okolí (Uoc), teplota článku při plném slunci (Umpp)
 # – výchozí, když projekt nemá návrhové teploty v `meta["pv_t_min"]` / `meta["pv_t_max"]` (`design_temperatures`)
 BETA_VOC_DEFAULT = -0.27            # %/K (krystalický Si; z datasheetu modulu `beta_voc`)
+DC_INPUTS_PER_MPPT_DEFAULT = 2      # vstupů na MPPT, když střídač `strings_per_mppt` nemá – jen pro počet DC vstupů
+#                                     (generátor, `inverter_dc_inputs`), ne pro sčítání proudů stringů na MPPT
 SAFETY_ISC = 1.25                   # ČSN 33 2000-7-712: dimenzování DC na 1,25·Isc
 SELECTIVITY_RATIO = 1.6             # orientační poměr In pro selektivitu MCB–MCB v přetížení
 
@@ -92,7 +96,8 @@ def voltage_drop(i_a: float, length_m: float, cross: float, system: str, u_v: fl
 # ---- stringy: data modulu a střídače, meze, hlášky (sdílí průvodce i kontrola F7) -----------------------------
 @dataclass(frozen=True)
 class ModuleData:
-    """FV modul pro výpočet stringů (STC): Voc, Vmp, Isc [V, A], Imp, β_Voc [%/K], max. napětí systému, Pmax [Wp]."""
+    """FV modul pro výpočet stringů (STC): Voc, Vmp, Isc [V, A], Imp, β_Voc [%/K], max. napětí systému, Pmax [Wp],
+    α_Isc a γ_Pmax [%/K] (z artiklu; oba zadané → teplotní součinitel Umpp = γ_Pmax − α_Isc, jinak β_Voc)."""
     voc: float
     vmp: float
     isc: float
@@ -100,6 +105,8 @@ class ModuleData:
     beta_voc: float = BETA_VOC_DEFAULT
     u_sys_max: float | None = None
     p_wp: float | None = None
+    alpha_isc: float | None = None
+    gamma_pmax: float | None = None
 
     @classmethod
     def from_attrs(cls, a: dict) -> ModuleData | None:
@@ -110,28 +117,39 @@ class ModuleData:
             return None
         return cls(voc=voc, vmp=_f(a.get("vmp")) or voc * 0.82, isc=_f(a.get("isc")) or 0.0, imp=_f(a.get("imp")),
                    beta_voc=_f(a.get("beta_voc")) or BETA_VOC_DEFAULT, u_sys_max=_f(a.get("u_sys_max")),
-                   p_wp=_f(a.get("p_module")))
+                   p_wp=_f(a.get("p_module")), alpha_isc=_f(a.get("alpha_isc")), gamma_pmax=_f(a.get("gamma_pmax")))
+
+    @property
+    def vmp_from_beta(self) -> bool:
+        """Umpp(t) se počítá z β_Voc (zjednodušení) – modul nemá zadané γ_Pmax i α_Isc."""
+        return self.gamma_pmax is None or self.alpha_isc is None
+
+    @property
+    def vmp_coeff(self) -> float:
+        """Teplotní součinitel Umpp [%/K]: γ_Pmax − α_Isc (Pmpp = Umpp·Impp, Impp roste zhruba jako Isc), jinak β_Voc."""
+        return self.beta_voc if self.vmp_from_beta else self.gamma_pmax - self.alpha_isc
 
     def uoc(self, t: float) -> float:
         """Uoc jednoho modulu při teplotě t [°C]: Voc·(1 + β/100·(t − 25))."""
         return self.voc * (1 + self.beta_voc / 100.0 * (t - 25))
 
     def ump(self, t: float) -> float:
-        """Umpp jednoho modulu při teplotě t [°C] (stejný součinitel jako Uoc – zjednodušení)."""
-        return self.vmp * (1 + self.beta_voc / 100.0 * (t - 25))
+        """Umpp jednoho modulu při teplotě t [°C]: Vmp·(1 + k/100·(t − 25)), k = `vmp_coeff`."""
+        return self.vmp * (1 + self.vmp_coeff / 100.0 * (t - 25))
 
 
 @dataclass(frozen=True)
 class InverterData:
     """Střídač pro výpočet stringů: Umax DC, okno MPPT [V], Imax a Isc max na MPPT [A], počet MPPT, stringů na MPPT,
-    P AC [kW], P DC max [kWp]. Neznámé = None (příslušná kontrola se přeskočí)."""
+    P AC [kW], P DC max [kWp]. Neznámé = None (příslušná kontrola se přeskočí; neznámé stringů na MPPT = MPPT
+    stringu se nezjišťuje a proudy paralelních stringů se nesčítají)."""
     u_dc_max: float | None = None
     u_mppt_min: float | None = None
     u_mppt_max: float | None = None
     i_mppt_max: float | None = None
     isc_mppt_max: float | None = None
     mppt: int | None = None
-    strings_per_mppt: int = 2
+    strings_per_mppt: int | None = None
     p_ac: float | None = None
     p_dc_max: float | None = None
 
@@ -143,7 +161,7 @@ class InverterData:
         return cls(u_dc_max=_f(a.get("u_dc_max")), u_mppt_min=_f(a.get("u_mppt_min")),
                    u_mppt_max=_f(a.get("u_mppt_max")), i_mppt_max=_f(a.get("i_mppt_max")),
                    isc_mppt_max=_f(a.get("isc_mppt_max")), mppt=int(mppt) if mppt and mppt >= 1 else None,
-                   strings_per_mppt=int(spm) if spm and spm >= 1 else 2, p_ac=_f(a.get("p_ac")),
+                   strings_per_mppt=int(spm) if spm and spm >= 1 else None, p_ac=_f(a.get("p_ac")),
                    p_dc_max=_f(a.get("p_dc_max")))
 
 
@@ -162,20 +180,50 @@ class StringLimits:
         return self.n_par_max >= 1 and (self.n_max is None or self.n_min <= self.n_max)
 
 
+def parse_temperature(v) -> float | None:
+    """Teplota [°C] z textu: desetinná čárka i tečka, typografické minus „−“ (i pomlčka „–“), přípona „°C“ / „°“ / „C“
+    a mezery se tolerují („−20 °C“ → −20.0). Prázdné nebo neplatné → None."""
+    if v is None:
+        return None
+    t = str(v).strip().replace("\u2212", "-").replace("\u2013", "-").replace("\u00a0", " ")
+    t = re.sub(r"\s*(°\s*C?|C)\s*$", "", t, flags=re.IGNORECASE)
+    t = t.replace(" ", "").replace(",", ".")
+    if not t:
+        return None
+    try:
+        x = float(t)
+    except ValueError:
+        return None
+    return x if math.isfinite(x) else None
+
+
+DESIGN_TEMPERATURE_KEYS = (("pv_t_min", "min", T_MIN_DEFAULT), ("pv_t_max", "max", T_MAX_DEFAULT))
+
+
 def design_temperatures(project: Project) -> tuple[float, float]:
     """Návrhové teploty pro stringy (t_min pro Uoc, t_max pro Umpp) z `meta["pv_t_min"]` / `meta["pv_t_max"]`
-    (Vlastnosti projektu, průvodce), jinak `T_MIN_DEFAULT` / `T_MAX_DEFAULT`."""
+    (Vlastnosti projektu, průvodce; text se normalizuje `parse_temperature`), jinak `T_MIN_DEFAULT` / `T_MAX_DEFAULT`."""
     meta = getattr(project, "meta", None) or {}
-    t_min = _f(meta.get("pv_t_min"))
-    t_max = _f(meta.get("pv_t_max"))
+    t_min, t_max = (parse_temperature(meta.get(key)) for key, _lab, _d in DESIGN_TEMPERATURE_KEYS)
     return (T_MIN_DEFAULT if t_min is None else t_min, T_MAX_DEFAULT if t_max is None else t_max)
+
+
+def design_temperature_issues(project: Project) -> list[str]:
+    """Hlášky k neplatným návrhovým teplotám v meta (vyplněné, ale ne číslo) – počítá se pak s výchozí hodnotou."""
+    meta = getattr(project, "meta", None) or {}
+    out = []
+    for key, lab, default in DESIGN_TEMPERATURE_KEYS:
+        raw = str(meta.get(key) or "").strip()
+        if raw and parse_temperature(raw) is None:
+            out.append(f"Návrhová teplota {lab} „{raw}“ není číslo – počítá se s {default:g} °C")
+    return out
 
 
 def _u_strings(m: ModuleData, n: int, t_min: float, t_max: float) -> tuple[float, float, float]:
     """(Uoc za studena, Umpp za tepla, Umpp za studena) stringu n modulů, zaokrouhleno na 0,1 V jako ve výkazech."""
-    beta = m.beta_voc / 100.0
-    return (round(n * m.voc * (1 + beta * (t_min - 25)), 1), round(n * m.vmp * (1 + beta * (t_max - 25)), 1),
-            round(n * m.vmp * (1 + beta * (t_min - 25)), 1))
+    beta, kv = m.beta_voc / 100.0, m.vmp_coeff / 100.0
+    return (round(n * m.voc * (1 + beta * (t_min - 25)), 1), round(n * m.vmp * (1 + kv * (t_max - 25)), 1),
+            round(n * m.vmp * (1 + kv * (t_min - 25)), 1))
 
 
 def _voltage_issues(m: ModuleData, inv: InverterData | None, n: int, t_min: float, t_max: float) -> list[str]:
@@ -248,7 +296,7 @@ def string_limits(m: ModuleData, inv: InverterData, t_min: float = T_MIN_DEFAULT
             n += 1
         while n > 0 and not fits_high(n, which):
             n -= 1
-        reasons.append(f"nejvýš {n} modulů: {label}")
+        reasons.append(f"nejvýš {_modules(n)}: {label}")
         return n
 
     caps = [
@@ -268,19 +316,21 @@ def string_limits(m: ModuleData, inv: InverterData, t_min: float = T_MIN_DEFAULT
             n_min -= 1
         while n_min < N_MODULES_LIMIT and any("Umppt min" in x for x in _voltage_issues(m, inv, n_min, t_min, t_max)):
             n_min += 1
-        reasons.append(f"nejméně {n_min} modulů: Umpp při {t_max:g} °C {ump_hot1:.1f} V/modul, "
+        reasons.append(f"nejméně {_modules(n_min)}: Umpp při {t_max:g} °C {ump_hot1:.1f} V/modul, "
                        f"Umppt min {inv.u_mppt_min:g} V")
+    if m.vmp_from_beta and (inv.u_mppt_min or inv.u_mppt_max):
+        reasons.append("Umpp z β_Voc – zjednodušení (modul nemá γ_Pmax a α_Isc)")
     if not (inv.u_dc_max or inv.u_mppt_min):
         reasons.append("střídač nemá zadané Umax / rozsah MPPT (doplňte z artiklu)")
-    n_par_max = max(1, inv.strings_per_mppt)
+    n_par_max = max(1, inv.strings_per_mppt or DC_INPUTS_PER_MPPT_DEFAULT)
     if inv.isc_mppt_max:
         if m.isc:
             by_isc = math.floor(inv.isc_mppt_max / m.isc + 1e-9)
             if by_isc < n_par_max:
-                reasons.append(f"nejvýš {by_isc} stringů na MPPT: Isc {m.isc:g} A, Isc max MPPT {inv.isc_mppt_max:g} A")
+                reasons.append(f"nejvýš {_strings(by_isc)} na MPPT: Isc {m.isc:g} A, Isc max MPPT {inv.isc_mppt_max:g} A")
             n_par_max = min(n_par_max, by_isc)
         if m.imp and inv.i_mppt_max and n_par_max * m.imp > inv.i_mppt_max:
-            reasons.append(f"{n_par_max} stringy na MPPT: Impp {n_par_max * m.imp:.1f} A > Imax MPPT "
+            reasons.append(f"{_strings(n_par_max)} na MPPT: Impp {n_par_max * m.imp:.1f} A > Imax MPPT "
                            f"{inv.i_mppt_max:g} A – omezení výkonu")
     elif inv.i_mppt_max and m.isc and SAFETY_ISC * m.isc > inv.i_mppt_max:
         reasons.append(f"1,25·Isc {SAFETY_ISC * m.isc:.1f} A > Imax vstupu {inv.i_mppt_max:g} A – modul na střídač nelze")
@@ -288,6 +338,63 @@ def string_limits(m: ModuleData, inv: InverterData, t_min: float = T_MIN_DEFAULT
     if n_max is not None and n_min > n_max:
         reasons.append(f"rozsah je prázdný (nejméně {n_min}, nejvýš {n_max} modulů) – modul a střídač k sobě nepasují")
     return StringLimits(n_min, n_max, n_par_max, reasons)
+
+
+def _modules(n: int) -> str:
+    return f"{n} {plural(n, 'modul', 'moduly', 'modulů')}"
+
+
+def _strings(n: int) -> str:
+    return f"{n} {plural(n, 'string', 'stringy', 'stringů')}"
+
+
+def string_ports(n_strings: int, inv: InverterData | None) -> list[int]:
+    """Čísla DC vstupů střídače (k v „DCk“, od 1) pro stringy v pořadí – tak je zapojí generátor. Se známým počtem
+    MPPT rovnoměrně: vstupy {m·s + j + 1} pro k-tý string (m = k mod mppt, j = k div mppt, s = stringů na MPPT,
+    neznámé = `DC_INPUTS_PER_MPPT_DEFAULT`), přiřazené stringům vzestupně, aby se vodiče nekřížily; stringy nad
+    kapacitu mppt·s a při neznámém mppt za sebou DCk+1."""
+    if inv is None or not inv.mppt:
+        return list(range(1, n_strings + 1))
+    s = inv.strings_per_mppt or DC_INPUTS_PER_MPPT_DEFAULT
+    cap = inv.mppt * s
+    spread = sorted((k % inv.mppt) * s + k // inv.mppt + 1 for k in range(min(n_strings, cap)))
+    # vstupy se vyberou rovnoměrně po MPPT, stringy se k nim přiřadí vzestupně (shora dolů) – vodiče se nekříží
+    return spread + [k + 1 for k in range(cap, n_strings)]
+
+
+def port_mppt(port: int | None, inv: InverterData | None) -> int | None:
+    """MPPT (od 0) vstupu DC`port`: (port − 1) div stringů na MPPT; neznámé stringů na MPPT nebo port → None."""
+    if inv is None or not inv.strings_per_mppt or not port or port < 1:
+        return None
+    return (port - 1) // inv.strings_per_mppt
+
+
+def assign_mppt(n_strings: int, inv: InverterData | None) -> list[int | None]:
+    """MPPT (od 0, None = nezjištěno) každého z n_strings stringů střídače zapojených generátorem (`string_ports`)."""
+    return [port_mppt(p, inv) for p in string_ports(n_strings, inv)]
+
+
+def mppt_groups(assignment: list[int | None]) -> list[int]:
+    """Počet stringů na stejném MPPT (n_par) pro každý string; nezjištěný MPPT → 1 (proudy se nesčítají)."""
+    counts = Counter(m for m in assignment if m is not None)
+    return [1 if m is None else counts[m] for m in assignment]
+
+
+def inverter_capacity(inv: InverterData | None) -> int | None:
+    """Počet stringových vstupů střídače mppt · stringů na MPPT; None, když jedno z nich není známé."""
+    if inv is None or not inv.mppt or not inv.strings_per_mppt:
+        return None
+    return inv.mppt * inv.strings_per_mppt
+
+
+def capacity_issue(ref: str, inv: InverterData | None, n_strings: int) -> str | None:
+    """Hláška, když je na střídač zapojeno víc stringů, než má vstupů (MPPT × stringů na MPPT); jinak None.
+    Přidává se stringům nad kapacitu (v pořadí vstupů DCk)."""
+    cap = inverter_capacity(inv)
+    if cap is None or n_strings <= cap:
+        return None
+    return (f"Střídač {ref or '?'} má jen {cap} {plural(cap, 'vstup', 'vstupy', 'vstupů')} (MPPT × stringů), "
+            f"{plural(n_strings, 'zapojen', 'zapojeny', 'zapojeno')} {_strings(n_strings)}")
 
 
 def suggest_inverter_count(p_dc_kwp: float, p_ac_kw: float, dc_ac_max: float = 1.3) -> int:
@@ -307,7 +414,8 @@ def propose_strings(n_total: int, n_inverters: int, lim: StringLimits,
     n_total = max(0, int(n_total or 0))
     if not n_total or lim.n_max is None or lim.n_max < 1 or not lim.ok:
         return empty, n_total
-    per_inv = inv.mppt * min(inv.strings_per_mppt, lim.n_par_max) if inv.mppt else None
+    spm = inv.strings_per_mppt or DC_INPUTS_PER_MPPT_DEFAULT
+    per_inv = inv.mppt * min(spm, lim.n_par_max) if inv.mppt else None
     n_str = math.ceil(n_total / lim.n_max)
     if per_inv is not None:
         n_str = min(n_str, per_inv * n_inv)
@@ -336,6 +444,7 @@ class StringCheck:
     issues: list[str] = field(default_factory=list)
     sheet: str = ""          # název listu se stringem (filtr výkazu Výpočty pro jeden list)
     mppt: int | None = None  # index MPPT střídače (od 0; DCk → (k−1)//strings_per_mppt), None = nezjištěno
+    #                          (port nejednoznačný nebo střídač nemá `strings_per_mppt`)
     n_par: int = 1           # počet stringů na stejném MPPT (včetně tohoto)
     isc_mppt_max: float | None = None
     t_min: float = T_MIN_DEFAULT
@@ -406,8 +515,9 @@ def _breaker_on_wire(s: Sheet, w: Wire) -> tuple[float | None, str]:
 
 def check_strings(project: Project, t_min: float | None = None, t_max: float | None = None) -> list[StringCheck]:
     """Kontrola každého stringu proti střídači, na který vede (přes odpínače, pojistky, svorky, DC rozvaděče).
-    Teploty: zadané, jinak `design_temperatures(project)`. Stringy na stejném MPPT (střídač + DCk → MPPT) se
-    počítají spolu (`n_par`) – uplatní se jen u střídače s `isc_mppt_max`."""
+    Teploty: zadané, jinak `design_temperatures(project)`. Stringy na stejném MPPT (střídač + DCk → MPPT, jen se
+    známým `strings_per_mppt`) se počítají spolu (`n_par`) – uplatní se jen u střídače s `isc_mppt_max`. Víc stringů
+    na střídači než mppt · stringů na MPPT → `capacity_issue` u stringů nad kapacitu (v pořadí vstupů DCk)."""
     d_min, d_max = design_temperatures(project)
     t_min = d_min if t_min is None else t_min
     t_max = d_max if t_max is None else t_max
@@ -418,22 +528,32 @@ def check_strings(project: Project, t_min: float | None = None, t_max: float | N
                 continue
             inv_el, port = _trace_inverter(project, s, e)
             inv = InverterData.from_attrs(inv_el.attrs) if inv_el is not None else None
-            mppt = None
             mt = re.fullmatch(r"DC(\d+)", port or "")
-            if inv is not None and mt and int(mt.group(1)) >= 1:
-                mppt = (int(mt.group(1)) - 1) // inv.strings_per_mppt
-            found.append((s, e, inv_el, inv, mppt))
+            pnum = int(mt.group(1)) if mt else None
+            found.append((s, e, inv_el, inv, port_mppt(pnum, inv), pnum))
     groups: dict[tuple[str, int], int] = {}
-    for _s, _e, inv_el, _inv, mppt in found:
-        if inv_el is not None and mppt is not None:
-            groups[(inv_el.id, mppt)] = groups.get((inv_el.id, mppt), 0) + 1
+    per_inv: dict[str, list[int]] = {}
+    for i, (_s, _e, inv_el, _inv, mppt, _p) in enumerate(found):
+        if inv_el is not None:
+            per_inv.setdefault(inv_el.id, []).append(i)
+            if mppt is not None:
+                groups[(inv_el.id, mppt)] = groups.get((inv_el.id, mppt), 0) + 1
+    over: dict[int, str] = {}
+    for idx in per_inv.values():
+        inv_el, inv = found[idx[0]][2], found[idx[0]][3]
+        msg = capacity_issue(inv_el.ref, inv, len(idx))
+        if msg:
+            ordered = sorted(idx, key=lambda i: (found[i][5] is None, found[i][5] or 0, i))
+            over.update(dict.fromkeys(ordered[inverter_capacity(inv):], msg))
     out = []
-    for s, e, inv_el, inv, mppt in found:
+    for i, (s, e, inv_el, inv, mppt, _p) in enumerate(found):
         n = int(_f(e.attrs.get("n_modules"), 0) or 0)
         m = ModuleData.from_attrs(e.attrs) or ModuleData(voc=0.0, vmp=0.0, isc=_f(e.attrs.get("isc")) or 0.0,
                                                          imp=_f(e.attrs.get("imp")),
                                                          beta_voc=_f(e.attrs.get("beta_voc")) or BETA_VOC_DEFAULT,
-                                                         u_sys_max=_f(e.attrs.get("u_sys_max")))
+                                                         u_sys_max=_f(e.attrs.get("u_sys_max")),
+                                                         alpha_isc=_f(e.attrs.get("alpha_isc")),
+                                                         gamma_pmax=_f(e.attrs.get("gamma_pmax")))
         n_par = groups.get((inv_el.id, mppt), 1) if inv_el is not None and mppt is not None else 1
         uoc_cold, umpp_hot, _umpp_cold = _u_strings(m, n, t_min, t_max)
         sc = StringCheck(e.ref, n, uoc_cold, umpp_hot, m.isc, inv_el.ref if inv_el else "",
@@ -441,7 +561,7 @@ def check_strings(project: Project, t_min: float | None = None, t_max: float | N
                          inv.u_mppt_max if inv else None, inv.i_mppt_max if inv else None,
                          sheet=s.name, mppt=mppt, n_par=n_par, isc_mppt_max=inv.isc_mppt_max if inv else None,
                          t_min=t_min, t_max=t_max)
-        sc.issues = string_issues(m, inv, n, n_par, t_min, t_max)
+        sc.issues = string_issues(m, inv, n, n_par, t_min, t_max) + ([over[i]] if i in over else [])
         out.append(sc)
     return out
 

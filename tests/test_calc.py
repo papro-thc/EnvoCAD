@@ -85,7 +85,8 @@ def test_module_and_inverter_from_attrs():
     assert m.vmp == 49.5 * 0.82 and m.beta_voc == calc.BETA_VOC_DEFAULT and m.u_sys_max == 1500 and m.p_wp == 450
     assert calc.ModuleData.from_attrs({"isc": "13.9"}) is None and calc.ModuleData.from_attrs({"voc": "0"}) is None
     i = calc.InverterData.from_attrs({"u_dc_max": "1100", "mppt": "3", "strings_per_mppt": "", "isc_mppt_max": "40"})
-    assert i.u_dc_max == 1100 and i.mppt == 3 and i.strings_per_mppt == 2 and i.isc_mppt_max == 40 and i.u_mppt_min is None
+    # neznámé stringů na MPPT zůstane None (výchozí 2 jen pro počet DC vstupů, ne pro sčítání proudů)
+    assert i.u_dc_max == 1100 and i.mppt == 3 and i.strings_per_mppt is None and i.isc_mppt_max == 40 and i.u_mppt_min is None
     assert abs(MOD.uoc(-10) - 49.5 * (1 + 0.0027 * 35)) < 1e-9 and MOD.uoc(25) == 49.5
 
 
@@ -136,7 +137,7 @@ def test_string_current_rules():
     tight = calc.InverterData(u_dc_max=1100, u_mppt_min=200, u_mppt_max=1000, i_mppt_max=30, isc_mppt_max=20)
     assert any("Isc max MPPT 20 A" in x for x in calc.string_issues(MOD, tight, 20, 2, -10, 70))
     lim = calc.string_limits(MOD, tight, -10, 70)
-    assert lim.n_par_max == 1 and any("nejvýš 1 stringů na MPPT" in r for r in lim.reasons)
+    assert lim.n_par_max == 1 and any("nejvýš 1 string na MPPT:" in r for r in lim.reasons)
 
 
 def test_suggest_inverter_count():
@@ -167,12 +168,12 @@ def test_propose_strings():
 
 def test_check_strings_groups_by_mppt_through_dc_boxes():
     from envocad.generate import build_project
-    p = build_project(_spec())          # string → RDC po trase → RDC u technologie → DC1…DC3
+    p = build_project(_spec(strings_per_mppt=2))   # string → RDC po trase → RDC u technologie → DC1…DC3
     st = {sc.ref: sc for sc in calc.check_strings(p)}
     assert [(st[r].mppt, st[r].n_par) for r in ("G1", "G2", "G3")] == [(0, 2), (0, 2), (1, 1)]
     assert all(sc.ok for sc in st.values()) and st["G1"].t_min == -10.0
     # isc_mppt_max: dva stringy na MPPT 0 překročí 20 A, samotný G3 ne
-    p = build_project(_spec(isc_mppt_max=20))
+    p = build_project(_spec(isc_mppt_max=20, strings_per_mppt=2))
     st = {sc.ref: sc for sc in calc.check_strings(p)}
     assert not st["G1"].ok and any("Isc 2× 13.9 A" in x for x in st["G1"].issues) and st["G3"].ok
     assert st["G1"].isc_mppt_max == 20
@@ -198,3 +199,115 @@ def test_check_strings_design_temperatures_and_warning():
     p.meta.pop("pv_t_min")
     fs = [f for f in check_project(p, LibraryStore()) if f.code == "calc_string"]
     assert len(fs) == 1 and fs[0].severity == WARNING and "omezení výkonu" in fs[0].text
+
+
+# ---- review katalogu FV: MPPT jako generátor, neznámé stringů/MPPT, kapacita, Umpp(t), teploty, skloňování ---------
+def test_string_ports_and_mppt_assignment():
+    inv = calc.InverterData(mppt=3, strings_per_mppt=2)
+    # známé mppt: vstupy rovnoměrně po MPPT (MPPT m = DC(2m+1), DC(2m+2)), stringům vzestupně – vodiče se nekříží
+    assert calc.string_ports(4, inv) == [1, 2, 3, 5]
+    assert calc.assign_mppt(4, inv) == [0, 0, 1, 2] and calc.mppt_groups([0, 0, 1, 2]) == [2, 2, 1, 1]
+    # nad kapacitu 3 × 2: další stringy za sebou (DC7, DC8 → „MPPT 3“ – hlásí `capacity_issue`)
+    assert calc.string_ports(8, inv) == [1, 2, 3, 4, 5, 6, 7, 8]
+    # neznámé mppt: DC1, DC2… za sebou jako dosud
+    assert calc.string_ports(3, calc.InverterData(strings_per_mppt=2)) == [1, 2, 3]
+    assert calc.assign_mppt(3, calc.InverterData(strings_per_mppt=2)) == [0, 0, 1]
+    # neznámé stringů na MPPT: MPPT se nezjišťuje, proudy se nesčítají (výchozí 2 jen pro rozložení vstupů)
+    assert calc.string_ports(3, calc.InverterData(mppt=2)) == [1, 2, 3]
+    assert calc.assign_mppt(3, calc.InverterData(mppt=2)) == [None, None, None]
+    assert calc.mppt_groups([None, None]) == [1, 1] and calc.port_mppt(5, None) is None
+
+
+def test_generator_spreads_strings_over_known_mppt():
+    from envocad.generate import build_project
+    p = build_project({**_spec(mppt=3, strings_per_mppt=2, strings=[20, 20, 18, 18]),
+                       "dc": {"route_boxes": 0, "tech_box": False}})
+    s = p.sheets[0]
+    t = next(e for e in s.elements if e.ref == "T1")
+    ports = [w.b.port for w in s.wires if w.b.element_id == t.id and w.b.port.startswith("DC")]
+    assert ports == ["DC1", "DC2", "DC3", "DC5"]
+    st = calc.check_strings(p)
+    assert [(sc.mppt, sc.n_par) for sc in st] == [(0, 2), (0, 2), (1, 1), (2, 1)]
+    # mppt jen dopočtené z počtu stringů → za sebou jako dosud
+    p = build_project({**_spec(strings_per_mppt=2), "dc": {"route_boxes": 0, "tech_box": False}})
+    assert [sc.mppt for sc in calc.check_strings(p)] == [0, 0, 1]
+
+
+def test_unknown_strings_per_mppt_not_summed():
+    from envocad.generate import build_project
+    from envocad.model.project import inverter_dc_inputs
+    p = build_project(_spec(isc_mppt_max=20))     # 2 × 13,9 A > 20 A by platilo jen při 2 stringech na MPPT
+    t = next(e for e in p.sheets[0].elements if e.ref == "T1")
+    assert t.attrs["strings_per_mppt"] == "" and t.attrs["mppt"] == "2"
+    assert inverter_dc_inputs(p, t) == 4          # DC vstupy dál s výchozími 2 na MPPT
+    st = calc.check_strings(p)
+    assert [(sc.mppt, sc.n_par) for sc in st] == [(None, 1)] * 3 and all(sc.ok for sc in st)
+    # stávající projekt s uloženým strings_per_mppt = 2 sčítá jako dřív
+    t.attrs["strings_per_mppt"] = "2"
+    st = calc.check_strings(p)
+    assert [(sc.mppt, sc.n_par) for sc in st] == [(0, 2), (0, 2), (1, 1)] and not st[0].ok
+
+
+def test_capacity_issue_more_strings_than_inputs():
+    from envocad.generate import build_project
+    from envocad.model.checks import ERROR
+    assert calc.capacity_issue("T1", calc.InverterData(mppt=3, strings_per_mppt=2), 6) is None
+    assert calc.capacity_issue("T1", calc.InverterData(mppt=3), 9) is None            # neznámé stringů/MPPT
+    assert calc.capacity_issue("T2", calc.InverterData(mppt=1, strings_per_mppt=1), 3) == \
+        "Střídač T2 má jen 1 vstup (MPPT × stringů), zapojeny 3 stringy"
+    p = build_project(_spec(mppt=3, strings_per_mppt=2, strings=[12] * 8))
+    st = calc.check_strings(p)
+    msg = "Střídač T1 má jen 6 vstupů (MPPT × stringů), zapojeno 8 stringů"
+    assert [sc.ref for sc in st if msg in sc.issues] == ["G7", "G8"]
+    assert [sc.mppt for sc in st] == [0, 0, 1, 1, 2, 2, 3, 3]
+    fs = [f for f in check_project(p, LibraryStore()) if f.code == "calc_string" and msg in f.text]
+    assert len(fs) == 2 and all(f.severity == ERROR for f in fs)
+
+
+def test_vmp_coefficient_from_gamma_and_alpha():
+    m = calc.ModuleData(voc=49.5, vmp=41.5, isc=13.9, beta_voc=-0.25, gamma_pmax=-0.30, alpha_isc=0.05)
+    assert not m.vmp_from_beta and abs(m.vmp_coeff - (-0.35)) < 1e-12
+    assert abs(m.ump(70) - 41.5 * (1 - 0.0035 * 45)) < 1e-9 and m.uoc(-10) == 49.5 * (1 - 0.0025 * -35)
+    beta_only = calc.ModuleData(voc=49.5, vmp=41.5, isc=13.9, beta_voc=-0.25, gamma_pmax=-0.30)   # jen γ → β
+    assert beta_only.vmp_from_beta and beta_only.vmp_coeff == -0.25
+    a = calc.ModuleData.from_attrs({"voc": "49.5", "vmp": "41.5", "beta_voc": "-0.25", "gamma_pmax": "-0,30",
+                                    "alpha_isc": "0.05"})
+    assert a.gamma_pmax == -0.30 and a.alpha_isc == 0.05
+    # Umpp za tepla s γ − α je nižší než z β → užší okno (n_min větší); důvod „zjednodušení“ jen u β
+    lim_b = calc.string_limits(calc.ModuleData(voc=49.5, vmp=41.5, isc=13.9, beta_voc=-0.25), INV, -10, 70)
+    lim_g = calc.string_limits(m, INV, -10, 70)
+    assert any("Umpp z β_Voc – zjednodušení" in r for r in lim_b.reasons)
+    assert not any("zjednodušení" in r for r in lim_g.reasons)
+    inv = calc.InverterData(u_mppt_min=600)
+    assert calc.string_limits(m, inv, -10, 70).n_min > calc.string_limits(
+        calc.ModuleData(voc=49.5, vmp=41.5, isc=13.9, beta_voc=-0.25), inv, -10, 70).n_min
+    # kontrola projektu bere součinitele z atributů stringu; bez nich beze změny
+    p, s = _fve()
+    before = calc.check_strings(p)[0].umpp_hot
+    g = next(e for e in s.elements if e.ref == "G1")
+    g.attrs.update({"gamma_pmax": "-0.30", "alpha_isc": "0.05"})
+    assert calc.check_strings(p)[0].umpp_hot == round(20 * 41.5 * (1 - 0.0035 * 45), 1) < before
+
+
+def test_parse_temperature_and_invalid_meta_warning():
+    for txt, val in (("-20", -20.0), ("−20", -20.0), ("-20 °C", -20.0), ("−20 °C", -20.0),
+                     ("-20,5", -20.5), ("75°", 75.0), ("70 C", 70.0), (" 5 ", 5.0)):
+        assert calc.parse_temperature(txt) == val, txt
+    for txt in ("", None, "x", "-", "nan", "°C"):
+        assert calc.parse_temperature(txt) is None, txt
+    p = Project(name="T")
+    p.meta.update({"pv_t_min": "−25 °C", "pv_t_max": "75"})
+    assert calc.design_temperatures(p) == (-25.0, 75.0) and calc.design_temperature_issues(p) == []
+    p.meta["pv_t_min"] = "mráz"
+    assert calc.design_temperatures(p) == (-10.0, 75.0)
+    assert calc.design_temperature_issues(p) == ["Návrhová teplota min „mráz“ není číslo – počítá se s -10 °C"]
+    fs = [f for f in check_project(p, LibraryStore()) if f.code == "calc_temp"]
+    assert len(fs) == 1 and fs[0].severity == WARNING and "není číslo" in fs[0].text
+
+
+def test_limit_reasons_plural():
+    lim = calc.string_limits(MOD, calc.InverterData(u_dc_max=180, u_mppt_min=70), -10, 70)   # 180/54,18 → 3
+    assert any(r.startswith("nejvýš 3 moduly:") for r in lim.reasons)
+    assert any(r.startswith("nejméně 2 moduly:") for r in lim.reasons)
+    lim = calc.string_limits(MOD, calc.InverterData(u_dc_max=60), -10, 70)
+    assert any(r.startswith("nejvýš 1 modul:") for r in lim.reasons)

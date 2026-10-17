@@ -355,6 +355,20 @@ zatížitelnost Iz podle ČSN 33 2000-5-52 pro uložení A1/B1/C/D/E (atribut vo
 pozná z textu trasy: „v zemi“, „trubka“, „na vzduchu“, „ve stěně“), In ≤ Iz, úbytek napětí (mez 3 %) a
 základní selektivita (poměr In po cestě ke zdroji ≥ 1,6). Tabulky Iz jsou orientační přepis normy.
 
+Podrobnosti kontroly stringů (sdílí ji `F7`, výkaz Výpočty i asistent průvodce):
+- **Teploty** – návrhové teploty z Vlastností projektu (`pv_t_min` / `pv_t_max`, jinak −10 / 70 °C). Pole přijme
+  i typografické minus a jednotku („−20 °C“) a uloží číslo; neplatný text dialog nezavře. Neplatná hodnota v už
+  uloženém projektu → varování `calc_temp` „Návrhová teplota … není číslo – počítá se s …“.
+- **Umpp(t)** – má-li modul (artikl nebo atributy stringu) teplotní součinitele **γ_Pmax i α_Isc**, počítá se
+  Umpp(t) = Umpp·(1 + (γ_Pmax − α_Isc)/100·(t − 25)) (výkon = U·I, proud v MPP roste zhruba jako Isc). Jinak se
+  použije β_Voc jako u Uoc – zjednodušení (Umpp za tepla vyjde o něco vyšší); asistent to uvádí důvodem
+  „Umpp z β_Voc – zjednodušení“. Starší projekty bez γ/α počítají beze změny.
+- **MPPT** – stringy se sčítají na MPPT podle vstupu střídače: DCk → MPPT (k − 1) div „stringů na MPPT“. Když
+  střídač počet stringů na MPPT nemá, MPPT se nezjišťuje a proudy paralelních stringů se nesčítají (výchozí 2 na
+  MPPT platí jen pro počet DC vstupů značky).
+- **Počet vstupů** – zná-li střídač počet MPPT i stringů na MPPT a je na něm zapojeno víc stringů, je to chyba
+  „Střídač T1 má jen N vstupů (MPPT × stringů), zapojeno M stringů“ u stringů nad kapacitu.
+
 `Ctrl+F` najde prvek nebo vodič podle označení kdekoli v projektu; Navigátor umí totéž s filtrem.
 
 ### Strukturní označení (IEC 81346)
@@ -399,14 +413,17 @@ optimizéry (typ a kusy na modul – prázdné = bez optimizérů), střídač (
 **Modul a střídač z katalogu:** tlačítko **Z katalogu…** u modulu a střídače otevře výběr artiklu (tabulka s Voc, Isc,
 Imp, β, Usys resp. P AC, MPPT, okno MPPT, I/MPPT…, filtr „Výkon od–do“ a u střídačů „Fáze“). Vybraný artikl vyplní
 pole průvodce a uloží se k projektu (štítek „Artikl: …“); **ruční úprava pole má přednost** před artiklem, **×** vazbu
-na artikl zruší (pole zůstanou). Šedě kurzívou jsou neúplné nebo neověřené řádky (zdroj `web`/`seed`, chybí Voc/Isc
-resp. U DC max/okno MPPT) – důvod je v tooltipu; před použitím je zkontroluj podle datasheetu. Nepovinná pole: Impp,
+na artikl zruší (pole zůstanou). Šedě kurzívou jsou neúplné nebo neověřené řádky (zdroj `web`/`seed` nebo poznámka
+„doplněno WebSearch“, chybí Voc/Isc resp. U DC max/okno MPPT) – důvod je v tooltipu; před použitím je zkontroluj
+podle datasheetu. Filtry „Výkon“ a „Fáze“ neskrývají artikly, které údaj nemají – zobrazí se šedě s poznámkou. Nepovinná pole: Impp,
 β Uoc, Isc max na MPPT, stringů na MPPT, návrhové teploty min/max (předvyplněné z firemního standardu, uloží se do
 projektu pro kontrolu `F7`) a „Celkem modulů“.
 
 **Asistent stringů** pod polem Stringy se přepočítá při každé změně a ukazuje: rozsah počtu modulů ve stringu
-(n min–n max) s důvody (Uoc za studena, Umppt, Umax systému modulu), nejvýš stringů na MPPT, stav každého zadaného
-stringu (OK, nebo hláška – „omezení výkonu“ je jen upozornění), poměr DC/AC a doporučený počet střídačů. Tlačítko
+(n min–n max) s důvody (Uoc za studena, Umppt, Umax systému modulu, „Umpp z β_Voc – zjednodušení“), nejvýš stringů na
+MPPT, stav každého zadaného stringu (OK, nebo hláška – „omezení výkonu“ je jen upozornění), poměr DC/AC (bez P AC
+„P AC střídače není zadán“) a doporučený počet střídačů. Stav stringů je **stejný jako v `F7`** po vygenerování:
+asistent přiřazuje stringy na MPPT stejně jako generátor a počítá stejnými funkcemi (viz Výpočty v kapitole 6). Tlačítko
 **Navrhnout stringy** rozdělí „Celkem modulů“ (jinak součet zadaných stringů) do co nejméně vyrovnaných stringů
 v mezích střídače a vyplní pole Stringy. Chyby stringů v průvodci jen varují – projekt jde vygenerovat i tak; blokují
 jen chyby zadání (např. text místo čísla).
@@ -417,7 +434,9 @@ kabelů a vazeb. Hned potom spusť `F7`.
 DC strana se dělá jako na stavbě: ke každému střídači vznikne **DC rozvaděč po trase** (počet zadáš, i 0 –
 odpínač DC a SPD na každý string, stringy jím procházejí odděleně) a **DC rozvaděč u technologie**
 (pojistkové odpínače gPV a SPD DC na každý string). **Stringy se v rozvaděči nikdy nespojují** – každý jde
-zvlášť až na vlastní DC vstup střídače (DC1…DCn podle počtu MPPT × stringů na MPPT; paralelní spojení dělá
+zvlášť až na vlastní DC vstup střídače (DC1…DCn podle počtu MPPT × stringů na MPPT; zná-li střídač počet MPPT
+(zadáním nebo z artiklu), stringy se rozdělí na MPPT rovnoměrně – 1. string na MPPT 1, 2. na MPPT 2… –, jinak jdou
+na DC1, DC2… za sebou; paralelní spojení dělá
 jen SolarEdge a kreslí se jako jeden string). Blok DC rozvaděče v JPS má porty podle přívodů
 (X1…Xn od stringů) a vývodů (Xn+1… dál). Když obojí vypneš, vloží se jen samostatný odpínač DC v JPS.
 AC rozvaděč má přívody po střídačích, jističe, rozvodné svorky s můstky, SPD, hlavní vypínač a vývod do HDS.

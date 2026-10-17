@@ -48,6 +48,8 @@ PARAM_TO_ATTR = {
     "strings_per_mppt": "strings_per_mppt", "vmp_v": "vmp", "beta_voc": "beta_voc",
     # FV modul: Impp, max. napětí systému; střídač: max. zkratový proud na MPPT (kontrola stringů, `model/calc.py`)
     "imp_a": "imp", "u_sys_max_v": "u_sys_max", "isc_mppt_max_a": "isc_mppt_max",
+    # FV modul: teplotní součinitele [%/K] – oba zadané → součinitel Umpp = γ_Pmax − α_Isc (`calc.ModuleData`)
+    "gamma_pmax": "gamma_pmax", "alpha_isc": "alpha_isc",
     # rozsah provozní teploty okolí přístroje [°C] dle datasheetu – ověření oteplení po přístrojích (`thermal`)
     "t_min_c": "t_min", "t_max_c": "t_max",
     "contacts": "contacts",   # kontaktní obraz („1/2 3/4 5/6 13/14 21/22“) – zrcadlo kontaktů, kontroly kontaktů

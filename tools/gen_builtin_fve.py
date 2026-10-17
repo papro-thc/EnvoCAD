@@ -90,7 +90,9 @@ SYMBOLS = [
                        attr("vmp", "Umpp modulu STC [V]"), attr("isc", "Isc modulu [A]"),
                        attr("beta_voc", "Tepl. součinitel Uoc [%/K]", "-0.27"),
                        # z artiklu FV modulu (skryté) – kontrola stringů a průvodce (`model/calc.py`)
-                       attr("imp", "Impp modulu STC [A]"), attr("u_sys_max", "Max. napětí systému modulu [V]")],
+                       attr("imp", "Impp modulu STC [A]"), attr("u_sys_max", "Max. napětí systému modulu [V]"),
+                       # teplotní součinitele [%/K]: oba zadané → Umpp(t) s γ_Pmax − α_Isc místo β_Voc
+                       attr("gamma_pmax", "Tepl. součinitel Pmax [%/K]"), attr("alpha_isc", "Tepl. součinitel Isc [%/K]")],
         "label_pos": {"x": -10, "y": 28},   # popisek nad značkou – vodič vpravo zůstane volný
     },
     {

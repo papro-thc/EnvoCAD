@@ -157,6 +157,18 @@
       "label": "Max. napětí systému modulu [V]",
       "default": "",
       "show": false
+    },
+    {
+      "key": "gamma_pmax",
+      "label": "Tepl. součinitel Pmax [%/K]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "alpha_isc",
+      "label": "Tepl. součinitel Isc [%/K]",
+      "default": "",
+      "show": false
     }
   ],
   "label_pos": {

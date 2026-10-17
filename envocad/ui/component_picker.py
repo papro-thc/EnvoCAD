@@ -42,6 +42,7 @@ NUMERIC_COLUMNS = {"in_", "poles", "icu_ka", "idn_ma", "modules", "p_loss_w", "p
                    "p_dc_max_kwp", "phases", "mppt", "strings_per_mppt", "u_dc_max_v", "i_mppt_max_a",
                    "isc_mppt_max_a", "=size", "=mppt_window"}
 UNVERIFIED_SOURCES = ("web", "seed")
+UNVERIFIED_NOTE = "websearch"   # „doplněno WebSearch …“ v poznámce = hodnoty z webu (e-shopy, fóra), ne z datasheetu
 
 
 def _has(c: Component, *keys: str) -> bool:
@@ -62,6 +63,8 @@ def incomplete_reasons(c: Component) -> list[str]:
         return out
     if c.source in UNVERIFIED_SOURCES:
         out.append(f"neověřeno (zdroj: {c.source}) – zkontrolujte podle datasheetu")
+    elif UNVERIFIED_NOTE in (c.params.get("note") or "").lower():
+        out.append("neověřeno (hodnoty doplněny z webu – WebSearch) – zkontrolujte podle datasheetu")
     return out
 
 
@@ -185,10 +188,10 @@ class ComponentPicker(QDialog):
                     lim = float(edit.text().strip().replace(",", ".")) if edit.text().strip() else None
                 except ValueError:
                     lim = None
-                if lim is not None:
-                    out = [c for c in out if c.num(key) is not None and cmp(c.num(key), lim)]
+                if lim is not None:   # neznámý výkon filtr neskryje (řádek šedě, viz `filter_reasons`)
+                    out = [c for c in out if c.num(key) is None or cmp(c.num(key), lim)]
             if self.kind == "inverter" and self.phases.currentIndex() > 0:
-                out = [c for c in out if c.num("phases") == float(self.phases.currentText())]
+                out = [c for c in out if c.num("phases") is None or c.num("phases") == float(self.phases.currentText())]
         if self.poles.currentIndex() > 0 and not self.kind:
             out = [c for c in out if (c.params.get("poles") or "") == self.poles.currentText()]
         if self.char.currentIndex() > 0 and not self.kind:
@@ -197,6 +200,28 @@ class ComponentPicker(QDialog):
             key = "p_wp" if self.kind == "module" else "p_ac_kw"
             return sorted(out, key=lambda c: (c.manufacturer, c.num(key) or 0, c.part_number))
         return sorted(out, key=lambda c: (c.manufacturer, c.num("in_") or 0, c.part_number))
+
+    def _power_filter_active(self) -> bool:
+        for edit in (self.p_from, self.p_to):
+            try:
+                if edit.text().strip():
+                    float(edit.text().strip().replace(",", "."))
+                    return True
+            except ValueError:
+                pass
+        return False
+
+    def filter_reasons(self, c: Component) -> list[str]:
+        """Proč řádek prošel aktivním filtrem jen díky neznámé hodnotě (Výkon, Fáze) – zobrazí se šedě s tooltipem."""
+        out = []
+        if not self.kind:
+            return out
+        key = "p_wp" if self.kind == "module" else "p_ac_kw"
+        if self._power_filter_active() and c.num(key) is None:
+            out.append("výkon neuveden – filtr Výkon ho neskryje")
+        if self.kind == "inverter" and self.phases.currentIndex() > 0 and c.num("phases") is None:
+            out.append("počet fází neuveden – filtr Fáze ho neskryje")
+        return out
 
     @staticmethod
     def _composite(key: str, c: Component) -> str:
@@ -218,7 +243,7 @@ class ComponentPicker(QDialog):
         for r, c in enumerate(rows):
             vals = {"manufacturer": c.manufacturer, "part_number": c.part_number, "name": c.name, "source": c.source,
                     **c.params}
-            reasons = incomplete_reasons(c)
+            reasons = incomplete_reasons(c) + self.filter_reasons(c)
             for col, (key, _) in enumerate(self.columns):
                 text = self._composite(key, c) if key.startswith("=") else str(vals.get(key, "") or "")
                 it = QTableWidgetItem(text)

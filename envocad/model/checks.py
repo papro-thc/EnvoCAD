@@ -589,6 +589,8 @@ def calc_findings(project: Project) -> list[Finding]:
     out: list[Finding] = []
     sheet_of = {e.id: s for s in project.sheets for e in s.elements}
     el_by_ref = {e.ref: e for s in project.sheets for e in s.elements if e.ref}
+    for msg in calc.design_temperature_issues(project):   # neplatná návrhová teplota ve Vlastnostech projektu
+        out.append(Finding(WARNING, "", "", "", False, "", msg, "calc_temp"))
     for sc in calc.check_strings(project):
         e = el_by_ref.get(sc.ref)
         s = sheet_of.get(e.id) if e else None

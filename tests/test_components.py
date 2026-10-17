@@ -34,7 +34,9 @@ def test_new_columns_numeric_and_mapped():
     assert components.PARAM_TO_ATTR["imp_a"] == "imp"
     assert components.PARAM_TO_ATTR["u_sys_max_v"] == "u_sys_max"
     assert components.PARAM_TO_ATTR["isc_mppt_max_a"] == "isc_mppt_max"
-    for key in ("alpha_isc", "gamma_pmax", "noct_c", "eff_eu_pct", "technology"):   # jen katalog
+    # teplotní součinitele modulu → atributy stringu (Umpp(t) = γ_Pmax − α_Isc, `calc.ModuleData.vmp_coeff`)
+    assert components.PARAM_TO_ATTR["gamma_pmax"] == "gamma_pmax" and components.PARAM_TO_ATTR["alpha_isc"] == "alpha_isc"
+    for key in ("noct_c", "eff_eu_pct", "technology"):   # jen katalog
         assert key not in components.PARAM_TO_ATTR
 
 

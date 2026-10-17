@@ -438,6 +438,18 @@ class CableDialog(QDialog):
 _MODULE_WORDS = ("modul", "moduly", "modulů")
 
 
+def parse_temperature_field(text: str, label: str, minimum: float = -60.0) -> float | int:
+    """Návrhová teplota z pole formuláře (`calc.parse_temperature`: „−20 °C“, „-20,5“); neplatná nebo pod `minimum`
+    → ValueError s českou hláškou s názvem pole. Celé číslo se vrací jako int."""
+    from envocad.model.calc import parse_temperature
+    t = parse_temperature(text)
+    if t is None:
+        raise ValueError(f"{label}: „{str(text).strip()}“ není číslo.")
+    if t < minimum:
+        raise ValueError(f"{label}: hodnota musí být alespoň {minimum:g}.")
+    return int(t) if t.is_integer() else t
+
+
 def _n_word(n: int, words: tuple[str, str, str]) -> str:
     """„1 modul“, „3 moduly“, „5 modulů“."""
     from envocad.model.notes import plural
@@ -664,7 +676,13 @@ class ProjectWizard(QDialog):
 
     def _calc_data(self):
         """(ModuleData | None, InverterData, t_min, t_max) z polí a artiklů; neplatná pole se berou jako neznámá."""
-        from envocad.model.calc import T_MAX_DEFAULT, T_MIN_DEFAULT, InverterData, ModuleData
+        from envocad.model.calc import (
+            T_MAX_DEFAULT,
+            T_MIN_DEFAULT,
+            InverterData,
+            ModuleData,
+            parse_temperature,
+        )
         ma = dict(self._mod_comp.attr_values()) if self._mod_comp else {}
         ia = dict(self._inv_comp.attr_values()) if self._inv_comp else {}
         for a, pairs in ((ma, (("p_module", self.mod_p), ("voc", self.mod_voc), ("vmp", self.mod_vmp),
@@ -678,7 +696,7 @@ class ProjectWizard(QDialog):
                     a[key] = str(v)
                 elif edit.text().strip():
                     a.pop(key, None)
-        t_min, t_max = self._num(self.t_min), self._num(self.t_max)
+        t_min, t_max = parse_temperature(self.t_min.text()), parse_temperature(self.t_max.text())
         return (ModuleData.from_attrs(ma), InverterData.from_attrs(ia),
                 T_MIN_DEFAULT if t_min is None else t_min, T_MAX_DEFAULT if t_max is None else t_max)
 
@@ -689,9 +707,32 @@ class ProjectWizard(QDialog):
         except ValueError:
             return []
 
+    def string_results(self) -> list[list[tuple[int, list[str]]]]:
+        """Stav každého zadaného stringu po střídačích [(počet modulů, hlášky)] – stejně jako kontrola F7
+        (`calc.check_strings`) projektu z `spec()`: MPPT jako generátor (`calc.assign_mppt`), stringy na stejném MPPT
+        `calc.mppt_groups`, stringy nad počet vstupů střídače `calc.capacity_issue`. Bez Uoc modulu → []."""
+        from envocad.model.calc import (
+            assign_mppt,
+            capacity_issue,
+            inverter_capacity,
+            mppt_groups,
+            string_issues,
+        )
+        mod, inv, t_min, t_max = self._calc_data()
+        if mod is None:
+            return []
+        out = []
+        for i, g in enumerate(self._string_groups()):
+            n_par = mppt_groups(assign_mppt(len(g), inv))
+            over = capacity_issue(f"T{i + 1}", inv, len(g))
+            cap = inverter_capacity(inv) or 0
+            out.append([(n, string_issues(mod, inv, n, n_par[k], t_min, t_max) + ([over] if over and k >= cap else []))
+                        for k, n in enumerate(g)])
+        return out
+
     def assistant_text(self) -> str:
         """Text asistenta (HTML): rozsah modulů ve stringu, stav stringů, DC/AC a doporučený počet střídačů."""
-        from envocad.model.calc import string_issues, string_limits, suggest_inverter_count
+        from envocad.model.calc import string_limits, suggest_inverter_count
         mod, inv, t_min, t_max = self._calc_data()
         if mod is None:
             return "<i>Zadejte Uoc modulu – asistent pak spočítá rozsah stringu.</i>"
@@ -701,12 +742,11 @@ class ProjectWizard(QDialog):
                  + (f" ({'; '.join(lim.reasons)})" if lim.reasons else "")
                  + f"<br>Stringů na MPPT ≤ {lim.n_par_max}"]
         groups = self._string_groups()
-        for i, g in enumerate(groups):
-            n_par = max(1, min(lim.n_par_max or 1, -(-len(g) // inv.mppt) if inv.mppt else len(g)))
+        for i, results in enumerate(self.string_results()):
             res: dict[tuple, int] = {}
-            for n in g:
-                issues = tuple(string_issues(mod, inv, n, n_par, t_min, t_max))
-                res[(n, issues)] = res.get((n, issues), 0) + 1
+            for n, issues in results:
+                key = (n, tuple(issues))
+                res[key] = res.get(key, 0) + 1
             for (n, issues), cnt in res.items():
                 warn_only = bool(issues) and all("omezení výkonu" in x for x in issues)
                 color = "#2e7d32" if not issues else ("#b26a00" if warn_only else INVALID_COLOR)
@@ -715,7 +755,9 @@ class ProjectWizard(QDialog):
         total = self._num(self.mod_total)
         n_mod = sum(sum(g) for g in groups)
         n_all = int(total) if total else n_mod
-        if mod.p_wp and inv.p_ac and n_all:
+        if mod.p_wp and n_all and not inv.p_ac:
+            lines.append("DC/AC: P AC střídače není zadán")
+        elif mod.p_wp and inv.p_ac and n_all:
             p_dc = n_all * mod.p_wp / 1000
             n_inv = max(len(groups), 1)
             lines.append(f"DC/AC = {p_dc / (n_inv * inv.p_ac):.2f} ({p_dc:.1f} kWp / {n_inv * inv.p_ac:g} kW); "
@@ -749,8 +791,10 @@ class ProjectWizard(QDialog):
             return
         self.strings.setText("; ".join(",".join(str(n) for n in g) for g in out))
         if left:
-            QMessageBox.warning(self, "Navrhnout stringy", f"Nevešlo se {left} modulů (omezení střídače). "
-                                "Přidejte střídač nebo zvolte jiný.")
+            from envocad.model.notes import plural
+            verb = plural(left, "Nevešel", "Nevešly", "Nevešlo")
+            QMessageBox.warning(self, "Navrhnout stringy", f"{verb} se {_n_word(left, _MODULE_WORDS)} "
+                                "(omezení střídače). Přidejte střídač nebo zvolte jiný.")
 
     @staticmethod
     def _pair(a, b) -> QWidget:
@@ -791,8 +835,8 @@ class ProjectWizard(QDialog):
     _OPTIONAL = (
         ("mod_imp", "Impp modulu [A]", {}), ("mod_beta", "β Uoc [%/K]", {"minimum": -1.0}),
         ("inv_isc_mppt", "Isc max na MPPT [A]", {}), ("inv_spm", "Stringů na MPPT", {"integer": True}),
-        ("t_min", "Návrhová teplota min [°C]", {"minimum": -60.0, "strict": False}),
-        ("t_max", "Návrhová teplota max [°C]", {"minimum": -60.0, "strict": False}),
+        ("t_min", "Návrhová teplota min [°C]", {"temperature": True}),
+        ("t_max", "Návrhová teplota max [°C]", {"temperature": True}),
         ("mod_total", "Celkem modulů", {"integer": True}),
     )
 
@@ -813,7 +857,10 @@ class ProjectWizard(QDialog):
             fields.append(("opt_per", "Optimizérů na modul", {}))
         for name, label, kw in fields:
             try:
-                vals[name] = parse_number(getattr(self, name).text(), label, **kw)
+                if kw.get("temperature"):   # „−20 °C“, „-20,5“ (`calc.parse_temperature`)
+                    vals[name] = parse_temperature_field(getattr(self, name).text(), label)
+                else:
+                    vals[name] = parse_number(getattr(self, name).text(), label, **kw)
             except ValueError as ex:
                 errs.append(str(ex))
         if isinstance(vals.get("mod_beta"), (int, float)) and vals["mod_beta"] >= 0:
@@ -1713,10 +1760,37 @@ class ProjectMetaDialog(QDialog):
         bb.rejected.connect(self.reject)
         form.addRow(bb)
 
+    def errors(self) -> list[str]:
+        """Chyby polí česky: návrhové teploty musí být čísla (prázdné = výchozí), min < max."""
+        errs, temps = [], {}
+        for key, label in PROJECT_META_FIELDS:
+            if key in ("pv_t_min", "pv_t_max") and self.edits[key].text().strip():
+                try:
+                    temps[key] = parse_temperature_field(self.edits[key].text(), label)
+                except ValueError as ex:
+                    errs.append(str(ex))
+        if len(temps) == 2 and temps["pv_t_min"] >= temps["pv_t_max"]:
+            errs.append("Návrhová teplota min musí být menší než max.")
+        return errs
+
+    def accept(self) -> None:
+        errs = self.errors()
+        if errs:   # dialog zůstane otevřený
+            QMessageBox.warning(self, "Vlastnosti projektu", "Opravte prosím zadání:\n\n"
+                                + "\n".join(f"• {e}" for e in errs))
+            return
+        super().accept()
+
     def values(self) -> tuple[str, dict[str, str]]:
-        """(název, meta): ostatní klíče meta zůstanou; prázdné pole klíč, který v meta nebyl, nepřidá."""
+        """(název, meta): ostatní klíče meta zůstanou; prázdné pole klíč, který v meta nebyl, nepřidá. Platné návrhové
+        teploty se uloží normalizované („−20 °C“ → „-20“)."""
+        from envocad.model.calc import parse_temperature
         meta = dict(self._project.meta)
         texts = {k: ed.text() for k, ed in self.edits.items() if k != "name"}
+        for k in ("pv_t_min", "pv_t_max"):
+            t = parse_temperature(texts.get(k))
+            if t is not None:
+                texts[k] = f"{t:g}"
         texts["changes"] = self.changes.toPlainText()
         for k, v in texts.items():
             if v or k in meta:

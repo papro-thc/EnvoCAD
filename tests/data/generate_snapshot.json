@@ -48,7 +48,7 @@
        "p_ac": "25",
        "phases": "3",
        "mppt": "2",
-       "strings_per_mppt": "2",
+       "strings_per_mppt": "",
        "u_dc_max": "1100",
        "u_mppt_min": "200",
        "u_mppt_max": "1000",
@@ -2270,7 +2270,7 @@
        "p_ac": "25",
        "phases": "3",
        "mppt": "2",
-       "strings_per_mppt": "2",
+       "strings_per_mppt": "",
        "u_dc_max": "1100",
        "u_mppt_min": "200",
        "u_mppt_max": "1000",
@@ -2380,7 +2380,7 @@
        "p_ac": "25",
        "phases": "3",
        "mppt": "1",
-       "strings_per_mppt": "2",
+       "strings_per_mppt": "",
        "u_dc_max": "1100",
        "u_mppt_min": "200",
        "u_mppt_max": "1000",
@@ -5795,7 +5795,7 @@
        "p_ac": "25",
        "phases": "3",
        "mppt": "1",
-       "strings_per_mppt": "2",
+       "strings_per_mppt": "",
        "u_dc_max": "1100",
        "u_mppt_min": "200",
        "u_mppt_max": "1000",
@@ -8491,7 +8491,7 @@
       },
       "b": {
        "element_id": "#3",
-       "port": "DC4"
+       "port": "DC5"
       },
       "points": [
        [
@@ -8500,7 +8500,7 @@
        ],
        [
         310.0,
-        202.5
+        197.5
        ]
       ],
       "attrs": {
@@ -9593,7 +9593,7 @@
        "ref": "X8",
        "desc": "G4 dál",
        "wire_id": "#34",
-       "to": "W12 T1:DC4 /1.E4",
+       "to": "W12 T1:DC5 /1.E4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null

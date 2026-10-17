@@ -34,7 +34,7 @@ class ModuleData: voc; vmp; isc; imp=None; beta_voc=BETA_VOC_DEFAULT; u_sys_max=
     def from_attrs(cls, a) -> ModuleData | None
 @dataclass(frozen=True)
 class InverterData: u_dc_max=None; u_mppt_min=None; u_mppt_max=None; i_mppt_max=None; isc_mppt_max=None
-                    mppt=None; strings_per_mppt=2; p_ac=None; p_dc_max=None
+                    mppt=None; strings_per_mppt=None; p_ac=None; p_dc_max=None   # None = MPPT se nezjišťuje
     @classmethod
     def from_attrs(cls, a) -> InverterData
 @dataclass
@@ -54,6 +54,10 @@ jednoho stringu proti `i_mppt_max`) – starým projektům nepřibydou chyby. St
 `check_strings(project, t_min=None, t_max=None)` přes tyto funkce, seskupení podle (střídač, MPPT), `StringCheck`
 + `mppt`, `n_par`; API pro F7 beze změny. `tz_export` a `reports` tisknou teploty z `design_temperatures`;
 BOM u modulů výrobce z `attrs["manufacturer"]`.
+Doplněno po review (10/2026): `string_ports` / `assign_mppt` / `mppt_groups` – přiřazení stringů na MPPT sdílí
+generátor (známé `mppt` → rovnoměrně, string k → MPPT k mod mppt), `check_strings` i asistent průvodce;
+`capacity_issue` (víc stringů než mppt·strings_per_mppt = chyba); Umpp(t) se součinitelem γ_Pmax − α_Isc, když
+jsou oba známé (jinak β_Voc); `parse_temperature` / `design_temperature_issues` (F7 `calc_temp`).
 Teploty v projektu: `meta["pv_t_min"]`, `meta["pv_t_max"]` (pole ve Vlastnostech projektu); výchozí v kódu −10/70
 (beze změny výsledků); průvodce předvyplní z `standard.pv_t_min` (−20) / `pv_t_max` (70).
 
