@@ -102,7 +102,7 @@ def test_undo_add_jps_wire_restores_feed_conductors(app, lib):
 
 def test_undo_sync_does_not_touch_primary_data(app, lib):
     """Po kroku undo/redo běží jen odvozená synchronizace: žíly vodičů rozvaděče ani porty JPS nemění."""
-    p, s, sb, t, blk, feed, jw = _project(linked=True)
+    p, s, sb, t, _blk, _feed, _jw = _project(linked=True)
     w = _win(lib, p)               # načtení projektu: plná synchronizace (vazba vznikla už v souboru)
     assert sb.wires[0].conductors == FULL
     sb.wires[0].conductors = list(SHORT)    # ruční odchylka v souboru – krok undo ji nesmí přepsat
@@ -116,7 +116,7 @@ def test_undo_sync_does_not_touch_primary_data(app, lib):
 
 # ---- model: rozdělení sync_feed_links ---------------------------------------------------------------------------
 def test_sync_feed_link_attrs_is_derived_only():
-    p, s, sb, t, blk, feed, jw = _project(linked=True)
+    p, _s, sb, _t, _blk, feed, jw = _project(linked=True)
     sb_wires = _state(sb.wires[0])
     assert sync_feed_link_attrs(p) == 1
     assert feed.attrs["wire_id"] == jw.id and feed.attrs["from"].startswith("W1 T1:AC")
@@ -129,7 +129,7 @@ def test_sync_feed_link_attrs_is_derived_only():
 
 def test_sync_feed_links_full_keeps_old_behaviour():
     """Plná synchronizace (načtení projektu, generátor) dál kopíruje žíly a přejmenuje port."""
-    p, s, sb, t, blk, feed, jw = _project(linked=True)
+    p, _s, sb, _t, _blk, feed, jw = _project(linked=True)
     assert sync_feed_links(p) >= 1
     assert sb.wires[0].conductors == FULL
     feed.attrs["ref"] = "X5"
@@ -139,7 +139,7 @@ def test_sync_feed_links_full_keeps_old_behaviour():
 
 
 def test_feed_conductor_followups_and_apply():
-    p, s, sb, t, blk, feed, jw = _project(linked=True)
+    p, _s, sb, _t, _blk, _feed, jw = _project(linked=True)
     sb.wires[0].terminals = {"N": {"a": "X1:2"}, "L1": {"a": "X1:1"}}
     ch = feed_conductor_followups(p, jw)
     assert ch == [ConductorChange(sb.wires[0].id, SHORT, FULL, {"N": {"a": "X1:2"}, "L1": {"a": "X1:1"}},
@@ -157,7 +157,7 @@ def test_feed_conductor_followups_and_apply():
 
 
 def test_feed_conductor_followups_drops_terminals_of_removed_conductors():
-    p, s, sb, t, blk, feed, jw = _project(linked=True)
+    p, _s, sb, _t, _blk, _feed, jw = _project(linked=True)
     jw.conductors = ["L1", "PE"]
     sb.wires[0].terminals = {"N": {"a": "X1:2"}, "L1": {"a": "X1:1"}}
     (c,) = feed_conductor_followups(p, jw)
@@ -170,7 +170,7 @@ def test_feed_conductor_followups_drops_terminals_of_removed_conductors():
 
 def test_feed_conductor_followups_respects_port_over_manual_link():
     """Vazba jako v odvozené synchronizaci: vodič na portu bloku má přednost před ruční vazbou `wire_id`."""
-    p, s, sb, t, blk, feed, jw = _project(linked=True)
+    p, s, _sb, t, blk, feed, jw = _project(linked=True)
     other = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "X9"), conductors=["L1", "PE"])
     s.wires.append(other)
     feed.attrs["wire_id"] = other.id
@@ -179,7 +179,7 @@ def test_feed_conductor_followups_respects_port_over_manual_link():
 
 
 def test_rename_followups_renames_block_port_of_linked_wire():
-    p, s, sb, t, blk, feed, jw = _project(linked=True)
+    p, _s, _sb, _t, _blk, feed, jw = _project(linked=True)
     sync_feed_link_attrs(p)
     ch = rename_followups(p, feed, "X1", "X5")
     ports = [c for c in ch if c.kind == "wire_port"]
@@ -192,7 +192,7 @@ def test_rename_followups_renames_block_port_of_linked_wire():
 
 
 def test_rename_followups_port_without_wire_id_and_when_new_port_taken():
-    p, s, sb, t, blk, feed, jw = _project(linked=True)
+    p, s, sb, t, blk, feed, _jw = _project(linked=True)
     assert "wire_id" not in feed.attrs                  # vazba jen podle portu
     assert [c.new for c in rename_followups(p, feed, "X1", "X2") if c.kind == "wire_port"] == ["X2"]
     s.wires.append(Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "X2")))
@@ -204,7 +204,7 @@ def test_rename_followups_port_without_wire_id_and_when_new_port_taken():
 
 # ---- příkazy -----------------------------------------------------------------------------------------------------
 def test_rename_feed_in_gui_renames_port_in_one_undo_step(app, lib):
-    p, s, sb, t, blk, feed, jw = _project(linked=True)
+    p, _s, sb, _t, _blk, feed, jw = _project(linked=True)
     w = _win(lib, p)
     w.open_sheet(sb)
     sc = w.scene
@@ -222,7 +222,7 @@ def test_rename_feed_in_gui_renames_port_in_one_undo_step(app, lib):
 
 
 def test_set_conductors_on_jps_wire_propagates_and_undoes(app, lib):
-    p, s, sb, t, blk, feed, jw = _project(linked=True)
+    p, s, sb, _t, _blk, _feed, jw = _project(linked=True)
     w = _win(lib, p)
     jps = w._jps_scene(s)
     before = _state(p)
@@ -258,7 +258,7 @@ def test_set_attr_wire_id_copies_conductors_and_undoes(app, lib):
 
 
 def test_split_wire_on_block_keeps_undo_exact(app, lib):
-    p, s, sb, t, blk, feed, jw = _project(linked=True)
+    p, s, sb, _t, _blk, _feed, jw = _project(linked=True)
     w = _win(lib, p)
     sb.wires[0].conductors = list(SHORT)
     w.undo.setClean()

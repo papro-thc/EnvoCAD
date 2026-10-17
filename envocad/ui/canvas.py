@@ -424,7 +424,7 @@ class SchematicScene(QGraphicsScene):
                         if j.symbol_id == "sb.junction":
                             src = next((x for x in self.sheet.wires if x.touches(j.id)), None)
                             if src is not None:
-                                w.conductors = list(src.conductors)
+                                w.conductors = list(src.conductors)  # model-write-ok: nový vodič, viz výše
                             break
                     # model-write-ok: nový vodič (ještě není v listu), vloží ho AddWireCommand
                     w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}

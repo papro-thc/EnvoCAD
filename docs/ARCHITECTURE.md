@@ -107,6 +107,13 @@ hlásí `outside_enclosure`. Zmenšení počtu modulů v řadě také nic nemaž
 kontrola `layout_overflow` / `layout_overlap` (`checks.layout_problems`, varování i v panelu skříně). Kabely
 (`Cable`) jsou odvozené z vodičů JPS (`sync_cables`): kabel bez vodiče se odebere do `Project.removed_cables`
 (neukládá se) a vrácený vodič (undo/redo) dostane týž kabel zpět – undo vložení/smazání vodiče vrátí `to_dict` přesně. Kabel osiřelý už v načteném souboru (`Project.loaded_orphan_cables`) se při otevření neodebere (ruční barvy žil, artikl); kontrola ho hlásí jako INFO `cable_no_wire`.
+Vazby přívodů/vývodů rozvaděče na vodiče JPS: GUI po každé změně modelu volá jen odvozenou `sync_feed_link_attrs`
+(`wire_id`, odkud/kam, kabel přívodu). Primární data mění příkazy jako navázané změny (`commands._FeedFollowups`:
+spočítají se při prvním redo, undo je vrátí): žíly vodičů u přívodu převezmou žíly navázaného vodiče JPS
+(`feed_conductor_followups` v `AddWireCommand`, `SplitWireCommand`, `SetConductorsCommand`, `SetAttrCommand` s
+`wire_id`), přejmenování přívodu přejmenuje port vodiče JPS na bloku (`rename_followups` → `TextChange` „wire_port“).
+Plná `sync_feed_links` (i s primárními změnami) jen při načtení projektu a v generátoru. Zápisy do modelu v `ui/`
+mimo `commands.py` hlídá `tests/test_no_model_writes_in_ui.py`; výjimky mají komentář `# model-write-ok: <důvod>`.
 
 ## Rozšiřitelnost na další obory
 
@@ -130,7 +137,10 @@ Jeden model, dva pohledy nad stejnými daty:
   z ní bez Qt skládá texty a čáry celého pohledu a rozmisťuje popisky žil mimo cizí čáry – stejné polohy kreslí scéna
   (`ui/multipole_view.py`) a kontroluje F7 (`mp_text_overlap`). Scéna přebírá z modelu vše: polohy
   (`MultipoleGeometry.origins`), strany, přerušení s odkazy (`page_breaks`), sběrné čáry (`rails`, `rail_taps`),
-  odkazy sběrnice (`bus_refs`) a popis sběrnice (`bus_desc`).
+  odkazy sběrnice (`bus_refs`), popis sběrnice (`bus_desc`) a můstky svorkovnic (`bridges` = `multipole.bridge_paths`).
+  Kreslicí seznam `MultipoleGeometry.prims` (`Prim`, lokální souřadnice strany) je zdroj pro export DXF vícepólu
+  (`export/dxf_export.export_multipole_dxf`: jeden soubor se stranami vedle sebe a layoutem na stranu, nebo soubor
+  na stranu).
 - Formát stran vícepólu a plánu svorkovnice: `multipole.paper_choice` – `Sheet.mp_paper` (nepovinný klíč), jinak
   firemní standard `standard.switchboard_paper` (výchozí „A4“ = 297 × 210); list, který není rozvaděč, a starší list
   rozvaděče s jiným rozměrem než A3 nebo s `mp_pos` → „list“ (rozměr listu jako dřív). `page_size`, `page_width`,

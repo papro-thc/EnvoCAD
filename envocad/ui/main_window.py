@@ -791,10 +791,11 @@ class MainWindow(QMainWindow):
         attr_after, structs_after = block.attrs.get("sheet"), list(p.structures)
         p.sheets.remove(sheet)
         p.structures = structs_before
+        # model-write-ok: návrat dočasné změny z create_switchboard_sheet (provede ji AddSheetCommand)
         if attr_before is None:
             block.attrs.pop("sheet", None)
         else:
-            block.attrs["sheet"] = attr_before
+            block.attrs["sheet"] = attr_before  # model-write-ok: návrat dočasné změny, viz výše
         self.undo.push(commands.AddSheetCommand(p, sheet, on_change=self._sheet_presence_changed,
                                                 block_attr=(block, attr_before, attr_after),
                                                 structures=(structs_before, structs_after),

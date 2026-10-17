@@ -41,6 +41,11 @@ def model_writes(src: str) -> list[tuple[str, str, int]]:
             check(child, name)
             visit(child, name)
 
+    def field_of(node: ast.AST) -> str | None:
+        """Jméno pole modelu `X.<pole>` (ne `self.<pole>`), jinak None."""
+        on_self = isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == "self"
+        return node.attr if isinstance(node, ast.Attribute) and node.attr in FIELDS and not on_self else None
+
     def check(n: ast.AST, fn: str) -> None:
         targets: list[ast.AST] = []
         if isinstance(n, (ast.Assign, ast.Delete)):
@@ -53,16 +58,13 @@ def model_writes(src: str) -> list[tuple[str, str, int]]:
                 targets += t.elts
             elif isinstance(t, ast.Starred):
                 targets.append(t.value)
-            elif isinstance(t, ast.Attribute) and t.attr in FIELDS:
-                if not (isinstance(t.value, ast.Name) and t.value.id == "self"):
-                    out.append((fn, f".{t.attr} =", t.lineno))
-            elif isinstance(t, ast.Subscript) and isinstance(t.value, ast.Attribute) and t.value.attr in FIELDS:
-                if not (isinstance(t.value.value, ast.Name) and t.value.value.id == "self"):
-                    out.append((fn, f".{t.value.attr}[…] =", t.lineno))
-        if (isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr in MUTATORS
-                and isinstance(n.func.value, ast.Attribute) and n.func.value.attr in FIELDS
-                and not (isinstance(n.func.value.value, ast.Name) and n.func.value.value.id == "self")):
-            out.append((fn, f".{n.func.value.attr}.{n.func.attr}()", n.lineno))
+            elif field_of(t):
+                out.append((fn, f".{field_of(t)} =", t.lineno))
+            elif isinstance(t, ast.Subscript) and field_of(t.value):
+                out.append((fn, f".{field_of(t.value)}[…] =", t.lineno))
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr in MUTATORS \
+                and field_of(n.func.value):
+            out.append((fn, f".{field_of(n.func.value)}.{n.func.attr}()", n.lineno))
 
     visit(ast.parse(src), "<module>")
     return sorted(out, key=lambda x: x[2])
