@@ -155,6 +155,11 @@ class PropertiesPanel(QWidget):
                                 on_value="", off_value="0")
             self._add_field("func", "Funkce (=)", e.attrs.get("func", ""), getattr(sheet, "func", ""))
             self._add_field("loc", "Umístění (+)", e.attrs.get("loc", ""), getattr(sheet, "loc", ""))
+            # rámečky jednopólového schématu: pole / kobka rozvaděče, trafostanice (bloky a prvky blokového schématu)
+            if sheet is not None and sheet.is_switchboard and sym.id not in ("sb.busbar",):
+                self._add_field("cell", "Pole / kobka (JPS)", e.attrs.get("cell", ""))
+            elif sheet is not None and not sheet.is_switchboard:
+                self._add_field("station", "Trafostanice (JPS)", e.attrs.get("station", ""))
         elif isinstance(item, WireItem):
             w = item.wire
             self._target = (w.id, True)

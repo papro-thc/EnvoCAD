@@ -989,3 +989,25 @@ class SetLayoutCommand(QUndoCommand):
 
     def undo(self):
         self._set(self.before)
+
+
+class SetSingleLineOffsetCommand(QUndoCommand):
+    """Ruční posun v jednopólovém schématu (`Element.sl_pos`; None = automatické rozmístění). `changes` =
+    {(id listu, id prvku): (dosavadní, nový)}; `refresh` přestaví scénu."""
+
+    def __init__(self, project, changes: dict, refresh, text: str = "Posun v jednopólovém schématu"):
+        super().__init__(text)
+        self.project, self.changes, self.refresh = project, changes, refresh
+
+    def _apply(self, idx: int):
+        for (sid, eid), pair in self.changes.items():
+            e = self.project.sheet(sid).element(eid)
+            if e is not None:
+                e.sl_pos = tuple(pair[idx]) if pair[idx] else None
+        self.refresh()
+
+    def redo(self):
+        self._apply(1)
+
+    def undo(self):
+        self._apply(0)

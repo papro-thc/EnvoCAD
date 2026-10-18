@@ -189,7 +189,7 @@ def test_v7_revisions_from_meta_skips_header_and_free_text():
 
 def test_example_migrates_to_current():
     p = Project.load(EXAMPLE)
-    assert FORMAT_VERSION == 11
+    assert FORMAT_VERSION == 12
     assert all(s.func == "" and s.loc == "" for s in p.sheets)
     assert p.structures == [] and p.revisions == [] and p.notes == []
 
@@ -276,5 +276,17 @@ def test_v10_to_v11_conductor_names_en60445():
     assert s.wires[0].conductors == ["L+", "L-"] and s.wires[0].terminals == {"L+": {"a": "X1:1"}}
     assert [c.name for c in p.cables[0].cores] == ["L+", "L-"]
     assert s.element("x").attrs["conductors"] == "L+ L-"
-    assert p.to_dict()["format_version"] == 11
+    assert p.to_dict()["format_version"] == FORMAT_VERSION
     assert conductor_name("dc-") == "L-" and conductor_name("PE") == "PE"
+
+
+def test_v11_to_v12_single_line_offset():
+    """v12: ruční posun prvku v jednopólovém schématu (`sl_pos`) – v11 ho nemá, uloží se jen když je zadaný."""
+    p = Project.from_dict(_v(11, [_sheet("s1", [_el("f", "fve.breaker_mcb", "F1")])]))
+    e = p.sheets[0].elements[0]
+    assert e.sl_pos is None and "sl_pos" not in p.to_dict()["sheets"][0]["elements"][0]
+    e.sl_pos = (12.5, -5.0)
+    d = json.loads(json.dumps(p.to_dict()))
+    assert d["format_version"] == 12 and d["sheets"][0]["elements"][0]["sl_pos"] == [12.5, -5.0]
+    assert Project.from_dict(d).sheets[0].elements[0].sl_pos == (12.5, -5.0)
+    _roundtrip_stable(Project.from_dict(d))

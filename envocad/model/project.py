@@ -43,7 +43,7 @@ SWITCHBOARD_WIRE_ATTRIBUTES = [
     Attribute("prod", "Do výrobního seznamu (0 = ne)"),
 ]
 
-FORMAT_VERSION = 11
+FORMAT_VERSION = 12
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 DEVICE_HEIGHT_MM = 45.0  # mm – výška modulového přístroje na liště (rozložení, délky vodičů)
@@ -172,6 +172,7 @@ class Element:
     mp_pos: tuple[float, float] | None = None  # ruční pozice ve vícepólu (None = automatické rozmístění)
     id: str = field(default_factory=_uid)
     mirror: bool = False  # zrcadleno podle svislé osy značky (před otočením, v10); popisky a texty se nezrcadlí
+    sl_pos: tuple[float, float] | None = None  # ruční posun v jednopólovém schématu (dx, dy mm; v12), i podřízených
 
     @property
     def ref(self) -> str:
@@ -207,6 +208,7 @@ class Element:
             "rotation": self.rotation, "attrs": self.attrs, "component_id": self.component_id,
             **({"mp_pos": list(self.mp_pos)} if self.mp_pos else {}),
             **({"mirror": True} if self.mirror else {}),
+            **({"sl_pos": list(self.sl_pos)} if self.sl_pos else {}),
         }
 
     @classmethod
@@ -219,6 +221,7 @@ class Element:
             symbol_id=str(d["symbol_id"]), x=_float(d["x"], "x"), y=_float(d["y"], "y"), rotation=rot,
             attrs=_str_attrs(d.get("attrs")), component_id=str(cid) if cid else None, id=str(d["id"]),
             mp_pos=_point(d["mp_pos"], "mp_pos") if d.get("mp_pos") else None, mirror=d.get("mirror") is True,
+            sl_pos=_point(d["sl_pos"], "sl_pos") if d.get("sl_pos") else None,
         )
 
 
@@ -1130,6 +1133,7 @@ def migrate(d: dict, ver: int) -> dict:
     if ver < 3:
         d.setdefault("bridges", {})  # v3: můstky svorkovnic
     # v4: volitelné `mp_pos` prvku (ruční pozice ve vícepólu) – bez migrace
+    # v12: volitelné `sl_pos` prvku (ruční posun v jednopólovém schématu) – bez migrace
     # v6: `cables` – kabely jako objekty; vytvoří se z vodičů při načtení (sync_cables)
     if ver < 5:
         # v5: FV string má jeden port DC (pár DC+/DC- jsou žíly), střídač porty DC1/DC2 místo DC+/DC-

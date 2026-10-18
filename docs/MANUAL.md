@@ -516,23 +516,45 @@ Vygeneruje se blokové schéma (stringy → DC rozvaděče → střídače → A
 kabelů a vazeb. Hned potom spusť `F7`.
 
 **Připojení k DS** (pole pod Distributorem): **nn** = AC rozvaděč FVE jde vývodem XOUT přímo do HDS (jako dřív).
-**VN** = kompletní přípojka: AC rozvaděč FVE → **hlavní rozvaděč nn** RHN (přívod XT od transformátoru, hlavní jistič,
-přípojnice nn, vývod X1 k FVE, SPD T1, vývod XS spotřeba objektu) → **transformátor** TR1 → **rozvaděč VN** RVN (kobky:
-kabelová pole s odpínačem a uzemňovačem – u smyčky dvě –, přípojnice VN, transformátorové pole s odpínačem a pojistkami
-VN, nad 1000 kVA vypínač s ochranou) → DS. **Fakturační měření** na straně nn (MTP + elektroměr v RHN, napětí
-z přípojnice) nebo VN (měřicí pole RVN: odpínač, MTP, MTN, elektroměr). Ze Sn transformátoru se dopočte hlavní jistič
-(In nn → nejbližší vyšší řada), převod MTP (x/5 A), pojistky VN (≈ 1,8 × In VN – ověř podle tabulky výrobce) a jistič
-spotřeby (≤ hlavní / 1,6 kvůli selektivitě); ve specifikaci je mění `connection.main_board.main_in`, `ct_ratio`,
-`fuse_vn`, `main_board.load_in`. Rozvaděč VN nemá vícepól ani plán svorkovnice (dokumentuje se jednopólovým schématem),
-přístroje VN se na DIN lištu nerozmísťují.
+**VN** = trafostanice. AC rozvaděč FVE → **hlavní rozvaděč nn** RHN (přívod XT od transformátoru, hlavní jistič,
+přípojnice nn, vývod X1 k FVE, SPD T1, vývod X2 spotřeba objektu) → **transformátor** TR1 → podle pole **Trafostanice**:
+- **kiosková TS** (výchozí, nové stanice) – **rozvaděč VN** RVN po **polích**: kabelová pole (odpínač VN, uzemňovač,
+  kapacitní indikátor napětí, kabelová koncovka, přívod XDS1/XDS2 z DS – u smyčky dvě), přípojnice VN, při měření na VN
+  **měřicí pole** (odpínač, MTP, MTN) a za ním přípojnice odběratele, **transformátorové pole** (odpínač VN + pojistky
+  VN s úderníkem, nad 1000 kVA vypínač VN s ochranou; uzemňovač, koncovka, vývod X1 k transformátoru);
+- **zděná TS** – totéž, pole se jmenují **kobky** (K1 kabelová kobka…);
+- **sloupová TS** – bez rozvaděče VN: na sloupu úsekový odpínač VN, pojistky VN a svodiče přepětí VN (v blokovém
+  schématu jako samostatné prvky), měření jen na nn, bez smyčky.
+
+**Elektroměrový rozvaděč** RE s fakturačním elektroměrem je samostatný: měřicí obvody k němu vedou kabely z vývodů
+XMI (proud ze sekundáru MTP) a XMU (napětí z přípojnice nn, při měření na VN ze sekundáru MTN) rozvaděče s měřením.
+Všechny části trafostanice (RVN, TR1, RHN, RE, prvky na sloupu) mají atribut **Trafostanice** („TS1 kiosková
+trafostanice“) a přístroje rozvaděče VN atribut **Pole / kobka** („P1 kabelové pole“) – oba jdou změnit v panelu
+vlastností a určují rámečky v jednopólovém schématu. Ze Sn transformátoru se dopočte hlavní jistič (In nn → nejbližší
+vyšší řada), převod MTP (x/5 A), pojistky VN (≈ 1,8 × In VN – ověř podle tabulky výrobce) a jistič spotřeby (≤ hlavní
+/ 1,6 kvůli selektivitě); ve specifikaci je mění `connection.main_board.main_in`, `ct_ratio`, `fuse_vn`,
+`main_board.load_in`, označení TS `connection.ts.ref`/`desc`. Rozvaděč VN nemá vícepól ani plán svorkovnice
+(dokumentuje se jednopólovým schématem), přístroje VN se na DIN lištu nerozmísťují.
+
+**Značky VN** (kategorie VN v knihovně, ČSN EN 60617): odpínač VN (kroužek + odpojovací čárka), odpojovač, vypínač VN
+(křížek), pojistka VN s úderníkem, kabelová koncovka, kapacitní indikátor napětí (VDS), svodič přepětí VN;
+uzemňovač, MTP a MTN. Motorové pohony a ochrany VN se nekreslí; rozvaděč telemetrie (AXY) se vloží makrem.
 
 **Jednopólové schéma** (Zobrazit → Jednopólové schéma, `Ctrl+Shift+J`) se **odvozuje** z blokového schématu a listů
-rozvaděčů – nic se nekreslí znovu, po změně rozvaděče se samo přepočítá. Vede od DS dolů: každý rozvaděč je čárkovaný
-rámeček s označením, přístroj jedna značka s popiskem (označení, In, typ…), přípojnice vodorovná čára, kabely mezi
-rozvaděči a transformátorem s označením, typem a délkou, elektroměr čárkovaně vedle měřicího transformátoru; vodiče
-jen s PE, PE lišty a uzemnění se vynechají. Končí u střídačů (popisek „DC: 3 stringy“ – DC část mají listy DC
-rozvaděčů). Formát A3–A0 podle velikosti (1 : 1). Je v PDF dokumentaci hned za blokovým schématem (číslo listu
+rozvaděčů – nic se nekreslí znovu, po změně rozvaděče se samo přepočítá. U trafostanice s rozvaděčem VN začíná jeho
+přípojnicí: **pole visí pod ní**, každé ve vlastním čárkovaném rámečku s názvem (pole / kobka), DS je pod kabelovými
+poli; bez rozvaděče VN (přípojka nn, sloupová TS) vede od DS dolů. Každý rozvaděč je čárkovaný rámeček s označením,
+přístroj jedna značka s popiskem (označení, In, typ…), přípojnice vodorovná čára, kabely mezi částmi s označením, typem
+a délkou. Rozvaděč VN, transformátor, rozvaděč nn za ním a elektroměrový rozvaděč jsou v **rámečku trafostanice**;
+elektroměr leží v rámečku elektroměrového rozvaděče vpravo od rozvaděče s měřením, čárkovaně spojený s MTP a MTN /
+přípojnicí. Vodiče jen s PE, PE lišty a uzemnění se vynechají. Končí u střídačů (popisek „DC: 3 stringy“ – DC část mají
+listy DC rozvaděčů). Formát A3–A0 podle velikosti (1 : 1). Je v PDF dokumentaci hned za blokovým schématem (číslo listu
 „1/8 JPS“) a jde exportovat do DXF (Soubor → Export DXF na záložce jednopólového schématu).
+
+**Ruční rozmístění:** levým tlačítkem chyť přístroj, pole, rozvaděč nebo trafostanici (pod myší se zvýrazní) a táhni –
+posune se i vše, co je pod ním (mřížka 2,5 mm, `Ctrl+Z` vrátí). Pravé tlačítko → **Vrátit automatickou polohu**
+(jedné části) nebo **Vrátit automatické rozmístění celého schématu**. Posuny se ukládají do projektu (formát 12) a platí
+i pro PDF a DXF; strana drží automatické rozmístění, takže posun jedné části nehýbe ostatními.
 
 DC strana se dělá jako na stavbě: ke každému střídači vznikne **DC rozvaděč po trase** (počet zadáš, i 0 –
 odpínač DC a SPD na každý string, stringy jím procházejí odděleně) a **DC rozvaděč u technologie**

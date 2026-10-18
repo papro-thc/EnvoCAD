@@ -63,6 +63,15 @@ def paint_symbol(painter: QPainter, sym: Symbol, pen: QPen | None = None, mirror
             align = p.get("align", "center")
             draw_text(painter, 0, 0, p["text"], p.get("height", 2.5), MIRROR_ALIGN.get(align, align))
             painter.restore()
+        elif p["type"] == "text" and _upside_down(painter):
+            # značka otočená o 180° (přívod pole VN zdola): text otočený zpět kolem svého středu, aby byl čitelný
+            h = p.get("height", 2.5)
+            painter.save()
+            painter.translate(sp(p["x"], p["y"] + 0.35 * h))
+            painter.rotate(180)
+            align = p.get("align", "center")
+            draw_text(painter, 0, -0.35 * h, p["text"], h, MIRROR_ALIGN.get(align, align))
+            painter.restore()
         elif p["type"] == "text":
             draw_text(painter, p["x"], p["y"], p["text"], p.get("height", 2.5), p.get("align", "center"))
         elif p["type"] == "circle" and p.get("filled"):   # vyplněný bod (uzel odbočky)
@@ -70,6 +79,12 @@ def paint_symbol(painter: QPainter, sym: Symbol, pen: QPen | None = None, mirror
             painter.drawEllipse(sp(p["cx"], p["cy"]), p["r"], p["r"])
             painter.setBrush(Qt.NoBrush)
     painter.restore()
+
+
+def _upside_down(painter: QPainter) -> bool:
+    """Malíř otočený o 180° (bez zrcadlení): osa x i y obrácené."""
+    t = painter.worldTransform()
+    return t.m11() < -1e-6 and t.m22() < -1e-6 and abs(t.m12()) < 1e-6
 
 
 def draw_text(painter: QPainter, x: float, y: float, text: str, height: float = 2.5, align: str = "left") -> None:

@@ -579,7 +579,11 @@ class ProjectWizard(QDialog):
         # připojení k DS: nn (AC rozvaděč FVE do HDS) nebo VN (hlavní rozvaděč nn, transformátor, rozvaděč VN)
         self.conn_level = QComboBox()
         self.conn_level.addItem("nn – AC rozvaděč FVE do HDS", "nn")
-        self.conn_level.addItem("VN – hlavní rozvaděč nn, transformátor, rozvaděč VN", "vn")
+        self.conn_level.addItem("VN – trafostanice (rozvaděč VN, transformátor, hlavní rozvaděč nn, elektroměrový)", "vn")
+        self.conn_station = QComboBox()
+        self.conn_station.addItem("kiosková TS (rozvaděč VN po polích)", "kiosk")
+        self.conn_station.addItem("zděná TS (kobky)", "kobky")
+        self.conn_station.addItem("sloupová TS (odpínač, pojistky a svodiče na sloupu)", "sloup")
         self.conn_metering = QComboBox()
         self.conn_metering.addItem("fakturační měření na straně nn", "nn")
         self.conn_metering.addItem("fakturační měření na straně VN", "vn")
@@ -588,13 +592,20 @@ class ProjectWizard(QDialog):
         self.conn_loop = QCheckBox("smyčka (2 kabelová pole)")
         self.conn_loop.setChecked(True)
         form.addRow("Připojení k DS", self.conn_level)
+        form.addRow("Trafostanice", self.conn_station)
         form.addRow("Měření / Sn trafa [kVA]", self._triple(self.conn_metering, self.tr_sn, self.conn_loop))
 
         def _conn_enabled() -> None:
             on = self.conn_level.currentData() == "vn"
-            for w in (self.conn_metering, self.tr_sn, self.conn_loop):
-                w.setEnabled(on)
+            pole = self.conn_station.currentData() == "sloup"      # sloupová TS: měření na nn, bez kabelových polí
+            self.conn_station.setEnabled(on)
+            self.tr_sn.setEnabled(on)
+            self.conn_metering.setEnabled(on and not pole)
+            self.conn_loop.setEnabled(on and not pole)
+            if pole:
+                self.conn_metering.setCurrentIndex(0)
         self.conn_level.currentIndexChanged.connect(lambda _i: _conn_enabled())
+        self.conn_station.currentIndexChanged.connect(lambda _i: _conn_enabled())
         _conn_enabled()
         body = QWidget()      # dlouhý formulář v posuvné oblasti, tlačítka OK / Zrušit zůstávají vidět
         body.setLayout(form)
@@ -953,6 +964,7 @@ class ProjectWizard(QDialog):
                    "grid_length": v["grid_len"], "distribution": "bus" if self.ac_bus.isChecked() else "terminals"},
             "grid": {"dso": self.dso.text().strip()},
             "connection": {"level": self.conn_level.currentData(), "metering": self.conn_metering.currentData(),
+                           "station": self.conn_station.currentData(),
                            "loop": self.conn_loop.isChecked(), "transformer": {"sn": v.get("tr_sn") or 630}},
         }
 

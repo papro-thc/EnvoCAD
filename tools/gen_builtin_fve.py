@@ -49,6 +49,11 @@ def attr(key, label, default="", show=False, fmt=""):
 CONTACT = [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0)]          # spínací kontakt (jeden pól)
 TRIP_X = [L(-4.3, 4.2, -2.3, 6.2), L(-4.3, 6.2, -2.3, 4.2)]                   # nadproudová spoušť (x) na volném konci nože
 DISC_BAR = [L(-2.5, -1.5, -2.5, 1.5)]                                          # značka odpojovače/odpínače (pevný kontakt)
+# VN (ČSN EN 60617-7): funkce odpínače = kroužek na pevném kontaktu (07-01-04) + odpojovací čárka (07-01-03),
+# funkce vypínače = křížek na pevném kontaktu (07-01-02); uzemnění 02-15-01 (tři čárky)
+LOAD_RING = [C(-2.5, 0, 0.8)]
+BREAKER_X = [L(-3.5, -1, -1.5, 1), L(-3.5, 1, -1.5, -1)]
+EARTH_V = [L(5, -3, 5, 3), L(6.25, -2, 6.25, 2), L(7.5, -1, 7.5, 1)]       # zem na konci vodorovné značky (port vlevo)
 
 
 # kontaktní obraz přístroje (páry svorek, viz docs/LIBRARY_FORMAT.md) – prázdný = bez kontrol a rezerv v zrcadle
@@ -280,6 +285,75 @@ SYMBOLS = [
                        L(7.5, -1, 7.5, 1)],
         "ports": [P("1", -7.5, 0, "W")],
         "attributes": [REF, TYPE],
+        "label_pos": {"x": -5, "y": -6},
+    },
+    # ---- VN (trafostanice: kabelová, měřicí a transformátorová pole, sloupová TS) ------------------------------
+    {
+        "id": "fve.switch_disconnector_vn", "name": "Odpínač VN", "category": "VN", "iec_ref": "Q",
+        "description": "Odpínač VN (ČSN EN 60617 07-13-08): kabelové, měřicí a transformátorové pole, úsekový odpínač "
+                       "na sloupu",
+        "primitives": CONTACT + DISC_BAR + LOAD_RING,
+        "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("un", "Un [kV]", "", False, "{} kV"),
+                       attr("poles", "Póly", "3"), attr("modules", "Šířka [moduly]", "0")],
+        "multipole": MP(CONTACT + DISC_BAR + LOAD_RING),
+        "label_pos": {"x": -5, "y": -6},
+    },
+    {
+        "id": "fve.disconnector", "name": "Odpojovač", "category": "VN", "iec_ref": "Q",
+        "description": "Odpojovač (ČSN EN 60617 07-13-06) – spíná jen bez zatížení",
+        "primitives": CONTACT + DISC_BAR,
+        "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("poles", "Póly", "3"),
+                       attr("modules", "Šířka [moduly]", "0")],
+        "multipole": MP(CONTACT + DISC_BAR),
+        "label_pos": {"x": -5, "y": -6},
+    },
+    {
+        "id": "fve.breaker_vn", "name": "Vypínač VN", "category": "VN", "iec_ref": "Q",
+        "description": "Výkonový vypínač VN (ČSN EN 60617 07-13-05) – transformátorové pole nad 1000 kVA",
+        "primitives": CONTACT + BREAKER_X,
+        "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("protection", "Ochrana", "", True),
+                       attr("poles", "Póly", "3"), attr("modules", "Šířka [moduly]", "0")],
+        "multipole": MP(CONTACT + BREAKER_X),
+        "label_pos": {"x": -5, "y": -6},
+    },
+    {
+        "id": "fve.fuse_vn", "name": "Pojistka VN", "category": "VN", "iec_ref": "F",
+        "description": "Pojistka VN s úderníkem (ČSN EN 60617 07-21-03) – vybaví odpínač transformátorového pole",
+        "primitives": [R(-5, -2, 10, 4), L(-7.5, 0, 7.5, 0), L(3, -2, 3, 2), L(3, 2, 3, 4.5), L(2, 4.5, 4, 4.5)],
+        "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("un", "Un [kV]", "", False, "{} kV"),
+                       attr("poles", "Póly", "3"), attr("modules", "Šířka [moduly]", "0")],
+        "multipole": MP([R(-5, -2, 10, 4), L(-7.5, 0, 7.5, 0), L(3, -2, 3, 2)], link=False),
+        "label_pos": {"x": -5, "y": 4},
+    },
+    {
+        "id": "fve.cable_end", "name": "Kabelová koncovka", "category": "VN", "iec_ref": "X",
+        "description": "Kabelová koncovka VN – připojení kabelu v poli; špička k přístroji",
+        "primitives": [L(-7.5, 0, -2.5, 0), {"type": "polyline", "points": [[-2.5, 0], [2.5, 2.5], [2.5, -2.5]],
+                                               "closed": True}, L(2.5, 0, 7.5, 0)],
+        "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
+        "attributes": [REF, TYPE, attr("poles", "Póly", "3"), attr("modules", "Šířka [moduly]", "0")],
+        "label_pos": {"x": -5, "y": -6},
+    },
+    {
+        "id": "fve.voltage_indicator", "name": "Kapacitní indikátor napětí", "category": "VN", "iec_ref": "P",
+        "description": "Kapacitní indikátor napětí VDS (ČSN EN 61243-5): vazební kapacita + doutnavka v kabelovém poli",
+        "primitives": [L(-7.5, 0, -3, 0), L(-3, -2, -3, 2), L(-2, -2, -2, 2), L(-2, 0, 0, 0), C(2.5, 0, 2.5),
+                       L(0.73, -1.77, 4.27, 1.77), L(0.73, 1.77, 4.27, -1.77)],
+        "ports": [P("1", -7.5, 0, "W")],
+        "attributes": [REF, TYPE],
+        "label_pos": {"x": -5, "y": -6},
+    },
+    {
+        "id": "fve.surge_arrester", "name": "Svodič přepětí VN", "category": "VN", "iec_ref": "F",
+        "description": "Svodič přepětí VN (ČSN EN 60617 07-22-03) – vedení → zem, sloupová TS, kabelové pole",
+        "primitives": [L(-7.5, 0, -5, 0), R(-5, -1.5, 8, 3), L(-4, 0, 1, 0), L(-1, 1, 1, 0), L(-1, -1, 1, 0),
+                       L(3, 0, 5, 0)] + EARTH_V,
+        "ports": [P("1", -7.5, 0, "W")],
+        "attributes": [REF, TYPE, MFR, attr("uc", "Uc [kV]", "", True, "Uc {} kV"), attr("poles", "Póly", "3")],
         "label_pos": {"x": -5, "y": -6},
     },
     {
