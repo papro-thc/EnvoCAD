@@ -5,6 +5,7 @@
 Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
 {
   "name": "FVE Firma s.r.o.", "meta": {"investor": "…", "place": "…", "order": "…", "author": "…"},
+  "building": "company",                                              # company (firma) | house (rodinný dům) | apartment (bytový dům)
   "module": {"p_wp": 450, "voc": 49.5, "vmp": 41.5, "isc": 13.9, "beta_voc": -0.27, "type": "JA Solar …",
              "imp": 13.2, "u_sys_max": 1500,                          # nepovinné: Impp, max. napětí systému modulu
              "alpha_isc": 0.045, "gamma_pmax": -0.29,                 # nepovinné [%/K]: oba → součinitel Umpp = γ − α
@@ -16,7 +17,7 @@ Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
                  "isc_mppt_max": 40, "strings_per_mppt": 2, "mppt": 2,       # nepovinné (jinak z artiklu, mppt dopočet)
                  "component_id": "sma-stp-25-50"}],
   "dc": {"cable": "H1Z2Z2-K 1x6", "cross": 6, "length": 40,          # string → první DC rozvaděč
-         "route_boxes": 1, "route_length": 20,                        # DC rozvaděče po trase (odpínač + SPD), kabel mezi nimi
+         "route_boxes": 1, "route_length": 20,                        # DC rozvaděče po trase (jen SPD, bez odpínače), kabel mezi nimi
          "tech_box": true, "tech_length": 5,                          # DC rozvaděč u technologie (pojistkové odpínače + SPD), kabel ke střídači
          "spd": "T1+T2", "fuse_in": "",                              # "" = podle stringu (gPV ≥ 1,5·Isc; SolarEdge 25 A)
          "disconnect_in": 32, "fuse_component": "eti-efh-10-dc-2p",   # pojistkový odpojovač ETI EFH 10 DC 2p
@@ -47,6 +48,11 @@ za sebou DC1, DC2… (`calc.string_ports`). Neznámé `strings_per_mppt` zůstan
 paralelních stringů nesčítá); pro počet DC vstupů se počítá se 2 na MPPT.
 Artikl modulu (`module.component_id`) stejně doplní prázdné údaje modulu (p_wp, voc, vmp, isc, imp, beta_voc,
 u_sys_max, alpha_isc, gamma_pmax, typ, výrobce); zadané hodnoty specifikace vyhrávají a stringy dostanou `component_id` artiklu.
+`building` = druh objektu: u rodinného domu (`house`) je DC i AC rozvaděč v jednom – rozvaděč FVE (RFVE) má přívody
+od střídačů X1…Xn, DC přívody stringů a vývody ke střídači (pojistkové odpínače + SPD) a vývod do HDS; samostatný DC
+rozvaděč u technologie se netvoří (rozvaděče po trase zůstávají). Firma a bytový dům: DC rozvaděče a AC rozvaděč zvlášť.
+Rozvaděče po trase mají jen SPD (přívod vede rovně na vývod) – odpojovací místo stringů jsou pojistkové odpínače
+v rozvaděči u střídače.
 `site.t_min` / `site.t_max` [°C] se zapíšou do `meta["pv_t_min"]` / `meta["pv_t_max"]` (kontrola stringů,
 `calc.design_temperatures`); bez nich platí výchozí −10 / 70 °C.
 """
@@ -54,7 +60,9 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import sys
+from itertools import pairwise
 from pathlib import Path
 
 from envocad.library.templates import (
@@ -84,9 +92,14 @@ from envocad.model.project import (
 BATTERY_ROW_EXTRA = 40.0   # místo pro baterii pod hybridním střídačem (mm)
 INV_LABEL_SPACE = 40.0     # popisek DC kabelu („W12  2× H1Z2Z2-K 1x6 mm²“) mezi blokem rozvaděče a lomy ke střídači
 
+# druh objektu (`spec["building"]`) → text v projektu (meta „building“)
+BUILDINGS = {"company": "firma", "house": "rodinný dům", "apartment": "bytový dům"}
+HOUSE_SWITCHBOARD = {"ref": "RFVE", "desc": "rozvaděč FVE (DC + AC)"}
+
 DEFAULT_SPEC = {
     "name": "Nový projekt FVE",
     "meta": {},
+    "building": "company",   # company | house (DC i AC rozvaděč v jednom) | apartment
     "module": {"p_wp": 450, "voc": 49.5, "vmp": 41.5, "isc": 13.9, "beta_voc": -0.27, "type": ""},
     "site": {},   # {"t_min": -20, "t_max": 70} – návrhové teploty stringů (průvodce předvyplní ze standardu)
     "optimizer": {"type": "", "per_module": 1},
@@ -165,6 +178,9 @@ def _build_project(spec: dict) -> Project:
     if isinstance(spec.get("module"), dict) and spec["module"].get("component_id"):
         # artikl modulu doplní jen to, co specifikace nezadala – proto před doplněním výchozích hodnot
         spec["module"] = _apply_module_component(spec["module"])
+    building = building_kind(spec.get("building"))
+    if building == "house" and not spec.get("switchboard"):
+        spec["switchboard"] = dict(HOUSE_SWITCHBOARD)
     spec = _merge(DEFAULT_SPEC, spec)
     invs = spec.get("inverters") or []
     if not invs:
@@ -172,7 +188,12 @@ def _build_project(spec: dict) -> Project:
     if (spec["ac"].get("distribution") or "bus") == "bus" and len(invs) > AC_MAX_INVERTERS_BUS:
         raise ValueError(f"AC rozvaděč: sběrnice má {AC_MAX_INVERTERS_BUS} přívodů – nejvýš {AC_MAX_INVERTERS_BUS} "
                          f"střídačů (zadáno {len(invs)}). Zvolte rozvod svorkami nebo rozdělte FVE na více rozvaděčů.")
+    # rodinný dům: DC část (pojistkové odpínače + SPD, místo rozvaděče u technologie) je v rozvaděči FVE s AC částí
+    combined = building == "house" and bool(spec["dc"].get("tech_box"))
+    if combined and _s((spec.get("connection") or {}).get("level")).lower() == "vn":
+        raise ValueError("Rodinný dům: rozvaděč FVE (DC + AC) se připojuje do HDS – přípojka VN se negeneruje.")
     p = Project(name=spec["name"], meta={k: _s(v) for k, v in spec["meta"].items()})
+    p.meta.setdefault("building", BUILDINGS[building])
     site = spec.get("site") or {}
     for key, meta_key in (("t_min", "pv_t_min"), ("t_max", "pv_t_max")):
         if site.get(key) not in (None, ""):
@@ -190,21 +211,30 @@ def _build_project(spec: dict) -> Project:
     total_h = sum(row_h) + sum(row_extra)
     y_top = 150.0 + total_h / 2
     n_route = max(0, int(dc.get("route_boxes") or 0))
-    n_boxes = n_route + (1 if dc.get("tech_box") else 0)
+    n_boxes = n_route + (1 if dc.get("tech_box") else 0)   # u rodinného domu je posledním „rozvaděčem“ rozvaděč FVE
     box_pitch = 85.0            # mezi rozvaděči se vejde popisek kabelu i dvojitý křížový odkaz
     x_str = 35.0
     n_max = max(len(inv.get("strings") or [1]) for inv in invs)
-    x_box0 = x_str + 60.0 + 5.0 * n_max   # lomy stringů až za popisky kabelů u stringů
+    n_all = sum(len(inv.get("strings") or [1]) for inv in invs)
+    # rozvaděč FVE: lomy všech stringů do jednoho bloku a vlevo od něj svislé úseky AC vodičů od střídačů
+    n_lanes = n_all + len(invs) if combined else n_max
+    dc_first = len(invs) + (1 if (spec["ac"].get("distribution") or "bus") == "bus" else 2)   # za AC přívody (a svorkami X(n+1))
+    x_box0 = x_str + 60.0 + 5.0 * n_lanes   # lomy stringů až za popisky kabelů u stringů
     x_boxes = [x_box0 + j * box_pitch for j in range(n_boxes)]
     x_dc = 130.0                                                   # samostatný odpínač DC (bez rozvaděčů)
     # před střídačem: popisek kabelu za blokem rozvaděče + vějíř lomů (5 mm na string) před DC vstupy střídače
     x_inv = (x_boxes[-1] + max(80.0, 15.0 + INV_LABEL_SPACE + 5.0 * n_max + 10.0)) if n_boxes else 200.0
     x_blk, x_grid = x_inv + 110.0, x_inv + 185.0   # mezi střídačem a rozvaděčem se vejde popisek AC kabelu
+    if combined:   # rozvaděč FVE na místě DC rozvaděče u technologie (před střídači), síť za střídači
+        x_blk, x_grid = x_boxes[-1], x_inv + 75.0
     p_total = 0.0
     blk = Element("fve.switchboard", x_blk, 150.0, attrs={"ref": spec["switchboard"]["ref"], "desc": spec["switchboard"]["desc"]})
     s.elements.append(blk)
+    ac_wires: list[Wire] = []
+    k_all = 0                   # pořadí stringu v rozvaděči FVE (přes všechny střídače)
     y = y_top
     inverter_elements: list[Element] = []
+    inverter_strings: list[list[Element]] = []
     dc_boxes: list[tuple[Element, list[Element], str, int, str]] = []   # (blok, stringy, druh, č. střídače, střídač)
     for i, inv in enumerate(invs):
         strings = inv.get("strings") or [1]
@@ -235,6 +265,7 @@ def _build_project(spec: dict) -> Project:
         s.elements.append(t)
         inverter_elements.append(t)
         gens: list[Element] = []
+        inverter_strings.append(gens)
         for k, n_mod in enumerate(strings):
             ys = y - 35.0 - k * 45.0
             p_str = round(n_mod * float(str(mod.get("p_wp") or 0).replace(",", ".")) / 1000, 2)
@@ -250,10 +281,13 @@ def _build_project(spec: dict) -> Project:
                     g.attrs[key] = _s(mod[key])
             s.elements.append(g)
             gens.append(g)
-        # DC rozvaděče: po trase (odpínač + SPD) a u technologie (pojistkové odpínače + SPD); stringy jimi procházejí odděleně
+        # DC rozvaděče: po trase (jen SPD) a u technologie (pojistkové odpínače + SPD); stringy jimi procházejí odděleně
         boxes: list[Element] = []
         for j in range(n_boxes):
             kind = "tech" if (dc.get("tech_box") and j == n_boxes - 1) else "route"
+            if kind == "tech" and combined:
+                boxes.append(blk)
+                break
             desc = f"DC rozvaděč u {ref_t}" if kind == "tech" else (f"DC rozvaděč po trase {ref_t}" + (f" ({j + 1})" if n_route > 1 else ""))
             b = Element("fve.switchboard", x_boxes[j], y_mid, attrs={"ref": p.next_ref("RDC"), "desc": desc})
             s.elements.append(b)
@@ -273,11 +307,16 @@ def _build_project(spec: dict) -> Project:
                     length = dc.get("length") if j == 0 else dc.get("route_length")
                     # string → 1. rozvaděč: lom každého stringu na vlastním x, aby se svislé úseky nekryly
                     pts = [] if j else [(b.x - 15.0 - 5.0 * (n_str - k), g.y), (b.x - 15.0 - 5.0 * (n_str - k), port_y[k])]
-                    s.wires.append(Wire(WireEnd(prev.id, prev_port), WireEnd(b.id, f"X{k + 1}"), conductors=list(DC_CONDUCTORS),
+                    port_in, port_out = f"X{k + 1}", f"X{n_str + k + 1}"
+                    if b is blk:   # rozvaděč FVE: stringy všech střídačů za AC přívody, lomy (doladí `_align_bends`)
+                        port_in, port_out = f"X{dc_first + k_all}", f"X{dc_first + n_all + k_all}"
+                        xj = b.x - 15.0 - 5.0 * len(invs) - 5.0 * (n_all - k_all)
+                        pts = [(xj, prev.y if j == 0 else port_y[k]), (xj, port_y[k])]
+                    s.wires.append(Wire(WireEnd(prev.id, prev_port), WireEnd(b.id, port_in), conductors=list(DC_CONDUCTORS),
                                         points=pts,
                                         attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": _s(dc.get("cross")),
                                                "length": _s(length), "method": "E"}))
-                    prev, prev_port = b, f"X{n_str + k + 1}"
+                    prev, prev_port = b, port_out
                 # vějíř lomů těsně před DC vstupy střídače (5 mm rozestup) – za popiskem kabelu, mimo značku střídače;
                 # pořadí lomů bez křížení doladí `_align_bends`
                 xb = t.x - 10.0 - 5.0 * (n_str - k)
@@ -298,11 +337,13 @@ def _build_project(spec: dict) -> Project:
                 s.wires.append(Wire(WireEnd(g.id, "DC"), WireEnd(t.id, port_inv), conductors=list(DC_CONDUCTORS),
                                     attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": _s(dc.get("cross")),
                                            "length": _s(dc.get("length")), "method": "E"}))
+            k_all += 1
         # AC vodič ke bloku rozvaděče – port podle přívodu (X1, X2…), doplní se po vytvoření listu
         w_ac = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, f"X{i + 1}"), conductors=list(AC_CONDUCTORS),
                     attrs={"ref": p.next_ref("W"), "cable": _s(ac.get("cable")), "cross": _s(ac.get("cross")),
                            "length": _s(ac.get("length")), "method": "B1"})
         s.wires.append(w_ac)
+        ac_wires.append(w_ac)
         y -= row_h[i] + row_extra[i]
     if spec.get("battery"):
         b = spec["battery"]
@@ -330,7 +371,7 @@ def _build_project(spec: dict) -> Project:
                             attrs={"ref": p.next_ref("W"), "cable": _s(ac.get("grid_cable")),
                                    "cross": _s(ac.get("grid_cross")), "length": _s(ac.get("grid_length")), "method": "D"}))
     earth = None
-    if (ac.get("distribution") or "bus") == "bus":
+    if (ac.get("distribution") or "bus") == "bus" or combined:
         # PE rozvaděče je uzemněný na ekvipotenciální svorkovnici (HOP) vně rozvaděče – vývod XPE → uzemnění
         earth = Element("fve.earth", x_blk + (42.5 if chain is not None else 35.0), 150.0 - 40.0, attrs={"ref": "", "desc": "ekvipotenciální svorkovnice (HOP)"})
         s.elements.append(earth)
@@ -358,13 +399,35 @@ def _build_project(spec: dict) -> Project:
     sb.layout.params.setdefault("in_", _s(ac.get("main_in") or 125))
     if not _ac_box_from_macros(p, sb, invs, ac, macros):
         _build_ac_switchboard(p, sb, invs, ac, spec)
+    if combined:
+        sb.layout.params["network"] = "3NPE, 50 Hz / DC IT"
+        sb.layout.params["un"] = "230/400 V AC / max. 1000 V DC"
+        groups = [(i + 1, t.ref, [g.ref for g in gens], _fuse_in(dc, mod, opt, t))
+                  for i, (t, gens) in enumerate(zip(inverter_elements, inverter_strings))]
+        # DC přívody za vším, co AC část označila X<číslo> (PE lišta, svorkovnice); porty JPS se posunou s nimi
+        used = [int(m.group(1)) for e in sb.elements if (m := re.fullmatch(r"X(\d+)", e.ref or ""))]
+        first = max([dc_first - 1, *used]) + 1
+        if first != dc_first:
+            for w in s.wires:
+                for end in (w.a, w.b):
+                    m = re.fullmatch(r"X(\d+)", end.port) if end.element_id == blk.id else None
+                    if m and int(m.group(1)) >= dc_first:
+                        end.port = f"X{int(m.group(1)) + first - dc_first}"
+        _add_dc_part(p, sb, groups, macros.get("dc_tech", ""), dc, first)
+        _apply_spd_component(sb, dc.get("spd_component"))
+        _apply_component(sb, dc.get("fuse_component"), "fve.fuse_disconnect")
     if chain is not None:
         _build_main_lv_board(p, p.create_switchboard_sheet(chain["rhn"]), conn, ac)
         if chain["rvn"] is not None:
             _build_mv_board(p, p.create_switchboard_sheet(chain["rvn"]), conn)
         _build_meter_board(p, p.create_switchboard_sheet(chain["re"]), conn)
+    if combined:
+        _align_route_boxes(p, blk, [[b for b, _g, _k, no, _r in dc_boxes if no == i + 1] for i in range(len(invs))])
     _align_bends(p)
-    _align_outputs(p, blk, None if chain else grid, earth)
+    if combined:
+        _route_house(p, blk, ac_wires, grid, earth)
+    else:
+        _align_outputs(p, blk, None if chain else grid, earth)
     if chain is not None:
         _align_connection(p, blk, chain)
     from envocad.model.frame import fit_sheet_to_content
@@ -373,6 +436,131 @@ def _build_project(spec: dict) -> Project:
     sync_feed_links(p)
     sync_cables(p)
     return p
+
+
+def building_kind(v) -> str:
+    """Druh objektu ze specifikace: "company" | "house" | "apartment" (přijme i české „firma“, „rodinný dům“, „RD“,
+    „bytový dům“, „BD“); prázdné = firma. Neznámá hodnota → ValueError."""
+    t = _s(v).strip().lower()
+    if not t:
+        return "company"
+    aliases = {**{k: k for k in BUILDINGS}, **{c: k for k, c in BUILDINGS.items()},
+               "rd": "house", "bd": "apartment", "rodinny dum": "house", "bytovy dum": "apartment"}
+    if t not in aliases:
+        raise ValueError(f"Neznámý druh objektu „{v}“ – zadejte firma, rodinný dům nebo bytový dům.")
+    return aliases[t]
+
+
+def _add_dc_part(p: Project, sheet: Sheet, groups: list[tuple[int, str, list[str], str]], entry, dc: dict,
+                 first: int) -> None:
+    """DC část rozvaděče FVE rodinného domu (za AC částí): na každý string pojistkový odpínač + SPD (makro
+    `dc_tech`, jinak `build_dc_strings`); přívody X{first}…, vývody X{first + n}… přes všechny střídače.
+    `groups` = [(č. střídače, střídač, stringy, In pojistek)]. Přístroje se pak rozmístí: DC část, za ní AC."""
+    ac_ids = [pl.element_id for pl in sheet.layout.placements]
+    dx0 = max((e.x for e in sheet.elements), default=0.0) + 60.0
+    n = sum(len(g[2]) for g in groups)
+    k0 = first - 1
+    done = False
+    for inv_no, inv_ref, strings, fuse_in in groups:
+        box = {**dc, "fuse_in": fuse_in}
+        done = _dc_box_from_macro(p, sheet, strings, entry, box, inv_no, inv_ref, k0=k0, n=n, dx0=dx0)
+        if not done:
+            break
+        k0 += len(strings)
+    if not done:   # makro chybí (pak pro žádný střídač): kódem, všechny stringy najednou, číslování jako u makra
+        build_dc_strings(p, sheet, [g for grp in groups for g in grp[2]], "tech", _s(groups[0][3]),
+                         spd=_s(dc.get("spd") or "T2"), first=first, dx=dx0)
+    new = [pl.element_id for pl in sheet.layout.placements if pl.element_id not in ac_ids]
+    by_id = {e.id: e for e in sheet.elements}
+    _place_sequential(sheet, [by_id[i] for i in [*new, *ac_ids] if i in by_id])
+
+
+def _align_route_boxes(p: Project, blk: Element, chains: list[list[Element]]) -> None:
+    """Rozvaděče po trase rodinného domu na výšku přívodů rozvaděče FVE: vývody posledního rozvaděče trasy leží
+    proti DC přívodům RFVE, vodiče vedou rovně (bez lomů, přes které by šly popisky kabelů). Celý řetěz rozvaděčů
+    střídače se posune stejně; kdyby se rozvaděče různých střídačů překryly, zůstane lom."""
+    lib = _lib()
+    s = p.sheets[0]
+    plan: list[tuple[list[Element], float, list[Wire]]] = []
+    spans: list[tuple[float, float]] = []
+    for chain in chains:
+        if not chain:
+            continue
+        last = chain[-1]
+        ws = [w for w in s.wires if w.a.element_id == last.id and w.b.element_id == blk.id]
+        if not ws:
+            continue
+        dys = {round(blk.port_pos(element_symbol(p, blk, lib), w.b.port)[1]
+                     - last.port_pos(element_symbol(p, last, lib), w.a.port)[1], 3) for w in ws}
+        if len(dys) != 1:
+            return
+        dy = dys.pop()
+        half = max(abs(pt.y) for pt in element_symbol(p, last, lib).ports) + PORT_PITCH
+        spans.append((last.y + dy - half, last.y + dy + half))
+        plan.append((chain, dy, ws))
+    spans.sort()
+    if any(a[1] > b[0] for a, b in pairwise(spans)):
+        return
+    for chain, dy, ws in plan:
+        for b in chain:
+            b.y += dy
+        for w in ws:
+            w.points = []
+
+
+def _route_house(p: Project, blk: Element, ac_wires: list[Wire], grid: Element, earth: Element | None) -> None:
+    """JPS rodinného domu: rozvaděč FVE stojí před střídači. AC vodiče od střídačů vedou nad vším zpět na přívody
+    X1…Xn vlevo (vnější lom pro dolní střídač – bez křížení), vývod XOUT pod vším k síti za střídači, uzemnění (HOP)
+    hned pod vývod XPE."""
+    from envocad.model.textlayout import sheet_content_boxes
+    lib = _lib()
+    s = p.sheets[0]
+
+    def port(e: Element, name: str) -> tuple[float, float]:
+        return e.port_pos(element_symbol(p, e, lib), name)
+
+    def snap(v: float) -> float:
+        return round(v / 2.5) * 2.5
+
+    sheet = p.switchboard_sheet(blk.id)
+    names = {e.ref for e in (sheet.elements if sheet else []) if e.symbol_id == "sb.feed_out"}
+    w_grid = next(w for w in s.wires if grid.id in (w.a.element_id, w.b.element_id))
+    w_earth = next((w for w in s.wires if earth is not None and earth.id in (w.a.element_id, w.b.element_id)), None)
+    if earth is not None and "XPE" not in names:   # bez svodičů a PE vývodu (rozvod svorkami) – uzemnění nekreslit
+        s.elements.remove(earth)
+        s.wires.remove(w_earth)
+        earth, w_earth = None, None
+    bx = blk.x
+    if earth is not None:
+        xpe = port(blk, "XPE")
+        earth.x, earth.y = bx + 22.5, snap(xpe[1] - 15.0)
+        w_earth.points = [(bx + 22.5, xpe[1])]
+    # obálky obsahu bez AC vodičů a vodiče k síti (ty se teprve trasují)
+    routed = {w.id for w in ac_wires} | {w_grid.id}
+    keep = s.wires
+    s.wires = [w for w in keep if w.id not in routed]
+    try:
+        boxes = sheet_content_boxes(p, s, lib)
+    finally:
+        s.wires = keep
+    x_lo = bx - 15.0 - 5.0 * len(ac_wires)
+    x_hi = max(port(s.element(w.a.element_id), "AC")[0] for w in ac_wires) + 10.0 + 5.0 * len(ac_wires)
+    top = max((b[3] for b in boxes if b[2] >= x_lo and b[0] <= x_hi), default=blk.y)
+    y_top = snap(top + 7.5)
+    for i, w in enumerate(ac_wires):
+        ac = port(s.element(w.a.element_id), "AC")
+        feed = port(blk, w.b.port)
+        x_r, x_l, lane = ac[0] + 10.0 + 5.0 * i, bx - 20.0 - 5.0 * i, y_top + 5.0 * i
+        w.points = [(x_r, ac[1]), (x_r, lane), (x_l, lane), (x_l, feed[1])]
+    out = port(blk, "XOUT")
+    x_out = bx + 30.0
+    if w_earth is not None:   # svislý úsek k síti až za popiskem vodiče k uzemnění
+        from envocad.model.textlayout import compute_layout
+        lp = compute_layout(p, s, lib).wires.get(w_earth.id)
+        x_out = max([x_out, *(snap(b[2] + 5.0) for b in (lp.boxes if lp else []))])
+    bottom = min((b[1] for b in boxes if b[2] >= x_out - 5.0 and b[0] <= grid.x + 10.0), default=blk.y)
+    grid.y = snap(bottom - 7.5)
+    w_grid.points = [(x_out, out[1]), (x_out, grid.y)]
 
 
 def _fuse_in(dc: dict, mod: dict, opt: dict, inv: Element | None) -> str:
@@ -417,8 +605,9 @@ def _apply_spd_component(sheet: Sheet, cid) -> None:
     def norm(t: str) -> str:
         return "".join(t.upper().replace("DC", "").split())
 
-    for e in sheet.elements:
-        if e.symbol_id == "fve.spd" and norm(e.attrs.get("spd_type", "")) == norm(comp.params.get("spd_type", "")):
+    for e in sheet.elements:   # jen svodiče DC (rozvaděč FVE rodinného domu má i svodič AC)
+        if e.symbol_id == "fve.spd" and "DC" in e.attrs.get("spd_type", "").upper() \
+                and norm(e.attrs.get("spd_type", "")) == norm(comp.params.get("spd_type", "")):
             comp.apply_to(e)
 
 
@@ -946,24 +1135,27 @@ def _insert_macro(project: Project, sheet: Sheet, m, values: dict, dx: float, li
 
 
 def _dc_box_from_macro(project: Project, sheet: Sheet, strings: list[str], name, dc: dict,
-                       inv_no: int = 1, inv_ref: str = "") -> bool:
+                       inv_no: int = 1, inv_ref: str = "", k0: int = 0, n: int | None = None, dx0: float = 0.0) -> bool:
     """DC rozvaděč složený z makra na string. Kontext: k (pořadí v rozvaděči), nk (n + k), n, string (G3),
     i (číslo střídače), j (string u střídače) – ENVO číslování FU{i}.{j}, XS{i}.{j}, STRING {i}.{j} –, inverter;
-    základ ze specifikace fuse_in, disc_in, spd. `name` = položka `spec["macros"]` (název nebo objekt). False = makro chybí."""
+    základ ze specifikace fuse_in, disc_in, spd. `name` = položka `spec["macros"]` (název nebo objekt). False = makro chybí.
+    Rozvaděč FVE rodinného domu: `k0` = počet přívodů před stringy (k = k0 + pořadí), `n` = stringů celkem v rozvaděči,
+    `dx0` = posun DC části v listu."""
     from envocad.library.macros import find_macro, macro_pitch
     entry = _macro_ref(name)
     m = find_macro(entry[0]) if entry[0] else None
     if m is None:
         return False
     lib = _lib()
-    n = len(strings)
+    n = len(strings) if n is None else n
     pitch = macro_pitch(m)
     base = _macro_vars(dc, {})
     devices = []
-    for k, g in enumerate(strings, start=1):
-        ctx = {"k": k, "nk": n + k, "n": n, "string": g, "i": inv_no, "j": k, "inverter": inv_ref}
+    for j, g in enumerate(strings, start=1):
+        k = k0 + j
+        ctx = {"k": k, "nk": n + k, "n": n, "string": g, "i": inv_no, "j": j, "inverter": inv_ref}
         vals = _macro_values(m, entry, base, ctx, lib.component)
-        devices += _insert_macro(project, sheet, m, vals, (k - 1) * pitch, lib)
+        devices += _insert_macro(project, sheet, m, vals, dx0 + (k - 1) * pitch, lib)
     _place_sequential(sheet, devices)
     return True
 

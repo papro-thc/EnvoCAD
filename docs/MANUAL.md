@@ -251,7 +251,7 @@ ve stejném prostoru označení (funkce a umístění).
 ### Založení
 V blokovém schématu vlož **Rozvaděč (blok)** (R1), zapoj do něj kabely a dvakrát na něj klikni. Poprvé program nabídne
 **šablonu**: *AC rozvaděč FVE* (přívod, hlavní vypínač, rozvod, SPD, vývody s jističi), *DC rozvaděč* (každý
-string zvlášť: pojistkový odpínač / odpínač DC, SPD, vývod), nebo prázdný list. Otevře se záložka
+string zvlášť: pojistkový odpínač (u technologie) nebo jen průchozí svorky (po trase), SPD, vývod), nebo prázdný list. Otevře se záložka
 `R1 – schéma` – vícepólové schéma rozvaděče.
 
 **Rozvod** v rozvaděči jde dvěma způsoby (parametr šablony i průvodce): **sběrnice potenciálů** – prvek
@@ -557,11 +557,12 @@ posune se i vše, co je pod ním (mřížka 2,5 mm, `Ctrl+Z` vrátí). Pravé tl
 i pro PDF a DXF; strana drží automatické rozmístění, takže posun jedné části nehýbe ostatními.
 
 DC strana se dělá jako na stavbě: ke každému střídači vznikne **DC rozvaděč po trase** (počet zadáš, i 0 –
-odpínač DC a SPD na každý string, stringy jím procházejí odděleně) a **DC rozvaděč u technologie**
-(pojistkové odpojovače gPV a SPD DC na každý string). Výchozí přístroje podle praxe ENVO: **pojistkový odpojovač
+jen SPD na každý string, **bez odpínače**: přívod jde rovně na vývod a SPD odbočuje z přívodní svorky, stringy jím
+procházejí odděleně) a **DC rozvaděč u technologie** (pojistkové odpojovače gPV a SPD DC na každý string – jediné
+odpojovací místo stringů). Výchozí přístroje podle praxe ENVO: **pojistkový odpojovač
 ETI EFH 10 DC 2p** (vložky CH10x38 gPV 1000 V, max 25 A; kategorie DC-20B – **nespínat pod zátěží**, vypíná se
-odpínačem střídače / rozvaděče po trase), **svodič Weidmüller VPU PV I+II 3 1000** (ve výkresu typ, Uc 1000 V DC,
-Up ≤ 3,8 kV, ISCPV 11 kA – proto bez vlastní pojistky) připojený z výstupních svorek odpojovače / odpínače (strana
+odpínačem střídače), **svodič Weidmüller VPU PV I+II 3 1000** (ve výkresu typ, Uc 1000 V DC,
+Up ≤ 3,8 kV, ISCPV 11 kA – proto bez vlastní pojistky) připojený z výstupních svorek odpojovače (strana
 střídače) dvojitou dutinkou. **In pojistek** se při prázdném poli určí podle stringu (IEC 62548): nejmenší vložka
 ≥ 1,5 × Isc modulu, nejvýš 2,4 × Isc a max. jištění modulu z katalogu; SolarEdge (střídač nebo optimizéry) 25 A.
 Artikly mění `dc.fuse_component` a `dc.spd_component` ve specifikaci. **Stringy se v rozvaděči nikdy nespojují** – každý jde
@@ -570,6 +571,11 @@ zvlášť až na vlastní DC vstup střídače (DC1…DCn podle počtu MPPT × s
 na DC1, DC2… za sebou; paralelní spojení dělá
 jen SolarEdge a kreslí se jako jeden string). Blok DC rozvaděče v blokovém schématu má porty podle přívodů
 (X1…Xn od stringů) a vývodů (Xn+1… dál). Když obojí vypneš, vloží se jen samostatný odpínač DC v blokovém schématu.
+Průvodce se ptá i na **objekt** (`building` ve specifikaci): **firma** a **bytový dům** mají DC rozvaděče a AC
+rozvaděč zvlášť; u **rodinného domu** je DC i AC v jednom **rozvaděči FVE (RFVE)** – místo DC rozvaděče u technologie
+má RFVE na každý string pojistkový odpojovač a SPD DC (přívody za AC přívody od střídačů, vývody ke střídači) a k tomu
+AC část s vývodem do HDS. V blokovém schématu stojí RFVE před střídačem, AC kabel od střídače se vrací shora;
+rozvaděče po trase zůstávají. Přípojka VN se u rodinného domu negeneruje.
 AC rozvaděč má přívody po střídačích, jističe, rozvodné svorky s můstky, SPD, hlavní vypínač a vývod do HDS.
 Označení jsou jedinečná uvnitř každého rozvaděče (jako v EPLAN `+RDC1-X1`), takže X1 smí být v každém
 rozvaděči; listy blokového schématu sdílejí jeden prostor označení.

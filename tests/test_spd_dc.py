@@ -19,7 +19,7 @@ def lib():
 @pytest.fixture(scope="module")
 def route_box():
     p = build_project({"name": "t", "inverters": [{"ref": "T1", "strings": [24] * 2}], "dc": {"route_boxes": 1}})
-    sb = next(s for s in p.switchboards() if "po trase" in s.name)
+    sb = next(s for s in p.switchboards() if "u T1" in s.name)   # odpínače jen v rozvaděči u střídače
     return p, sb
 
 
@@ -63,14 +63,14 @@ def test_spd_branch_leaves_from_disconnector_terminal(route_box, lib):
 def test_production_twin_ferrule_and_cross(route_box):
     p, sb = route_box
     rows = production_wires(p, sb)
-    qs = next(e for e in sb.elements if e.symbol_id == "fve.dc_disconnect")
+    qs = next(e for e in sb.elements if e.symbol_id == "fve.fuse_disconnect")
     at_qs2 = [r for r in rows if f"{qs.ref}:2" in (r.local_from, r.local_to) and r.conductor == "L+"]
     assert len(at_qs2) == 2
     for r in at_qs2:
         assert r.cross == 6.0
         f = r.ferrule_from if r.local_from == f"{qs.ref}:2" else r.ferrule_to
         assert f is not None and f.twin and f.cross == 6.0
-        assert any("dvojitá dutinka 2×6" in n and "ověřit rozsah svorky" in n for n in r.notes)
+        assert not any("nevejde" in n for n in r.notes)   # ETI EFH 10 bere do 25 mm² – 2×6 se vejde
     pe = [r for r in rows if r.conductor == "PE" and "SPD" in r.local_from + r.local_to]
     assert pe and all(r.cross == 6.0 and r.cross_source == "PE SPD" for r in pe)
 

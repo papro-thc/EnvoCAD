@@ -75,10 +75,10 @@ def test_bus_template_all_ports_exist(lib, n):
 
 @pytest.mark.parametrize("kind", ["trasa", "Trasa", "po trase", "route", "  TRASA "])
 def test_dc_template_route_kinds(kind):
-    """#5: „trasa“ (i s velkým písmenem, „po trase“, „route“) = odpínače DC, ne pojistkové odpínače."""
+    """#5: „trasa“ (i s velkým písmenem, „po trase“, „route“) = jen SPD, bez odpínačů (ty jsou u střídače)."""
     _p, sb = _sb("dc", {"kind": kind, "n_strings": "2"})
     ids = {e.symbol_id for e in sb.elements}
-    assert "fve.dc_disconnect" in ids and "fve.fuse_disconnect" not in ids
+    assert "fve.spd" in ids and not ids & {"fve.dc_disconnect", "fve.fuse_disconnect"}
 
 
 def test_dc_template_tech_and_bad_kind():

@@ -1,5 +1,7 @@
 """Generování projektu ze specifikace (bez Qt)."""
 
+import pytest
+
 from envocad.generate import DEFAULT_SPEC, build_project
 from envocad.library.store import LibraryStore
 from envocad.model.checks import ERROR, WARNING, check_project
@@ -74,8 +76,11 @@ def test_dc_boxes_along_route():
     inv = next(e for e in s.elements if e.symbol_id == "fve.inverter")
     assert sum(1 for w in s.wires if w.touches(inv.id) and w.a.element_id == boxes[2].id) == 3
     route, tech = p.switchboard_sheet(boxes[0].id), p.switchboard_sheet(boxes[2].id)
-    assert sum(1 for e in route.elements if e.symbol_id == "fve.dc_disconnect") == 3
-    assert not [e for e in route.elements if e.symbol_id == "fve.fuse_disconnect"]
+    # po trase jen SPD (přívod rovně na vývod), odpojovací místo = pojistkové odpínače u střídače
+    assert not [e for e in route.elements if e.symbol_id in ("fve.dc_disconnect", "fve.fuse_disconnect")]
+    assert sum(1 for e in route.elements if e.symbol_id == "fve.spd") == 3
+    x1, x4 = (next(e for e in route.elements if e.ref == r) for r in ("X1", "X4"))
+    assert any(w.touches(x1.id) and w.touches(x4.id) for w in route.wires)
     fds = [e for e in tech.elements if e.symbol_id == "fve.fuse_disconnect"]
     assert len(fds) == 3 and fds[0].attrs["in_"] == "20"
     assert sum(1 for e in tech.elements if e.symbol_id == "fve.spd") == 3   # SPD na každý string, stringy se nespojují
@@ -170,3 +175,46 @@ def test_tz_uses_design_temperatures(tmp_path):
     export_tz_docx(p, LibraryStore(), out)
     heads = [c.text for t in Document(str(out)).tables for c in t.rows[0].cells]
     assert "Uoc při -20 °C [V]" in heads and "Umpp při 75 °C [V]" in heads
+
+
+_HOUSE_INV = {"p_ac": 10, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30}
+
+
+@pytest.mark.parametrize("dc", [{"route_boxes": 0}, {"route_boxes": 1}])
+def test_house_combined_switchboard(dc):
+    """Rodinný dům: DC i AC v jednom rozvaděči RFVE – pojistkové odpínače a SPD stringů vedle AC části."""
+    spec = {"building": "rodinný dům", "inverters": [{"ref": "T1", **_HOUSE_INV, "strings": [12, 12]}], "dc": dc}
+    p = build_project(spec)
+    lib = LibraryStore()
+    assert p.meta["building"] == "rodinný dům"
+    boards = [sh for sh in p.sheets if sh.is_switchboard]
+    assert [sh.loc for sh in boards] == (["RDC1"] if dc["route_boxes"] else []) + ["RFVE"]
+    rf = boards[-1]
+    sym = {e.symbol_id for e in rf.elements}
+    assert {"fve.fuse_disconnect", "fve.breaker_mcb", "sb.main_switch"} <= sym
+    assert sum(1 for e in rf.elements if e.symbol_id == "fve.fuse_disconnect") == 2
+    spds = [e.attrs["spd_type"] for e in rf.elements if e.symbol_id == "fve.spd"]
+    assert sorted(spds) == ["T1+T2", "T1+T2 DC", "T1+T2 DC"]
+    # artikly DC (pojistkový odpojovač, svodič DC) jen na DC přístroje, ne na svodič AC
+    assert {e.component_id for e in rf.elements if e.symbol_id == "fve.fuse_disconnect"} == {"eti-efh-10-dc-2p"}
+    assert {(e.attrs["spd_type"], e.component_id) for e in rf.elements if e.symbol_id == "fve.spd"} == \
+        {("T1+T2", None), ("T1+T2 DC", "weidmuller-vpu-pv-i-ii-3-1000")}
+    blk = next(e for e in p.sheets[0].elements if e.ref == "RFVE")
+    ports = [pt.name for pt in element_symbol(p, blk, lib).ports]
+    assert ports == ["X1", "X2", "X3", "X4", "X5", "XOUT", "XPE"]   # AC od T1, DC přívody, DC vývody, HDS, HOP
+    inv = next(e for e in p.sheets[0].elements if e.symbol_id == "fve.inverter")
+    assert sorted(w.b.port for w in p.sheets[0].wires if w.a.element_id == blk.id and w.b.element_id == inv.id) == ["DC1", "DC2"]
+    # vše na listu bez překryvů a chyb
+    fs = check_project(p, lib)
+    assert not [f for f in fs if f.severity in (ERROR, WARNING)], [f.text for f in fs if f.severity != "info"]
+
+
+def test_house_rejects_mv_and_unknown_building():
+    base = {"inverters": [{"ref": "T1", **_HOUSE_INV, "strings": [12]}]}
+    with pytest.raises(ValueError, match="Rodinný dům"):
+        build_project({**base, "building": "house", "connection": {"level": "vn"}})
+    with pytest.raises(ValueError, match="druh objektu"):
+        build_project({**base, "building": "garáž"})
+    p = build_project({**base, "building": "apartment"})
+    assert p.meta["building"] == "bytový dům"
+    assert [sh.loc for sh in p.sheets if sh.is_switchboard] == ["RDC1", "RDC2", "RH"]
