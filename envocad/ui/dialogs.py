@@ -482,6 +482,12 @@ class ProjectWizard(QDialog):
         form.addRow("Místo", self.place)
         form.addRow("Číslo zakázky", self.order)
         form.addRow("Zpracoval", self.author)
+        self.building = QComboBox()
+        self.building.addItem("firma (DC rozvaděče a AC rozvaděč zvlášť)", "company")
+        self.building.addItem("rodinný dům (DC i AC v jednom rozvaděči RFVE)", "house")
+        self.building.addItem("bytový dům (DC rozvaděče a AC rozvaděč zvlášť)", "apartment")
+        self.building.setToolTip("Rodinný dům: pojistkové odpínače a SPD stringů jsou v rozvaděči FVE spolu s AC částí")
+        form.addRow("Objekt", self.building)
         self.mod_type = QLineEdit()
         self.mod_p = QLineEdit("450")
         self.mod_voc = QLineEdit("49.5")
@@ -548,7 +554,7 @@ class ProjectWizard(QDialog):
         form.addRow("DC kabel / průřez / délka string → 1. DC rozvaděč [m]", self._triple(self.dc_cable, self.dc_cross, self.dc_len))
         self.dc_route_boxes = QLineEdit("1")
         self.dc_route_len = QLineEdit("20")
-        self.dc_route_boxes.setToolTip("DC rozvaděče po trase (odpínač DC + SPD na každý string); 0 = žádný")
+        self.dc_route_boxes.setToolTip("DC rozvaděče po trase (jen SPD na každý string, bez odpínače); 0 = žádný")
         form.addRow("DC rozvaděčů po trase / délka kabelu mezi nimi [m]", self._pair(self.dc_route_boxes, self.dc_route_len))
         self.dc_tech_box = QCheckBox("DC rozvaděč u technologie (pojistkové odpínače + SPD)")
         self.dc_tech_box.setChecked(True)
@@ -596,6 +602,10 @@ class ProjectWizard(QDialog):
         form.addRow("Měření / Sn trafa [kVA]", self._triple(self.conn_metering, self.tr_sn, self.conn_loop))
 
         def _conn_enabled() -> None:
+            house = self.building.currentData() == "house"   # rodinný dům: rozvaděč FVE do HDS, bez přípojky VN
+            if house:
+                self.conn_level.setCurrentIndex(0)
+            self.conn_level.setEnabled(not house)
             on = self.conn_level.currentData() == "vn"
             pole = self.conn_station.currentData() == "sloup"      # sloupová TS: měření na nn, bez kabelových polí
             self.conn_station.setEnabled(on)
@@ -606,6 +616,7 @@ class ProjectWizard(QDialog):
                 self.conn_metering.setCurrentIndex(0)
         self.conn_level.currentIndexChanged.connect(lambda _i: _conn_enabled())
         self.conn_station.currentIndexChanged.connect(lambda _i: _conn_enabled())
+        self.building.currentIndexChanged.connect(lambda _i: _conn_enabled())
         _conn_enabled()
         body = QWidget()      # dlouhý formulář v posuvné oblasti, tlačítka OK / Zrušit zůstávají vidět
         body.setLayout(form)
@@ -949,6 +960,7 @@ class ProjectWizard(QDialog):
             "name": self.name.text().strip() or "Nový projekt FVE",
             "meta": {"investor": self.investor.text().strip(), "place": self.place.text().strip(),
                      "order": self.order.text().strip(), "author": self.author.text().strip()},
+            "building": self.building.currentData(),
             "module": module,
             "site": site,
             "optimizer": {"type": self.opt_type.text().strip(), "per_module": v.get("opt_per") or 1},

@@ -525,6 +525,15 @@ def test_wizard_spec_dc_boxes(app):
     p = build_project(spec)
     assert len([s for s in p.sheets if s.is_switchboard]) == 1
     assert any(e.symbol_id == "fve.dc_disconnect" for e in p.sheets[0].elements)
+    # rodinný dům: jeden rozvaděč RFVE (DC + AC), přípojka VN nejde zvolit
+    d.dc_tech_box.setChecked(True)
+    d.conn_level.setCurrentIndex(1)
+    d.building.setCurrentIndex(d.building.findData("house"))
+    assert d.conn_level.currentData() == "nn" and not d.conn_level.isEnabled()
+    spec = d.spec()
+    assert spec["building"] == "house"
+    p = build_project(spec)
+    assert [s.loc for s in p.sheets if s.is_switchboard] == ["RFVE"]
 
 
 def test_macro_insert_and_branch_gui(app):

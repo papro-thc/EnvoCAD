@@ -1,7 +1,7 @@
 {
  "version": 2,
  "name": "DC string po trase",
- "description": "Generátor (po trase): X{k} → odpínač DC QS{i}.{j} {disc_in} → X{nk}, SPD-DC{i}.{j} {spd} DC, PE → XPE; proměnné k, nk, i, j, string, inverter, disc_in, spd",
+ "description": "Generátor (po trase): X{k} → X{nk} (průchozí svorky, bez odpínače), SPD-DC{i}.{j} {spd} DC z přívodní svorky, PE → XPE; pojistkové odpínače jen v rozvaděči u střídače; proměnné k, nk, i, j, string, inverter, spd",
  "role": "dc_route",
  "variables": [
   {
@@ -53,15 +53,6 @@
    "auto": true
   },
   {
-   "name": "disc_in",
-   "label": "In odpínače DC",
-   "type": "number",
-   "default": "32",
-   "unit": "A",
-   "required": true,
-   "min": 1
-  },
-  {
    "name": "spd",
    "label": "Svodič přepětí DC (typ)",
    "default": "T2",
@@ -70,24 +61,15 @@
  ],
  "value_sets": [
   {
-   "name": "Odpínač 32 A, SPD T2",
+   "name": "SPD T2",
    "values": {
-    "disc_in": "32",
     "spd": "T2"
    }
   },
   {
-   "name": "Odpínač 32 A, SPD T1+T2",
+   "name": "SPD T1+T2",
    "values": {
-    "disc_in": "32",
     "spd": "T1+T2"
-   }
-  },
-  {
-   "name": "Odpínač 32 A bez SPD",
-   "values": {
-    "disc_in": "32",
-    "spd": ""
    }
   }
  ],
@@ -106,21 +88,6 @@
     "attrs": {
      "ref": "X{k}",
      "desc": "od {string}"
-    },
-    "component_id": null
-   },
-   {
-    "id": "775d3b7bbac8",
-    "symbol_id": "fve.dc_disconnect",
-    "x": 60,
-    "y": 210,
-    "rotation": 270,
-    "attrs": {
-     "ref": "QS{i}.{j}",
-     "in_": "{disc_in}",
-     "un": "1000",
-     "poles": "2",
-     "modules": "2"
     },
     "component_id": null
    },
@@ -176,26 +143,6 @@
      "port": "1"
     },
     "b": {
-     "element_id": "775d3b7bbac8",
-     "port": "1"
-    },
-    "points": [],
-    "attrs": {
-     "ref": ""
-    },
-    "conductors": [
-     "L+",
-     "L-"
-    ],
-    "terminals": {}
-   },
-   {
-    "id": "1c35c7aefd48",
-    "a": {
-     "element_id": "775d3b7bbac8",
-     "port": "2"
-    },
-    "b": {
      "element_id": "a95547862305",
      "port": "1"
     },
@@ -212,8 +159,8 @@
    {
     "id": "f09176ecadc7",
     "a": {
-     "element_id": "775d3b7bbac8",
-     "port": "2"
+     "element_id": "7adaf53ad335",
+     "port": "1"
     },
     "b": {
      "element_id": "a5e2d8cdabe4",
