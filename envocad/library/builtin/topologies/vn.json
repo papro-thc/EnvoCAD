@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "id": "vn",
+  "name": "Připojení na vn",
+  "description": "Firma (bytový dům), připojení na vn (trafostanice): stringy → RFVE.DC (společný) → střídače → RFVE.AC → hlavní rozvaděč nn HR → transformátor TR → rozvaděč VN RVN → DS; elektroměrový rozvaděč RE s měřicími obvody jako odbočka. Nad 30 kWp síťová ochrana v RFVE.AC.",
+  "buildings": ["company", "apartment"],
+  "level": "vn",
+  "nodes": [
+    {"role": "rfve_dc", "ref": "RFVE.DC", "desc": "DC rozvaděč FVE", "per_inverter": false, "macros": {}},
+    {"role": "inverter"},
+    {"role": "rfve_ac", "ref": "RFVE.AC", "desc": "AC rozvaděč FVE", "macros": {},
+     "options": {"grid_protection": "auto"}},
+    {"role": "hr", "ref": "HR", "desc": "hlavní rozvaděč nn", "options": {"main_device": "breaker"}},
+    {"role": "tr", "ref": "TR", "desc": "transformátor", "sheet": false},
+    {"role": "rvn", "ref": "RVN", "desc": "rozvaděč VN"},
+    {"role": "grid", "desc": "distribuční soustava", "sheet": false},
+    {"role": "re", "ref": "RE", "desc": "elektroměrový rozvaděč", "branch": true}
+  ]
+}

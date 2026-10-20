@@ -23,10 +23,13 @@ envocad/
   model/      čistá data, žádné Qt  → testovatelné headless
     symbol.py   Symbol = grafická primitiva + porty + atributy
     project.py  Project → Sheet → Element (instance symbolu) + Wire
+    topology.py Topologie připojení (řetězec článků, obor-nezávislé role) – docs/design/topologie_f1_f2.md
   library/    knihovna prvků
     store.py       SQLite úložiště symbolů a komponent (artiklů)
     dxf_import.py  DXF → Symbol
+    topologies.py  presety topologií (builtin/topologies, sdílená, ~/.envocad/topologies) – jako makra
     builtin/       startovní symboly (JSON), verzované v gitu
+  generator/  generátor FVE podle topologie (F1: zatím spec.py – výběr topologie; sestavení dál generate.py)
   ui/         PySide6 GUI (nikdy neobsahuje business logiku)
     canvas.py       QGraphicsView – mřížka, zoom, snap
     items.py        QGraphicsItem obaly nad Element/Wire
