@@ -307,3 +307,17 @@ def test_house_rejects_mv_and_unknown_building():
     p = build_project({**base, "building": "apartment"})
     assert p.meta["building"] == "bytový dům"
     assert [sh.loc for sh in p.sheets if sh.is_switchboard] == ["RDC1", "RDC2", "RH"]
+
+
+def test_datasheet_solaredge_se25k_p1100_runergy():
+    """Artikly z datasheetů (katalogy/datasheet): SE25K + P1100 + modul 420 Wp bez chyb; Runergy 450 Wp má Isc 16,07 A
+    nad vstupem P1100 (14,1 A) → chyba stringu."""
+    lib = LibraryStore()
+    spec = {"name": "SE", "module": {"component_id": "longi-lr5-54hth-420m"},
+            "optimizer": {"component_id": "solaredge-p1100-4rm4mbt"},
+            "inverters": [{"ref": "T1", "component_id": "solaredge-se25k", "strings": [30, 32]}]}
+    p = build_project(spec)
+    assert not [f for f in check_project(p, lib) if f.severity in (ERROR, WARNING)]
+    spec["module"] = {"component_id": "runergy-hy-dh96n11b-450"}
+    p = build_project(spec)
+    assert any("Isc max vstupu optimizéru" in f.text for f in check_project(p, lib) if f.severity == ERROR)
