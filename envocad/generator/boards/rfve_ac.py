@@ -31,9 +31,6 @@ from envocad.model.topology import ChainNode
 # (`tools/gen_builtin_macros.py`). Vícepól se nemění (`multipole.flow_flipped`).
 AC_BUS_POS = (165.0, 175.0)     # sběrnice: B1 v x 105 (= přívod X1); parametrická (`model/busbar.py`): vývod 1 (PE)
                                 # v x 60 (XPE), 2 v x 82,5 (SPD), přívody B{k} po 30 mm, 3 za posledním přívodem
-
-
-                                # v x 60 (XPE), 2 v x 82,5 (SPD), přívody B{k} po 30 mm, 3 za posledním přívodem
 # pevná sběrnice (bez atributu `taps` – vlastní makra se sběrnicí bez atributu): čára x 90…270, vývody i:
 # x − 67,5 + 15·(i − 1), přívody zdola `BUS_B_X`
 BUS_B_X = [-60, -30, 0, 30, 60, 90, -45, -15, 15, 45, 75, 105]   # = tools/gen_builtin_fve.BUSBAR_B_X

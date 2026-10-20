@@ -706,3 +706,20 @@ def test_marking_report_cable_tags_and_sleeves():
     sb.layout.params["wire_marking"] = "none"
     ph, _ = production_wiring_list(p, lib, sb)
     assert "Návlečka odkud" not in ph
+
+
+def test_port_on_top_uses_element_symbol(lib):
+    """Směr portu bez čísla svorky ze značky prvku (`element_symbol`): parametrická sběrnice má přívod zdola B13
+    (port dole) – pevná značka z knihovny ho nemá a odhad podle jména by dal „nahoře“ (liché číslo). Osiřelý port
+    a prvek bez knihovny dál podle jména."""
+    from envocad.model.wiring import _port_on_top
+    p, s = _sb()
+    bus = _el(s, "sb.busbar", "1", taps=13)
+    f = _el(s, "fve.breaker_mcb", "F1", in_=16, poles=1, modules=1)
+    _w(s, f, "2", bus, "B13", ["L1"])
+    _w(s, f, "1", bus, "T13", ["L1"])
+    assert _port_on_top(p, bus, "B13", lib) is False
+    assert _port_on_top(p, bus, "T13", lib) is True
+    assert _port_on_top(p, bus, "B13", None) is True               # bez knihovny podle jména (liché = nahoře)
+    _w(s, f, "1", bus, "Z7", ["L1"])                                # osiřelý port → podle jména
+    assert _port_on_top(p, bus, "Z7", lib) is True

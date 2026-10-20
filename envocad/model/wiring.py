@@ -38,6 +38,7 @@ from envocad.model.project import (
     Project,
     Sheet,
     Wire,
+    element_symbol,
 )
 
 # ---- parametry ------------------------------------------------------------------------------------------------
@@ -408,13 +409,16 @@ def _terminal_number(terminal: str) -> str:
     return terminal.rpartition(":")[2] if ":" in terminal else terminal
 
 
-def _port_on_top(e: Element, port: str, lib=None) -> bool:
-    """Svorka bez čísla: nahoře/dole podle směru portu v symbolu (N/W = vstup nahoře), bez knihovny podle jména."""
+def _port_on_top(project: Project, e: Element, port: str, lib=None) -> bool:
+    """Svorka bez čísla: nahoře/dole podle směru portu ve značce prvku (`element_symbol` – i parametrická sběrnice,
+    střídač, blok ROZVADĚČ; N/W = vstup nahoře), bez knihovny nebo u osiřelého portu podle jména."""
     if is_feed(e):     # starý `sb.feed_in` měl port dole (S), `sb.feed_out` nahoře (N) – beze změny výstupu
         return feed_dir(e) == "out"
     if lib is not None:
         try:
-            return lib.get_symbol(e.symbol_id).port(port).dir in ("N", "W")
+            sym = element_symbol(project, e, lib)
+            if port not in sym.orphan_ports:     # osiřelý port („X1?“ pod značkou) směr nemá – podle jména
+                return sym.port(port).dir in ("N", "W")
         except (KeyError, StopIteration, ValueError, AttributeError):
             pass
     if port.upper() in ("PE", "PEN"):
@@ -430,7 +434,6 @@ def terminal_point(project: Project, sheet: Sheet, e: Element, port: str, conduc
     x = pos·17,5 + (k + 0,5)·W/póly, k = (n − 1)//2 z čísla svorky (N/nečíselné → pořadí žíly na portu);
     svorkový prvek rovnoměrně po šířce podle pořadí žíly. Lichá svorka nahoře (žlab r), sudá dole (žlab r+1),
     bez čísla podle směru portu; svorkový prvek nahoře. `lib` (nepovinně) upřesní směr portu."""
-    del project
     lay = sheet.layout
     width = lay.modules_per_row * MODULE_WIDTH
     found = placed_device(sheet, e, index)
@@ -460,7 +463,7 @@ def terminal_point(project: Project, sheet: Sheet, e: Element, port: str, conduc
         else:
             conds = port_conductors(sheet, e.id, port)
             k = conds.index(conductor) if conductor in conds else 0
-            top = _port_on_top(e, port, lib)
+            top = _port_on_top(project, e, port, lib)
         k = min(max(k, 0), poles - 1)
         x = x0 + (k + 0.5) * w_dev / poles
     axis = -(pl.row + 0.5) * lay.row_pitch_mm

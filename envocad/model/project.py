@@ -13,7 +13,7 @@ import uuid
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 
-from envocad.model.busbar import BUS_SYMBOL, busbar_symbol
+from envocad.model.busbar import BUS_SYMBOL, TAPS_ATTR, busbar_symbol
 from envocad.model.designation import (
     CABLE_SCOPE,
     FUNC,
@@ -1830,21 +1830,21 @@ def element_symbol(project: Project, e: Element, lib) -> Symbol:
     Nikdy nepadá na stavu projektu: symbol, který v knihovně není, nahradí zástupná značka (`placeholder`)
     s porty podle vodičů a port, na který vede vodič, ale značka ho nemá, se doplní jako osiřelý („X1?“,
     `orphan_ports`). Obojí hlásí kontrola projektu (`symbol`, `bad_port`)."""
+    used = _used_ports(project, e)      # jednou – hledá list prvku a prochází jeho vodiče
     try:
         base = lib.get_symbol(e.symbol_id)
     except KeyError:
-        return placeholder_symbol(e.symbol_id, _used_ports(project, e))
+        return placeholder_symbol(e.symbol_id, used)
     if e.symbol_id == "fve.switchboard":
         sym = switchboard_symbol(project, e, base)
     elif e.symbol_id in INVERTER_SYMBOLS:
         sym = inverter_symbol(project, e, base)
     elif is_feed(e):
         sym = feed_symbol(e, base)
-    elif e.symbol_id == BUS_SYMBOL:
-        sym = busbar_symbol(e, base, _used_ports(project, e))
+    elif e.symbol_id == BUS_SYMBOL and str(e.attrs.get(TAPS_ATTR, "")).strip():
+        sym = busbar_symbol(e, base, used)     # jen parametrická sběrnice (pevná = značka z knihovny)
     else:
         sym = base
-    used = _used_ports(project, e)
     if used and not used <= {p.name for p in sym.ports}:
         sym = with_orphan_ports(sym, used)
     return sym

@@ -373,3 +373,22 @@ def test_busbar_symbol_json_matches_generator():
                        / "sb.busbar.json").read_text("utf-8"))
     assert json.loads(json.dumps(src)) == data
     assert {a["key"] for a in data["attributes"]} >= set(PARAM_KEYS)
+
+
+def test_element_symbol_busbar_only_with_taps(lib, monkeypatch):
+    """`element_symbol`: sběrnice bez (nebo s prázdným) `taps` = značka z knihovny bez volání `busbar_symbol`;
+    použité porty se počítají jednou."""
+    from envocad.model import project as prj
+    calls = {"bus": 0, "used": 0}
+    real_bus, real_used = prj.busbar_symbol, prj._used_ports
+    monkeypatch.setattr(prj, "busbar_symbol", lambda *a: calls.__setitem__("bus", calls["bus"] + 1) or real_bus(*a))
+    monkeypatch.setattr(prj, "_used_ports", lambda *a: calls.__setitem__("used", calls["used"] + 1) or real_used(*a))
+    p = Project()
+    s = p.sheets[0]
+    fixed = Element("sb.busbar", attrs={"ref": "", "taps": " "})
+    para = Element("sb.busbar", attrs={"ref": "", "taps": "3"})
+    s.elements += [fixed, para]
+    assert element_symbol(p, fixed, lib) is lib.get_symbol("sb.busbar")
+    assert calls == {"bus": 0, "used": 1}
+    assert element_symbol(p, para, lib).port("B3").x == B1_X + 2 * DEFAULT_PITCH
+    assert calls == {"bus": 1, "used": 2}
