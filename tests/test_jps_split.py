@@ -474,7 +474,7 @@ def test_split_with_transformer_station(lib):
     ac = js[0]
     blocks = {e.ref for e in ac.elements if e.symbol_id == "fve.switchboard"}
     all_blocks = {e.ref for s in jps_sheets(one) for e in s.elements if e.symbol_id == "fve.switchboard"
-                  and not e.ref.startswith("RDC")}
+                  and not e.ref.startswith(("RDC", "RFVE.DC"))}
     assert blocks == all_blocks and any(e.symbol_id == "fve.transformer" for e in ac.elements)
     for s in js[1:]:
         assert {e.symbol_id for e in s.elements} <= {"fve.inverter", "fve.pv_string", "fve.switchboard", INTERRUPT_SYMBOL}

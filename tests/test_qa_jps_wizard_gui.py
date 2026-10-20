@@ -90,7 +90,7 @@ def test_macro_dialog_prefills_next_free_numbers(app, lib):
     from envocad.library.macros import K_START, find_macro
     from envocad.ui.dialogs import MacroValuesDialog
     p = build_project(spec(1, 4))
-    rdc = next(s for s in p.sheets if s.name.startswith("RDC2"))
+    rdc = next(s for s in p.sheets if s.name.startswith("RFVE.DC"))
     dc = find_macro("DC string v rozvaděči")
     d = MacroValuesDialog(dc, lib, project=p, sheet=rdc)
     assert d.k_start is not None and d.k_start.text() == "9" and d.extra.isChecked()
@@ -102,7 +102,7 @@ def test_macro_dialog_prefills_next_free_numbers(app, lib):
     d.k_start.setText("0")
     d.values()
     assert any("Číslovat od" in e for e in d.errors)
-    # AC přívod do RH s X1 → k = 2, střídač T2
+    # AC přívod do RFVE.AC s X1 → k = 2, střídač T2
     ac = find_macro("AC přívod střídače")
     d = MacroValuesDialog(ac, lib, project=p, sheet=p.sheets[-1])
     vals = d.values()
@@ -147,7 +147,7 @@ def test_insert_macro_continues_numbering_in_switchboard(app, lib, monkeypatch):
     from envocad.ui import dialogs
     p = build_project(spec(1, 4))
     w = _win(lib, p)
-    rdc = next(s for s in p.sheets if s.name.startswith("RDC2"))
+    rdc = next(s for s in p.sheets if s.name.startswith("RFVE.DC"))
     w.open_sheet(rdc, "schematic")
     real = dialogs.MacroValuesDialog
 
@@ -229,7 +229,7 @@ def test_multipole_scene_uses_model_labels_and_pe_join(app, lib):
     from envocad.ui.multipole_view import ConductorItem, PeJoinItem
     p = build_project(spec(1, 2))
     w = _win(lib, p)
-    sheet = next(s for s in p.sheets if s.name.startswith("RDC2"))
+    sheet = next(s for s in p.sheets if s.name.startswith("RFVE.DC"))
     w.open_sheet(sheet, "multipole")
     sc = w.view.scene()
     geo = multipole_geometry(p, sheet, lib)

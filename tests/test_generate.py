@@ -66,10 +66,10 @@ def test_dc_boxes_along_route():
     p = build_project(spec)
     lib = LibraryStore()
     s = p.sheets[0]
-    boxes = [e for e in s.elements if e.symbol_id == "fve.switchboard" and e.ref.startswith("RDC")]
-    assert [b.ref for b in boxes] == ["RDC1", "RDC2", "RDC3"]
+    boxes = [e for e in s.elements if e.symbol_id == "fve.switchboard" and e.ref.startswith(("RDC", "RFVE.DC"))]
+    assert [b.ref for b in boxes] == ["RDC1", "RDC2", "RFVE.DC"]   # po trase RDCn, u technologie RFVE.DC
     assert [pt.name for pt in element_symbol(p, boxes[0], lib).ports] == ["X1", "X2", "X3", "X4", "X5", "X6", "XPE"]
-    # string → RDC1 → RDC2 → RDC3 (u technologie) → střídač, každý string odděleně
+    # string → RDC1 → RDC2 → RFVE.DC (u technologie) → střídač, každý string odděleně
     g1 = next(e for e in s.elements if e.symbol_id == "fve.pv_string")
     chain = [w for w in s.wires if w.touches(g1.id)]
     assert len(chain) == 1 and chain[0].b.port == "X1"
@@ -306,7 +306,7 @@ def test_house_rejects_mv_and_unknown_building():
         build_project({**base, "building": "garáž"})
     p = build_project({**base, "building": "apartment"})
     assert p.meta["building"] == "bytový dům"
-    assert [sh.loc for sh in p.sheets if sh.is_switchboard] == ["RDC1", "RDC2", "RH"]
+    assert [sh.loc for sh in p.sheets if sh.is_switchboard] == ["RDC1", "RFVE.DC", "RFVE.AC"]
 
 
 def test_datasheet_solaredge_se25k_p1100_runergy():
@@ -400,19 +400,19 @@ def test_vn_fve_feeder_limited_by_main_breaker():
     spec = {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}],
             "connection": {"level": "vn", "transformer": {"sn": 50}}}
     p = build_project(spec)
-    rhn = next(sh for sh in p.sheets if sh.loc == "RHN")
+    rhn = next(sh for sh in p.sheets if sh.loc == "HR")
     x1 = next(e for e in rhn.elements if e.ref == "X1")
     w = next(w for w in rhn.wires if w.touches(x1.id))
     feeder = rhn.element(w.a.element_id if w.b.element_id == x1.id else w.b.element_id)
     ins = sorted((e.attrs["in_"] for e in rhn.elements if e.symbol_id == "fve.breaker_mccb"), key=float)
     assert feeder.attrs["in_"] == "50" and ins == ["50", "50", "100"]   # vývod FVE, spotřeba, hlavní jistič
     assert not [f for f in check_project(p, lib) if f.code in ("calc_selectivity", "breaker_no_in")]
-    # 630 kVA (HJ 1000 A): beze změny – In hlavního vypínače RH
+    # 630 kVA (HJ 1000 A): beze změny – In hlavního vypínače RFVE.AC
     assert fve_feeder_in({"transformer": {"sn": 630}}, {"main_in": 125}, [])[0] == "125"
     # FVE 60 kW na 50 kVA: žádný selektivní vývod neunese proud → prázdné In + chyba F7, nic se nedosazuje
     big = {**spec, "inverters": [{"ref": "T1", **_INV25, "p_ac": 60, "strings": [20, 20]}]}
     p = build_project(big)
-    rhn = next(sh for sh in p.sheets if sh.loc == "RHN")
+    rhn = next(sh for sh in p.sheets if sh.loc == "HR")
     assert [e.attrs["in_"] for e in rhn.elements if e.symbol_id == "fve.breaker_mccb"].count("") == 1
     assert [f.severity for f in _codes(p, lib, "breaker_no_in")] == [ERROR]
     assert fve_feeder_in({"transformer": {"sn": 50}}, {"main_in": 125, "breaker_in": 40},
@@ -501,7 +501,7 @@ def test_build_dc_strings_fuse_list_and_pitch():
 def test_protection_without_in_is_f7_error():
     from envocad.model.checks import protection_findings
     p = build_project({"inverters": [{"ref": "T1", **_INV25, "strings": [20]}]})
-    rh = next(sh for sh in p.sheets if sh.loc == "RH")
+    rh = next(sh for sh in p.sheets if sh.loc == "RFVE.AC")
     br = next(e for e in rh.elements if e.symbol_id == "fve.breaker_mcb")
     assert not protection_findings(p)
     br.attrs["in_"] = " "
@@ -551,3 +551,45 @@ def test_generated_vn_only_known_re_meter_warning(name):
     p = build_project(F7_CASES[name])
     fs = [f for f in check_project(p, LibraryStore()) if f.severity in (ERROR, WARNING)]
     assert [(f.code, f.sheet_name.split(" ")[0]) for f in fs] == [("mp_text_overlap", "RE")], [f.text for f in fs]
+
+
+# ---- označení rozvaděčů (docs/NAVRH_TOPOLOGIE.md, kap. 8 bod 9) -------------------------------------------------
+def test_switchboard_designations_company_two_inverters():
+    """Firma, 2 střídače: rozvaděč u technologie na střídač RFVE.DC1/RFVE.DC2 (pořadí střídačů), po trase RDC1, RDC2
+    souvisle, AC rozvaděč RFVE.AC; kódy jsou platné umístění (tečka uvnitř) a listy dědí +RFVE.DCn."""
+    from envocad.model.designation import LOC, validate_code
+    spec = {"inverters": [{"ref": "T1", **_INV25, "strings": [20]}, {"ref": "T2", **_INV25, "strings": [20]}],
+            "dc": {"route_boxes": 1}}
+    p = build_project(spec)
+    assert [sh.loc for sh in p.sheets if sh.is_switchboard] == ["RDC1", "RFVE.DC1", "RDC2", "RFVE.DC2", "RFVE.AC"]
+    assert all(not validate_code(sh.loc, LOC) for sh in p.switchboards())
+    tech = {b.attrs["desc"]: b.ref for b in p.sheets[0].elements if b.ref.startswith("RFVE.DC")}
+    assert tech == {"DC rozvaděč u T1": "RFVE.DC1", "DC rozvaděč u T2": "RFVE.DC2"}
+    assert {s.code for s in p.structures} >= {"RFVE.DC1", "RFVE.DC2", "RFVE.AC", "RDC1", "RDC2"}
+    assert not [f for f in check_project(p, LibraryStore()) if f.code in ("struct_syntax", "dup_ref")]
+
+
+def test_dc_box_ref_helper():
+    from envocad.generate import dc_box_ref
+    from envocad.model.project import Project
+    p = Project()
+    assert dc_box_ref("tech", 0, 1, p) == "RFVE.DC"
+    assert dc_box_ref("tech", 2, 3, p) == "RFVE.DC3"
+    assert dc_box_ref("route", 0, 1, p) == "RDC1"
+
+
+def test_switchboard_designations_vn_house_and_override():
+    """Přípojka VN: hlavní rozvaděč nn HR, vývod FVE „k RFVE.AC (FVE)“; rodinný dům jeden RFVE; zadané ref platí."""
+    p = build_project({"inverters": [{"ref": "T1", **_INV25, "strings": [20]}], "connection": {"level": "vn"}})
+    locs = [sh.loc for sh in p.switchboards()]
+    assert "HR" in locs and "RFVE.AC" in locs and "RHN" not in locs and "RH" not in locs
+    hr = next(sh for sh in p.switchboards() if sh.loc == "HR")
+    assert next(e for e in hr.elements if e.ref == "X1").attrs["desc"] == "k RFVE.AC (FVE)"
+    house = build_project({"building": "house", "inverters": [{"ref": "T1", **_HOUSE_INV, "strings": [12]}],
+                           "dc": {"route_boxes": 0}})
+    assert [sh.loc for sh in house.switchboards()] == ["RFVE"]
+    own = build_project({"inverters": [{"ref": "T1", **_INV25, "strings": [20]}], "switchboard": {"ref": "RH1"},
+                         "connection": {"level": "vn", "main_board": {"ref": "RHN"}}})
+    assert {"RH1", "RHN"} <= {sh.loc for sh in own.switchboards()}
+    hr = next(sh for sh in own.switchboards() if sh.loc == "RHN")
+    assert next(e for e in hr.elements if e.ref == "X1").attrs["desc"] == "k RH1 (FVE)"

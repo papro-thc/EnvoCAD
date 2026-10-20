@@ -58,7 +58,7 @@ def test_nn_connection_unchanged():
 @pytest.mark.parametrize("metering", ["nn", "vn"])
 def test_vn_connection_blocks_and_boards(metering):
     p = _vn(metering)
-    rhn, rvn, re_ = _board(p, "RHN"), _board(p, "RVN"), _board(p, "RE")
+    rhn, rvn, re_ = _board(p, "HR"), _board(p, "RVN"), _board(p, "RE")
     assert "fve.transformer" in _syms(p.sheets[0])
     assert "fve.ct" in _syms(rhn if metering == "nn" else rvn)
     assert _syms(re_).count("fve.meter") == 1 and "fve.meter" not in _syms(rhn) + _syms(rvn)
@@ -78,7 +78,7 @@ def test_vn_connection_blocks_and_boards(metering):
     assert cells == names
     # všechny části trafostanice nesou její označení
     st = {e.ref: e.attrs.get("station") for e in p.sheets[0].elements if e.attrs.get("station")}
-    assert set(st) == {"RHN", "TR1", "RVN", "RE"} and set(st.values()) == {"TS1 kiosková trafostanice"}
+    assert set(st) == {"HR", "TR1", "RVN", "RE"} and set(st.values()) == {"TS1 kiosková trafostanice"}
 
 
 def test_kobky_and_pole_station():
@@ -89,7 +89,7 @@ def test_kobky_and_pole_station():
     blk = _syms(p.sheets[0])
     assert {"fve.switch_disconnector_vn", "fve.fuse_vn", "fve.surge_arrester"} <= set(blk)
     assert blk.count("fve.grid") == 1                                       # bez smyčky
-    assert "fve.ct" in _syms(_board(p, "RHN"))                              # měření na nn
+    assert "fve.ct" in _syms(_board(p, "HR"))                              # měření na nn
 
 
 def test_vn_connection_checks_clean(lib):
@@ -186,7 +186,7 @@ def test_geometry_fits_page(lib, conn, paper):
     texts = {p.text for p in g.prims if p.kind == "text"}
     assert {"RFVE.AC", "T1", "DC: 3 stringy"} <= texts
     if conn:
-        assert {"RHN", "TR1", "630 kVA", "TS1", "RE"} <= texts
+        assert {"HR", "TR1", "630 kVA", "TS1", "RE"} <= texts
         (box,) = g.stations.values()
         # rozvaděče TS v rámečku TS, rozvaděč FVE mimo
         sheets = {n.sheet.id: n.sheet.name.split()[0] for n in g.nodes.values() if n.sheet.is_switchboard}
@@ -252,5 +252,5 @@ def test_single_line_dxf(tmp_path, lib):
     msp = doc.modelspace()
     texts = {e.dxf.text for e in msp.query("TEXT")}
     assert {"RVN", "TR1", "TA1", "TS1", "P3 měřicí pole"} <= texts
-    # rozvaděče RVN, RHN, RE, RH + 4 pole + trafostanice
+    # rozvaděče RVN, HR, RE, RFVE.AC + 4 pole + trafostanice
     assert len(msp.query('LWPOLYLINE[layer=="ROZVADECE"]')) == 9

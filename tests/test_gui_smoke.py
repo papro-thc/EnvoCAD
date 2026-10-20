@@ -1540,7 +1540,7 @@ def test_wizard_vn_connection_and_single_line_tab(app, tmp_path):
     d.conn_station.setCurrentIndex(d.conn_station.findData("kiosk"))
     d.conn_metering.setCurrentIndex(d.conn_metering.findData("vn"))
     p = build_project(d.spec())
-    assert {s.name.split()[0] for s in p.switchboards()} >= {"RHN", "RVN", "RE"}
+    assert {s.name.split()[0] for s in p.switchboards()} >= {"HR", "RVN", "RE"}
     w = MainWindow(LibraryStore(), p)
     w.open_single_line()
     assert isinstance(w.view, SingleLineView) and w.current_sheet is None and w.scene is None
@@ -1548,14 +1548,14 @@ def test_wizard_vn_connection_and_single_line_tab(app, tmp_path):
     assert sc.geometry.root is not None and sc.paper_label in ("A2", "A1")
     # ruční posun: transformátor (i vše pod ním) o 20 mm doprava, undo vrátí automatickou polohu
     tr = next(n for n in sc.geometry.nodes.values() if n.element.symbol_id == "fve.transformer")
-    rhn_x = next(n.x for n in sc.geometry.nodes.values() if n.element.ref == "XT" and n.sheet.name.startswith("RHN"))
+    hr_x = next(n.x for n in sc.geometry.nodes.values() if n.element.ref == "XT" and n.sheet.name.startswith("HR"))
     x0 = tr.x
     sc.move(tr.key, None, (20.0, 0.0))
     assert tr.element.sl_pos == (20.0, 0.0) and w.undo.canUndo()
     moved = {n.key: n for n in sc.geometry.nodes.values()}
     assert moved[tr.key].x == pytest.approx(x0 + 20)
-    assert next(n.x for n in moved.values() if n.element.ref == "XT" and n.sheet.name.startswith("RHN")) == \
-        pytest.approx(rhn_x + 20)
+    assert next(n.x for n in moved.values() if n.element.ref == "XT" and n.sheet.name.startswith("HR")) == \
+        pytest.approx(hr_x + 20)
     w.undo.undo()
     assert tr.element.sl_pos is None
     assert next(n.x for n in sc.geometry.nodes.values() if n.key == tr.key) == pytest.approx(x0)

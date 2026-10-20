@@ -138,7 +138,7 @@ def test_junction_has_no_ref_and_free_port_findings(lib):
 def test_suggest_numbering_dc_and_ac_macros(lib):
     from envocad.library.macros import K_START, expand, find_macro, resolve_values, suggest_numbering
     p = build_project(spec(1, 4))
-    rdc = next(s for s in p.sheets if s.name.startswith("RDC2"))
+    rdc = next(s for s in p.sheets if s.name.startswith("RFVE.DC"))
     rh = p.sheets[-1]
     dc = find_macro("DC string v rozvaděči")
     sug = suggest_numbering(p, rdc, dc)
@@ -223,7 +223,7 @@ def test_multipole_device_label_left_of_poles(lib):
     """FU1.1 (svislý tok) je vlevo od prvního pólu, zarovnaný doprava – nepřeškrtne žílu DC+; SPD také."""
     from envocad.model import multipole as mp
     p = build_project(spec(1, 2))
-    s = next(x for x in p.sheets if x.name.startswith("RDC2"))
+    s = next(x for x in p.sheets if x.name.startswith("RFVE.DC"))
     poles = {e.id: mp.element_poles(s, e, element_symbol(p, e, lib)) for e in s.elements}
     layout = mp.auto_layout(s, poles, x0=mp.MP_X0, y_top=s.height - mp.MP_Y_TOP, page_w=mp.page_width(s))
     for eid, ep in poles.items():
