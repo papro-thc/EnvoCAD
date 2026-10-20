@@ -3,6 +3,7 @@
 Soubory `*.json` (formát `docs/LIBRARY_FORMAT.md`, „Formát topologie“) ze tří složek, stejně jako makra:
 vestavěné `library/builtin/topologies/`, sdílené `<shared_library_dir>/topologies/`, vlastní `~/.envocad/topologies/`.
 Pozdější složka přebíjí stejné `id` (vlastní > sdílená > vestavěná). Neplatný soubor se vynechá (záznam v logu).
+Načtené topologie drží cache podle mtime složek a souborů (`load_topologies`, `clear_cache`).
 Model topologie: `envocad/model/topology.py`; výběr podle specifikace FVE: `envocad/generator/spec.py`.
 """
 from __future__ import annotations
@@ -66,17 +67,46 @@ def load_topology(path: Path | str, source: str = "vlastní",
         return None
 
 
+# cache `load_topologies`: klíč = role + stav složek (cesta, zdroj, mtime složky a jméno / mtime / velikost souborů);
+# `build_project` tak sdílenou složku (síťový disk) při každém sestavení jen vylistuje, soubory znovu nečte
+_CACHE: dict[tuple, dict[str, Topology]] = {}
+
+
+def _dir_state(d: Path, source: str) -> tuple:
+    try:
+        files = tuple((p.name, st.st_mtime_ns, st.st_size) for p in sorted(d.glob("*.json"))
+                      for st in (p.stat(),))
+        return (str(d), source, d.stat().st_mtime_ns, files)
+    except OSError:
+        return (str(d), source, None, ())   # neexistující / nepřístupná složka
+
+
+def clear_cache() -> None:
+    """Zahodí cache topologií (další `load_topologies` soubory znovu načte)."""
+    _CACHE.clear()
+
+
 def load_topologies(known_roles: Collection[str] | None = None) -> dict[str, Topology]:
-    """Všechny topologie podle `id` (vlastní > sdílená > vestavěná). Neplatné se vynechají (log)."""
+    """Všechny topologie podle `id` (vlastní > sdílená > vestavěná). Neplatné se vynechají (log – jednou, dokud se
+    složka nezmění). Výsledek se drží v cache podle změn složek a souborů (`_dir_state`); vrací vždy nový slovník."""
+    dirs = topology_dirs()
+    key = (tuple(sorted(known_roles)) if known_roles is not None else None,
+           tuple(_dir_state(d, source) for d, source in dirs))
+    hit = _CACHE.get(key)
+    if hit is not None:
+        return dict(hit)
     found: dict[str, Topology] = {}
-    for d, source in topology_dirs():
+    for d, source in dirs:
         if not d.is_dir():
             continue
         for p in sorted(d.glob("*.json")):
             t = load_topology(p, source, known_roles)
             if t is not None:
                 found[t.id] = t
-    return found
+    if len(_CACHE) > 16:      # jiné složky (testy, změna nastavení) – staré klíče nejsou potřeba
+        _CACHE.clear()
+    _CACHE[key] = found
+    return dict(found)
 
 
 def list_topologies(known_roles: Collection[str] | None = None) -> list[Topology]:

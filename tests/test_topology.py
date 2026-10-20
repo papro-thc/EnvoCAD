@@ -337,3 +337,106 @@ def test_topology_dataclass_equality():
     a = Topology("a", "A", (ChainNode("inverter"),))
     b = Topology("a", "A", (ChainNode("inverter"),), path=tlib.Path("x.json"))
     assert a == b   # cesta se neporovnává
+
+
+# ---- review F1: role při výběru, rodinný dům, vn, druhy objektu, cache -----------------------------------------------
+
+def test_select_skips_shared_file_with_unknown_role(tmp_path, monkeypatch, caplog):
+    """Sdílená složka přepisuje „nn“ topologií s neznámou rolí: `select_topology` načítá s rolemi generátoru, soubor
+    se vynechá (log) a platí vestavěný preset – žádná chyba „neznámá role“ při generování."""
+    shared = tmp_path / "shared" / "topologies"
+    monkeypatch.setattr(tlib, "shared_dir", lambda: shared)
+    _write(shared, "nn", id="nn", name="NN sdílená", nodes=[{"role": "rfve_ac"}, {"role": "inverter"},
+                                                            {"role": "trafo_x"}])
+    assert tlib.load_topologies()["nn"].source == "sdílená"          # bez rolí se načte
+    with caplog.at_level(logging.WARNING, logger="envocad.library"):
+        topo = select_topology(_spec("company"))
+    assert topo.id == "nn" and topo.source == "vestavěná"
+    assert "neznámá role „trafo_x“" in caplog.text
+    from envocad.generate import build_project
+    p = build_project({"inverters": [{"ref": "T1", "p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200,
+                                      "u_mppt_max": 1000, "i_mppt_max": 30, "strings": [20]}]})
+    assert p.meta["topology"] == "nn"
+
+
+def _house(nodes, **kw):
+    return parse_topology(_data(id="rd_x", buildings=["house"], nodes=nodes, **kw))
+
+
+def test_house_topology_requires_rfve():
+    """Rodinný dům s `rfve_ac` místo `rfve` by rozbil projekt (DC vodiče do RFVE na neexistující přívody) – chyba."""
+    bad = _house([{"role": "inverter"}, {"role": "rfve_ac"}, {"role": "grid"}])
+    assert any("pro rodinný dům nemá článek „rfve“" in e for e in check_topology(bad))
+    assert any("nemá článek „rfve“" in e for e in check_topology(parse_topology(_data(buildings=[])), "house"))
+    assert check_topology(parse_topology(_data(buildings=[])), "company") == []
+    with pytest.raises(ValueError, match="pro rodinný dům nemá článek „rfve“"):
+        select_topology(_spec("house", topology="rd_x"), {"rd_x": bad})
+    ok = _house([{"role": "rfve"}, {"role": "inverter"}, {"role": "grid"}])
+    assert check_topology(ok) == [] and select_topology(_spec("house", topology="rd_x"), {"rd_x": ok}) is ok
+    both = _house([{"role": "rfve"}, {"role": "inverter"}, {"role": "rfve_ac"}, {"role": "grid"}])
+    assert any("„rfve“ i „rfve_ac“" in e for e in check_topology(both))
+
+
+def test_house_custom_topology_rfve_ac_build_raises(tmp_path, monkeypatch):
+    """Generátor: vlastní topologie RD s `rfve_ac` → ValueError místo projektu s chybou `bad_port`."""
+    user = tlib.user_dir()
+    _write(user, "rd", id="rd", name="RD vlastní", buildings=["house"],
+           nodes=[{"role": "inverter"}, {"role": "rfve_ac"}, {"role": "grid"}])
+    from envocad.generate import build_project
+    with pytest.raises(ValueError, match="nemá článek „rfve“"):
+        build_project({"building": "house", "inverters": [{"ref": "T1", "strings": [12]}]})
+
+
+def test_vn_topology_requires_mv_role():
+    """Úroveň vn bez HR / TR / RVN / RE / DS by tiše vytvořila přípojku nn – chyba."""
+    bad = parse_topology(_data(id="v", level="vn", nodes=[{"role": "rfve_dc"}, {"role": "inverter"},
+                                                          {"role": "rfve_ac"}]))
+    errs = check_topology(bad)
+    assert len(errs) == 1 and "pro připojení na vn, ale nemá žádný článek přípojky VN" in errs[0]
+    with pytest.raises(ValueError, match="nemá žádný článek přípojky VN"):
+        select_topology(_spec("company", "vn", "v"), {"v": bad})
+    only_grid = parse_topology(_data(id="v", level="vn", nodes=[{"role": "inverter"}, {"role": "grid"}]))
+    assert check_topology(only_grid) == []
+
+
+def test_check_topology_unknown_building():
+    t = parse_topology(_data(buildings=["company", "rodinný dům"]))
+    errs = check_topology(t)
+    assert errs == ["Topologie „test“: neznámý druh objektu „rodinný dům“ – známé: company, house, apartment."]
+    with pytest.raises(ValueError, match="neznámý druh objektu „rodinný dům“"):
+        select_topology(_spec("apartment", topology="test"), {"test": t})
+
+
+def test_load_topologies_cached_by_mtime(tmp_path, monkeypatch):
+    """Cache podle stavu složek: opakované načtení soubory znovu nečte, změna / nový / smazaný soubor ano."""
+    import os
+    shared = tmp_path / "shared" / "topologies"
+    monkeypatch.setattr(tlib, "shared_dir", lambda: shared)
+    p = _write(shared, "f", id="firemni", name="Firemní")
+    calls = []
+    real = tlib.load_topology
+    monkeypatch.setattr(tlib, "load_topology", lambda *a, **k: calls.append(a[0]) or real(*a, **k))
+    first = tlib.load_topologies(ROLES)
+    n = len(calls)
+    assert n >= 5 and first["firemni"].name == "Firemní"
+    second = tlib.load_topologies(ROLES)
+    assert len(calls) == n and second == first and second is not first     # z cache, nový slovník
+    second.pop("nn")
+    assert "nn" in tlib.load_topologies(ROLES)                              # úprava výsledku cache nepoškodí
+    assert len(calls) == n
+    tlib.load_topologies()                                                  # jiné role = jiný klíč
+    assert len(calls) == 2 * n
+    p.write_text(json.dumps(_data(id="firemni", name="Firemní 2")), encoding="utf-8")
+    st = p.stat()
+    os.utime(p, ns=(st.st_atime_ns, st.st_mtime_ns + 10**9))
+    assert tlib.load_topologies(ROLES)["firemni"].name == "Firemní 2"
+    p.unlink()
+    assert "firemni" not in tlib.load_topologies(ROLES)
+    # build_project sdílenou složku znovu nečte
+    from envocad.generate import build_project
+    spec = {"inverters": [{"ref": "T1", "p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000,
+                           "i_mppt_max": 30, "strings": [20]}]}
+    build_project(spec)
+    k = len(calls)
+    build_project(spec)
+    assert len(calls) == k

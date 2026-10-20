@@ -65,23 +65,48 @@ def chain_text(topology: Topology) -> str:
     return topology.chain_text(CHAIN_START, CHAIN_LABELS)
 
 
-def check_topology(topology: Topology) -> list[str]:
-    """Chyby topologie z pohledu generátoru FVE (česky): neznámé role, chybějící střídač."""
-    errs = [f"Topologie „{topology.id}“: neznámá role „{n.role}“ – známé: {', '.join(ROLES)}."
+def check_topology(topology: Topology, building: str | None = None) -> list[str]:
+    """Chyby topologie z pohledu generátoru FVE (česky): neznámé role a druhy objektu, chybějící střídač, rozvaděč FVE
+    rodinného domu, přípojka VN bez článku přípojky. `building` = druh objektu specifikace ("company" | "house" |
+    "apartment"); None = podle `topology.buildings`.
+
+    - Rodinný dům potřebuje článek `rfve` (rozvaděč FVE s DC i AC částí): builder `rfve_ac` DC část nestaví, DC
+      vodiče do RFVE by vedly na neexistující přívody (`bad_port`). Chyba místo tichého mapování `rfve_ac` → `rfve`:
+      projektant uvidí, že preset neodpovídá druhu objektu (označení a popis článku z presetu převezme F2).
+    - `rfve` a `rfve_ac` zároveň ne – oba builderu staví list hlavního AC rozvaděče (vznikly by dva listy).
+    - Úroveň vn potřebuje aspoň jeden článek přípojky VN (`boards.mv.MV_ROLES`), jinak by vznikla tichá přípojka nn.
+    """
+    from envocad.generator.boards.mv import MV_ROLES
+    tid = topology.id
+    errs = [f"Topologie „{tid}“: neznámá role „{n.role}“ – známé: {', '.join(ROLES)}."
             for n in topology.nodes if n.role not in ROLES]
+    errs += [f"Topologie „{tid}“: neznámý druh objektu „{b}“ – známé: {', '.join(BUILDINGS)}."
+             for b in topology.buildings if b not in BUILDINGS]
     if topology.node("inverter") is None:
-        errs.append(f"Topologie „{topology.id}“ nemá článek „inverter“ (střídače).")
+        errs.append(f"Topologie „{tid}“ nemá článek „inverter“ (střídače).")
+    house = building == "house" if building is not None else "house" in topology.buildings
+    if house and topology.node("rfve") is None:
+        errs.append(f"Topologie „{tid}“ pro rodinný dům nemá článek „rfve“ (rozvaděč FVE s DC i AC částí) – "
+                    f"„rfve_ac“ je AC rozvaděč pro firmu a bytový dům.")
+    if topology.node("rfve") is not None and topology.node("rfve_ac") is not None:
+        errs.append(f"Topologie „{tid}“ má článek „rfve“ i „rfve_ac“ – hlavní AC rozvaděč smí být jen jeden "
+                    f"(„rfve“ pro rodinný dům, „rfve_ac“ pro firmu a bytový dům).")
+    if topology.level == "vn" and not any(topology.node(r) is not None for r in MV_ROLES):
+        errs.append(f"Topologie „{tid}“ je pro připojení na vn, ale nemá žádný článek přípojky VN "
+                    f"({', '.join(MV_ROLES)}).")
     return errs
 
 
 def select_topology(spec: Mapping, topologies: Mapping[str, Topology] | None = None) -> Topology:
     """Topologie pro specifikaci (pravidla v docstringu modulu). `topologies` = výsledek
-    `library.topologies.load_topologies()` (None = načte se). Neplatná volba → ValueError (česky):
+    `library.topologies.load_topologies(ROLES)` (None = načte se s rolemi generátoru – soubor s neznámou rolí se
+    vynechá i s přepisem vestavěného presetu; knihovna drží cache podle změn souborů). Neplatná volba → ValueError (česky):
     neznámé `topology`, preset pro jiný druh objektu nebo jinou úroveň připojení než zadané `connection.level`,
     přípojka VN u rodinného domu, topologie s rolí, kterou generátor nezná."""
     if topologies is None:
+        # s rolemi generátoru: neplatný vlastní / sdílený soubor (neznámá role) se vynechá a platí vestavěný preset
         from envocad.library.topologies import load_topologies
-        topologies = load_topologies()
+        topologies = load_topologies(known_roles=ROLES)
     building = building_kind(spec.get("building"))
     conn = spec.get("connection") or {}
     level_given = _s(conn.get("level")).strip().lower()
@@ -99,7 +124,8 @@ def select_topology(spec: Mapping, topologies: Mapping[str, Topology] | None = N
         topo = topologies.get(AUTO_TOPOLOGY[key])
         if topo is None:
             raise ValueError(f"Chybí topologie „{AUTO_TOPOLOGY[key]}“ (knihovna topologií).")
-    if topo.buildings and building not in topo.buildings:
+    # neznámý druh objektu v presetu ohlásí `check_topology` (srozumitelněji než „je pro druh objektu …“)
+    if topo.buildings and building not in topo.buildings and all(b in BUILDINGS for b in topo.buildings):
         allowed = ", ".join(BUILDINGS.get(b, b) for b in topo.buildings)
         raise ValueError(f"Topologie „{topo.name}“ je pro druh objektu {allowed}, ne pro {BUILDINGS[building]}.")
     if building == "house" and level == "vn":
@@ -108,7 +134,7 @@ def select_topology(spec: Mapping, topologies: Mapping[str, Topology] | None = N
     if level != topo.level:
         raise ValueError(f"Topologie „{topo.name}“ je pro připojení na {topo.level}, ale specifikace má "
                          f"připojení na {level} (`connection.level`).")
-    errs = check_topology(topo)
+    errs = check_topology(topo, building)
     if errs:
         raise ValueError(" ".join(errs))
     return topo
