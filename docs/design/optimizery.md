@@ -68,7 +68,7 @@ def optimizer_issues(m, opt, t_min, t_max) -> list[str]
 def string_issues(m, inv, n, n_par=1, t_min=…, t_max=…, opt=None, n_opt=None) -> list[str]   # rozšířené, zpětně kompat.
 def string_limits(m, inv, t_min=…, t_max=…, opt=None) -> StringLimits
 def parallel_issues(members: list[tuple[int, ModuleData, str]]) -> list[str]   # (n, modul, orientace) na jednom MPPT
-def is_warning(msg) -> bool         # jediné místo: F7 (checks.calc_findings) i barva v asistentu (dnes klíčová slova)
+def is_warning(msg) -> bool         # jediné místo: F7 (checks.calc_findings) i barva v asistentu (šablony celého znění `WARNING_PATTERNS`, zbytek = chyba)
 ```
 **Vstup optimizéru** (všechny režimy, je-li `opt`): mpo·Uoc_mod(t_min) > u_in_max → chyba; Isc_mod > isc_in_max →
 chyba (**Isc STC bez 1,25** – limit vstupu výrobce je vztažen k Isc modulu; 1,25 je dimenzování vedení, zůstává

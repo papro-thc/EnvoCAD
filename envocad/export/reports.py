@@ -8,8 +8,8 @@ import functools
 from collections import OrderedDict
 
 from envocad.library.store import LibraryStore
-from envocad.model.notes import plural
 from envocad.model.designation import LOCATION_SYMBOLS, designation, element_name, full_designation, scope_key
+from envocad.model.notes import plural
 from envocad.model.project import NON_DEVICE_SYMBOLS, Element, Project, Sheet, clean_view
 from envocad.model.xref import natural_key
 

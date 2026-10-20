@@ -13,7 +13,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from envocad.model.calc import STRING_MODES   # režimy stringu (prázdné = classic) – jediná definice v calc
+from envocad.model.calc import STRING_MODES  # režimy stringu (prázdné = classic) – jediná definice v calc
 from envocad.model.project import Element
 
 REQUIRED = ["id", "manufacturer", "part_number", "name", "category", "symbol_id", "datasheet_url", "source"]

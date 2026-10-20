@@ -806,21 +806,22 @@ def _group_lengths(units: list[int], inv: InverterData, u_min: int, u_max: int) 
     total, n_groups = sum(units), len(sizes)
     for spread in range(3):
         for lo in range(total // len(units), total // len(units) - spread - 1, -1):
-            if lo < u_min or lo + spread > u_max:
+            top = min(spread, u_max - lo)           # x_j ∈ 0…top (délka MPPT lo + x_j ≤ u_max)
+            if lo < u_min or top < 0:
                 continue
-            rest = total - lo * len(units)          # rozdělit jako Σ sizes[j] · x_j, x_j ∈ 0…spread
+            rest = total - lo * len(units)          # rozdělit jako Σ sizes[j] · x_j
             if rest < 0:
                 continue
             # reach[j] = součty dosažitelné skupinami j… (pro rekonstrukci zleva: delší stringy dřív)
             reach = [set() for _ in range(n_groups + 1)]
             reach[n_groups] = {0}
             for j in range(n_groups - 1, -1, -1):
-                reach[j] = {r + sizes[j] * x for r in reach[j + 1] for x in range(spread + 1) if r + sizes[j] * x <= rest}
+                reach[j] = {r + sizes[j] * x for r in reach[j + 1] for x in range(top + 1) if r + sizes[j] * x <= rest}
             if rest not in reach[0]:
                 continue
             out: list[int] = []
             for j in range(n_groups):
-                x = next(x for x in range(spread, -1, -1) if rest - sizes[j] * x in reach[j + 1])
+                x = next(x for x in range(top, -1, -1) if rest - sizes[j] * x in reach[j + 1])
                 rest -= sizes[j] * x
                 out += [lo + x] * sizes[j]
             return out
