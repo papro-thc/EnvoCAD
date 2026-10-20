@@ -59,13 +59,13 @@ panely, druhým stiskem se vrátí.
 položkách menu (i bez diakritiky), šipkami vybereš, Enter spustí.
 
 **Pravé tlačítko** ve výkresu (blokové schéma i schéma rozvaděče) vybere položku pod kurzorem a nabídne Vlastnosti, Otočit,
-Kopírovat a Smazat (v blokovém schématu i Uložit výběr jako makro); u vodiče navíc Svorky, Kabel a Narovnat (Narovnat jen v blokovém schématu),
-u bloku ROZVADĚČ Otevřít rozvaděč, na prázdném místě Vložit značku, Vodič a Přizpůsobit list (a Vložit, když je
-něco zkopírované). V režimu Vodič nebo Vkládání pravé tlačítko jen
+Zrcadlit (jen v blokovém schématu), Kopírovat a Smazat (v blokovém schématu i Uložit výběr jako makro); u vodiče navíc Svorky, Kabel a Narovnat (Narovnat jen v blokovém schématu),
+u bloku ROZVADĚČ Otevřít rozvaděč, na prázdném místě Vložit značku, Vodič a Přizpůsobit list; Vložit kopii je na prázdném místě vždy,
+zašedlé, dokud není co vložit. Všechny položky jsou stejné příkazy jako v menu a na lištách (stejné zkratky, `Ctrl+Z` vrací). V režimu Vodič nebo Vkládání pravé tlačítko jen
 ukončí režim. Připomínky mají vlastní menu (sekce 9).
 
 **Stavový řádek** vlevo ukazuje nápovědu k aktuálnímu režimu, vpravo souřadnice kurzoru v mm (Y nahoru jako ve
-výkresu), mřížku 2,5 mm, zoom (100 % = skutečná velikost na monitoru), souhrn kontroly („F7: 2 chyby, 5 varování“,
+výkresu, zaokrouhlené na mřížku 2,5 mm – tam se bod skutečně umístí), mřížku 2,5 mm, zoom (100 % = skutečná velikost na monitoru), souhrn kontroly („F7: 2 chyby, 5 varování“,
 klik otevře panel Kontrola) a „● neuloženo“, když má projekt neuložené změny.
 
 Nový prázdný projekt ukáže **úvodní obrazovku** s průvodcem, otevřením a posledními projekty; zmizí po první změně

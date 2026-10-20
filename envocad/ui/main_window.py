@@ -2294,8 +2294,9 @@ class MainWindow(QMainWindow):
 
     def _show_cursor(self, view, pos) -> None:
         if isinstance(view, SchematicView):          # JPS, vícepól, plán svorkovnice: scéna = mm, Y dolů
-            p = view.mapToScene(pos)
-            self._sb_coords.setText(f"X {p.x():.1f}  Y {-p.y():.1f} mm".replace(".", ","))
+            from envocad.ui.items import snap
+            p = view.mapToScene(pos)         # na mřížce (2,5 mm), tam, kam by se bod skutečně umístil
+            self._sb_coords.setText(f"X {snap(p.x()):.1f}  Y {snap(-p.y()):.1f} mm".replace(".", ","))
         else:
             self._sb_coords.setText("")
 
@@ -2376,8 +2377,7 @@ class MainWindow(QMainWindow):
             if self.scene is not None:
                 menu.addAction(self.actions["save_macro"])
             menu.addSeparator()
-        if self.actions["paste"].isEnabled():
-            menu.addAction(self.actions["paste"])
+        menu.addAction(self.actions["paste"])          # zašedlé, dokud není co vložit / mimo JPS
         menu.addAction(self.actions["insert_symbol"])
         menu.addAction(self.actions["wire"])
         menu.addSeparator()
