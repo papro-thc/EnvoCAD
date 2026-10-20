@@ -451,7 +451,7 @@ class MainWindow(QMainWindow):
         if not self._panels_wired:
             self.lib_panel.symbol_chosen.connect(lambda sid: self.draw_scene and self.draw_scene.start_place(sid))
             self.lib_panel.macro_chosen.connect(self.insert_macro)
-            self.props_panel.attr_edited.connect(lambda *a: self.scene and self.scene.set_attr(*a))
+            self.props_panel.attr_edited.connect(self._panel_attr_edited)
             self._panels_wired = True
         for tab in built:
             self._add_tab(*tab)
@@ -512,15 +512,13 @@ class MainWindow(QMainWindow):
                                    commit=lambda b, a, k, sh=sheet: self.commit_layout(sh, b, a, k))
             scene.layout_changed.connect(panel.refresh)
             scene.enclosure_requested.connect(lambda p=panel: p.name.setFocus())
-            scene.selection_info.connect(lambda it: self.props_panel.show_item(
-                self._element_item_for(sheet, it.element.id) if it else None))
+            scene.selection_info.connect(lambda it, sh=sheet: self._show_derived_props(sh, it))
             view.side_panel = panel
             title = f"{sheet.name} – rozložení"
         elif kind == "multipole":
             scene = MultipoleScene(project, sheet, self.library, self.undo)
             view = MultipoleView(scene)
-            scene.selection_info.connect(lambda it: self.props_panel.show_item(
-                self._element_item_for(sheet, it.element.id) if it is not None and hasattr(it, "element") else None))
+            scene.selection_info.connect(lambda it, sh=sheet: self._show_derived_props(sh, it))
             scene.edit_element_requested.connect(lambda eid, sh=sheet: self._edit_element_anywhere(sh, eid))
             scene.delete_requested.connect(lambda eids, wids, sh=sheet: self._delete_anywhere(sh, eids, wids))
             scene.mode_changed.connect(self._show_mode)
@@ -574,14 +572,48 @@ class MainWindow(QMainWindow):
         if i >= 0:
             self._unwrap(self.tabs.widget(i)).scene().rebuild()
 
-    def _edit_element_anywhere(self, sheet: Sheet, eid: str) -> None:
-        """Parametry prvku z odvozeného pohledu: dialog jde přes JPS scénu listu (otevře se skrytě, záložka zůstane)."""
-        cur = self.tabs.currentIndex()
+    def _jps_scene_ensure(self, sheet: Sheet) -> SchematicScene | None:
+        """JPS scéna listu; když její záložka není otevřená, otevře se skrytě (aktivní záložka zůstane)."""
         sc = self._jps_scene(sheet)
         if sc is None:
+            cur = self.tabs.currentIndex()
             self.open_sheet(sheet, "schematic")
             sc = self._jps_scene(sheet)
             self.tabs.setCurrentIndex(cur)
+        return sc
+
+    def _show_derived_props(self, sheet: Sheet, it) -> None:
+        """Panel Vlastnosti pro prvek vybraný v odvozeném pohledu (vícepól, rozložení). Panel i úpravy jdou přes
+        JPS scénu listu; není-li otevřená, otevře se skrytě až po doběhnutí výběru (přestavba scén uprostřed
+        `selectionChanged` by položky smazala)."""
+        eid = it.element.id if it is not None and hasattr(it, "element") else None
+        if eid is None:
+            self.props_panel.show_item(None)
+            return
+        if self._jps_scene(sheet) is not None:
+            self.props_panel.show_item(self._element_item_for(sheet, eid))
+            return
+
+        def later(sh=sheet, eid=eid, view=self.view):
+            if self.view is not view:      # záložka se mezitím přepnula
+                return
+            sel = view.scene().selectedItems()
+            if len(sel) == 1 and getattr(getattr(sel[0], "element", None), "id", None) == eid:
+                self._jps_scene_ensure(sh)
+                self.props_panel.show_item(self._element_item_for(sh, eid))
+        QTimer.singleShot(0, later)
+
+    def _panel_attr_edited(self, target_id: str, is_wire: bool, key: str, value: str) -> None:
+        """Úprava v panelu Vlastnosti: na JPS listu přes jeho scénu, v odvozených pohledech přes JPS scénu listu."""
+        sc = self.scene
+        if sc is None and self.current_sheet is not None:
+            sc = self._jps_scene(self.current_sheet)
+        if sc is not None:
+            sc.set_attr(target_id, is_wire, key, value)
+
+    def _edit_element_anywhere(self, sheet: Sheet, eid: str) -> None:
+        """Parametry prvku z odvozeného pohledu: dialog jde přes JPS scénu listu (otevře se skrytě, záložka zůstane)."""
+        sc = self._jps_scene_ensure(sheet)
         if sc is not None:
             if eid not in sc.element_items:
                 sc.rebuild()
@@ -589,12 +621,7 @@ class MainWindow(QMainWindow):
 
     def _delete_anywhere(self, sheet: Sheet, eids: list, wids: list) -> None:
         """Mazání z odvozeného pohledu: příkaz jde přes JPS scénu listu (otevře se skrytě, záložka se nepřepne)."""
-        cur = self.tabs.currentIndex()
-        sc = self._jps_scene(sheet)
-        if sc is None:
-            self.open_sheet(sheet, "schematic")
-            sc = self._jps_scene(sheet)
-            self.tabs.setCurrentIndex(cur)
+        sc = self._jps_scene_ensure(sheet)
         if sc is not None and (eids or wids):
             sc.undo.push(commands.RemoveItemsCommand(sc, eids, wids))
 
@@ -602,7 +629,10 @@ class MainWindow(QMainWindow):
         i = self._find_tab(sheet, "schematic")
         if i < 0:
             return None
-        return self._unwrap(self.tabs.widget(i)).scene().element_items.get(eid)
+        sc = self._unwrap(self.tabs.widget(i)).scene()
+        if eid not in sc.element_items and any(e.id == eid for e in sheet.elements):
+            sc.rebuild()   # prvek vložený v jiném pohledu (vícepól, rozložení) – JPS scéna ho ještě nezná
+        return sc.element_items.get(eid)
 
     def _close_tab(self, index: int) -> None:
         log.info("close_tab %s", index)
