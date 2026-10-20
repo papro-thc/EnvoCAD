@@ -56,6 +56,8 @@ def test_topology_selected_from_unmerged_spec():
     assert {"HR", "RVN", "RE"} <= refs
     vn = generate.build_project({**spec, "topology": "", "connection": {"level": "vn"}})
     assert canon(p)["sheets"] == canon(vn)["sheets"]
+    assert p.meta == vn.meta and p.meta["topology"] == "vn"          # i id presetu a náhled řetězce
+    assert p.meta["topology_chain"] == "stringy → RFVE.DC → T → RFVE.AC → HR → TR → RVN → DS (+ RE)"
 
 
 def test_nn_hr_meter_same_drawing_as_nn():

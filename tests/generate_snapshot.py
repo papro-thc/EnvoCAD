@@ -65,6 +65,29 @@ CASES: dict[str, dict] = {
     # samostatný odpínač DC bez rozvaděčů (stará varianta)
     "dc_disconnect": {"inverters": [{"ref": "T1", **_INV, "strings": [20, 18]}],
                       "dc": {"route_boxes": 0, "tech_box": False, "disconnect": True}},
+    # --- doplněno po review F1 (snímek rozšířen jen o tyto případy; dřívější beze změny) ---
+    # rodinný dům jen AC (`dc.tech_box` false → RFVE „rozvaděč FVE (AC)“), rodinný dům s rozvodem svorkami
+    "house_ac_only": {"building": "house", "dc": {"tech_box": False},
+                      "inverters": [{"ref": "T1", **_INV, "strings": [16, 16]}]},
+    "house_terminals": {"building": "house", "ac": {"distribution": "terminals"},
+                        "inverters": [{"ref": "T1", **_INV, "strings": [16, 14]}]},
+    # firma s baterií u hybridního střídače (kabel baterie z `BATTERY_CABLE`)
+    "company_battery": {"inverters": [{"ref": "T1", **_INV, "strings": [20, 20]}],
+                        "battery": {"e_kwh": 15, "p_kw": 10, "type": "BYD HVS 15.4"}},
+    # tři rozvaděče po trase
+    "route_boxes3": {"inverters": [{"ref": "T1", **_INV, "strings": [20, 18]}], "dc": {"route_boxes": 3}},
+    # neurčené In pojistek stringů (Isc modulu tak velký, že žádná gPV v držáku nevyhoví → `in_unresolved`)
+    "fuse_in_unresolved": {"module": {"isc": 30, "i_fuse_max": 35},
+                           "inverters": [{"ref": "T1", **_INV, "strings": [20, 20]}]},
+    # makra se sadou hodnot a hodnotami proměnných (`spec.macros` jako objekt)
+    "macro_values": {"inverters": [{"ref": "T1", **_INV, "strings": [20, 18]},
+                                   {"ref": "T2", **_INV, "strings": [20]}],
+                     "macros": {"dc_tech": {"name": "DC string v rozvaděči", "value_set": "Pojistka 15 A gPV, SPD T2",
+                                            "values": {"fuse_in": 12}},
+                                "ac_feed": {"name": "AC přívod střídače", "values": {"breaker_in": 32}}}},
+    # jednofázový střídač
+    "inverter_1phase": {"inverters": [{"ref": "T1", "p_ac": 5, "phases": 1, "u_dc_max": 600, "u_mppt_min": 90,
+                                       "u_mppt_max": 550, "i_mppt_max": 16, "strings": [12, 10]}]},
 }
 
 _ID = re.compile(r"\b[0-9a-f]{12}\b")

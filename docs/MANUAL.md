@@ -664,6 +664,14 @@ Totéž umí příkaz `python -m envocad.generate spec.json vystup.ecp` – spec
 v `envocad/generate.py`. To je cesta pro AI agenty: z poptávky a datasheetů připraví specifikaci, program
 vygeneruje projekt, ty ho upravíš.
 
+**Topologie připojení**: generátor vybere preset řetězce (rodinný dům → `rd`, připojení na vn → `vn`, jinak `nn`;
+`nn_hr_meter` s měřením v HR jen volbou `"topology": "nn_hr_meter"` ve specifikaci). Do vlastností projektu zapíše
+`topology` (id presetu) a `topology_chain` (náhled řetězce, např. „stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS →
+DS“). **Náhled popisuje zvolený preset, ne výkres**: stávající HR, RE a HDS na nn (a RD u rodinného domu) zatím
+generátor nekreslí – výkres je stejný jako dřív a přibudou až s dalším krokem (F2). Vlastní nebo firemní presety
+(`~/.envocad/topologies/`, sdílená knihovna `topologies/`) s neznámou rolí se nenačtou (záznam v logu) a platí
+vestavěný preset; preset pro rodinný dům musí mít rozvaděč FVE `rfve`, preset na vn aspoň jeden článek přípojky VN.
+
 **Velké JPS na víc listů**: když by se JPS nevešlo na největší povolený list (firemní standard
 `jps_max_paper`, výchozí A2 – Knihovna → Firemní standard…), průvodce i příkaz `python -m envocad.generate` ho
 rozdělí blokové schéma: první list „Blokové schéma – AC a připojení“ (AC rozvaděč, síť, HOP; u přípojky VN celá
