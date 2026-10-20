@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 
 BUSBAR_INPUTS = 12     # přívody T1…T12 sběrnice sb.busbar (= `generate.AC_MAX_INVERTERS_BUS`)
+BUSBAR_B_X = [-60, -30, 0, 30, 60, 90, -45, -15, 15, 45, 75, 105]   # x přívodů zdola B1…B12 (= `generate.BUS_B_X`)
 OUT = Path(__file__).resolve().parents[1] / "envocad" / "library" / "builtin" / "fve"
 
 
@@ -66,6 +67,8 @@ def MP(pole, common=None, link=True, link_at=(0, 2)):
 
 
 REF = attr("ref", "Označení", "", True)
+# šipka směru toku na kabelovém výběžku přívodu (hrot k portu); vývod = `envocad.model.feed.FEED_ARROW_OUT`
+FEED_ARROW_IN = [{"type": "polyline", "points": [[-1, -5.5], [0, -3.5], [1, -5.5]], "closed": False}]
 TYPE = attr("type", "Typ", "", True)
 MFR = attr("manufacturer", "Výrobce")
 POLES = attr("poles", "Póly", "3")
@@ -442,36 +445,33 @@ SYMBOLS = [
         "id": "sb.busbar", "name": "Sběrnice (rozvodný vodič)", "category": "Svorky a propojení", "iec_ref": "",
         "description": "Rozvod potenciálů vodičem jako v EPLAN: ve vícepólu vodorovné čáry L1 L2 L3 N PE přes stranu "
                        "s názvy potenciálů na koncích, přístroje se na ně napojují odbočkou; 1 vstup, 12 přívodů shora, "
-                       "12 vývodů zdola",
+                       "12 vývodů zdola, 12 přívodů zdola (B1…B12)",
         "primitives": [{"type": "polyline", "points": [[-75, 0], [105, 0]], "closed": False},
                        {"type": "polyline", "points": [[-75, 1], [105, 1]], "closed": False}],
         # porty: IN vlevo nahoře, T1…T12 shora (přívody, jističe od střídačů – generátor: nejvýš 12 střídačů), 1…12 zdola (vývody) – šablona
         # AC rozvaděče potřebuje SPD + až 9 vývodů + PE (`templates.AC_MAX_OUTPUTS`, `BUSBAR_OUTPUTS`)
         "ports": [P("IN", -75, 5, "N")] + [P(f"T{i + 1}", -60 + i * 15, 5, "N") for i in range(BUSBAR_INPUTS)]
-                 + [P(f"{i + 1}", -67.5 + i * 15, -5, "S") for i in range(12)],
+                 + [P(f"{i + 1}", -67.5 + i * 15, -5, "S") for i in range(12)]
+                 # přívody zdola (rozvaděč FVE / AC rozvaděč: přívodní větev teče od svorky X dole nahoru do sběrnice):
+                 # B1…B6 po 30 mm od polohy T1 (= rozteč makra „AC přívod střídače“, svislý vodič bez lomu), B7…B12 mezi nimi;
+                 # vždy mimo polohy vývodů 1…12 (ty leží o 7,5 mm vedle)
+                 + [P(f"B{k + 1}", BUSBAR_B_X[k], -5, "S") for k in range(BUSBAR_INPUTS)],
         "attributes": [attr("ref", "Označení (předpona potenciálů, např. 1 → 1L1)", "", True), attr("desc", "Popis", "", True),
                        attr("in_", "In [A]"), attr("conductors", "Vodiče", "L1 L2 L3 N PE")],
         "label_pos": {"x": -75, "y": 7.5},
     },
     {
-        "id": "sb.feed_in", "name": "Přívod", "category": "Svorky a propojení", "iec_ref": "X",
-        "description": "Přívodní svorky rozvaděče (vazba na nadřazený list)",
-        # jen svorka: kroužek, krátký vnější vývod nahoru (kabel zvenku) – bez šipek
-        "primitives": [C(0, 0, 1.5), L(0, -1.5, 0, -5), L(0, 1.5, 0, 5), T(0, 7, "PŘÍVOD", 2)],
-        "ports": [P("1", 0, -5, "S")],
-        "attributes": [REF, attr("desc", "Popis", "", True), attr("from", "Odkud", "", True), attr("cable", "Kabel"),
-                       attr("terminal", "Svorka č.", "")],
-        # ve vícepólu: svorka na každou žílu (kroužek s číslem) a krátký vnější vývod, bez šipek a nápisů
-        "multipole": MP([C(0, -2.5, 1.5), L(0, -4, 0, -5), L(0, -1, 0, 3)], [], link=False),
-        "label_pos": {"x": 7, "y": 0},
-    },
-    {
-        "id": "sb.feed_out", "name": "Vývod", "category": "Svorky a propojení", "iec_ref": "X",
-        "description": "Vývodní svorky rozvaděče",
-        "primitives": [C(0, 0, 1.5), L(0, 1.5, 0, 5), L(0, -1.5, 0, -5), T(0, -9, "VÝVOD", 2)],
+        "id": "sb.feed", "name": "Přívod / vývod", "category": "Svorky a propojení", "iec_ref": "X",
+        "description": "Přívodní nebo vývodní svorky rozvaděče (vazba na nadřazený list); směr v atributu Směr, "
+                       "ve výkresu jen šipkou na kabelovém výběžku",
+        # port nahoře, kabel (vnější vývod) dole; šipka toku (IEC 60617-02) otevřená, 2 mm: přívod = hrot k portu.
+        # Vývod (dir=out) kreslí `feed.feed_symbol` s obrácenou šipkou a zobrazeným „Kam“ místo „Odkud“.
+        "primitives": [C(0, 0, 1.5), L(0, 1.5, 0, 5), L(0, -1.5, 0, -7.5), *FEED_ARROW_IN],
         "ports": [P("1", 0, 5, "N")],
-        "attributes": [REF, attr("desc", "Popis", "", True), attr("to", "Kam", "", True), attr("cable", "Kabel"),
-                       attr("terminal", "Svorka č.", "")],
+        "attributes": [REF, {**attr("dir", "Směr", "in"), "choices": [["in", "přívod"], ["out", "vývod"]]},
+                       attr("desc", "Popis", "", True), attr("from", "Odkud", "", True), attr("to", "Kam", "", False),
+                       attr("cable", "Kabel"), attr("terminal", "Svorka č.", "")],
+        # ve vícepólu: svorka na každou žílu (kroužek s číslem) a krátký vnější vývod, bez šipek a nápisů
         "multipole": MP([C(0, 2.5, 1.5), L(0, 4, 0, 5), L(0, 1, 0, -3)], [], link=False),
         "label_pos": {"x": 7, "y": 0},
     },

@@ -6,7 +6,7 @@ Návrh agenta `architekt` (10/2026), schválil orchestrátor. Roadmapa „Z reš
 ## 0. Zjištění
 - `wiring_list` vypisuje vnitřní vodiče rozvaděče s barvou z `CORE_COLORS` a `attrs["cable"]` jako typem.
 - `_end_text` bez ručních `Wire.terminals` vypíše jméno portu → 3P jistič s porty 1/2 dá L1/L2/L3 „F2:1“ třikrát.
-- Rozložení zná jen modulové přístroje; `sb.feed_in/feed_out/busbar/pe_bar/junction` nejsou umístěné → odhad.
+- Rozložení zná jen modulové přístroje; `sb.feed/busbar/pe_bar/junction` nejsou umístěné → odhad.
 - Cívka stykače není v rozložení – poloha přes skupinu (`xref.DeviceIndex`).
 - `DEV_H = 45` je jen v `ui/layout_view.py` → přesunout do modelu.
 - **`EnclosurePanel.apply()` skládá `lay.params` jen z vlastních políček → maže jiné klíče** (opravit současně).
@@ -55,7 +55,7 @@ def route_length_mm(a, b, layout, params) -> int
 ```
 - x: `pos·17,5 + (k+0,5)·W/poles`, k = (n−1)//2 (N/nečíselné → slot žíly); svorkový prvek – rovnoměrně po šířce.
 - Strana: lichá svorka nahoře (žlab r), sudá dole (žlab r+1); bez čísla podle směru portu; svorkový prvek nahoře.
-- Neumístěné (`wire_unplaced = "estimate"`): `sb.busbar` horní žlab 0 uprostřed; feed_in/out, terminal_block,
+- Neumístěné (`wire_unplaced = "estimate"`): `sb.busbar` horní žlab 0 uprostřed; feed (přívod/vývod), terminal_block,
   fve.terminal, pe_bar spodní žlab `rows` uprostřed (estimated, poznámka „délka odhadem – X1 neumístěn“);
   ostatní → None (poznámka „neumístěno: F5“ / „konec v uzlu odbočky“). `"none"` vypne odhad.
 - Trasa: `leg = |y_a − y_d(j_a)| + |y_b − y_d(j_b)|`; stejný žlab `horiz = |x_a − x_b|`, jinak kratší boční žlab

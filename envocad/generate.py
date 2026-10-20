@@ -98,12 +98,14 @@ from envocad.library.templates import (
     GROUP_PITCH,
     _bridge_groups,
     _el,
+    _feed,
     _place_sequential,
     _terminal_group,
     _wire,
     build_dc_strings,
 )
 from envocad.model.calc import DC_INPUTS_PER_MPPT_DEFAULT, InverterData, string_ports
+from envocad.model.feed import FEED_SYMBOL, is_feed_in, is_feed_out
 from envocad.model.project import (
     PORT_PITCH,
     Element,
@@ -495,6 +497,7 @@ def _build_project(spec: dict) -> Project:
                     if m and int(m.group(1)) >= dc_first:
                         end.port = f"X{int(m.group(1)) + first - dc_first}"
         _add_dc_part(p, sb, groups, macros.get("dc_tech", ""), dc, first)
+        _dc_from_below(p, sb)
         _apply_spd_component(sb, dc.get("spd_component"))
         _apply_component(sb, dc.get("fuse_component"), "fve.fuse_disconnect")
         whys = [why for fin, why in fuse_cache.values() if not fin]
@@ -518,7 +521,8 @@ def _build_project(spec: dict) -> Project:
     # až po rozmístění na list: vazby přívodů ukládají texty s polohou v JPS („W3 T1:DC1 /1.F3“); listy DC rozvaděčů,
     # které přetékají formát (DC rozvaděč s mnoha stringy po 50 mm), se zvětší – před vazbami (sloupce listu)
     # i po nich (delší texty vazeb)
-    dc_sheets = [sh for sh in p.sheets if sh.parent_element_id in {b.id for b, *_ in dc_boxes}]
+    # i AC rozvaděč / rozvaděč FVE rodinného domu (DC část „U“ po `DC_U_PITCH`, mnoho střídačů)
+    dc_sheets = [sh for sh in p.sheets if sh.parent_element_id in {b.id for b, *_ in dc_boxes} | {blk.id}]
     _grow_switchboards(p, dc_sheets)
     sync_feed_links(p)
     if _grow_switchboards(p, dc_sheets):
@@ -753,7 +757,7 @@ def _add_dc_part(p: Project, sheet: Sheet, groups: list[tuple[int, str, list[str
     if not done:   # makro chybí (pak pro žádný střídač): kódem, všechny stringy najednou, číslování jako u makra;
         # In pojistek po skupinách – každý string podle svého střídače (moduly / SolarEdge se mohou lišit)
         # SPD stringů na vývod XPE AC části (k HOP) jako makro; při rozvodu svorkami (bez XPE) vlastní PE lišta
-        pe = next((e for e in sheet.elements if e.symbol_id == "sb.feed_out" and e.ref == "XPE"), None)
+        pe = next((e for e in sheet.elements if is_feed_out(e) and e.ref == "XPE"), None)
         build_dc_strings(p, sheet, [g for grp in groups for g in grp[2]], "tech",
                          [_s(grp[3]) for grp in groups for _g in grp[2]],
                          spd=_s(dc.get("spd") or "T2"), first=first, dx=dx0, pe=pe)
@@ -810,7 +814,7 @@ def _route_house(p: Project, blk: Element, ac_wires: list[Wire], grid: Element, 
         return round(v / 2.5) * 2.5
 
     sheet = p.switchboard_sheet(blk.id)
-    names = {e.ref for e in (sheet.elements if sheet else []) if e.symbol_id == "sb.feed_out"}
+    names = {e.ref for e in (sheet.elements if sheet else []) if is_feed_out(e)}
     w_grid = next(w for w in s.wires if grid.id in (w.a.element_id, w.b.element_id))
     w_earth = next((w for w in s.wires if earth is not None and earth.id in (w.a.element_id, w.b.element_id)), None)
     if earth is not None and "XPE" not in names:   # bez svodičů a PE vývodu (rozvod svorkami) – uzemnění nekreslit
@@ -1215,7 +1219,7 @@ def _build_main_lv_board(p: Project, sheet: Sheet, conn: dict, ac: dict, invs=No
     sheet.layout.params.setdefault("un", "230/400 V")
     sheet.layout.params.setdefault("in_", c["main_in"])
     x0, y = 60.0, 165.0
-    feed = _el(p, sheet, "sb.feed_in", x0, y + 70, "", desc="od transformátoru")
+    feed = _feed(p, sheet, "in", x0, y + 70, "", rot=180, desc="od transformátoru")
     feed.attrs["ref"] = "XT"
     qm = _el(p, sheet, "fve.breaker_mccb", x0, y + 10, "Q", rot=270, in_=c["main_in"], poles="3", modules="9")
     bus = _el(p, sheet, "sb.busbar", x0 + 75, y - 25, "", desc="přípojnice nn", in_=c["main_in"],
@@ -1225,9 +1229,10 @@ def _build_main_lv_board(p: Project, sheet: Sheet, conn: dict, ac: dict, invs=No
         ta = _el(p, sheet, "fve.ct", x0, y + 40, "TA", rot=270, ratio=c["ct_ratio"], cls="0,5S", burden="5", n="3",
                  poles="3")
         # měřicí obvody vpravo nahoru: proud ze sekundáru MTP (XMI), napětí z přípojnice (XMU, jištění v RE)
-        xmi = _el(p, sheet, "sb.feed_out", x0 + 105, y + 50, "", desc="proudové obvody k RE")
+        # svorky otočené portem dolů (kabel nahoru): vodič od MTP / z přípojnice přichází zespodu, ne přes kroužek
+        xmi = _feed(p, sheet, "out", x0 + 105, y + 50, "", rot=180, desc="proudové obvody k RE")
         xmi.attrs["ref"] = "XMI"
-        xmu = _el(p, sheet, "sb.feed_out", x0 + 120, y + 50, "", desc="napěťové obvody k RE")
+        xmu = _feed(p, sheet, "out", x0 + 120, y + 50, "", rot=180, desc="napěťové obvody k RE")
         xmu.attrs["ref"] = "XMU"
         _wire(p, sheet, feed, "1", ta, "1", AC_CONDUCTORS)
         _wire(p, sheet, ta, "2", qm, "1", AC_CONDUCTORS)
@@ -1240,7 +1245,7 @@ def _build_main_lv_board(p: Project, sheet: Sheet, conn: dict, ac: dict, invs=No
     qf = _el(p, sheet, "fve.breaker_mccb", x0 + 7.5, y - 60, "Q", rot=270, in_=fve_in, poles="3", modules="6")
     if not fve_in:
         qf.attrs["in_unresolved"] = why
-    out_f = _el(p, sheet, "sb.feed_out", x0 + 7.5, y - 95, "", desc=f"k {fve_ref} (FVE)" if fve_ref else "k AC rozvaděči FVE")
+    out_f = _feed(p, sheet, "out", x0 + 7.5, y - 95, "", desc=f"k {fve_ref} (FVE)" if fve_ref else "k AC rozvaděči FVE")
     out_f.attrs["ref"] = "X1"
     spd = _el(p, sheet, "fve.spd", x0 + 37.5, y - 60, "F", spd_type="T1", poles="4", modules="4")
     pe = _el(p, sheet, "sb.pe_bar", x0 + 37.5, y - 90, "X", kind="PE")
@@ -1253,7 +1258,7 @@ def _build_main_lv_board(p: Project, sheet: Sheet, conn: dict, ac: dict, invs=No
     if not load_in:
         qs.attrs["in_unresolved"] = (f"vývod spotřeby: žádný jistič není selektivní s hlavním jističem {c['main_in']} A"
                                      " – zadejte main_board.load_in")
-    out_s = _el(p, sheet, "sb.feed_out", x0 + 67.5, y - 95, "", desc=_s(conn.get("load") or "spotřeba objektu"))
+    out_s = _feed(p, sheet, "out", x0 + 67.5, y - 95, "", desc=_s(conn.get("load") or "spotřeba objektu"))
     out_s.attrs["ref"] = "X2"
     _wire(p, sheet, bus, "1", qf, "1", AC_CONDUCTORS)
     _wire(p, sheet, qf, "2", out_f, "1", AC_CONDUCTORS)
@@ -1302,7 +1307,7 @@ def _build_mv_board(p: Project, sheet: Sheet, conn: dict) -> None:
         ke = el("fve.cable_end", x, y - 67.5, "XK", cn, poles="3", modules="0")
         qe = el("fve.earthing_switch", x + 12.5, y - 45, "Q", cn)
         pv = el("fve.voltage_indicator", x - 12.5, y - 45, "P", cn, type="VDS")
-        feed = el("sb.feed_in", x, y - 97.5, "", cn, rot=180, desc="z DS")
+        feed = el(FEED_SYMBOL, x, y - 97.5, "", cn, rot=0, dir="in", desc="z DS")
         feed.attrs["ref"] = f"XDS{k + 1}"
         _wire(p, sheet, feed, "1", ke, "2", VN_CONDUCTORS)
         _wire(p, sheet, ke, "1", ql, "2", VN_CONDUCTORS)
@@ -1319,9 +1324,9 @@ def _build_mv_board(p: Project, sheet: Sheet, conn: dict) -> None:
         ta = el("fve.ct", xc, y - 45, "TA", cn, ratio=c["ct_ratio"], cls="0,2S", burden="5", n="3", poles="3")
         tv = el("fve.vt", xc + 30, y - 62.5, "TV", cn, ratio=f"{u.split()[0]}/√3 / 0,1/√3 kV" if u else "", cls="0,2", n="3")
         # sekundáry vpravo dolů do vývodů měřicích obvodů (k elektroměrovému rozvaděči)
-        xmi = el("sb.feed_out", xc + 50, y - 60, "", cn, rot=0, desc="proudové obvody k RE")
+        xmi = el(FEED_SYMBOL, xc + 50, y - 60, "", cn, rot=0, dir="out", desc="proudové obvody k RE")
         xmi.attrs["ref"] = "XMI"
-        xmu = el("sb.feed_out", xc + 50, y - 95, "", cn, rot=0, desc="napěťové obvody k RE")
+        xmu = el(FEED_SYMBOL, xc + 50, y - 95, "", cn, rot=0, dir="out", desc="napěťové obvody k RE")
         xmu.attrs["ref"] = "XMU"
         _wire(p, sheet, bus, port, qm, "1", VN_CONDUCTORS)
         _wire(p, sheet, qm, "2", ta, "1", VN_CONDUCTORS)
@@ -1350,7 +1355,7 @@ def _build_mv_board(p: Project, sheet: Sheet, conn: dict) -> None:
         prot = fu
     ke = el("fve.cable_end", xc, y_t - 85, "XK", cn, poles="3", modules="0")
     qe = el("fve.earthing_switch", xc + 12.5, y_t - 67.5, "Q", cn)
-    out = el("sb.feed_out", xc, y_t - 110, "", cn, rot=0, desc="k transformátoru")
+    out = el(FEED_SYMBOL, xc, y_t - 110, "", cn, rot=0, dir="out", desc="k transformátoru")
     out.attrs["ref"] = "X1"          # řadí se před vývody měřicích obvodů XMI/XMU (port bloku nahoře, k transformátoru)
     _wire(p, sheet, prot, "2", ke, "1", VN_CONDUCTORS)
     _wire(p, sheet, prot, "2", qe, "1", VN_CONDUCTORS).points = [(xc + 12.5, y_t - 55)]
@@ -1364,9 +1369,9 @@ def _build_meter_board(p: Project, sheet: Sheet, conn: dict) -> None:
     sheet.layout.params.setdefault("network", "měřicí obvody")
     sheet.layout.params.setdefault("un", "3×230/400 V, 5 A" if c["metering"] == "nn" else "3×100/√3 V, 5 A")
     x0, y = 60.0, 165.0
-    xmi = _el(p, sheet, "sb.feed_in", x0, y + 40, "", desc="proudové obvody z MTP")
+    xmi = _feed(p, sheet, "in", x0, y + 40, "", rot=180, desc="proudové obvody z MTP")
     xmi.attrs["ref"] = "XMI"
-    xmu = _el(p, sheet, "sb.feed_in", x0 + 30, y + 40, "", desc="napěťové obvody")
+    xmu = _feed(p, sheet, "in", x0 + 30, y + 40, "", rot=180, desc="napěťové obvody")
     xmu.attrs["ref"] = "XMU"
     # elektroměr svisle (jako dřív v hlavním rozvaděči): proud zleva shora do 1, napětí zprava zdola do 2 – ve
     # vícepólu žíly míjí popisek elektroměru
@@ -1645,7 +1650,7 @@ def _insert_macro(project: Project, sheet: Sheet, m, values: dict, dx: float, li
                         components=lib.component, repeat=False, copy=False)   # označení z makra beze změny
     _blank_unresolved(els, wires)
     insert(sheet, els, wires)
-    return [e for e in els if e.modules > 0 and e.symbol_id not in ("sb.feed_in", "sb.feed_out", "sb.busbar")]
+    return [e for e in els if e.modules > 0 and e.symbol_id not in (FEED_SYMBOL, "sb.busbar")]
 
 
 def _dc_box_from_macro(project: Project, sheet: Sheet, strings: list[str], name, dc: dict,
@@ -1690,64 +1695,246 @@ def _ac_box_from_macros(project: Project, sheet: Sheet, invs: list[dict], ac: di
     for k, inv in enumerate(invs, start=1):
         ctx = {"k": k, "i": k, "inverter": inv.get("ref") or f"T{k}"}
         devices += _insert_macro(project, sheet, mf, _macro_values(mf, ef, base, ctx, lib.component), (k - 1) * pitch, lib)
-    devices += _insert_macro(project, sheet, mc, _macro_values(mc, ec, base, {}, lib.component), len(invs) * pitch, lib)
+    # jádro (XPE a SPD vlevo, hlavní vypínač + XOUT) se vkládá bez posunu; hlavní vypínač pak za poslední přívod
+    devices += _insert_macro(project, sheet, mc, _macro_values(mc, ec, base, {}, lib.component), 0.0, lib)
+    _ac_core_after_feeds(project, sheet)
     _place_sequential(sheet, devices)
     if ac.get("enclosure"):
         sheet.layout.params["type"] = _s(ac["enclosure"])
     return True
 
 
+# ---- AC rozvaděč FVE: vše přichází zespodu ----------------------------------------------------------------------
+# Rozhodnutí 3 (docs/design/znacka_privod_vyvod.md): na listu RFVE.AC a RFVE rodinného domu jsou přívody i vývody ve
+# spodní řadě (svorka `sb.feed` portem nahoru, kabel zespodu), sběrnice nahoře, přívodní větev teče nahoru do
+# sběrnice (svorka X → jistič otočený tokem nahoru → přívod zdola B{k}), jádro visí ze sběrnice dolů. Zleva: XPE
+# a SPD, přívody po 30 mm, hlavní vypínač s XOUT za posledním přívodem. Stejně vestavěná makra
+# (`tools/gen_builtin_macros.py`). Vícepól se nemění (`multipole.flow_flipped`).
+AC_BUS_POS = (165.0, 175.0)     # sběrnice: čára x 90…270, vývody i: x − 67,5 + 15·(i − 1), přívody zdola `BUS_B_X`
+BUS_B_X = [-60, -30, 0, 30, 60, 90, -45, -15, 15, 45, 75, 105]   # = tools/gen_builtin_fve.BUSBAR_B_X
+AC_ROW_BOTTOM = 105.0           # spodní řada: přívody a vývody (port nahoře y + 5)
+AC_ROW_DEVICES = 140.0          # přístroje (jističe přívodů, SPD, hlavní vypínač)
+AC_FEED_X0 = 105.0              # sloupec přívodu X1 (pod přívodem zdola B1)
+AC_CORE_GAP = 37.5              # hlavní vypínač nejméně tolik za posledním přívodem (popisky svorek ve spodní řadě)
+BUS_DROP_STEP = 5.0             # rozestup vodorovných úseků lomených odboček ze sběrnice (kontrola souběhu: 5 mm)
+
+
+def _bus_out_x(bus: Element, i: int) -> float:
+    return bus.x - 67.5 + 15.0 * (i - 1)
+
+
+def _ac_core_after_feeds(project: Project, sheet: Sheet) -> None:
+    """Hlavní vypínač a XOUT za poslední přívod zdola (vývod sběrnice, pod kterým stojí, vede svisle bez lomu);
+    pak lomy odboček ze sběrnice (`_bus_drop_points`). List bez sběrnice nebo bez hlavního vypínače nemění."""
+    bus = next((e for e in sheet.elements if e.symbol_id == "sb.busbar"), None)
+    if bus is None:
+        return
+    by_id = {e.id: e for e in sheet.elements}
+    feeds_x = [by_id[o].x for w in sheet.wires for end, o in ((w.a, w.b.element_id), (w.b, w.a.element_id))
+               if end.element_id == bus.id and end.port.startswith("B") and o in by_id]
+    q_wire = next((w for w in sheet.wires if bus.id in (w.a.element_id, w.b.element_id)
+                   and by_id.get(w.b.element_id if w.a.element_id == bus.id else w.a.element_id) is not None
+                   and by_id[w.b.element_id if w.a.element_id == bus.id else w.a.element_id].symbol_id == "sb.main_switch"),
+                  None)
+    if q_wire is not None and feeds_x:
+        q = by_id[q_wire.b.element_id if q_wire.a.element_id == bus.id else q_wire.a.element_id]
+        want = max(feeds_x) + AC_CORE_GAP
+        i = next((i for i in range(1, 13) if _bus_out_x(bus, i) >= want - 1e-6), 12)
+        # víc než 6 přívodů: za koncem sběrnice, odbočka z posledního vývodu s lomem
+        x = max(_bus_out_x(bus, i), round(want / 2.5) * 2.5)
+        dx = x - q.x
+        for w in sheet.wires:          # hlavní vypínač a vše pod ním (XOUT) se posune
+            if w.touches(q.id):
+                o = by_id[w.b.element_id if w.a.element_id == q.id else w.a.element_id]
+                if o is not bus and o.y < q.y:
+                    o.x += dx
+        q.x = x
+        end = q_wire.a if q_wire.a.element_id == bus.id else q_wire.b
+        end.port = str(i)
+    _bus_drop_points(project, sheet, bus)
+
+
+def _bus_drop_points(project: Project, sheet: Sheet, bus: Element) -> None:
+    """Odbočky ze spodních portů sběrnice k přístroji pod ní, které nejsou svisle pod portem (a nemají ruční lomy):
+    lom svisle–vodorovně–svisle. Vodorovné úseky po `BUS_DROP_STEP` pod sebou tak, aby se odbočky nekřížily:
+    lomené doprava – nejpravější nejvýš, doleva – nejlevější nejvýš."""
+    lib = _lib()
+    sym_bus = element_symbol(project, bus, lib)
+    right, left = [], []
+    for w in sheet.wires:
+        if w.points or bus.id not in (w.a.element_id, w.b.element_id) or w.a.element_id == w.b.element_id:
+            continue
+        be, oe = (w.a, w.b) if w.a.element_id == bus.id else (w.b, w.a)
+        o = sheet.element(oe.element_id)
+        try:
+            px, py = bus.port_pos(sym_bus, be.port)
+            ox, oy = o.port_pos(element_symbol(project, o, lib), oe.port)
+        except (KeyError, StopIteration, AttributeError):
+            continue
+        if oy >= py or abs(ox - px) < 1e-6:
+            continue
+        (right if ox > px else left).append((px, ox, oy, w, be is w.a))
+    top = bus.y - 5.0 - BUS_DROP_STEP
+    for group, rising in ((sorted(right, key=lambda t: t[0]), True), (sorted(left, key=lambda t: t[0]), False)):
+        n = len(group)
+        for k, (px, ox, oy, w, bus_first) in enumerate(group):
+            level = (n - 1 - k) if rising else k
+            y = max(top - level * BUS_DROP_STEP, oy + 2.5)
+            pts = [(px, y), (ox, y)]
+            w.points = pts if bus_first else pts[::-1]
+
+
+DC_U_PITCH = 70.0     # rozteč stringů DC části RFVE ve tvaru „U“ (dvě svorky ve spodní řadě s popisky vpravo)
+DC_U_WIDTH = 35.0     # levá noha (přívod X, pojistkový odpínač) → pravá noha (vývod X)
+DC_U_TOP = 155.0      # vodorovný úsek „U“ (nad odpínačem)
+DC_SPD_Y = 170.0      # SPD nad ohybem (otočený: L dole z ohybu, PE nahoru)
+DC_PE_Y = 192.5       # PE svodičů nad SPD a nad sběrnicí → XPE vlevo (nebo PE lišta DC části vpravo)
+DC_U_X0 = 60.0        # levá noha prvního stringu, když na listu nic jiného není
+DC_AC_GAP = 42.5      # od posledního prvku AC části (XOUT s popiskem) k levé noze prvního stringu
+DC_U_GAP = 35.0       # od SPD posledního stringu (popisek) k PE liště DC části
+DC_SPD_DX = 12.5      # SPD vpravo od pravé nohy (popisek vpravo nad ohybem dalšího stringu)
+
+
+def _dc_from_below(project: Project, sheet: Sheet) -> None:
+    """DC část rozvaděče FVE rodinného domu (rozhodnutí 3: vše zespodu) vpravo od AC části: každý string jako „U“ –
+    levá noha nahoru (přívod X{k} ve spodní řadě → pojistkový odpínač otočený tokem nahoru), ohyb nahoře, pravá noha
+    dolů na vývod X{nk} ve spodní řadě; SPD visí vpravo nad ohybem (za odpínačem, za koncem sběrnice), jeho PE vede nad
+    sběrnicí doleva k XPE AC části (s rozvodem svorkami k PE liště DC části vpravo). Nic se nekříží: PE je nad ohyby,
+    SPD i sběrnicí a XPE stojí vlevo před sběrnicí. Stringy se rozpoznají podle zapojení (přívod → pojistka → vývod +
+    SPD), ať vznikly z makra nebo kódem."""
+    by_id = {e.id: e for e in sheet.elements}
+    at: dict[tuple[str, str], list[tuple[Wire, Element, str]]] = {}
+    for w in sheet.wires:
+        for end, other in ((w.a, w.b), (w.b, w.a)):
+            if other.element_id in by_id:
+                at.setdefault((end.element_id, end.port), []).append((w, by_id[other.element_id], other.port))
+    strings = []
+    for f in sheet.elements:
+        if not is_feed_in(f):
+            continue
+        fus = [o for _w, o, op in at.get((f.id, "1"), []) if o.symbol_id in FUSE_SYMBOLS and op == "1"]
+        if len(fus) != 1:
+            continue
+        nxt = at.get((fus[0].id, "2"), [])
+        out = next(((w, o) for w, o, _p in nxt if is_feed_out(o)), None)
+        spd = next(((w, o) for w, o, op in nxt if o.symbol_id == "fve.spd" and op == "L"), None)
+        if out is not None:
+            strings.append((f, fus[0], out, spd))
+    if not strings:
+        return
+    strings.sort(key=lambda st: (st[0].x, -st[0].y))
+    dc_ids = {e.id for f, fu, (_w, o), spd in strings for e in (f, fu, o, *((spd[1],) if spd else ()))}
+    pe_wires: list[tuple[Wire, Element, float]] = []     # (vodič PE svodiče, cíl, x svodiče)
+    # DC část vpravo od AC části (vícepól řadí podle polohy: AC, pak DC – jako dřív); SPD a PE nad ohybem až za koncem
+    # sběrnice, ohyb „U“ smí být pod ní
+    ac = [e for e in sheet.elements if e.id not in dc_ids and e.symbol_id not in ("sb.pe_bar", "sb.busbar")]
+    bus = next((e for e in sheet.elements if e.symbol_id == "sb.busbar"), None)
+    x0 = max(e.x for e in ac) + DC_AC_GAP if ac else DC_U_X0
+    if bus is not None:
+        x0 = max(x0, bus.x + 105.0 + 7.5 - DC_U_WIDTH - DC_SPD_DX)
+    x0 = round(x0 / 2.5 + 0.49) * 2.5
+    for j, (f, fu, (w_out, out), spd) in enumerate(strings):
+        left = x0 + j * DC_U_PITCH
+        right = left + DC_U_WIDTH
+        mid = right + DC_SPD_DX        # SPD vpravo za pravou nohou (vícepól: vývod, pak SPD – jako dřív)
+        f.x, f.y, f.rotation = left, AC_ROW_BOTTOM, 0
+        fu.x, fu.y, fu.rotation = left, AC_ROW_DEVICES, 90
+        out.x, out.y, out.rotation = right, AC_ROW_BOTTOM, 0
+        for w in sheet.wires:
+            if w.touches(f.id) and w.touches(fu.id):
+                w.points = []
+        pts = [(left, DC_U_TOP), (right, DC_U_TOP)]
+        w_out.points = pts if w_out.a.element_id == fu.id else pts[::-1]
+        if spd is None:
+            continue
+        w_spd, sp = spd
+        sp.x, sp.y, sp.rotation = mid, DC_SPD_Y, 180
+        pts = [(left, DC_U_TOP), (mid, DC_U_TOP)]
+        w_spd.points = pts if w_spd.a.element_id == fu.id else pts[::-1]
+        for w in sheet.wires:
+            if w.touches(sp.id) and (w.a.port if w.a.element_id == sp.id else w.b.port) == "PE":
+                tgt = by_id.get(w.b.element_id if w.a.element_id == sp.id else w.a.element_id)
+                if tgt is not None:
+                    pe_wires.append((w, tgt, mid))
+    # PE lišta DC části (rozvod svorkami, bez XPE): vpravo za DC částí nahoře, porty nahoře
+    bars = {t.id: t for _w, t, _x in pe_wires if t.symbol_id == "sb.pe_bar"}
+    edge = x0 + (len(strings) - 1) * DC_U_PITCH + DC_U_WIDTH + DC_SPD_DX + DC_U_GAP
+    for bar in bars.values():
+        bar.x, bar.y, bar.rotation = edge + 12.5, DC_PE_Y - 7.5, 0
+        edge += 40.0
+    for w, tgt, mid in pe_wires:
+        if tgt.symbol_id == "sb.pe_bar":
+            end = w.b if w.b.element_id == tgt.id else w.a
+            end.port = "1"           # všechny PE do jednoho portu: souběh vodičů do téhož konce je odbočka
+            tx = tgt.x - 12.5
+        else:
+            tx = tgt.x
+        pts = [(mid, DC_PE_Y), (tx, DC_PE_Y)]
+        w.points = pts if w.b.element_id == tgt.id else pts[::-1]
+
+
 def _build_ac_switchboard(project: Project, sheet: Sheet, invs: list[dict], ac: dict, spec: dict) -> None:
-    """AC rozvaděč FVE: přívody od střídačů (X1…Xn) → jističe → rozvod → hlavní vypínač → vývod do HDS; SPD, PE lišta.
-    Rozvod podle `ac.distribution`: "bus" = sběrnice potenciálů (vodič, jako v EPLAN), "terminals" = rozvodné svorky s můstky."""
+    """AC rozvaděč FVE (bez maker): přívody od střídačů (X1…Xn) zespodu → jističe → rozvod → hlavní vypínač → vývod do
+    HDS; SPD, PE (XPE nebo PE lišta). Rozvod podle `ac.distribution`: "bus" = sběrnice potenciálů (vodič, jako
+    v EPLAN; geometrie jako vestavěná makra), "terminals" = rozvodné svorky s můstky (skupiny nahoře místo sběrnice)."""
     nc = len(AC_CONDUCTORS)
-    y = 200.0
-    x0 = 60.0
     n = len(invs)
     use_bus = (ac.get("distribution") or "bus") == "bus"
-    strip = "X" + str(n + 1)
     feeds: list[Element] = []
     breakers: list[Element] = []
     groups: list[Element] = []
     firsts: list[int] = []
+    strip = "X" + str(n + 1)
+    y = 200.0
+    x0 = AC_FEED_X0 if use_bus else 60.0
     bus = None
     if use_bus:
-        bus = _el(project, sheet, "sb.busbar", x0 + 60, y - 25, "", desc="rozvod AC", in_=str(ac.get("main_in") or 125),
+        bus = _el(project, sheet, "sb.busbar", *AC_BUS_POS, "", desc="rozvod AC", in_=str(ac.get("main_in") or 125),
                   conductors=" ".join(AC_CONDUCTORS))
         bus.attrs["ref"] = "1"   # předpona potenciálů: 1L1, 1L2, 1L3, 1N, 1PE
     for i, inv in enumerate(invs):
         x = x0 + i * GROUP_PITCH
-        feed = _el(project, sheet, "sb.feed_in", x, y + 40, "", desc=f"od {inv.get('ref') or f'T{i + 1}'}")
+        feed = _feed(project, sheet, "in", x, AC_ROW_BOTTOM, "", desc=f"od {inv.get('ref') or f'T{i + 1}'}")
         feed.attrs["ref"] = f"X{i + 1}"
-        f = _el(project, sheet, "fve.breaker_mcb", x, y + 10, "F", rot=270, in_=str(ac.get("breaker_in") or 40),
+        f = _el(project, sheet, "fve.breaker_mcb", x, AC_ROW_DEVICES, "F", rot=90, in_=str(ac.get("breaker_in") or 40),
                 char="B", poles="3", modules="3")
         _wire(project, sheet, feed, "1", f, "1", AC_CONDUCTORS)
         if use_bus:
-            _wire(project, sheet, f, "2", bus, f"T{i + 1}", AC_CONDUCTORS)   # shora (od jističů)
+            _wire(project, sheet, f, "2", bus, f"B{i + 1}", AC_CONDUCTORS)   # zdola
         else:
             first = 1 + i * nc
             firsts.append(first)
             grp = _terminal_group(project, sheet, x, y - 30, strip, first, nc, f"střídač {i + 1}")
+            grp.rotation = 180    # vstup skupiny (port 1) dole: větev přívodu teče nahoru (vícepól: jako dřív shora)
             _wire(project, sheet, f, "2", grp, "1", AC_CONDUCTORS)
             groups.append(grp)
         feeds.append(feed)
         breakers.append(f)
-    x_spd = x0 + n * GROUP_PITCH
-    x_out = x0 + (n + 1) * GROUP_PITCH
-    spd = _el(project, sheet, "fve.spd", x_spd, y - 60, "F", spd_type=_s(ac.get("spd") or "T1+T2"), poles="4", modules="4")
-    q = _el(project, sheet, "sb.main_switch", x_out, y - 60, "Q", rot=270, in_=str(ac.get("main_in") or 125), poles="4", modules="4")
-    out = _el(project, sheet, "sb.feed_out", x_out, y - 95, "", desc="do HDS / DS")
-    out.attrs["ref"] = "XOUT"
     if use_bus:
-        # PE je potenciál sběrnice (1PE); SPD i PE rozvaděče jdou na ekvipotenciální svorkovnici (HOP) vně – vývod XPE
-        _wire(project, sheet, bus, "1", spd, "L", AC_CONDUCTORS[:4])   # zdola (vývody)
-        _wire(project, sheet, bus, "3", q, "1", AC_CONDUCTORS)
-        xpe = _el(project, sheet, "sb.feed_out", x_spd - GROUP_PITCH, y - 95, "", desc="k HOP")
+        spd = _el(project, sheet, "fve.spd", 82.5, AC_ROW_DEVICES, "F", spd_type=_s(ac.get("spd") or "T1+T2"), poles="4",
+                  modules="4")
+        xpe = _feed(project, sheet, "out", 60.0, AC_ROW_BOTTOM, "", desc="k HOP")
         xpe.attrs["ref"] = "XPE"
-        _wire(project, sheet, spd, "PE", xpe, "1", ["PE"])
-        _wire(project, sheet, bus, "4", xpe, "1", ["PE"])
+        q = _el(project, sheet, "sb.main_switch", 142.5, AC_ROW_DEVICES, "Q", rot=270, in_=str(ac.get("main_in") or 125),
+                poles="4", modules="4")
+        out = _feed(project, sheet, "out", 142.5, AC_ROW_BOTTOM, "", desc="do HDS / DS")
+        out.attrs["ref"] = "XOUT"
+        # PE je potenciál sběrnice; SPD i PE rozvaděče jdou na ekvipotenciální svorkovnici (HOP) vně – vývod XPE
+        _wire(project, sheet, bus, "1", spd, "L", AC_CONDUCTORS[:4]).points = [(97.5, 160.0), (82.5, 160.0)]
+        _wire(project, sheet, spd, "PE", xpe, "1", ["PE"]).points = [(82.5, 120.0), (60.0, 120.0)]
+        _wire(project, sheet, bus, "1", xpe, "1", ["PE"]).points = [(97.5, 165.0), (60.0, 165.0)]
+        _wire(project, sheet, bus, "4", q, "1", AC_CONDUCTORS)
+        _wire(project, sheet, q, "2", out, "1", AC_CONDUCTORS)
+        _place_sequential(sheet, [q, spd, *breakers])
+        _ac_core_after_feeds(project, sheet)
     else:
-        pe = _el(project, sheet, "sb.pe_bar", x_spd, y - 90, "X", kind="PE")
+        x_spd = x0 + n * GROUP_PITCH
+        x_out = x0 + (n + 1) * GROUP_PITCH
+        spd = _el(project, sheet, "fve.spd", x_spd, y - 60, "F", spd_type=_s(ac.get("spd") or "T1+T2"), poles="4", modules="4")
+        q = _el(project, sheet, "sb.main_switch", x_out, y - 60, "Q", rot=270, in_=str(ac.get("main_in") or 125), poles="4", modules="4")
+        out = _feed(project, sheet, "out", x_out, y - 95, "", desc="do HDS / DS")
+        out.attrs["ref"] = "XOUT"
+        pe = _el(project, sheet, "sb.pe_bar", x_spd + 7.5, y - 90, "X", kind="PE")   # port 2 pod SPD, port 1 vlevo
         # skupina pro SPD a skupina pro hlavní vypínač / vývod
         first = 1 + n * nc
         firsts.append(first)
@@ -1757,12 +1944,12 @@ def _build_ac_switchboard(project: Project, sheet: Sheet, invs: list[dict], ac: 
         g_out = _terminal_group(project, sheet, x_out, y - 30, strip, first, nc, "vývod")
         project.set_bridges(strip, _bridge_groups(firsts, nc), sheet)
         _wire(project, sheet, g_spd, "2", spd, "L", AC_CONDUCTORS[:4])
-        _wire(project, sheet, g_spd, "2", pe, "2", ["PE"])   # PE svorka skupiny → PE lišta
+        _wire(project, sheet, g_spd, "2", pe, "1", ["PE"]).points = [(x_spd, 160.0), (x_spd - 5.0, 160.0)]   # PE skupiny
         _wire(project, sheet, g_out, "2", q, "1", AC_CONDUCTORS)
-        _wire(project, sheet, spd, "PE", pe, "1", ["PE"])
-    _wire(project, sheet, q, "2", out, "1", AC_CONDUCTORS)
-    # skupiny rozvodných svorek zabírají na liště počet svorek × šířka svorky (`Element.modules`)
-    _place_sequential(sheet, [q, spd, *breakers, *groups, *([g_spd, g_out] if not use_bus else [])])
+        _wire(project, sheet, spd, "PE", pe, "2", ["PE"])
+        _wire(project, sheet, q, "2", out, "1", AC_CONDUCTORS)
+        # skupiny rozvodných svorek zabírají na liště počet svorek × šířka svorky (`Element.modules`)
+        _place_sequential(sheet, [q, spd, *breakers, *groups, g_spd, g_out])
     if ac.get("enclosure"):
         sheet.layout.params["type"] = _s(ac["enclosure"])
 

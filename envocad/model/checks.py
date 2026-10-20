@@ -21,6 +21,7 @@ from envocad.model.designation import (
     validate_code,
     validate_ref,
 )
+from envocad.model.feed import feed_dir_valid, is_feed_in, is_feed_out, raw_dir
 from envocad.model.notes import OPEN_NOTE_WORDS, count_label
 from envocad.model.project import (
     FEED_SYMBOLS,
@@ -43,8 +44,8 @@ OPTIONAL_PORT_SYMBOLS = {"fve.switchboard", "sb.pe_bar", "sb.busbar", "fve.termi
                          "sb.junction"}   # uzel odbočky: počet vodičů hlídá `junction_free`
 NO_REF_OK_SYMBOLS = {"fve.earth", "fve.grid", "fve.load", "sb.junction"}   # bez označení je v pořádku
 AGGREGATED_INFO = {"no_article": "Bez artiklu / typu", "ref_syntax": "Označení s firemním oddělovačem „.“ / „-“ (přípustné jako firemní číslování)"}
-NO_ARTICLE_SYMBOLS = {"fve.grid", "fve.load", "fve.earth", "fve.terminal", "fve.switchboard", "sb.feed_in",
-                      "sb.feed_out", "sb.pe_bar", "sb.busbar", "fve.pv_string", "fve.interrupt",
+NO_ARTICLE_SYMBOLS = {"fve.grid", "fve.load", "fve.earth", "fve.terminal", "fve.switchboard", "sb.feed",
+                      "sb.pe_bar", "sb.busbar", "fve.pv_string", "fve.interrupt",
                       "ctl.contact_no", "ctl.contact_nc", "ctl.contact_power"}
 
 
@@ -149,6 +150,10 @@ def check_project(project: Project, lib) -> list[Finding]:
                 if slots and not any(mp.terminal_numbers(e, len(slots))):
                     out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                        "Skupina svorek bez čísel (Úpravy → Očíslovat svorky)", "no_terminal_no"))
+            if e.symbol_id in FEED_SYMBOLS and not feed_dir_valid(e):
+                out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
+                                   f"Neplatný směr přívodu/vývodu „{raw_dir(e)}“ (in = přívod, out = vývod) – "
+                                   "bere se jako přívod", "feed_dir"))
             if (e.symbol_id in FEED_SYMBOLS and s.is_switchboard and linked_wire(project, s, e) is None
                     and not is_earthing_feed(s, e)):
                 out.append(Finding(INFO, s.id, s.name, e.id, False, e.ref,
@@ -231,7 +236,7 @@ def check_project(project: Project, lib) -> list[Finding]:
 def is_earthing_feed(sheet: Sheet, e: Element) -> bool:
     """Vývod jen s PE (XPE → ekvipotenciální svorkovnice HOP): uzemnění rozvaděče, ve schématu JPS obvykle bez
     vodiče – chybějící vazbu na JPS kontrola nehlásí."""
-    if e.symbol_id != "sb.feed_out":
+    if not is_feed_out(e):
         return False
     conds = [w.conductors for w in sheet.wires if w.touches(e.id)]
     return bool(conds) and all(c and set(c) <= {"PE", "PEN"} for c in conds)
@@ -510,7 +515,7 @@ def contact_findings(project: Project, index=None) -> list[Finding]:
 
 
 SPD_SWITCHES = {"fve.dc_disconnect", "fve.fuse_disconnect", "fve.switch_disconnector", "sb.main_switch"}
-SPD_SOURCES = {"sb.feed_in", "fve.pv_string"}
+SPD_SOURCES = {"fve.pv_string"}   # + přívod (`is_feed_in`)
 
 
 def spd_findings(project: Project) -> list[Finding]:
@@ -530,7 +535,7 @@ def spd_findings(project: Project) -> list[Finding]:
                 d = by_id.get(oid)
                 if d is None or d.symbol_id not in SPD_SWITCHES:
                     continue
-                if any(by_id.get(x) is not None and by_id[x].symbol_id in SPD_SOURCES
+                if any(by_id.get(x) is not None and (by_id[x].symbol_id in SPD_SOURCES or is_feed_in(by_id[x]))
                        for x, _p in at.get((oid, oport), [])):
                     out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                        f"SPD na svorkách {d.ref}:{oport} na straně stringu – vypnutý {d.ref} ho "

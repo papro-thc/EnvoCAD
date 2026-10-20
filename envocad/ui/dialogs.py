@@ -59,6 +59,34 @@ def button_box(buttons) -> QDialogButtonBox:
     return czech_buttons(QDialogButtonBox(buttons))
 
 
+class ChoiceEdit(QComboBox):
+    """Výběr hodnoty atributu s nabídkou (`Attribute.choices`) se stejným rozhraním jako `QLineEdit` (`text`,
+    `setText`) – dialog atributů i panel Vlastnosti s ním zacházejí jako s textovým polem. Hodnota mimo nabídku
+    (ruční úprava souboru) se zobrazí jako další položka, aby se nic neztratilo."""
+
+    def __init__(self, items: list[tuple[str, str]], value: str = "", parent=None):
+        super().__init__(parent)
+        for v, label in items:
+            self.addItem(label, v)
+        self.setText(value)
+
+    def text(self) -> str:
+        return str(self.currentData() or "")
+
+    def setText(self, value: str) -> None:
+        i = self.findData(value)
+        if i < 0 and value:
+            self.addItem(value, value)
+            i = self.count() - 1
+        self.setCurrentIndex(max(i, 0))
+
+    def setPlaceholderText(self, _text: str) -> None:
+        pass
+
+    def selectAll(self) -> None:
+        pass
+
+
 class AttrDialog(QDialog):
     """Zadání všech atributů prvku nebo vodiče – při vložení i při dvojkliku na existující."""
 
@@ -77,8 +105,12 @@ class AttrDialog(QDialog):
             lay.addWidget(QLabel(heading))
         form = QFormLayout()
         for a in attributes:
-            ed = QLineEdit(attrs.get(a.key, a.default))
-            ed.setPlaceholderText(a.default)
+            items = a.choice_items() if hasattr(a, "choice_items") else []
+            if items:                      # nabídka hodnot (směr přívodu/vývodu)
+                ed = ChoiceEdit(items, attrs.get(a.key, a.default) or a.default)
+            else:
+                ed = QLineEdit(attrs.get(a.key, a.default))
+                ed.setPlaceholderText(a.default)
             self._edits[a.key] = ed
             form.addRow(a.label + (" *" if a.show else ""), ed)
         lay.addLayout(form)

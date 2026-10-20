@@ -11,6 +11,7 @@ import pytest
 from envocad.library.store import LibraryStore
 from envocad.model.checks import check_project
 from envocad.model.project import (
+    FORMAT_VERSION,
     CorruptProjectError,
     Element,
     Project,
@@ -223,7 +224,7 @@ def test_migrate_does_not_mutate_input():
              "wires": [{"id": "w", "a": {"element_id": "1", "port": "DC+"}, "b": {"element_id": "2", "port": "DC+"}}]}]}
     before = copy.deepcopy(d)
     out = migrate(d, 4)
-    assert d == before and out["format_version"] == 12
+    assert d == before and out["format_version"] == FORMAT_VERSION
     Project.from_dict(d)
     assert d == before
 

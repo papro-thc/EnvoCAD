@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from envocad.model.feed import FEED_SYMBOL
 from envocad.model.project import Element, Project, Sheet, Wire, WireEnd
 
 AC_CONDUCTORS = ["L1", "L2", "L3", "N", "PE"]
@@ -35,6 +36,12 @@ def _el(project: Project, sheet: Sheet, sid: str, x: float, y: float, prefix: st
     e.attrs = {"ref": project.next_ref(prefix) if prefix else "", **{k: str(v) for k, v in attrs.items()}}
     sheet.elements.append(e)
     return e
+
+
+def _feed(project: Project, sheet: Sheet, direction: str, x: float, y: float, prefix: str, rot: int = 0,
+          **attrs) -> Element:
+    """Přívod (`direction="in"`) / vývod (`"out"`) – značka `sb.feed`; při `rot=0` port nahoře, kabel dole."""
+    return _el(project, sheet, FEED_SYMBOL, x, y, prefix, rot=rot, dir=direction, **attrs)
 
 
 def _wire(project: Project, sheet: Sheet, a: Element, pa: str, b: Element, pb: str,
@@ -170,16 +177,19 @@ def _bridge_groups(first_numbers: list[int], n: int) -> list[list[str]]:
 
 def build_ac_fve(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
     """AC rozvaděč FVE: přívod od střídače → hlavní vypínač → rozvod → SPD, vývody s jističi.
-    Rozvod = sběrnice potenciálů (vodič, jako v EPLAN; `bus`) nebo rozvodné svorky X2 s můstky (`terminals`)."""
+    Rozvod = sběrnice potenciálů (vodič, jako v EPLAN; `bus`) nebo rozvodné svorky X2 s můstky (`terminals`).
+    Vše přichází zespodu (docs/design/znacka_privod_vyvod.md): přívod i vývody ve spodní řadě, přívodní větev teče
+    od svorky X1 hlavním vypínačem (otočeným tokem nahoru) do sběrnice / skupiny napájení, vývody visí dolů."""
     n_out = int_param(p, "n_out", "Počet vývodů", 1, AC_MAX_OUTPUTS)
     i_main = current_param(p, "i_main", "In hlavního vypínače")
     i_out = current_param(p, "i_out", "In jističů vývodů")
     use_bus = distribution_param(p)
     y = 200.0
-    x0 = 60.0
+    x0 = 90.0                   # přívodní větev; vlevo od ní SPD a XPE / PE lišta
+    x_spd = x0 - GROUP_PITCH
     nc = len(AC_CONDUCTORS)
-    feed = _el(project, sheet, "sb.feed_in", x0, y + 20, "X", desc=p.get("feed_desc", "od střídače"))
-    q = _el(project, sheet, "sb.main_switch", x0, y, "Q", rot=270, in_=i_main, poles="4", modules="4")
+    feed = _feed(project, sheet, "in", x0, y - 95, "X", desc=p.get("feed_desc", "od střídače"))
+    q = _el(project, sheet, "sb.main_switch", x0, y - 60, "Q", rot=90, in_=i_main, poles="4", modules="4")
     groups: list[Element] = []
     bus = None
     if use_bus:
@@ -187,34 +197,36 @@ def build_ac_fve(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
         bus.attrs["ref"] = "1"
     else:
         strip = project.next_ref("X")
-        # skupina 0 = napájení (od Q) + SPD, skupiny 1…n = vývody; napájení přes můstky
+        # skupina 0 = napájení (od Q zdola – otočená, vstup 1 dole) + SPD, skupiny 1…n = vývody; napájení přes můstky
         firsts: list[int] = []
         for i in range(n_out + 1):
             first = 1 + i * nc
             firsts.append(first)
             groups.append(_terminal_group(project, sheet, x0 + i * GROUP_PITCH, y - 30, strip, first, nc,
                                           "napájení" if i == 0 else f"vývod {i}"))
+        groups[0].rotation = 180
         project.set_bridges(strip, _bridge_groups(firsts, nc), sheet)
-    spd = _el(project, sheet, "fve.spd", x0, y - 60, "F", spd_type="T1+T2", poles="4", modules="4")
+    spd = _el(project, sheet, "fve.spd", x_spd, y - 60, "F", spd_type="T1+T2", poles="4", modules="4")
     _wire(project, sheet, feed, "1", q, "1", AC_CONDUCTORS)
     if use_bus:
         # PE je potenciál sběrnice; uzemnění = vývod na ekvipotenciální svorkovnici (HOP) vně rozvaděče
-        _wire(project, sheet, q, "2", bus, "T1", AC_CONDUCTORS)
-        _wire(project, sheet, bus, "1", spd, "L", AC_CONDUCTORS[:4])
-        xpe = _el(project, sheet, "sb.feed_out", x0 - GROUP_PITCH, y - 95, "X", desc="k HOP")
-        _wire(project, sheet, spd, "PE", xpe, "1", ["PE"])            # SPD na ekvipotenciální svorkovnici
-        _wire(project, sheet, bus, str(n_out + 3), xpe, "1", ["PE"])
+        tap = bus.x - 67.5                                                  # vývod 1 sběrnice (SPD a PE)
+        _wire(project, sheet, q, "2", bus, "B1", AC_CONDUCTORS)             # zdola pod přívodem (B1 = x sběrnice − 60)
+        _wire(project, sheet, bus, "1", spd, "L", AC_CONDUCTORS[:4]).points = [(tap, 160.0), (x_spd, 160.0)]
+        xpe = _feed(project, sheet, "out", x_spd - 22.5, y - 95, "X", desc="k HOP")
+        _wire(project, sheet, spd, "PE", xpe, "1", ["PE"]).points = [(x_spd, 120.0), (xpe.x, 120.0)]   # SPD na HOP
+        _wire(project, sheet, bus, "1", xpe, "1", ["PE"]).points = [(tap, 165.0), (xpe.x, 165.0)]
     else:
-        pe = _el(project, sheet, "sb.pe_bar", x0, y - 90, "X", kind="PE")
+        pe = _el(project, sheet, "sb.pe_bar", x_spd + 7.5, y - 87.5, "X", kind="PE")   # port 2 pod SPD, port 1 vlevo
         _wire(project, sheet, q, "2", groups[0], "1", AC_CONDUCTORS)
-        _wire(project, sheet, groups[0], "2", spd, "L", AC_CONDUCTORS[:4])
-        _wire(project, sheet, groups[0], "2", pe, "2", ["PE"])   # PE svorka skupiny → PE lišta
-        _wire(project, sheet, spd, "PE", pe, "1", ["PE"])
+        _wire(project, sheet, groups[0], "2", spd, "L", AC_CONDUCTORS[:4]).points = [(x0, 182.5), (x_spd, 182.5)]
+        _wire(project, sheet, groups[0], "2", pe, "1", ["PE"]).points = [(x0, 187.5), (x_spd - 5.0, 187.5)]   # PE skupiny
+        _wire(project, sheet, spd, "PE", pe, "2", ["PE"])
     outs: list[Element] = []
     for i in range(1, n_out + 1):
         x = x0 + i * GROUP_PITCH
         f = _el(project, sheet, "fve.breaker_mcb", x, y - 60, "F", rot=270, in_=i_out, char="B", poles="3", modules="3")
-        out = _el(project, sheet, "sb.feed_out", x, y - 95, "X", desc=f"vývod {i}")
+        out = _feed(project, sheet, "out", x, y - 95, "X", desc=f"vývod {i}")
         if use_bus:
             _wire(project, sheet, bus, str(i + 2), f, "1", AC_CONDUCTORS)
         else:
@@ -256,9 +268,9 @@ def build_dc_strings(project: Project, sheet: Sheet, strings: list[str], kind: s
     pe_bar = pe.symbol_id == "sb.pe_bar"
     for k, g in enumerate(strings):
         x = x0 + k * DC_STRING_PITCH
-        feed = _el(project, sheet, "sb.feed_in", x, y + 40, "", desc=f"od {g}")
+        feed = _feed(project, sheet, "in", x, y + 40, "", rot=180, desc=f"od {g}")
         feed.attrs["ref"] = f"X{first + k}"
-        out = _el(project, sheet, "sb.feed_out", x, y - 30, "", desc=f"{g} dál")
+        out = _feed(project, sheet, "out", x, y - 30, "", desc=f"{g} dál")
         out.attrs["ref"] = f"X{first + n + k}"
         s_el = _el(project, sheet, "fve.spd", x + 12.5, y - 20, "F", spd_type=f"{spd} DC", uc="1000", poles="3", modules="3",
                    desc=g if g.lower().startswith("string") else f"string {g}")
@@ -286,7 +298,7 @@ def build_dc(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
 
 def build_empty(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
     """Prázdný list: přívod (navázaný na vodič JPS k bloku ROZVADĚČ, je-li) a PE můstek."""
-    feed = _el(project, sheet, "sb.feed_in", 40, 220, "X", desc="přívod")
+    feed = _feed(project, sheet, "in", 40, 220, "X", rot=180, desc="přívod")
     _el(project, sheet, "sb.pe_bar", 40, 120, "X", kind="PE")
     _auto_link_feed(project, sheet, feed, "1")
 

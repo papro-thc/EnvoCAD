@@ -7,6 +7,7 @@ from envocad.library.store import LibraryStore
 from envocad.library.templates import apply_template, dc_kind_param
 from envocad.model import checks
 from envocad.model import multipole as mp
+from envocad.model.feed import is_feed_in
 from envocad.model.project import (
     Element,
     Project,
@@ -106,7 +107,7 @@ def test_empty_template_links_feed_to_jps_wire():
     j.wires.append(w)
     sb = p.create_switchboard_sheet(blk)
     apply_template(p, sb, "empty")
-    feed = next(e for e in sb.elements if e.symbol_id == "sb.feed_in")
+    feed = next(e for e in sb.elements if is_feed_in(e))
     assert feed.attrs["wire_id"] == w.id and feed.attrs["cable"].startswith("CYKY-J 5x10")
     assert w.b.port == feed.ref
 
@@ -255,8 +256,8 @@ def test_coil_neutral_on_a2_has_pole(lib):
     """#7: cívka A1 = L1, A2 = N – N se napojí na A2 pólu cívky (ne mimo prvek)."""
     _p, sb = _bare_sb()
     c = _mk(lib, sb, "ctl.coil", ref="K1")
-    a = _mk(lib, sb, "sb.feed_in", ref="X1")
-    b = _mk(lib, sb, "sb.feed_out", ref="X2")
+    a = _mk(lib, sb, "sb.feed", dir="in", ref="X1")
+    b = _mk(lib, sb, "sb.feed", dir="out", ref="X2")
     sb.wires.append(Wire(WireEnd(a.id, "1"), WireEnd(c.id, "A1"), conductors=["L1"]))
     sb.wires.append(Wire(WireEnd(c.id, "A2"), WireEnd(b.id, "1"), conductors=["N"]))
     ep = mp.element_poles(sb, c, lib.get_symbol("ctl.coil"))
@@ -268,8 +269,8 @@ def test_coil_neutral_on_a2_has_pole(lib):
 def test_three_pole_breaker_bypass_unchanged(lib):
     _p, sb = _bare_sb()
     f = _mk(lib, sb, "fve.breaker_mcb", ref="F1", poles="3")
-    a = _mk(lib, sb, "sb.feed_in", ref="X1")
-    b = _mk(lib, sb, "sb.feed_out", ref="X2")
+    a = _mk(lib, sb, "sb.feed", dir="in", ref="X1")
+    b = _mk(lib, sb, "sb.feed", dir="out", ref="X2")
     five = ["L1", "L2", "L3", "N", "PE"]
     sb.wires.append(Wire(WireEnd(a.id, "1"), WireEnd(f.id, "1"), conductors=five))
     sb.wires.append(Wire(WireEnd(f.id, "2"), WireEnd(b.id, "1"), conductors=five))
@@ -416,7 +417,7 @@ def test_paste_does_not_share_cable_and_detaches_feed():
     sync_cables(p)
     assert orig.attrs["cable_id"] != wires[0].attrs["cable_id"]
     assert p.cable_of_wire(orig).ref == "W1" and p.cable_of_wire(wires[0]).ref == wires[0].attrs["ref"]
-    feed = Element("sb.feed_in", attrs={"ref": "X1", "wire_id": orig.id, "from": "W1 T1:AC /1.A1", "cable": "CYKY",
+    feed = Element("sb.feed", rotation=180, attrs={"dir": "in", "ref": "X1", "wire_id": orig.id, "from": "W1 T1:AC /1.A1", "cable": "CYKY",
                                         "desc": "přívod"})
     els, _ = paste_fragment(p, {"elements": [feed.to_dict()], "wires": []}, lambda sid: "X")
     assert (els[0].attrs["wire_id"], els[0].attrs["from"], els[0].attrs["cable"], els[0].attrs["desc"]) == \

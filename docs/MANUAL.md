@@ -253,6 +253,21 @@ ve stejném prostoru označení (funkce a umístění).
 
 ## 4. Rozvaděče
 
+### Přívod a vývod
+Svorky přívodu i vývodu rozvaděče jsou **jedna značka *Přívod / vývod*** (`sb.feed`). Port je nahoře, kabel jde
+zespodu; jestli jde o přívod, nebo vývod, ukazuje **šipka** na kabelu (k svorce = přívod, od svorky = vývod) a volba
+**Směr** (přívod / vývod) v panelu Vlastnosti nebo v dialogu parametrů. Nová značka z knihovny je přívod. Přepnutí
+směru je jeden krok `Ctrl+Z`: s ním se přepočte „Odkud“ ↔ „Kam“ z vazby na blokové schéma a port bloku ROZVADĚČ se
+přesune na druhou stranu (přívody vlevo, vývody vpravo) – kabel zůstane připojený. Svorku shora (kabel přichází
+shora) uděláš otočením `R` o 180°. Na listech **RFVE** (rodinný dům) a **RFVE.AC** generátor kreslí **vše
+zespodu**: přívody i vývody ve spodní řadě, sběrnice nahoře a přívodní větev teče nahoru (svorka → jistič →
+sběrnice); DC stringy rozvaděče FVE jako „U“ (přívod, pojistkový odpojovač nahoru, ohyb, dolů na vývod; SPD nad
+ohybem, jeho PE nad sběrnicí do XPE). DC rozvaděče (RFVE.DC, RDCn), HR, RE a RVN mají rozložení jako dřív. Vícepól
+se tím nemění (přívody v něm zůstávají nahoře). **Starší projekty** (do formátu 12) se při otevření převedou beze
+ztráty: přívody i vývody dostanou novou značku, porty zůstanou na místě, nic se nepřeskládá (přibude jen šipka);
+přeskládat je můžeš přegenerováním nebo ručně (otočení `R` – vodič na port drží). Starší EnvoCAD projekt formátu 13
+a makra verze 3 neotevře.
+
 ### Založení
 V blokovém schématu vlož **Rozvaděč (blok)** (R1), zapoj do něj kabely a dvakrát na něj klikni. Poprvé program nabídne
 **šablonu**: *AC rozvaděč FVE* (přívod, hlavní vypínač, rozvod, SPD, vývody s jističi), *DC rozvaděč* (každý
@@ -262,7 +277,8 @@ string zvlášť: pojistkový odpínač (u technologie) nebo jen průchozí svor
 **Rozvod** v rozvaděči jde dvěma způsoby (parametr šablony i průvodce): **sběrnice potenciálů** – prvek
 *Sběrnice (rozvodný vodič)*; ve vícepólu se kreslí jako v EPLAN vodorovnými čarami L1 L2 L3 N PE přes
 celou stranu (i přes více stran) s názvem potenciálu a šipkou na obou koncích (`1L1`… – označení sběrnice je
-předpona), přístroje se na ni napojují odbočkou s tečkou; porty `T1…T10` shora, `1…10` zdola. PE je potenciál sběrnice (1PE),
+předpona), přístroje se na ni napojují odbočkou s tečkou; porty `T1…T12` shora (přívody), `1…12` zdola (vývody)
+a `B1…B12` zdola (přívody, které do sběrnice tečou zespodu). PE je potenciál sběrnice (1PE),
 PE sběrnice i PE svodiče přepětí jdou na vývod `XPE` – ekvipotenciální svorkovnici (HOP) vně rozvaděče. Nebo
 **rozvodné svorky s můstky** (skupiny svorek X2, můstky mezi nimi).
 
@@ -311,7 +327,7 @@ z pólu, na který klikneš). Makra z knihovny se vkládají taky. Totéž jde v
 ### Svorky a můstky
 Prvek **Svorkovnice** (`sb.terminal_block`) je v blokovém schématu *skupina svorek* jedné svorkovnice: označení X2 a
 v atributu „Svorka č.“ čísla (`1 2 3 4 5`, nebo jen první číslo – zbytek se dopočítá). Ve vícepólu má každá
-žíla vlastní svorku s číslem. **Přívod a vývod** (`sb.feed_in`, `sb.feed_out`) jsou také svorkovnice: ve
+žíla vlastní svorku s číslem. **Přívod a vývod** (jedna značka *Přívod / vývod* `sb.feed`) jsou také svorkovnice: ve
 vícepólu dostane každá žíla svorku s číslem (bez zadání 1…n, jinak „Svorka č.“ stejně jako u skupiny),
 jsou v plánu svorkovnice i v BOM. `Úpravy → Očíslovat svorky automaticky` doplní chybějící čísla (skupiny,
 PE lišta), ruční čísla nechá.
@@ -625,7 +641,8 @@ rozvaděče po trase zůstávají. Přípojka VN se u rodinného domu negeneruje
 trase **RDC1…n** (číslované souvisle jen mezi sebou), hlavní rozvaděč nn u přípojky VN **HR**, u rodinného domu jeden
 **RFVE**. Tečka je uvnitř jednoho kódu umístění (`+RFVE.AC-X1`), nedělí úrovně. Jiné označení lze zadat ve specifikaci
 (`switchboard.ref`, `connection.main_board.ref`). Starší projekty se nepřejmenovávají.
-AC rozvaděč má přívody po střídačích, jističe, rozvodné svorky s můstky, SPD, hlavní vypínač a vývod do HDS.
+AC rozvaděč má přívody po střídačích, jističe, rozvodné svorky s můstky, SPD, hlavní vypínač a vývod do HDS; přívody
+i vývody jsou ve spodní řadě (vše zespodu), přívodní větev teče nahoru do sběrnice / rozvodných svorek.
 Označení jsou jedinečná uvnitř každého rozvaděče (jako v EPLAN `+RDC1-X1`), takže X1 smí být v každém
 rozvaděči; listy blokového schématu sdílejí jeden prostor označení.
 

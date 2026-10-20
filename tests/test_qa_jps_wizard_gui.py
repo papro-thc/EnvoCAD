@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QLabel, QMessa
 
 from envocad.generate import build_project
 from envocad.library.store import LibraryStore
+from envocad.model.feed import is_feed_in
 from envocad.model.project import Project
 from envocad.ui.main_window import MainWindow
 
@@ -175,7 +176,7 @@ def test_rename_inverter_updates_auto_texts_in_one_undo_step(app, lib):
     sc.set_attr(t1.id, False, "ref", "T9")
     assert w.undo.count() == n0 + 1
     rh = p.sheets[-1]
-    assert "od T9" in [e.attrs.get("desc") for e in rh.elements if e.symbol_id == "sb.feed_in"]
+    assert "od T9" in [e.attrs.get("desc") for e in rh.elements if is_feed_in(e)]
     rdc1 = next(e for e in p.sheets[0].elements if e.ref == "RDC1")
     assert p.switchboard_sheet(rdc1.id).name == "RDC1 – DC rozvaděč po trase T9"
     w.undo.undo()

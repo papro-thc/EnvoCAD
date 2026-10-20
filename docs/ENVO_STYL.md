@@ -5,7 +5,8 @@ Zdroj: `Desktop/vzor/D.1.4.1 BD Ostrava-Poruba.dwg` (D.603.1 Jednopólové sché
 Slouží jako zadání pro makra a generátor – výkresy ladí projektant, program je opakuje.
 
 ## Rozvaděč RFVE.DC
-- Tok shora dolů; nad skříní FV panel („Fotovoltaický panel / 450Wp / 7x“), optimizér („TS4-A-O / Optimizér TIGO
+- Tok shora dolů (v EnvoCAD: přívod nahoře portem dolů, vývody dole – rozložení DC rozvaděčů se značkou `sb.feed`
+  nemění, přibyla jen šipka směru); nad skříní FV panel („Fotovoltaický panel / 450Wp / 7x“), optimizér („TS4-A-O / Optimizér TIGO
   700W (1:1) / 7ks“), symbol bezdrátu.
 - Na hraně skříně **štítek kabelu**: rámeček o 3 řádcích – číslo (`1.1`), název (`STRING 1.1`), typ (`2xFLEX-SOL 6`).
   Stejný štítek na vstupu i výstupu.
@@ -25,6 +26,9 @@ Slouží jako zadání pro makra a generátor – výkresy ladí projektant, pro
 - Vývod kabelu = „vidlička“ ze svorek N a PE do jedné čáry; štítky dole: `WL-STR / CYKY-J 5x16`, `WL.SIT / CYKY-J 5x16`,
   `WL.STOP / PraFlaDur-O 2x1,5`, `PPV.SPD.AC / H07V-K 16 zž`, `PPV.RFVE.AC / H07V-K 10 zž` (PPV = pospojování, čárkovaně).
 - Tlačítko STOP FVE (1x rozpínací) pod skříní; DC pojistky FU1.1…FU1.4 stringů „SMĚR STŘÍDAČ“.
+- **Vše přichází zespodu** (rozhodnutí 2026-10-20, `docs/design/znacka_privod_vyvod.md`): přívody i vývody RFVE.AC
+  a RFVE jsou ve spodní řadě, štítky kabelů dole, přívodní větev teče nahoru do sběrnice; DC stringy v RFVE jako „U“.
+  Fyzické umístění kabelů určí projektant podle dispozice.
 
 ## JPS pro distributora („Náš svět“)
 - String svisle jako řada modulů s přerušením „//“, nad ním optimizér; texty „Optimizéry / 700W / 20 kusů (1:1 na každý
@@ -34,7 +38,8 @@ Slouží jako zadání pro makra a generátor – výkresy ladí projektant, pro
   způsob provozu výrobny.
 
 ## Co už EnvoCAD dělá podle toho
-- Štítky kabelů na přívodech/vývodech ve vícepólu (označení / název / typ), nadpis výkresu rozvaděče vlevo nahoře
+- Jedna značka přívodu/vývodu `sb.feed` – směr jen šipkou (bez textu PŘÍVOD/VÝVOD), port nahoře, kabel zespodu.
+- Štítky kabelů na přívodech/vývodech ve vícepólu (označení / název / typ; strana proti portu), nadpis výkresu rozvaděče vlevo nahoře
   na každé straně (`switchboard_title`: označení, soustava, Un, In, Ik'', skříň, montáž, krytí z parametrů skříně).
 - Proměnné maker `{i}` (střídač) a `{j}` (string u střídače) – vestavěná DC makra číslují `FU{i}.{j}`, `SPD-DC{i}.{j}`.
 - PE svodičů na ekvipotenciální svorkovnici, sběrnice potenciálů s názvy na koncích.

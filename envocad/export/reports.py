@@ -13,7 +13,7 @@ from envocad.model.notes import plural
 from envocad.model.project import INTERRUPT_SYMBOL, NON_DEVICE_SYMBOLS, Element, Project, Sheet, clean_view
 from envocad.model.xref import natural_key
 
-TERMINAL_SYMBOLS = {"sb.feed_in", "sb.feed_out", "sb.terminal_block"}
+TERMINAL_SYMBOLS = {"sb.feed", "sb.terminal_block"}
 
 DEVICE_PARAMS = ["in_", "char", "poles", "idn", "spd_type", "uc", "icu", "ir", "p_ac", "e_kwh", "sn"]
 

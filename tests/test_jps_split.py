@@ -12,6 +12,7 @@ from envocad.generate import JPS_AC_SHEET_NAME, build_project, ref_ranges
 from envocad.library.store import LibraryStore
 from envocad.model import calc
 from envocad.model.checks import AGGREGATED_INFO, WARNING, check_project
+from envocad.model.feed import is_feed_in
 from envocad.model.frame import paper_exceeds
 from envocad.model.potential import nets
 from envocad.model.project import FORMAT_VERSION, INTERRUPT_SYMBOL, Element, Project, Sheet, Wire, WireEnd
@@ -172,7 +173,7 @@ def test_interrupt_xrefs_and_feed_link(big):
         partner = next(e for e in interrupts(inv_sheet) if e.ref == i.ref)
         assert re.fullmatch(r"→ /1\.[A-H]\d", interrupt_xref(big, inv_sheet, partner))
     sb = next(s for s in big.sheets if s.is_switchboard and s.loc == "RFVE.AC")
-    x1 = next(e for e in sb.elements if e.symbol_id == "sb.feed_in" and e.ref == "X1")
+    x1 = next(e for e in sb.elements if is_feed_in(e) and e.ref == "X1")
     assert re.fullmatch(r"W13 T1:AC /2\.[A-H]\d", x1.attrs["from"]) and x1.attrs["cable"] == "CYKY-J 5x16 16"
 
 

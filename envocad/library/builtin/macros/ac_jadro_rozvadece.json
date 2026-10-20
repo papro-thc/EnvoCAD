@@ -1,5 +1,5 @@
 {
- "version": 2,
+ "version": 3,
  "name": "AC jádro rozvaděče",
  "description": "Generátor: sběrnice 1 → SPD {spd} → XPE (k HOP), sběrnice → hlavní vypínač {main_in} → XOUT",
  "role": "ac_core",
@@ -41,7 +41,7 @@
    {
     "id": "54c61f96c656",
     "symbol_id": "sb.busbar",
-    "x": 120,
+    "x": 165,
     "y": 175,
     "rotation": 0,
     "attrs": {
@@ -56,7 +56,7 @@
    {
     "id": "bb16ca1993fd",
     "symbol_id": "fve.spd",
-    "x": 60,
+    "x": 82.5,
     "y": 140,
     "rotation": 0,
     "attrs": {
@@ -70,12 +70,13 @@
    },
    {
     "id": "f580ffd604bd",
-    "symbol_id": "sb.feed_out",
-    "x": 40,
+    "symbol_id": "sb.feed",
+    "x": 60,
     "y": 105,
     "rotation": 0,
     "attrs": {
      "ref": "XPE",
+     "dir": "out",
      "desc": "k HOP",
      "shared": "1"
     },
@@ -84,7 +85,7 @@
    {
     "id": "02bb553866d7",
     "symbol_id": "sb.main_switch",
-    "x": 120,
+    "x": 142.5,
     "y": 140,
     "rotation": 270,
     "attrs": {
@@ -97,12 +98,13 @@
    },
    {
     "id": "985f71222a42",
-    "symbol_id": "sb.feed_out",
-    "x": 120,
+    "symbol_id": "sb.feed",
+    "x": 142.5,
     "y": 105,
     "rotation": 0,
     "attrs": {
      "ref": "XOUT",
+     "dir": "out",
      "desc": "do HDS / DS"
     },
     "component_id": null
@@ -119,7 +121,16 @@
      "element_id": "bb16ca1993fd",
      "port": "L"
     },
-    "points": [],
+    "points": [
+     [
+      97.5,
+      160.0
+     ],
+     [
+      82.5,
+      160.0
+     ]
+    ],
     "attrs": {
      "ref": ""
     },
@@ -141,7 +152,16 @@
      "element_id": "f580ffd604bd",
      "port": "1"
     },
-    "points": [],
+    "points": [
+     [
+      82.5,
+      120.0
+     ],
+     [
+      60.0,
+      120.0
+     ]
+    ],
     "attrs": {
      "ref": ""
     },
@@ -154,13 +174,22 @@
     "id": "be816803f8f9",
     "a": {
      "element_id": "54c61f96c656",
-     "port": "4"
+     "port": "1"
     },
     "b": {
      "element_id": "f580ffd604bd",
      "port": "1"
     },
-    "points": [],
+    "points": [
+     [
+      97.5,
+      165.0
+     ],
+     [
+      60.0,
+      165.0
+     ]
+    ],
     "attrs": {
      "ref": ""
     },
@@ -173,7 +202,7 @@
     "id": "b652e3f938c2",
     "a": {
      "element_id": "54c61f96c656",
-     "port": "3"
+     "port": "4"
     },
     "b": {
      "element_id": "02bb553866d7",

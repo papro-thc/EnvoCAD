@@ -145,6 +145,8 @@ class PropertiesPanel(QWidget):
                     self._add_check(a.key, "Zdroj hvězdy", e.attrs.get(a.key, "") == "1",
                                     "Bod se stejným označením, ze kterého vede hvězda k ostatním bodům "
                                     "(jinak se body řetězí)")
+                elif a.choice_items():
+                    self._add_choice(a.key, a.label, e.attrs.get(a.key, "") or a.default, a.choice_items())
                 else:
                     self._add_field(a.key, a.label, e.attrs.get(a.key, ""))
             sc = item.scene()
@@ -211,6 +213,13 @@ class PropertiesPanel(QWidget):
                           f"Příklad: {CONTACTS_HINT}\nBez předpony druhu se určí podle čísel svorek (IEC 60947-5-1).")
         ed.editingFinished.connect(lambda k=key, w=ed: self._commit(k, w.text()))
         self.form.addRow(label, ed)
+
+    def _add_choice(self, key: str, label: str, value: str, items: list[tuple[str, str]]) -> None:
+        """Nabídka hodnot atributu (`Attribute.choices`, např. směr přívodu/vývodu); změna = jeden příkaz undo."""
+        from envocad.ui.dialogs import ChoiceEdit
+        cb = ChoiceEdit(items, value)
+        cb.currentIndexChanged.connect(lambda _i, k=key, w=cb: self._commit(k, w.text()))
+        self.form.addRow(label, cb)
 
     @staticmethod
     def _is_mirror_host(sc, sheet, e) -> bool:

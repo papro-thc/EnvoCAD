@@ -1067,7 +1067,7 @@ def check_strings(project: Project, t_min: float | None = None, t_max: float | N
 
 
 _PASS_THROUGH = ("fve.dc_disconnect", "fve.fuse", "fve.terminal", "sb.terminal_block", "fve.spd", "fve.switchboard",
-                 "sb.feed_in", "sb.feed_out", "fve.interrupt")
+                 "sb.feed", "fve.interrupt")
 _INVERTERS = ("fve.inverter", "fve.inverter_hybrid")
 
 
@@ -1204,7 +1204,7 @@ def check_cables(project: Project, t_ambient: float = 30.0, du_limit_pct: float 
 def check_selectivity(project: Project, sheet: Sheet | None = None) -> list[tuple[str, str, float, float, str]]:
     """Dvojice jistič → nadřazený jistič po cestě ke zdroji; vrací (dolní, horní, In_d, In_h, hlášení).
     `sheet` = jen dvojice na tomto listu (výkaz pro jeden list), jinak všechny listy."""
-    from envocad.model.multipole import SOURCE_SYMBOLS
+    from envocad.model.multipole import is_flow_source
     out = []
     breakers = {"fve.breaker_mcb", "fve.breaker_mccb", "sb.rcbo", "fve.fuse"}
     for s in project.sheets:
@@ -1215,7 +1215,7 @@ def check_selectivity(project: Project, sheet: Sheet | None = None) -> list[tupl
             if w.a.element_id in adj and w.b.element_id in adj:
                 adj[w.a.element_id].add(w.b.element_id)
                 adj[w.b.element_id].add(w.a.element_id)
-        sources = [e.id for e in s.elements if e.symbol_id in SOURCE_SYMBOLS | {"fve.grid"}]
+        sources = [e.id for e in s.elements if is_flow_source(e) or e.symbol_id == "fve.grid"]
         if not sources:
             continue
         # BFS od zdrojů: rodič každého uzlu

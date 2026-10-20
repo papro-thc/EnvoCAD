@@ -3,7 +3,7 @@
   "name": "Sběrnice (rozvodný vodič)",
   "category": "Svorky a propojení",
   "iec_ref": "",
-  "description": "Rozvod potenciálů vodičem jako v EPLAN: ve vícepólu vodorovné čáry L1 L2 L3 N PE přes stranu s názvy potenciálů na koncích, přístroje se na ně napojují odbočkou; 1 vstup, 12 přívodů shora, 12 vývodů zdola",
+  "description": "Rozvod potenciálů vodičem jako v EPLAN: ve vícepólu vodorovné čáry L1 L2 L3 N PE přes stranu s názvy potenciálů na koncích, přístroje se na ně napojují odbočkou; 1 vstup, 12 přívodů shora, 12 vývodů zdola, 12 přívodů zdola (B1…B12)",
   "primitives": [
     {
       "type": "polyline",
@@ -182,6 +182,78 @@
     {
       "name": "12",
       "x": 97.5,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "B1",
+      "x": -60,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "B2",
+      "x": -30,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "B3",
+      "x": 0,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "B4",
+      "x": 30,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "B5",
+      "x": 60,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "B6",
+      "x": 90,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "B7",
+      "x": -45,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "B8",
+      "x": -15,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "B9",
+      "x": 15,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "B10",
+      "x": 45,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "B11",
+      "x": 75,
+      "y": -5,
+      "dir": "S"
+    },
+    {
+      "name": "B12",
+      "x": 105,
       "y": -5,
       "dir": "S"
     }

@@ -159,10 +159,18 @@ napojuje **jen přes označení přívodů/vývodů a sdílené prvky** – ty m
 
 | role | kolikrát | povinné kotvy | proměnné (auto = dodá generátor) |
 |---|---|---|---|
-| `dc_tech` | na string | `sb.feed_in` `X{k}`, `sb.feed_out` `X{nk}`, `XPE` (`shared: "1"`) | auto `k, n, nk, i, j, string, inverter`; `fuse_in`, `spd` (`disc_in`) |
-| `ac_feed` | na střídač | `sb.feed_in` `X{k}`; vodič na sdílenou `sb.busbar` ref `1` port `T{k}` | auto `k, i, inverter`; `breaker_in`, `main_in` |
-| `ac_core` | 1× | sdílená `sb.busbar` `1` (porty 1 SPD, 3 hlavní vypínač, 4 PE, 6 síťová ochrana), `sb.feed_out` `XOUT`, `XPE` (`shared`) | `main_in`, `spd`; auto `grid_protection` (podmínky `when`) |
-| `ac_eps` | na hybridní střídač | `sb.feed_in` `XE{i}`, `sb.feed_out` `XB{i}`, sběrnice `1` port 5 (síťová strana přepínače) | auto `i, inverter`; `eps_in` |
+| `dc_tech` | na string | `sb.feed` `dir=in` `X{k}`, `sb.feed` `dir=out` `X{nk}`, `XPE` (`dir=out`, `shared: "1"`) | auto `k, n, nk, i, j, string, inverter`; `fuse_in`, `spd` (`disc_in`) |
+| `ac_feed` | na střídač | `sb.feed` `dir=in` `X{k}`; vodič na sdílenou `sb.busbar` ref `1` port `B{k}` (přívod zdola) | auto `k, i, inverter`; `breaker_in`, `main_in` |
+| `ac_core` | 1× | sdílená `sb.busbar` `1` (vývod 1 SPD a PE, 4 hlavní vypínač – generátor ho posune za poslední přívod, 6 síťová ochrana), `sb.feed` `dir=out` `XOUT`, `XPE` (`dir=out`, `shared`) | `main_in`, `spd`; auto `grid_protection` (podmínky `when`) |
+| `ac_eps` | na hybridní střídač | `sb.feed` `dir=in` `XE{i}`, `sb.feed` `dir=out` `XB{i}`, sběrnice `1` port 5 (síťová strana přepínače) | auto `i, inverter`; `eps_in` |
+
+Značka přívodu i vývodu je jedna, **`sb.feed`** se směrem v atributu `dir` (`in` = přívod, `out` = vývod; návrh
+`docs/design/znacka_privod_vyvod.md`). Při `rot 0` je **port nahoře** a kabel dole; směr ukazuje jen šipka.
+**RFVE a RFVE.AC: přívody i vývody ve spodní řadě** (`rot 0`, y 105), sběrnice nahoře (x 165, y 175 – čára 90…270),
+přívodní větev teče nahoru (svorka → jistič `rot 90` → port `B{k}` zdola; B1…B6 po 30 mm od x 105), jádro visí ze
+sběrnice dolů; vlevo XPE (x 60) a SPD (x 82,5). DC rozvaděče (RFVE.DC, RDCn) mají přívod nahoře portem dolů
+(`dir=in`, `rot 180`) jako dřív. DC část RFVE generátor přeskládá do tvaru „U“ (`generate._dc_from_below`), ať
+makro `dc_tech` kreslí jakkoli. Staré mustry se `sb.feed_in` / `sb.feed_out` fungují (převod při načtení makra).
 
 RFVE (RD) = `dc_tech` + `ac_feed` + `ac_core` (+ `ac_eps`) s vlastními názvy („RFVE – DC string“…), RFVE.AC =
 `ac_feed` + `ac_core`, RFVE.DC = `dc_tech`. V RFVE platí číslování: AC přívody X1…Xn, DC přívody od X{k0+1}

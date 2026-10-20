@@ -11,6 +11,7 @@ from envocad.export import reports
 from envocad.generate import build_project
 from envocad.library import store as st
 from envocad.library.store import LibraryStore
+from envocad.model.feed import is_feed_in
 from envocad.model.project import Element, Project, Sheet
 
 INV = {"p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30}
@@ -133,7 +134,7 @@ def test_rename_followups_skips_other_designation_space():
     assert fed.id not in {c.target_id for c in ch}
     rh = next(e for e in p.sheets[0].elements if e.ref == "RFVE.AC")
     rh_sheet = p.switchboard_sheet(rh.id)
-    feed = next(e for e in rh_sheet.elements if e.symbol_id == "sb.feed_in" and e.attrs.get("desc") == "od T1")
+    feed = next(e for e in rh_sheet.elements if is_feed_in(e) and e.attrs.get("desc") == "od T1")
     assert feed.id in {c.target_id for c in ch}          # přívod navázaný na vodič od T1 se přepíše
     # ruční text podle šablony ve stejném prostoru (prokázaná vazba) se také přepíše
     same = Element("fve.load", 200, 100, attrs={"ref": "", "desc": "od T1"})

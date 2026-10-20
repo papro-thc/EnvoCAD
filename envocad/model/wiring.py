@@ -15,6 +15,7 @@ import re
 from dataclasses import dataclass, field
 
 from envocad.model.designation import LOCATION_SYMBOLS, designation, element_name, full_designation
+from envocad.model.feed import feed_dir, is_feed
 from envocad.model.multipole import (
     NEVER_SWITCHED,
     TERMINAL_BLOCK_SYMBOLS,
@@ -221,7 +222,7 @@ FLEXIBLE_WIRE_TYPES: list[tuple[str, str]] = [
 BUS = "sb.busbar"
 # neumístěné prvky s odhadem polohy: sběrnice nahoře (žlab 0), svorky a PE lišta dole (žlab `rows`), uprostřed
 TOP_ESTIMATE = {"sb.busbar"}
-BOTTOM_ESTIMATE = {"sb.feed_in", "sb.feed_out", "sb.terminal_block", "fve.terminal", "sb.pe_bar"}
+BOTTOM_ESTIMATE = {"sb.feed", "sb.terminal_block", "fve.terminal", "sb.pe_bar"}
 JUNCTION = "sb.junction"
 UNSPLIT_COLOR = {"N", "PE", "PEN"}       # vícežilový vodič: barva z atributu se na ně nepoužije
 
@@ -409,6 +410,8 @@ def _terminal_number(terminal: str) -> str:
 
 def _port_on_top(e: Element, port: str, lib=None) -> bool:
     """Svorka bez čísla: nahoře/dole podle směru portu v symbolu (N/W = vstup nahoře), bez knihovny podle jména."""
+    if is_feed(e):     # starý `sb.feed_in` měl port dole (S), `sb.feed_out` nahoře (N) – beze změny výstupu
+        return feed_dir(e) == "out"
     if lib is not None:
         try:
             return lib.get_symbol(e.symbol_id).port(port).dir in ("N", "W")

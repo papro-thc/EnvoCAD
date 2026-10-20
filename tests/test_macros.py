@@ -24,6 +24,7 @@ from envocad.library.macros import (
     validate_macro,
 )
 from envocad.library.store import LibraryStore
+from envocad.model.feed import is_feed_in, is_feed_out
 from envocad.model.project import Element, Project, Sheet
 
 
@@ -91,24 +92,24 @@ def test_parse_macro_rejects_non_macro():
         parse_macro({"name": "x"}, None, "vlastní")
 
 
-def test_save_macro_writes_v2_with_implicit_variables(tmp_path, monkeypatch):
+def test_save_macro_writes_v3_with_implicit_variables(tmp_path, monkeypatch):
     monkeypatch.setattr(macros, "user_dir", lambda: tmp_path / "m")
     monkeypatch.setattr(macros, "shared_dir", lambda: None)
     frag = {"elements": [{"id": "a", "symbol_id": "fve.breaker_mcb", "x": 0, "y": 0, "attrs": {"ref": "F1", "in_": "{proud}"}}],
             "wires": []}
     path = save_macro("Můj jistič", "popis", frag)
     data = json.loads(path.read_text(encoding="utf-8"))
-    assert data["version"] == 2 and data["variables"] == [{"name": "proud"}] and not validate_macro(data)
+    assert data["version"] == 3 and data["variables"] == [{"name": "proud"}] and not validate_macro(data)
     m = load_macro(path)
-    assert m.version == 2 and [v.name for v in m.variables] == ["proud"] and not m.variables[0].implicit
+    assert m.version == 3 and [v.name for v in m.variables] == ["proud"] and not m.variables[0].implicit
 
 
-def test_builtin_macros_are_valid_v2():
+def test_builtin_macros_are_valid_v3():
     found = {m.name: m for m in list_macros() if m.source == "vestavěné"}
     assert len(found) == 6
     for m in found.values():
         data = json.loads(m.path.read_text(encoding="utf-8"))
-        assert data["version"] == 2 and validate_macro(data) == [], (m.name, validate_macro(data))
+        assert data["version"] == 3 and validate_macro(data) == [], (m.name, validate_macro(data))
     roles = {m.role: m.name for m in found.values() if m.role}
     assert roles == {"dc_tech": "DC string v rozvaděči", "dc_route": "DC string po trase",
                      "ac_feed": "AC přívod střídače", "ac_core": "AC jádro rozvaděče"}
@@ -247,7 +248,7 @@ def test_repeat_shared_grid_and_numbering(lib):
     refs = [e.ref for e in els]
     assert refs.count("XPE") == 1                                    # shared sloučený
     assert {"X1", "X2", "X3", "X4", "FU1.1", "FU1.2", "SPD-DC1.1", "SPD-DC1.2"} <= set(refs)
-    descs = sorted(e.attrs["desc"] for e in els if e.symbol_id == "sb.feed_in")
+    descs = sorted(e.attrs["desc"] for e in els if is_feed_in(e))
     assert descs == ["od G1", "od G2"]
     fus = sorted((e for e in els if e.symbol_id == "fve.fuse_disconnect"), key=lambda e: e.x)
     assert [e.x for e in fus] == [61.0, 111.0]                     # posun dx + (k−1)·50
@@ -256,7 +257,7 @@ def test_repeat_shared_grid_and_numbering(lib):
     xpe = next(e for e in els if e.ref == "XPE")
     assert sum(w.b.element_id == xpe.id for w in wires) == 2        # PE obou svodičů na jeden XPE
     # shared prvek už na listu → sloučí se s ním (není nový)
-    s.elements.append(Element("sb.feed_out", 0, 0, attrs={"ref": "XPE", "shared": "1"}))
+    s.elements.append(Element("sb.feed", 0, 0, attrs={"dir": "out", "ref": "XPE", "shared": "1"}))
     els2, _ = expand(p, s, m, vals, ref_prefix_of=_prefix(lib))
     assert not [e for e in els2 if e.ref == "XPE"]
 
@@ -368,7 +369,7 @@ def test_repeat_given_k_does_not_freeze_numbering(lib):
     assert not errs and vals["j"] == "{k}" and vals["string"] == "G{k}" and vals["inverter"] == "T1"
     els, _ = expand(Project(), Sheet(), m, vals, ref_prefix_of=_prefix(lib), components=lib.component)
     assert sorted(e.ref for e in els if e.ref.startswith("FU")) == ["FU1.1", "FU1.2", "FU1.3"]
-    assert sorted(e.attrs["desc"] for e in els if e.symbol_id == "sb.feed_in") == ["od G1", "od G2", "od G3"]
+    assert sorted(e.attrs["desc"] for e in els if is_feed_in(e)) == ["od G1", "od G2", "od G3"]
     # bez opakování (generátor) a s kontextem se k dosazuje jako dřív
     assert resolve_values(m, given=given, repeat=False)[0]["j"] == "1"
     assert resolve_values(m, given={"n": "3"}, context={"k": "2"})[0]["j"] == "2"
@@ -448,7 +449,7 @@ def test_macro_without_parameters_expands_as_copy(lib):
     got = [(e.symbol_id, e.ref, e.attrs.get("terminal")) for e in s.elements]
     assert got[0] == ("fve.terminal", "X1", "") and got[3] == ("fve.terminal", "X1", "")   # skupina svorek X1
     assert [e.ref for e in s.elements if e.symbol_id == "fve.breaker_mcb"] == ["F1", "F2"]
-    feeds = [e.ref for e in s.elements if e.symbol_id == "sb.feed_out"]
+    feeds = [e.ref for e in s.elements if is_feed_out(e)]
     assert len(set(feeds)) == 2 and "X5" not in feeds and "X1" not in feeds   # přečíslované, bez kolize se svorkovnicí
     assert not any("sheet" in e.attrs for e in s.elements)
 
@@ -479,7 +480,7 @@ def test_builtin_macro_without_variables_is_copy(lib):
     assert not m.has_parameters
     els, _ = expand(Project(), Sheet(), m, {}, ref_prefix_of=_prefix(lib))
     assert all(e.attrs.get("terminal") == "" for e in els if e.symbol_id == "sb.terminal_block")
-    assert "X3" not in [e.ref for e in els if e.symbol_id == "sb.feed_out"]
+    assert "X3" not in [e.ref for e in els if is_feed_out(e)]
 
 
 @pytest.mark.parametrize("extra, sym, expect", [

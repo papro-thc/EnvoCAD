@@ -10,6 +10,7 @@ import pytest
 from envocad.generate import build_project, parse_number, parse_strings
 from envocad.library.store import LibraryStore
 from envocad.model.checks import INFO, WARNING, check_project
+from envocad.model.feed import is_feed, is_feed_in, is_feed_out
 from envocad.model.frame import fit_placement, inner_box, title_block_box
 from envocad.model.project import Element, Project, Sheet, Wire, WireEnd, element_symbol
 from envocad.model.textlayout import (
@@ -146,7 +147,7 @@ def test_suggest_numbering_dc_and_ac_macros(lib):
     vals, errs = resolve_values(dc, given={"n": "2", **sug}, components=lib.component)
     assert not errs
     els, _ = expand(p, rdc, dc, vals, components=lib.component)
-    refs = sorted(e.ref for e in els if e.symbol_id in ("sb.feed_in", "sb.feed_out"))
+    refs = sorted(e.ref for e in els if is_feed(e))
     used = {e.ref for e in rdc.elements}
     assert {"X9", "X10", "X11", "X12"} <= set(refs) and not ({r for r in refs if r != "XPE"} & used)
     ac = find_macro("AC přívod střídače")
@@ -160,8 +161,8 @@ def test_suggest_numbering_dc_and_ac_macros(lib):
 def test_dup_ref_reports_duplicate_feeds(lib):
     p = build_project(spec(1, 4))
     rh = p.sheets[-1]
-    x1 = next(e for e in rh.elements if e.symbol_id == "sb.feed_in" and e.ref == "X1")
-    dup = Element("sb.feed_in", x1.x + 60, x1.y, attrs={"ref": "X1", "desc": "od T9"})
+    x1 = next(e for e in rh.elements if is_feed_in(e) and e.ref == "X1")
+    dup = Element("sb.feed", x1.x + 60, x1.y, rotation=180, attrs={"dir": "in", "ref": "X1", "desc": "od T9"})
     rh.elements.append(dup)
     fs = [f for f in check_project(p, lib) if f.code == "dup_ref"]
     assert {f.target_id for f in fs} >= {x1.id, dup.id}
@@ -177,12 +178,12 @@ def test_rename_followups_auto_texts_only():
     rdc1 = next(e for e in s.elements if e.ref == "RDC1")
     rh = next(e for e in s.elements if e.ref == "RFVE.AC")
     rh_sheet = p.switchboard_sheet(rh.id)
-    manual = next(e for e in rh_sheet.elements if e.symbol_id == "sb.feed_in" and e.ref == "X2")
+    manual = next(e for e in rh_sheet.elements if is_feed_in(e) and e.ref == "X2")
     manual.attrs["desc"] = "od T1 přes jistič"   # ručně psaný text se nemění
     before = p.to_dict()
     ch = rename_followups(p, t1, "T1", "T9")
     apply_text_changes(p, ch)
-    descs = [e.attrs.get("desc") for e in rh_sheet.elements if e.symbol_id == "sb.feed_in"]
+    descs = [e.attrs.get("desc") for e in rh_sheet.elements if is_feed_in(e)]
     assert "od T9" in descs and "od T1 přes jistič" in descs
     assert rdc1.attrs["desc"] == "DC rozvaděč po trase T9"
     assert p.switchboard_sheet(rdc1.id).name == "RDC1 – DC rozvaděč po trase T9"
@@ -273,7 +274,7 @@ def test_pe_bar_inside_frame_below_outputs(lib):
                 continue
             poles = {e.id: mp.element_poles(s, e, element_symbol(p, e, lib)) for e in s.elements}
             lay = mp.auto_layout(s, poles, x0=mp.MP_X0, y_top=s.height - mp.MP_Y_TOP, page_w=mp.page_width(s))
-            outs = [lay[e.id][1] for e in s.elements if e.symbol_id == "sb.feed_out"]
+            outs = [lay[e.id][1] for e in s.elements if is_feed_out(e)]
             for b in bars:
                 y = lay[b.id][1]
                 assert y < min(outs) and y >= MARGIN + 5.0, (s.name, y)   # pod vývody, ne u okraje

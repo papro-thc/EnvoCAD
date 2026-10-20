@@ -13,6 +13,7 @@ vloží jedním undo příkazem) → případně `insert`. `instantiate` = `expa
 """
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import math
@@ -21,11 +22,15 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from envocad.model.feed import FEED_SYMBOL, LEGACY_FEEDS, normalize_legacy_fragment
+
 log = logging.getLogger("envocad.library")
 
 BUILTIN_DIR = Path(__file__).parent / "builtin" / "macros"
 
-MACRO_VERSION = 2
+# v3: značka přívodu/vývodu `sb.feed` (+ `dir`); starší EnvoCAD makro v3 odmítne (log) místo vložení zástupných „?“.
+# Makra v1/v2 se `sb.feed_in` / `sb.feed_out` se převádějí při načtení (`parse_macro`), soubor se nemění.
+MACRO_VERSION = 3
 RESERVED = frozenset({"k", "n", "nk", "i", "j", "string", "inverter"})   # kontext dodává generátor / opakování
 MAX_REPEAT = 100
 # kontextové názvy, které dosazuje opakování makra v každé iteraci (n = počet – to se zadává, viz `repeat_context_names`)
@@ -37,9 +42,9 @@ _PH = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 _NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _WHEN = re.compile(r"^\s*(!?)\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?:(!?=)(.*))?$")
 # prvky, kterým se při vložení nepřečíslovává označení (svorkovnice, přívody/vývody, sběrnice)
-_KEEP_REF = ("sb.terminal_block", "fve.terminal", "sb.feed_in", "sb.feed_out", "sb.busbar")
+_KEEP_REF = ("sb.terminal_block", "fve.terminal", FEED_SYMBOL, "sb.busbar")
 _TERMINAL_SYMBOLS = ("sb.terminal_block", "fve.terminal")
-_FEED_SYMBOLS = ("sb.feed_in", "sb.feed_out")
+_FEED_SYMBOLS = (FEED_SYMBOL,)
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -197,12 +202,24 @@ def implicit_variables(fragment: dict) -> list[MacroVar]:
 
 # ---------------------------------------------------------------------------------------------------------------
 # načtení, uložení, kontrola
+def _normalized_fragment(fragment: dict) -> dict:
+    """Výřez se starými značkami přívodu/vývodu (`sb.feed_in` / `sb.feed_out`, makra v1/v2, starší schránka) jako
+    kopie se značkou `sb.feed` + `dir` (`model/feed.normalize_legacy_element`); jinak týž slovník."""
+    els = fragment.get("elements") if isinstance(fragment, dict) else None
+    if not isinstance(els, list) or not any(isinstance(d, dict) and d.get("symbol_id") in LEGACY_FEEDS for d in els):
+        return fragment
+    out = copy.deepcopy(fragment)
+    normalize_legacy_fragment(out)
+    return out
+
+
 def parse_macro(data: dict, path: Path | str | None = None, source: str = "vlastní") -> Macro:
     """Makro z JSON dat (v1 i v2). ValueError, pokud data nejsou makro (chybí fragment). Ostatní nesrovnalosti
     snáší (neplatné položky vynechá) – podrobnou kontrolu dělá `validate_macro`."""
     fragment = data.get("fragment") if isinstance(data, dict) else None
     if not isinstance(fragment, dict):
         raise ValueError("Makro musí být objekt JSON s klíčem „fragment“.")  # noqa: TRY004 – neplatná data, ne typ
+    fragment = _normalized_fragment(fragment)   # makro v1/v2: sb.feed_in/out → sb.feed + dir (soubor se nemění)
     path = Path(path) if path else Path()
     try:
         version = int(data.get("version") or 1)
@@ -760,13 +777,13 @@ def expand(project, sheet, m: Macro | dict, values: dict, dx: float = 0.0, dy: f
     `shared` prvky, které už v listu jsou). `values` = výsledek `resolve_values`. `m` smí být i holý fragment (dict).
 
     `copy` = vložit jako kopii výřezu (jako dřívější `paste_fragment`): nesdíleným skupinám svorek se vymaže číslo
-    svorky (`terminal`), přívody/vývody (`sb.feed_in`/`sb.feed_out`) se přečíslují – obojí jen bez zástupného symbolu.
+    svorky (`terminal`), přívody/vývody (`sb.feed`) se přečíslují – obojí jen bez zástupného symbolu.
     Výchozí None = kopie u makra bez proměnných a opakování (`not m.has_parameters`, uživatelské výřezy); parametrická
     makra (vestavěná, generátor) si označení svorek a přívodů drží. Holý fragment (`instantiate`) = bez kopie."""
     if copy is None:
         copy = isinstance(m, Macro) and not m.has_parameters
     if isinstance(m, dict):
-        m = Macro(name="", description="", fragment=m, path=Path(), source="")
+        m = Macro(name="", description="", fragment=_normalized_fragment(m), path=Path(), source="")
     used = project.used_refs(sheet)
     created: list = []
     all_els: list = []

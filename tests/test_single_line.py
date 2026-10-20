@@ -7,6 +7,7 @@ from envocad.generate import build_project, connection_currents
 from envocad.library.store import LibraryStore
 from envocad.model import multipole as mp
 from envocad.model.checks import check_project
+from envocad.model.feed import feed_dir, is_feed
 from envocad.model.single_line import build_tree, single_line_geometry
 
 INVS = [{"ref": "T1", "strings": [20] * 3}, {"ref": "T2", "strings": [20] * 2}]
@@ -68,9 +69,9 @@ def test_vn_connection_blocks_and_boards(metering):
     assert _syms(rvn).count("fve.fuse_vn") == 1 and "fve.switch_disconnector" not in _syms(rvn)
     assert not mp.has_multipole(rvn) and mp.has_multipole(rhn) and mp.has_multipole(re_)
     # hlavní rozvaděč napájený od transformátoru: přívod XT, vývody X1 (FVE), XS (spotřeba) a měřicí obvody k RE
-    feeds = {e.ref: e.symbol_id for e in rhn.elements if e.symbol_id.startswith("sb.feed")}
-    meas = {"XMI": "sb.feed_out", "XMU": "sb.feed_out"} if metering == "nn" else {}
-    assert feeds == {"XT": "sb.feed_in", "X1": "sb.feed_out", "X2": "sb.feed_out", **meas}
+    feeds = {e.ref: feed_dir(e) for e in rhn.elements if is_feed(e)}
+    meas = {"XMI": "out", "XMU": "out"} if metering == "nn" else {}
+    assert feeds == {"XT": "in", "X1": "out", "X2": "out", **meas}
     # každý přístroj rozvaděče VN patří do pole (kromě přípojnic)
     cells = {e.attrs.get("cell") for e in rvn.elements if e.symbol_id != "sb.busbar"}
     names = {"P1 kabelové pole", "P2 kabelové pole", "P3 transformátorové pole"} if metering == "nn" else {

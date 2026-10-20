@@ -100,9 +100,9 @@ def test_spd_branch_length_note(route_box):
 def test_spd_on_string_side_is_reported():
     p = Project()
     s = p.sheets[0]
-    x1 = Element("sb.feed_in", 0, 100, attrs={"ref": "X1"})
+    x1 = Element("sb.feed", 0, 100, rotation=180, attrs={"dir": "in", "ref": "X1"})
     qs = Element("fve.dc_disconnect", 0, 80, 270, attrs={"ref": "QS1"})
-    x2 = Element("sb.feed_out", 0, 40, attrs={"ref": "X2"})
+    x2 = Element("sb.feed", 0, 40, attrs={"dir": "out", "ref": "X2"})
     f = Element("fve.spd", 20, 60, attrs={"ref": "F1"})
     s.elements += [x1, qs, x2, f]
     s.wires += [Wire(WireEnd(x1.id, "1"), WireEnd(qs.id, "1"), conductors=["L+", "L-"]),

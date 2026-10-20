@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QInputDialog, 
 
 from envocad.library.store import LibraryStore
 from envocad.library.templates import apply_template
+from envocad.model.feed import is_feed_in, is_feed_out
 from envocad.model.project import Element, Layout, Project, Sheet, Wire, WireEnd
 from envocad.ui import commands
 from envocad.ui.main_window import MainWindow
@@ -165,7 +166,7 @@ def test_delete_parent_sheet_with_linked_feeds_undo_is_exact(app, lib, asked):
     blk = p.sheets[0].elements[1]
     sb = p.create_switchboard_sheet(blk)
     apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
-    feed = next(e for e in sb.elements if e.symbol_id == "sb.feed_in" and e.attrs.get("wire_id"))
+    feed = next(e for e in sb.elements if is_feed_in(e) and e.attrs.get("wire_id"))
     attrs_before = dict(feed.attrs)
     assert "to" not in attrs_before
     w = _win(lib, p)
@@ -190,8 +191,8 @@ def test_sync_feed_links_does_not_add_empty_keys():
     before = _state(p)
     parent = p.sheets.pop(0)
     assert sync_feed_links(p)
-    assert all("to" not in e.attrs for e in sb.elements if e.symbol_id == "sb.feed_in")
-    assert all("from" not in e.attrs for e in sb.elements if e.symbol_id == "sb.feed_out")
+    assert all("to" not in e.attrs for e in sb.elements if is_feed_in(e))
+    assert all("from" not in e.attrs for e in sb.elements if is_feed_out(e))
     p.sheets.insert(0, parent)
     sync_feed_links(p)
     assert _state(p) == before

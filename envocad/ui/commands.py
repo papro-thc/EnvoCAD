@@ -345,6 +345,7 @@ class SetAttrCommand(_FeedFollowups, QUndoCommand):
     def _changed(self) -> None:
         """Překreslení a signál `attrs_changed` až po navázaných změnách – panel vlastností a pohledy tak vidí
         výsledný stav (i odkud/kam a kabel z vazby)."""
+        self._refresh_symbol()
         (self.scene.wire_items if self.is_wire else self.scene.element_items)[self.tid].update()
         if self._conds:
             _refresh_wires(self.scene, [c.wire_id for c in self._conds])
@@ -353,9 +354,40 @@ class SetAttrCommand(_FeedFollowups, QUndoCommand):
         self.scene.attrs_changed.emit(self.tid)
 
     def _feed_link(self, project) -> None:
-        if self.is_wire or self.key != "wire_id":
+        if self.is_wire:
             return
-        self._feed_link_followups(project, self.scene.sheet, self._target(), attrs=True)
+        if self.key == "dir":
+            self._feed_dir_followups(project)
+        elif self.key == "wire_id":
+            self._feed_link_followups(project, self.scene.sheet, self._target(), attrs=True)
+
+    def _feed_dir_followups(self, project) -> None:
+        """Směr přívodu/vývodu: odkud ↔ kam (z vazby na vodič JPS, jinak přesun ručního textu) jako navázané změny
+        téhož kroku undo (`feed_dir_changes`). Port bloku ROZVADĚČ se přesune sám (porty z listu), vodič drží."""
+        from envocad.model.feed import is_feed
+        from envocad.model.project import TextChange, apply_text_changes, feed_dir_changes
+        e = self._target()
+        if not is_feed(e):
+            return
+        ch = [TextChange("element", e.id, k, e.attrs.get(k), v)
+              for k, v in feed_dir_changes(project, self.scene.sheet, e).items()]
+        apply_text_changes(project, ch)
+        self._ports += ch
+
+    def _refresh_symbol(self) -> None:
+        """Obrázek prvku závisí na atributu (směr přívodu/vývodu – šipka, zobrazené odkud/kam): položka dostane novou
+        značku, jako blok ROZVADĚČ po změně listu."""
+        from envocad.model.feed import is_feed
+        it = getattr(self.scene, "element_items", {}).get(self.tid)
+        project = getattr(self.scene, "project", None)
+        if it is None or project is None or self.is_wire or self.key != "dir" or not is_feed(it.element):
+            return
+        from envocad.model.project import element_symbol
+        from envocad.ui.render import symbol_path
+        it.prepareGeometryChange()
+        it.symbol = element_symbol(project, it.element, self.scene.library)
+        it._path = symbol_path(it.symbol)
+        it.sync_from_model()
 
     def redo(self):
         self._set(self.new)

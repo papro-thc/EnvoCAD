@@ -1,5 +1,5 @@
 {
- "version": 2,
+ "version": 3,
  "name": "DC string v rozvaděči",
  "description": "Generátor (u technologie): X{k} → pojistkový odpínač FU{i}.{j} {fuse_in} → X{nk}, SPD-DC{i}.{j} {spd} DC, PE → XPE; proměnné k, nk, i, j, string, inverter, fuse_in, spd",
  "role": "dc_tech",
@@ -106,12 +106,13 @@
   "elements": [
    {
     "id": "b0e2a6ee3205",
-    "symbol_id": "sb.feed_in",
+    "symbol_id": "sb.feed",
     "x": 60,
     "y": 240,
-    "rotation": 0,
+    "rotation": 180,
     "attrs": {
      "ref": "X{k}",
+     "dir": "in",
      "desc": "od {string}"
     },
     "component_id": null
@@ -134,12 +135,13 @@
    },
    {
     "id": "fac71b4548e9",
-    "symbol_id": "sb.feed_out",
+    "symbol_id": "sb.feed",
     "x": 60,
     "y": 170,
     "rotation": 0,
     "attrs": {
      "ref": "X{nk}",
+     "dir": "out",
      "desc": "{string} dál"
     },
     "component_id": null
@@ -163,12 +165,13 @@
    },
    {
     "id": "2fe6316bc102",
-    "symbol_id": "sb.feed_out",
+    "symbol_id": "sb.feed",
     "x": 40,
     "y": 130,
     "rotation": 0,
     "attrs": {
      "ref": "XPE",
+     "dir": "out",
      "desc": "k HOP",
      "shared": "1",
      "when": "spd"

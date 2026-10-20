@@ -5,6 +5,7 @@ import pytest
 from envocad.generate import DEFAULT_SPEC, build_project
 from envocad.library.store import LibraryStore
 from envocad.model.checks import ERROR, WARNING, check_project
+from envocad.model.feed import is_feed_in
 from envocad.model.project import element_symbol
 
 
@@ -26,7 +27,7 @@ def test_build_project_from_spec(tmp_path):
     assert [pt.name for pt in element_symbol(p, blk, lib).ports] == ["X1", "X2", "XOUT", "XPE"]   # XPE = uzemnění na HOP
     # přívody rozvaděče jsou navázané na AC vodiče střídačů, kabely jako objekty
     sb = p.sheets[1]
-    feeds = [e for e in sb.elements if e.symbol_id == "sb.feed_in"]
+    feeds = [e for e in sb.elements if is_feed_in(e)]
     assert all(f.attrs.get("wire_id") for f in feeds) and len(p.cables) >= 8
     fs = check_project(p, lib)
     assert not [f for f in fs if f.severity in (ERROR, WARNING)], [f.text for f in fs if f.severity != "info"]
@@ -85,7 +86,7 @@ def test_dc_boxes_along_route():
     assert len(fds) == 3 and fds[0].attrs["in_"] == "20"
     assert sum(1 for e in tech.elements if e.symbol_id == "fve.spd") == 3   # SPD na každý string, stringy se nespojují
     assert sorted(w.b.port for w in s.wires if w.touches(inv.id) and w.a.element_id == boxes[2].id) == ["DC1", "DC2", "DC3"]
-    assert all(f.attrs.get("wire_id") for f in tech.elements if f.symbol_id == "sb.feed_in")
+    assert all(f.attrs.get("wire_id") for f in tech.elements if is_feed_in(f))
     assert s.width > 420   # dva rozvaděče po trase → širší list
     fs = check_project(p, lib)
     assert not [f for f in fs if f.severity in (ERROR, WARNING)], [f.text for f in fs if f.severity != "info"]

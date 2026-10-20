@@ -10,8 +10,11 @@ import re
 import string
 from dataclasses import dataclass
 
+from envocad.model.feed import FEED_SYMBOL, feed_name
+
 FUNC, LOC = "=", "+"
 ASPECT_NAMES = {FUNC: "Funkce", LOC: "Umístění"}
+
 LOCATION_SYMBOLS = {"fve.switchboard"}          # prvky, jejichž ref je kód umístění
 MAX_CODE_LEN = 10
 
@@ -19,7 +22,7 @@ MAX_CODE_LEN = 10
 # Zkratky: DS = distribuční soustava (síť), HOP = hlavní ochranná přípojnice (ekvipotenciální svorkovnice).
 SHORT_NAMES = {
     "fve.grid": "DS", "fve.load": "spotřebič", "sb.junction": "uzel", "sb.busbar": "sběrnice",
-    "sb.pe_bar": "PE lišta", "fve.interrupt": "přerušovací bod", "sb.feed_in": "přívod", "sb.feed_out": "vývod",
+    "sb.pe_bar": "PE lišta", "fve.interrupt": "přerušovací bod",
     "fve.switchboard": "rozvaděč", "fve.pv_string": "string", "fve.battery": "baterie",
     "fve.inverter": "střídač", "fve.inverter_hybrid": "střídač",
 }
@@ -36,6 +39,8 @@ def element_name(e, lib=None) -> str:
     sid = getattr(e, "symbol_id", "") or ""
     if sid == "fve.earth":
         return "HOP" if "HOP" in str(e.attrs.get("desc", "")).upper() else "uzemnění"
+    if sid == FEED_SYMBOL:
+        return feed_name(e)          # přívod / vývod podle směru (`model/feed.py`)
     if sid in SHORT_NAMES:
         return SHORT_NAMES[sid]
     if lib is not None:

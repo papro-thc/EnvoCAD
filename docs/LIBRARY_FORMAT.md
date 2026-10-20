@@ -28,7 +28,8 @@ a při startu se nahrají do SQLite (`~/.envocad/library.db`), kde přibývají 
     {"key": "ref",   "label": "Označení",  "default": "", "show": true},
     {"key": "type",  "label": "Typ",       "default": "", "show": true},
     {"key": "p_ac",  "label": "P_AC [kW]", "default": "", "show": false},
-    {"key": "n_modules", "label": "Počet modulů", "show": true, "fmt": "{}× modul"}   // fmt = formát zobrazené hodnoty
+    {"key": "n_modules", "label": "Počet modulů", "show": true, "fmt": "{}× modul"},  // fmt = formát zobrazené hodnoty
+    {"key": "dir", "label": "Směr", "default": "in", "choices": [["in", "přívod"], ["out", "vývod"]]}  // nabídka
   ],
   "label_pos": {"x": 12, "y": 8},
   "multipole": {                      // volitelné – podoba ve vícepólovém schématu (průchozí prvky)
@@ -73,6 +74,13 @@ písmenný kód označení žádné třídě neodpovídá. Shoda je prefixem: t�
   je jen informace. Třída, délka a znaky (bez oddělovačů) se kontrolují dál.
 
 Formát symbolu kvůli tomu nemá verzi – nový klíč je nepovinný a starší program ho ignoruje.
+
+## Nabídka hodnot atributu (`choices`)
+
+Nepovinný klíč atributu `choices` = seznam `[hodnota, popisek]` (nebo jen řetězců, pak hodnota = popisek). Panel
+Vlastnosti i dialog atributů pak místo textového pole nabídnou výběr (`ui/dialogs.ChoiceEdit`); hodnota mimo nabídku
+(ručně upravený soubor) se zobrazí jako další položka. Uloží se hodnota, ne popisek. Starší program klíč ignoruje,
+verze symbolu se nemění (jako `function_class`). Použití: směr přívodu/vývodu `sb.feed` (`dir`: `in` přívod, `out` vývod).
 
 ## Rezervované atributy prvku
 
@@ -151,7 +159,27 @@ Zatím bez UI – plní se CSV importem (`store.import_components_csv`).
 Aby se přístroj objevil v rozložení a ve výkazech správně, má mít atributy `manufacturer`, `poles`
 a `modules` (šířka na DIN liště v modulech 17,5 mm; `0` = nemodulový, nerozmisťuje se).
 Symboly pro list rozvaděče mají prefix `sb.` (`envocad/library/builtin/switchboard/`): sběrnice `sb.busbar`
-(porty IN, T1…T10 shora, vývody 1…12 zdola po 15 mm), přívod `sb.feed_in`, vývod `sb.feed_out`, svorkovnice `sb.terminal_block` (šířka skupiny `modules`; prázdná = počet svorek × 6,2 mm), PE/N můstek `sb.pe_bar`.
+(porty IN, T1…T10 shora, vývody 1…12 zdola po 15 mm), přívod/vývod `sb.feed` (viz níže), svorkovnice `sb.terminal_block` (šířka skupiny `modules`; prázdná = počet svorek × 6,2 mm), PE/N můstek `sb.pe_bar`.
+
+### Přívod / vývod `sb.feed` (formát projektu v13)
+
+Jedna značka pro přívod i vývod rozvaděče (`docs/design/znacka_privod_vyvod.md`); jediné místo s predikáty je
+`envocad/model/feed.py` (`is_feed`, `feed_dir`, `is_feed_in/out`, `feed_link_key`).
+- Při `rot 0` je port `1` **nahoře** (`(0, 5)`, směr N), kroužek svorky v `(0, 0)`, kabelový výběžek dolů do `(0, −7,5)`.
+- Směr toku **jen šipkou** na výběžku (otevřená, 2 mm): přívod hrot `(0, −3,5)` k portu, vývod hrot `(0, −6,5)` od
+  portu. Text „PŘÍVOD“ / „VÝVOD“ se nekreslí.
+- Atributy: `ref`, **`dir`** (`in` | `out`, výchozí `in`, skrytý, `choices`), `desc`, `from` (Odkud), `to` (Kam), `cable`,
+  `terminal`. Ve výkresu se zobrazí jen `from` (přívod) nebo `to` (vývod). Prázdný `dir` = přívod; neplatný hlásí
+  kontrola jako varování `feed_dir`.
+- Základní JSON je přívod (náhled při vkládání z palety); obrázek vývodu skládá `feed.feed_symbol` přes
+  `element_symbol` (jiná šipka, zobrazené „Kam“). Popisek je vpravo od svorky i u přívodu otočeného portem dolů.
+- Ve vícepólu se kreslí jako dřívější `sb.feed_in` / `sb.feed_out` (`feed.multipole_feed_view`); štítek kabelu je na
+  straně proti portu podle otočení.
+- Staré `sb.feed_in` / `sb.feed_out`: projekt v12 → v13 migrace (`sb.feed_in` rot r → `sb.feed` `dir=in` rot r+180 –
+  port na stejném místě), makra v1/v2 a schránka se převádějí při načtení (`normalize_legacy_element`), vestavěné
+  řádky starých značek `sync_builtin` z SQLite smaže (uživatelská značka se stejným id zůstává).
+- Sběrnice `sb.busbar` má navíc **přívody zdola `B1…B12`** (B1…B6 na x −60, −30, 0, 30, 60, 90; B7…B12 mezi nimi,
+  vždy mimo polohy vývodů 1…12) – přívodní větev, která teče nahoru do sběrnice (RFVE, RFVE.AC).
 
 ## Footprinty (pohled do rozložení)
 
@@ -174,7 +202,7 @@ Makro = pojmenovaná sestava prvků a vodičů (výřez listu) k opakovanému vk
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "name": "DC string v rozvaděči",
   "description": "…",
   "role": "dc_tech",                       // role v generátoru: dc_tech | dc_route | ac_feed | ac_core | ""
@@ -193,9 +221,12 @@ Makro = pojmenovaná sestava prvků a vodičů (výřez listu) k opakovanému vk
 
 ### Verze
 - Bez `version` = v1 (`name`, `description`, `fragment`); v1 je podmnožina v2, migrace není potřeba.
-- Makro s `version` vyšší než `MACRO_VERSION` (2) se nenačte (záznam v logu, v seznamu maker chybí).
+- Makro s `version` vyšší než `MACRO_VERSION` (3) se nenačte (záznam v logu, v seznamu maker chybí).
+- v3 (značka `sb.feed`): `save_macro` a vestavěná makra píší v3, aby starší EnvoCAD makro se `sb.feed` odmítl
+  místo vložení zástupných „?“. Makra v1/v2 se `sb.feed_in` / `sb.feed_out` se převedou při načtení
+  (`parse_macro`, soubor ve sdílené složce se nepřepisuje).
 - Makro bez `variables` dostane implicitní textovou proměnnou za každý zástupný symbol ve fragmentu.
-  `save_macro` („Uložit výběr jako makro…“) zapisuje v2 s těmito proměnnými.
+  `save_macro` („Uložit výběr jako makro…“) zapisuje v3 s těmito proměnnými.
 
 ### Proměnné a zástupné symboly
 Zástupný symbol `{název}` smí být v hodnotách atributů prvků a vodičů, v `component_id` prvku a v portech vodičů.
@@ -262,7 +293,7 @@ se 4 stringy: X1–X8 obsazené → `k_start = 9`). U makra bez opakování se s
 ### Makro bez proměnných (kopie výřezu)
 Makro bez proměnných a bez `repeat` (typicky „Uložit výběr jako makro…“ bez `{x}`) se vkládá jako kopie výřezu, jako
 dřív `paste_fragment`: nesdíleným skupinám svorek se vymaže číslo svorky (`terminal`, doplní automatické číslování),
-přívody/vývody `sb.feed_in`/`sb.feed_out` dostanou další volné označení; obojí jen tam, kde ref/terminal neobsahuje
+přívody/vývody `sb.feed` dostanou další volné označení; obojí jen tam, kde ref/terminal neobsahuje
 zástupný symbol. Ostatní pravidla (`shared`, přečíslování F1 → další volné) platí stejně. Parametrická makra (a tedy
 generátor, který navíc předává `copy=False`) označení svorek a přívodů z makra drží – jinak by se změnil např. vývod
 XOUT AC jádra. V API `expand(..., copy=None)`: None = kopie právě u `not m.has_parameters`.

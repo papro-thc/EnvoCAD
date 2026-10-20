@@ -92,3 +92,12 @@ a s přejmenováním.
 4. Týká se jen listu rozvaděče – vícepól ani blok ROZVADĚČ v blokovém schématu se nemění.
 5. Staré projekty: bezztrátový převod, vzhled se nepřeskládá (bez hromadného příkazu).
 6. Výchozí směr nové značky z palety: přívod.
+
+## Stav implementace (2026-10-20)
+Kroky 1–3 hotové na `feature/topologie` (viz `CHANGELOG.md`). Odchylky od návrhu: popisek zůstává v `(7, 0)` (jako
+dřív, ve výkresu vpravo od svorky i u převedeného přívodu otočeného o 180°) místo `(5, 2,5)`, ať se staré listy
+nepřeskládají; sběrnice dostala přívody zdola `B1…B12` (B1 = poloha T1, ať vícepól sběrnici umístí jako dřív); PE
+svodičů DC části RFVE vede nad sběrnicí do XPE vlevo; XMI/XMU v HR jsou otočené portem dolů (vodič neprochází
+kroužkem). Vícepól se nemění: `multipole.sheet_poles` kreslí přívody v geometrii starých značek a přívodní větev
+otočenou tokem nahoru otočí zpět (`flow_flipped`); u rozvodu svorkami bez maker se změnil jen port PE lišty, do
+kterého vedou PE svodičů (jeden port, ať vodiče v listu nevedou souběžně do různých portů).

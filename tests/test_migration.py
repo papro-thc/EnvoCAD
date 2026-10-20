@@ -189,7 +189,7 @@ def test_v7_revisions_from_meta_skips_header_and_free_text():
 
 def test_example_migrates_to_current():
     p = Project.load(EXAMPLE)
-    assert FORMAT_VERSION == 12
+    assert FORMAT_VERSION == 13
     assert all(s.func == "" and s.loc == "" for s in p.sheets)
     assert p.structures == [] and p.revisions == [] and p.notes == []
 
@@ -287,6 +287,6 @@ def test_v11_to_v12_single_line_offset():
     assert e.sl_pos is None and "sl_pos" not in p.to_dict()["sheets"][0]["elements"][0]
     e.sl_pos = (12.5, -5.0)
     d = json.loads(json.dumps(p.to_dict()))
-    assert d["format_version"] == 12 and d["sheets"][0]["elements"][0]["sl_pos"] == [12.5, -5.0]
+    assert d["format_version"] == FORMAT_VERSION and d["sheets"][0]["elements"][0]["sl_pos"] == [12.5, -5.0]
     assert Project.from_dict(d).sheets[0].elements[0].sl_pos == (12.5, -5.0)
     _roundtrip_stable(Project.from_dict(d))

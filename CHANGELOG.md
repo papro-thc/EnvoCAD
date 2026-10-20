@@ -1,6 +1,28 @@
 # Changelog
 
 ## Nevydáno
+- **Jedna značka přívodu/vývodu `sb.feed`** (`docs/design/znacka_privod_vyvod.md` vč. rozhodnutí 2026-10-20),
+  **formát projektu v13**, makra v3: přívod i vývod je značka *Přívod / vývod* se směrem v atributu `dir` (`in` |
+  `out`, výchozí přívod, nabídka ve Vlastnostech – nový nepovinný klíč atributu knihovny `choices`). Port nahoře,
+  kabel zespodu, směr **jen šipkou** (bez textu PŘÍVOD/VÝVOD). Predikáty jen v `envocad/model/feed.py` (`is_feed`,
+  `feed_dir`, `is_feed_in/out`, `feed_link_key`); všechna použití `sb.feed_in`/`sb.feed_out` přešla na ně, F7 hlásí
+  neplatný směr (`feed_dir`). **Migrace v12 → v13 bez přeskládání**: `sb.feed_in` rot r → `sb.feed` `dir=in` rot
+  r+180, `sb.feed_out` → `dir=out` – port na stejném místě se stejným směrem, vodiče (i `points`), `mp_pos`, `sl_pos`
+  a vazby se nerozpojí (test otevření starého projektu v12 s porovnáním poloh portů `tests/data/v12_feeds.ecp`).
+  Makra v1/v2 a schránka se převádějí při načtení, `save_macro` píše v3; `sync_builtin` smaže z SQLite vestavěné
+  řádky starých značek. Změna směru v GUI = jeden `SetAttrCommand` vč. odkud ↔ kam (`feed_dir_changes`), port bloku
+  ROZVADĚČ se přesune na druhou stranu, položka značky se přestaví. **Generátor**: RFVE.AC a RFVE (RD) mají přívody
+  i vývody ve spodní řadě, sběrnice nahoře, přívodní větev tokem nahoru do sběrnice (nové porty sběrnice `B1…B12`
+  zdola), hlavní vypínač za posledním přívodem; DC část RFVE jako „U“ se SPD nad ohybem a PE nad sběrnicí do XPE;
+  list RFVE / RFVE.AC se zvětší, když přetéká (dřív RFVE RD přetékal A3); šablona *AC rozvaděč FVE* stejně; DC
+  rozvaděče, HR, RE, RVN rozložením beze změny (jen nová značka; XMI/XMU v HR otočené portem dolů, vodič už nevede
+  přes kroužek svorky). Vestavěná makra přegenerována (`tools/gen_builtin_macros.py` je zase zdroj – srovnaný
+  s ručně upraveným „DC string po trase“, id prvků se při přegenerování drží), regresní snímek generátoru
+  přegenerován (změna značky, rozložení RFVE/RFVE.AC, XMI/XMU, PE lišta u rozvodu svorkami). **Vícepól se nemění**
+  (`multipole.sheet_poles`: přívody v geometrii starých značek, přívodní větev tokem nahoru otočená zpět);
+  **štítek kabelu ve vícepólu** je na straně proti portu podle otočení, ne podle druhu značky (štítek W15 přes XDS1
+  u RVN). Bez křížení vodičů na listech rozvaděčů z generátoru (test `test_no_wire_crossings_on_generated_switchboards`).
+  Testy `tests/test_feed.py`, `tests/test_feed_gui.py`.
 - **Označení rozvaděčů v generátoru podle firemního stylu ENVO** (`docs/NAVRH_TOPOLOGIE.md` kap. 8 bod 9; formát
   projektu beze změny, staré projekty se nepřejmenovávají – jde jen o výstup generátoru): AC rozvaděč FVE **RFVE.AC**
   (dřív RH), DC rozvaděč u technologie **RFVE.DC** (dřív RDCn) – při více střídačích jeden na střídač **RFVE.DC1,

@@ -7,9 +7,11 @@ spínanou žílu; nespínané žíly (N u 3p jističe, PE) jdou kolem prvku jako
 """
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass, field
 
 from envocad.model.designation import element_name
+from envocad.model.feed import FEED_SYMBOL, feed_dir, is_feed, is_feed_in, is_feed_out, multipole_feed_view
 from envocad.model.project import FEED_SYMBOLS, Element, Sheet, Wire
 from envocad.model.symbol import GRID, Symbol, rotate_dir
 
@@ -18,14 +20,14 @@ COL_GAP = 30.0          # mezera mezi sloupci automatického rozmístění (ve s
 ROW_GAP = 15.0          # mezera mezi prvky ve sloupci (kolmo na tok)
 BAR_GAP = 32.0          # PE lišta pod řadou vývodů: mezera za vývody (štítek kabelu ~13 mm, příčky PE pod ním)
 MIN_BAR_GAP = 22.0      # nejmenší mezera k PE liště při zhuštění na stranu A4
-SOURCE_SYMBOLS = {"sb.feed_in", "fve.pv_string", "fve.battery"}  # zdroje toku (síť je konec)
+SOURCE_SYMBOLS = {FEED_SYMBOL, "fve.pv_string", "fve.battery"}  # zdroje toku (síť je konec; přívod jen `dir=in`)
 
 # Kanonické pořadí žil (shora dolů / zleva doprava)
 CANON = ["L1", "L2", "L3", "N", "PE", "PEN", "L+", "L-", "M", "+", "-"]   # DC dle ČSN EN 60445: L+ / L− / M
 NEVER_SWITCHED = {"PE", "PEN"}
-TERMINAL_SYMBOLS = {"sb.feed_in", "sb.feed_out", "sb.terminal_block", "fve.terminal", "sb.pe_bar"}
+TERMINAL_SYMBOLS = {FEED_SYMBOL, "sb.terminal_block", "fve.terminal", "sb.pe_bar"}
 # řadové svorky: prvek v JPS = skupina svorek (jedna na žílu), čísla v atributu `terminal` ("1 2 3 4 5" nebo "1")
-TERMINAL_BLOCK_SYMBOLS = {"sb.terminal_block", "fve.terminal", "sb.feed_in", "sb.feed_out"}  # přívod/vývod = svorky X1:1…n
+TERMINAL_BLOCK_SYMBOLS = {"sb.terminal_block", "fve.terminal", FEED_SYMBOL}  # přívod/vývod = svorky X1:1…n
 
 OPPOSITE = {"N": "S", "S": "N", "E": "W", "W": "E"}
 # kolmý směr pro řazení pólů (model, Y nahoru): vodorovný tok → póly dolů, svislý tok → póly doprava
@@ -80,6 +82,11 @@ def has_multipole(sheet) -> bool:
     """List rozvaděče má vícepól a plán svorkovnice – ne rozvaděč VN (kobky, `layout.params["voltage_level"] == "vn"`),
     ten se dokumentuje jednopólovým schématem."""
     return sheet.layout.params.get("voltage_level", "") != "vn"
+
+
+def is_flow_source(e: Element) -> bool:
+    """Zdroj toku ve vícepólu a při hledání nadřazeného jištění: přívod (`dir=in`), FV string, baterie."""
+    return e.symbol_id in SOURCE_SYMBOLS and (not is_feed(e) or is_feed_in(e))
 
 
 def is_terminal_block(e: Element) -> bool:
@@ -248,7 +255,7 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
             if ca != cb:
                 adj[ca].add(cb)
                 adj[cb].add(ca)
-    sources = {comp[eid] for eid, ep in poles.items() if ep.element.symbol_id in SOURCE_SYMBOLS}
+    sources = {comp[eid] for eid, ep in poles.items() if is_flow_source(ep.element)}
     if not sources:
         key = (lambda ep: ep.element.x) if horizontal else (lambda ep: -ep.element.y)
         sources = {comp[min(poles.values(), key=key).element.id]}
@@ -265,7 +272,7 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
     last = max(cdepth.values(), default=0) + 1
     depth = {eid: cdepth.get(comp[eid], last) for eid in poles}
     # vývody vždy v dolní řadě (jako v EPLAN: přívody nahoře, rozvod, přístroje, vývody dole), PE lišta pod nimi
-    sinks = [eid for eid, ep in poles.items() if ep.element.symbol_id == "sb.feed_out"]
+    sinks = [eid for eid, ep in poles.items() if is_feed_out(ep.element)]
     if sinks:
         bottom = max((d for eid, d in depth.items() if eid not in sinks), default=0) + 1
         for eid in sinks:
@@ -446,6 +453,68 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
         if ep.element.mp_pos:
             out[i] = tuple(ep.element.mp_pos)
     return out
+
+
+def sheet_poles(sheet: Sheet, symbol_of) -> dict[str, ElementPoles]:
+    """Póly všech prvků listu pro vícepól (`symbol_of(e)` = značka prvku). Přívod/vývod v geometrii starých značek
+    (`feed.multipole_feed_view` – vícepól se značkou `sb.feed` nemění). Vícepól kreslí tok vždy shora dolů:
+    přívodní větev, která v jednopólovém listu rozvaděče teče zespodu nahoru (přívod s portem nahoře → přístroje
+    otočené tokem nahoru → sběrnice; RFVE, RFVE.AC), se ve vícepólu kreslí otočená o 180° jako dřív (přívod nahoře,
+    kabel shora) – `flow_flipped`. Prvek v pohledu je pak kopie s jinou rotací (stejné id a atributy)."""
+    poles = {e.id: element_poles(sheet, *multipole_feed_view(e, symbol_of(e))) for e in sheet.elements}
+    for eid in flow_flipped(sheet, poles):
+        ep = poles[eid]
+        e = ep.element
+        flipped = dataclasses.replace(e, rotation=(e.rotation + 180) % 360)
+        poles[eid] = element_poles(sheet, flipped, ep.symbol)
+    return poles
+
+
+def flow_flipped(sheet: Sheet, poles: dict[str, ElementPoles]) -> set[str]:
+    """Prvky, které vícepól (svislý tok) kreslí pootočené o 180°: vývod (`dir=out`) s portem dole, přívod (`dir=in`)
+    s portem nahoře a průchozí
+    prvky jeho větve, do kterých tok vstupuje zdola (port ke zdroji míří dolů – jistič otočený tokem nahoru, SPD nad
+    ohybem DC stringu), až po sběrnici nebo prvek s tokem shora. Staré listy (přívod nahoře, tok dolů) nic neotáčí."""
+    if not poles or sum(1 for ep in poles.values() if _flow_is_horizontal_for(ep)) * 2 >= len(poles):
+        return set()
+    out: set[str] = set()
+    ends: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    for w in sheet.wires:
+        ends.setdefault((w.a.element_id, w.a.port), []).append((w.b.element_id, w.b.port))
+        ends.setdefault((w.b.element_id, w.b.port), []).append((w.a.element_id, w.a.port))
+    todo: list[tuple[str, str]] = []
+    for eid, ep in poles.items():
+        e = ep.element
+        if not (is_feed(e) and ep.symbol.ports):
+            continue
+        d = rotate_dir(ep.symbol.ports[0].dir, e.rotation)
+        if is_feed_in(e) and d == "N":
+            out.add(eid)
+            todo.append((eid, ep.symbol.ports[0].name))
+        elif is_feed_out(e) and d == "S":
+            out.add(eid)       # vývod portem dolů (kabel nahoru, XMI/XMU v HR): ve vícepólu ve spodní řadě portem nahoru
+    while todo:
+        eid, port = todo.pop()
+        for oid, oport in ends.get((eid, port), []):
+            op = poles.get(oid)
+            if op is None or oid in out or op.element.symbol_id == BUS_SYMBOL or not op.through:
+                continue
+            if rotate_dir(op.symbol.port(oport).dir, op.element.rotation) != "S":
+                continue                   # tok do prvku shora (běžné rozložení) – dál se neotáčí
+            out.add(oid)
+            todo.append((oid, op.through[1] if oport == op.through[0] else op.through[0]))
+    return out
+
+
+def feed_cable_up(ep: ElementPoles) -> bool:
+    """Štítek a kabel přívodu/vývodu ve vícepólu: na straně proti portu podle otočení (port dolů → kabel shora),
+    ne podle druhu značky; port do strany → přívod nahoře, vývod dole."""
+    e = ep.element
+    if ep.symbol.ports:
+        d = rotate_dir(ep.symbol.ports[0].dir, e.rotation)
+        if d in ("N", "S"):
+            return d == "S"
+    return is_feed_in(e)
 
 
 def element_poles(sheet: Sheet, e: Element, sym: Symbol) -> ElementPoles:
@@ -842,10 +911,11 @@ def pole_label_lines(ep: ElementPoles) -> list[tuple[float, float, str, float, s
         rx, ry = rotate_point(lx, ly, e.rotation)
         return (px + rx, py + ry)
 
-    if e.symbol_id in ("sb.feed_in", "sb.feed_out"):
+    if is_feed(e):
         if not e.ref:
             return []
-        cy = -2.5 if e.symbol_id == "sb.feed_in" else 2.5
+        # vlevo u svorky; přívod je ve vícepólu v souřadnicích starého `sb.feed_in` (`feed.multipole_feed_view`)
+        cy = -2.5 if feed_dir(e) == "in" else 2.5
         x, y = at(-2.5, cy - 0.8)
         return [(x, y, e.ref, 2.5, "right")]
     lines = pole_label_texts(ep)

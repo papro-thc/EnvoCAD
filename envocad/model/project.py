@@ -22,6 +22,18 @@ from envocad.model.designation import (
     scope_key,
     sheet_scope,
 )
+from envocad.model.feed import (
+    FEED_SYMBOLS,
+    LEGACY_FEEDS,
+    feed_link_key,
+    feed_symbol,
+    is_feed,
+    is_feed_in,
+    is_feed_out,
+    normalize_legacy_element,
+    normalize_legacy_fragment,
+    other_link_key,
+)
 from envocad.model.symbol import Attribute, Port, Symbol, place_point, placeholder_symbol, with_orphan_ports
 
 # Atributy vodiče (vodič nemá symbol, proto jsou definované zde)
@@ -43,14 +55,14 @@ SWITCHBOARD_WIRE_ATTRIBUTES = [
     Attribute("prod", "Do výrobního seznamu (0 = ne)"),
 ]
 
-FORMAT_VERSION = 12
+FORMAT_VERSION = 13
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 DEVICE_HEIGHT_MM = 45.0  # mm – výška modulového přístroje na liště (rozložení, délky vodičů)
 SHEET_KINDS = ("schematic", "switchboard")
 # Symboly, které nejsou přístroje k objednání ani na DIN lištu (propojení, odkazy, vnější prvky, kontakty – patří
 # k přístroji své cívky); výkazy (`export/reports.py`) i rozložení (`Layout.devices`)
-NON_DEVICE_SYMBOLS = {"fve.terminal", "fve.earth", "fve.grid", "fve.load", "fve.switchboard", "sb.feed_in", "sb.feed_out",
+NON_DEVICE_SYMBOLS = {"fve.terminal", "fve.earth", "fve.grid", "fve.load", "fve.switchboard", "sb.feed",
                       "fve.interrupt", "ctl.contact_no", "ctl.contact_nc", "ctl.contact_power"}
 # Šířka jedné řadové svorky pro rozložení, když skupina svorek nemá zadanou šířku (`modules`): 6,2 mm = běžná
 # šroubová/pružinová průchozí svorka 2,5–4 mm² (Weidmüller, Phoenix, Bečov ~5,2–6,2 mm; push-in 1,5 mm² 3,5 mm,
@@ -1190,6 +1202,13 @@ def migrate(d: dict, ver: int) -> dict:
                 if isinstance(attrs.get("conductors"), str) and attrs["conductors"]:
                     toks = attrs["conductors"].replace(",", " ").replace(";", " ").split()
                     attrs["conductors"] = " ".join(conductor_name(t) for t in toks)
+    if ver < 13:
+        # v13: jedna značka přívodu/vývodu `sb.feed` se směrem `attrs.dir` místo `sb.feed_in` / `sb.feed_out`.
+        # Bezztrátově: port `1` zůstane na stejném místě se stejným směrem (přívod se pootočí o 180°), vodiče,
+        # `mp_pos`, `sl_pos` i vazby se nemění a nic se nepřeskládá. Starší program v13 odmítne (`sb.feed` nezná).
+        for s in d.get("sheets", []):
+            for e in s.get("elements", []):
+                normalize_legacy_element(e)
     d["format_version"] = FORMAT_VERSION
     return d
 
@@ -1501,6 +1520,9 @@ def paste_fragment(project: Project, fragment: dict, ref_prefix_of, dx: float = 
     used = project.used_refs()
     idmap: dict[str, str] = {}
     els: list[Element] = []
+    if any(isinstance(d, dict) and d.get("symbol_id") in LEGACY_FEEDS for d in fragment.get("elements", [])):
+        fragment = copy.deepcopy(fragment)      # schránka ze starší verze: sb.feed_in/out → sb.feed + dir
+        normalize_legacy_fragment(fragment)
     for d in fragment.get("elements", []):
         e = Element.from_dict(d)
         new = Element(symbol_id=e.symbol_id, x=e.x + dx, y=e.y + dy, rotation=e.rotation, mirror=e.mirror,
@@ -1534,7 +1556,6 @@ def paste_fragment(project: Project, fragment: dict, ref_prefix_of, dx: float = 
     return els, wires
 
 
-FEED_SYMBOLS = {"sb.feed_in", "sb.feed_out"}
 
 
 def parent_sheet(project: Project, sheet: Sheet) -> Sheet | None:
@@ -1576,7 +1597,7 @@ def linked_wire(project: Project, sheet: Sheet, e: Element) -> tuple[Sheet, Wire
 def feed_link_attrs(project: Project, sheet: Sheet, e: Element, wire_id: str) -> dict[str, str]:
     """Atributy přívodu/vývodu odvozené z navázaného vodiče JPS (odkud/kam, kabel). Jen klíče, které k prvku
     patří: přívod „from“, vývod „to“ (zrušení vazby nepřidá prázdný klíč, který prvek neměl)."""
-    key = "from" if e.symbol_id == "sb.feed_in" else "to"
+    key = feed_link_key(e)
     e2 = Element(symbol_id=e.symbol_id, attrs={"wire_id": wire_id})
     hit = linked_wire(project, sheet, e2)
     if hit is None:
@@ -1595,6 +1616,26 @@ def feed_link_attrs(project: Project, sheet: Sheet, e: Element, wire_id: str) ->
             f"{position_ref(project, far_sheet, far.x, far.y)}").strip()
     cable = " ".join(x for x in (w.attrs.get("cable", ""), w.attrs.get("cross", "")) if x)
     return {"wire_id": wire_id, key: text, "cable": cable}
+
+
+def feed_dir_changes(project: Project, sheet: Sheet, e: Element) -> dict[str, str]:
+    """Navázané změny atributů po změně směru přívodu/vývodu (`dir` už je nový): navázaný přívod (list rozvaděče,
+    vazba na vodič JPS) dostane odkud/kam a kabel znovu z vazby a klíč starého směru se vyprázdní; bez vazby se
+    ručně psaný text přesune z „Odkud“ do „Kam“ (nebo naopak). Vrací {klíč: nová hodnota} jen se skutečnými změnami."""
+    if not is_feed(e):
+        return {}
+    key, other = feed_link_key(e), other_link_key(e)
+    out: dict[str, str] = {}
+    hit = linked_wire(project, sheet, e) if sheet.is_switchboard else None
+    if hit is not None:
+        for k, v in feed_link_attrs(project, sheet, e, hit[1].id).items():
+            if k != "wire_id" and e.attrs.get(k, "") != v:
+                out[k] = v
+        if e.attrs.get(other):
+            out[other] = ""
+    elif e.attrs.get(other) and not e.attrs.get(key):
+        out[key], out[other] = e.attrs[other], ""
+    return out
 
 
 def feeds_linked_to(project: Project, wire_id: str) -> list[tuple[Sheet, Element]]:
@@ -1668,8 +1709,8 @@ def switchboard_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
     def nat(f: Element) -> tuple:
         m = re.match(r"([A-Za-z]*)(\d*)(.*)", f.ref)
         return (m.group(1), int(m.group(2)) if m.group(2) else 10**9, m.group(3))
-    feeds_in = sorted((f for f in sheet.elements if f.symbol_id == "sb.feed_in" and f.ref), key=nat)
-    feeds_out = sorted((f for f in sheet.elements if f.symbol_id == "sb.feed_out" and f.ref), key=nat)
+    feeds_in = sorted((f for f in sheet.elements if is_feed_in(f) and f.ref), key=nat)
+    feeds_out = sorted((f for f in sheet.elements if is_feed_out(f) and f.ref), key=nat)
     if not feeds_in and not feeds_out:
         return with_orphan_ports(base, _used_ports(project, e))
     n = max(len(feeds_in), len(feeds_out), 1)
@@ -1793,6 +1834,8 @@ def element_symbol(project: Project, e: Element, lib) -> Symbol:
         sym = switchboard_symbol(project, e, base)
     elif e.symbol_id in INVERTER_SYMBOLS:
         sym = inverter_symbol(project, e, base)
+    elif is_feed(e):
+        sym = feed_symbol(e, base)
     else:
         sym = base
     used = _used_ports(project, e)
