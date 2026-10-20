@@ -384,7 +384,7 @@ def test_switchboard_wire_attrs_roundtrip(tmp_path):
     path = tmp_path / "v.ecp"
     p.save(path)
     import json
-    assert json.loads(path.read_text(encoding="utf-8"))["format_version"] == FORMAT_VERSION == 13
+    assert json.loads(path.read_text(encoding="utf-8"))["format_version"] == FORMAT_VERSION == 14
     q = Project.load(path)
     s2 = q.sheets[-1]
     assert s2.wires[0].attrs == attrs and s2.wires[0].id == w.id

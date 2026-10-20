@@ -187,7 +187,7 @@ def test_v12_migration_lossless_roundtrip_and_links():
     p = Project.from_dict(raw)
     assert raw == before                                   # vstup se nemění
     d = p.to_dict()
-    assert d["format_version"] == FORMAT_VERSION == 13
+    assert d["format_version"] == FORMAT_VERSION == 14
     assert Project.from_dict(d).to_dict() == d
     # nic kromě id značky, rotace přívodu a `dir` se nezměnilo (polohy, vodiče s `points`, mp_pos, vazby)
     mig = migrate(raw, 12)
@@ -211,8 +211,7 @@ def test_v12_migration_lossless_roundtrip_and_links():
 
 def test_v13_rejected_by_older_program(monkeypatch):
     """Soubor v13 starší program (FORMAT_VERSION 12) odmítne – `sb.feed` tak tiše nezmizí při uložení."""
-    d = Project().to_dict()
-    assert d["format_version"] == 13
+    d = {**Project().to_dict(), "format_version": 13}
     monkeypatch.setattr(prj, "FORMAT_VERSION", 12)
     with pytest.raises(ValueError, match="novější verze"):
         Project.from_dict(d)

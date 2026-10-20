@@ -1,6 +1,10 @@
 # Changelog
 
 ## Nevydáno
+- **Formát projektu v14 (parametrická sběrnice)** – migrace v13 → v14 nic nemění (`model/project.py:migrate`); verze
+  je vyšší jen proto, aby program v13 soubor se sběrnicí s atributem `taps` odmítl („z novější verze“) místo kreslení
+  pevné sběrnice s přívody jinde (B13+ osiřelé porty). Snímek generátoru: jediná změna `format_version`. Test
+  `test_v13_to_v14_parametric_busbar_noop`.
 - **Generátor jako balíček `envocad/generator/` (F1, 2. část)** – `generate.py` (2 100 řádků) rozdělen podle
   `docs/design/topologie_f1_f2.md`, kap. 1.3: `context` (knihovna sestavení, převody, konstanty), `spec`
   (`DEFAULT_SPEC`, `BUILDINGS` a `building_kind` bez kopie, vstupy průvodce, artikly, výběr topologie), `build`
@@ -18,8 +22,8 @@
   bodu se čtyřmi směry, který vypadal jako křížení bez uzlu. Vestavěná makra beze změny (rozložení dělá
   `_dc_from_below`). Test `test_switchboards_no_crossing_without_node` (všechny listy rozvaděčů RD 1/3 střídače,
   makra i kód, rozvod svorkami, firma 1–12 střídačů; `_cross_nodes` v `tests/test_feed_review.py`), F7 čisté.
-- **Parametrická sběrnice – přívodní větve RFVE.AC / RFVE rovně do sběrnice** (formát projektu beze změny, bez
-  migrace): `sb.busbar` s atributem `taps` (počet přívodů zdola; `outs` vývody vpravo, `tap_pitch` rozteč) má délku a
+- **Parametrická sběrnice – přívodní větve RFVE.AC / RFVE rovně do sběrnice** (formát projektu v14 – viz výše, bez
+  migrace dat): `sb.busbar` s atributem `taps` (počet přívodů zdola; `outs` vývody vpravo, `tap_pitch` rozteč) má délku a
   porty podle počtu přívodů – `B{k}` přímo nad jističem k, vývod `1` (PE) nad XPE, `2` nad SPD, `3` nad hlavním
   vypínačem za posledním přívodem (`envocad/model/busbar.py`, `project.element_symbol`). Generátor (kód i vestavěná
   makra) a šablona „AC rozvaděč FVE“ kreslí všechny odbočky sběrnice svisle i pro 7–12 střídačů (dřív schody);

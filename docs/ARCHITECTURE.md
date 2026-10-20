@@ -218,7 +218,9 @@ Tři vrstvy rozšíření, od nejjednodušší:
    starými `sb.feed_in` / `sb.feed_out` se po `build` převede (`feed.normalize_legacy_objects` v `apply_template`),
    callback menu, který vkládá prvky sám, musí použít `sb.feed`.
 
-Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **13** – jedna značka přívodu/vývodu
+Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **14** – parametrická sběrnice `sb.busbar`
+(atributy `taps` / `outs` / `tap_pitch`, `model/busbar.py`), migrace v13 → v14 nic nemění, verze zvednutá jen proto, aby
+program v13 soubor odmítl místo kreslení pevné sběrnice; v13 jedna značka přívodu/vývodu
 `sb.feed` se směrem `attrs.dir` místo `sb.feed_in` / `sb.feed_out`, migrace bez přeskládání: přívod se pootočí o 180°,
 port zůstane na místě, vodiče se nerozpojí (`model/feed.py:normalize_legacy_element`, makra a schránka se převádějí
 při načtení); v12 ruční posun prvku v jednopólovém schématu `Element.sl_pos`, bez migrace; v11 žíly dle ČSN EN 60445 (DC+/DC− → L+/L−,

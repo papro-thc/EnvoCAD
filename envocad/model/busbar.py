@@ -5,7 +5,8 @@ B1…B12 – B7…B12 leží mezi B1…B6). Tak se kreslí každá sběrnice **b
 makra, ručně vložená sběrnice) – beze změny.
 
 Sběrnice s atributem `taps` (počet přívodů zdola) je parametrická – geometrii skládá `busbar_symbol` (jako
-`inverter_symbol` / `feed_symbol` přes `project.element_symbol`), formát projektu se nemění:
+`inverter_symbol` / `feed_symbol` přes `project.element_symbol`); jen atributy prvku – formát projektu v14 bez
+migrace dat (verze zvednutá, aby program v13 soubor odmítl místo kreslení pevné sběrnice):
 
 - přívody zdola B1…Bn po rozteči `tap_pitch` (výchozí 30 mm = `templates.GROUP_PITCH`), B1 v x −60 (jako pevná
   sběrnice – přívod X1 pod B1 zůstává na místě); přívody shora T1…Tn přímo nad nimi,

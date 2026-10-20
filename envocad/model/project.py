@@ -57,7 +57,7 @@ SWITCHBOARD_WIRE_ATTRIBUTES = [
     Attribute("prod", "Do výrobního seznamu (0 = ne)"),
 ]
 
-FORMAT_VERSION = 13
+FORMAT_VERSION = 14
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 DEVICE_HEIGHT_MM = 45.0  # mm – výška modulového přístroje na liště (rozložení, délky vodičů)
@@ -1212,6 +1212,9 @@ def migrate(d: dict, ver: int) -> dict:
         for s in d.get("sheets", []):
             for e in s.get("elements", []):
                 normalize_legacy_element(e, mark=True)
+    # v14: parametrická sběrnice `sb.busbar` (atributy `taps` / `outs` / `tap_pitch`, `model/busbar.py`) – bez migrace
+    # dat (sběrnice bez `taps` kreslí pevnou geometrii jako dřív). Verze se zvedla jen proto, aby program v13 soubor
+    # odmítl: atributy by sice zachoval, ale kreslil by pevnou sběrnici (přívody B{k} jinde, B13+ osiřelé porty).
     d["format_version"] = FORMAT_VERSION
     return d
 

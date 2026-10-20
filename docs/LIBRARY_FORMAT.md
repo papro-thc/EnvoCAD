@@ -190,7 +190,9 @@ Jedna značka pro přívod i vývod rozvaděče (`docs/design/znacka_privod_vyvo
   Počty se zvětší podle portů, na které vedou vodiče (nic se neodpojí). Prázdný / neplatný `taps` = pevná sběrnice
   výše (staré projekty, vlastní makra, nově vložená sběrnice). Generátor (RFVE.AC, AC část RFVE), vestavěná makra
   „AC přívod střídače“ / „AC jádro rozvaděče“ a šablona „AC rozvaděč FVE“ kreslí sběrnici parametrickou: každá
-  odbočka svisle. Formát projektu ani symbolu se nemění (atributy prvku).
+  odbočka svisle. Formát symbolu se nemění (atributy prvku); **formát projektu v14** – migrace v13 → v14 nic
+  nemění, verze je vyšší jen proto, aby starší program (v13) soubor odmítl místo kreslení pevné sběrnice s přívody
+  jinde (B13 a další by byly osiřelé porty). Makra a schránka se sběrnicí s `taps` vlastní verzi nemají.
 
 ## Footprinty (pohled do rozložení)
 
