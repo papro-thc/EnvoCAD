@@ -8,7 +8,7 @@ from collections import Counter
 import pytest
 
 from envocad.export import reports
-from envocad.generate import JPS_AC_SHEET_NAME, build_project
+from envocad.generate import JPS_AC_SHEET_NAME, build_project, ref_ranges
 from envocad.library.store import LibraryStore
 from envocad.model import calc
 from envocad.model.checks import AGGREGATED_INFO, WARNING, check_project
@@ -16,9 +16,11 @@ from envocad.model.frame import paper_exceeds
 from envocad.model.potential import nets
 from envocad.model.project import FORMAT_VERSION, INTERRUPT_SYMBOL, Element, Project, Sheet, Wire, WireEnd
 from envocad.model.xref import (
+    ThroughEnd,
     continuation_main,
     has_cable_data,
     interrupt_xref,
+    is_blank_wire,
     is_continuation,
     split_cable_partner,
     through_interrupt,
@@ -229,14 +231,26 @@ def _manual():
 
 
 def test_through_interrupt_pair():
-    p, a, b, t, ia, ib, f, cont, main = _manual()
-    assert through_interrupt(p, b, ib, "1") == (a, t, "AC")
-    assert through_interrupt(p, a, ia, "1") == (b, f, "1")
+    p, a, b, t, ia, ib, _f, cont, main = _manual()
+    hit = through_interrupt(p, b, ib, "1")
+    assert hit == ThroughEnd(a, t, "AC", cont, "a") and hit[:3] == (a, t, "AC")
+    assert through_interrupt(p, a, ia, "1") is None          # od pokračování se nesleduje
     assert through_interrupt(p, a, t, "AC") is None                     # není přerušovací bod
     assert continuation_main(p, a, cont) == (b, main)
     assert continuation_main(p, b, main) is None and split_cable_partner(p, b, main) is None
     cont.attrs["cable"] = "CYKY-J 5x16"
     assert split_cable_partner(p, a, cont) == (b, main) and split_cable_partner(p, b, main) == (a, cont)
+    assert through_interrupt(p, b, ib) is None                          # oba úseky s daty – žádné pokračování
+
+
+def test_cable_data_rule_ref_alone_is_not_data():
+    """Pravidlo: data kabelu = typ/průřez; pokračování = úsek úplně prázdný (ani označení)."""
+    w = Wire(WireEnd("a", "1"), WireEnd("b", "1"), attrs={"ref": "W7"})
+    assert not has_cable_data(w) and not is_blank_wire(w)
+    w.attrs = {"cross": "16"}
+    assert has_cable_data(w) and not is_blank_wire(w)
+    w.attrs = {"ref": ""}
+    assert not has_cable_data(w) and is_blank_wire(w)
 
 
 def test_through_interrupt_none_for_alone_chain_star_and_branching():
@@ -271,6 +285,79 @@ def test_manual_pair_reports_calc_potential_checks(lib):
     assert any(e is f and c == "L1" for _, e, _, c in net.members)
     codes = [x.code for x in check_project(p, lib)]
     assert "no_cable" not in codes and "cable_split" not in codes and "interrupt_alone" not in codes
+
+
+def _all_reports(p, lib):
+    return {name: fn(p, lib, None) for name, fn in reports.ALL_REPORTS}
+
+
+def test_manual_auto_ref_on_both_segments_reports_as_before(lib):
+    """Ruční projekt z GUI: každý vodič má automatické označení (W1, W2) – přes přerušení se nesleduje, výkazy jsou
+    stejné jako na dbb6a72 (= jako s neprovázanými přerušeními), F7 nehlásí cable_split."""
+    def make(chain):
+        p, _a, b, _t, _ia, _ib, _f, cont, main = _manual()
+        cont.attrs["ref"] = "W2"
+        if chain:                          # řetěz – přes něj se nesleduje nikdy (chování před rozdělením JPS)
+            b.elements.append(Element(INTERRUPT_SYMBOL, 0, -50, attrs={"ref": "P"}))
+        return p, cont, main
+    p, cont, _main = make(False)
+    ref, _, _ = make(True)
+    got, exp = _all_reports(p, lib), _all_reports(ref, lib)
+    for name in got:
+        assert got[name] == exp[name], name
+    rows = {r[0]: r for r in got["Kabely"][1]}
+    assert rows["W1"][1:3] == ["P:1", "F1:1"] and rows["W2"][1:3] == ["T1:AC", "P:1"]
+    assert {r[1] for r in reports.wiring_list(p, lib)[1]} == {"W1", "W2"}
+    codes = Counter(x.code for x in check_project(p, lib))
+    assert codes["cable_split"] == 0 and codes["no_cable"] == 1          # W2 bez typu/průřezu – jako dřív
+    # typ a průřez na obou úsecích → cable_split, texty zůstávají „P:1“
+    cont.attrs.update({"cable": "CYKY-J 5x16", "cross": "16"})
+    assert [x.code for x in check_project(p, lib)].count("cable_split") == 1
+    rows = {r[0]: r for r in reports.cables(p, lib)[1]}
+    assert rows["W1"][1] == "P:1" and rows["W2"][2] == "P:1"
+
+
+def test_through_interrupt_terminal_number_from_continuation_wire(lib):
+    """Konec za přerušením na svorce: číslo svorky z vodiče pokračování (X1:5…), ne port svorky (X1:1)."""
+    p, a, b, _t, _ia, ib, _f, cont, _main = _manual()
+    x1 = Element("sb.terminal_block", 0, 0, attrs={"ref": "X1", "terminal": "5"})
+    a.elements.append(x1)
+    cont.a = WireEnd(x1.id, "2")
+    plan = reports.cable_plan(p, lib)[1]
+    assert [r[6] for r in plan] == ["X1:5", "X1:6", "X1:7", "X1:8", "X1:9"]
+    wl = reports.wiring_list(p, lib)[1]
+    assert [r[5] for r in wl] == ["X1:5", "X1:6", "X1:7", "X1:8", "X1:9"]
+    hit = through_interrupt(p, b, ib)
+    assert hit.wire is cont and hit.side == "a" and hit.element is x1
+
+
+def test_interrupt_chain_info(lib):
+    p, _a, b, _t, _ia, _ib, _f, _cont, _main = _manual()
+    third = Element(INTERRUPT_SYMBOL, 0, -50, attrs={"ref": "P"})
+    b.elements.append(third)
+    found = [x for x in check_project(p, lib) if x.code == "interrupt_chain"]
+    assert len(found) == 1 and found[0].text == "Přerušení P je v 3 bodech (řetěz)" and found[0].severity == "info"
+    third.attrs["star_source"] = "1"                                    # hvězda – žádné INFO
+    assert not [x for x in check_project(p, lib) if x.code == "interrupt_chain"]
+    b.elements.remove(third)                                            # dvojice – žádné INFO
+    assert not [x for x in check_project(p, lib) if x.code == "interrupt_chain"]
+
+
+def test_oversized_inverter_row_gets_bigger_paper():
+    """Výjimka z limitu: řada jednoho střídače (12 stringů) se nevejde na A2 → její list má větší formát."""
+    p = build_project(spec(3, per=12))
+    js = jps_sheets(p)
+    assert js[0].name == JPS_AC_SHEET_NAME and js[0].paper == "A2"
+    assert [s.name for s in js[1:]] == [f"Jednopólové schéma – T{i}" for i in (1, 2, 3)]
+    assert all(paper_exceeds(s.paper, "A2") and s.paper != "vlastní" for s in js[1:])
+
+
+def test_sheet_name_ranges():
+    assert ref_ranges(["T1", "T2"]) == "T1, T2"
+    assert ref_ranges([f"T{i}" for i in range(1, 10)]) == "T1–T9"
+    assert ref_ranges(["T1", "T2", "T3", "T5", "X", "T8", "T9", "T10"]) == "T1–T3, T5, X, T8–T10"
+    p = build_project(spec(12, per=1))
+    assert [s.name for s in jps_sheets(p)][1:] == ["Jednopólové schéma – T1–T9", "Jednopólové schéma – T10–T12"]
 
 
 def test_split_project_roundtrip(big, lib):
@@ -315,3 +402,43 @@ def test_dxf_export_each_jps_sheet(lib, tmp_path):
         export_sheet_dxf(p, s, lib, out)
         texts = " ".join(e.dxf.text for e in ezdxf.readfile(out).modelspace().query("TEXT"))
         assert "AC-T" in texts, s.name
+
+
+@pytest.mark.parametrize("mode", ["A3", "list"])
+def test_documentation_pdf_jps_page_mode(lib, tmp_path, mode):
+    """Volba listů JPS v PDF dokumentace: „A3“ = strana A3 (zmenšeno), „list“ = strana ve formátu listu (A2)."""
+    pytest.importorskip("PySide6")
+    import pypdf
+
+    from envocad.export.doc_pdf import DocBuilder, export_documentation_pdf
+    p = build_project(spec(3))
+    out = tmp_path / f"jps_{mode}.pdf"
+    export_documentation_pdf(p, lib, out, jps_page=mode)
+    b = DocBuilder(p, lib, jps_page=mode)
+    b.plan()
+    b._count_pages()
+    reader = pypdf.PdfReader(out)
+    pt = 72 / 25.4
+    for i, (kind, _n, data) in enumerate(b.pages):
+        box = reader.pages[b.page_starts[i] - 1].mediabox
+        size = (round(float(box.width) / pt), round(float(box.height) / pt))
+        if kind == "sheet" and data[1] == "schematic":
+            assert size == ((594, 420) if mode == "list" else (420, 297)), (data[0].name, size)
+        elif kind in ("title", "toc", "table"):
+            assert size == (420, 297)
+
+
+def test_documentation_pdf_jps_page_default_from_standard(lib):
+    pytest.importorskip("PySide6")
+    from envocad.export.doc_pdf import DocBuilder
+    from envocad.settings import load_settings, save_settings
+    p = build_project(spec(3))
+    assert DocBuilder(p, lib).jps_page == "A3"                          # dnešní chování
+    st = load_settings()
+    st["standard"]["doc_jps_page"] = "list"
+    save_settings(st)
+    try:
+        assert DocBuilder(p, lib).jps_page == "list" and DocBuilder(p, lib, "A3").jps_page == "A3"
+    finally:
+        st["standard"]["doc_jps_page"] = "A3"
+        save_settings(st)

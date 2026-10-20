@@ -51,3 +51,38 @@ def test_split_project_opens_all_jps_sheets_without_model_change(app, tmp_path):
     finally:
         w.undo.setClean()
         w.close()
+
+
+def test_doc_export_asks_jps_page_and_standard_dialog_keys(app, tmp_path, monkeypatch):
+    """Export PDF dokumentace se zeptá „Zmenšit na A3 / Skutečný formát listu“ (výchozí z firemního standardu);
+    Knihovna → Firemní standard ukládá `jps_max_paper` a `doc_jps_page`."""
+    from PySide6.QtWidgets import QFileDialog, QInputDialog
+
+    from envocad.export import doc_pdf
+    from envocad.settings import load_settings
+    p = build_project({"inverters": [{"ref": f"T{i + 1}", **INV, "strings": [20] * 4} for i in range(3)]})
+    w = MainWindow(library=LibraryStore(tmp_path / "lib.db"), project=p)
+    w.undo.setClean()
+    asked: list[tuple[str, list, int]] = []
+    answer: dict[str, str] = {}
+
+    def get_item(_parent, _title, label, items, current=0, _editable=False):
+        asked.append((label, list(items), current))
+        return answer.get(label[:12], items[current]), True
+    monkeypatch.setattr(QInputDialog, "getItem", staticmethod(get_item))
+    monkeypatch.setattr(QInputDialog, "getText", staticmethod(lambda _p, _t, _l, text="": (text, True)))
+    seen = []
+    monkeypatch.setattr(doc_pdf, "export_documentation_pdf", lambda *a, **k: seen.append(k["jps_page"]) or 1)
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: (str(tmp_path / "d.pdf"), "")))
+    try:
+        w.export_documentation()
+        assert seen == ["A3"] and asked[-1][1] == ["Zmenšit na A3", "Skutečný formát listu"] and asked[-1][2] == 0
+        answer.update({"Největší lis": "A1", "Listy JPS v ": "Skutečný formát listu"})
+        w.edit_standard()
+        st = load_settings()["standard"]
+        assert st["jps_max_paper"] == "A1" and st["doc_jps_page"] == "list"
+        w.export_documentation()
+        assert seen[-1] == "list" and asked[-1][2] == 1          # výchozí volba podle standardu
+    finally:
+        w.undo.setClean()
+        w.close()

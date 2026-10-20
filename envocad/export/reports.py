@@ -57,20 +57,33 @@ def _tag(project: Project, s: Sheet, e: Element) -> str:
     return f"{a}-{e.ref}" if a and e.ref else e.ref
 
 
-def _port_text(project: Project, s: Sheet, e: Element, port: str, terminal: str = "", base: str = "") -> str:
+def _port_text(project: Project, s: Sheet, e: Element, port: str, terminal: str = "", base: str = "",
+               groups: dict | None = None) -> str:
     """Konec vodiče: „+RDC1-X1:3“ (svorka), „+RDC1-F2:1“ (prvek:port), u bloku rozvaděče „+RDC1-X1“ (port bloku =
     přívod/vývod uvnitř). Aspekty shodné s `base` (kontext řádku, např. svorkovnice) se vynechají. Přerušovací bod
-    ve dvojici → skutečný konec za protějškem (`xref.through_interrupt`: kabel přes listy JPS „Odkud T1:AC“)."""
+    hlavního úseku kabelu, jehož protějšek má úsek pokračování → skutečný konec za protějškem
+    (`xref.through_interrupt`: kabel přes listy JPS „Odkud T1:AC“); jinak zůstává „P:1“. `groups` =
+    `xref.interrupt_groups` (výkaz je spočítá jednou)."""
     if e.symbol_id == INTERRUPT_SYMBOL and not terminal:
         from envocad.model.xref import through_interrupt
-        hit = through_interrupt(project, s, e, port)
+        hit = through_interrupt(project, s, e, port, groups)
         if hit is not None:
-            s, e, port = hit          # jen jeden krok – řetěz přerušení se nesleduje (nemůže se zacyklit)
+            s, e, port = hit.sheet, hit.element, hit.port   # jen jeden krok – řetěz se nesleduje (nezacyklí se)
+    return _plain_port_text(project, s, e, port, terminal, base)
+
+
+def _plain_port_text(project: Project, s: Sheet, e: Element, port: str, terminal: str = "", base: str = "") -> str:
     if e.symbol_id in LOCATION_SYMBOLS and e.ref:
         return f"{full_designation(project, s, e)}-{terminal or port}"
     text = terminal or f"{element_name(e)}:{port}"
     a = _aspects(s, e) if (terminal or e.ref) else ""
     return f"{a}-{text}" if a and a != base else text
+
+
+def _interrupts(project: Project) -> dict:
+    """Skupiny přerušovacích bodů jednou za výkaz (`xref.interrupt_groups`) – předávají se do `_port_text`."""
+    from envocad.model.xref import interrupt_groups
+    return interrupt_groups(project)
 
 
 def _index(project: Project):
@@ -233,12 +246,14 @@ def cables(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> t
     head = ["Označení", "Odkud", "Kam", "Typ kabelu", "Průřez [mm²]", "Žíly", "Délka [m]", "Trasa", "Rozvaděč", "List"]
     rows = []
     idx = feed_link_index(project)
+    groups = _interrupts(project)
     for s in _sheets(project, sheet):
         for w in s.wires:
             if not (w.attrs.get("ref") or w.attrs.get("cable")):
                 continue
             a, b = s.element(w.a.element_id), s.element(w.b.element_id)
-            rows.append([w.attrs.get("ref", ""), _port_text(project, s, a, w.a.port), _port_text(project, s, b, w.b.port),
+            rows.append([w.attrs.get("ref", ""), _port_text(project, s, a, w.a.port, groups=groups),
+                         _port_text(project, s, b, w.b.port, groups=groups),
                          w.attrs.get("cable", ""), w.attrs.get("cross", ""), " ".join(w.conductors) or w.attrs.get("poles", ""),
                          w.attrs.get("length", ""), w.attrs.get("route", ""), wire_xref(project, w.id, idx).lstrip("→ "), s.name])
     rows.sort(key=lambda r: (natural_key(r[9]), _ref_key(r[0])))
@@ -251,6 +266,7 @@ def terminals(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -
     from envocad.model.multipole import wire_end_terminal
     head = ["Svorkovnice", "Svorka", "Žíla", "Kabel", "Připojeno na", "Můstek", "Popis", "List"]
     rows = []
+    groups = _interrupts(project)
     for s in _sheets(project, sheet):
         for w in s.wires:
             a, b = s.element(w.a.element_id), s.element(w.b.element_id)
@@ -265,18 +281,19 @@ def terminals(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -
                     term = num or end.attrs.get("terminal") or (str(i) if c else "")
                     bridge = project.bridge_of(strip or end.ref, term, s)
                     rows.append([end.ref, term, c, w.attrs.get("ref") or w.attrs.get("cable", ""),
-                                 _other_end_text(project, s, w, c, "b" if side == "a" else "a", other, other_port, base),
+                                 _other_end_text(project, s, w, c, "b" if side == "a" else "a", other, other_port, base,
+                                                 groups),
                                  "-".join(bridge) if bridge else "", end.attrs.get("desc", ""), s.name])
     rows.sort(key=lambda r: (natural_key(r[7]), _ref_key(r[0]), natural_key(str(r[1])), r[2]))
     return head, rows
 
 
 def _other_end_text(project: Project, s: Sheet, w, conductor: str, side: str, other: Element, other_port: str,
-                    base: str) -> str:
+                    base: str, groups: dict | None = None) -> str:
     """Druhý konec žíly pro výkaz svorkovnice – stejně jako zapojovací/výrobní seznam (`wiring.conductor_end`:
     pól přístroje „Q1:3“, svorka, potenciál sběrnice); aspekty shodné se svorkovnicí (`base`) se vynechají."""
     if not conductor:
-        return _port_text(project, s, other, other_port, base=base)
+        return _port_text(project, s, other, other_port, base=base, groups=groups)
     from envocad.model.wiring import conductor_end
     text = conductor_end(project, s, w, conductor, side).text
     if base and text.startswith(base + "-"):
@@ -341,12 +358,20 @@ def terminal_plan_report(project: Project, lib: LibraryStore, sheet: Sheet | Non
     return head, rows
 
 
-def _end_text(project: Project, s: Sheet, w, side: str, conductor: str) -> str:
-    """Konec žíly: svorka (+RDC1-X1:3), jinak prvek:port; u bloku rozvaděče cíl uvnitř rozvaděče."""
+def _end_text(project: Project, s: Sheet, w, side: str, conductor: str, groups: dict | None = None) -> str:
+    """Konec žíly: svorka (+RDC1-X1:3), jinak prvek:port; u bloku rozvaděče cíl uvnitř rozvaděče. Přes přerušení
+    (`xref.through_interrupt`) se svorka počítá z vodiče pokračování na protějším listu (X1:5, ne X1:1)."""
     from envocad.model.multipole import wire_end_terminal
     t = wire_end_terminal(s, w, conductor, side)
     end = w.a if side == "a" else w.b
-    return _port_text(project, s, s.element(end.element_id), end.port, terminal=t)
+    e = s.element(end.element_id)
+    if not t and e.symbol_id == INTERRUPT_SYMBOL:
+        from envocad.model.xref import through_interrupt
+        hit = through_interrupt(project, s, e, end.port, groups)
+        if hit is not None:
+            t = wire_end_terminal(hit.sheet, hit.wire, conductor, hit.side)
+            return _plain_port_text(project, hit.sheet, hit.element, hit.port, terminal=t)
+    return _port_text(project, s, e, end.port, terminal=t, groups=groups)
 
 
 @over_clean
@@ -356,6 +381,7 @@ def cable_plan(project: Project, lib: LibraryStore, sheet: Sheet | None = None) 
     sync_cables(project)   # úsek pokračování přes přerušení kabel nemá (`cable_of_wire` → None), řádky nedostane
     head = ["Kabel", "Typ", "Průřez [mm²]", "Žíla", "Č.", "Barva", "Odkud", "Kam", "Stínění", "Délka [m]", "List"]
     rows = []
+    groups = _interrupts(project)
     for s in _sheets(project, sheet):
         if s.is_switchboard:
             continue
@@ -367,7 +393,7 @@ def cable_plan(project: Project, lib: LibraryStore, sheet: Sheet | None = None) 
                 core = c.core(name)
                 rows.append([c.ref, c.type, c.cross, name, core.number if core else str(i),
                              core.color if core else CORE_COLORS.get(name, ""),
-                             _end_text(project, s, w, "a", name), _end_text(project, s, w, "b", name),
+                             _end_text(project, s, w, "a", name, groups), _end_text(project, s, w, "b", name, groups),
                              "ano" if c.shield else "", c.length, s.name])
     rows.sort(key=lambda r: (natural_key(r[10]), _ref_key(r[0]), int(r[4]) if str(r[4]).isdigit() else 99))
     return head, rows
@@ -378,9 +404,9 @@ def wiring_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None)
     """Zapojovací seznam: každé propojení po žílách – odkud, kam, kabel/vodič, barva, průřez (pro zapojování)."""
     from envocad.model.project import CORE_COLORS, sync_cables
     from envocad.model.wiring import conductor_color, merged_conductors
-    from envocad.model.xref import interrupt_groups, is_continuation
+    from envocad.model.xref import is_continuation
     sync_cables(project)
-    groups = interrupt_groups(project)
+    groups = _interrupts(project)
     head = ["List", "Kabel / vodič", "Žíla", "Barva", "Průřez [mm²]", "Odkud", "Kam", "Poznámka"]
     rows = []
     for s in _sheets(project, sheet):
@@ -406,7 +432,7 @@ def wiring_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None)
             for name in (w.conductors or ["L1"]):
                 core = c.core(name) if c else None
                 color = core.color if core and core.color else CORE_COLORS.get(name, "")
-                ends = [_end_text(project, s, w, side, name) for side in ("a", "b")]
+                ends = [_end_text(project, s, w, side, name, groups) for side in ("a", "b")]
                 rows.append([s.name, label, name, color, cross, *ends, c.type if c else w.attrs.get("cable", "")])
     rows.sort(key=lambda r: (natural_key(r[0]), _ref_key(r[1])))
     return head, rows

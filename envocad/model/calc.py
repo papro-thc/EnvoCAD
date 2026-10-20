@@ -482,25 +482,26 @@ def _wire_system(w: Wire) -> tuple[str, float]:
     return "1f", 230.0
 
 
-def _far_ends(project: Project, s: Sheet, w: Wire) -> list[tuple[Element, str]]:
-    """Konce vodiče (prvek, port); přerušovací bod ve dvojici se nahradí skutečným koncem za protějškem
-    (`xref.through_interrupt` – AC kabel přes listy JPS vede ze střídače)."""
+def _far_ends(project: Project, s: Sheet, w: Wire, groups: dict | None = None) -> list[tuple[Element, str]]:
+    """Konce vodiče (prvek, port); přerušovací bod hlavního úseku s pokračováním za protějškem se nahradí skutečným
+    koncem (`xref.through_interrupt` – AC kabel přes listy JPS vede ze střídače). `groups` = `interrupt_groups`."""
     out = []
     for end in (w.a, w.b):
         e, port = s.element(end.element_id), end.port
         if e.symbol_id == INTERRUPT_SYMBOL:
             from envocad.model.xref import through_interrupt
-            hit = through_interrupt(project, s, e, port)
+            hit = through_interrupt(project, s, e, port, groups)
             if hit is not None:
-                e, port = hit[1], hit[2]
+                e, port = hit.element, hit.port
         out.append((e, port))
     return out
 
 
-def _source_current(project: Project, s: Sheet, w: Wire, inverter_u_dc: float | None) -> tuple[float | None, str]:
+def _source_current(project: Project, s: Sheet, w: Wire, inverter_u_dc: float | None,
+                    groups: dict | None = None) -> tuple[float | None, str]:
     """Proud vodičem podle zdroje na jeho konci: string (1,25·Isc), střídač AC (P/√3U), jistič (In). Konec na
     přerušovacím bodu ve dvojici se sleduje za protějšek (`_far_ends`)."""
-    ends = _far_ends(project, s, w)
+    ends = _far_ends(project, s, w, groups)
     for e, port in ends:
         if e.symbol_id == "fve.pv_string":
             isc = _f(e.attrs.get("isc"))
@@ -656,7 +657,9 @@ def _trace_inverter(project: Project, s: Sheet, start: Element, max_depth: int =
 
 
 def check_cables(project: Project, t_ambient: float = 30.0, du_limit_pct: float = 3.0) -> list[CableCheck]:
+    from envocad.model.xref import interrupt_groups
     out = []
+    groups = interrupt_groups(project)     # jednou – konce přes přerušení (`_far_ends`)
     for s in project.sheets:
         for w in s.wires:
             if not (w.attrs.get("ref") or w.attrs.get("cable") or w.attrs.get("cross")):
@@ -665,10 +668,10 @@ def check_cables(project: Project, t_ambient: float = 30.0, du_limit_pct: float 
             length = _f(w.attrs.get("length"))
             system, u = _wire_system(w)
             alu = "AYKY" in (w.attrs.get("cable") or "").upper() or "AL" in (w.attrs.get("cable") or "").upper().split()
-            i_a, _src = _source_current(project, s, w, None)
+            i_a, _src = _source_current(project, s, w, None, groups)
             if system == "dc":
                 # napětí stringu pro úbytek: Umpp ≈ n·vmp z připojeného stringu
-                for e, _port in _far_ends(project, s, w):
+                for e, _port in _far_ends(project, s, w, groups):
                     if e.symbol_id == "fve.pv_string":
                         n = _f(e.attrs.get("n_modules"), 0) or 0
                         vmp = _f(e.attrs.get("vmp")) or (_f(e.attrs.get("voc")) or 0) * 0.82

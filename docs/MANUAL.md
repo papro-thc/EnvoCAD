@@ -451,6 +451,13 @@ Totéž umí příkaz `python -m envocad.generate spec.json vystup.ecp` – spec
 v `envocad/generate.py`. To je cesta pro AI agenty: z poptávky a datasheetů připraví specifikaci, program
 vygeneruje projekt, ty ho upravíš.
 
+**Velké JPS na víc listů**: když by se JPS nevešlo na největší povolený list (firemní standard
+`jps_max_paper`, výchozí A2 – Knihovna → Firemní standard…), průvodce i příkaz `python -m envocad.generate` ho
+rozdělí: první list „AC a připojení“, za ním listy střídačů („Jednopólové schéma – T1–T3“). AC kabel vede přes
+pár přerušovacích bodů „AC-T1“, údaje kabelu nese jen úsek u AC rozvaděče. Ve specifikaci lze limit přebít:
+`"jps": {"split": "auto" | "none", "max_paper": "A1", "paper": "A2"}`. Řada jednoho střídače, která se sama na
+limit nevejde (např. 12 stringů), dostane větší formát (A1, A0) – DC řetězec se nedělí.
+
 Výchozí hodnoty (kabely, zpracoval) bere průvodce z **firemního standardu** (menu Knihovna).
 
 ---
@@ -484,6 +491,10 @@ dokumentace se vždy dá očíslovat a seřadit, rámeček ale zůstává volbou
 zákazníka). Otevřené připomínky listu rozvaděče se v dokumentaci (s volbou „Přidávat připomínky do exportu“)
 ukážou na straně jeho vícepólu u přístroje, ke kterému patří (vodič → jeho první konec); připomínka bez vazby na
 přístroj je vlevo nahoře na první straně vícepólu s poznámkou, že patří k listu rozvaděče.
+Při exportu se program zeptá, jak dát do PDF **listy JPS**: *Zmenšit na A3* (výchozí, jako dřív) nebo *Skutečný
+formát listu* (strana PDF má rozměr listu – A2, A1…, PDF pak má smíšené formáty stran). Výchozí volbu nastavíš ve
+Firemním standardu (`standard.doc_jps_page`: „A3“ / „list“). PDF jednoho listu (Soubor → Export PDF…) má vždy
+skutečný formát listu, zmenšení nabízí jen „Export PDF na A4 (zmenšeno)“.
 
 **docx** (technická zpráva, protokol kusového ověření): A4, jazyk čeština, vlastnosti dokumentu (název, autor =
 Zpracoval projektu nebo `standard.author`, datum); výkazy v technické zprávě na šířku, šířky sloupců podle obsahu.
@@ -591,7 +602,8 @@ prvku, rozměry pro rozložení a ztrátový výkon pro oteplení.
 - **Sdílená knihovna (síťová složka)…** – složka s JSON/CSV, kterou sdílí celá firma; načítá se navíc
   k vestavěné a stejná id přebíjí.
 - **Firemní standard…** – výchozí kabely, zpracoval, název firmy, formát stran schématu rozvaděče a plánu
-  svorkovnice (výchozí A4 na šířku) (`~/.envocad/settings.json`).
+  svorkovnice (výchozí A4 na šířku), největší list JPS z průvodce (`jps_max_paper`, výchozí A2) a výchozí volba
+  listů JPS v PDF dokumentace (`doc_jps_page`, výchozí „Zmenšit na A3“) (`~/.envocad/settings.json`).
 - Pluginy: `~/.envocad/plugins/*.py` s funkcí `register(ctx)` přidají menu, šablony, importéry nebo výkazy.
 
 Data artiklů jsou opsaná z veřejných katalogů (zdroj a strana je u každého řádku) – před použitím

@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import sys
 from pathlib import Path
 
@@ -358,9 +359,14 @@ def _place_jps(p: Project, s: Sheet, opts: dict, rows: list[list[Element]], ac_w
                blk: Element) -> None:
     """Rozmístí JPS na list (`frame.fit_placement`). Přesáhl by jeden list `jps.max_paper` (jinak standard
     `jps_max_paper`, výchozí A2) a `jps.split` není „none“, rozdělí se JPS na listy formátu `jps.paper` (výchozí
-    = limit; jen při 2+ střídačích): první list „AC a připojení“ (blok AC rozvaděče, síť, HOP) jako přehled, za ním listy střídačů (stringy →
-    DC rozvaděče → střídač, baterie) balené hladově, dokud se vejdou. Řez vede AC kabelem: pár `fve.interrupt`
-    „AC-T1“; údaje kabelu nese jen úsek u bloku AC rozvaděče, úsek u střídače je pokračování bez označení a kabelu."""
+    = limit; jen při 2+ střídačích): první list „AC a připojení“ (blok AC rozvaděče, síť, HOP) jako přehled, za ním
+    listy střídačů (stringy → DC rozvaděče → střídač, baterie) balené hladově, dokud se vejdou. Řez vede AC kabelem:
+    pár `fve.interrupt` „AC-T1“; údaje kabelu nese jen úsek u bloku AC rozvaděče, úsek u střídače je pokračování bez
+    označení a kabelu (`xref.is_blank_wire`).
+
+    Výjimka: řada jednoho střídače (DC řetězec se nedělí), která se sama nevejde ani na `jps.paper`, dostane svůj
+    list v nejmenším normalizovaném formátu, do kterého se vejde (A1, A0, jinak „vlastní“) – limit tedy platí pro
+    balení řad, ne pro jednu přerostlou řadu (např. 3 střídače × 12 stringů: listy střídačů A1, AC list A2)."""
     from envocad.model.frame import PAPER_SIZES, apply_placement, fit_placement, paper_exceeds
     from envocad.model.textlayout import sheet_content_boxes
     lib = _lib()
@@ -443,8 +449,35 @@ def _split_jps(p: Project, s: Sheet, rows: list[list[Element]], ac_wires: list[W
             sheets.append(nxt)
             groups.append([i])
     for sh, grp in zip(sheets, groups):
-        sh.name = "Jednopólové schéma – " + ", ".join(rows[i][0].ref for i in grp)
+        sh.name = "Jednopólové schéma – " + ref_ranges([rows[i][0].ref for i in grp])
     return sheets
+
+
+def ref_ranges(refs: list[str]) -> str:
+    """Označení do názvu listu: souvislé řady 3+ stejné předpony jako rozsah („T1–T9“), jinak výčet
+    („T1, T2“, „T1–T3, T5“). Pořadí se zachová."""
+    out: list[str] = []
+    run: list[tuple[str, int, str]] = []          # (předpona, číslo, označení)
+
+    def flush() -> None:
+        if len(run) >= 3:
+            out.append(f"{run[0][2]}–{run[-1][2]}")
+        else:
+            out.extend(r[2] for r in run)
+        run.clear()
+
+    for ref in refs:
+        m = re.fullmatch(r"(.*?)(\d+)", ref)
+        if m and run and run[-1][0] == m.group(1) and run[-1][1] + 1 == int(m.group(2)):
+            run.append((m.group(1), int(m.group(2)), ref))
+            continue
+        flush()
+        if m:
+            run.append((m.group(1), int(m.group(2)), ref))
+        else:
+            out.append(ref)
+    flush()
+    return ", ".join(out)
 
 
 def _align_outputs(project: Project, blk: Element, grid: Element, earth: Element | None) -> None:
@@ -509,8 +542,11 @@ def _apply_inverter_component(t: Element, inv: dict) -> None:
 
 def _align_bends(project: Project) -> None:
     """Lomy vodičů JPS podle skutečných poloh portů (porty bloků rozvaděčů a střídačů se dopočítají až z listů):
-    svislý úsek [(x, y1), (x, y2)] dostane y1 = port A, y2 = port B – vodič je pak jen vodorovný–svislý–vodorovný.
-    Všechny listy JPS (i po rozdělení na listy střídačů)."""
+    vodič s jediným svislým úsekem [(x, y1), (x, y2)] dostane y1 = y portu A, y2 = y portu B – je pak jen
+    vodorovný–svislý–vodorovný. Svislé úseky víc vodičů do jednoho prvku (konec B) se přeskládají na svých x tak,
+    aby se nekřížily (shora dolů: nejvyšší nejdál, zdola nahoru: nejnižší nejdál). Volá se před rozdělením JPS na
+    listy (`_place_jps` – rozmístění posouvá prvky i lomy celého listu stejně), projde všechny listy, které nejsou
+    rozvaděč."""
     lib = _lib()
     for s in project.sheets:
         if not s.is_switchboard:

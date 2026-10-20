@@ -1494,9 +1494,9 @@ def feed_link_attrs(project: Project, sheet: Sheet, e: Element, wire_id: str) ->
     far, far_port, far_sheet = s.element(far_end.element_id), far_end.port, s
     if far.symbol_id == INTERRUPT_SYMBOL:   # kabel přes listy JPS: skutečný konec za přerušením („W3 T1:AC /2.C4“)
         from envocad.model.xref import through_interrupt
-        thru = through_interrupt(project, s, far, far_port)
+        thru = through_interrupt(project, s, far, far_port)   # jen hlavní úsek s pokračováním za protějškem
         if thru is not None:
-            far_sheet, far, far_port = thru
+            far_sheet, far, far_port = thru.sheet, thru.element, thru.port
     from envocad.model.frame import position_ref
     text = (f"{w.attrs.get('ref', '')} {element_name(far)}:{far_port} "
             f"{position_ref(project, far_sheet, far.x, far.y)}").strip()
