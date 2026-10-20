@@ -186,6 +186,10 @@ F1 a F0 jdou paralelně. F2 až po F1. F4 může začít hned, jak budou mustry 
 
 Z revize `75c228f..d640b7d` (testy 821/821 zelené, ruff čistý, pravidla architektury dodržena). Týká se generátoru:
 
+**Stav: body 1–9 opraveny (F0, 2026-10-20)** – viz CHANGELOG; test `tests/test_generate.py::test_generated_project_f7_clean`
+(firma, RD, bytový dům, vn kiosk / kobky / sloup, bez maker). Známé varování F7 mimo F0: vícepól RE u přípojky VN
+(`xfail`, ROADMAP „Chyby k řešení“).
+
 1. `generate.py:583` + `calc.py:356–369` – když žádná pojistka gPV nevyhoví (Isc 18,5 A, nebo max. jištění modulu
    10 A), zapíše se tiše 15 A. → prázdné In + chyba F7; doplnit řadu 30/32 A, EFH 10 max. 25 A.
 2. `generate.py:300` – `int(t.attrs["mppt"])` spadne na „2.0“ / „2,0“. → `_int_attr`.
@@ -238,3 +242,7 @@ duplicitní `_snap`/`_ceil_grid`, nepoužitý `elide_text`, dynamické atributy 
 
 Mustry RFVE a RFVE_AC (makra) připraví Patrik; do té doby generátor používá vestavěný kód a role maker jsou
 připravené (F4 po dodání mustrů).
+9. **Označení rozvaděčů** (doplněno): všude **RFVE.DC** (DC rozvaděč u technologie, dřív RDC u střídače) a
+   **RFVE.AC** (AC rozvaděč FVE, dřív RH); u rodinného domu jeden rozvaděč **RFVE**. Dnešní „RH“ je chyba. Rozvaděče
+   po trase zůstávají RDCn. Hlavní rozvaděč nn u vn = HR (dřív RHN). Základ: commit 537cdd8 (RH → RFVE.AC).
+10. **Přepínač sítí a EPS vývod** jen u rodinného domu (RFVE); u firmy a bytového domu se nekreslí.
