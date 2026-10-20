@@ -22,7 +22,8 @@ Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
   "dc": {"cable": "H1Z2Z2-K 1x6", "cross": 6, "length": 40,          # string → první DC rozvaděč
          "route_boxes": 1, "route_length": 20,                        # DC rozvaděče po trase (jen SPD, bez odpínače), kabel mezi nimi
          "tech_box": true, "tech_length": 5,                          # DC rozvaděč u technologie (pojistkové odpínače + SPD), kabel ke střídači
-         "spd": "T1+T2", "fuse_in": "",                              # "" = podle stringu (gPV ≥ 1,5·Isc; SolarEdge 25 A)
+         "spd": "T1+T2", "fuse_in": "",                              # "" = podle stringu (gPV ≥ 1,5·Isc; SolarEdge 25 A;
+                                                                      #  nevyhoví-li žádná, In prázdné + chyba F7)
          "disconnect_in": 32, "fuse_component": "eti-efh-10-dc-2p",   # pojistkový odpojovač ETI EFH 10 DC 2p
          "spd_component": "weidmuller-vpu-pv-i-ii-3-1000",            # artikl SPD (typ, Uc, Up, ISCPV), když typ odpovídá
          "disconnect": false},                                        # jen samostatný odpínač v JPS bez DC rozvaděčů (stará varianta)
@@ -33,11 +34,13 @@ Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
   "grid": {"dso": "ČEZ Distribuce", "voltage": "3×400 V"},
   "connection": {"level": "vn", "metering": "nn",                     # "nn" = do HDS (výchozí), "vn" = trafostanice
                  "station": "kiosk", "ts": {"ref": "TS1", "desc": ""}, # kiosk | kobky (zděná) | sloup (sloupová)
-                 "u_vn": "22 kV", "loop": true,                       # smyčka = 2 kabelová pole v rozvaděči VN
+                 "u_vn": "22 kV", "loop": true,                       # „22 kV“ / „22000 V“ / „22“; smyčka = 2 kabelová pole
                  "transformer": {"sn": 630, "ratio": "22/0,42 kV", "group": "Dyn1", "uk": 6},
-                 "main_board": {"ref": "RHN", "main_in": "", "load_in": ""},   # "" = ze Sn transformátoru
+                 "main_board": {"ref": "RHN", "main_in": "", "load_in": "",    # "" = ze Sn transformátoru
+                                "fve_in": ""},                        # "" = ac.main_in omezené selektivitou (F7)
                  "ct_ratio": "", "fuse_vn": "", "vn_cable": "22-AXEKVCEY 3×1×70", "tr_cable": "4× 1-AYKY 3×240+120"},
-  "battery": {"e_kwh": 10, "p_kw": 5, "type": "…"},       # volitelné, jen u hybridního střídače
+  "battery": {"e_kwh": 10, "p_kw": 5, "type": "…",        # volitelné, jen u hybridního střídače
+              "cable": "H1Z2Z2-K 1x25", "cross": 25, "length": 5},   # kabel k baterii (výchozí `BATTERY_CABLE`)
   "macros": {"dc_tech": "DC string v rozvaděči", "dc_route": "DC string po trase",   # rozvaděče se skládají z maker
              "ac_feed": "AC přívod střídače", "ac_core": "AC jádro rozvaděče"},      # (knihovna → Makra); "" = kód
   "jps": {"split": "auto", "max_paper": "A2", "paper": "A2"}   # rozdělení velkého JPS na listy (viz níže)
@@ -59,7 +62,9 @@ artikl optimizéru > classic (prázdné); pravidla `n_opt_min` / `n_opt_max` / `
 (artikl střídače, artikl optimizéru pro fázi střídače), zadaná ve specifikaci vyhrávají. Bez `component_id` beze změny.
 `building` = druh objektu: u rodinného domu (`house`) je DC i AC rozvaděč v jednom – rozvaděč FVE (RFVE) má přívody
 od střídačů X1…Xn, DC přívody stringů a vývody ke střídači (pojistkové odpínače + SPD) a vývod do HDS; samostatný DC
-rozvaděč u technologie se netvoří (rozvaděče po trase zůstávají). Firma a bytový dům: DC rozvaděče a AC rozvaděč zvlášť.
+rozvaděč u technologie se netvoří (rozvaděče po trase zůstávají); s `dc.tech_box` false je RFVE jen AC („rozvaděč FVE
+(AC)“). Rodinný dům se připojuje do HDS – `connection.level` "vn" → ValueError. Firma a bytový dům: DC rozvaděče a AC
+rozvaděč zvlášť.
 Rozvaděče po trase mají jen SPD (přívod vede rovně na vývod) – odpojovací místo stringů jsou pojistkové odpínače
 v rozvaděči u střídače.
 `site.t_min` / `site.t_max` [°C] se zapíšou do `meta["pv_t_min"]` / `meta["pv_t_max"]` (kontrola stringů,
@@ -115,6 +120,9 @@ INV_LABEL_SPACE = 40.0     # popisek DC kabelu („W12  2× H1Z2Z2-K 1x6 mm²“
 # druh objektu (`spec["building"]`) → text v projektu (meta „building“)
 BUILDINGS = {"company": "firma", "house": "rodinný dům", "apartment": "bytový dům"}
 HOUSE_SWITCHBOARD = {"ref": "RFVE", "desc": "rozvaděč FVE (DC + AC)"}
+HOUSE_SWITCHBOARD_AC = {"ref": "RFVE", "desc": "rozvaděč FVE (AC)"}   # bez DC části (`dc.tech_box` = false)
+# kabel baterie (hybridní střídač → baterie), když ho specifikace (`battery.cable/cross/length`) nezadá
+BATTERY_CABLE = {"cable": "H1Z2Z2-K 1x25", "cross": 25, "length": 5}
 
 DEFAULT_SPEC = {
     "name": "Nový projekt FVE",
@@ -142,7 +150,8 @@ DEFAULT_SPEC = {
                    "ts": {"ref": "TS1", "desc": ""},
                    "transformer": {"sn": 630, "type": "", "ratio": "22/0,42 kV", "group": "Dyn1", "uk": 6},
                    "mv_board": {"ref": "RVN", "desc": "rozvaděč VN"},
-                   "main_board": {"ref": "RHN", "desc": "hlavní rozvaděč nn", "main_in": "", "load_in": ""},
+                   "main_board": {"ref": "RHN", "desc": "hlavní rozvaděč nn", "main_in": "", "load_in": "",
+                                  "fve_in": ""},
                    "meter_board": {"ref": "RE", "desc": "elektroměrový rozvaděč"},
                    "ct_ratio": "", "fuse_vn": "",
                    "vn_cable": "22-AXEKVCEY 3×1×70", "vn_cross": 70, "vn_length": 10,
@@ -203,7 +212,8 @@ def _build_project(spec: dict) -> Project:
         spec["optimizer"], opt_comp = _apply_optimizer_component(spec["optimizer"])
     building = building_kind(spec.get("building"))
     if building == "house" and not spec.get("switchboard"):
-        spec["switchboard"] = dict(HOUSE_SWITCHBOARD)
+        tech = _merge(DEFAULT_SPEC["dc"], spec.get("dc") or {}).get("tech_box")
+        spec["switchboard"] = dict(HOUSE_SWITCHBOARD if tech else HOUSE_SWITCHBOARD_AC)
     spec = _merge(DEFAULT_SPEC, spec)
     invs = spec.get("inverters") or []
     if not invs:
@@ -213,8 +223,9 @@ def _build_project(spec: dict) -> Project:
                          f"střídačů (zadáno {len(invs)}). Zvolte rozvod svorkami nebo rozdělte FVE na více rozvaděčů.")
     # rodinný dům: DC část (pojistkové odpínače + SPD, místo rozvaděče u technologie) je v rozvaděči FVE s AC částí
     combined = building == "house" and bool(spec["dc"].get("tech_box"))
-    if combined and _s((spec.get("connection") or {}).get("level")).lower() == "vn":
-        raise ValueError("Rodinný dům: rozvaděč FVE (DC + AC) se připojuje do HDS – přípojka VN se negeneruje.")
+    if building == "house" and _s((spec.get("connection") or {}).get("level")).strip().lower() == "vn":
+        raise ValueError("Rodinný dům: rozvaděč FVE se připojuje do HDS (připojení na nn) – přípojka VN se "
+                         "negeneruje. Zvolte druh objektu firma, nebo připojení nn.")
     p = Project(name=spec["name"], meta={k: _s(v) for k, v in spec["meta"].items()})
     p.meta.setdefault("building", BUILDINGS[building])
     site = spec.get("site") or {}
@@ -244,6 +255,10 @@ def _build_project(spec: dict) -> Project:
     dc_first = len(invs) + (1 if (spec["ac"].get("distribution") or "bus") == "bus" else 2)   # za AC přívody (a svorkami X(n+1))
     x_box0 = x_str + 60.0 + 5.0 * n_lanes   # lomy stringů až za popisky kabelů u stringů
     x_boxes = [x_box0 + j * box_pitch for j in range(n_boxes)]
+    if combined and n_boxes > 1:
+        # rozvaděč FVE za rozvaděči po trase: popisek kabelu od rozvaděče po trase (~40 mm) se musí vejít před lomy
+        # všech DC vodičů do RFVE (5 mm na string a na AC vodič střídače) – jinak popisek přetéká přes svůj lom
+        x_boxes[-1] = x_boxes[-2] + max(box_pitch, 70.0 + 5.0 * n_lanes)
     x_dc = 130.0                                                   # samostatný odpínač DC (bez rozvaděčů)
     # před střídačem: popisek kabelu za blokem rozvaděče + vějíř lomů (5 mm na string) před DC vstupy střídače
     x_inv = (x_boxes[-1] + max(80.0, 15.0 + INV_LABEL_SPACE + 5.0 * n_max + 10.0)) if n_boxes else 200.0
@@ -282,13 +297,12 @@ def _build_project(spec: dict) -> Project:
         row_extra[i] += 5.0 * len(inverter_io(t.attrs))
         # neznámé stringů na MPPT zůstane prázdné (kontrola pak proudy na MPPT nesčítá); výchozí 2 jen pro DC vstupy
         spm_known, mppt_known = _int_attr(t.attrs.get("strings_per_mppt")), _int_attr(t.attrs.get("mppt"))
-        if not spm_known:
-            t.attrs["strings_per_mppt"] = ""
+        t.attrs["strings_per_mppt"] = str(spm_known) if spm_known else ""
         spm = spm_known or DC_INPUTS_PER_MPPT_DEFAULT
         # známé mppt: stringy rovnoměrně po MPPT (string k → MPPT k mod mppt), jinak DC1, DC2… za sebou (`calc.string_ports`)
         ports = string_ports(len(strings), InverterData(mppt=mppt_known, strings_per_mppt=spm_known))
-        if not mppt_known:
-            t.attrs["mppt"] = str(max(1, -(-len(strings) // spm)))
+        n_mppt = mppt_known or max(1, -(-len(strings) // spm))
+        t.attrs["mppt"] = str(n_mppt)          # i „2.0“ / „2,0“ ze specifikace nebo artiklu → „2“
         s.elements.append(t)
         inverter_elements.append(t)
         row = [t]
@@ -333,7 +347,7 @@ def _build_project(spec: dict) -> Project:
         # porty bloku DC rozvaděče (viz switchboard_symbol): rozteč PORT_PITCH, shora dolů
         half = max(20.0, n_str * PORT_PITCH + PORT_PITCH) / 2
         port_y = [y_mid + round((half - PORT_PITCH / 2 - k * PORT_PITCH) / 2.5) * 2.5 for k in range(n_str)]
-        n_in = max(2, int(t.attrs["mppt"]) * spm, n_str)   # DC vstupy střídače (viz inverter_symbol)
+        n_in = max(2, n_mppt * spm, n_str)   # DC vstupy střídače (viz inverter_symbol)
         for k, g in enumerate(gens):
             port_inv = f"DC{ports[k]}"   # každý string má na střídači vlastní vstup – stringy se nespojují
             j_in = ports[k] - 1          # pořadí vstupu shora (DC1 nahoře)
@@ -393,8 +407,10 @@ def _build_project(spec: dict) -> Project:
             "type": _s(b.get("type")), "e_kwh": _s(b.get("e_kwh")), "p_kw": _s(b.get("p_kw"))})
         s.elements.append(bat)
         rows[0].append(bat)
+        bc = {k: b.get(k) if b.get(k) not in (None, "") else v for k, v in BATTERY_CABLE.items()}
         s.wires.append(Wire(WireEnd(t0.id, "BAT"), WireEnd(bat.id, "DC"), conductors=list(DC_CONDUCTORS),
-                            attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": "25", "length": "5"}))
+                            attrs={"ref": p.next_ref("W"), "cable": _s(bc["cable"]), "cross": _s(bc["cross"]),
+                                   "length": _s(bc["length"])}))
     conn = spec.get("connection") or {}
     chain = None
     if _s(conn.get("level")).lower() == "vn":
@@ -455,7 +471,7 @@ def _build_project(spec: dict) -> Project:
         _apply_spd_component(sb, dc.get("spd_component"))
         _apply_component(sb, dc.get("fuse_component"), "fve.fuse_disconnect")
     if chain is not None:
-        _build_main_lv_board(p, p.create_switchboard_sheet(chain["rhn"]), conn, ac)
+        _build_main_lv_board(p, p.create_switchboard_sheet(chain["rhn"]), conn, ac, invs)
         if chain["rvn"] is not None:
             _build_mv_board(p, p.create_switchboard_sheet(chain["rvn"]), conn)
         _build_meter_board(p, p.create_switchboard_sheet(chain["re"]), conn)
@@ -678,9 +694,13 @@ def _add_dc_part(p: Project, sheet: Sheet, groups: list[tuple[int, str, list[str
         if not done:
             break
         k0 += len(strings)
-    if not done:   # makro chybí (pak pro žádný střídač): kódem, všechny stringy najednou, číslování jako u makra
-        build_dc_strings(p, sheet, [g for grp in groups for g in grp[2]], "tech", _s(groups[0][3]),
-                         spd=_s(dc.get("spd") or "T2"), first=first, dx=dx0)
+    if not done:   # makro chybí (pak pro žádný střídač): kódem, všechny stringy najednou, číslování jako u makra;
+        # In pojistek po skupinách – každý string podle svého střídače (moduly / SolarEdge se mohou lišit)
+        # SPD stringů na vývod XPE AC části (k HOP) jako makro; při rozvodu svorkami (bez XPE) vlastní PE lišta
+        pe = next((e for e in sheet.elements if e.symbol_id == "sb.feed_out" and e.ref == "XPE"), None)
+        build_dc_strings(p, sheet, [g for grp in groups for g in grp[2]], "tech",
+                         [_s(grp[3]) for grp in groups for _g in grp[2]],
+                         spd=_s(dc.get("spd") or "T2"), first=first, dx=dx0, pe=pe)
     new = [pl.element_id for pl in sheet.layout.placements if pl.element_id not in ac_ids]
     by_id = {e.id: e for e in sheet.elements}
     _place_sequential(sheet, [by_id[i] for i in [*new, *ac_ids] if i in by_id])
@@ -774,24 +794,36 @@ def _route_house(p: Project, blk: Element, ac_wires: list[Wire], grid: Element, 
     w_grid.points = [(x_out, out[1]), (x_out, grid.y)]
 
 
+def is_solaredge(inv: Element | None, opt: dict) -> bool:
+    """String SolarEdge (standard ENVO: pojistka stringu 25 A): výrobce, typ nebo artikl střídače, typ / artikl
+    optimizéru obsahuje „SolarEdge“, nebo střídač pracuje s pevným napětím stringu (`string_mode` fixed_voltage –
+    SE5K, SE12.5K–SE27.6K)."""
+    texts = [opt.get("type"), opt.get("component_id")]
+    if inv is not None:
+        texts += [inv.attrs.get("manufacturer"), inv.attrs.get("type"), inv.component_id]
+        if _s(inv.attrs.get("string_mode")).strip().lower() == "fixed_voltage":
+            return True
+    return any("solaredge" in re.sub(r"[\s_-]", "", _s(x).lower()) for x in texts)
+
+
 def _fuse_in(dc: dict, mod: dict, opt: dict, inv: Element | None) -> str:
     """In pojistek stringů DC rozvaděče: zadané `dc.fuse_in`, jinak podle stringu (`calc.string_fuse_in`) –
-    SolarEdge (střídač nebo optimizéry) 25 A, jinak gPV ≥ 1,5·Isc modulu do 2,4·Isc a max. jištění modulu;
-    bez údajů 15 A."""
+    SolarEdge (`is_solaredge`) 25 A, jinak gPV ≥ 1,5·Isc modulu do 2,4·Isc, max. jištění modulu a max. In držáku
+    (`in_max_a` artiklu `dc.fuse_component`, EFH 10 DC 25 A). Když žádná velikost nevyhoví (nebo chybí Isc), vrací ""
+    – In zůstane prázdné a kontrola (F7) hlásí chybu `fuse_no_in`; nic se tiše nedosazuje."""
     if _s(dc.get("fuse_in")).strip() not in ("", "auto"):
         return _s(dc["fuse_in"])
     from envocad.model.calc import string_fuse_in
-
-    def num(v) -> float | None:
-        try:
-            return float(str(v).replace(",", "."))
-        except (TypeError, ValueError):
-            return None
-
-    mfr = (inv.attrs.get("manufacturer", "") if inv is not None else "") + " " + _s(opt.get("type"))
-    se = "solaredge" in mfr.lower().replace(" ", "")
-    fin = string_fuse_in(num(mod.get("isc")), num(mod.get("i_fuse_max")), optimizer=se)
-    return f"{fin:g}" if fin else "15"
+    holder = _lib().component(dc.get("fuse_component")) if dc.get("fuse_component") else None
+    max_in = holder.num("in_max_a") if holder is not None else None
+    fin = string_fuse_in(_num(mod.get("isc")), _num(mod.get("i_fuse_max")), optimizer=is_solaredge(inv, opt),
+                         max_in=max_in)
+    if not fin:
+        log.warning("Pojistka stringu %s: žádná velikost gPV nevyhoví (Isc %s A, max. jištění modulu %s A, "
+                    "max. In držáku %s A) – In zůstává prázdné", inv.ref if inv is not None else "",
+                    mod.get("isc"), mod.get("i_fuse_max") or "–", f"{max_in:g}" if max_in else "–")
+        return ""
+    return f"{fin:g}"
 
 
 def _apply_component(sheet: Sheet, cid, symbol_id: str) -> None:
@@ -836,6 +868,8 @@ def _align_outputs(project: Project, blk: Element, grid: Element | None, earth: 
 
 # ---- přípojka VN: hlavní rozvaděč nn, transformátor, rozvaděč VN -------------------------------------------------
 LV_BREAKER_SIZES = (100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3200, 4000)
+# vývody hlavního rozvaděče nn (FVE, spotřeba): i menší jističe pod nejmenším hlavním jističem
+LV_FEEDER_SIZES = (16, 20, 25, 32, 40, 50, 63, 80, *LV_BREAKER_SIZES)
 CT_PRIMARY_SIZES = (5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 100, 150, 200, 250, 300, 400, 500, 600, 750, 800, 1000,
                     1200, 1250, 1500, 1600, 2000, 2500, 3000, 4000)
 VN_FUSE_SIZES = (6.3, 10, 16, 20, 25, 31.5, 40, 50, 63, 80, 100)
@@ -849,6 +883,25 @@ CT_CONDUCTORS, VT_CONDUCTORS = ["S1", "S2"], ["a", "n"]   # sekundár MTP / MTN 
 def _next_size(value: float, sizes) -> float:
     """Nejmenší normalizovaná hodnota ≥ value (nad řadou největší)."""
     return next((x for x in sizes if x >= value - 1e-9), sizes[-1])
+
+
+def parse_voltage(v, default: float = U_MV_DEFAULT) -> float:
+    """Napětí ve V z textu specifikace: „22 kV“, „22kV“, „22,5 kV“, „22000 V“, „22 000 V“, „22000“, „22“. Bez
+    jednotky: pod 1000 = kV (vn se zadává v kV), jinak V. Neplatné / prázdné → `default`."""
+    t = _s(v).strip().replace("\u00a0", " ").replace("\u202f", " ")
+    m = re.fullmatch(r"(\d[\d ]*(?:[.,]\d+)?)\s*(kv|v)?", t, re.IGNORECASE)
+    if not m:
+        return default
+    x = float(m.group(1).replace(" ", "").replace(",", "."))
+    unit = (m.group(2) or "").lower()
+    if unit == "kv" or (not unit and x < 1000):
+        x *= 1000
+    return x if x > 0 else default
+
+
+def voltage_label(u_v: float) -> str:
+    """22000 → „22 kV“, 22500 → „22,5 kV“ (text do výkresu)."""
+    return f"{u_v / 1000:g} kV".replace(".", ",")
 
 
 def _num_or(v, default: float) -> float:
@@ -883,7 +936,7 @@ def connection_currents(conn: dict) -> dict:
     Zadané `main_board.main_in`, `ct_ratio`, `fuse_vn` mají přednost. Sloupová TS měří vždy na nn."""
     tr = conn.get("transformer") or {}
     sn = _num_or(tr.get("sn"), 630.0)
-    u_mv = _num_or(conn.get("u_vn"), U_MV_DEFAULT / 1000) * 1000
+    u_mv = parse_voltage(conn.get("u_vn"))
     i_lv = sn * 1000 / (math.sqrt(3) * U_LV)
     i_mv = sn * 1000 / (math.sqrt(3) * u_mv)
     mb = conn.get("main_board") or {}
@@ -894,7 +947,8 @@ def connection_currents(conn: dict) -> dict:
     i_ct = i_lv if metering == "nn" else i_mv
     ct = _s(conn.get("ct_ratio")) or f"{_next_size(i_ct, CT_PRIMARY_SIZES):g}/5 A"
     fuse = _s(conn.get("fuse_vn")) or f"{_next_size(i_mv * VN_FUSE_FACTOR, VN_FUSE_SIZES):g}".replace(".", ",")
-    return {"sn": sn, "u_mv": u_mv, "i_lv": i_lv, "i_mv": i_mv, "main_in": f"{main_in:g}", "ct_ratio": ct,
+    return {"sn": sn, "u_mv": u_mv, "u_label": voltage_label(u_mv), "i_lv": i_lv, "i_mv": i_mv,
+            "main_in": f"{main_in:g}", "ct_ratio": ct,
             "fuse_vn": fuse, "metering": metering, "breaker_vn": sn > VN_BREAKER_FROM_KVA}
 
 
@@ -911,7 +965,7 @@ def _connection_blocks(p: Project, s: Sheet, spec: dict, blk: Element, x0: float
     kind = station_kind(conn)
     station = station_label(conn)
     c = connection_currents(conn)
-    u = _s(conn.get("u_vn") or "22 kV")
+    u = c["u_label"]
     x_rhn = x0 + 85.0
     x_tr = x_rhn + 75.0
     x_rvn = x_tr + 75.0
@@ -987,10 +1041,51 @@ def _connection_blocks(p: Project, s: Sheet, spec: dict, blk: Element, x0: float
     return {"rhn": rhn, "tr": tr, "rvn": rvn, "re": re_, "src": src, "pole": pole, "grids": grids, "load": load}
 
 
-def _build_main_lv_board(p: Project, sheet: Sheet, conn: dict, ac: dict) -> None:
+def inverters_ac_current(invs: list[dict]) -> float:
+    """Součet jmenovitých AC proudů střídačů [A] z `p_ac` [kW] a `phases` (3f 400 V, 1f 230 V); neznámé p_ac = 0."""
+    total = 0.0
+    for inv in invs:
+        p_kw = _num(inv.get("p_ac")) or 0.0
+        one = (_num(inv.get("phases")) or 3) == 1
+        total += p_kw * 1000 / (230.0 if one else math.sqrt(3) * U_LV)
+    return total
+
+
+def fve_feeder_in(conn: dict, ac: dict, invs: list[dict]) -> tuple[str, str]:
+    """In vývodu FVE v hlavním rozvaděči nn (přípojka VN) a hláška, když nejde splnit (jinak "").
+
+    Zadané `main_board.fve_in` platí beze změny (selektivitu pak hlídá F7 `calc_selectivity`). Jinak In hlavního
+    vypínače RH (`ac.main_in`), omezené na největší jistič selektivní s hlavním jističem nn (In·1,6 ≤ hlavní jistič,
+    `calc.SELECTIVITY_RATIO`; hlavní jistič je ze Sn transformátoru). Omezený vývod musí unést proud FVE (součet
+    střídačů) a být nad jističi střídačů v RH (`ac.breaker_in`); když takový neexistuje, vrací ("", důvod) – In se
+    nedosazuje, kontrola F7 hlásí jistič bez In (`breaker_no_in`)."""
+    from envocad.model.calc import SELECTIVITY_RATIO
+    mb = conn.get("main_board") or {}
+    if _s(mb.get("fve_in")).strip():
+        return _s(mb["fve_in"]).strip(), ""
+    main_in = float(connection_currents(conn)["main_in"])
+    want = _num_or(ac.get("main_in"), 125.0)
+    selective = [x for x in LV_FEEDER_SIZES if x * SELECTIVITY_RATIO <= main_in + 1e-9]
+    if selective and want <= selective[-1]:
+        return f"{want:g}", ""
+    need = max(inverters_ac_current(invs), _num_or(ac.get("breaker_in"), 0.0))
+    if selective and selective[-1] >= need:
+        log.info("Vývod FVE v hlavním rozvaděči nn omezen z %g A na %g A (selektivita s hlavním jističem %g A)",
+                 want, selective[-1], main_in)
+        return f"{selective[-1]:g}", ""
+    why = (f"vývod FVE: žádný jistič ≥ {need:.0f} A (proud FVE / jistič střídače) není selektivní s hlavním jističem "
+           f"{main_in:g} A (poměr {SELECTIVITY_RATIO:g}) – zvětšete hlavní jistič / transformátor, nebo zadejte "
+           "main_board.fve_in")
+    log.warning("Hlavní rozvaděč nn: %s", why)
+    return "", why
+
+
+def _build_main_lv_board(p: Project, sheet: Sheet, conn: dict, ac: dict, invs: list[dict] | None = None) -> None:
     """Hlavní rozvaděč nn (napájený z transformátoru): přívod XT → [MTP, měření na nn: sekundár → XMI, napětí
-    z přípojnice → XMU k elektroměrovému rozvaděči] → hlavní jistič → přípojnice nn → vývody: FVE (jistič → X1 k RH),
-    SPD T1, spotřeba objektu (jistič → X2)."""
+    z přípojnice → XMU k elektroměrovému rozvaděči] → hlavní jistič → přípojnice nn → vývody: FVE (jistič → X1 k RH,
+    In `fve_feeder_in`), SPD T1, spotřeba objektu (jistič → X2, In nejvýš hlavní jistič / 1,6). In, které nejde
+    splnit, zůstane prázdné (F7)."""
+    from envocad.model.calc import SELECTIVITY_RATIO
     c = connection_currents(conn)
     mb = conn.get("main_board") or {}
     sheet.layout.params.setdefault("network", "3NPE, 50 Hz")
@@ -1018,14 +1113,16 @@ def _build_main_lv_board(p: Project, sheet: Sheet, conn: dict, ac: dict) -> None
     else:
         _wire(p, sheet, feed, "1", qm, "1", AC_CONDUCTORS)
     _wire(p, sheet, qm, "2", bus, "IN", AC_CONDUCTORS)
-    qf = _el(p, sheet, "fve.breaker_mccb", x0 + 7.5, y - 60, "Q", rot=270, in_=str(ac.get("main_in") or 125), poles="3",
-             modules="6")
+    fve_in, _why = fve_feeder_in(conn, ac, invs or [])
+    qf = _el(p, sheet, "fve.breaker_mccb", x0 + 7.5, y - 60, "Q", rot=270, in_=fve_in, poles="3", modules="6")
     out_f = _el(p, sheet, "sb.feed_out", x0 + 7.5, y - 95, "", desc="k RH (FVE)")
     out_f.attrs["ref"] = "X1"
     spd = _el(p, sheet, "fve.spd", x0 + 37.5, y - 60, "F", spd_type="T1", poles="4", modules="4")
     pe = _el(p, sheet, "sb.pe_bar", x0 + 37.5, y - 90, "X", kind="PE")
-    # vývod spotřeby nejvýš In hlavního jističe / 1,6 (selektivita – poměr jako kontrola `calc_selectivity`)
-    load_in = _s(mb.get("load_in")) or f"{max([x for x in LV_BREAKER_SIZES if x * 1.6 <= float(c['main_in'])] or [100]):g}"
+    # vývod spotřeby nejvýš In hlavního jističe / 1,6 (selektivita – poměr jako kontrola `calc_selectivity`);
+    # žádný nevyhoví → prázdné In (F7), nic se nedosazuje
+    sel = [x for x in LV_FEEDER_SIZES if x * SELECTIVITY_RATIO <= float(c["main_in"]) + 1e-9]
+    load_in = _s(mb.get("load_in")) or (f"{sel[-1]:g}" if sel else "")
     qs = _el(p, sheet, "fve.breaker_mccb", x0 + 67.5, y - 60, "Q", rot=270, in_=load_in,
              poles="3", modules="6")
     out_s = _el(p, sheet, "sb.feed_out", x0 + 67.5, y - 95, "", desc=_s(conn.get("load") or "spotřeba objektu"))
@@ -1048,7 +1145,7 @@ def _build_mv_board(p: Project, sheet: Sheet, conn: dict) -> None:
     s úderníkem, nad 1000 kVA vypínač VN s ochranou; uzemňovač, kabelová koncovka) → vývod XT k transformátoru.
     Přístroje se na DIN lišty nerozmísťují, rozvaděč nemá vícepól ani plán svorkovnice."""
     c = connection_currents(conn)
-    u = _s(conn.get("u_vn") or "22 kV")
+    u = c["u_label"]
     _desc, letter, word = STATIONS[station_kind(conn)]
     names = CELL_NAMES[word]
     sheet.layout.params.setdefault("network", "3~ 50 Hz")
@@ -1374,9 +1471,21 @@ def _align_bends_sheet(project: Project, s: Sheet, lib) -> None:
 
 def _macro_vars(dc: dict, ac: dict) -> dict:
     """Základ hodnot proměnných maker ze specifikace (v `resolve_values` hned za výchozími hodnotami makra)."""
-    # prázdné / „auto“ `fuse_in` (podle stringu) doplní `_fuse_in` před voláním; sem jde už číslo
-    return {"fuse_in": _s(dc.get("fuse_in") or 15), "disc_in": _s(dc.get("disconnect_in") or 32), "spd": _s(dc.get("spd") or "T2"),
+    # prázdné / „auto“ `fuse_in` (podle stringu) doplní `_fuse_in` před voláním; zůstane-li prázdné (žádná pojistka
+    # nevyhoví), dosadí se zástupná hodnota a po rozvinutí makra se z prvků zase vymaže (`_blank_unresolved`)
+    return {"fuse_in": _s(dc.get("fuse_in")).strip() or UNRESOLVED_IN, "disc_in": _s(dc.get("disconnect_in") or 32), "spd": _s(dc.get("spd") or "T2"),
             "breaker_in": _s(ac.get("breaker_in") or 40), "main_in": _s(ac.get("main_in") or 125), "ac_spd": _s(ac.get("spd") or "T1+T2")}
+
+
+UNRESOLVED_IN = "987654321"   # zástupné In pro makro s povinnou proměnnou, když generátor In neurčil (→ prázdné)
+
+
+def _blank_unresolved(elements: list[Element]) -> None:
+    """Zástupné In (`UNRESOLVED_IN`) v atributech rozvinutého makra → prázdné (kontrola F7 pak hlásí chybějící In)."""
+    for e in elements:
+        for k, v in e.attrs.items():
+            if UNRESOLVED_IN in v:
+                e.attrs[k] = "" if v.strip() == UNRESOLVED_IN else v.replace(UNRESOLVED_IN, "").strip()
 
 
 def _macro_ref(entry) -> tuple[str, str | None, dict]:
@@ -1403,6 +1512,7 @@ def _insert_macro(project: Project, sheet: Sheet, m, values: dict, dx: float, li
     from envocad.library.macros import expand, insert
     els, wires = expand(project, sheet, m, values, dx=dx, ref_prefix_of=lambda sid: lib.get_symbol(sid).iec_ref,
                         components=lib.component, repeat=False, copy=False)   # označení z makra beze změny
+    _blank_unresolved(els)
     insert(sheet, els, wires)
     return [e for e in els if e.modules > 0 and e.symbol_id not in ("sb.feed_in", "sb.feed_out", "sb.busbar")]
 

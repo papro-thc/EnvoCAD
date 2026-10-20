@@ -31,7 +31,9 @@ NUMERIC = {"price_czk", "in_", "poles", "icu_ka", "idn_ma", "un_v", "modules", "
            # optimizéry (optimizers.csv) a režim stringu střídače (docs/design/optimizery.md)
            "p_max_w", "p_tol_pct", "u_in_max_v", "isc_in_max_a", "i_out_max_a", "u_out_max_v", "modules_per_optimizer",
            "partial_ok", "n_min_1ph", "n_max_1ph", "p_string_max_1ph_w", "n_min_3ph", "n_max_3ph", "p_string_max_3ph_w",
-           "u_string_v", "n_opt_min", "n_opt_max", "p_string_max_w"}
+           "u_string_v", "n_opt_min", "n_opt_max", "p_string_max_w",
+           # držák pojistky (fuse_holder): max. In vložky – horní mez pojistky gPV stringu (`calc.string_fuse_in`)
+           "in_max_a"}
 SOURCES = {"catalog", "datasheet", "web", "seed", "user"}
 
 # výchozí schematická značka podle kategorie (když symbol_id chybí)

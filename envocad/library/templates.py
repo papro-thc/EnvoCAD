@@ -226,22 +226,35 @@ def build_ac_fve(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
     _place_sequential(sheet, [q, spd, *outs, *groups])
 
 
-def build_dc_strings(project: Project, sheet: Sheet, strings: list[str], kind: str = "tech", fuse_in: str = "15",
-                     disconnect_in: str = "32", spd: str = "T2", first: int = 1, dx: float = 0.0) -> None:
+DC_STRING_PITCH = 50.0   # rozteč stringů v DC rozvaděči (mm) – jako makra „DC string …“; popisek SPD vpravo od
+                         # odbočky se vejde před další string (při 30 mm se texty překrývaly)
+
+
+def build_dc_strings(project: Project, sheet: Sheet, strings: list[str], kind: str = "tech",
+                     fuse_in: str | list[str] = "15", disconnect_in: str = "32", spd: str = "T2", first: int = 1,
+                     dx: float = 0.0, pe: Element | None = None) -> None:
     """DC rozvaděč: stringy se v rozvaděči NIKDY nespojují – každý prochází odděleně: přívod X1…Xn → pojistkový
     odpínač (u technologie, `kind="tech"`) → vývod X(n+1)…X(2n), na každém stringu vlastní SPD DC; PE lišta.
     Rozvaděč po trase (`kind="route"`) odpínače nemá – přívod vede rovně na vývod, SPD odbočuje z přívodní svorky
     (odpojovací místo jsou pojistkové odpínače u střídače). `first` = číslo prvního přívodu (rozvaděč FVE rodinného
-    domu má před DC částí přívody AC), `dx` = posun DC části v listu. `disconnect_in` se už nepoužívá (kompatibilita).
+    domu má před DC částí přívody AC), `dx` = posun DC části v listu. `fuse_in` = In pro všechny stringy, nebo seznam
+    In po stringech (rozvaděč FVE s více střídači); "" = neurčeno (prázdné In, kontrola F7 hlásí chybu).
+    `pe` = existující PE cíl listu (vývod XPE / PE lišta AC části rozvaděče FVE) – SPD stringů se připojí na něj
+    jako u makra „DC string v rozvaděči“, vlastní PE lišta se netvoří. `disconnect_in` se už nepoužívá (kompatibilita).
     (Paralelní spojení stringů dělá jen SolarEdge – to se kreslí jako jeden string.)"""
     n = len(strings)
+    fuses = list(fuse_in) if isinstance(fuse_in, (list, tuple)) else [fuse_in] * n
+    if len(fuses) != n:
+        raise ValueError(f"DC rozvaděč: In pojistek pro {len(fuses)} stringů, stringů je {n}.")
     y, x0 = 200.0, 60.0 + dx
     devices: list[Element] = []
     spds: list[Element] = []
-    pe = _el(project, sheet, "sb.pe_bar", x0 + (n - 1) * GROUP_PITCH / 2, y - 80, "", kind="PE")
-    pe.attrs["ref"] = f"X{first + 2 * n}"   # za přívody X1…Xn a vývody X(n+1)…X(2n)
+    if pe is None:
+        pe = _el(project, sheet, "sb.pe_bar", x0 + (n - 1) * DC_STRING_PITCH / 2, y - 80, "", kind="PE")
+        pe.attrs["ref"] = f"X{first + 2 * n}"   # za přívody X1…Xn a vývody X(n+1)…X(2n)
+    pe_bar = pe.symbol_id == "sb.pe_bar"
     for k, g in enumerate(strings):
-        x = x0 + k * GROUP_PITCH
+        x = x0 + k * DC_STRING_PITCH
         feed = _el(project, sheet, "sb.feed_in", x, y + 40, "", desc=f"od {g}")
         feed.attrs["ref"] = f"X{first + k}"
         out = _el(project, sheet, "sb.feed_out", x, y - 30, "", desc=f"{g} dál")
@@ -249,7 +262,7 @@ def build_dc_strings(project: Project, sheet: Sheet, strings: list[str], kind: s
         s_el = _el(project, sheet, "fve.spd", x + 12.5, y - 20, "F", spd_type=f"{spd} DC", uc="1000", poles="3", modules="3",
                    desc=g if g.lower().startswith("string") else f"string {g}")
         if kind == "tech":
-            d = _el(project, sheet, "fve.fuse_disconnect", x, y + 10, "F", rot=270, in_=fuse_in, char="gPV", un="1000",
+            d = _el(project, sheet, "fve.fuse_disconnect", x, y + 10, "F", rot=270, in_=fuses[k], char="gPV", un="1000",
                     poles="2", modules="2")
             _wire(project, sheet, feed, "1", d, "1", DC_CONDUCTORS)
             _wire(project, sheet, d, "2", out, "1", DC_CONDUCTORS)
@@ -258,7 +271,7 @@ def build_dc_strings(project: Project, sheet: Sheet, strings: list[str], kind: s
         else:
             _wire(project, sheet, feed, "1", out, "1", DC_CONDUCTORS)
             _wire(project, sheet, feed, "1", s_el, "L", DC_CONDUCTORS)
-        _wire(project, sheet, s_el, "PE", pe, str(min(k + 1, 6)), ["PE"])
+        _wire(project, sheet, s_el, "PE", pe, str(min(k + 1, 6)) if pe_bar else "1", ["PE"])
         spds.append(s_el)
     _place_sequential(sheet, [*devices, *spds])
 

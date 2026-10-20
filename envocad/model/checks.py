@@ -213,6 +213,7 @@ def check_project(project: Project, lib) -> list[Finding]:
     out += contact_findings(project, idx)
     out += interrupt_findings(project, idx)
     out += spd_findings(project)
+    out += protection_findings(project)
     out += designation_findings(project, lib, idx)
     out += revision_findings(full)
     out += note_findings(full)
@@ -534,6 +535,31 @@ def spd_findings(project: Project) -> list[Finding]:
                     out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                        f"SPD na svorkách {d.ref}:{oport} na straně stringu – vypnutý {d.ref} ho "
                                        "neodpojí; připoj na výstupní svorky (strana střídače)", "spd_side"))
+    return out
+
+
+PROTECTION_SYMBOLS = {"fve.breaker_mcb", "fve.breaker_mccb", "sb.rcbo", "fve.fuse", "fve.fuse_disconnect"}
+
+
+def protection_findings(project: Project) -> list[Finding]:
+    """Jistič / pojistka v rozvaděči bez In → ERROR. Generátor In, které nejde splnit, nedosazuje (pojistka stringu,
+    na kterou nevyhoví žádná velikost gPV – `fuse_no_in`; vývod hlavního rozvaděče nn bez selektivního jističe –
+    `breaker_no_in`), a nechá ho na projektantovi."""
+    out: list[Finding] = []
+    for s in project.sheets:
+        if not s.is_switchboard:
+            continue
+        for e in s.elements:
+            if e.symbol_id not in PROTECTION_SYMBOLS or str(e.attrs.get("in_") or "").strip():
+                continue
+            if "gpv" in str(e.attrs.get("char") or "").lower():
+                out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref,
+                                   "Pojistka stringu gPV bez In – nevyhoví žádná velikost (1,5·Isc ≤ In ≤ 2,4·Isc, "
+                                   "max. jištění modulu, max. In držáku); zvolte jištění / držák ručně", "fuse_no_in"))
+            else:
+                out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref,
+                                   "Jistič / pojistka bez In – doplňte podle proudu vývodu a selektivity "
+                                   "s nadřazeným jističem", "breaker_no_in"))
     return out
 
 

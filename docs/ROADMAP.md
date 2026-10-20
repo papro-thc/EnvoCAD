@@ -97,6 +97,13 @@ Pořadí = priorita. Body 1, 2 a 5 jsou nejlevnější start.
 - [x] Generovaný projekt se 4 a více střídači: JPS přetékal list – opraveno 10/2026 (formát A3–A0 podle obsahu); rozdělení velkých JPS na víc listů hotovo 10/2026 (`docs/design/dluhy_dxf_jps.md` bod B): nad A2 generátor dělí na listy A2 – AC list (AC rozvaděč, síť, HOP) první, za ním listy střídačů; AC kabel přes pár přerušení „AC-T1“ jako jeden kabel (`xref.through_interrupt`), F7 `cable_split`. Záměrně vynecháno (YAGNI): ruční příkaz „Rozdělit list“, párování prvků přesunutých mezi listy v `diff_projects`
 - [ ] Rozvaděčové artikly: doplnit `t_min_c`/`t_max_c` z datasheetů. Stav: ověřeno z PDF/stránek výrobce – OEZ 3VA1/3VA2 (−25…70 °C, katalog MO1-2020), OEZ SVBC-DC (−40…80 °C), Hager MCB/RCD (−25…70 °C, resp. −25…40 °C). Zbývá: Eaton (eaton.com z agentního prostředí nedostupný, ~250 řádků bez nového ověření), OEZ MCB/RCD/SPD AC (minikatalog teploty neuvádí), BMR PLA33 (bez údaje), skříně (se.com 403, soubor bez sloupců `t_min_c`/`t_max_c`)
 
+- [ ] **Vícepól elektroměrového rozvaděče RE** (přípojka VN – kiosk, kobky, sloup): text elektroměru P přes žílu napěťových obvodů (`mp_text_overlap`, jediné varování F7 generátoru). Rozmístění vícepólu značky se dvěma vstupy (`multipole.auto_layout` / `multipole_geometry`); otočení ani prohození portů v generátoru nepomůže. V testech `xfail(strict)` – `tests/test_generate.py::test_generated_project_f7_clean[vn_*]`
+- Z review generátoru `75c228f..d640b7d` (`docs/NAVRH_TOPOLOGIE.md`, kap. 6 – mimo generátor):
+  - [ ] **Revize nevidí volné texty listu** `Sheet.texts` (`model/diff.py`, porovnání listů) – změna textu se neoznačí
+  - [ ] **Hlídací test zápisů mimo undo** (`tests/test_no_model_writes_in_ui.py`) nezná nová pole modelu (`Sheet.texts`, `Element.sl_pos`, `Element.mirror`…) – doplnit seznam / odvodit z dataclass
+  - [ ] **Model čte uživatelská nastavení** (`model/multipole.py`, `standard_switchboard_paper` → `settings.load_settings`) – předávat standard parametrem (model má být čistý)
+  - [ ] **Úklid**: duplicitní `_snap` / `_ceil_grid` (routing, symbol, frame, xref, multipole, revision, notes – sjednotit), nepoužitý `ui/render.elide_text`, dynamické atributy `Node` v `model/single_line.py` (deklarovat v dataclass)
+
 ## Odloženo (analýza 10/2026 – nebrzdí práci)
 - Příkazový řádek (styl ZWCAD/CADCraft) – až bude potřeba ovládat program z agentů
 - BMEcat/ETIM importér – až budou soubory od výrobců
@@ -105,7 +112,7 @@ Pořadí = priorita. Body 1, 2 a 5 jsou nejlevnější start.
 - Generátor – druh objektu (PR #16), nedůležité:
   - **Bytový dům** – zatím se generuje stejně jako firma (liší se jen `meta["building"]`); od ENVO zjistit, čím se má lišit (rozvaděče, měření, označení)
   - **Výchozí stringy v průvodci** `20,20,18,18; 20,20` dávají 2 střídače – zvážit jeden střídač (aspoň u rodinného domu)
-  - **Překryvy popisků** u rodinného domu s víc střídači a rozvodem svorkami a ve variantě bez maker (kontrola hlásí `text_overlap` v JPS i ve vícepólu RFVE); výchozí varianta s makry je čistá
+  - [x] **Překryvy popisků** u rodinného domu s víc střídači a rozvodem svorkami a ve variantě bez maker – opraveno 10/2026 (F0 `docs/NAVRH_TOPOLOGIE.md`): DC rozvaděč bez makra po 50 mm jako makra, SPD RFVE na XPE, místo pro popisky před RFVE; test `test_generated_project_f7_clean`
   - **Uživatelské kopie makra „DC string po trase“** (`~/.envocad/macros/`) mají dál odpínač – vestavěné makro je upravené; zvážit upozornění nebo migraci
   - **Označení AC rozvaděče u firmy / bytového domu** zůstává RH; ENVO styl (`docs/ENVO_STYL.md`) používá RFVE – sjednotit podle praxe
 
