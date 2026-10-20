@@ -467,7 +467,8 @@ def test_split_with_transformer_station(lib):
     """Přípojka VN (trafostanice, rozvaděč VN, transformátor, hlavní rozvaděč nn, elektroměrový rozvaděč) zůstává
     na listu „AC a připojení“; jednopólové schéma odvozené z blokového je stejné jako bez rozdělení."""
     from envocad.model.single_line import single_line_geometry
-    conn = {"connection": {"level": "vn", "station": "zdena", "metering": "vn"}}
+    # 6 × 25 kW ≈ 217 A: hlavní vypínač RFVE.AC (= vývod FVE v HR) 250 A – výchozí 125 A je pod proudem FVE (F7)
+    conn = {"connection": {"level": "vn", "station": "zdena", "metering": "vn"}, "ac": {"main_in": 250}}
     p, one = build_project(spec(6, **conn)), build_project(spec(6, jps={"split": "none"}, **conn))
     js = jps_sheets(p)
     assert len(js) == 4 and js[0].name == JPS_AC_SHEET_NAME and len(jps_sheets(one)) == 1

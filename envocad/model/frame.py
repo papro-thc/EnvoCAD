@@ -293,6 +293,41 @@ def fit_sheet_to_content(project: Project, sheet: Sheet, lib, sizes=None) -> Non
     apply_placement(sheet, fit_placement(boxes, sizes))
 
 
+def _fits_unmoved(boxes: list, w: float, h: float) -> bool:
+    ix0, iy0, ix1, iy1 = inner_box(w, h)
+    pad = CONTENT_PAD
+    if any(b[0] < ix0 + pad or b[1] < iy0 + pad or b[2] > ix1 - pad or b[3] > iy1 - pad for b in boxes):
+        return False
+    tb = title_block_box(w, h)
+    tb = (tb[0] - pad, tb[1] - pad, tb[2] + pad, tb[3] + pad)
+    return not any(_boxes_hit(b, tb) for b in boxes)
+
+
+def grow_sheet_to_content(project: Project, sheet: Sheet, lib) -> bool:
+    """Zvětší formát listu, když obsah přetéká vnitřní rámeček nebo leží v popisovém poli (např. DC rozvaděč
+    s 9 stringy po 50 mm na A3). Obsah, který se vejde, se nemění (formát ani polohy); jinak nejmenší větší formát
+    na šířku (A3…A0), do kterého se obsah vejde bez posunu, a teprve když žádný, `fit_sheet_to_content` (s posunem).
+    Nikdy nezmenšuje. Vrací True, když se list změnil.
+
+    List rozvaděče bez volby formátu vícepólu (`mp_paper`) ji dostane podle stavu před zvětšením (firemní standard,
+    A4) – jiný formát listu by jinak přepnul vícepól a plán svorkovnice na rozměr listu (`multipole.paper_choice`)."""
+    from envocad.model.textlayout import sheet_content_boxes
+    boxes = sheet_content_boxes(project, sheet, lib)
+    if not boxes or _fits_unmoved(boxes, sheet.width, sheet.height):
+        return False
+    if sheet.is_switchboard and not getattr(sheet, "mp_paper", ""):
+        from envocad.model.multipole import paper_choice
+        sheet.mp_paper = paper_choice(sheet)
+    for name, w, h in PAPER_SIZES:
+        if w * h <= sheet.width * sheet.height + 1e-6:
+            continue
+        if _fits_unmoved(boxes, w, h):
+            sheet.paper, sheet.width, sheet.height = name, w, h
+            return True
+    apply_placement(sheet, fit_placement(boxes))
+    return True
+
+
 def paper_exceeds(name: str, limit: str) -> bool:
     """Je formát `name` (z `fit_placement`) větší než `limit` („A2“)? Vlastní formát je větší vždy; neznámý limit = A2."""
     order = [n for n, _, _ in PAPER_SIZES]

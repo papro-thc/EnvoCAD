@@ -227,7 +227,8 @@ def build_ac_fve(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
 
 
 DC_STRING_PITCH = 50.0   # rozteč stringů v DC rozvaděči (mm) – jako makra „DC string …“; popisek SPD vpravo od
-                         # odbočky se vejde před další string (při 30 mm se texty překrývaly)
+                         # odbočky se vejde před další string (při 30 mm se texty překrývaly); 9 stringů se na A3
+                         # nevejde – list zvětší `frame.grow_sheet_to_content` (`apply_template` s lib, generátor)
 
 
 def build_dc_strings(project: Project, sheet: Sheet, strings: list[str], kind: str = "tech",
@@ -310,10 +311,15 @@ def template(tid: str) -> Template:
     return next(t for t in TEMPLATES if t.id == tid)
 
 
-def apply_template(project: Project, sheet: Sheet, tid: str, params: dict[str, str] | None = None) -> None:
+def apply_template(project: Project, sheet: Sheet, tid: str, params: dict[str, str] | None = None,
+                   lib=None) -> None:
     """Vloží šablonu do listu. Neplatný parametr → ValueError s českou hláškou; vestavěné šablony parametry ověří
-    dřív, než cokoli vloží (list zůstane beze změny)."""
+    dřív, než cokoli vloží (list zůstane beze změny). S knihovnou (`lib`) se list zvětší, když obsah přetéká formát
+    (`frame.grow_sheet_to_content` – např. DC rozvaděč s 9 stringy po `DC_STRING_PITCH` se na A3 nevejde)."""
     t = template(tid)
     p = {tp.key: tp.default for tp in t.params}
     p.update(params or {})
     t.build(project, sheet, p)
+    if lib is not None:
+        from envocad.model.frame import grow_sheet_to_content
+        grow_sheet_to_content(project, sheet, lib)

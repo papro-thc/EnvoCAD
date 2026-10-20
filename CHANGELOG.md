@@ -14,6 +14,26 @@
   označení rozvaděčů, názvy jejich listů, kódy struktur a texty vazeb přívodů „W2 RFVE.DC:X1 /1.D4“). Základ commit
   537cdd8. Testy `tests/test_generate.py::test_switchboard_designations_*`, `test_dc_box_ref_helper`,
   `tests/test_designation.py::test_dotted_location_code_is_one_level`.
+- **Generátor – opravy z review F0 (2. kolo)**, formát projektu beze změny (nový nepovinný atribut prvku
+  `in_unresolved`): **vývod FVE v HR** počítá proud FVE z vygenerovaných střídačů (P AC a fáze i z artiklu
+  `component_id` – dřív jen ze specifikace, 3× SE27.6K bez `p_ac` na 50 kVA dostaly vývod 50 A místo prázdného In
+  a chyby) a i zadané `ac.main_in` kontroluje proti proudu FVE (menší → prázdné In + chyba F7 „In vývodu FVE < proud
+  FVE“); rozhodnutí vývod FVE ≥ jistič střídače (ne 1,6×) zdokumentované (`fve_feeder_in`, MANUAL). **`u_vn`**: číslo
+  na začátku textu („35 kV, 50 Hz“ → 35 kV), tečka jako oddělovač tisíců („22.000 V“ → 22 kV), nečitelné nebo mimo
+  1–52 kV → **ValueError** s českou hláškou (dřív tiché 22 kV); nezadané `u_vn` se počítá jako 22 kV, ale do výkresu
+  (síť, MTN, napětí rozvaděče VN) se nepíše. **Držáky pojistek**: mez jen z `in_max_a` artiklu kategorie
+  `fuse_holder` (`generate.holder_max_in`), artikl držáku už **nepřepisuje In pojistky** (`Component.attr_values`
+  u držáku vynechá `in_` – dřív OPVP10 přepsal vložku na 32 A), `in_max_a` doplněné u OEZ OPVP10/14/22 (32/63/125 A,
+  katalog OEZ VA01-2024-CZ) a Eaton CHPV1U (30 A, datasheet Eaton; ostatní CHPV neověřené – prázdné), SolarEdge
+  25 A jen do max. In držáku, nová chyba F7 **`fuse_over_holder`** (In vložky > max. In držáku). **Jištění bez In**:
+  `fuse_no_in` / `breaker_no_in` jsou **varování** „Pojistka/Jistič bez In – doplňte“; **chyba** jen u prvků, kde
+  generátor In nechal prázdné, protože nic nevyhovělo (atribut `in_unresolved` = důvod, je v hlášce). Zástupné In
+  maker: proměnná bez hodnoty se nevaliduje (`resolve_values(..., unresolved=…)`), `_blank_unresolved` čistí i vodiče
+  a texty bez zdvojené mezery. Varování „Pojistka stringu …“ jednou za střídač. **DC rozvaděč s mnoha stringy** (50 mm
+  na string): list šablony (`apply_template(..., lib=)`) i generátoru se zvětší, když obsah přetéká
+  (`frame.grow_sheet_to_content`; 9 stringů A3 → A2, vícepól zůstává na A4). `connection.level` / `metering` /
+  `station` sjednoceně `.strip().lower()`. Dokumentace: MANUAL (vývod FVE, u_vn, In pojistek, tabulka kontrol
+  jištění), COMPONENTS (`in_max_a`). Regresní snímek beze změny. Testy `tests/test_generate.py` (review F0 2. kolo).
 - **Generátor – opravy z review (F0, `docs/NAVRH_TOPOLOGIE.md` kap. 6)**, formát projektu beze změny (v12):
   **pojistka stringu, na kterou nevyhoví žádná velikost gPV** (např. Isc 18,5 A s EFH 10 DC, max. jištění modulu
   10 A), zůstane **bez In** (dřív tiché 15 A) – v makru i v kódu – a F7 hlásí chybu `fuse_no_in`; řada gPV doplněná
@@ -30,7 +50,12 @@
   **Kabel baterie** z `battery.cable/cross/length` (výchozí H1Z2Z2-K 1x25, 25 mm², 5 m; dřív typ z `dc.cable` 1x6
   s průřezem 25). **Cesta bez maker bez varování F7**: DC rozvaděč z kódu (`templates.build_dc_strings`) po 50 mm jako
   makra (popisky SPD se nepřekrývaly), SPD stringů v RFVE na vývod XPE; u rodinného domu s rozvaděči po trase místo
-  na popisky kabelů před RFVE (dřív `text_overlap` u 2+ střídačů). Regresní snímek beze změny. Testy
+  na popisky kabelů před RFVE (dřív `text_overlap` u 2+ střídačů). Regresní snímek (`tests/data/generate_snapshot.json`)
+  se F0 nezměnil jen proto, že jeho čtyři specifikace dotčené případy neobsahují (modul s Isc 13,9 A, bez přípojky VN,
+  bez SolarEdge) – výstup jiných specifikací se mění. **Záměrné dopady na staré specifikace**: modul bez Isc (nebo
+  s Isc, na které nevyhoví žádná vložka gPV) → pojistky stringů **bez In + chyba F7** místo tichých 15 A; rodinný dům
+  s `connection.level` "vn" → **ValueError** (dřív se přípojka VN vygenerovala); vývod FVE v HR u malého
+  transformátoru menší nebo prázdný (viz výše). Testy
   `tests/test_generate.py` (body 1–9, „výstup generátoru bez chyb a varování F7“ pro firmu, RD, bytový dům, vn
   kiosk / kobky / sloup a bez maker). Známé: vícepól elektroměrového rozvaděče RE u přípojky VN – `xfail`, ROADMAP.
 - Katalog z datasheetů (`katalogy/datasheet`): FV moduly **Runergy HY-DH96N11B 430–450 Wp** (N-type bifacial), střídače

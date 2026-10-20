@@ -530,7 +530,7 @@ def _count_errors(m: Macro, vals: dict, where: str) -> list[str]:
 
 def resolve_values(m: Macro, given: dict | None = None, value_set=None, components: ComponentLookup | None = None,
                    context: dict | None = None, base: dict | None = None,
-                   repeat: bool = True) -> tuple[dict[str, str], list[str]]:
+                   repeat: bool = True, unresolved=()) -> tuple[dict[str, str], list[str]]:
     """Hodnoty proměnných makra a chyby (česky; prázdný seznam = OK).
 
     Pořadí (pozdější vyhrává): `default` < `base` (základ volajícího, např. specifikace generátoru) < artikl (`from`)
@@ -542,7 +542,11 @@ def resolve_values(m: Macro, given: dict | None = None, value_set=None, componen
     Má-li makro `repeat` a volající nepředá `repeat=False` (generátor si opakování drží sám), názvy opakování
     (`repeat_context_names`: k, nk) se z `given` do výchozích hodnot nedosazují – dosadí je `expand` v každé iteraci
     (jinak by `j = "{k}"` dostalo u všech opakování stejné číslo). Počet opakování musí být celé číslo
-    0…min(max proměnné, MAX_REPEAT); prázdný = chyba. Hodnoty z `context` se kontrolují jen jako čísla (bez min/max)."""
+    0…min(max proměnné, MAX_REPEAT); prázdný = chyba. Hodnoty z `context` se kontrolují jen jako čísla (bez min/max).
+
+    `unresolved` = názvy proměnných, jejichž hodnotu z `base` volající neurčil (generátor: In pojistky, na kterou nic
+    nevyhovělo – v `base` je zástupná hodnota, z prvků se po rozvinutí vymaže). Dokud je hodnota ta z `base`
+    (nepřebila ji sada, artikl ani zadání), nekontroluje se povinnost, min/max ani nabídka."""
     given = {k: _str(v) for k, v in (given or {}).items()}
     context = {k: _str(v) for k, v in (context or {}).items()}
     base = {k: _str(v) for k, v in (base or {}).items()}
@@ -592,9 +596,12 @@ def resolve_values(m: Macro, given: dict | None = None, value_set=None, componen
     vals = {k: subst(v, src) for k, v in vals.items()}
     if repeating:
         errs += _count_errors(m, vals, where)
+    skip = {n for n in unresolved if n in base and vals.get(n) == subst(base[n], src)}
     for v in m.variables:
         if repeating and v.name == m.repeat.count:
             continue   # zkontroloval _count_errors
+        if v.name in skip:
+            continue   # hodnotu volající neurčil (zástupná) – nevaliduje se
         val = vals.get(v.name, "")
         if not val.strip():
             if v.required:

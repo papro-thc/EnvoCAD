@@ -213,7 +213,7 @@ def check_project(project: Project, lib) -> list[Finding]:
     out += contact_findings(project, idx)
     out += interrupt_findings(project, idx)
     out += spd_findings(project)
-    out += protection_findings(project)
+    out += protection_findings(project, lib)
     out += designation_findings(project, lib, idx)
     out += revision_findings(full)
     out += note_findings(full)
@@ -539,27 +539,55 @@ def spd_findings(project: Project) -> list[Finding]:
 
 
 PROTECTION_SYMBOLS = {"fve.breaker_mcb", "fve.breaker_mccb", "sb.rcbo", "fve.fuse", "fve.fuse_disconnect"}
+FUSE_SYMBOLS = {"fve.fuse", "fve.fuse_disconnect"}
+IN_UNRESOLVED = "in_unresolved"   # nepovinný atribut: generátor In nedosadil, protože nic nevyhovělo (hodnota = důvod)
 
 
-def protection_findings(project: Project) -> list[Finding]:
-    """Jistič / pojistka v rozvaděči bez In → ERROR. Generátor In, které nejde splnit, nedosazuje (pojistka stringu,
-    na kterou nevyhoví žádná velikost gPV – `fuse_no_in`; vývod hlavního rozvaděče nn bez selektivního jističe –
-    `breaker_no_in`), a nechá ho na projektantovi."""
+def _num_attr(v) -> float | None:
+    try:
+        return float(str(v).replace(",", ".").split()[0])
+    except (TypeError, ValueError, IndexError):
+        return None
+
+
+def protection_findings(project: Project, lib=None) -> list[Finding]:
+    """Jistič / pojistka v rozvaděči bez In → WARNING „… bez In – doplňte“ (`fuse_no_in` / `breaker_no_in`).
+    ERROR jen tam, kde In nechal prázdné generátor, protože nic nevyhovělo (atribut `in_unresolved` s důvodem –
+    pojistka stringu, na kterou nevyhoví žádná velikost gPV; vývod HR bez selektivního jističe, který unese proud
+    FVE) – hláška pak nese důvod. Pojistka s artiklem držáku (kategorie fuse_holder, `lib`) a In vložky nad
+    `in_max_a` držáku → ERROR `fuse_over_holder`."""
     out: list[Finding] = []
     for s in project.sheets:
         if not s.is_switchboard:
             continue
         for e in s.elements:
-            if e.symbol_id not in PROTECTION_SYMBOLS or str(e.attrs.get("in_") or "").strip():
+            if e.symbol_id not in PROTECTION_SYMBOLS:
                 continue
-            if "gpv" in str(e.attrs.get("char") or "").lower():
-                out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref,
-                                   "Pojistka stringu gPV bez In – nevyhoví žádná velikost (1,5·Isc ≤ In ≤ 2,4·Isc, "
-                                   "max. jištění modulu, max. In držáku); zvolte jištění / držák ručně", "fuse_no_in"))
-            else:
-                out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref,
-                                   "Jistič / pojistka bez In – doplňte podle proudu vývodu a selektivity "
-                                   "s nadřazeným jističem", "breaker_no_in"))
+            fuse = e.symbol_id in FUSE_SYMBOLS
+            code = "fuse_no_in" if fuse else "breaker_no_in"
+            what = "Pojistka" if fuse else "Jistič"
+            in_ = str(e.attrs.get("in_") or "").strip()
+            if not in_:
+                why = str(e.attrs.get(IN_UNRESOLVED) or "").strip()
+                if why:
+                    out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref,
+                                       f"{what} bez In – generátor nenašel vyhovující hodnotu: {why}; zvolte ručně",
+                                       code))
+                else:
+                    out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref, f"{what} bez In – doplňte", code))
+                continue
+            if fuse and lib is not None and e.component_id and hasattr(lib, "component"):
+                try:
+                    comp = lib.component(e.component_id)
+                except Exception:  # noqa: BLE001 – knihovna nedostupná → bez kontroly držáku
+                    comp = None
+                if comp is None or getattr(comp, "category", "") != "fuse_holder":
+                    continue
+                max_in, val = comp.num("in_max_a"), _num_attr(in_)
+                if max_in and val is not None and val > max_in + 1e-9:
+                    out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref,
+                                       f"In vložky {in_} A > max. In držáku {max_in:g} A ({comp.part_number}) – "
+                                       "zvolte menší vložku nebo větší držák", "fuse_over_holder"))
     return out
 
 

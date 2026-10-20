@@ -119,6 +119,8 @@ class Component:
             v = src.get(pkey)
             if v in (None, ""):
                 continue
+            if pkey == "in_" and self.category == "fuse_holder":
+                continue   # In držáku / odpínače není In vložky – pojistka si své In drží (mez držáku = `in_max_a`)
             out[akey] = str(v)
         if out.get("uc") and "DC" in (self.params.get("spd_type") or "").upper().split():
             out["uc"] = f"{out['uc']} V DC"    # DC svodič: „Uc 1000 V DC“ ve výkresu (stejnosměrné napětí)

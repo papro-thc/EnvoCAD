@@ -748,10 +748,10 @@ def string_fuse_in(isc: float | None, i_fuse_max: float | None = None, optimizer
                    sizes: tuple[float, ...] = GPV_FUSE_SIZES, max_in: float | None = None) -> float | None:
     """Jmenovitý proud pojistky gPV stringu (IEC 62548, ETI Green Protect): nejmenší řada In ≥ 1,5·Isc modulu
     (STC), nejvýš 2,4·Isc, max. jištění modulu (`i_fuse_max`, IMOD_MAX_OCPR) a max. In držáku (`max_in`, např.
-    EFH 10 DC 25 A). String s optimizéry (SolarEdge) 25 A. Bez Isc nebo bez vyhovující velikosti → None – nic se
-    nedosazuje, generátor nechá In prázdné a kontrola (F7) to hlásí jako chybu."""
+    EFH 10 DC 25 A). String s optimizéry (SolarEdge) 25 A – i ten jen do max. In držáku. Bez Isc nebo bez
+    vyhovující velikosti → None – nic se nedosazuje, generátor nechá In prázdné a kontrola (F7) to hlásí jako chybu."""
     if optimizer:
-        return OPTIMIZER_FUSE_IN
+        return OPTIMIZER_FUSE_IN if not max_in or OPTIMIZER_FUSE_IN <= max_in + 1e-9 else None
     if not isc or isc <= 0:
         return None
     hi = min(x for x in (2.4 * isc, i_fuse_max, max_in) if x)

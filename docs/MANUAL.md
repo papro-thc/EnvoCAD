@@ -430,6 +430,14 @@ Oteplení rozvaděče (sekce 4, Rozložení a skříň):
 | `thermal_device` | varování | teplota vzduchu v řadě přístroje překračuje jeho `t_max` z artiklu/atributu (nebo nejnižší teplota okolí skříně je pod jeho `t_min`) |
 | `thermal_device` | info | jedna položka na list: u N přístrojů chybí rozsah teplot z datasheetu (předpoklad 40 °C), kolik z nich je nad předpokladem |
 
+Jištění v rozvaděčích (`protection_findings`):
+
+| Kód | Závažnost | Význam |
+|---|---|---|
+| `fuse_no_in` / `breaker_no_in` | varování | „Pojistka bez In – doplňte“ / „Jistič bez In – doplňte“ (In prázdné, např. ručně kreslený list) |
+| `fuse_no_in` / `breaker_no_in` | chyba | In nechal prázdné generátor, protože nic nevyhovělo (atribut prvku `in_unresolved` = důvod, je v hlášce): pojistka stringu, na kterou nevyhoví žádná vložka gPV (Isc, max. jištění modulu, max. In držáku) nebo modul nemá Isc; vývod HR, na který není selektivní jistič, jenž unese proud FVE |
+| `fuse_over_holder` | chyba | In vložky je nad max. In přiřazeného držáku (artikl `fuse_holder`, sloupec `in_max_a`) |
+
 Připomínky (sekce 9):
 
 | Kód | Závažnost | Význam |
@@ -559,7 +567,15 @@ trafostanice“) a přístroje rozvaděče VN atribut **Pole / kobka** („P1 ka
 vlastností a určují rámečky v jednopólovém schématu. Ze Sn transformátoru se dopočte hlavní jistič (In nn → nejbližší
 vyšší řada), převod MTP (x/5 A), pojistky VN (≈ 1,8 × In VN – ověř podle tabulky výrobce) a jistič spotřeby (≤ hlavní
 / 1,6 kvůli selektivitě); ve specifikaci je mění `connection.main_board.main_in`, `ct_ratio`, `fuse_vn`,
-`main_board.load_in`, označení TS `connection.ts.ref`/`desc`. Rozvaděč VN nemá vícepól ani plán svorkovnice
+`main_board.load_in`, označení TS `connection.ts.ref`/`desc`. **Vývod FVE v HR** má In hlavního vypínače RFVE.AC
+(`ac.main_in`), nejvýš největší jistič selektivní s hlavním jističem (poměr 1,6); musí unést **proud FVE** (součet
+jmenovitých AC proudů střídačů z jejich P AC a počtu fází – i z artiklu střídače) a nesmí být menší než jistič
+střídače v RFVE.AC. Rozhodnutí: vývod FVE ≥ jistič střídače, **ne 1,6 × jistič střídače** – selektivitu vůči
+jističům střídačů drží hlavní vypínač RFVE.AC a 1,6× by u malých trafostanic vývod zbytečně vyhnalo nad selektivní
+mez s hlavním jističem HR. Když takový jistič není (nebo je zadané `ac.main_in` pod proudem FVE), In zůstane prázdné
+a F7 hlásí chybu s důvodem; `connection.main_board.fve_in` platí vždy beze změny. **Napětí vn** (`u_vn`) se čte
+z čísla na začátku textu („22 kV“, „35 kV, 50 Hz“, „22 000 V“, „22.000 V“); nečitelné nebo mimo 1–52 kV je chyba
+zadání, nezadané se počítá jako 22 kV, ale do výkresu se nepíše. Rozvaděč VN nemá vícepól ani plán svorkovnice
 (dokumentuje se jednopólovým schématem), přístroje VN se na DIN lištu nerozmísťují.
 
 **Značky VN** (kategorie VN v knihovně, ČSN EN 60617): odpínač VN (kroužek + odpojovací čárka), odpojovač, vypínač VN
@@ -590,7 +606,9 @@ ETI EFH 10 DC 2p** (vložky CH10x38 gPV 1000 V, max 25 A; kategorie DC-20B – *
 odpínačem střídače), **svodič Weidmüller VPU PV I+II 3 1000** (ve výkresu typ, Uc 1000 V DC,
 Up ≤ 3,8 kV, ISCPV 11 kA – proto bez vlastní pojistky) připojený z výstupních svorek odpojovače (strana
 střídače) dvojitou dutinkou. **In pojistek** se při prázdném poli určí podle stringu (IEC 62548): nejmenší vložka
-≥ 1,5 × Isc modulu, nejvýš 2,4 × Isc a max. jištění modulu z katalogu; SolarEdge (střídač nebo optimizéry) 25 A.
+≥ 1,5 × Isc modulu, nejvýš 2,4 × Isc, max. jištění modulu z katalogu a max. In držáku (`in_max_a` artiklu
+`dc.fuse_component`, EFH 10 DC 25 A); SolarEdge (střídač nebo optimizéry) 25 A, pokud to držák snese. Když nic
+nevyhoví (nebo modul nemá Isc), In zůstane prázdné a F7 hlásí chybu s důvodem. Artikl držáku In vložky nemění.
 Artikly mění `dc.fuse_component` a `dc.spd_component` ve specifikaci. **Stringy se v rozvaděči nikdy nespojují** – každý jde
 zvlášť až na vlastní DC vstup střídače (DC1…DCn podle počtu MPPT × stringů na MPPT; zná-li střídač počet MPPT
 (zadáním nebo z artiklu), stringy se rozdělí na MPPT rovnoměrně – 1. string na MPPT 1, 2. na MPPT 2… –, jinak jdou
