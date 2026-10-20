@@ -211,6 +211,11 @@ Zdroj hvězdy označíš zaškrtávátkem **Zdroj hvězdy** v panelu Vlastnosti 
 `star_source` = `1`). Zdroj má být jeden: další zaškrtnutý bod kontrola hlásí jako `interrupt_star_multi`
 a zdrojem zůstane první podle pořadí. Bod bez protějšku ukazuje `→ ?`.
 
+**Jeden kabel přes dvojici přerušení:** údaje kabelu (označení W, typ, průřez) dej jen jednomu úseku a u druhého
+úseku smaž i automatické označení W – úplně prázdný úsek je pokračování téhož kabelu. Seznam kabelů, kabelový
+plán i kusovník pak kabel uvedou jednou s konci za přerušením. Mají-li označení oba úseky, jsou to dva kabely;
+nesou-li typ nebo průřez oba, kontrola hlásí `cable_split`.
+
 ### Ovládací obvody
 Značky **Cívka** (K, A1/A2), **Kontakt NO** (13/14), **Kontakt NC** (21/22) a **Hlavní kontakt**. Kontakt
 dostane označení své cívky (K1); pod cívkou se automaticky kreslí zrcadlo kontaktů (svorky + poloha) a u
