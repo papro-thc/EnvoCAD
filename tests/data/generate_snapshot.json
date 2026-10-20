@@ -141,9 +141,9 @@
       "y": 205.0,
       "rotation": 0,
       "attrs": {
-       "ref": "RDC2",
+       "ref": "RFVE.DC",
        "desc": "DC rozvaděč u T1",
-       "sheet": "RDC2 – DC rozvaděč u T1"
+       "sheet": "RFVE.DC – DC rozvaděč u T1"
       },
       "component_id": null
      },
@@ -597,7 +597,7 @@
        "ref": "X4",
        "desc": "G1 dál",
        "wire_id": "#13",
-       "to": "W2 RDC2:X1 /1.D4",
+       "to": "W2 RFVE.DC:X1 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -662,7 +662,7 @@
        "ref": "X5",
        "desc": "G2 dál",
        "wire_id": "#19",
-       "to": "W5 RDC2:X2 /1.D4",
+       "to": "W5 RFVE.DC:X2 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -714,7 +714,7 @@
        "ref": "X6",
        "desc": "G3 dál",
        "wire_id": "#25",
-       "to": "W8 RDC2:X3 /1.D4",
+       "to": "W8 RFVE.DC:X3 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -966,7 +966,7 @@
    },
    {
     "id": "#55",
-    "name": "RDC2 – DC rozvaděč u T1",
+    "name": "RFVE.DC – DC rozvaděč u T1",
     "paper": "A3",
     "width": 420.0,
     "height": 297.0,
@@ -1524,7 +1524,7 @@
     ],
     "bridges": {},
     "func": "",
-    "loc": "RDC2"
+    "loc": "RFVE.DC"
    },
    {
     "id": "#81",
@@ -2137,7 +2137,7 @@
    },
    {
     "aspect": "+",
-    "code": "RDC2",
+    "code": "RFVE.DC",
     "description": "DC rozvaděč u T1"
    },
    {
@@ -2292,9 +2292,9 @@
       "y": 257.5,
       "rotation": 0,
       "attrs": {
-       "ref": "RDC2",
+       "ref": "RFVE.DC1",
        "desc": "DC rozvaděč u T1",
-       "sheet": "RDC2 – DC rozvaděč u T1"
+       "sheet": "RFVE.DC1 – DC rozvaděč u T1"
       },
       "component_id": null
      },
@@ -2368,9 +2368,9 @@
       "y": 130.0,
       "rotation": 0,
       "attrs": {
-       "ref": "RDC3",
+       "ref": "RDC2",
        "desc": "DC rozvaděč po trase T2",
-       "sheet": "RDC3 – DC rozvaděč po trase T2"
+       "sheet": "RDC2 – DC rozvaděč po trase T2"
       },
       "component_id": null
      },
@@ -2381,9 +2381,9 @@
       "y": 130.0,
       "rotation": 0,
       "attrs": {
-       "ref": "RDC4",
+       "ref": "RFVE.DC2",
        "desc": "DC rozvaděč u T2",
-       "sheet": "RDC4 – DC rozvaděč u T2"
+       "sheet": "RFVE.DC2 – DC rozvaděč u T2"
       },
       "component_id": null
      },
@@ -3051,7 +3051,7 @@
        "ref": "X4",
        "desc": "G1 dál",
        "wire_id": "#18",
-       "to": "W2 RDC2:X1 /1.D3",
+       "to": "W2 RFVE.DC1:X1 /1.D3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -3116,7 +3116,7 @@
        "ref": "X5",
        "desc": "G2 dál",
        "wire_id": "#24",
-       "to": "W5 RDC2:X2 /1.D3",
+       "to": "W5 RFVE.DC1:X2 /1.D3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -3168,7 +3168,7 @@
        "ref": "X6",
        "desc": "G3 dál",
        "wire_id": "#30",
-       "to": "W8 RDC2:X3 /1.D3",
+       "to": "W8 RFVE.DC1:X3 /1.D3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -3420,7 +3420,7 @@
    },
    {
     "id": "#74",
-    "name": "RDC2 – DC rozvaděč u T1",
+    "name": "RFVE.DC1 – DC rozvaděč u T1",
     "paper": "A3",
     "width": 420.0,
     "height": 297.0,
@@ -3978,11 +3978,11 @@
     ],
     "bridges": {},
     "func": "",
-    "loc": "RDC2"
+    "loc": "RFVE.DC1"
    },
    {
     "id": "#100",
-    "name": "RDC3 – DC rozvaděč po trase T2",
+    "name": "RDC2 – DC rozvaděč po trase T2",
     "paper": "A3",
     "width": 420.0,
     "height": 297.0,
@@ -4035,7 +4035,7 @@
        "ref": "X3",
        "desc": "G4 dál",
        "wire_id": "#38",
-       "to": "W12 RDC4:X1 /1.D5",
+       "to": "W12 RFVE.DC2:X1 /1.D5",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -4100,7 +4100,7 @@
        "ref": "X4",
        "desc": "G5 dál",
        "wire_id": "#44",
-       "to": "W15 RDC4:X2 /1.D5",
+       "to": "W15 RFVE.DC2:X2 /1.D5",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -4276,11 +4276,11 @@
     ],
     "bridges": {},
     "func": "",
-    "loc": "RDC3"
+    "loc": "RDC2"
    },
    {
     "id": "#114",
-    "name": "RDC4 – DC rozvaděč u T2",
+    "name": "RFVE.DC2 – DC rozvaděč u T2",
     "paper": "A3",
     "width": 420.0,
     "height": 297.0,
@@ -4328,7 +4328,7 @@
        "ref": "X1",
        "desc": "od G4",
        "wire_id": "#38",
-       "from": "W12 RDC3:X3 /1.C5",
+       "from": "W12 RDC2:X3 /1.C5",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -4413,7 +4413,7 @@
        "ref": "X2",
        "desc": "od G5",
        "wire_id": "#44",
-       "from": "W15 RDC3:X4 /1.C5",
+       "from": "W15 RDC2:X4 /1.C5",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -4664,7 +4664,7 @@
     ],
     "bridges": {},
     "func": "",
-    "loc": "RDC4"
+    "loc": "RFVE.DC2"
    },
    {
     "id": "#132",
@@ -5534,17 +5534,17 @@
    },
    {
     "aspect": "+",
-    "code": "RDC2",
+    "code": "RFVE.DC1",
     "description": "DC rozvaděč u T1"
    },
    {
     "aspect": "+",
-    "code": "RDC3",
+    "code": "RDC2",
     "description": "DC rozvaděč po trase T2"
    },
    {
     "aspect": "+",
-    "code": "RDC4",
+    "code": "RFVE.DC2",
     "description": "DC rozvaděč u T2"
    },
    {
@@ -5690,9 +5690,9 @@
       "y": 205.0,
       "rotation": 0,
       "attrs": {
-       "ref": "RDC3",
+       "ref": "RFVE.DC",
        "desc": "DC rozvaděč u T1",
-       "sheet": "RDC3 – DC rozvaděč u T1"
+       "sheet": "RFVE.DC – DC rozvaděč u T1"
       },
       "component_id": null
      },
@@ -6361,7 +6361,7 @@
        "ref": "X3",
        "desc": "G1 dál",
        "wire_id": "#14",
-       "to": "W3 RDC3:X1 /1.D4",
+       "to": "W3 RFVE.DC:X1 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -6426,7 +6426,7 @@
        "ref": "X4",
        "desc": "G2 dál",
        "wire_id": "#22",
-       "to": "W7 RDC3:X2 /1.D4",
+       "to": "W7 RFVE.DC:X2 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -6606,7 +6606,7 @@
    },
    {
     "id": "#58",
-    "name": "RDC3 – DC rozvaděč u T1",
+    "name": "RFVE.DC – DC rozvaděč u T1",
     "paper": "A3",
     "width": 420.0,
     "height": 297.0,
@@ -6990,7 +6990,7 @@
     ],
     "bridges": {},
     "func": "",
-    "loc": "RDC3"
+    "loc": "RFVE.DC"
    },
    {
     "id": "#76",
@@ -7630,7 +7630,7 @@
    },
    {
     "aspect": "+",
-    "code": "RDC3",
+    "code": "RFVE.DC",
     "description": "DC rozvaděč u T1"
    },
    {
@@ -7808,9 +7808,9 @@
       "y": 205.0,
       "rotation": 0,
       "attrs": {
-       "ref": "RDC2",
+       "ref": "RFVE.DC",
        "desc": "DC rozvaděč u T1",
-       "sheet": "RDC2 – DC rozvaděč u T1"
+       "sheet": "RFVE.DC – DC rozvaděč u T1"
       },
       "component_id": null
      },
@@ -8362,7 +8362,7 @@
        "ref": "X5",
        "desc": "G1 dál",
        "wire_id": "#14",
-       "to": "W2 RDC2:X1 /1.D4",
+       "to": "W2 RFVE.DC:X1 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -8427,7 +8427,7 @@
        "ref": "X6",
        "desc": "G2 dál",
        "wire_id": "#20",
-       "to": "W5 RDC2:X2 /1.D4",
+       "to": "W5 RFVE.DC:X2 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -8479,7 +8479,7 @@
        "ref": "X7",
        "desc": "G3 dál",
        "wire_id": "#26",
-       "to": "W8 RDC2:X3 /1.D4",
+       "to": "W8 RFVE.DC:X3 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -8531,7 +8531,7 @@
        "ref": "X8",
        "desc": "G4 dál",
        "wire_id": "#32",
-       "to": "W11 RDC2:X4 /1.D4",
+       "to": "W11 RFVE.DC:X4 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -8855,7 +8855,7 @@
    },
    {
     "id": "#68",
-    "name": "RDC2 – DC rozvaděč u T1",
+    "name": "RFVE.DC – DC rozvaděč u T1",
     "paper": "A3",
     "width": 420.0,
     "height": 297.0,
@@ -9587,7 +9587,7 @@
     ],
     "bridges": {},
     "func": "",
-    "loc": "RDC2"
+    "loc": "RFVE.DC"
    },
    {
     "id": "#102",
@@ -10269,7 +10269,7 @@
    },
    {
     "aspect": "+",
-    "code": "RDC2",
+    "code": "RFVE.DC",
     "description": "DC rozvaděč u T1"
    },
    {

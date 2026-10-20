@@ -36,19 +36,22 @@ def test_designation_str_omits_empty_parts():
     ("  =AC  ", Designation("AC", "", "")),
     ("", Designation()),
     ("+RDC1-SPD-DC1.1", Designation("", "RDC1", "SPD-DC1.1")),   # firemní číslování zůstane celé
+    ("+RFVE.AC-X1", Designation("", "RFVE.AC", "X1")),         # tečka uvnitř kódu = jedna úroveň
+    ("=AC.1+RFVE.DC2-FU1.1", Designation("AC.1", "RFVE.DC2", "FU1.1")),
 ])
 def test_parse_designation(text, expected):
     assert parse_designation(text) == expected
 
 
-@pytest.mark.parametrize("text", ["=AC=A1-F3", "+A+B", "=AC.1-F3", "-F3+RS1"])
+@pytest.mark.parametrize("text", ["=AC=A1-F3", "+A+B", "-F3+RS1", "=AC.-F3", "+.RS1-F3", "+A..B-F3"])
 def test_parse_designation_rejects_multilevel(text):
     with pytest.raises(ValueError):
         parse_designation(text)
 
 
 def test_parse_roundtrip():
-    for d in (Designation("AC", "RS1", "F3"), Designation("", "RDC1", "X1"), Designation(ref="Q1")):
+    for d in (Designation("AC", "RS1", "F3"), Designation("", "RDC1", "X1"), Designation(ref="Q1"),
+              Designation("", "RFVE.AC", "X1"), Designation("", "RFVE.DC1", "SPD-DC1.1")):
         assert parse_designation(str(d)) == d
 
 
@@ -156,3 +159,22 @@ def test_full_and_display_designation():
     assert display_designation(jps, same) == "G2"
     assert display_designation(jps, blk) == "RDC1"
     assert display_designation(jps, Wire(WireEnd("a", "1"), WireEnd("b", "1"), attrs={"ref": "W1"})) == "W1"
+
+
+def test_dotted_location_code_is_one_level():
+    """RFVE.AC (firemní styl, docs/NAVRH_TOPOLOGIE.md kap. 8 bod 9) je jedno umístění: prostor označení, plné
+    označení i popisek výkresu ho berou celé, nerozpadne se na RFVE a AC."""
+    p = Project()
+    sb = Sheet(name="RFVE.AC – AC rozvaděč FVE", kind="switchboard", loc="RFVE.AC")
+    other = Sheet(name="RFVE.DC1", kind="switchboard", loc="RFVE.DC1")
+    f3 = Element("fve.breaker_mcb", attrs={"ref": "F3"})
+    assert scope_key(sb, f3) == ("", "RFVE.AC") != scope_key(other, f3)
+    assert full_designation(p, sb, f3) == "+RFVE.AC-F3"
+    assert parse_designation(full_designation(p, sb, f3)) == Designation("", "RFVE.AC", "F3")
+    assert display_designation(sb, f3) == "F3"
+    blk = Element("fve.switchboard", attrs={"ref": "RFVE.AC"})
+    jps = Sheet(name="JPS")
+    assert full_designation(p, jps, blk) == "+RFVE.AC" and display_designation(jps, blk) == "RFVE.AC"
+    assert validate_ref("RFVE.AC", ["R"]) == [] and validate_ref("RFVE.DC10", None) == []
+    g = Element("fve.pv_string", attrs={"ref": "G1", "loc": "RFVE.DC1"})
+    assert display_designation(sb, g) == "+RFVE.DC1-G1"

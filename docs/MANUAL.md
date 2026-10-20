@@ -542,7 +542,7 @@ Vygeneruje se blokové schéma (stringy → DC rozvaděče → střídače → A
 kabelů a vazeb. Hned potom spusť `F7`.
 
 **Připojení k DS** (pole pod Distributorem): **nn** = AC rozvaděč FVE jde vývodem XOUT přímo do HDS (jako dřív).
-**VN** = trafostanice. AC rozvaděč FVE → **hlavní rozvaděč nn** RHN (přívod XT od transformátoru, hlavní jistič,
+**VN** = trafostanice. AC rozvaděč FVE → **hlavní rozvaděč nn** HR (přívod XT od transformátoru, hlavní jistič,
 přípojnice nn, vývod X1 k FVE, SPD T1, vývod X2 spotřeba objektu) → **transformátor** TR1 → podle pole **Trafostanice**:
 - **kiosková TS** (výchozí, nové stanice) – **rozvaděč VN** RVN po **polích**: kabelová pole (odpínač VN, uzemňovač,
   kapacitní indikátor napětí, kabelová koncovka, přívod XDS1/XDS2 z DS – u smyčky dvě), přípojnice VN, při měření na VN
@@ -554,7 +554,7 @@ přípojnice nn, vývod X1 k FVE, SPD T1, vývod X2 spotřeba objektu) → **tra
 
 **Elektroměrový rozvaděč** RE s fakturačním elektroměrem je samostatný: měřicí obvody k němu vedou kabely z vývodů
 XMI (proud ze sekundáru MTP) a XMU (napětí z přípojnice nn, při měření na VN ze sekundáru MTN) rozvaděče s měřením.
-Všechny části trafostanice (RVN, TR1, RHN, RE, prvky na sloupu) mají atribut **Trafostanice** („TS1 kiosková
+Všechny části trafostanice (RVN, TR1, HR, RE, prvky na sloupu) mají atribut **Trafostanice** („TS1 kiosková
 trafostanice“) a přístroje rozvaděče VN atribut **Pole / kobka** („P1 kabelové pole“) – oba jdou změnit v panelu
 vlastností a určují rámečky v jednopólovém schématu. Ze Sn transformátoru se dopočte hlavní jistič (In nn → nejbližší
 vyšší řada), převod MTP (x/5 A), pojistky VN (≈ 1,8 × In VN – ověř podle tabulky výrobce) a jistič spotřeby (≤ hlavní
@@ -602,6 +602,11 @@ rozvaděč **RFVE.AC** zvlášť; u **rodinného domu** je DC i AC v jednom **ro
 má RFVE na každý string pojistkový odpojovač a SPD DC (přívody za AC přívody od střídačů, vývody ke střídači) a k tomu
 AC část s vývodem do HDS. V blokovém schématu stojí RFVE před střídačem, AC kabel od střídače se vrací shora;
 rozvaděče po trase zůstávají. Přípojka VN se u rodinného domu negeneruje.
+**Označení rozvaděčů** z generátoru (firemní styl ENVO): AC rozvaděč FVE **RFVE.AC**, DC rozvaděč u technologie
+**RFVE.DC** – při více střídačích má každý střídač svůj (**RFVE.DC1**, **RFVE.DC2**… v pořadí střídačů), rozvaděče po
+trase **RDC1…n** (číslované souvisle jen mezi sebou), hlavní rozvaděč nn u přípojky VN **HR**, u rodinného domu jeden
+**RFVE**. Tečka je uvnitř jednoho kódu umístění (`+RFVE.AC-X1`), nedělí úrovně. Jiné označení lze zadat ve specifikaci
+(`switchboard.ref`, `connection.main_board.ref`). Starší projekty se nepřejmenovávají.
 AC rozvaděč má přívody po střídačích, jističe, rozvodné svorky s můstky, SPD, hlavní vypínač a vývod do HDS.
 Označení jsou jedinečná uvnitř každého rozvaděče (jako v EPLAN `+RDC1-X1`), takže X1 smí být v každém
 rozvaděči; listy blokového schématu sdílejí jeden prostor označení.

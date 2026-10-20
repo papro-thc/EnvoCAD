@@ -1,7 +1,7 @@
 """Přečíslování označení přístrojů a vodičů (jako „Číslování přístrojů“ v EPLAN).
 
 Prvky se číslují podle pořadí listů a v listu po sloupcích (zleva doprava, shora dolů), v každém prostoru označení
-(`designation.scope_key`) zvlášť – X1 v +RDC1 i v +RH je v pořádku. Jednotka číslování je přístroj
+(`designation.scope_key`) zvlášť – X1 v +RDC1 i v +RFVE.AC je v pořádku. Jednotka číslování je přístroj
 (`xref.DeviceGroup`): cívka, stykač i kontakty stejného označení dostanou nové číslo společně. Vodiče (`W`) se
 číslují stejně podle středu mezi konci; kabel navázaný jen označením (bez `cable_id`) se přejmenuje s vodičem.
 

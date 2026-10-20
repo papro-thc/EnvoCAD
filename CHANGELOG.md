@@ -1,6 +1,19 @@
 # Changelog
 
 ## Nevydáno
+- **Označení rozvaděčů v generátoru podle firemního stylu ENVO** (`docs/NAVRH_TOPOLOGIE.md` kap. 8 bod 9; formát
+  projektu beze změny, staré projekty se nepřejmenovávají – jde jen o výstup generátoru): AC rozvaděč FVE **RFVE.AC**
+  (dřív RH), DC rozvaděč u technologie **RFVE.DC** (dřív RDCn) – při více střídačích jeden na střídač **RFVE.DC1,
+  RFVE.DC2…** v pořadí střídačů ve specifikaci; rozvaděče po trase zůstávají **RDC1…n** a číslují se souvisle jen mezi
+  sebou (dřív RDC1 po trase, RDC2 u technologie, RDC3 po trase…); hlavní rozvaděč nn u přípojky VN **HR** (dřív RHN),
+  vývod FVE v něm „k RFVE.AC (FVE)“ podle skutečného označení AC rozvaděče; rodinný dům beze změny jeden **RFVE**.
+  `switchboard.ref` a `connection.main_board.ref` ve specifikaci dál přebíjejí výchozí označení. Kód umístění/funkce
+  smí mít **tečku uvnitř** (`RFVE.AC` je jedna úroveň, ne dvě; tečka na začátku/konci nebo zdvojená je chyba) –
+  `validate_code`, `parse_designation` („+RFVE.AC-X1“), prostor označení, plné označení a popisky ji berou celou.
+  Průvodce ukazuje označení u druhu objektu a u DC rozvaděče u technologie. Regresní snímek přegenerován (mění se jen
+  označení rozvaděčů, názvy jejich listů, kódy struktur a texty vazeb přívodů „W2 RFVE.DC:X1 /1.D4“). Základ commit
+  537cdd8. Testy `tests/test_generate.py::test_switchboard_designations_*`, `test_dc_box_ref_helper`,
+  `tests/test_designation.py::test_dotted_location_code_is_one_level`.
 - **Generátor – opravy z review (F0, `docs/NAVRH_TOPOLOGIE.md` kap. 6)**, formát projektu beze změny (v12):
   **pojistka stringu, na kterou nevyhoví žádná velikost gPV** (např. Isc 18,5 A s EFH 10 DC, max. jištění modulu
   10 A), zůstane **bez In** (dřív tiché 15 A) – v makru i v kódu – a F7 hlásí chybu `fuse_no_in`; řada gPV doplněná

@@ -51,7 +51,9 @@ Zásada: **model nezávisí na UI.** Vše, co lze, se testuje bez spuštění Qt
   (`StructureId`: aspekt, kód, popis; kód mimo registr je platný, kontrola jen hlásí INFO). `Sheet.func` a
   `Sheet.loc` jsou výchozí aspekty prvků listu; prvek může přepsat `attrs["func"]` / `attrs["loc"]` (prázdné =
   dědit). `attrs["ref"]` je jen přístrojová část („F3“). Plné označení („=AC+RDC1-F3“) skládá
-  `model/designation.py` – používají ho výkazy a štítky; list rozvaděče má `+` = označení bloku.
+  `model/designation.py` – používají ho výkazy a štítky; list rozvaděče má `+` = označení bloku. Kód je jedna
+  úroveň; tečka uvnitř kódu (firemní `RFVE.AC`, `RFVE.DC1`) úrovně nedělí (`CODE_RE`, `parse_designation`). Generátor
+  označuje rozvaděče RFVE.AC / RFVE.DC(n) / RDCn / HR, u rodinného domu RFVE (`generate.dc_box_ref`).
 - **Revize** – `Project.revisions` (`Revision`: označení, datum, zpracoval, otisky listů při uzavření, značky
   `RevisionMark` na listu, prvku nebo vodiči). Značky vznikají z porovnání `model/diff.py` přes `model/revision.py`;
   kreslí se v editoru, PDF a DXF (vrstva `REVIZE`) a revizi listu ukazuje popisové pole. **Uzavření revize je měkký

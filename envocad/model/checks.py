@@ -82,7 +82,7 @@ def check_project(project: Project, lib) -> list[Finding]:
     project = without_dangling(project)
     idx = DeviceIndex.build(project)
     # duplicitní označení: jako v EPLAN je úplné označení „=funkce+umístění-X1“ – v každém prostoru (func, loc)
-    # musí být označení jedinečné, mezi umístěními se smí opakovat (X1 v +RDC1 i v +RH). Listy se stejným
+    # musí být označení jedinečné, mezi umístěními se smí opakovat (X1 v +RDC1 i v +RFVE.AC). Listy se stejným
     # umístěním sdílejí prostor, list rozvaděče bez umístění má vlastní, vodiče JPS (kabely) jeden společný.
     # Prvky se stejným označením v prostoru tvoří přístroj (`xref.DeviceGroup`): smí v něm být cívka a stykač
     # (silové kontakty cívky), jinak jen jeden prvek. Kontakty a svorky se nepočítají. Přerušovací body se stejným
@@ -444,7 +444,7 @@ def _place_text(project: Project, s: Sheet, e: Element) -> str:
 
 def _contact_findings(project: Project, index=None) -> list[Finding]:
     """Kontakt se páruje s přístrojem podle `ref` (napříč projektem, `xref.DeviceIndex`). Má-li stejné označení víc
-    přístrojů v různých prostorech (K1 v +RDC1 i v +RH), přednost má ten ve stejném prostoru označení (funkce,
+    přístrojů v různých prostorech (K1 v +RDC1 i v +RFVE.AC), přednost má ten ve stejném prostoru označení (funkce,
     umístění) jako kontakt. Nejednoznačné je to, jen když v prostoru kontaktu žádný z nich není."""
     from envocad.model.xref import DeviceIndex
     idx = index or DeviceIndex.build(project)

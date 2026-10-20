@@ -15,8 +15,10 @@ Slouží jako zadání pro makra a generátor – výkresy ladí projektant, pro
   výstupní svorky `XS1.1`.
 - PE svodičů vodičem `H07V-K 16` na vodorovnou PE přípojnici dole přes celou skříň.
 
-## Rozvaděč RFVE (AC)
-- Hlavička vlevo nahoře: `RFVE2` / `3NPE, 50Hz, In = 3x63A, Ik''=10kA` / `Ocelplechová skříň, nástěnná, IP66/20`.
+## Rozvaděč RFVE.AC (u rodinného domu RFVE)
+- Označení v generátoru: AC rozvaděč FVE `RFVE.AC`, DC u technologie `RFVE.DC` (na střídač `RFVE.DC1`…), po trase
+  `RDC1`…, hlavní rozvaděč nn u vn `HR`, rodinný dům jeden `RFVE` (`docs/NAVRH_TOPOLOGIE.md`, kap. 8 bod 9).
+- Hlavička vlevo nahoře (ve vzoru): `RFVE2` / `3NPE, 50Hz, In = 3x63A, Ik''=10kA` / `Ocelplechová skříň, nástěnná, IP66/20`.
 - Nahoře vodorovně **BLOKOVÉ SVORKY L1, L2, L3** (sběrnice), z ní dolů: ODPÍNAČ PŘEP. OCHRANY (80A gG PV22) → SPD.AC
   (SLP-275 V, SPD T2, Imax=40kA, Up≤1,5kV); ROZPADOVÉ MÍSTO KM.N0%; FA.N0% (LTN-6B-1 6A); FU.U-f (2A gG PV10) → U-f guard;
   HLAVNÍ JISTIČ (50B-3 40A). Fáze jednopólově (čárky pólů), N a PE jako vodorovné přípojnice dole s popisem na koncích.

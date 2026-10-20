@@ -85,8 +85,9 @@ class DesignationIssue:
 
 
 def parse_designation(text: str) -> Designation:
-    """„=AC+RS1-F3“, „+RS1-F3“, „F3“ → Designation. Opakovaný aspekt nebo víceúrovňový kód („=AC.1“, „+A+B“)
-    → ValueError. Přístrojová část je vše za prvním „-“ (firemní „SPD-DC1.1“ zůstane celé)."""
+    """„=AC+RS1-F3“, „+RS1-F3“, „+RFVE.AC-X1“, „F3“ → Designation. Tečka uvnitř kódu je jedna úroveň (firemní
+    RFVE.AC, RFVE.DC1 – `CODE_RE`); opakovaný aspekt („+A+B“) nebo tečka na začátku/konci kódu či zdvojená („+.A“,
+    „=AC.“, „+A..B“) → ValueError. Přístrojová část je vše za prvním „-“ (firemní „SPD-DC1.1“ zůstane celé)."""
     text = (text or "").strip()
     if not text:
         return Designation()
@@ -100,8 +101,8 @@ def parse_designation(text: str) -> Designation:
         code = code.strip()
         if sign in parts:
             raise ValueError(f"Označení {text!r}: aspekt {sign!r} je uvedený víckrát (víceúrovňové označení)")
-        if sign != "-" and "." in code:
-            raise ValueError(f"Označení {text!r}: víceúrovňový kód {code!r} není podporován")
+        if code.startswith(".") or code.endswith(".") or ".." in code:
+            raise ValueError(f"Označení {text!r}: tečka smí být jen uvnitř kódu {code!r} (RFVE.AC)")
         parts[sign] = code
     return Designation(parts.get(FUNC, ""), parts.get(LOC, ""), parts.get("-", ""))
 

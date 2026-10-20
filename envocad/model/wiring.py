@@ -521,7 +521,7 @@ def end_text(project: Project, sheet: Sheet, e: Element, terminal: str) -> str:
 
 def local_end_text(sheet: Sheet, text: str) -> str:
     """Konec uvnitř rozvaděče bez jeho vlastních aspektů: „=AC+RDC1-F2:3“ na listu =AC+RDC1 → „F2:3“; konec
-    v jiném umístění (+RH-X1:2) zůstane celý – návlečka musí říct, kam vodič vede."""
+    v jiném umístění (+RFVE.AC-X1:2) zůstane celý – návlečka musí říct, kam vodič vede."""
     t = text
     if sheet.func and t.startswith(f"={sheet.func}") and t[len(sheet.func) + 1:len(sheet.func) + 2] in ("+", "-"):
         t = t[len(sheet.func) + 1:]
