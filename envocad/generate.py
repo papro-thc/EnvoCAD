@@ -201,8 +201,8 @@ def _build_project(spec: dict) -> Project:
     s = p.sheets[0]
     s.name = "Blokové schéma"
     mod, dc, ac = spec["module"], spec["dc"], spec["ac"]
-    opt = spec.get("optimizer") or {}
-    opt_per = float(opt.get("per_module") or 1) if opt.get("type") else 0.0
+    opt, opt_attrs = _optimizer_spec(spec.get("optimizer") or {})
+    opt_per = float(str(opt.get("per_module") or 1).replace(",", ".")) if opt.get("type") else 0.0
     # svislé rozestupy řad střídačů podle počtu stringů; souřadnice jsou zatím pracovní – na list (formát, střed,
     # vnitřní rámeček, popisové pole) se obsah rozmístí až na konci (`frame.fit_sheet_to_content`)
     row_h = [max(60.0, 45.0 * max(len(inv.get("strings") or [1]), 1) + 15.0) for inv in invs]   # 45 mm na string (popisek nad ním)
@@ -274,8 +274,11 @@ def _build_project(spec: dict) -> Project:
                 "ref": p.next_ref("G"), "type": _s(mod.get("type")), "n_modules": _s(n_mod), "p_module": _s(mod.get("p_wp")),
                 "p_string": f"{p_str:g} kWp", "voc": _s(mod.get("voc")), "vmp": _s(mod.get("vmp")),
                 "isc": _s(mod.get("isc")), "beta_voc": _s(mod.get("beta_voc")),
-                "n_optimizers": _s(round(n_mod * opt_per)) if opt_per else "", "optimizer": _s(opt.get("type")) if opt_per else ""},
+                "n_optimizers": _s(math.ceil(n_mod * opt_per - 1e-9)) if opt_per else "",
+                "optimizer": _s(opt.get("type")) if opt_per else ""},
                 component_id=mod.get("component_id") or None)
+            if opt_per:
+                g.attrs.update(opt_attrs)   # vstup optimizéru a pravidla stringu (kontrola stringů, `calc.OptimizerData`)
             for key in ("imp", "u_sys_max", "manufacturer", "alpha_isc", "gamma_pmax"):   # jen zadané – starší specifikace beze změny výstupu
                 if mod.get(key) not in (None, ""):
                     g.attrs[key] = _s(mod[key])
@@ -563,6 +566,36 @@ def _route_house(p: Project, blk: Element, ac_wires: list[Wire], grid: Element, 
     w_grid.points = [(x_out, out[1]), (x_out, grid.y)]
 
 
+def _optimizer_spec(opt: dict) -> tuple[dict, dict]:
+    """Optimizér ze specifikace: artikl `component_id`, jinak artikl kategorie optimizer, jehož typ odpovídá `type`
+    („P1100“ najde „P1100-4RM4MBT“). S artiklem: typ z artiklu (je-li prázdný), atributy stringu z artiklu a – když
+    `per_module` není zadáno jinak než 1 – optimizérů na modul = 1 / moduly na optimizér (P1100: 2 moduly → 0,5).
+    Vrací (specifikace optimizéru, atributy stringu)."""
+    out = dict(opt)
+    lib = _lib()
+    comp = lib.component(opt.get("component_id")) if opt.get("component_id") else None
+    t = _s(opt.get("type")).strip()
+    if comp is None and t:
+        key = t.lower().replace(" ", "")
+        for c in lib.components(category="optimizer"):
+            names = (c.part_number.lower().replace(" ", ""), f"{c.manufacturer}{c.part_number}".lower().replace(" ", ""))
+            if any(key in n or n.startswith(key) for n in names):
+                comp = c
+                break
+    if comp is None:
+        return out, {}
+    from envocad.library.components import optimizer_attrs
+    attrs = optimizer_attrs(comp)
+    if not t:
+        out["type"] = attrs.get("optimizer", "")
+    attrs["optimizer"] = _s(out.get("type")) or attrs.get("optimizer", "")
+    k = comp.num("modules_per_optimizer")
+    if k and k > 1 and float(str(opt.get("per_module") or 1).replace(",", ".")) == 1.0:
+        out["per_module"] = 1.0 / k
+    out["component_id"] = comp.id
+    return out, attrs
+
+
 def _fuse_in(dc: dict, mod: dict, opt: dict, inv: Element | None) -> str:
     """In pojistek stringů DC rozvaděče: zadané `dc.fuse_in`, jinak podle stringu (`calc.string_fuse_in`) –
     SolarEdge (střídač nebo optimizéry) 25 A, jinak gPV ≥ 1,5·Isc modulu do 2,4·Isc a max. jištění modulu;
@@ -579,6 +612,11 @@ def _fuse_in(dc: dict, mod: dict, opt: dict, inv: Element | None) -> str:
 
     mfr = (inv.attrs.get("manufacturer", "") if inv is not None else "") + " " + _s(opt.get("type"))
     se = "solaredge" in mfr.lower().replace(" ", "")
+    if inv is not None and not se:
+        # SolarEdge i bez artiklu: typ „SolarEdge …“ / „SE25K…“, nebo střídač s pevným napětím (jen s optimizéry)
+        typ = _s(inv.attrs.get("type")).strip()
+        se = "solaredge" in typ.lower().replace(" ", "") or bool(re.match(r"SE\d+(\.\d+)?K\b", typ, re.IGNORECASE)) \
+            or bool(_s(inv.attrs.get("u_dc_nom")).strip())
     fin = string_fuse_in(num(mod.get("isc")), num(mod.get("i_fuse_max")), optimizer=se)
     return f"{fin:g}" if fin else "15"
 

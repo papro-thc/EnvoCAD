@@ -632,7 +632,7 @@ class ProjectWizard(QDialog):
         lay.addWidget(bb)
         for w in (self.mod_p, self.mod_voc, self.mod_vmp, self.mod_isc, self.mod_imp, self.mod_beta, self.inv_p,
                   self.inv_udc, self.inv_mppt, self.inv_mppt_max, self.inv_imax, self.inv_isc_mppt, self.inv_spm,
-                  self.t_min, self.t_max, self.mod_total, self.strings):
+                  self.t_min, self.t_max, self.mod_total, self.strings, self.opt_type, self.opt_per):
             w.textChanged.connect(self.update_assistant)
         self.update_assistant()
 
@@ -745,6 +745,17 @@ class ProjectWizard(QDialog):
         return (ModuleData.from_attrs(ma), InverterData.from_attrs(ia),
                 T_MIN_DEFAULT if t_min is None else t_min, T_MAX_DEFAULT if t_max is None else t_max)
 
+    def _opt_data(self):
+        """Optimizér z pole průvodce (artikl z katalogu podle typu, `generate._optimizer_spec`) → `calc.OptimizerData`,
+        bez optimizéru None."""
+        from envocad.generate import _optimizer_spec
+        from envocad.model.calc import OptimizerData
+        t = self.opt_type.text().strip()
+        if not t:
+            return None
+        spec, attrs = _optimizer_spec({"type": t, "per_module": self.opt_per.text().strip() or 1})
+        return OptimizerData.from_attrs({"optimizer": spec.get("type") or t, **attrs})
+
     def _string_groups(self) -> list[list[int]]:
         from envocad.generate import parse_strings
         try:
@@ -766,12 +777,14 @@ class ProjectWizard(QDialog):
         mod, inv, t_min, t_max = self._calc_data()
         if mod is None:
             return []
+        opt = self._opt_data()
         out = []
         for i, g in enumerate(self._string_groups()):
             n_par = mppt_groups(assign_mppt(len(g), inv))
             over = capacity_issue(f"T{i + 1}", inv, len(g))
             cap = inverter_capacity(inv) or 0
-            out.append([(n, string_issues(mod, inv, n, n_par[k], t_min, t_max) + ([over] if over and k >= cap else []))
+            out.append([(n, string_issues(mod, inv, n, n_par[k], t_min, t_max, opt, len(g))
+                         + ([over] if over and k >= cap else []))
                         for k, n in enumerate(g)])
         return out
 
@@ -781,7 +794,7 @@ class ProjectWizard(QDialog):
         mod, inv, t_min, t_max = self._calc_data()
         if mod is None:
             return "<i>Zadejte Uoc modulu – asistent pak spočítá rozsah stringu.</i>"
-        lim = string_limits(mod, inv, t_min, t_max)
+        lim = string_limits(mod, inv, t_min, t_max, self._opt_data())
         hi = "?" if lim.n_max is None else str(lim.n_max)
         lines = [f"<b>Modulů ve stringu: {lim.n_min}–{hi}</b>"
                  + (f" ({'; '.join(lim.reasons)})" if lim.reasons else "")
@@ -828,7 +841,7 @@ class ProjectWizard(QDialog):
         n_inv = len(groups) or 1
         if total and mod.p_wp and inv.p_ac:
             n_inv = max(n_inv, suggest_inverter_count(n_total * mod.p_wp / 1000, inv.p_ac))
-        out, left = propose_strings(n_total, n_inv, string_limits(mod, inv, t_min, t_max), inv)
+        out, left = propose_strings(n_total, n_inv, string_limits(mod, inv, t_min, t_max, self._opt_data()), inv)
         out = [g for g in out if g]
         if not out:
             QMessageBox.warning(self, "Navrhnout stringy", "Pro tento modul a střídač nelze stringy navrhnout – "

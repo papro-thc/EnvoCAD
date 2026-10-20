@@ -1,6 +1,16 @@
 # Changelog
 
 ## Nevydáno
+- **Katalog z datasheetů (katalogy/datasheet):** FV moduly Runergy HY-DH96N11B 430–450 Wp (N-type bifacial), střídače
+  SolarEdge SE12.5K–SE27.6K a nový katalog **výkonových optimizérů** (`optimizers.csv`, kategorie `optimizer`) se SolarEdge P1100.
+- **Stringy s optimizéry (SolarEdge):** střídač s pevným vstupním napětím (`u_dc_nom_v` = 750 V) se nekontroluje proti
+  oknu MPPT; místo toho vstup optimizéru (Uoc za studena modulů na optimizér, Isc modulu, výkon modulů ≤ vstup +5 %)
+  a pravidla stringu podle typu střídače z datasheetu optimizéru (počet optimizérů, trvalý / povolený výkon stringu;
+  nad trvalý = varování, nad povolený = chyba). String bez optimizérů na SolarEdge = chyba. Totéž v asistentu
+  průvodce (rozsah modulů 27–32 pro SE25K + P1100 + 420 Wp) a v F7.
+- Generátor: optimizér z katalogu podle typu („P1100“) nebo `optimizer.component_id` – atributy do stringů,
+  optimizérů na modul podle artiklu (P1100: 2 moduly → 0,5), počet optimizérů zaokrouhlen nahoru; pojistka stringu
+  SolarEdge 25 A pozná SolarEdge i podle typu střídače „SE25K“ / pevného napětí.
 - **Trafostanice v jednopólovém schématu a generátoru** (formát projektu **12**: `Element.sl_pos`, bez migrace):
   **pole / kobky rozvaděče VN samostatně** – přístroje rozvaděče VN nesou atribut `cell` („P1 kabelové pole“, u zděné TS
   „K1 kabelová kobka“), jednopólové schéma kreslí každé pole ve vlastním čárkovaném rámečku s názvem; kořenem je

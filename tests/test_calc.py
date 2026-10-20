@@ -311,3 +311,39 @@ def test_limit_reasons_plural():
     assert any(r.startswith("nejméně 2 moduly:") for r in lim.reasons)
     lim = calc.string_limits(MOD, calc.InverterData(u_dc_max=60), -10, 70)
     assert any(r.startswith("nejvýš 1 modul:") for r in lim.reasons)
+
+
+def test_solaredge_optimizer_strings():
+    """SolarEdge: pevné napětí 750 V → okno MPPT se nekontroluje, platí vstup optimizéru a pravidla stringu (P1100)."""
+    from envocad.model.calc import (
+        InverterData,
+        ModuleData,
+        OptimizerData,
+        parse_optimizer_rules,
+        string_issues,
+        string_limits,
+    )
+    inv = InverterData(u_dc_max=1000, u_dc_nom=750, mppt=1, strings_per_mppt=3, i_mppt_max=37, model="SE25K")
+    rules = parse_optimizer_rules("SE25K=14-30/13500/15750/18500/2; SE27.6K=14-30/13950/16200/18950/2")
+    opt = OptimizerData(model="P1100", p_in=1100, u_in_max=125, isc_in_max=14.1, modules=2, rules=rules)
+    m = ModuleData(voc=38.73, vmp=32.44, isc=14.0, imp=12.95, beta_voc=-0.23, p_wp=420)
+    assert string_issues(m, inv, 30, 1, -20, 70, opt, 2) == []
+    # bez optimizéru: chyba (a Uoc 30 modulů > 1000 V)
+    assert any("vyžaduje optimizéry" in x for x in string_issues(m, inv, 30, 1, -20, 70))
+    # 34 × 420 W = 14 280 W > trvalý 13 500 W → jen varování (omezení výkonu); 40 × 420 = 16 800 > povolený 15 750 (1 string)
+    w = string_issues(m, inv, 34, 1, -20, 70, opt, 2)
+    assert len(w) == 1 and "omezení výkonu" in w[0]
+    assert any("> povolený 15750 W" in x for x in string_issues(m, inv, 40, 1, -20, 70, opt, 1))
+    # 26 modulů = 13 optimizérů < 14
+    assert any("13 optimizérů" in x for x in string_issues(m, inv, 26, 1, -20, 70, opt, 2))
+    lim = string_limits(m, inv, -20, 70, opt)
+    assert (lim.n_min, lim.n_max, lim.n_par_max) == (27, 32, 3)
+    # modul s Isc nad vstupem optimizéru (Runergy 450 Wp: 16,07 A > 14,1 A) → chyba, prázdný rozsah
+    big = ModuleData(voc=35.26, vmp=29.44, isc=16.07, imp=15.29, beta_voc=-0.25, p_wp=450)
+    assert any("Isc modulu 16.07 A" in x for x in string_issues(big, inv, 30, 1, -20, 70, opt, 2))
+    assert not string_limits(big, inv, -20, 70, opt).ok
+    # pravidlo se vybírá podle celého typu (SE27.6K nebere SE25K a naopak), neznámý typ = varování
+    inv27 = InverterData(u_dc_max=1000, u_dc_nom=750, model="SolarEdge SE27.6K-RW0TEBEN4")
+    assert string_issues(m, inv27, 33, 1, -20, 70, opt, 2) == []          # 13 860 W ≤ 13 950 W
+    inv17 = InverterData(u_dc_max=1000, u_dc_nom=750, model="SE17K")
+    assert any("nemá pravidla" in x for x in string_issues(m, inv17, 30, 1, -20, 70, opt, 2))

@@ -152,6 +152,13 @@ class InverterData:
     strings_per_mppt: int | None = None
     p_ac: float | None = None
     p_dc_max: float | None = None
+    u_dc_nom: float | None = None    # pevné vstupní napětí (SolarEdge 750 V) – jen s optimizéry, okno MPPT se nekontroluje
+    p_dc_min: float | None = None    # min. připojený výkon DC [kWp] (SolarEdge SE16K a větší: 11 kWp)
+    model: str = ""                  # typ střídače (pravidla stringů optimizérů podle typu: „SE25K“)
+
+    @property
+    def fixed_voltage(self) -> bool:
+        return bool(self.u_dc_nom)
 
     @classmethod
     def from_attrs(cls, a: dict) -> InverterData:
@@ -162,7 +169,119 @@ class InverterData:
                    u_mppt_max=_f(a.get("u_mppt_max")), i_mppt_max=_f(a.get("i_mppt_max")),
                    isc_mppt_max=_f(a.get("isc_mppt_max")), mppt=int(mppt) if mppt and mppt >= 1 else None,
                    strings_per_mppt=int(spm) if spm and spm >= 1 else None, p_ac=_f(a.get("p_ac")),
-                   p_dc_max=_f(a.get("p_dc_max")))
+                   p_dc_max=_f(a.get("p_dc_max")), u_dc_nom=_f(a.get("u_dc_nom")), p_dc_min=_f(a.get("p_dc_min")),
+                   model=str(a.get("type") or ""))
+
+
+@dataclass(frozen=True)
+class OptimizerRule:
+    """Pravidlo stringu optimizérů pro jeden typ střídače (datasheet optimizéru, „Návrh FV systému“): počet optimizérů
+    n_min…n_max, trvalý výkon stringu [W], povolený výkon stringu při počtu stringů pod hranicí / od hranice
+    (`n_threshold`; povolený jen při rozdílu výkonů stringů ≤ 2000 W)."""
+    n_min: int
+    n_max: int
+    p_cont: float
+    p_allowed_few: float | None = None
+    p_allowed_many: float | None = None
+    n_threshold: int = 2
+
+    def p_allowed(self, n_strings: int) -> float | None:
+        return self.p_allowed_few if n_strings < self.n_threshold else self.p_allowed_many
+
+
+def parse_optimizer_rules(text: str) -> dict[str, OptimizerRule]:
+    """„SE25K=14-30/13500/15750/18500/2; SE27.6K=…“ → {typ: OptimizerRule}. Neplatné položky se přeskočí."""
+    out: dict[str, OptimizerRule] = {}
+    for item in re.split(r"[;\n]", str(text or "")):
+        m = re.fullmatch(r"\s*([\w.+-]+)\s*=\s*(\d+)\s*-\s*(\d+)\s*/\s*([\d.,]+)(?:\s*/\s*([\d.,]+))?"
+                         r"(?:\s*/\s*([\d.,]+))?(?:\s*/\s*(\d+))?\s*", item)
+        if not m:
+            continue
+        num = lambda v: float(v.replace(",", ".")) if v else None
+        out[m.group(1).upper()] = OptimizerRule(int(m.group(2)), int(m.group(3)), num(m.group(4)), num(m.group(5)),
+                                                num(m.group(6)), int(m.group(7)) if m.group(7) else 2)
+    return out
+
+
+def _model_key(model: str) -> str:
+    return re.sub(r"\s+", " ", str(model or "")).upper()
+
+
+def optimizer_rule(rules: dict[str, OptimizerRule], model: str) -> OptimizerRule | None:
+    """Pravidlo pro typ střídače: klíč („SE25K“) jako celé slovo v typu („SolarEdge SE25K-RW0TEBEN4“), nejdelší shoda
+    (SE27.6K nesmí vzít pravidlo SE27)."""
+    key = _model_key(model)
+    best = None
+    for k in rules:
+        if re.search(rf"(?<![0-9A-Z.]){re.escape(k)}(?![0-9.])", key) and (best is None or len(k) > len(best)):
+            best = k
+    return rules.get(best) if best else None
+
+
+@dataclass(frozen=True)
+class OptimizerData:
+    """Výkonový optimizér stringu (atributy `fve.pv_string` z artiklu optimizéru): jmenovitý vstupní výkon [W], max.
+    vstupní napětí [V] a Isc [A], počet modulů na optimizér (sériově), pravidla stringu podle typu střídače."""
+    model: str = ""
+    p_in: float | None = None
+    u_in_max: float | None = None
+    isc_in_max: float | None = None
+    modules: int = 1
+    rules: dict = field(default_factory=dict)
+
+    @classmethod
+    def from_attrs(cls, a: dict) -> OptimizerData | None:
+        """Ze stringu; bez optimizéru (prázdný typ i počet) → None. Moduly na optimizér: `opt_modules`, jinak
+        z poměru počtu modulů a optimizérů (2 moduly na optimizér → 2)."""
+        n_opt, n_mod = _f(a.get("n_optimizers")), _f(a.get("n_modules"))
+        if not (a.get("optimizer") or n_opt):
+            return None
+        mods = _f(a.get("opt_modules"))
+        if not mods and n_opt and n_mod:
+            mods = max(1, round(n_mod / n_opt))
+        return cls(model=str(a.get("optimizer") or ""), p_in=_f(a.get("opt_p_in")), u_in_max=_f(a.get("opt_u_in_max")),
+                   isc_in_max=_f(a.get("opt_isc_in_max")), modules=int(mods or 1),
+                   rules=parse_optimizer_rules(a.get("opt_rules") or ""))
+
+    def count(self, n_modules: int) -> int:
+        """Počet optimizérů pro string n modulů (po `modules` sériově, zbytek na samostatném optimizéru)."""
+        return math.ceil(n_modules / max(1, self.modules))
+
+
+OPT_POWER_TOLERANCE = 1.05   # datasheet: moduly s výkonovou tolerancí do +5 % nad jmenovitým vstupem optimizéru
+
+
+def optimizer_issues(m: ModuleData, opt: OptimizerData, inv: InverterData | None, n: int, n_strings: int = 1,
+                     t_min: float = T_MIN_DEFAULT) -> list[str]:
+    """Kontrola stringu s optimizéry (SolarEdge): vstup optimizéru (Uoc za studena modulů na optimizér, Isc modulu,
+    výkon modulů) a pravidla stringu pro typ střídače (počet optimizérů, výkon stringu – trvalý = OK, nad trvalý do
+    povoleného = varování „omezení výkonu“, nad povolený = chyba). Okno MPPT a Uoc stringu se nekontroluje."""
+    out = []
+    k = max(1, opt.modules)
+    if opt.u_in_max and m.voc:
+        u = round(k * m.uoc(t_min), 1)
+        if u > opt.u_in_max:
+            out.append(f"Uoc {k}× modul při {t_min:g} °C {u} V > Umax vstupu optimizéru {opt.u_in_max:g} V")
+    if opt.isc_in_max and m.isc and m.isc > opt.isc_in_max:
+        out.append(f"Isc modulu {m.isc:g} A > max. Isc vstupu optimizéru {opt.isc_in_max:g} A")
+    if opt.p_in and m.p_wp and k * m.p_wp > opt.p_in * OPT_POWER_TOLERANCE:
+        out.append(f"výkon {k}× {m.p_wp:g} Wp = {k * m.p_wp:g} W > vstup optimizéru {opt.p_in:g} W")
+    rule = optimizer_rule(opt.rules, inv.model) if inv is not None else None
+    if inv is not None and opt.rules and rule is None and inv.model:
+        out.append(f"optimizér {opt.model or '?'} nemá pravidla pro střídač {inv.model} (nekompatibilní?)")
+    if rule is not None and n:
+        n_opt = opt.count(n)
+        if not rule.n_min <= n_opt <= rule.n_max:
+            out.append(f"{n_opt} optimizérů ve stringu – povoleno {rule.n_min}–{rule.n_max} ({inv.model})")
+        if m.p_wp:
+            p = n * m.p_wp
+            allowed = rule.p_allowed(max(1, n_strings))
+            if allowed and p > allowed:
+                out.append(f"výkon stringu {p:g} W > povolený {allowed:g} W ({inv.model})")
+            elif p > rule.p_cont:
+                out.append(f"výkon stringu {p:g} W > trvalý {rule.p_cont:g} W – povoleno jen při rozdílu výkonů "
+                           "stringů ≤ 2000 W – omezení výkonu")
+    return out
 
 
 @dataclass
@@ -259,14 +378,25 @@ def _current_issues(m: ModuleData, inv: InverterData, n_par: int) -> list[str]:
 
 
 def string_issues(m: ModuleData, inv: InverterData | None, n: int, n_par: int = 1, t_min: float = T_MIN_DEFAULT,
-                  t_max: float = T_MAX_DEFAULT) -> list[str]:
+                  t_max: float = T_MAX_DEFAULT, opt: OptimizerData | None = None, n_strings: int = 1) -> list[str]:
     """České hlášky ke stringu n modulů, n_par paralelních stringů na stejném MPPT (prázdný seznam = vyhovuje).
-    Texty sdílí kontrola projektu (F7), výkaz Výpočty i asistent průvodce; „– omezení výkonu“ je jen varování."""
+    Texty sdílí kontrola projektu (F7), výkaz Výpočty i asistent průvodce; „– omezení výkonu“ je jen varování.
+    S optimizéry (`opt`) a u střídače s pevným napětím (SolarEdge) platí `optimizer_issues` místo okna MPPT;
+    `n_strings` = stringů na střídači (povolený výkon stringu SolarEdge podle počtu stringů)."""
     out = []
     if not n or not m.voc:
         out.append("chybí počet modulů nebo Uoc modulu")
     if inv is None:
         out.append("string není propojen se střídačem")
+    if inv is not None and inv.fixed_voltage and opt is None:
+        out.append(f"střídač {inv.model or ''} s pevným napětím {inv.u_dc_nom:g} V DC vyžaduje optimizéry "
+                   "(string je nemá)".replace("  ", " "))
+    if opt is not None and (inv is None or inv.fixed_voltage or opt.rules):
+        out += optimizer_issues(m, opt, inv, n, n_strings, t_min)
+        if inv is not None and inv.i_mppt_max and m.imp and n_par > 1 and n_par * m.imp > inv.i_mppt_max:
+            out.append(f"Impp {n_par}× {m.imp:g} A = {n_par * m.imp:.1f} A > Imax vstupu {inv.i_mppt_max:g} A "
+                       "– omezení výkonu")
+        return out
     out += _voltage_issues(m, inv, n, t_min, t_max)
     if inv is not None:
         out += _current_issues(m, inv, n_par)
@@ -278,10 +408,47 @@ def string_issues(m: ModuleData, inv: InverterData | None, n: int, n_par: int = 
 N_MODULES_LIMIT = 200   # strop hledání horní meze počtu modulů ve stringu (bez Umax / MPPT max → None)
 
 
+def optimizer_limits(m: ModuleData, inv: InverterData, opt: OptimizerData, t_min: float = T_MIN_DEFAULT,
+                     n_strings: int = 1) -> StringLimits:
+    """Rozsah stringu s optimizéry podle pravidel pro typ střídače: n_min = (min. optimizérů − 1)·moduly na optimizér + 1,
+    n_max = min(max. optimizérů · moduly na optimizér, ⌊trvalý výkon stringu / Pmax modulu⌋). Chyba vstupu optimizéru
+    (Uoc, Isc, výkon modulu) → prázdný rozsah s důvodem."""
+    reasons: list[str] = []
+    n_par_max = max(1, inv.strings_per_mppt or DC_INPUTS_PER_MPPT_DEFAULT)
+    k = max(1, opt.modules)
+    rule = optimizer_rule(opt.rules, inv.model)
+    bad = [x for x in optimizer_issues(m, opt, inv, 0, n_strings, t_min)]
+    if bad:
+        return StringLimits(1, 0, n_par_max, bad + ["modul a optimizér k sobě nepasují"])
+    if rule is None:
+        msg = f"optimizér {opt.model or '?'}: chybí pravidla stringu pro střídač {inv.model or '?'}"
+        return StringLimits(1, None, n_par_max, [msg])
+    n_min = (rule.n_min - 1) * k + 1
+    n_max = rule.n_max * k
+    reasons.append(f"{rule.n_min}–{rule.n_max} optimizérů po {k} modulech ({inv.model})")
+    if m.p_wp:
+        by_p = math.floor(rule.p_cont / m.p_wp + 1e-9)
+        if by_p < n_max:
+            n_max = by_p
+            reasons.append(f"nejvýš {_modules(by_p)}: trvalý výkon stringu {rule.p_cont:g} W, modul {m.p_wp:g} Wp")
+        allowed = rule.p_allowed(max(1, n_strings))
+        if allowed:
+            reasons.append(f"až {allowed:g} W na string jen při rozdílu výkonů stringů ≤ 2000 W")
+    if n_min > n_max:
+        reasons.append(f"rozsah je prázdný (nejméně {n_min}, nejvýš {n_max} modulů)")
+    return StringLimits(n_min, n_max, n_par_max, reasons)
+
+
 def string_limits(m: ModuleData, inv: InverterData, t_min: float = T_MIN_DEFAULT,
-                  t_max: float = T_MAX_DEFAULT) -> StringLimits:
+                  t_max: float = T_MAX_DEFAULT, opt: OptimizerData | None = None) -> StringLimits:
     """Rozsah počtu modulů ve stringu a paralelních stringů na MPPT – konzistentní se `string_issues`:
-    n_max = ⌊min(Umax, Umax systému modulu) / Uoc(t_min)⌋ a ⌊Umppt max / Umpp(t_min)⌋, n_min = ⌈Umppt min / Umpp(t_max)⌉."""
+    n_max = ⌊min(Umax, Umax systému modulu) / Uoc(t_min)⌋ a ⌊Umppt max / Umpp(t_min)⌋, n_min = ⌈Umppt min / Umpp(t_max)⌉.
+    S optimizéry (nebo u střídače s pevným napětím) `optimizer_limits`."""
+    if opt is not None and (inv.fixed_voltage or opt.rules):
+        return optimizer_limits(m, inv, opt, t_min)
+    if inv.fixed_voltage:
+        msg = f"střídač {inv.model or ''} s pevným napětím {inv.u_dc_nom:g} V DC vyžaduje optimizéry – zadejte optimizér"
+        return StringLimits(1, 0, 0, [msg])
     reasons: list[str] = []
     uoc1, ump_hot1, ump_cold1 = m.uoc(t_min), m.ump(t_max), m.ump(t_min)
 
@@ -583,7 +750,9 @@ def check_strings(project: Project, t_min: float | None = None, t_max: float | N
                          inv.u_mppt_max if inv else None, inv.i_mppt_max if inv else None,
                          sheet=s.name, mppt=mppt, n_par=n_par, isc_mppt_max=inv.isc_mppt_max if inv else None,
                          t_min=t_min, t_max=t_max)
-        sc.issues = string_issues(m, inv, n, n_par, t_min, t_max) + ([over[i]] if i in over else [])
+        opt = OptimizerData.from_attrs(e.attrs)
+        n_strings = len(per_inv.get(inv_el.id, [])) if inv_el is not None else 1
+        sc.issues = string_issues(m, inv, n, n_par, t_min, t_max, opt, n_strings) + ([over[i]] if i in over else [])
         out.append(sc)
     return out
 

@@ -218,3 +218,20 @@ def test_house_rejects_mv_and_unknown_building():
     p = build_project({**base, "building": "apartment"})
     assert p.meta["building"] == "bytový dům"
     assert [sh.loc for sh in p.sheets if sh.is_switchboard] == ["RDC1", "RDC2", "RH"]
+
+
+def test_solaredge_catalog_inverter_with_p1100():
+    """Katalog: SolarEdge SE25K + optimizér P1100 (2 moduly na optimizér) – stringy s atributy optimizéru, pojistky 25 A,
+    F7 bez chyb; modul Runergy 450 Wp má Isc nad vstupem P1100 → chyba stringu."""
+    lib = LibraryStore()
+    assert lib.component("solaredge-p1100").category == "optimizer"
+    spec = {"name": "SE", "module": {"component_id": "longi-lr5-54hth-420m"}, "optimizer": {"type": "P1100"},
+            "inverters": [{"ref": "T1", "component_id": "solaredge-se25k", "strings": [30, 32]}]}
+    p = build_project(spec)
+    g = next(e for e in p.sheets[0].elements if e.symbol_id == "fve.pv_string")
+    assert g.attrs["n_optimizers"] == "15" and g.attrs["opt_modules"] == "2" and g.attrs["opt_isc_in_max"] == "14.1"
+    assert {e.attrs.get("in_") for sh in p.sheets for e in sh.elements if e.symbol_id == "fve.fuse_disconnect"} == {"25"}
+    assert not [f for f in check_project(p, lib) if f.severity == ERROR]
+    spec["module"] = {"component_id": "runergy-hy-dh96n11b-450"}
+    p = build_project(spec)
+    assert any("max. Isc vstupu optimizéru" in f.text for f in check_project(p, lib) if f.severity == ERROR)

@@ -18,7 +18,7 @@ from envocad.model.project import Element
 REQUIRED = ["id", "manufacturer", "part_number", "name", "category", "symbol_id", "datasheet_url", "source"]
 CATEGORIES = {"mcb", "mccb", "rcd", "rcbo", "spd", "switch", "contactor", "fuse", "fuse_holder", "meter", "inverter",
               "inverter_hybrid", "battery", "pv_module", "enclosure", "terminal", "relay", "accessory", "connector",
-              "cable", "other"}
+              "cable", "optimizer", "other"}
 NUMERIC = {"price_czk", "in_", "poles", "icu_ka", "idn_ma", "un_v", "modules", "width_mm", "height_mm", "depth_mm",
            "p_loss_w", "p_ac_kw", "p_dc_max_kwp", "mppt", "phases", "i_ac_max_a", "e_kwh", "p_kw", "u_dc_v", "p_wp",
            "voc_v", "isc_a", "vmp_v", "imp_a", "uc_v", "up_kv", "iimp_ka", "in_ka", "rows", "modules_per_row",
@@ -26,7 +26,11 @@ NUMERIC = {"price_czk", "in_", "poles", "icu_ka", "idn_ma", "un_v", "modules", "
            "i_mppt_max_a", "strings_per_mppt", "beta_voc", "t_min_c", "t_max_c",
            # FV moduly (pv_modules.csv) a střídače – katalog pro průvodce (docs/design/katalog_fv.md)
            "alpha_isc", "gamma_pmax", "noct_c", "u_sys_max_v", "i_fuse_max_a", "weight_kg", "isc_mppt_max_a",
-           "eff_max_pct", "eff_eu_pct", "iscpv_ka"}
+           "eff_max_pct", "eff_eu_pct", "iscpv_ka",
+           # střídač s pevným vstupním napětím (SolarEdge – jen s optimizéry), min. připojený výkon DC
+           "u_dc_nom_v", "p_dc_min_kwp",
+           # výkonové optimizéry (optimizers.csv): vstup / výstup, moduly na optimizér
+           "p_in_w", "u_in_max_v", "isc_in_max_a", "i_out_max_a", "u_out_max_v", "modules_per_optimizer"}
 SOURCES = {"catalog", "datasheet", "web", "seed", "user"}
 
 # výchozí schematická značka podle kategorie (když symbol_id chybí)
@@ -57,8 +61,25 @@ PARAM_TO_ATTR = {
     # SPD do výkresu: ochranná úroveň Up, zkratová odolnost ISCPV (DC SPD bez vlastní pojistky)
     "up_kv": "up", "iscpv_ka": "iscpv",
     "cross_max_mm2": "cross_max",   # max. průřez svorky – dvojitá dutinka se vejde? (`wiring.twin_clamp_note`)
-    "contacts": "contacts",   # kontaktní obraz („1/2 3/4 5/6 13/14 21/22“) – zrcadlo kontaktů, kontroly kontaktů
+    "contacts": "contacts",
+    # střídač s pevným vstupním napětím (SolarEdge): okno MPPT se nekontroluje, stringy jen s optimizéry
+    "u_dc_nom_v": "u_dc_nom", "p_dc_min_kwp": "p_dc_min",   # kontaktní obraz („1/2 3/4 5/6 13/14 21/22“) – zrcadlo kontaktů, kontroly kontaktů
 }
+
+
+# artikl výkonového optimizéru (category=optimizer) → atributy stringu `fve.pv_string` (`calc.OptimizerData`)
+OPTIMIZER_TO_ATTR = {"part_number": "optimizer", "p_in_w": "opt_p_in", "u_in_max_v": "opt_u_in_max",
+                     "isc_in_max_a": "opt_isc_in_max", "modules_per_optimizer": "opt_modules", "string_rules": "opt_rules"}
+
+
+def optimizer_attrs(comp) -> dict[str, str]:
+    """Atributy stringu z artiklu optimizéru (jen neprázdné; čísla s desetinnou tečkou)."""
+    out = {}
+    for pkey, akey in OPTIMIZER_TO_ATTR.items():
+        v = comp.part_number if pkey == "part_number" else comp.params.get(pkey, "")
+        if str(v or "").strip():
+            out[akey] = str(v).strip() if akey in ("optimizer", "opt_rules") else str(v).replace(",", ".").strip()
+    return out
 
 
 @dataclass
