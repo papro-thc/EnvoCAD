@@ -85,13 +85,29 @@ list (zvětší se formát). Odvozené jednopólové schéma je stejné jako bez
 from __future__ import annotations
 
 import json
-import logging
 import math
 import re
 import sys
 from itertools import pairwise
 from pathlib import Path
 
+from envocad.generator import context
+from envocad.generator.context import (
+    AC_MAX_INVERTERS_BUS,
+    AC_SWITCHBOARD_REF,
+    BATTERY_CABLE,
+    BATTERY_ROW_EXTRA,
+    DC_ROUTE_BOX_PREFIX,
+    DC_TECH_BOX_REF,
+    INV_LABEL_SPACE,
+    MAIN_LV_BOARD_REF,
+    _int_attr,
+    _merge,
+    _num,
+    _num_or,
+    _s,
+    log,
+)
 from envocad.library.templates import (
     AC_CONDUCTORS,
     DC_CONDUCTORS,
@@ -119,24 +135,10 @@ from envocad.model.project import (
     sync_feed_links,
 )
 
-log = logging.getLogger("envocad.generate")
-
-BATTERY_ROW_EXTRA = 40.0   # místo pro baterii pod hybridním střídačem (mm)
-INV_LABEL_SPACE = 40.0     # popisek DC kabelu („W12  2× H1Z2Z2-K 1x6 mm²“) mezi blokem rozvaděče a lomy ke střídači
-
 # druh objektu (`spec["building"]`) → text v projektu (meta „building“)
 BUILDINGS = {"company": "firma", "house": "rodinný dům", "apartment": "bytový dům"}
-# Označení rozvaděčů (docs/NAVRH_TOPOLOGIE.md, kap. 8 bod 9): AC rozvaděč FVE RFVE.AC, DC rozvaděč u technologie
-# RFVE.DC (víc rozvaděčů u technologie – jeden na střídač – RFVE.DC1, RFVE.DC2… v pořadí střídačů), rozvaděče po
-# trase RDC1…n (číslované jen mezi sebou), hlavní rozvaděč nn u přípojky VN HR; rodinný dům jeden rozvaděč RFVE.
-AC_SWITCHBOARD_REF = "RFVE.AC"
-DC_TECH_BOX_REF = "RFVE.DC"
-DC_ROUTE_BOX_PREFIX = "RDC"
-MAIN_LV_BOARD_REF = "HR"
 HOUSE_SWITCHBOARD = {"ref": "RFVE", "desc": "rozvaděč FVE (DC + AC)"}
 HOUSE_SWITCHBOARD_AC = {"ref": "RFVE", "desc": "rozvaděč FVE (AC)"}   # bez DC části (`dc.tech_box` = false)
-# kabel baterie (hybridní střídač → baterie), když ho specifikace (`battery.cable/cross/length`) nezadá
-BATTERY_CABLE = {"cable": "H1Z2Z2-K 1x25", "cross": 25, "length": 5}
 
 DEFAULT_SPEC = {
     "name": "Nový projekt FVE",
@@ -178,42 +180,16 @@ DEFAULT_SPEC = {
 }
 
 
-def _merge(base: dict, over: dict) -> dict:
-    out = dict(base)
-    for k, v in (over or {}).items():
-        out[k] = _merge(base[k], v) if isinstance(v, dict) and isinstance(base.get(k), dict) else v
-    return out
-
-
-def _s(v) -> str:
-    return "" if v is None else str(v)
-
-
-_BUILD_LIB = None    # knihovna sdílená během jednoho `build_project` (otevření LibraryStore = synchronizace souborů)
-
-
-def _lib():
-    """Knihovna pro generátor: během `build_project` jedna instance pro celé sestavení, jinak nová."""
-    if _BUILD_LIB is not None:
-        return _BUILD_LIB
-    from envocad.library.store import LibraryStore
-    return LibraryStore()
-
-
-AC_MAX_INVERTERS_BUS = 12   # přívody T1…T12 sběrnice sb.busbar (`tools/gen_builtin_fve.BUSBAR_INPUTS`)
-
-
 def build_project(spec: dict) -> Project:
     """Sestaví projekt: JPS (stringy → DC rozvaděče → střídač, každý string na vlastní DC vstup → AC rozvaděč → síť) + listy rozvaděčů."""
-    global _BUILD_LIB
-    if _BUILD_LIB is not None:          # vnořené volání – knihovna už je otevřená
+    if context._BUILD_LIB is not None:          # vnořené volání – knihovna už je otevřená
         return _build_project(spec)
     from envocad.library.store import LibraryStore
-    _BUILD_LIB = LibraryStore()
+    context._BUILD_LIB = LibraryStore()
     try:
         return _build_project(spec)
     finally:
-        _BUILD_LIB = None
+        context._BUILD_LIB = None
 
 
 def _build_project(spec: dict) -> Project:
@@ -416,7 +392,7 @@ def _build_project(spec: dict) -> Project:
         t0 = inverter_elements[0]
         # baterie přímo pod svým (hybridním) střídačem: port BAT dole (pod pásem svorek, je-li) → port DC baterie
         # nahoře, svisle 15 mm
-        bat_y = element_symbol(p, t0, _lib()).port("BAT").y
+        bat_y = element_symbol(p, t0, context._lib()).port("BAT").y
         bat = Element("fve.battery", t0.x, t0.y + bat_y - 25.0, attrs={
             "ref": "G" + str(len([e for e in s.elements if e.symbol_id == "fve.pv_string"]) + 1),
             "type": _s(b.get("type")), "e_kwh": _s(b.get("e_kwh")), "p_kw": _s(b.get("p_kw"))})
@@ -537,7 +513,7 @@ def _grow_switchboards(p: Project, sheets: list[Sheet]) -> bool:
     a se střídači): přednostně prodloužený formát na šířku se stejnou výškou (`frame.grow_sheet_long` – RFVE
     s 9 stringy je A4×5, ne A0), jinak `frame.grow_sheet_to_content`. True = některý list se změnil."""
     from envocad.model.frame import grow_sheet_long, grow_sheet_to_content
-    lib = _lib()
+    lib = context._lib()
     changed = False
     for sh in sheets:
         changed = (grow_sheet_long(p, sh, lib) or grow_sheet_to_content(p, sh, lib)) or changed
@@ -583,7 +559,7 @@ def _place_jps(p: Project, s: Sheet, opts: dict, rows: list[list[Element]], ac_w
     balení řad, ne pro jednu přerostlou řadu (např. 3 střídače × 12 stringů: listy střídačů A1, AC list A2)."""
     from envocad.model.frame import PAPER_SIZES, apply_placement, fit_placement, paper_exceeds
     from envocad.model.textlayout import sheet_content_boxes
-    lib = _lib()
+    lib = context._lib()
     boxes = sheet_content_boxes(p, s, lib)
     if not boxes:
         return
@@ -613,7 +589,7 @@ def _split_jps(p: Project, s: Sheet, rows: list[list[Element]], ac_wires: list[W
     from envocad.model.project import INTERRUPT_SYMBOL, element_symbol
     from envocad.model.symbol import rotate_dir
     from envocad.model.textlayout import sheet_content_boxes
-    lib = _lib()
+    lib = context._lib()
     base = s.name or "Blokové schéma"
     s.name = f"{base} – {JPS_AC_SUFFIX}"
     sym_int = lib.get_symbol(INTERRUPT_SYMBOL)
@@ -772,7 +748,7 @@ def _align_route_boxes(p: Project, blk: Element, chains: list[list[Element]]) ->
     """Rozvaděče po trase rodinného domu na výšku přívodů rozvaděče FVE: vývody posledního rozvaděče trasy leží
     proti DC přívodům RFVE, vodiče vedou rovně (bez lomů, přes které by šly popisky kabelů). Celý řetěz rozvaděčů
     střídače se posune stejně; kdyby se rozvaděče různých střídačů překryly, zůstane lom."""
-    lib = _lib()
+    lib = context._lib()
     s = p.sheets[0]
     plan: list[tuple[list[Element], float, list[Wire]]] = []
     spans: list[tuple[float, float]] = []
@@ -806,7 +782,7 @@ def _route_house(p: Project, blk: Element, ac_wires: list[Wire], grid: Element, 
     X1…Xn vlevo (vnější lom pro dolní střídač – bez křížení), vývod XOUT pod vším k síti za střídači, uzemnění (HOP)
     hned pod vývod XPE."""
     from envocad.model.textlayout import sheet_content_boxes
-    lib = _lib()
+    lib = context._lib()
     s = p.sheets[0]
 
     def port(e: Element, name: str) -> tuple[float, float]:
@@ -878,7 +854,7 @@ def fuse_in_why(dc: dict, mod: dict, opt: dict, inv: Element | None) -> tuple[st
     if _s(dc.get("fuse_in")).strip() not in ("", "auto"):
         return _s(dc["fuse_in"]), ""
     from envocad.model.calc import string_fuse_in
-    holder = _lib().component(dc.get("fuse_component")) if dc.get("fuse_component") else None
+    holder = context._lib().component(dc.get("fuse_component")) if dc.get("fuse_component") else None
     max_in = holder_max_in(holder)
     solaredge = is_solaredge(inv, opt)
     fin = string_fuse_in(_num(mod.get("isc")), _num(mod.get("i_fuse_max")), optimizer=solaredge, max_in=max_in)
@@ -918,7 +894,7 @@ def _apply_component(sheet: Sheet, cid, symbol_id: str) -> None:
     """Artikl (`dc.fuse_component`) na všechny prvky `symbol_id` listu – typ, výrobce, póly, šířka. In vložky
     zůstává: artikl držáku (kategorie fuse_holder) In vložky nepřepisuje (`Component.attr_values` ho u držáku
     vynechá). Neznámý nebo prázdný artikl → beze změny."""
-    comp = _lib().component(cid) if cid else None
+    comp = context._lib().component(cid) if cid else None
     if comp is None:
         return
     for e in sheet.elements:
@@ -930,7 +906,7 @@ def _apply_spd_component(sheet: Sheet, cid) -> None:
     """Artikl svodiče DC (`dc.spd_component`) na SPD listu DC rozvaděče, jejichž typ SPD artiklu odpovídá („T1+T2“ =
     „T1+T2 DC“) – typ, výrobce, Uc, Up, ISCPV ve výkresu. Jiný zadaný typ (`dc.spd` „T2“) artikl nepřepíše;
     neznámý nebo prázdný artikl → beze změny."""
-    comp = _lib().component(cid) if cid else None
+    comp = context._lib().component(cid) if cid else None
     if comp is None:
         return
 
@@ -947,7 +923,7 @@ def _align_outputs(project: Project, blk: Element, grid: Element | None, earth: 
     """Síť (DS) na výšku vývodu XOUT bloku AC rozvaděče (vodič vede rovně) a uzemnění (HOP) pod vývod XPE –
     porty bloku jsou známé až po vytvoření listu rozvaděče."""
     from envocad.model.project import element_symbol
-    sym = element_symbol(project, blk, _lib())
+    sym = element_symbol(project, blk, context._lib())
     names = {pt.name for pt in sym.ports}
     if "XOUT" in names and grid is not None:
         grid.y = blk.port_pos(sym, "XOUT")[1]
@@ -1013,13 +989,6 @@ def voltage_label(u_v: float | None) -> str:
     if not u_v:
         return ""
     return f"{u_v / 1000:g} kV".replace(".", ",")
-
-
-def _num_or(v, default: float) -> float:
-    try:
-        return float(str(v).replace(",", ".").split()[0])
-    except (TypeError, ValueError, IndexError):
-        return default
 
 
 STATIONS = {"kiosk": ("kiosková trafostanice", "P", "pole"),
@@ -1388,7 +1357,7 @@ def _align_connection(project: Project, blk: Element, chain: dict) -> None:
     """Bloky přípojky na výšku vodičů (vodiče vedou rovně): hlavní rozvaděč nn HR na XOUT bloku RFVE.AC, transformátor na
     přívod XT, rozvaděč VN vývodem X1 na transformátor (u sloupové TS přístroje na sloupu na port transformátoru),
     sítě na přívody XDS; spotřeba pod vývod X2, elektroměrový rozvaděč pod rozvaděč s měřením."""
-    lib = _lib()
+    lib = context._lib()
     sheet = project.sheets[0]
 
     def port_pos(e: Element, port: str) -> tuple[float, float] | None:
@@ -1462,15 +1431,6 @@ def _align_connection(project: Project, blk: Element, chain: dict) -> None:
                 w.points = [(xb, ps[1]), (xb, pr[1])]
 
 
-def _int_attr(v) -> int | None:
-    """Kladné celé číslo z atributu („2“, „2.0“, „2,0“), jinak None."""
-    try:
-        x = float(str(v).replace(",", "."))
-    except (TypeError, ValueError):
-        return None
-    return int(x) if x >= 1 else None
-
-
 # údaje modulu ve specifikaci ← atribut prvku `fve.pv_string` (`Component.attr_values()`)
 MODULE_SPEC_FROM_ATTR = {"p_module": "p_wp", "voc": "voc", "vmp": "vmp", "isc": "isc", "imp": "imp",
                          "beta_voc": "beta_voc", "u_sys_max": "u_sys_max", "type": "type", "manufacturer": "manufacturer",
@@ -1482,7 +1442,7 @@ def _apply_module_component(mod: dict) -> dict:
     zadané hodnoty mají přednost. Vrací novou specifikaci modulu; neznámý artikl → beze změny (stringy si
     `component_id` ponechají, kontrola projektu ho nahlásí). Desetinná čárka z CSV se převede na tečku."""
     out = dict(mod)
-    comp = _lib().component(mod.get("component_id"))
+    comp = context._lib().component(mod.get("component_id"))
     if comp is None:
         return out
     for akey, val in comp.attr_values().items():
@@ -1500,7 +1460,7 @@ def _apply_inverter_component(t: Element, inv: dict) -> None:
     cid = inv.get("component_id")
     if not cid:
         return
-    comp = _lib().component(cid)
+    comp = context._lib().component(cid)
     if comp is None:
         return
     probe = Element(t.symbol_id, t.x, t.y, attrs=dict(t.attrs))
@@ -1524,7 +1484,7 @@ def _apply_optimizer_component(opt: dict) -> tuple[dict, object | None]:
     se varování, průvodce to hlásí v asistentu). Vrací (nová specifikace optimizéru, artikl | None); neznámý artikl →
     beze změny a None. Průvodce při vymazaném typu `component_id` neposílá (= bez optimizérů)."""
     out = dict(opt)
-    comp = _lib().component(opt.get("component_id"))
+    comp = context._lib().component(opt.get("component_id"))
     if comp is None or comp.category != "optimizer":
         return out, None
     if not str(out.get("type") or "").strip():
@@ -1556,13 +1516,6 @@ def _apply_optimizer_rules(t: Element, inv: dict, comp) -> None:
             t.attrs[key] = f"{pick(known):g}"
 
 
-def _num(v) -> float | None:
-    try:
-        return float(str(v).replace(",", "."))
-    except (TypeError, ValueError):
-        return None
-
-
 def _align_bends(project: Project) -> None:
     """Lomy vodičů JPS podle skutečných poloh portů (porty bloků rozvaděčů a střídačů se dopočítají až z listů):
     vodič s jediným svislým úsekem [(x, y1), (x, y2)] dostane y1 = y portu A, y2 = y portu B – je pak jen
@@ -1570,7 +1523,7 @@ def _align_bends(project: Project) -> None:
     aby se nekřížily (shora dolů: nejvyšší nejdál, zdola nahoru: nejnižší nejdál). Volá se před rozdělením JPS na
     listy (`_place_jps` – rozmístění posouvá prvky i lomy celého listu stejně), projde všechny listy, které nejsou
     rozvaděč."""
-    lib = _lib()
+    lib = context._lib()
     for s in project.sheets:
         if not s.is_switchboard:
             _align_bends_sheet(project, s, lib)
@@ -1667,7 +1620,7 @@ def _dc_box_from_macro(project: Project, sheet: Sheet, strings: list[str], name,
     m = find_macro(entry[0]) if entry[0] else None
     if m is None:
         return False
-    lib = _lib()
+    lib = context._lib()
     n = len(strings) if n is None else n
     pitch = macro_pitch(m)
     base = _macro_vars(dc, {})
@@ -1689,7 +1642,7 @@ def _ac_box_from_macros(project: Project, sheet: Sheet, invs: list[dict], ac: di
     mc = find_macro(ec[0]) if ec[0] else None
     if mf is None or mc is None or (ac.get("distribution") or "bus") != "bus":
         return False
-    lib = _lib()
+    lib = context._lib()
     pitch = macro_pitch(mf)
     devices = []
     base = _macro_vars({}, ac)
@@ -1823,7 +1776,7 @@ def _bus_b_ports_by_x(project: Project, sheet: Sheet, bus: Element) -> float:
     """Víc než 6 přívodů zdola (B7…B12 leží mezi B1…B6): k-tý přívod zleva dostane k-tý port B zleva, odbočky
     (`_bus_drop_points`) jsou pak schody bez křížení (vlevo nejníž). Do 6 přívodů beze změny (B1…B6 svisle pod
     přívody po 30 mm). Vrací x nejpravějšího použitého portu B (bez přívodů zdola −∞)."""
-    sym = element_symbol(project, bus, _lib())
+    sym = element_symbol(project, bus, context._lib())
     bx = {p.name: bus.x + p.x for p in sym.ports if p.name.startswith("B")}
     by_id = {e.id: e for e in sheet.elements}
     ends = []
@@ -1842,7 +1795,7 @@ def _bus_drop_points(project: Project, sheet: Sheet, bus: Element) -> None:
     """Odbočky ze spodních portů sběrnice k přístroji pod ní, které nejsou svisle pod portem (a nemají ruční lomy):
     lom svisle–vodorovně–svisle. Vodorovné úseky po `BUS_DROP_STEP` pod sebou tak, aby se odbočky nekřížily:
     lomené doprava – nejpravější nejvýš, doleva – nejlevější nejvýš."""
-    lib = _lib()
+    lib = context._lib()
     sym_bus = element_symbol(project, bus, lib)
     right, left = [], []
     for w in sheet.wires:
@@ -1925,7 +1878,7 @@ def _dc_from_below(project: Project, sheet: Sheet) -> None:
     bus = next((e for e in sheet.elements if e.symbol_id == "sb.busbar"), None)
     x0 = max(e.x for e in ac) + DC_AC_GAP if ac else DC_U_X0
     if bus is not None:
-        x0 = max(x0, bus.x + line_end(element_symbol(project, bus, _lib())) + 7.5 - DC_U_WIDTH - DC_SPD_DX)
+        x0 = max(x0, bus.x + line_end(element_symbol(project, bus, context._lib())) + 7.5 - DC_U_WIDTH - DC_SPD_DX)
     x0 = round(x0 / 2.5 + 0.49) * 2.5
     for j, (f, fu, (w_out, out), spd) in enumerate(strings):
         left = x0 + j * DC_U_PITCH
@@ -1958,7 +1911,7 @@ def _dc_from_below(project: Project, sheet: Sheet) -> None:
         edge += 40.0
     bus_span = None
     if bus is not None and bus.rotation % 360 == 0 and not bus.mirror:
-        lo, hi = line_span(element_symbol(project, bus, _lib()))
+        lo, hi = line_span(element_symbol(project, bus, context._lib()))
         bus_span = (bus.x + lo, bus.x + hi)
     for w, tgt, mid in pe_wires:
         if tgt.symbol_id == "sb.pe_bar":

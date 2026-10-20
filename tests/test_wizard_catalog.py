@@ -452,7 +452,7 @@ class _CatalogOverLibrary:
 
 def test_assistant_single_phase_rules_match_f7(app, monkeypatch):
     """1f střídač: pravidla optimizéru `*_1ph` (přes `phases`) v asistentu i v generátoru / F7."""
-    from envocad import generate
+    from envocad.generator import context
     from envocad.library.store import LibraryStore
     from envocad.model import calc
     opt = _optimizer(params={"n_min_1ph": "8", "n_max_1ph": "25", "p_string_max_1ph_w": "6200", "compat": "Test",
@@ -460,7 +460,8 @@ def test_assistant_single_phase_rules_match_f7(app, monkeypatch):
     inv1 = _inverter(params={"phases": "1", "p_ac_kw": "5", "mppt": "1", "u_string_v": "380", "u_dc_max_v": "480"})
     mod = _module(params={"p_wp": "400", "u_sys_max_v": "1000"})
     lib = _CatalogOverLibrary(LibraryStore(), [opt, inv1, mod])
-    monkeypatch.setattr(generate, "_lib", lambda: lib)
+    # knihovna generátoru je jen v `generator.context` (re-export v `generate` by byl kopie, patch by nepůsobil)
+    monkeypatch.setattr(context, "_lib", lambda: lib)
     d = ProjectWizard(library=lib)
     d.set_module_component(mod)
     d.set_inverter_component(inv1)
