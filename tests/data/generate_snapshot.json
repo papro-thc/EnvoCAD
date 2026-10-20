@@ -5,6 +5,8 @@
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
+   "topology": "nn",
+   "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
    "p_installed_kwp": "26.1"
   },
   "sheets": [
@@ -2185,6 +2187,8 @@
   "meta": {
    "investor": "Test s.r.o.",
    "building": "firma",
+   "topology": "nn",
+   "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
    "p_installed_kwp": "44.1"
   },
   "sheets": [
@@ -5631,6 +5635,8 @@
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
+   "topology": "nn",
+   "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
    "p_installed_kwp": "17.1"
   },
   "sheets": [
@@ -7743,6 +7749,8 @@
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
+   "topology": "nn",
+   "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
    "p_installed_kwp": "34.2"
   },
   "sheets": [
@@ -10415,6 +10423,8 @@
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
+   "topology": "nn",
+   "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
    "p_installed_kwp": "153.9"
   },
   "sheets": [
@@ -22241,6 +22251,8 @@
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
+   "topology": "nn",
+   "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
    "p_installed_kwp": "153.9"
   },
   "sheets": [
@@ -33561,6 +33573,8 @@
   "name": "Nový projekt FVE",
   "meta": {
    "building": "rodinný dům",
+   "topology": "rd",
+   "topology_chain": "stringy → RFVE → T → RD → RE → HDS → DS",
    "p_installed_kwp": "14.4"
   },
   "sheets": [
@@ -35297,6 +35311,8 @@
   "name": "Nový projekt FVE",
   "meta": {
    "building": "rodinný dům",
+   "topology": "rd",
+   "topology_chain": "stringy → RFVE → T → RD → RE → HDS → DS",
    "p_installed_kwp": "20.7"
   },
   "sheets": [
@@ -37787,6 +37803,8 @@
   "name": "Nový projekt FVE",
   "meta": {
    "building": "rodinný dům",
+   "topology": "rd",
+   "topology_chain": "stringy → RFVE → T → RD → RE → HDS → DS",
    "p_installed_kwp": "32.4"
   },
   "sheets": [
@@ -42085,6 +42103,8 @@
   "name": "Nový projekt FVE",
   "meta": {
    "building": "bytový dům",
+   "topology": "nn",
+   "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
    "p_installed_kwp": "26.1"
   },
   "sheets": [
@@ -44589,6 +44609,8 @@
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
+   "topology": "vn",
+   "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → TR → RVN → DS (+ RE)",
    "p_installed_kwp": "18"
   },
   "sheets": [
@@ -47976,6 +47998,8 @@
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
+   "topology": "vn",
+   "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → TR → RVN → DS (+ RE)",
    "p_installed_kwp": "27"
   },
   "sheets": [
@@ -52060,6 +52084,8 @@
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
+   "topology": "vn",
+   "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → TR → RVN → DS (+ RE)",
    "p_installed_kwp": "9"
   },
   "sheets": [
@@ -54291,6 +54317,8 @@
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
+   "topology": "nn",
+   "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
    "p_installed_kwp": "288"
   },
   "sheets": [
@@ -71821,6 +71849,8 @@
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
+   "topology": "nn",
+   "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
    "p_installed_kwp": "17.1"
   },
   "sheets": [

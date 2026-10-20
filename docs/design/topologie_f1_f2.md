@@ -64,6 +64,10 @@ Makra: `spec.macros[role]` zadané uživatelem > `node.macros[role]` (jen když 
 `Project.meta["topology"] = "rd"` a `meta["topology_chain"] = chain_text()` (meta jsou řetězce – bez změny formátu).
 
 ### 1.3 Refaktoring `generate.py` → `envocad/generator/` (každý krok = commit, snímek beze změny)
+**Stav (2026-10-20): hotovo, kroky 0–7** (větev `feature/topologie-f1`). Snímek má 15 případů (navíc vn sloup a
+`dc.disconnect`). Odchylky: `BoardBuilder.build(ctx, node)` bez parametru `sheet` (list si builder založí sám);
+DS na nn je builder `boards/grid.py` (vodič z `ctx.tail` – vývodu posledního článku s blokem); vlastní topologie
+bez RFVE.AC / DS dostane hlavní rozvaděč a DS i tak (záloha v `chain.build`).
 Harness existuje: `tests/generate_snapshot.py` (`canon` = `to_dict` s normalizovanými id, vidí pořadí, polohy i
 `Sheet.texts`; `model/diff.py` jen jako čitelný výpis při selhání – `diff_projects` texty listu nevidí). Rozšířit `CASES` ze 4 na 10: stávající `default_1inv`, `two_inv`, `route2_terminals`, `with_component` +
 `house_2inv` (makra, rozvaděč po trase), `house_code_battery` (`macros` "", hybrid + baterie), `apartment_optimizer`
@@ -169,7 +173,7 @@ Značka přívodu i vývodu je jedna, **`sb.feed`** se směrem v atributu `dir` 
 **RFVE a RFVE.AC: přívody i vývody ve spodní řadě** (`rot 0`, y 105), sběrnice nahoře (x 165, y 175 – čára 90…270),
 přívodní větev teče nahoru (svorka → jistič `rot 90` → port `B{k}` zdola; B1…B6 po 30 mm od x 105), jádro visí ze
 sběrnice dolů; vlevo XPE (x 60) a SPD (x 82,5). DC rozvaděče (RFVE.DC, RDCn) mají přívod nahoře portem dolů
-(`dir=in`, `rot 180`) jako dřív. DC část RFVE generátor přeskládá do tvaru „U“ (`generate._dc_from_below`), ať
+(`dir=in`, `rot 180`) jako dřív. DC část RFVE generátor přeskládá do tvaru „U“ (`generator/boards/rfve._dc_from_below`), ať
 makro `dc_tech` kreslí jakkoli. Staré mustry se `sb.feed_in` / `sb.feed_out` fungují (převod při načtení makra).
 
 RFVE (RD) = `dc_tech` + `ac_feed` + `ac_core` (+ `ac_eps`) s vlastními názvy („RFVE – DC string“…), RFVE.AC =

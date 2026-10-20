@@ -17,6 +17,7 @@ from envocad.generator.spec import (
     _apply_module_component,
     _apply_optimizer_component,
     building_kind,
+    chain_text,
     select_topology,
 )
 from envocad.model.project import Project
@@ -63,6 +64,9 @@ def _build_project(spec: dict) -> Project:
     topology = select_topology(raw)
     p = Project(name=spec["name"], meta={k: _s(v) for k, v in spec["meta"].items()})
     p.meta.setdefault("building", BUILDINGS[building])
+    # topologie řetězce (meta jsou řetězce – formát projektu beze změny): id presetu a náhled řetězce
+    p.meta["topology"] = topology.id
+    p.meta["topology_chain"] = chain_text(topology)
     site = spec.get("site") or {}
     for key, meta_key in (("t_min", "pv_t_min"), ("t_max", "pv_t_max")):
         if site.get(key) not in (None, ""):

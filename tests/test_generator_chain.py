@@ -90,3 +90,30 @@ def test_custom_topology_without_grid_and_ac_node(tmp_path, monkeypatch):
     a = canon(generate.build_project(spec))
     b = canon(generate.build_project({**spec, "topology": "jen_dc"}))
     assert a["sheets"] == b["sheets"]
+
+
+EXPECTED_TOPOLOGY = {"house": "rd", "vn": "vn"}
+
+
+@pytest.mark.parametrize("name", list(CASES))
+def test_meta_topology(name, tmp_path):
+    """Krok 7: generátor zapíše `meta["topology"]` (id presetu) a `meta["topology_chain"]` (náhled řetězce);
+    meta jsou řetězce – uložení a načtení projektu beze změny formátu."""
+    from envocad.generator.spec import building_kind, chain_text, select_topology
+    spec = CASES[name]
+    p = generate.build_project(spec)
+    level = (spec.get("connection") or {}).get("level", "nn")
+    want = EXPECTED_TOPOLOGY.get("house" if building_kind(spec.get("building")) == "house" else level, "nn")
+    assert p.meta["topology"] == want
+    assert p.meta["topology_chain"] == chain_text(select_topology(spec))
+    assert p.meta["topology_chain"].startswith("stringy → ") and p.meta["topology_chain"].endswith(("DS", "(+ RE)"))
+    path = tmp_path / "p.ecp"
+    p.save(path)
+    q = Project.load(path)
+    assert q.meta["topology"] == want and q.meta["topology_chain"] == p.meta["topology_chain"]
+
+
+def test_meta_topology_explicit_preset():
+    p = generate.build_project({**CASES["two_inv"], "topology": "nn_hr_meter"})
+    assert p.meta["topology"] == "nn_hr_meter"
+    assert p.meta["topology_chain"] == "stringy → RFVE.DC → T → RFVE.AC → HR → HDS → DS"

@@ -1,6 +1,18 @@
 # Changelog
 
 ## Nevydáno
+- **Generátor jako balíček `envocad/generator/` (F1, 2. část)** – `generate.py` (2 100 řádků) rozdělen podle
+  `docs/design/topologie_f1_f2.md`, kap. 1.3: `context` (knihovna sestavení, převody, konstanty), `spec`
+  (`DEFAULT_SPEC`, `BUILDINGS` a `building_kind` bez kopie, vstupy průvodce, artikly, výběr topologie), `build`
+  (`build_project`), `pv` (stringy, střídače, DC rozvaděče, baterie), `chain` (průchod topologií přes registr
+  `BOARD_BUILDERS`), `layout`, `jps` a `boards/` (`rfve_dc`, `rfve_ac`, `rfve`, `grid`, `mv`, `macro_glue`,
+  `base` s `ChainContext` / `ChainPorts` / `BoardBuilder`). `envocad/generate.py` zůstává tenkým re-exportem (API, CLI
+  `python -m envocad.generate`, logger „envocad.generate“). Generátor volá `select_topology` (na nesloučené
+  specifikaci) a zapíše `meta["topology"]` a `meta["topology_chain"]`; role bez builderu (stávající RD, HR a RE na nn,
+  HDS – F2) se přeskočí, přípojku VN staví jeden složený builder. Výkres beze změny – snímek
+  `tests/data/generate_snapshot.json` rozšířen na 15 specifikací a mezi kroky refaktoringu identický, jediná změna
+  jsou 2 klíče meta. Testy, které podstrkují knihovnu, patchují `envocad.generator.context._lib`. Formát projektu
+  beze změny. Testy `tests/test_generator_chain.py`.
 - **RFVE rodinného domu: PE svodičů bez křížení u XPE** – PE svodičů DC (kolem levého konce sběrnice) se připojuje
   k vodiči vývod 1 → XPE zleva o 5 mm výš než PE svodiče AC zprava (`generate.DC_PE_JOIN_DY`): dvě odbočky „T“ místo
   bodu se čtyřmi směry, který vypadal jako křížení bez uzlu. Vestavěná makra beze změny (rozložení dělá
