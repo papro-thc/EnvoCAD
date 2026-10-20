@@ -1,6 +1,25 @@
 # Changelog
 
 ## Nevydáno
+- **Generátor – opravy z review (F0, `docs/NAVRH_TOPOLOGIE.md` kap. 6)**, formát projektu beze změny (v12):
+  **pojistka stringu, na kterou nevyhoví žádná velikost gPV** (např. Isc 18,5 A s EFH 10 DC, max. jištění modulu
+  10 A), zůstane **bez In** (dřív tiché 15 A) – v makru i v kódu – a F7 hlásí chybu `fuse_no_in`; řada gPV doplněná
+  o **30 / 32 A**, mez držáku z nového sloupce artiklu **`in_max_a`** (EFH 10 DC = 25 A, `docs/COMPONENTS.md`).
+  Nová kontrola F7 `protection_findings`: jistič / pojistka v rozvaděči bez In = chyba (`breaker_no_in`).
+  **SolarEdge** (pojistka stringu 25 A, standard ENVO) se pozná i podle typu / výrobce / artiklu střídače a režimu
+  `fixed_voltage` (`generate.is_solaredge`). **`mppt` „2.0“ / „2,0“** už generátor neshodí (zapíše „2“). **Rodinný
+  dům bez maker**: In pojistek po skupinách střídačů (dřív všechny podle prvního). **Hlavní rozvaděč nn (přípojka
+  VN)**: vývod FVE omezený selektivitou s hlavním jističem ze Sn (`fve_feeder_in`; 50 kVA → HJ 100 A, vývod 50 A místo
+  125 A), nejde-li splnit (proud FVE nad selektivním jističem), In zůstane prázdné + chyba F7; vývod spotřeby z řady
+  vývodů (16 A–), nic se tiše nedosazuje; zadané `connection.main_board.fve_in` platí. **`u_vn` s jednotkou**
+  („22000 V“, „22 000 V“, „22,5 kV“ – `generate.parse_voltage`; dřív 22 MV), převod MTN a texty v kV. **Rodinný dům
+  bez DC části** (`dc.tech_box` false) má RFVE „rozvaděč FVE (AC)“ a přípojku VN odmítne česky i bez DC části.
+  **Kabel baterie** z `battery.cable/cross/length` (výchozí H1Z2Z2-K 1x25, 25 mm², 5 m; dřív typ z `dc.cable` 1x6
+  s průřezem 25). **Cesta bez maker bez varování F7**: DC rozvaděč z kódu (`templates.build_dc_strings`) po 50 mm jako
+  makra (popisky SPD se nepřekrývaly), SPD stringů v RFVE na vývod XPE; u rodinného domu s rozvaděči po trase místo
+  na popisky kabelů před RFVE (dřív `text_overlap` u 2+ střídačů). Regresní snímek beze změny. Testy
+  `tests/test_generate.py` (body 1–9, „výstup generátoru bez chyb a varování F7“ pro firmu, RD, bytový dům, vn
+  kiosk / kobky / sloup a bez maker). Známé: vícepól elektroměrového rozvaděče RE u přípojky VN – `xfail`, ROADMAP.
 - Katalog z datasheetů (`katalogy/datasheet`): FV moduly **Runergy HY-DH96N11B 430–450 Wp** (N-type bifacial), střídače
   **SolarEdge SE12.5K–SE27.6K** (pevné napětí 750 V, `string_mode` fixed_voltage) a optimizér **SolarEdge P1100**
   (2 moduly v sérii, pravidla stringu pro SE25K: 14–30 optimizérů, 13 500 W). Pozor: Runergy 450 Wp (Isc 16,07 A)
