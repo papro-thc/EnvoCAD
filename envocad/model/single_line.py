@@ -25,7 +25,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 
 from envocad.model import multipole as mp
-from envocad.model.feed import FEED_SYMBOLS
+from envocad.model.feed import FEED_SYMBOL, FEED_SYMBOLS
 from envocad.model.multipole_geometry import Prim
 from envocad.model.project import Element, Project, Sheet, Wire, element_symbol, wire_label
 from envocad.model.symbol import Symbol, place_point, rotate_dir
@@ -36,7 +36,7 @@ Point = tuple[float, float]
 Box = tuple[float, float, float, float]
 
 TITLE = "Jednopólové schéma"
-PASS_SYMBOLS = {"sb.feed", "sb.terminal_block", "fve.terminal", "sb.junction", "fve.interrupt"}
+PASS_SYMBOLS = {FEED_SYMBOL, "sb.terminal_block", "fve.terminal", "sb.junction", "fve.interrupt"}
 SKIP_SYMBOLS = {"sb.pe_bar", "fve.earth"}
 BUS_SYMBOLS = {"sb.busbar"}
 METER_SYMBOLS = {"fve.meter"}

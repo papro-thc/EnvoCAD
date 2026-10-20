@@ -23,6 +23,7 @@ from envocad.model.feed import (
     FEED_ARROW_OUT,
     FEED_SYMBOL,
     LEGACY_FEEDS,
+    MP_LEGACY_ATTR,
     feed_dir,
     feed_dir_valid,
     feed_link_key,
@@ -195,7 +196,8 @@ def test_v12_migration_lossless_roundtrip_and_links():
         for eo, en in zip(so["elements"], sn["elements"], strict=True):
             if eo["symbol_id"] in LEGACY_FEEDS:
                 direction, turn = LEGACY_FEEDS[eo["symbol_id"]]
-                assert en["symbol_id"] == FEED_SYMBOL and en["attrs"] == {**eo["attrs"], "dir": direction}
+                assert en["symbol_id"] == FEED_SYMBOL
+                assert en["attrs"] == {**eo["attrs"], "dir": direction, MP_LEGACY_ATTR: "1"}
                 assert en["rotation"] == (eo.get("rotation", 0) + turn) % 360
                 assert {k: v for k, v in en.items() if k not in ("symbol_id", "rotation", "attrs")} == \
                     {k: v for k, v in eo.items() if k not in ("symbol_id", "rotation", "attrs")}

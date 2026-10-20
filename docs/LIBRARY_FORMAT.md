@@ -159,7 +159,7 @@ Zatím bez UI – plní se CSV importem (`store.import_components_csv`).
 Aby se přístroj objevil v rozložení a ve výkazech správně, má mít atributy `manufacturer`, `poles`
 a `modules` (šířka na DIN liště v modulech 17,5 mm; `0` = nemodulový, nerozmisťuje se).
 Symboly pro list rozvaděče mají prefix `sb.` (`envocad/library/builtin/switchboard/`): sběrnice `sb.busbar`
-(porty IN, T1…T10 shora, vývody 1…12 zdola po 15 mm), přívod/vývod `sb.feed` (viz níže), svorkovnice `sb.terminal_block` (šířka skupiny `modules`; prázdná = počet svorek × 6,2 mm), PE/N můstek `sb.pe_bar`.
+(porty IN, T1…T12 shora, vývody 1…13 zdola po 15 mm), přívod/vývod `sb.feed` (viz níže), svorkovnice `sb.terminal_block` (šířka skupiny `modules`; prázdná = počet svorek × 6,2 mm), PE/N můstek `sb.pe_bar`.
 
 ### Přívod / vývod `sb.feed` (formát projektu v13)
 
@@ -179,7 +179,9 @@ Jedna značka pro přívod i vývod rozvaděče (`docs/design/znacka_privod_vyvo
   port na stejném místě), makra v1/v2 a schránka se převádějí při načtení (`normalize_legacy_element`), vestavěné
   řádky starých značek `sync_builtin` z SQLite smaže (uživatelská značka se stejným id zůstává).
 - Sběrnice `sb.busbar` má navíc **přívody zdola `B1…B12`** (B1…B6 na x −60, −30, 0, 30, 60, 90; B7…B12 mezi nimi,
-  vždy mimo polohy vývodů 1…12) – přívodní větev, která teče nahoru do sběrnice (RFVE, RFVE.AC).
+  vždy mimo polohy vývodů 1…12) – přívodní větev, která teče nahoru do sběrnice (RFVE, RFVE.AC). Při 7–12 přívodech
+  generátor přiřadí porty B podle x zleva (odbočky schodovitě bez křížení); vývod 13 (x 112,5, za B12) je pro hlavní
+  vypínač za posledním přívodem.
 
 ## Footprinty (pohled do rozložení)
 

@@ -265,7 +265,10 @@ sběrnice); DC stringy rozvaděče FVE jako „U“ (přívod, pojistkový odpoj
 ohybem, jeho PE nad sběrnicí do XPE). DC rozvaděče (RFVE.DC, RDCn), HR, RE a RVN mají rozložení jako dřív. Vícepól
 se tím nemění (přívody v něm zůstávají nahoře). **Starší projekty** (do formátu 12) se při otevření převedou beze
 ztráty: přívody i vývody dostanou novou značku, porty zůstanou na místě, nic se nepřeskládá (přibude jen šipka);
-přeskládat je můžeš přegenerováním nebo ručně (otočení `R` – vodič na port drží). Starší EnvoCAD projekt formátu 13
+převedený přívod je pootočený o 180°, **popisek** (označení, popis, Odkud) ale zůstane tam, kde byl – vpravo od svorky
+(přívod otočený o 90°/270° má popisek na stejné straně jako dřív). Vícepól starého listu zůstane, jak byl (ani ruční
+přívod zespodu se v něm neotáčí), uzavřené revize zůstanou uzavřené (převod nehlásí změnu listu).
+Přeskládat je můžeš přegenerováním nebo ručně (otočení `R` – vodič na port drží). Starší EnvoCAD projekt formátu 13
 a makra verze 3 neotevře.
 
 ### Založení
@@ -277,8 +280,9 @@ string zvlášť: pojistkový odpínač (u technologie) nebo jen průchozí svor
 **Rozvod** v rozvaděči jde dvěma způsoby (parametr šablony i průvodce): **sběrnice potenciálů** – prvek
 *Sběrnice (rozvodný vodič)*; ve vícepólu se kreslí jako v EPLAN vodorovnými čarami L1 L2 L3 N PE přes
 celou stranu (i přes více stran) s názvem potenciálu a šipkou na obou koncích (`1L1`… – označení sběrnice je
-předpona), přístroje se na ni napojují odbočkou s tečkou; porty `T1…T12` shora (přívody), `1…12` zdola (vývody)
-a `B1…B12` zdola (přívody, které do sběrnice tečou zespodu). PE je potenciál sběrnice (1PE),
+předpona), přístroje se na ni napojují odbočkou s tečkou; porty `T1…T12` shora (přívody), `1…13` zdola (vývody)
+a `B1…B12` zdola (přívody, které do sběrnice tečou zespodu; do 6 přívodů svisle pod nimi, při 7–12 přívodech
+schodovitě bez křížení – sběrnice je pak výš a hlavní vypínač visí z vývodu 13 za posledním přívodem). PE je potenciál sběrnice (1PE),
 PE sběrnice i PE svodiče přepětí jdou na vývod `XPE` – ekvipotenciální svorkovnici (HOP) vně rozvaděče. Nebo
 **rozvodné svorky s můstky** (skupiny svorek X2, můstky mezi nimi).
 

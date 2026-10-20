@@ -12,6 +12,8 @@ from envocad.model.feed import LEGACY_FEEDS
 from envocad.model.symbol import Symbol
 
 BUILTIN_DIR = Path(__file__).parent / "builtin"
+# soubory vestavěných značek, které knihovna už nemá (v13: sb.feed_in / sb.feed_out → sb.feed) – klíče `builtin_files`
+LEGACY_BUILTIN_FILES = frozenset(f"builtin:switchboard{sep}{sid}.json" for sid in LEGACY_FEEDS for sep in ("/", "\\"))
 log = logging.getLogger("envocad.library")
 
 SCHEMA = """
@@ -100,8 +102,11 @@ class LibraryStore:
         marks = ",".join("?" * len(LEGACY_FEEDS))
         found = self.conn.execute(f"SELECT id FROM symbols WHERE builtin=1 AND id IN ({marks})", list(LEGACY_FEEDS))
         stale = [r[0] for r in found if not any(row[0] == r[0] for row in rows)]
-        if stale:     # zápis (a zámek databáze) jen když je co mazat
+        # záznamy o souborech starých vestavěných značek (oddělovač / i \\ na Windows) pryč spolu s řádky značek
+        stale_files = [k for k in seen if k in LEGACY_BUILTIN_FILES]
+        if stale or stale_files:     # zápis (a zámek databáze) jen když je co mazat
             self.conn.executemany("DELETE FROM symbols WHERE builtin=1 AND id=?", [(sid,) for sid in stale])
+            self.conn.executemany("DELETE FROM builtin_files WHERE path=?", [(k,) for k in stale_files])
             self.conn.commit()
             for sid in stale:
                 self._cache.pop(sid, None)

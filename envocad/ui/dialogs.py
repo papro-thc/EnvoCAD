@@ -66,9 +66,18 @@ class ChoiceEdit(QComboBox):
 
     def __init__(self, items: list[tuple[str, str]], value: str = "", parent=None):
         super().__init__(parent)
+        # kolečko myši při posouvání panelu Vlastnosti / dialogu nesmí nechtěně změnit hodnotu (a přidat krok undo):
+        # fokus jen klepnutím nebo tabulátorem, kolečko bez fokusu jde dál (posun okolí)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         for v, label in items:
             self.addItem(label, v)
         self.setText(value)
+
+    def wheelEvent(self, event) -> None:
+        if not self.hasFocus():
+            event.ignore()
+            return
+        super().wheelEvent(event)
 
     def text(self) -> str:
         return str(self.currentData() or "")

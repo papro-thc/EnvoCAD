@@ -18,6 +18,10 @@ DIR_CHOICES = [[FEED_IN, "přívod"], [FEED_OUT, "vývod"]]
 # staré id → (směr, o kolik stupňů pootočit, aby port zůstal na místě): `sb.feed_in` měl port dole (S)
 LEGACY_FEEDS = {"sb.feed_in": (FEED_IN, 180), "sb.feed_out": (FEED_OUT, 0)}
 LINK_KEYS = {FEED_IN: "from", FEED_OUT: "to"}
+LEGACY_FEED_IDS = {FEED_IN: "sb.feed_in", FEED_OUT: "sb.feed_out"}   # kanonická podoba v otisku listu (`diff`)
+# technická značka prvku převedeného migrací projektu v12 → v13: vícepól ho kreslí přesně jako dřív (neotáčí přívodní
+# větev – `multipole.flow_flipped`); do otisku listu ani do porovnání revizí nepatří
+MP_LEGACY_ATTR = "mp_legacy"
 
 
 def _sid(e: Any) -> str:
@@ -49,6 +53,11 @@ def feed_dir_valid(e: Any) -> bool:
     return raw_dir(e) in ("", *FEED_DIRS)
 
 
+def is_mp_legacy(e: Any) -> bool:
+    """Přívod/vývod převedený migrací ze starého projektu (vícepól jako dřív, bez otočení větve)."""
+    return str(_attrs(e).get(MP_LEGACY_ATTR) or "") == "1"
+
+
 def is_feed_in(e: Any) -> bool:
     return is_feed(e) and feed_dir(e) == FEED_IN
 
@@ -71,9 +80,10 @@ def feed_name(e: Any) -> str:
     return "vývod" if feed_dir(e) == FEED_OUT else "přívod"
 
 
-def normalize_legacy_element(d: dict) -> bool:
+def normalize_legacy_element(d: dict, mark: bool = False) -> bool:
     """Slovník prvku se starou značkou `sb.feed_in` / `sb.feed_out` převede na `sb.feed` + `attrs.dir` (na místě).
-    `sb.feed_in` se pootočí o 180°, aby port `1` zůstal na stejném místě se stejným směrem. Vrací True při změně."""
+    `sb.feed_in` se pootočí o 180°, aby port `1` zůstal na stejném místě se stejným směrem. `mark` (migrace projektu)
+    zapíše `attrs.mp_legacy = "1"` – vícepól starého listu se pak nemění. Vrací True při změně."""
     if not isinstance(d, dict):
         return False
     legacy = LEGACY_FEEDS.get(str(d.get("symbol_id", "")))
@@ -85,12 +95,30 @@ def normalize_legacy_element(d: dict) -> bool:
     if not isinstance(attrs, dict):
         attrs = d["attrs"] = {}
     attrs["dir"] = direction
+    if mark:
+        attrs[MP_LEGACY_ATTR] = "1"
     try:
         rot = int(d.get("rotation") or 0)
     except (TypeError, ValueError):
         rot = 0
     d["rotation"] = (rot + turn) % 360
     return True
+
+
+def normalize_legacy_objects(elements: Any) -> int:
+    """Prvky (objekty `Element`) se starou značkou `sb.feed_in` / `sb.feed_out` převede na místě jako
+    `normalize_legacy_element` – pro šablony pluginů psané pro starší verzi (`templates.apply_template`). Vrací počet."""
+    n = 0
+    for e in elements or ():
+        legacy = LEGACY_FEEDS.get(str(getattr(e, "symbol_id", "")))
+        if legacy is None:
+            continue
+        direction, turn = legacy
+        e.symbol_id = FEED_SYMBOL
+        e.attrs["dir"] = direction
+        e.rotation = (int(e.rotation or 0) + turn) % 360
+        n += 1
+    return n
 
 
 def normalize_legacy_fragment(fragment: Any) -> int:

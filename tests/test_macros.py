@@ -92,16 +92,17 @@ def test_parse_macro_rejects_non_macro():
         parse_macro({"name": "x"}, None, "vlastní")
 
 
-def test_save_macro_writes_v3_with_implicit_variables(tmp_path, monkeypatch):
+def test_save_macro_writes_v2_with_implicit_variables(tmp_path, monkeypatch):
     monkeypatch.setattr(macros, "user_dir", lambda: tmp_path / "m")
     monkeypatch.setattr(macros, "shared_dir", lambda: None)
     frag = {"elements": [{"id": "a", "symbol_id": "fve.breaker_mcb", "x": 0, "y": 0, "attrs": {"ref": "F1", "in_": "{proud}"}}],
             "wires": []}
     path = save_macro("Můj jistič", "popis", frag)
     data = json.loads(path.read_text(encoding="utf-8"))
-    assert data["version"] == 3 and data["variables"] == [{"name": "proud"}] and not validate_macro(data)
+    # bez přívodu/vývodu sb.feed verze 2 (otevře ji i starší EnvoCAD)
+    assert data["version"] == 2 and data["variables"] == [{"name": "proud"}] and not validate_macro(data)
     m = load_macro(path)
-    assert m.version == 3 and [v.name for v in m.variables] == ["proud"] and not m.variables[0].implicit
+    assert m.version == 2 and [v.name for v in m.variables] == ["proud"] and not m.variables[0].implicit
 
 
 def test_builtin_macros_are_valid_v3():

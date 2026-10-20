@@ -438,15 +438,23 @@ def list_macros() -> list[Macro]:
     return sorted(found.values(), key=lambda m: (m.source != "vestavěné", m.name.lower()))
 
 
+def macro_save_version(fragment: dict) -> int:
+    """Verze zapisovaného makra: 3 (`MACRO_VERSION`), obsahuje-li výřez značku `sb.feed`, jinak 2."""
+    els = fragment.get("elements") if isinstance(fragment, dict) else None
+    has_feed = any(isinstance(e, dict) and e.get("symbol_id") == FEED_SYMBOL for e in els or ())
+    return MACRO_VERSION if has_feed else 2
+
+
 def save_macro(name: str, description: str, fragment: dict, shared: bool = False) -> Path:
-    """Uloží makro ve formátu v2; proměnné odvodí ze zástupných symbolů `{x}` ve fragmentu (typ text). Vazby na
-    originál (kabel vodiče `cable_id`, vazba přívodu `wire_id`/odkud/kam) se neukládají."""
+    """Uloží makro; proměnné odvodí ze zástupných symbolů `{x}` ve fragmentu (typ text). Vazby na originál (kabel
+    vodiče `cable_id`, vazba přívodu `wire_id`/odkud/kam) se neukládají. Verze 3 jen s přívodem/vývodem `sb.feed`
+    (starší program by místo něj vložil zástupnou značku „?“), jinak 2 – makro bez přívodu otevře i starší EnvoCAD."""
     from envocad.model.project import detach_fragment
     fragment = detach_fragment(fragment)   # bez kabelu originálu (cable_id) a vazeb přívodů na vodiče JPS
     d = (shared_dir() if shared else None) or user_dir()
     d.mkdir(parents=True, exist_ok=True)
     p = d / f"{_slug(name)}.json"
-    data = {"version": MACRO_VERSION, "name": name, "description": description,
+    data = {"version": macro_save_version(fragment), "name": name, "description": description,
             "variables": [v.to_dict() for v in implicit_variables(fragment)], "fragment": fragment}
     p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     return p

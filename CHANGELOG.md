@@ -1,6 +1,25 @@
 # Changelog
 
 ## Nevydáno
+- **`sb.feed` – opravy z review** (formát projektu zůstává v13 – v13 ještě nikde není –, bez migrace navíc):
+  **uzavřená revize v12 zůstane po migraci uzavřená** – otisk listu (`diff._canon_element`) kreslí `sb.feed` kanonicky
+  jako dřívější `sb.feed_in` / `sb.feed_out` bez `dir` (rotace v otisku není; převod přívodu o 180° zpět = stará
+  rotace, test). **Vícepól starých projektů beze změny**: migrace zapíše přívodům/vývodům technický atribut
+  `mp_legacy="1"` (mimo otisk i porovnání revizí) a `multipole.flow_flipped` od nich větev neotáčí (ruční přívod
+  zespodu rot 180 + jistič rot 90 zůstane, jak byl). **Vlastní makra AC přívodu/jádra ve starém rozložení** (v1/v2
+  nebo bez vodiče do portu `B*`): jádro se vkládá za přívody jako dřív (`generate._feed_macro_from_below`), bez přesunu
+  hlavního vypínače a lomů odboček – F7 čisté. **AC rozvaděč se 7–12 střídači bez křížení**: k-tý přívod zleva →
+  k-tý port `B` zleva, odbočky schodovitě (vlevo nejníž), sběrnice se zvedne, aby se schody vešly; sběrnice má
+  **vývod 13** (čára o 15 mm delší) pro hlavní vypínač za posledním přívodem `B12`. **Prodloužený formát na šířku**
+  pro přetékající listy rozvaděčů z generátoru (`frame.grow_sheet_long`, ISO 5457 A4×n / A3×n se stejnou výškou):
+  RFVE s 9 stringy je A4×5 místo A0, DC rozvaděč s 9 stringy A4×3 místo A2. `sync_builtin` maže i záznamy
+  `builtin_files` starých značek; dialog parametrů počítá odkud/kam vazby podle směru z dialogu; nabídka směru
+  (`ChoiceEdit`) bere kolečko jen s fokusem; krok undo „Změnit Směr“ (popisek atributu místo klíče); literál
+  `"sb.feed"` jen v `model/feed.py` (`FEED_SYMBOL`); šablona pluginu se starými značkami se po `build` převede
+  (`feed.normalize_legacy_objects`, poznámka v `envocad/plugins.py` a ARCHITECTURE); `save_macro` píše verzi 3 jen
+  s `sb.feed`, jinak 2; MANUAL: popisek převedeného přívodu, vícepól a revize starých projektů, vývod 13 sběrnice.
+  Testy `tests/test_feed_review.py` (data `tests/data/v12_closed_revision.ecp` uložená verzí 12,
+  `tests/data/macros_v2/`), `tests/test_feed_gui.py`.
 - **Jedna značka přívodu/vývodu `sb.feed`** (`docs/design/znacka_privod_vyvod.md` vč. rozhodnutí 2026-10-20),
   **formát projektu v13**, makra v3: přívod i vývod je značka *Přívod / vývod* se směrem v atributu `dir` (`in` |
   `out`, výchozí přívod, nabídka ve Vlastnostech – nový nepovinný klíč atributu knihovny `choices`). Port nahoře,

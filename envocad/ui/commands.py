@@ -321,12 +321,28 @@ class SplitWireCommand(_FeedFollowups, QUndoCommand):
         self.scene.add_wire_item(self.old)
 
 
+def _attr_label(scene, target_id: str, is_wire: bool, key: str) -> str:
+    """Český název atributu do textu kroku undo („Změnit Směr“, ne „Změnit dir“): popisek atributu značky prvku
+    (vodiče), jinak klíč."""
+    attrs = []
+    try:
+        if is_wire:
+            from envocad.model.project import SWITCHBOARD_WIRE_ATTRIBUTES, WIRE_ATTRIBUTES
+            attrs = WIRE_ATTRIBUTES + SWITCHBOARD_WIRE_ATTRIBUTES
+        else:
+            it = getattr(scene, "element_items", {}).get(target_id)
+            attrs = list(getattr(getattr(it, "symbol", None), "attributes", None) or [])
+    except Exception:  # noqa: BLE001 – text kroku undo nesmí shodit změnu
+        attrs = []
+    return next((a.label for a in attrs if a.key == key and a.label), key)
+
+
 class SetAttrCommand(_FeedFollowups, QUndoCommand):
     """Změna atributu. Ruční vazba přívodu/vývodu (`wire_id`) navíc přejmenuje konec vodiče JPS na bloku a předá
     žíly vodičům u přívodu (follow-upy, undo je vrátí)."""
 
     def __init__(self, scene, target_id: str, is_wire: bool, key: str, old: str, new: str):
-        super().__init__(f"Změnit {key}")
+        super().__init__(f"Změnit {_attr_label(scene, target_id, is_wire, key)}")
         self.scene, self.tid, self.is_wire, self.key, self.old, self.new = scene, target_id, is_wire, key, old, new
         self.had_key = key in self._target().attrs   # undo nového atributu ho zase odebere
 

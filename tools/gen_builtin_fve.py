@@ -445,13 +445,14 @@ SYMBOLS = [
         "id": "sb.busbar", "name": "Sběrnice (rozvodný vodič)", "category": "Svorky a propojení", "iec_ref": "",
         "description": "Rozvod potenciálů vodičem jako v EPLAN: ve vícepólu vodorovné čáry L1 L2 L3 N PE přes stranu "
                        "s názvy potenciálů na koncích, přístroje se na ně napojují odbočkou; 1 vstup, 12 přívodů shora, "
-                       "12 vývodů zdola, 12 přívodů zdola (B1…B12)",
-        "primitives": [{"type": "polyline", "points": [[-75, 0], [105, 0]], "closed": False},
-                       {"type": "polyline", "points": [[-75, 1], [105, 1]], "closed": False}],
+                       "13 vývodů zdola, 12 přívodů zdola (B1…B12)",
+        "primitives": [{"type": "polyline", "points": [[-75, 0], [120, 0]], "closed": False},
+                       {"type": "polyline", "points": [[-75, 1], [120, 1]], "closed": False}],
         # porty: IN vlevo nahoře, T1…T12 shora (přívody, jističe od střídačů – generátor: nejvýš 12 střídačů), 1…12 zdola (vývody) – šablona
         # AC rozvaděče potřebuje SPD + až 9 vývodů + PE (`templates.AC_MAX_OUTPUTS`, `BUSBAR_OUTPUTS`)
         "ports": [P("IN", -75, 5, "N")] + [P(f"T{i + 1}", -60 + i * 15, 5, "N") for i in range(BUSBAR_INPUTS)]
-                 + [P(f"{i + 1}", -67.5 + i * 15, -5, "S") for i in range(12)]
+                 # vývod 13 až za posledním přívodem zdola B12 (hlavní vypínač AC rozvaděče s 12 střídači bez křížení)
+                 + [P(f"{i + 1}", -67.5 + i * 15, -5, "S") for i in range(13)]
                  # přívody zdola (rozvaděč FVE / AC rozvaděč: přívodní větev teče od svorky X dole nahoru do sběrnice):
                  # B1…B6 po 30 mm od polohy T1 (= rozteč makra „AC přívod střídače“, svislý vodič bez lomu), B7…B12 mezi nimi;
                  # vždy mimo polohy vývodů 1…12 (ty leží o 7,5 mm vedle)

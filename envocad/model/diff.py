@@ -13,9 +13,11 @@ from dataclasses import dataclass
 from itertools import pairwise
 
 from envocad.model import multipole as mp
+from envocad.model.feed import LEGACY_FEED_IDS, MP_LEGACY_ATTR, feed_dir, is_feed
 from envocad.model.project import Element, Project, Sheet, Wire
 
-IGNORED_ATTRS = {"wire_id", "cable_id", "sheet"}   # odvozené/technické atributy
+IGNORED_ATTRS = {"wire_id", "cable_id", "sheet", MP_LEGACY_ATTR}   # odvozené/technické atributy
+FEED_CANON_SKIP = {"dir"}          # sb.feed v otisku: směr je v kanonickém id značky (sb.feed_in / sb.feed_out)
 MOVE_DETAIL = "posun ve výkresu"                   # detail změny, která je jen posunem prvku (bez značky revize)
 
 
@@ -217,8 +219,16 @@ def diff_projects(old: Project, new: Project, lib=None) -> list[Change]:
 
 
 def _canon_element(e: Element) -> dict:
-    return {"id": e.id, "symbol_id": e.symbol_id, "component_id": e.component_id or "",
-            "attrs": {k: v for k, v in sorted(e.attrs.items()) if k not in IGNORED_ATTRS and v not in ("", None)}}
+    """Kanonická podoba prvku pro otisk listu. Přívod/vývod `sb.feed` se zapisuje jako dřívější `sb.feed_in` /
+    `sb.feed_out` bez atributu `dir` (a bez technické značky migrace `mp_legacy`): otisky uzavřených revizí spočtené
+    ve formátu ≤ v12 tak po migraci na v13 sedí (žádné falešné `rev_closed_changed`). Rotace (migrace přívod pootočí
+    o 180°) v otisku není vůbec – viz `sheet_fingerprint`."""
+    sid, attrs = e.symbol_id, e.attrs
+    if is_feed(e):
+        sid = LEGACY_FEED_IDS[feed_dir(e)]
+        attrs = {k: v for k, v in attrs.items() if k not in FEED_CANON_SKIP}
+    return {"id": e.id, "symbol_id": sid, "component_id": e.component_id or "",
+            "attrs": {k: v for k, v in sorted(attrs.items()) if k not in IGNORED_ATTRS and v not in ("", None)}}
 
 
 def _canon_wire(w: Wire) -> dict:

@@ -9,11 +9,12 @@ from collections import OrderedDict
 
 from envocad.library.store import LibraryStore
 from envocad.model.designation import LOCATION_SYMBOLS, designation, element_name, full_designation, scope_key
+from envocad.model.feed import FEED_SYMBOL
 from envocad.model.notes import plural
 from envocad.model.project import INTERRUPT_SYMBOL, NON_DEVICE_SYMBOLS, Element, Project, Sheet, clean_view
 from envocad.model.xref import natural_key
 
-TERMINAL_SYMBOLS = {"sb.feed", "sb.terminal_block"}
+TERMINAL_SYMBOLS = {FEED_SYMBOL, "sb.terminal_block"}
 
 DEVICE_PARAMS = ["in_", "char", "poles", "idn", "spd_type", "uc", "icu", "ir", "p_ac", "e_kwh", "sn"]
 

@@ -150,6 +150,9 @@ Jeden model, dva pohledy nad stejnými daty:
   ho kreslí jako dřívější `sb.feed_in` / `sb.feed_out` (`feed.multipole_feed_view`) a přívodní větev, kterou list
   rozvaděče kreslí tokem zespodu nahoru (RFVE, RFVE.AC – přívod portem nahoru, jistič rot 90), otočí zpět shora dolů
   (`multipole.sheet_poles` / `flow_flipped`: prvek v pohledu je kopie se stejným id a atributy a jinou rotací).
+  Přívod/vývod převedený migrací v12 → v13 má technický atribut `mp_legacy="1"` – od něj se větev neotáčí (vícepól
+  starého projektu beze změny); otisk listu (`diff._canon_element`) kreslí `sb.feed` jako `sb.feed_in`/`sb.feed_out`
+  bez `dir` a `mp_legacy`, takže uzavřené revize starých projektů zůstanou uzavřené.
   Štítek kabelu přívodu/vývodu je na straně proti portu (`feed_cable_up`). Změna směru v GUI = jeden `SetAttrCommand`
   s navázanými změnami odkud ↔ kam (`project.feed_dir_changes`) a přestavbou položky značky.
 - Geometrie vícepólu (rozmístění `auto_layout`, stránkování `paginate`, popisky přístrojů `pole_label_lines`, trasy
@@ -192,6 +195,9 @@ Tři vrstvy rozšíření, od nejjednodušší:
 3. **Pluginy** – `~/.envocad/plugins/*.py` s `register(ctx)` (`envocad/plugins.py`): položky menu, šablony
    rozvaděčů, importéry v menu, vlastní výkazy. Vzor: `envocad/plugins_builtin/example_counts.py`.
    Budoucí obory (HVAC, MaR, silnoproud budov) = balíček knihovny + plugin se šablonami a výkazy, jádro se nemění.
+   Přívod/vývod rozvaděče je v API jedna značka `sb.feed` + `attrs.dir` (`feed.FEED_SYMBOL`); šablona pluginu se
+   starými `sb.feed_in` / `sb.feed_out` se po `build` převede (`feed.normalize_legacy_objects` v `apply_template`),
+   callback menu, který vkládá prvky sám, musí použít `sb.feed`.
 
 Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **13** – jedna značka přívodu/vývodu
 `sb.feed` se směrem `attrs.dir` místo `sb.feed_in` / `sb.feed_out`, migrace bez přeskládání: přívod se pootočí o 180°,

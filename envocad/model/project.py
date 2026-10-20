@@ -23,6 +23,7 @@ from envocad.model.designation import (
     sheet_scope,
 )
 from envocad.model.feed import (
+    FEED_SYMBOL,
     FEED_SYMBOLS,
     LEGACY_FEEDS,
     feed_link_key,
@@ -62,7 +63,7 @@ DEVICE_HEIGHT_MM = 45.0  # mm – výška modulového přístroje na liště (ro
 SHEET_KINDS = ("schematic", "switchboard")
 # Symboly, které nejsou přístroje k objednání ani na DIN lištu (propojení, odkazy, vnější prvky, kontakty – patří
 # k přístroji své cívky); výkazy (`export/reports.py`) i rozložení (`Layout.devices`)
-NON_DEVICE_SYMBOLS = {"fve.terminal", "fve.earth", "fve.grid", "fve.load", "fve.switchboard", "sb.feed",
+NON_DEVICE_SYMBOLS = {"fve.terminal", "fve.earth", "fve.grid", "fve.load", "fve.switchboard", FEED_SYMBOL,
                       "fve.interrupt", "ctl.contact_no", "ctl.contact_nc", "ctl.contact_power"}
 # Šířka jedné řadové svorky pro rozložení, když skupina svorek nemá zadanou šířku (`modules`): 6,2 mm = běžná
 # šroubová/pružinová průchozí svorka 2,5–4 mm² (Weidmüller, Phoenix, Bečov ~5,2–6,2 mm; push-in 1,5 mm² 3,5 mm,
@@ -1206,9 +1207,10 @@ def migrate(d: dict, ver: int) -> dict:
         # v13: jedna značka přívodu/vývodu `sb.feed` se směrem `attrs.dir` místo `sb.feed_in` / `sb.feed_out`.
         # Bezztrátově: port `1` zůstane na stejném místě se stejným směrem (přívod se pootočí o 180°), vodiče,
         # `mp_pos`, `sl_pos` i vazby se nemění a nic se nepřeskládá. Starší program v13 odmítne (`sb.feed` nezná).
+        # Značka `mp_legacy` drží vícepól starého listu beze změny (`multipole.flow_flipped` ho neotáčí).
         for s in d.get("sheets", []):
             for e in s.get("elements", []):
-                normalize_legacy_element(e)
+                normalize_legacy_element(e, mark=True)
     d["format_version"] = FORMAT_VERSION
     return d
 

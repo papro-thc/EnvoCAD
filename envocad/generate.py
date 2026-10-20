@@ -532,13 +532,14 @@ def _build_project(spec: dict) -> Project:
 
 
 def _grow_switchboards(p: Project, sheets: list[Sheet]) -> bool:
-    """`frame.grow_sheet_to_content` na listy DC rozvaděčů (šířka roste se stringy po `DC_STRING_PITCH`);
-    True = některý list se změnil."""
-    from envocad.model.frame import grow_sheet_to_content
+    """Zvětšení listů rozvaděčů, které přetékají (šířka roste se stringy po `DC_STRING_PITCH` / `DC_U_PITCH`
+    a se střídači): přednostně prodloužený formát na šířku se stejnou výškou (`frame.grow_sheet_long` – RFVE
+    s 9 stringy je A4×5, ne A0), jinak `frame.grow_sheet_to_content`. True = některý list se změnil."""
+    from envocad.model.frame import grow_sheet_long, grow_sheet_to_content
     lib = _lib()
     changed = False
     for sh in sheets:
-        changed = grow_sheet_to_content(p, sh, lib) or changed
+        changed = (grow_sheet_long(p, sh, lib) or grow_sheet_to_content(p, sh, lib)) or changed
     return changed
 
 
@@ -1695,13 +1696,34 @@ def _ac_box_from_macros(project: Project, sheet: Sheet, invs: list[dict], ac: di
     for k, inv in enumerate(invs, start=1):
         ctx = {"k": k, "i": k, "inverter": inv.get("ref") or f"T{k}"}
         devices += _insert_macro(project, sheet, mf, _macro_values(mf, ef, base, ctx, lib.component), (k - 1) * pitch, lib)
-    # jádro (XPE a SPD vlevo, hlavní vypínač + XOUT) se vkládá bez posunu; hlavní vypínač pak za poslední přívod
-    devices += _insert_macro(project, sheet, mc, _macro_values(mc, ec, base, {}, lib.component), 0.0, lib)
-    _ac_core_after_feeds(project, sheet)
+    core_vals = _macro_values(mc, ec, base, {}, lib.component)
+    if _feed_macro_from_below(mf):
+        # jádro (XPE a SPD vlevo, hlavní vypínač + XOUT) se vkládá bez posunu; hlavní vypínač pak za poslední přívod
+        devices += _insert_macro(project, sheet, mc, core_vals, 0.0, lib)
+        _ac_core_after_feeds(project, sheet)
+    else:
+        # vlastní makra ve starém rozložení (přívod shora do portu T{k}): jádro za přívody jako dřív, bez přesunu
+        # hlavního vypínače a lomů odboček (ty počítají s přívody zdola B{k})
+        devices += _insert_macro(project, sheet, mc, core_vals, len(invs) * pitch, lib)
     _place_sequential(sheet, devices)
     if ac.get("enclosure"):
         sheet.layout.params["type"] = _s(ac["enclosure"])
     return True
+
+
+def _feed_macro_from_below(m) -> bool:
+    """Makro přívodu střídače v rozložení „vše zespodu“ (makra v3: vodič do portu B{k} sběrnice). Vlastní makro
+    v1/v2 nebo makro bez vodiče do portu B* má staré rozložení (přívod shora do T{k}) – jádro se pak vkládá za přívody
+    jako dřív."""
+    if m.version < 3:
+        return False
+    fr = m.fragment or {}
+    buses = {e.get("id") for e in fr.get("elements", []) if isinstance(e, dict) and e.get("symbol_id") == "sb.busbar"}
+    for w in fr.get("wires", []):
+        for end in (w.get("a") or {}, w.get("b") or {}) if isinstance(w, dict) else ():
+            if end.get("element_id") in buses and str(end.get("port", "")).startswith("B"):
+                return True
+    return False
 
 
 # ---- AC rozvaděč FVE: vše přichází zespodu ----------------------------------------------------------------------
@@ -1716,6 +1738,8 @@ AC_ROW_BOTTOM = 105.0           # spodní řada: přívody a vývody (port naho�
 AC_ROW_DEVICES = 140.0          # přístroje (jističe přívodů, SPD, hlavní vypínač)
 AC_FEED_X0 = 105.0              # sloupec přívodu X1 (pod přívodem zdola B1)
 AC_CORE_GAP = 37.5              # hlavní vypínač nejméně tolik za posledním přívodem (popisky svorek ve spodní řadě)
+BUS_LINE_END = 120.0            # pravý konec čáry sběrnice (x vůči prvku; tools/gen_builtin_fve, sb.busbar)
+BUS_OUTPUTS = 13                # vývody 1…13 zdola (13 = za posledním přívodem zdola B12, pro hlavní vypínač)
 BUS_DROP_STEP = 5.0             # rozestup vodorovných úseků lomených odboček ze sběrnice (kontrola souběhu: 5 mm)
 
 
@@ -1736,11 +1760,14 @@ def _ac_core_after_feeds(project: Project, sheet: Sheet) -> None:
                    and by_id.get(w.b.element_id if w.a.element_id == bus.id else w.a.element_id) is not None
                    and by_id[w.b.element_id if w.a.element_id == bus.id else w.a.element_id].symbol_id == "sb.main_switch"),
                   None)
+    b_x = _bus_b_ports_by_x(project, sheet, bus)
     if q_wire is not None and feeds_x:
         q = by_id[q_wire.b.element_id if q_wire.a.element_id == bus.id else q_wire.a.element_id]
         want = max(feeds_x) + AC_CORE_GAP
-        i = next((i for i in range(1, 13) if _bus_out_x(bus, i) >= want - 1e-6), 12)
-        # víc než 6 přívodů: za koncem sběrnice, odbočka z posledního vývodu s lomem
+        # vývod hlavního vypínače vpravo od všech použitých přívodů zdola (jinak by jeho odbočka křížila přívod)
+        right = [i for i in range(1, BUS_OUTPUTS + 1) if _bus_out_x(bus, i) > b_x + 1e-6] or [BUS_OUTPUTS]
+        i = next((i for i in right if _bus_out_x(bus, i) >= want - 1e-6), right[0])
+        # víc než 6 přívodů: za koncem sběrnice, odbočka z vývodu za posledním přívodem s lomem
         x = max(_bus_out_x(bus, i), round(want / 2.5) * 2.5)
         dx = x - q.x
         for w in sheet.wires:          # hlavní vypínač a vše pod ním (XOUT) se posune
@@ -1752,6 +1779,25 @@ def _ac_core_after_feeds(project: Project, sheet: Sheet) -> None:
         end = q_wire.a if q_wire.a.element_id == bus.id else q_wire.b
         end.port = str(i)
     _bus_drop_points(project, sheet, bus)
+
+
+def _bus_b_ports_by_x(project: Project, sheet: Sheet, bus: Element) -> float:
+    """Víc než 6 přívodů zdola (B7…B12 leží mezi B1…B6): k-tý přívod zleva dostane k-tý port B zleva, odbočky
+    (`_bus_drop_points`) jsou pak schody bez křížení (vlevo nejníž). Do 6 přívodů beze změny (B1…B6 svisle pod
+    přívody po 30 mm). Vrací x nejpravějšího použitého portu B (bez přívodů zdola −∞)."""
+    sym = element_symbol(project, bus, _lib())
+    bx = {p.name: bus.x + p.x for p in sym.ports if p.name.startswith("B")}
+    by_id = {e.id: e for e in sheet.elements}
+    ends = []
+    for w in sheet.wires:
+        for end, other in ((w.a, w.b), (w.b, w.a)):
+            if end.element_id == bus.id and end.port in bx and other.element_id in by_id:
+                ends.append((by_id[other.element_id].x, end))
+    if len(ends) > 6:
+        ports = sorted(bx, key=lambda n: bx[n])
+        for (_x, end), name in zip(sorted(ends, key=lambda t: t[0]), ports):
+            end.port = name
+    return max((bx[end.port] for _x, end in ends), default=float("-inf"))
 
 
 def _bus_drop_points(project: Project, sheet: Sheet, bus: Element) -> None:
@@ -1774,6 +1820,14 @@ def _bus_drop_points(project: Project, sheet: Sheet, bus: Element) -> None:
         if oy >= py or abs(ox - px) < 1e-6:
             continue
         (right if ox > px else left).append((px, ox, oy, w, be is w.a))
+    # schody odboček se musí vejít nad přístroje (víc než 6 přívodů zdola): jinak se sběrnice zvedne
+    lift = 0.0
+    for group in (right, left):
+        if group:
+            lowest = bus.y - 5.0 - BUS_DROP_STEP * len(group)
+            lift = max(lift, max(oy for _px, _ox, oy, _w, _b in group) + 2.5 - lowest)
+    if lift > 1e-6:
+        bus.y += -(-lift // 2.5) * 2.5
     top = bus.y - 5.0 - BUS_DROP_STEP
     for group, rising in ((sorted(right, key=lambda t: t[0]), True), (sorted(left, key=lambda t: t[0]), False)):
         n = len(group)
@@ -1831,7 +1885,7 @@ def _dc_from_below(project: Project, sheet: Sheet) -> None:
     bus = next((e for e in sheet.elements if e.symbol_id == "sb.busbar"), None)
     x0 = max(e.x for e in ac) + DC_AC_GAP if ac else DC_U_X0
     if bus is not None:
-        x0 = max(x0, bus.x + 105.0 + 7.5 - DC_U_WIDTH - DC_SPD_DX)
+        x0 = max(x0, bus.x + BUS_LINE_END + 7.5 - DC_U_WIDTH - DC_SPD_DX)
     x0 = round(x0 / 2.5 + 0.49) * 2.5
     for j, (f, fu, (w_out, out), spd) in enumerate(strings):
         left = x0 + j * DC_U_PITCH

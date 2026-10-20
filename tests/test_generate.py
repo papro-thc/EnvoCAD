@@ -783,7 +783,8 @@ def test_dc_template_9_strings_fits_sheet():
         assert mp.paper_choice(sh) == mp.standard_switchboard_paper()
     p = build_project({"inverters": [{"ref": "T1", **_INV25, "strings": [20] * 9}]})
     dcs = [sh for sh in p.sheets if sh.loc.startswith(("RDC", "RFVE.DC"))]
-    assert dcs and all(sh.paper == "A2" and _inside(p, sh, lib) for sh in dcs)
+    # generátor: prodloužený formát na šířku se stejnou výškou (`frame.grow_sheet_long`), ne vyšší list
+    assert dcs and all(sh.paper == "A4×3" and sh.height == 297.0 and _inside(p, sh, lib) for sh in dcs)
 
 
 def test_grow_sheet_to_content_keeps_fitting_sheet():

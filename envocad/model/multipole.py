@@ -11,7 +11,15 @@ import dataclasses
 from dataclasses import dataclass, field
 
 from envocad.model.designation import element_name
-from envocad.model.feed import FEED_SYMBOL, feed_dir, is_feed, is_feed_in, is_feed_out, multipole_feed_view
+from envocad.model.feed import (
+    FEED_SYMBOL,
+    feed_dir,
+    is_feed,
+    is_feed_in,
+    is_feed_out,
+    is_mp_legacy,
+    multipole_feed_view,
+)
 from envocad.model.project import FEED_SYMBOLS, Element, Sheet, Wire
 from envocad.model.symbol import GRID, Symbol, rotate_dir
 
@@ -474,7 +482,9 @@ def flow_flipped(sheet: Sheet, poles: dict[str, ElementPoles]) -> set[str]:
     """Prvky, které vícepól (svislý tok) kreslí pootočené o 180°: vývod (`dir=out`) s portem dole, přívod (`dir=in`)
     s portem nahoře a průchozí
     prvky jeho větve, do kterých tok vstupuje zdola (port ke zdroji míří dolů – jistič otočený tokem nahoru, SPD nad
-    ohybem DC stringu), až po sběrnici nebo prvek s tokem shora. Staré listy (přívod nahoře, tok dolů) nic neotáčí."""
+    ohybem DC stringu), až po sběrnici nebo prvek s tokem shora. Staré listy (přívod nahoře, tok dolů) nic neotáčí;
+    přívod/vývod převedený migrací ze starého projektu (`mp_legacy`) se neotáčí ani se od něj neotáčí větev – vícepól
+    starého projektu zůstane, jak byl (i ruční přívod zespodu s jističem otočeným o 90°)."""
     if not poles or sum(1 for ep in poles.values() if _flow_is_horizontal_for(ep)) * 2 >= len(poles):
         return set()
     out: set[str] = set()
@@ -485,7 +495,7 @@ def flow_flipped(sheet: Sheet, poles: dict[str, ElementPoles]) -> set[str]:
     todo: list[tuple[str, str]] = []
     for eid, ep in poles.items():
         e = ep.element
-        if not (is_feed(e) and ep.symbol.ports):
+        if not (is_feed(e) and ep.symbol.ports) or is_mp_legacy(e):
             continue
         d = rotate_dir(ep.symbol.ports[0].dir, e.rotation)
         if is_feed_in(e) and d == "N":

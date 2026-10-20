@@ -15,7 +15,7 @@ import re
 from dataclasses import dataclass, field
 
 from envocad.model.designation import LOCATION_SYMBOLS, designation, element_name, full_designation
-from envocad.model.feed import feed_dir, is_feed
+from envocad.model.feed import FEED_SYMBOL, feed_dir, is_feed
 from envocad.model.multipole import (
     NEVER_SWITCHED,
     TERMINAL_BLOCK_SYMBOLS,
@@ -222,7 +222,7 @@ FLEXIBLE_WIRE_TYPES: list[tuple[str, str]] = [
 BUS = "sb.busbar"
 # neumístěné prvky s odhadem polohy: sběrnice nahoře (žlab 0), svorky a PE lišta dole (žlab `rows`), uprostřed
 TOP_ESTIMATE = {"sb.busbar"}
-BOTTOM_ESTIMATE = {"sb.feed", "sb.terminal_block", "fve.terminal", "sb.pe_bar"}
+BOTTOM_ESTIMATE = {FEED_SYMBOL, "sb.terminal_block", "fve.terminal", "sb.pe_bar"}
 JUNCTION = "sb.junction"
 UNSPLIT_COLOR = {"N", "PE", "PEN"}       # vícežilový vodič: barva z atributu se na ně nepoužije
 

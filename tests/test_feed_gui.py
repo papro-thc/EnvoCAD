@@ -117,3 +117,66 @@ def test_element_dialog_direction_choice(app, lib):
 def test_palette_preview_is_feed_in(app, lib):
     item = ElementItem(Element(FEED_SYMBOL), lib.get_symbol(FEED_SYMBOL))
     assert FEED_ARROW_IN in item.symbol.primitives
+
+
+def test_undo_text_uses_attribute_label(app, lib):
+    p, _s, sb, _blk, feed, _jw = _project()
+    w = _win(lib, p)
+    w.open_sheet(sb)
+    w.scene.set_attr(feed.id, False, "dir", "out")
+    assert w.undo.text(w.undo.index() - 1) == "Změnit Směr"        # popisek atributu, ne klíč „dir“
+    w.undo.undo()
+    w.undo.setClean()
+    w.close()
+
+
+def test_edit_dialog_direction_change_uses_new_link_key(app, lib, monkeypatch):
+    """Dialog parametrů: nová vazba na vodič JPS a změna směru přívod → vývod v témže dialogu – odvozený text vazby
+    jde do „Kam“ (podle směru z dialogu), „Odkud“ zůstane prázdné."""
+    from envocad.ui import dialogs
+    p, _s, sb, _blk, feed, jw = _project()
+    jw.b.port = "X9"                     # přívod zatím bez vazby (port bloku jiného jména)
+    for k in ("wire_id", "from", "to", "cable"):
+        feed.attrs.pop(k, None)
+    w = _win(lib, p)
+    w.open_sheet(sb)
+    assert not feed.attrs.get("wire_id") and not feed.attrs.get("from")
+
+    class FakeDialog:
+        Accepted = 1
+        wire_combo = object()
+        wire_id = jw.id
+        component_id = None
+        used_refs = None
+
+        def __init__(self, _sym, attrs, *_a, **_k):
+            self._vals = {**attrs, "dir": "out"}
+
+        def exec(self):
+            return self.Accepted
+
+        def values(self):
+            return dict(self._vals)
+
+    monkeypatch.setattr(dialogs, "ElementDialog", FakeDialog)
+    w.scene.edit_element(feed.id)
+    assert feed.attrs["dir"] == "out" and feed.attrs["wire_id"] == jw.id
+    assert feed.attrs["to"].startswith("W1 T1:AC") and not feed.attrs.get("from")
+    w.undo.undo()
+    assert feed.attrs.get("dir") == "in" and not feed.attrs.get("wire_id") and not feed.attrs.get("to")
+    w.undo.setClean()
+    w.close()
+
+
+def test_choice_edit_ignores_wheel_without_focus(app):
+    from PySide6.QtCore import QPoint, QPointF, Qt
+    from PySide6.QtGui import QWheelEvent
+    cb = ChoiceEdit([("in", "přívod"), ("out", "vývod")], "in")
+    assert cb.focusPolicy() == Qt.FocusPolicy.StrongFocus
+    cb.show()
+    assert not cb.hasFocus()
+    ev = QWheelEvent(QPointF(5, 5), QPointF(5, 5), QPoint(0, 0), QPoint(0, -120), Qt.MouseButton.NoButton,
+                     Qt.KeyboardModifier.NoModifier, Qt.ScrollPhase.NoScrollPhase, False)
+    QApplication.sendEvent(cb, ev)
+    assert cb.text() == "in" and not ev.isAccepted()      # kolečko jde dál (posun panelu), hodnota beze změny
+    cb.close()

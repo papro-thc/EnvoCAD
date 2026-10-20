@@ -11,6 +11,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field, replace
 
+from envocad.model.feed import FEED_SYMBOL
 from envocad.model.notes import plural
 from envocad.model.project import INTERRUPT_SYMBOL, Element, Project, Sheet, Wire
 
@@ -1067,7 +1068,7 @@ def check_strings(project: Project, t_min: float | None = None, t_max: float | N
 
 
 _PASS_THROUGH = ("fve.dc_disconnect", "fve.fuse", "fve.terminal", "sb.terminal_block", "fve.spd", "fve.switchboard",
-                 "sb.feed", "fve.interrupt")
+                 FEED_SYMBOL, "fve.interrupt")
 _INVERTERS = ("fve.inverter", "fve.inverter_hybrid")
 
 

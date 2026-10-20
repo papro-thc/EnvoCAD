@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from envocad.model.feed import FEED_SYMBOL
+from envocad.model.feed import FEED_SYMBOL, normalize_legacy_objects
 from envocad.model.project import Element, Project, Sheet, Wire, WireEnd
 
 AC_CONDUCTORS = ["L1", "L2", "L3", "N", "PE"]
@@ -332,6 +332,8 @@ def apply_template(project: Project, sheet: Sheet, tid: str, params: dict[str, s
     p = {tp.key: tp.default for tp in t.params}
     p.update(params or {})
     t.build(project, sheet, p)
+    # šablona pluginu ze starší verze může vkládat `sb.feed_in` / `sb.feed_out` – převod na `sb.feed` + směr
+    normalize_legacy_objects(sheet.elements)
     if lib is not None:
         from envocad.model.frame import grow_sheet_to_content
         grow_sheet_to_content(project, sheet, lib)

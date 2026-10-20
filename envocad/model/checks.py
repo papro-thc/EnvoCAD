@@ -21,7 +21,7 @@ from envocad.model.designation import (
     validate_code,
     validate_ref,
 )
-from envocad.model.feed import feed_dir_valid, is_feed_in, is_feed_out, raw_dir
+from envocad.model.feed import FEED_SYMBOL, feed_dir_valid, is_feed_in, is_feed_out, raw_dir
 from envocad.model.notes import OPEN_NOTE_WORDS, count_label
 from envocad.model.project import (
     FEED_SYMBOLS,
@@ -44,7 +44,7 @@ OPTIONAL_PORT_SYMBOLS = {"fve.switchboard", "sb.pe_bar", "sb.busbar", "fve.termi
                          "sb.junction"}   # uzel odbočky: počet vodičů hlídá `junction_free`
 NO_REF_OK_SYMBOLS = {"fve.earth", "fve.grid", "fve.load", "sb.junction"}   # bez označení je v pořádku
 AGGREGATED_INFO = {"no_article": "Bez artiklu / typu", "ref_syntax": "Označení s firemním oddělovačem „.“ / „-“ (přípustné jako firemní číslování)"}
-NO_ARTICLE_SYMBOLS = {"fve.grid", "fve.load", "fve.earth", "fve.terminal", "fve.switchboard", "sb.feed",
+NO_ARTICLE_SYMBOLS = {"fve.grid", "fve.load", "fve.earth", "fve.terminal", "fve.switchboard", FEED_SYMBOL,
                       "sb.pe_bar", "sb.busbar", "fve.pv_string", "fve.interrupt",
                       "ctl.contact_no", "ctl.contact_nc", "ctl.contact_power"}
 
