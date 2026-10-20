@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 
+from envocad.generator.boards.base import ChainContext
 from envocad.generator.context import (
     AC_SWITCHBOARD_REF,
     MAIN_LV_BOARD_REF,
@@ -443,3 +444,19 @@ def _build_meter_board(p: Project, sheet: Sheet, conn: dict) -> None:
     _wire(p, sheet, xmi, "1", pm, "1", CT_CONDUCTORS).points = [(x0 - 15, y + 20), (x0 + 15, y + 20)]
     _wire(p, sheet, xmu, "1", pm, "2", AC_CONDUCTORS[:4] if c["metering"] == "nn" else VT_CONDUCTORS).points = [
         (x0 + 45, y - 20), (x0 + 15, y - 20)]
+
+
+def build_blocks(ctx: ChainContext) -> None:
+    """Bloky přípojky VN za hlavním AC článkem (`_connection_blocks`): HR, TR, RVN / přístroje na sloupu, RE, DS."""
+    ctx.mv = _connection_blocks(ctx.project, ctx.sheet, ctx.spec, ctx.main, ctx.geo.x_blk)
+    ctx.grid = ctx.mv["grids"][0]
+
+
+def build_sheets(ctx: ChainContext) -> None:
+    """Listy přípojky VN: hlavní rozvaděč nn HR, rozvaděč VN (ne u sloupové TS), elektroměrový rozvaděč RE."""
+    p, chain = ctx.project, ctx.mv
+    conn = ctx.spec.get("connection") or {}
+    _build_main_lv_board(p, p.create_switchboard_sheet(chain["hr"]), conn, ctx.spec["ac"], ctx.inverters, ctx.main.ref)
+    if chain["rvn"] is not None:
+        _build_mv_board(p, p.create_switchboard_sheet(chain["rvn"]), conn)
+    _build_meter_board(p, p.create_switchboard_sheet(chain["re"]), conn)

@@ -2,7 +2,10 @@
 (refaktoring F1, krok 4)."""
 from __future__ import annotations
 
+import re
+
 from envocad.generator import context
+from envocad.generator.boards.base import ChainContext
 from envocad.generator.boards.macro_glue import FUSE_SYMBOLS, _dc_box_from_macro
 from envocad.generator.boards.rfve_ac import AC_ROW_BOTTOM, AC_ROW_DEVICES
 from envocad.generator.context import (
@@ -144,3 +147,38 @@ def _dc_from_below(project: Project, sheet: Sheet) -> None:
             xb, yb = bus_span[0] - DC_PE_AROUND, AC_ROW_BOTTOM + 15.0 + DC_PE_JOIN_DY
             pts = [(mid, DC_PE_Y), (xb, DC_PE_Y), (xb, yb), (tx, yb)]
         w.points = pts if w.b.element_id == tgt.id else pts[::-1]
+
+
+def build_dc_part(ctx: ChainContext, sb: Sheet) -> None:
+    """DC část rozvaděče FVE rodinného domu na listu `sb` (AC část už je hotová): pojistkové odpínače + SPD stringů
+    všech střídačů za AC přívody (DC přívody za vším, co AC část označila X<číslo>; porty JPS se posunou), tvar „U“,
+    artikly a neurčené In."""
+    from envocad.generator.boards.rfve_dc import (
+        _apply_component,
+        _apply_spd_component,
+        _mark_unresolved,
+        fuse_of,
+    )
+    p, s, blk, dc = ctx.project, ctx.sheet, ctx.main, ctx.spec["dc"]
+    dc_first = ctx.geo.dc_first
+    macros = ctx.spec.get("macros") or {}
+    sb.layout.params["network"] = "3NPE, 50 Hz / DC IT"
+    sb.layout.params["un"] = "230/400 V AC / max. 1000 V DC"
+    groups = [(i + 1, t.ref, [g.ref for g in gens], fuse_of(ctx, t)[0])
+              for i, (t, gens) in enumerate(zip(ctx.inverters, ctx.strings))]
+    # DC přívody za vším, co AC část označila X<číslo> (PE lišta, svorkovnice); porty JPS se posunou s nimi
+    used = [int(m.group(1)) for e in sb.elements if (m := re.fullmatch(r"X(\d+)", e.ref or ""))]
+    first = max([dc_first - 1, *used]) + 1
+    if first != dc_first:
+        for w in s.wires:
+            for end in (w.a, w.b):
+                m = re.fullmatch(r"X(\d+)", end.port) if end.element_id == blk.id else None
+                if m and int(m.group(1)) >= dc_first:
+                    end.port = f"X{int(m.group(1)) + first - dc_first}"
+    _add_dc_part(p, sb, groups, macros.get("dc_tech", ""), dc, first)
+    _dc_from_below(p, sb)
+    _apply_spd_component(sb, dc.get("spd_component"))
+    _apply_component(sb, dc.get("fuse_component"), "fve.fuse_disconnect")
+    whys = [why for fin, why in ctx.fuse_cache.values() if not fin]
+    if whys:   # pojistky bez In jsou jen ze skupin, kde nic nevyhovělo
+        _mark_unresolved(sb.elements, FUSE_SYMBOLS, "; ".join(dict.fromkeys(whys)))

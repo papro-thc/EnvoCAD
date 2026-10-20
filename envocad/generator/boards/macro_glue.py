@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 
 from envocad.generator import context
-from envocad.generator.boards.rfve_ac import _ac_core_after_feeds
 from envocad.generator.context import (
     _s,
 )
@@ -120,6 +119,7 @@ def _ac_box_from_macros(project: Project, sheet: Sheet, invs: list[dict], ac: di
             bus.attrs[TAPS_ATTR] = str(len(invs))
             bus.attrs[PITCH_ATTR] = f"{pitch:g}"
         devices += _insert_macro(project, sheet, mc, core_vals, 0.0, lib)
+        from envocad.generator.boards.rfve_ac import _ac_core_after_feeds  # rfve_ac importuje tento modul
         _ac_core_after_feeds(project, sheet)
     else:
         # vlastní makra ve starém rozložení (přívod shora do portu T{k}): jádro za přívody jako dřív, bez přesunu

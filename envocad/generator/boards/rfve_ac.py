@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from envocad.generator import context
+from envocad.generator.boards.base import ChainContext
 from envocad.generator.context import (
     _s,
 )
@@ -251,3 +252,21 @@ def _build_ac_switchboard(project: Project, sheet: Sheet, invs: list[dict], ac: 
         _place_sequential(sheet, [q, spd, *breakers, *groups, g_spd, g_out])
     if ac.get("enclosure"):
         sheet.layout.params["type"] = _s(ac["enclosure"])
+
+
+def build_main_sheet(ctx: ChainContext) -> Sheet:
+    """List hlavního AC článku (`ctx.main` – RFVE.AC, u rodinného domu AC část RFVE): přívody od střídačů z maker
+    `ac_feed` + `ac_core` (jen rozvod sběrnicí), jinak `_build_ac_switchboard`. Listy DC rozvaděčů vzniknou před ním."""
+    from envocad.generator.boards.macro_glue import _ac_box_from_macros
+    from envocad.generator.boards.rfve_dc import build_dc_sheets
+    build_dc_sheets(ctx)
+    p, spec = ctx.project, ctx.spec
+    invs, ac = spec.get("inverters") or [], spec["ac"]
+    sb = p.create_switchboard_sheet(ctx.main)
+    sb.layout.params.setdefault("network", "3NPE, 50 Hz")
+    sb.layout.params.setdefault("un", "230/400 V")
+    sb.layout.params.setdefault("in_", _s(ac.get("main_in") or 125))
+    if not _ac_box_from_macros(p, sb, invs, ac, spec.get("macros") or {}):
+        _build_ac_switchboard(p, sb, invs, ac, spec)
+    ctx.done.add("main")
+    return sb
