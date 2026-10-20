@@ -84,12 +84,10 @@ list (zvětší se formát). Odvozené jednopólové schéma je stejné jako bez
 """
 from __future__ import annotations
 
-import json
 import math
 import re
 import sys
 from itertools import pairwise
-from pathlib import Path
 
 from envocad.generator import context
 from envocad.generator.context import (
@@ -107,6 +105,26 @@ from envocad.generator.context import (
     _num_or,
     _s,
     log,
+)
+from envocad.generator.spec import (  # noqa: F401 – re-export veřejného API (testy, ui/dialogs.py)
+    BUILDINGS,
+    DEFAULT_SPEC,
+    HOUSE_SWITCHBOARD,
+    HOUSE_SWITCHBOARD_AC,
+    INVERTER_MODE_KEYS,
+    _apply_inverter_component,
+    _apply_module_component,
+    _apply_optimizer_component,
+    _apply_optimizer_rules,
+    _fuse_in,
+    _modules_per_optimizer,
+    building_kind,
+    fuse_in_why,
+    holder_max_in,
+    is_solaredge,
+    load_spec,
+    parse_number,
+    parse_strings,
 )
 from envocad.library.templates import (
     AC_CONDUCTORS,
@@ -134,50 +152,6 @@ from envocad.model.project import (
     sync_cables,
     sync_feed_links,
 )
-
-# druh objektu (`spec["building"]`) → text v projektu (meta „building“)
-BUILDINGS = {"company": "firma", "house": "rodinný dům", "apartment": "bytový dům"}
-HOUSE_SWITCHBOARD = {"ref": "RFVE", "desc": "rozvaděč FVE (DC + AC)"}
-HOUSE_SWITCHBOARD_AC = {"ref": "RFVE", "desc": "rozvaděč FVE (AC)"}   # bez DC části (`dc.tech_box` = false)
-
-DEFAULT_SPEC = {
-    "name": "Nový projekt FVE",
-    "meta": {},
-    "building": "company",   # company | house (DC i AC rozvaděč v jednom) | apartment
-    "module": {"p_wp": 450, "voc": 49.5, "vmp": 41.5, "isc": 13.9, "beta_voc": -0.27, "type": ""},
-    "site": {},   # {"t_min": -20, "t_max": 70} – návrhové teploty stringů (průvodce předvyplní ze standardu)
-    "optimizer": {"type": "", "per_module": 1},
-    "dc": {"cable": "H1Z2Z2-K 1x6", "cross": 6, "length": 30, "route_boxes": 1, "route_length": 20,
-           "tech_box": True, "tech_length": 5, "spd": "T1+T2", "fuse_in": "", "disconnect_in": 32, "disconnect": False,
-           # pojistkový odpojovač stringu (DC-20B – nespínat pod zátěží); "" = bez artiklu
-           "fuse_component": "eti-efh-10-dc-2p",
-           # artikl svodiče DC (typ, Uc, Up, ISCPV do výkresu) – použije se, když typ `spd` odpovídá artiklu; "" = bez
-           "spd_component": "weidmuller-vpu-pv-i-ii-3-1000"},
-    "ac": {"cable": "CYKY-J 5x16", "cross": 16, "length": 30, "breaker_in": 40, "main_in": 125,
-           "grid_cable": "CYKY-J 5x35", "grid_cross": 35, "grid_length": 20, "spd": "T1+T2", "enclosure": "",
-           "distribution": "bus"},
-    "switchboard": {"ref": AC_SWITCHBOARD_REF, "desc": "AC rozvaděč FVE"},
-    "grid": {"dso": "", "voltage": "3×400 V"},
-    # připojení k DS: "nn" = AC rozvaděč FVE přímo do DS (HDS); "vn" = trafostanice: hlavní rozvaděč nn,
-    # transformátor, rozvaděč VN (pole kioskové TS / kobky zděné TS; sloupová TS bez rozvaděče VN – odpínač, pojistky
-    # a svodiče na sloupu) a elektroměrový rozvaděč. Fakturační měření na straně nn (MTP v hlavním rozvaděči) nebo vn
-    # (MTP + MTN v měřicím poli VN; ne u sloupové TS). Prázdné hodnoty (main_in, ct_ratio, fuse_vn) se dopočtou ze Sn.
-    "connection": {"level": "nn", "metering": "nn", "station": "kiosk", "u_vn": "22 kV", "loop": True,
-                   "ts": {"ref": "TS1", "desc": ""},
-                   "transformer": {"sn": 630, "type": "", "ratio": "22/0,42 kV", "group": "Dyn1", "uk": 6},
-                   "mv_board": {"ref": "RVN", "desc": "rozvaděč VN"},
-                   "main_board": {"ref": MAIN_LV_BOARD_REF, "desc": "hlavní rozvaděč nn", "main_in": "", "load_in": "",
-                                  "fve_in": ""},
-                   "meter_board": {"ref": "RE", "desc": "elektroměrový rozvaděč"},
-                   "ct_ratio": "", "fuse_vn": "",
-                   "vn_cable": "22-AXEKVCEY 3×1×70", "vn_cross": 70, "vn_length": 10,
-                   "tr_cable": "4× 1-AYKY 3×240+120", "tr_cross": 240, "tr_length": 10,
-                   "meas_i_cable": "CYKY-O 7×4", "meas_i_cross": 4, "meas_u_cable": "CYKY-J 5×2,5", "meas_u_cross": "2,5",
-                   "meas_length": 5, "load": "spotřeba objektu"},
-    # makra, ze kterých se rozvaděče skládají (název makra z knihovny; "" = vestavěný kód); výkresy ladí projektant
-    "macros": {"dc_tech": "DC string v rozvaděči", "dc_route": "DC string po trase",
-               "ac_feed": "AC přívod střídače", "ac_core": "AC jádro rozvaděče"},
-}
 
 
 def build_project(spec: dict) -> Project:
@@ -703,19 +677,6 @@ def ref_ranges(refs: list[str]) -> str:
     return ", ".join(out)
 
 
-def building_kind(v) -> str:
-    """Druh objektu ze specifikace: "company" | "house" | "apartment" (přijme i české „firma“, „rodinný dům“, „RD“,
-    „bytový dům“, „BD“); prázdné = firma. Neznámá hodnota → ValueError."""
-    t = _s(v).strip().lower()
-    if not t:
-        return "company"
-    aliases = {**{k: k for k in BUILDINGS}, **{c: k for k, c in BUILDINGS.items()},
-               "rd": "house", "bd": "apartment", "rodinny dum": "house", "bytovy dum": "apartment"}
-    if t not in aliases:
-        raise ValueError(f"Neznámý druh objektu „{v}“ – zadejte firma, rodinný dům nebo bytový dům.")
-    return aliases[t]
-
-
 def _add_dc_part(p: Project, sheet: Sheet, groups: list[tuple[int, str, list[str], str]], entry, dc: dict,
                  first: int) -> None:
     """DC část rozvaděče FVE rodinného domu (za AC částí): na každý string pojistkový odpínač + SPD (makro
@@ -830,56 +791,6 @@ def _route_house(p: Project, blk: Element, ac_wires: list[Wire], grid: Element, 
     bottom = min((b[1] for b in boxes if b[2] >= x_out - 5.0 and b[0] <= grid.x + 10.0), default=blk.y)
     grid.y = snap(bottom - 7.5)
     w_grid.points = [(x_out, out[1]), (x_out, grid.y)]
-
-
-def is_solaredge(inv: Element | None, opt: dict) -> bool:
-    """String SolarEdge (standard ENVO: pojistka stringu 25 A): výrobce, typ nebo artikl střídače, typ / artikl
-    optimizéru obsahuje „SolarEdge“, nebo střídač pracuje s pevným napětím stringu (`string_mode` fixed_voltage –
-    SE5K, SE12.5K–SE27.6K)."""
-    texts = [opt.get("type"), opt.get("component_id")]
-    if inv is not None:
-        texts += [inv.attrs.get("manufacturer"), inv.attrs.get("type"), inv.component_id]
-        if _s(inv.attrs.get("string_mode")).strip().lower() == "fixed_voltage":
-            return True
-    return any("solaredge" in re.sub(r"[\s_-]", "", _s(x).lower()) for x in texts)
-
-
-def fuse_in_why(dc: dict, mod: dict, opt: dict, inv: Element | None) -> tuple[str, str]:
-    """In pojistek stringů DC rozvaděče a důvod, proč zůstalo prázdné (jinak ""): zadané `dc.fuse_in`, jinak podle
-    stringu (`calc.string_fuse_in`) – SolarEdge (`is_solaredge`) 25 A, jinak gPV ≥ 1,5·Isc modulu do 2,4·Isc, max.
-    jištění modulu a max. In držáku (`in_max_a` artiklu `dc.fuse_component` kategorie fuse_holder, EFH 10 DC 25 A;
-    i SolarEdge 25 A musí být ≤ max. In držáku). Když žádná velikost nevyhoví (nebo chybí Isc), vrací ("", důvod) –
-    In zůstane prázdné, prvek dostane `in_unresolved` a kontrola (F7) hlásí chybu `fuse_no_in`; nic se tiše
-    nedosazuje. Nic neloguje (varování jednou za střídač píše `build_project`)."""
-    if _s(dc.get("fuse_in")).strip() not in ("", "auto"):
-        return _s(dc["fuse_in"]), ""
-    from envocad.model.calc import string_fuse_in
-    holder = context._lib().component(dc.get("fuse_component")) if dc.get("fuse_component") else None
-    max_in = holder_max_in(holder)
-    solaredge = is_solaredge(inv, opt)
-    fin = string_fuse_in(_num(mod.get("isc")), _num(mod.get("i_fuse_max")), optimizer=solaredge, max_in=max_in)
-    if fin:
-        return f"{fin:g}", ""
-    lim = f"max. In držáku {max_in:g} A" if max_in else "max. In držáku –"
-    if solaredge:
-        return "", f"SolarEdge 25 A > {lim}"
-    if not _num(mod.get("isc")):
-        return "", "modul nemá Isc"
-    return "", (f"žádná velikost gPV nevyhoví (Isc {_s(mod.get('isc'))} A, max. jištění modulu "
-                f"{_s(mod.get('i_fuse_max')) or '–'} A, {lim})")
-
-
-def _fuse_in(dc: dict, mod: dict, opt: dict, inv: Element | None) -> str:
-    """In pojistek stringů (`fuse_in_why` bez důvodu); "" = neurčeno."""
-    return fuse_in_why(dc, mod, opt, inv)[0]
-
-
-def holder_max_in(comp) -> float | None:
-    """Max. In vložky držáku pojistky: jen `in_max_a` artiklu kategorie fuse_holder (ne `in_` – to je jmenovitý
-    proud držáku / odpínače, u OPVP katalogové Ie). Jiný nebo žádný artikl → None (bez meze)."""
-    if comp is None or getattr(comp, "category", "") != "fuse_holder":
-        return None
-    return comp.num("in_max_a")
 
 
 def _mark_unresolved(elements, symbols, why: str) -> None:
@@ -1431,91 +1342,6 @@ def _align_connection(project: Project, blk: Element, chain: dict) -> None:
                 w.points = [(xb, ps[1]), (xb, pr[1])]
 
 
-# údaje modulu ve specifikaci ← atribut prvku `fve.pv_string` (`Component.attr_values()`)
-MODULE_SPEC_FROM_ATTR = {"p_module": "p_wp", "voc": "voc", "vmp": "vmp", "isc": "isc", "imp": "imp",
-                         "beta_voc": "beta_voc", "u_sys_max": "u_sys_max", "type": "type", "manufacturer": "manufacturer",
-                         "alpha_isc": "alpha_isc", "gamma_pmax": "gamma_pmax", "i_fuse_max": "i_fuse_max"}
-
-
-def _apply_module_component(mod: dict) -> dict:
-    """Artikl modulu (`module.component_id`) doplní údaje modulu, které specifikace nezadala (chybí nebo prázdné);
-    zadané hodnoty mají přednost. Vrací novou specifikaci modulu; neznámý artikl → beze změny (stringy si
-    `component_id` ponechají, kontrola projektu ho nahlásí). Desetinná čárka z CSV se převede na tečku."""
-    out = dict(mod)
-    comp = context._lib().component(mod.get("component_id"))
-    if comp is None:
-        return out
-    for akey, val in comp.attr_values().items():
-        skey = MODULE_SPEC_FROM_ATTR.get(akey)
-        if skey and out.get(skey) in (None, ""):
-            out[skey] = val if skey in ("type", "manufacturer") else val.replace(",", ".")
-    out["component_id"] = comp.id
-    return out
-
-
-def _apply_inverter_component(t: Element, inv: dict) -> None:
-    """Artikl střídače (`component_id`) doplní atributy, které specifikace nezadala (chybí nebo jsou prázdné) –
-    např. typ, výrobce, `mppt` (→ počet DC vstupů), p_dc_max. Zadané hodnoty specifikace mají přednost.
-    Neznámý artikl se ignoruje (prvek si `component_id` ponechá, kontrola projektu ho nahlásí)."""
-    cid = inv.get("component_id")
-    if not cid:
-        return
-    comp = context._lib().component(cid)
-    if comp is None:
-        return
-    probe = Element(t.symbol_id, t.x, t.y, attrs=dict(t.attrs))
-    for key, val in comp.apply_to(probe).items():
-        if inv.get(key) in (None, ""):
-            t.attrs[key] = val
-    t.component_id = comp.id
-
-
-INVERTER_MODE_KEYS = ("string_mode", "u_string", "n_opt_min", "n_opt_max", "p_string_max")
-
-
-def _modules_per_optimizer(comp) -> int:
-    mpo = comp.num("modules_per_optimizer")
-    return 2 if mpo == 2 else 1
-
-
-def _apply_optimizer_component(opt: dict) -> tuple[dict, object | None]:
-    """Artikl optimizéru (`optimizer.component_id`): prázdný typ ← part_number, `per_module` ← 1 / modulů na
-    optimizér (zadané jiné `per_module` se nepoužije – počet optimizérů musí odpovídat `opt_*` atributům; zaloguje
-    se varování, průvodce to hlásí v asistentu). Vrací (nová specifikace optimizéru, artikl | None); neznámý artikl →
-    beze změny a None. Průvodce při vymazaném typu `component_id` neposílá (= bez optimizérů)."""
-    out = dict(opt)
-    comp = context._lib().component(opt.get("component_id"))
-    if comp is None or comp.category != "optimizer":
-        return out, None
-    if not str(out.get("type") or "").strip():
-        out["type"] = comp.part_number
-    per = 1 / _modules_per_optimizer(comp)
-    given = _num(opt.get("per_module"))
-    if given is not None and abs(given - per) > 1e-9:
-        log.warning("optimizer.per_module %g neodpovídá artiklu %s (%g ks/modul) – použije se hodnota z artiklu",
-                    given, comp.id, per)
-    out["per_module"] = per
-    out["component_id"] = comp.id
-    return out, comp
-
-
-def _apply_optimizer_rules(t: Element, inv: dict, comp) -> None:
-    """Režim stringů a pravidla z artiklu optimizéru do střídače: `string_mode` jen když ho nezadala specifikace ani
-    artikl střídače; `n_opt_min` = max, `n_opt_max` = min, `p_string_max` = min ze známých (artikl střídače, artikl
-    optimizéru pro fázi střídače); hodnoty ze specifikace vyhrávají."""
-    vals = comp.optimizer_values(t.attrs.get("phases") or 3)
-    mode = (comp.params.get("string_mode") or "").strip()
-    if not str(t.attrs.get("string_mode") or "").strip() and mode:
-        t.attrs["string_mode"] = mode
-    for key, okey, pick in (("n_opt_min", "opt_n_min", max), ("n_opt_max", "opt_n_max", min),
-                            ("p_string_max", "opt_p_string_max", min)):
-        if inv.get(key) not in (None, ""):
-            continue
-        known = [x for x in (_num(t.attrs.get(key)), _num(vals.get(okey))) if x is not None]
-        if known:
-            t.attrs[key] = f"{pick(known):g}"
-
-
 def _align_bends(project: Project) -> None:
     """Lomy vodičů JPS podle skutečných poloh portů (porty bloků rozvaděčů a střídačů se dopočítají až z listů):
     vodič s jediným svislým úsekem [(x, y1), (x, y2)] dostane y1 = y portu A, y2 = y portu B – je pak jen
@@ -2014,57 +1840,6 @@ def _build_ac_switchboard(project: Project, sheet: Sheet, invs: list[dict], ac: 
         _place_sequential(sheet, [q, spd, *breakers, *groups, g_spd, g_out])
     if ac.get("enclosure"):
         sheet.layout.params["type"] = _s(ac["enclosure"])
-
-
-# ---- vstupy průvodce (bez Qt, testovatelné) -------------------------------------------------------------------
-def parse_strings(text: str) -> list[list[int]]:
-    """„20,20,18; 20 20“ → [[20, 20, 18], [20, 20]]: střídače oddělené středníkem, stringy čárkou nebo mezerou.
-    Počet modulů musí být celé kladné číslo; prázdné úseky (koncový středník) se přeskočí. Chyba → ValueError
-    s českou hláškou."""
-    out: list[list[int]] = []
-    for i, part in enumerate(str(text or "").split(";"), start=1):
-        tokens = [t for t in part.replace(",", " ").split() if t]
-        if not tokens:
-            continue
-        nums = []
-        for t in tokens:
-            if not t.isdigit() or int(t) <= 0:
-                raise ValueError(f"Stringy (střídač {i}): „{t}“ není celé kladné číslo (počet modulů ve stringu).")
-            nums.append(int(t))
-        out.append(nums)
-    if not out:
-        raise ValueError("Stringy: zadejte alespoň jeden string (počty modulů oddělené čárkou nebo mezerou, "
-                         "střídače středníkem).")
-    return out
-
-
-def parse_number(text: str, label: str, *, integer: bool = False, minimum: float = 0.0, strict: bool = True,
-                 allow_empty: bool = False) -> int | float | str:
-    """Číslo z pole průvodce (desetinná čárka i tečka). `strict` = musí být > minimum, jinak ≥ minimum.
-    Prázdné pole s `allow_empty` → "". Chyba → ValueError s českou hláškou s názvem pole."""
-    t = str(text or "").strip().replace(",", ".")
-    if not t:
-        if allow_empty:
-            return ""
-        raise ValueError(f"{label}: zadejte hodnotu.")
-    try:
-        v = float(t)
-    except ValueError:
-        raise ValueError(f"{label}: „{text.strip()}“ není číslo.") from None
-    if not math.isfinite(v):
-        raise ValueError(f"{label}: „{text.strip()}“ není číslo.")
-    if integer and not v.is_integer():
-        raise ValueError(f"{label}: zadejte celé číslo (ne „{text.strip()}“).")
-    if (strict and v <= minimum) or (not strict and v < minimum):
-        cmp = "větší než" if strict else "alespoň"
-        raise ValueError(f"{label}: hodnota musí být {cmp} {minimum:g}.")
-    if integer or v.is_integer() and "." not in t:
-        return int(v)
-    return v
-
-
-def load_spec(path: Path | str) -> dict:
-    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
 
 
 def main(argv: list[str] | None = None) -> int:
