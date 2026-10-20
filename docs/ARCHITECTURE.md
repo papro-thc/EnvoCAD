@@ -142,7 +142,10 @@ Vazby přívodů/vývodů rozvaděče na vodiče JPS: GUI po každé změně mod
 spočítají se při prvním redo, undo je vrátí): žíly vodičů u přívodu převezmou žíly navázaného vodiče JPS
 (`feed_conductor_followups` v `AddWireCommand`, `SplitWireCommand`, `SetConductorsCommand`, `SetAttrCommand` s
 `wire_id`), přejmenování přívodu přejmenuje port vodiče JPS na bloku (`rename_followups` → `TextChange` „wire_port“).
-Plná `sync_feed_links` (i s primárními změnami) jen při načtení projektu a v generátoru. Zápisy do modelu v `ui/`
+Plná `sync_feed_links` (i s primárními změnami) jen při načtení projektu a v generátoru. Parametrická sběrnice (`taps`) má porty i podle
+vodičů: scéna po každém vložení / odebrání položky vodiče (`add_wire_item` / `remove_wire_item` – vodič, schránka, makro,
+smazání, undo / redo) přestaví značku dotčené sběrnice (`SchematicScene.refresh_bus_symbols`), jako `SetAttrCommand`
+po změně `taps`; vícepól (`MultipoleAddCommand`) přestaví sousední jednopólovou scénu celou. Zápisy do modelu v `ui/`
 mimo `commands.py` hlídá `tests/test_no_model_writes_in_ui.py`; výjimky mají komentář `# model-write-ok: <důvod>`.
 
 ## Rozšiřitelnost na další obory
