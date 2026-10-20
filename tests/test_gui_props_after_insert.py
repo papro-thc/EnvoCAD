@@ -89,7 +89,7 @@ def test_layout_select_then_edit_in_panel(app, tmp_path):
     win.close()
 
 
-@pytest.mark.parametrize("sid", ["fve.breaker_mcb", "sb.feed_in", "sb.feed_out", "fve.interrupt", "fve.inverter"])
+@pytest.mark.parametrize("sid", ["fve.breaker_mcb", "sb.feed", "fve.interrupt", "fve.inverter"])
 def test_schematic_place_then_edit_in_panel(app, tmp_path, sid):
     p = Project(name="JPS")
     win = MainWindow(LibraryStore(tmp_path / "lib.db"), p)
