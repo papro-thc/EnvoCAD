@@ -391,12 +391,17 @@ class SetAttrCommand(_FeedFollowups, QUndoCommand):
         self._ports += ch
 
     def _refresh_symbol(self) -> None:
-        """Obrázek prvku závisí na atributu (směr přívodu/vývodu – šipka, zobrazené odkud/kam): položka dostane novou
-        značku, jako blok ROZVADĚČ po změně listu."""
+        """Obrázek prvku závisí na atributu (směr přívodu/vývodu – šipka, zobrazené odkud/kam; počet přívodů, vývodů
+        a rozteč parametrické sběrnice – délka a porty): položka dostane novou značku, jako blok ROZVADĚČ po změně
+        listu; vodiče sběrnice se překreslí k novým polohám portů."""
+        from envocad.model.busbar import BUS_SYMBOL, PARAM_KEYS
         from envocad.model.feed import is_feed
         it = getattr(self.scene, "element_items", {}).get(self.tid)
         project = getattr(self.scene, "project", None)
-        if it is None or project is None or self.is_wire or self.key != "dir" or not is_feed(it.element):
+        if it is None or project is None or self.is_wire:
+            return
+        bus = it.element.symbol_id == BUS_SYMBOL and self.key in PARAM_KEYS
+        if not bus and (self.key != "dir" or not is_feed(it.element)):
             return
         from envocad.model.project import element_symbol
         from envocad.ui.render import symbol_path
@@ -404,6 +409,8 @@ class SetAttrCommand(_FeedFollowups, QUndoCommand):
         it.symbol = element_symbol(project, it.element, self.scene.library)
         it._path = symbol_path(it.symbol)
         it.sync_from_model()
+        if bus and hasattr(self.scene, "update_wires_of"):
+            self.scene.update_wires_of(self.tid)
 
     def redo(self):
         self._set(self.new)

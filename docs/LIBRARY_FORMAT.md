@@ -182,6 +182,15 @@ Jedna značka pro přívod i vývod rozvaděče (`docs/design/znacka_privod_vyvo
   vždy mimo polohy vývodů 1…12) – přívodní větev, která teče nahoru do sběrnice (RFVE, RFVE.AC). Při 7–12 přívodech
   generátor přiřadí porty B podle x zleva (odbočky schodovitě bez křížení); vývod 13 (x 112,5, za B12) je pro hlavní
   vypínač za posledním přívodem.
+- **Parametrická sběrnice** (`envocad/model/busbar.py`, skládá ji `project.element_symbol` jako značku střídače):
+  sběrnice s atributem **`taps`** (počet přívodů zdola) má délku a porty podle počtu přívodů a rozteče – přívody
+  `B1…Bn` (a `T1…Tn` přímo nad nimi) od x −60 po **`tap_pitch`** (výchozí 30 mm, násobek 2,5 ≥ 7,5), vývody `1`
+  (x B1 − 45, PE → XPE) a `2` (x B1 − 22,5, SPD) vlevo, vývody `3…` za posledním přívodem (`3` v x Bn + 37,5, další
+  po rozteči; počet vpravo **`outs`**, výchozí 1), `IN` vlevo nahoře na začátku čáry, čára 7,5 mm za krajními porty.
+  Počty se zvětší podle portů, na které vedou vodiče (nic se neodpojí). Prázdný / neplatný `taps` = pevná sběrnice
+  výše (staré projekty, vlastní makra, nově vložená sběrnice). Generátor (RFVE.AC, AC část RFVE), vestavěná makra
+  „AC přívod střídače“ / „AC jádro rozvaděče“ a šablona „AC rozvaděč FVE“ kreslí sběrnici parametrickou: každá
+  odbočka svisle. Formát projektu ani symbolu se nemění (atributy prvku).
 
 ## Footprinty (pohled do rozložení)
 

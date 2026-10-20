@@ -281,8 +281,14 @@ string zvlášť: pojistkový odpínač (u technologie) nebo jen průchozí svor
 *Sběrnice (rozvodný vodič)*; ve vícepólu se kreslí jako v EPLAN vodorovnými čarami L1 L2 L3 N PE přes
 celou stranu (i přes více stran) s názvem potenciálu a šipkou na obou koncích (`1L1`… – označení sběrnice je
 předpona), přístroje se na ni napojují odbočkou s tečkou; porty `T1…T12` shora (přívody), `1…13` zdola (vývody)
-a `B1…B12` zdola (přívody, které do sběrnice tečou zespodu; do 6 přívodů svisle pod nimi, při 7–12 přívodech
-schodovitě bez křížení – sběrnice je pak výš a hlavní vypínač visí z vývodu 13 za posledním přívodem). PE je potenciál sběrnice (1PE),
+a `B1…B12` zdola (přívody, které do sběrnice tečou zespodu). Sběrnice z generátoru, vestavěných maker a šablony
+„AC rozvaděč FVE“ je **parametrická**: vlastnost *Přívody zdola* (`taps`) určuje počet přívodů, *Rozteč přívodů*
+(výchozí 30 mm) jejich vzdálenost a *Vývody vpravo* počet vývodů za posledním přívodem; délka sběrnice a poloha portů
+se podle nich přepočítají, takže každý přívod `Bk` je přímo nad svým jističem a vývody `1` (PE → XPE), `2` (SPD) vlevo
+a `3` (hlavní vypínač → XOUT) vedou také rovně – bez schodů pro libovolný počet střídačů. Vodič na port za počtem
+(např. `B9` při 7 přívodech) sběrnici sám prodlouží. Sběrnice bez této vlastnosti (starší projekty, vlastní makra,
+nově vložená z knihovny) má pevnou délku jako dřív (do 6 přívodů svisle, při 7–12 schodovitě bez křížení, hlavní
+vypínač z vývodu 13). PE je potenciál sběrnice (1PE),
 PE sběrnice i PE svodiče přepětí jdou na vývod `XPE` – ekvipotenciální svorkovnici (HOP) vně rozvaděče. Nebo
 **rozvodné svorky s můstky** (skupiny svorek X2, můstky mezi nimi).
 

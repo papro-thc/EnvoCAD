@@ -1,6 +1,16 @@
 # Changelog
 
 ## Nevydáno
+- **Parametrická sběrnice – přívodní větve RFVE.AC / RFVE rovně do sběrnice** (formát projektu beze změny, bez
+  migrace): `sb.busbar` s atributem `taps` (počet přívodů zdola; `outs` vývody vpravo, `tap_pitch` rozteč) má délku a
+  porty podle počtu přívodů – `B{k}` přímo nad jističem k, vývod `1` (PE) nad XPE, `2` nad SPD, `3` nad hlavním
+  vypínačem za posledním přívodem (`envocad/model/busbar.py`, `project.element_symbol`). Generátor (kód i vestavěná
+  makra) a šablona „AC rozvaděč FVE“ kreslí všechny odbočky sběrnice svisle i pro 7–12 střídačů (dřív schody);
+  PE svodičů DC v RFVE rodinného domu vede kolem levého konce sběrnice. Sběrnice bez atributu (staré projekty,
+  vlastní makra – i „zespodu“ uložená z dřívějších vestavěných maker) kreslí pevnou geometrii jako dřív. Změna
+  atributu v GUI přestaví značku a vodiče. Vestavěná makra přegenerována (jádro: vývody 1/2/3 bez lomů); snímek
+  `tests/data/generate_snapshot.json` přegenerován – jediné rozdíly: atributy sběrnice a porty/lomy odboček SPD, PE
+  a hlavního vypínače (polohy prvků beze změny). Testy `tests/test_busbar.py`.
 - **`sb.feed` – opravy z review** (formát projektu zůstává v13 – v13 ještě nikde není –, bez migrace navíc):
   **uzavřená revize v12 zůstane po migraci uzavřená** – otisk listu (`diff._canon_element`) kreslí `sb.feed` kanonicky
   jako dřívější `sb.feed_in` / `sb.feed_out` bez `dir` (rotace v otisku není; převod přívodu o 180° zpět = stará
