@@ -1885,6 +1885,7 @@ DC_U_X0 = 60.0        # levá noha prvního stringu, když na listu nic jiného 
 DC_AC_GAP = 42.5      # od posledního prvku AC části (XOUT s popiskem) k levé noze prvního stringu
 DC_U_GAP = 35.0       # od SPD posledního stringu (popisek) k PE liště DC části
 DC_PE_AROUND = 7.5    # PE svodičů DC kolem levého konce sběrnice, když XPE stojí pod ní (parametrická sběrnice)
+DC_PE_JOIN_DY = 5.0   # odbočka PE svodičů DC (zleva) nad odbočkou PE svodiče AC (zprava) na vodiči k XPE
 DC_SPD_DX = 12.5      # SPD vpravo od pravé nohy (popisek vpravo nad ohybem dalšího stringu)
 
 
@@ -1969,8 +1970,9 @@ def _dc_from_below(project: Project, sheet: Sheet) -> None:
         pts = [(mid, DC_PE_Y), (tx, DC_PE_Y)]
         if bus_span is not None and bus_span[0] - 1e-6 <= tx <= bus_span[1] + 1e-6 and tgt.y < bus.y:
             # XPE pod parametrickou sběrnicí (vývod 1 nad ním): PE svodičů ji neprotne – vlevo kolem jejího začátku
-            # a zespodu k XPE na úrovni PE svodiče AC (souběh do téhož konce)
-            xb, yb = bus_span[0] - DC_PE_AROUND, AC_ROW_BOTTOM + 15.0
+            # a zleva k vodiči vývod 1 → XPE (souběh do téhož konce = odbočka „T“). Výš než PE svodiče AC, který
+            # přichází zprava v y = AC_ROW_BOTTOM + 15 – obě odbočky v jednom bodě by vypadaly jako křížení bez uzlu
+            xb, yb = bus_span[0] - DC_PE_AROUND, AC_ROW_BOTTOM + 15.0 + DC_PE_JOIN_DY
             pts = [(mid, DC_PE_Y), (xb, DC_PE_Y), (xb, yb), (tx, yb)]
         w.points = pts if w.b.element_id == tgt.id else pts[::-1]
 

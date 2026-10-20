@@ -1,6 +1,11 @@
 # Changelog
 
 ## Nevydáno
+- **RFVE rodinného domu: PE svodičů bez křížení u XPE** – PE svodičů DC (kolem levého konce sběrnice) se připojuje
+  k vodiči vývod 1 → XPE zleva o 5 mm výš než PE svodiče AC zprava (`generate.DC_PE_JOIN_DY`): dvě odbočky „T“ místo
+  bodu se čtyřmi směry, který vypadal jako křížení bez uzlu. Vestavěná makra beze změny (rozložení dělá
+  `_dc_from_below`). Test `test_switchboards_no_crossing_without_node` (všechny listy rozvaděčů RD 1/3 střídače,
+  makra i kód, rozvod svorkami, firma 1–12 střídačů; `_cross_nodes` v `tests/test_feed_review.py`), F7 čisté.
 - **Parametrická sběrnice – přívodní větve RFVE.AC / RFVE rovně do sběrnice** (formát projektu beze změny, bez
   migrace): `sb.busbar` s atributem `taps` (počet přívodů zdola; `outs` vývody vpravo, `tap_pitch` rozteč) má délku a
   porty podle počtu přívodů – `B{k}` přímo nad jističem k, vývod `1` (PE) nad XPE, `2` nad SPD, `3` nad hlavním

@@ -56,6 +56,34 @@ def _crossings(project, sheet, lib) -> list[tuple[str, str]]:
     return out
 
 
+
+def _cross_nodes(project, sheet, lib) -> list[tuple[float, float]]:
+    """Body, do kterých vodiče listu vedou ze všech čtyř stran (zleva, zprava, shora, zdola) – vypadají jako křížení
+    bez uzlu, i když se vodiče v bodě opravdu spojují (odbočky zleva i zprava v témže bodě svislého vodiče).
+    `_crossings` je nevidí (konce úseků leží přesně na druhém vodiči). Uzel `sb.junction` má tečku a porty mimo střed,
+    takže sem nepatří."""
+    from envocad.model.routing import route_sheet
+    segs = [(p, q) for pts in route_sheet(project, sheet, lib).values() for p, q in pairwise(pts) if p != q]
+    pts = {pt for seg in segs for pt in seg}
+    out = []
+    for c in sorted(pts):
+        dirs = set()
+        for p, q in segs:
+            for a, b in ((p, q), (q, p)):
+                if a[0] == b[0] == c[0] and min(a[1], b[1]) - 1e-6 <= c[1] <= max(a[1], b[1]) + 1e-6:
+                    if b[1] > c[1] + 1e-6:
+                        dirs.add("N")
+                    if b[1] < c[1] - 1e-6:
+                        dirs.add("S")
+                elif a[1] == b[1] == c[1] and min(a[0], b[0]) - 1e-6 <= c[0] <= max(a[0], b[0]) + 1e-6:
+                    if b[0] > c[0] + 1e-6:
+                        dirs.add("E")
+                    if b[0] < c[0] - 1e-6:
+                        dirs.add("W")
+        if len(dirs) == 4:
+            out.append(c)
+    return out
+
 # ---- 1. uzavřená revize v12 zůstane po migraci uzavřená ----------------------------------------------------------
 def _v12_raw() -> dict:
     return json.loads((DATA / "v12_closed_revision.ecp").read_text(encoding="utf-8"))

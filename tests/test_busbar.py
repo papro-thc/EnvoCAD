@@ -3,10 +3,11 @@ větve RFVE.AC / RFVE rovně do sběrnice; sběrnice bez atributu (staré projek
 from __future__ import annotations
 
 import json
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
-from test_feed_review import _crossings
+from test_feed_review import _cross_nodes, _crossings
 
 from envocad.model.busbar import (
     B1_X,
@@ -236,6 +237,71 @@ def test_rfve_house_branches_straight(lib, n):
            if f.sheet_id == s.id and f.severity in (ERROR, WARNING) and f.code not in known]
     assert bad == []
 
+
+
+_NO_MACROS = {"dc_tech": "", "dc_route": "", "ac_feed": "", "ac_core": ""}
+
+
+def _house_spec(n: int, **extra) -> dict:
+    return {"building": "house", **extra,
+            "inverters": [{"ref": f"T{i + 1}", **HOUSE_INV, "strings": [12, 12] if n == 1 else [12]} for i in range(n)]}
+
+
+_ALL_SWITCHBOARD_CASES = {
+    "rd1": _house_spec(1),
+    "rd3": _house_spec(3),
+    "rd1_kod": _house_spec(1, macros=_NO_MACROS),
+    "rd3_kod": _house_spec(3, macros=_NO_MACROS),
+    "rd1_svorky": _house_spec(1, ac={"distribution": "terminals"}),
+    "rd1_svorky_kod": _house_spec(1, ac={"distribution": "terminals"}, macros=_NO_MACROS),
+    **{f"firma{n}{suf}": {"inverters": [{"ref": f"T{i + 1}", **INV, "strings": [20]} for i in range(n)], **extra}
+       for n in (1, 2, 9, 12) for suf, extra in (("", {}), ("_kod", {"macros": _NO_MACROS}))},
+}
+
+
+@pytest.mark.parametrize("case", sorted(_ALL_SWITCHBOARD_CASES))
+def test_switchboards_no_crossing_without_node(lib, case):
+    """Na žádném generovaném listu rozvaděče se vodiče nekříží – ani úsekem přes úsek (`_crossings`), ani odbočkami
+    ze všech čtyř stran v jednom bodě bez uzlu (`_cross_nodes`; RFVE: PE svodičů DC zleva a PE svodiče AC zprava na
+    vodiči vývod 1 → XPE). Kontrola projektu (F7) na listech rozvaděčů bez chyb a varování."""
+    from envocad.generate import build_project
+    p = build_project(_ALL_SWITCHBOARD_CASES[case])
+    sheets = p.switchboards()
+    assert sheets
+    for s in sheets:
+        assert _crossings(p, s, lib) == [], s.loc
+        assert _cross_nodes(p, s, lib) == [], s.loc
+    ids = {s.id for s in sheets}
+    # rd3: vícepól RFVE má překryv textů nezávisle na trasování (viz test_rfve_house_branches_straight – otevřené)
+    known = {"mp_text_overlap"} if case.startswith("rd3") else set()
+    bad = [(f.code, f.text) for f in check_project(p, lib)
+           if f.sheet_id in ids and f.severity in (ERROR, WARNING) and f.code not in known]
+    assert bad == []
+
+
+def test_house_pe_branches_join_xpe_as_tees(lib):
+    """RFVE rodinného domu: PE svodičů DC přichází zleva k vodiči vývod 1 → XPE výš než PE svodiče AC zprava –
+    dvě odbočky „T“ místo jednoho bodu se čtyřmi směry."""
+    from envocad.generate import build_project
+    from envocad.model.routing import route_sheet
+    p = build_project(_house_spec(1))
+    s = next(s for s in p.switchboards() if s.loc == "RFVE")
+    xpe = next(e for e in s.elements if e.attrs.get("ref") == "XPE")
+    r = route_sheet(p, s, lib)
+    joins = {}
+    for w in s.wires:
+        if not w.touches(xpe.id) or len(r[w.id]) < 3:
+            continue
+        # poslední vodorovný úsek před XPE: y odbočky a strana, ze které přichází
+        pts = r[w.id] if w.b.element_id == xpe.id else r[w.id][::-1]
+        hz = [(a, b) for a, b in pairwise(pts) if a[1] == b[1] and a[0] != b[0]]
+        if hz:
+            a, b = hz[-1]
+            assert b[0] == xpe.x
+            joins.setdefault("W" if a[0] < b[0] else "E", set()).add(a[1])
+    assert set(joins) == {"W", "E"}
+    assert len(joins["W"]) == len(joins["E"]) == 1
+    assert joins["W"] != joins["E"]
 
 # ---- šablona „AC rozvaděč FVE“ -------------------------------------------------------------------------------------
 @pytest.mark.parametrize("n_out", ["1", "3", "9"])
