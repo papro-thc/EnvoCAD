@@ -389,3 +389,120 @@ def test_renumber_dialog_and_undo(monkeypatch):
     w.undo.undo()
     assert b.ref == "F1"
     w.close()
+
+
+# ---- zbytek návrhu: lišty (ikona + tooltip), kontextová menu, souřadnice ---------------------------------
+def test_every_toolbar_action_has_icon_and_tooltip_with_shortcut():
+    from PySide6.QtWidgets import QToolBar
+    w, _p, _s = _sb_window()
+    n = 0
+    for tb in w.findChildren(QToolBar):
+        for a in tb.actions():
+            if a.isSeparator():
+                continue
+            n += 1
+            assert not a.icon().isNull() and not a.icon().pixmap(20, 20).isNull(), a.text()
+            assert a.toolTip().strip(), a.text()
+            keys = a.shortcut().toString(QKeySequence.NativeText)
+            if keys:
+                assert keys in a.toolTip(), (a.text(), a.toolTip())
+    assert n >= 25
+    w.close()
+
+
+def _menu_texts(m):
+    return [a.text() for a in m.actions() if not a.isSeparator()]
+
+
+def test_context_menu_actions_work_and_undo():
+    from envocad.ui.items import ElementItem, WireItem
+    w, _p, s = _sb_window()
+    w.open_sheet(s, "schematic")
+    QApplication.processEvents()
+    sc = w.scene
+    el = next(it for it in sc.items() if isinstance(it, ElementItem) and it.element.attrs.get("ref") == "F1")
+    for it in sc.items():
+        if isinstance(it, ElementItem) and it.element.attrs.get("ref") == "X1":
+            it.setPos(80, 0)
+    m = w.context_menu(el.sceneBoundingRect().center())
+    assert el.isSelected()
+    texts = _menu_texts(m)
+    for t in ("Vlastnosti…", "Otočit o 90°", "Zrcadlit", "Kopírovat", "Smazat", "Vložit kopii",
+              "Vložit značku z knihovny", "Přizpůsobit list"):
+        assert t in texts, t
+    act = {a.text(): a for a in m.actions()}
+    rot, mir = el.element.rotation, el.element.mirror
+    act["Otočit o 90°"].trigger()
+    assert el.element.rotation != rot
+    act["Zrcadlit"].trigger()
+    assert el.element.mirror != mir
+    w.undo.undo()
+    w.undo.undo()
+    assert (el.element.rotation, el.element.mirror) == (rot, mir)
+    n = len(s.elements)
+    act["Smazat"].trigger()
+    assert len(s.elements) == n - 1
+    w.undo.undo()
+    assert len(s.elements) == n
+    # vodič: svorky, kabel, smazat
+    wi = next(it for it in sc.items() if isinstance(it, WireItem))
+    pos = next(wi.mapToScene(wi.path().pointAtPercent(t / 20)) for t in range(1, 20)
+               if not any(isinstance(i, ElementItem) for i in sc.items(wi.mapToScene(wi.path().pointAtPercent(t / 20)))))
+    texts = _menu_texts(w.context_menu(pos))
+    for t in ("Svorky vybraného vodiče…", "Kabel vybraného vodiče (žíly, barvy, stínění)…", "Smazat"):
+        assert t in texts, t
+    # prázdná plocha: Vložit, Vložit značku, Přizpůsobit; bez Smazat
+    texts = _menu_texts(w.context_menu(sc.sceneRect().topLeft()))
+    assert "Vložit kopii" in texts and "Vložit značku z knihovny" in texts and "Přizpůsobit list" in texts
+    assert "Smazat" not in texts
+    w.undo.setClean()
+    w.close()
+
+
+def test_context_menu_open_switchboard_block(monkeypatch):
+    from envocad.model.project import Element
+    from envocad.ui.items import ElementItem
+    w, _p, _s = _sb_window()
+    from envocad.library.store import LibraryStore
+    from envocad.model.project import Project, Sheet
+    blk = Element("fve.switchboard", attrs={"ref": "RDC1"})
+    jps = Sheet(name="JPS")
+    jps.elements.append(blk)
+    w.close()
+    w = MainWindow(LibraryStore(), Project(name="P", sheets=[jps]))
+    w.show()
+    w.open_sheet(jps, "schematic")
+    QApplication.processEvents()
+    it = next(i for i in w.scene.items() if isinstance(i, ElementItem) and i.element.id == blk.id)
+    called = []
+    monkeypatch.setattr(w, "open_switchboard_from_block", lambda eid: called.append(eid))
+    m = w.context_menu(it.sceneBoundingRect().center())
+    assert "Otevřít rozvaděč" in _menu_texts(m)
+    next(a for a in m.actions() if a.text() == "Otevřít rozvaděč").trigger()
+    assert called == [blk.id]
+    w.close()
+
+
+def test_context_menu_in_multipole_and_cursor_on_grid():
+    import re
+
+    from PySide6.QtCore import QEvent, QPointF
+    from PySide6.QtGui import QMouseEvent
+
+    from envocad.ui.multipole_view import PoleItem
+    w, _p, s = _sb_window()
+    w.open_sheet(s, "multipole")
+    QApplication.processEvents()
+    pole = next(it for it in w.view.scene().items() if isinstance(it, PoleItem))
+    m = w.context_menu(pole.mapToScene(pole.shape().boundingRect().center()))
+    texts = _menu_texts(m)
+    assert "Vlastnosti…" in texts and "Smazat" in texts and "Přizpůsobit list" in texts
+    vp = w.view.viewport()
+    pt = QPointF(vp.width() / 3, vp.height() / 3)
+    QApplication.sendEvent(vp, QMouseEvent(QEvent.MouseMove, pt, vp.mapToGlobal(pt), Qt.NoButton, Qt.NoButton,
+                                           Qt.NoModifier))
+    mm = re.fullmatch(r"X (-?\d+),(\d)  Y (-?\d+),(\d) mm", w._sb_coords.text())
+    assert mm, w._sb_coords.text()
+    for v in (float(f"{mm[1]}.{mm[2]}"), float(f"{mm[3]}.{mm[4]}")):
+        assert abs(v / 2.5 - round(v / 2.5)) < 1e-9, v          # na mřížce 2,5 mm
+    w.close()
