@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QGraphicsRectIte
 
 from envocad.library.store import LibraryStore
 from envocad.model import multipole as mp
+from envocad.model.feed import FEED_SYMBOLS
 from envocad.model.project import Element, Project, Sheet, Wire, element_symbol, wire_label
 from envocad.model.symbol import GRID, Symbol, rotate_dir
 from envocad.ui import commands
@@ -655,9 +656,7 @@ class MultipoleScene(QGraphicsScene):
         self.paper_label = mp.page_paper_label(self.sheet)
         poles: dict[str, mp.ElementPoles] = {}
         self._poles = poles
-        for e in self.sheet.elements:
-            sym = element_symbol(self.project, e, self.library)
-            poles[e.id] = mp.element_poles(self.sheet, e, sym)
+        poles.update(mp.sheet_poles(self.sheet, lambda e: element_symbol(self.project, e, self.library)))
         self._breaks: dict[tuple[int, bool], int] = {}
         self._break_ys: dict[tuple[int, bool], set[float]] = {}
         # rozmístění, stránkování, popisky žil, přerušení a odkazy z modelu (model/multipole_geometry) – kontrola
@@ -757,7 +756,7 @@ class MultipoleScene(QGraphicsScene):
         """Štítky kabelů u přívodů a vývodů: označení kabelu (W2), název (od G1 / k HOP), typ (2× H1Z2Z2-K 1x6 mm²)."""
         from envocad.model.project import linked_wire
         for e in self.sheet.elements:
-            if e.symbol_id not in ("sb.feed_in", "sb.feed_out"):
+            if e.symbol_id not in FEED_SYMBOLS:
                 continue
             ep = poles.get(e.id)
             if ep is None or not ep.switched:
@@ -772,7 +771,7 @@ class MultipoleScene(QGraphicsScene):
                 cable = wire_label({k: v for k, v in w.attrs.items() if k != "ref"}, w.conductors)
             elif e.attrs.get("cable"):
                 cable = e.attrs["cable"]
-            up = e.symbol_id == "sb.feed_in"
+            up = mp.feed_cable_up(ep)
             y_edge = ep.origin[1] + (3.0 if up else -3.0)
             self._add(CableTagItem(min(xs), max(xs), y_edge, [ref, name, cable], up, e.id))
 

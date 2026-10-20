@@ -59,6 +59,43 @@ def button_box(buttons) -> QDialogButtonBox:
     return czech_buttons(QDialogButtonBox(buttons))
 
 
+class ChoiceEdit(QComboBox):
+    """Výběr hodnoty atributu s nabídkou (`Attribute.choices`) se stejným rozhraním jako `QLineEdit` (`text`,
+    `setText`) – dialog atributů i panel Vlastnosti s ním zacházejí jako s textovým polem. Hodnota mimo nabídku
+    (ruční úprava souboru) se zobrazí jako další položka, aby se nic neztratilo."""
+
+    def __init__(self, items: list[tuple[str, str]], value: str = "", parent=None):
+        super().__init__(parent)
+        # kolečko myši při posouvání panelu Vlastnosti / dialogu nesmí nechtěně změnit hodnotu (a přidat krok undo):
+        # fokus jen klepnutím nebo tabulátorem, kolečko bez fokusu jde dál (posun okolí)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        for v, label in items:
+            self.addItem(label, v)
+        self.setText(value)
+
+    def wheelEvent(self, event) -> None:
+        if not self.hasFocus():
+            event.ignore()
+            return
+        super().wheelEvent(event)
+
+    def text(self) -> str:
+        return str(self.currentData() or "")
+
+    def setText(self, value: str) -> None:
+        i = self.findData(value)
+        if i < 0 and value:
+            self.addItem(value, value)
+            i = self.count() - 1
+        self.setCurrentIndex(max(i, 0))
+
+    def setPlaceholderText(self, _text: str) -> None:
+        pass
+
+    def selectAll(self) -> None:
+        pass
+
+
 class AttrDialog(QDialog):
     """Zadání všech atributů prvku nebo vodiče – při vložení i při dvojkliku na existující."""
 
@@ -77,8 +114,12 @@ class AttrDialog(QDialog):
             lay.addWidget(QLabel(heading))
         form = QFormLayout()
         for a in attributes:
-            ed = QLineEdit(attrs.get(a.key, a.default))
-            ed.setPlaceholderText(a.default)
+            items = a.choice_items() if hasattr(a, "choice_items") else []
+            if items:                      # nabídka hodnot (směr přívodu/vývodu)
+                ed = ChoiceEdit(items, attrs.get(a.key, a.default) or a.default)
+            else:
+                ed = QLineEdit(attrs.get(a.key, a.default))
+                ed.setPlaceholderText(a.default)
             self._edits[a.key] = ed
             form.addRow(a.label + (" *" if a.show else ""), ed)
         lay.addLayout(form)
@@ -485,9 +526,9 @@ class ProjectWizard(QDialog):
         form.addRow("Číslo zakázky", self.order)
         form.addRow("Zpracoval", self.author)
         self.building = QComboBox()
-        self.building.addItem("firma (DC rozvaděče a AC rozvaděč zvlášť)", "company")
+        self.building.addItem("firma (DC rozvaděče RFVE.DC a AC rozvaděč RFVE.AC zvlášť)", "company")
         self.building.addItem("rodinný dům (DC i AC v jednom rozvaděči RFVE)", "house")
-        self.building.addItem("bytový dům (DC rozvaděče a AC rozvaděč zvlášť)", "apartment")
+        self.building.addItem("bytový dům (DC rozvaděče RFVE.DC a AC rozvaděč RFVE.AC zvlášť)", "apartment")
         self.building.setToolTip("Rodinný dům: pojistkové odpínače a SPD stringů jsou v rozvaděči FVE spolu s AC částí")
         form.addRow("Objekt", self.building)
         self.mod_type = QLineEdit()
@@ -568,7 +609,7 @@ class ProjectWizard(QDialog):
         self.dc_route_len = QLineEdit("20")
         self.dc_route_boxes.setToolTip("DC rozvaděče po trase (jen SPD na každý string, bez odpínače); 0 = žádný")
         form.addRow("DC rozvaděčů po trase / délka kabelu mezi nimi [m]", self._pair(self.dc_route_boxes, self.dc_route_len))
-        self.dc_tech_box = QCheckBox("DC rozvaděč u technologie (pojistkové odpínače + SPD)")
+        self.dc_tech_box = QCheckBox("DC rozvaděč u technologie RFVE.DC (pojistkové odpínače + SPD)")
         self.dc_tech_box.setChecked(True)
         self.dc_tech_len = QLineEdit("5")
         self.dc_fuse_in = QLineEdit("")
@@ -1569,7 +1610,7 @@ class StructuresDialog(QDialog):
         self.setWindowTitle("Strukturní označení")
         self.resize(480, 360)
         lay = QVBoxLayout(self)
-        lay.addWidget(QLabel("Aspekt „=“ je funkce, „+“ umístění. Kód: A–Z, 0–9, _, začíná písmenem."))
+        lay.addWidget(QLabel("Aspekt „=“ je funkce, „+“ umístění. Kód: A–Z, 0–9, _ a tečka uvnitř (RFVE.AC), začíná písmenem."))
         note = QLabel("Úprava kódu zde nepřejmenuje jeho použití na listech a prvcích. Umístění rozvaděče "
                       "přejmenuješ změnou označení jeho bloku.")
         note.setWordWrap(True)

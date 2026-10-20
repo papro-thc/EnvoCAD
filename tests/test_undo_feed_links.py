@@ -55,7 +55,7 @@ def _project(linked: bool = False):
     blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
     s.elements += [t, blk]
     sb = p.create_switchboard_sheet(blk)
-    feed = Element("sb.feed_in", 40, 200, attrs={"ref": "X1"})
+    feed = Element("sb.feed", 40, 200, rotation=180, attrs={"dir": "in", "ref": "X1"})
     q = Element("fve.breaker_mcb", 40, 150, attrs={"ref": "Q1"})
     sb.elements += [feed, q]
     sb.wires.append(Wire(WireEnd(feed.id, "1"), WireEnd(q.id, "1"), conductors=list(SHORT)))
@@ -291,7 +291,7 @@ def test_add_feed_with_wire_id_renames_jps_port_and_undoes(app, lib):
     w.open_sheet(sb)
     sc = w.scene
     before = _state(p)
-    e = Element("sb.feed_in", 80, 200, attrs={"ref": "X2"})
+    e = Element("sb.feed", 80, 200, rotation=180, attrs={"dir": "in", "ref": "X2"})
     e.attrs.update(feed_link_attrs(p, sb, e, other.id))
     w.undo.push(commands.AddElementCommand(sc, e))
     assert other.b.port == "X2" and e.attrs["wire_id"] == other.id
@@ -311,7 +311,7 @@ def test_paste_feed_with_wire_id_renames_jps_port(app, lib):
     w = _win(lib, p)
     w.open_sheet(sb)
     before = _state(p)
-    e = Element("sb.feed_in", 80, 200, attrs={"ref": "X3", "wire_id": other.id})
+    e = Element("sb.feed", 80, 200, rotation=180, attrs={"dir": "in", "ref": "X3", "wire_id": other.id})
     w.undo.push(commands.PasteCommand(w.scene, [e], []))
     assert other.b.port == "X3"
     w.undo.undo()
@@ -329,7 +329,7 @@ def test_multipole_add_feed_with_wire_id_renames_jps_port(app, lib):
     mps = w.view.scene()
     assert mps.sheet is sb
     before = _state(p)
-    e = Element("sb.feed_in", 80, 200, attrs={"ref": "X4", "wire_id": other.id})
+    e = Element("sb.feed", 80, 200, rotation=180, attrs={"dir": "in", "ref": "X4", "wire_id": other.id})
     w.undo.push(commands.MultipoleAddCommand(mps, element=e))
     assert other.b.port == "X4"
     w.undo.undo()
@@ -427,7 +427,7 @@ def test_set_attr_wire_id_reroutes_jps_wire_item(app, lib):
     vodiče v otevřeném JPS se hned přetrasuje (bez přestavby scény); undo ji vrátí na X2. Porty bloku se nemění
     (přívod X2 existuje), takže obnovu nezajistí ani přestavba bloku."""
     p, s, sb, t, blk, feed, _ = _project()
-    sb.elements.append(Element("sb.feed_in", 40, 120, attrs={"ref": "X2"}))
+    sb.elements.append(Element("sb.feed", 40, 120, rotation=180, attrs={"dir": "in", "ref": "X2"}))
     other = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "X2"), attrs={"ref": "W7"}, conductors=list(FULL))
     s.wires.append(other)
     w = _win(lib, p)

@@ -61,7 +61,7 @@ def test_auto_number_terminals():
     x1 = Element("sb.terminal_block", attrs={"ref": "X1"})
     x1b = Element("sb.terminal_block", attrs={"ref": "X1", "terminal": "7"})  # explicitní start
     f = Element("sb.rcbo", attrs={"ref": "F1", "poles": "1"})
-    out = Element("sb.feed_out", attrs={"ref": "X2"})
+    out = Element("sb.feed", attrs={"dir": "out", "ref": "X2"})
     s.elements += [x1, x1b, f, out]
     w1 = Wire(WireEnd(x1.id, "2"), WireEnd(f.id, "1"), conductors=["L1", "N", "PE"])
     w2 = Wire(WireEnd(f.id, "2"), WireEnd(out.id, "1"), conductors=["L1", "N", "PE"])

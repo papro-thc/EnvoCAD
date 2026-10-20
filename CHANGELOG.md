@@ -1,6 +1,104 @@
 # Changelog
 
 ## Nevydáno
+- **`sb.feed` – opravy z review** (formát projektu zůstává v13 – v13 ještě nikde není –, bez migrace navíc):
+  **uzavřená revize v12 zůstane po migraci uzavřená** – otisk listu (`diff._canon_element`) kreslí `sb.feed` kanonicky
+  jako dřívější `sb.feed_in` / `sb.feed_out` bez `dir` (rotace v otisku není; převod přívodu o 180° zpět = stará
+  rotace, test). **Vícepól starých projektů beze změny**: migrace zapíše přívodům/vývodům technický atribut
+  `mp_legacy="1"` (mimo otisk i porovnání revizí) a `multipole.flow_flipped` od nich větev neotáčí (ruční přívod
+  zespodu rot 180 + jistič rot 90 zůstane, jak byl). **Vlastní makra AC přívodu/jádra ve starém rozložení** (v1/v2
+  nebo bez vodiče do portu `B*`): jádro se vkládá za přívody jako dřív (`generate._feed_macro_from_below`), bez přesunu
+  hlavního vypínače a lomů odboček – F7 čisté. **AC rozvaděč se 7–12 střídači bez křížení**: k-tý přívod zleva →
+  k-tý port `B` zleva, odbočky schodovitě (vlevo nejníž), sběrnice se zvedne, aby se schody vešly; sběrnice má
+  **vývod 13** (čára o 15 mm delší) pro hlavní vypínač za posledním přívodem `B12`. **Prodloužený formát na šířku**
+  pro přetékající listy rozvaděčů z generátoru (`frame.grow_sheet_long`, ISO 5457 A4×n / A3×n se stejnou výškou):
+  RFVE s 9 stringy je A4×5 místo A0, DC rozvaděč s 9 stringy A4×3 místo A2. `sync_builtin` maže i záznamy
+  `builtin_files` starých značek; dialog parametrů počítá odkud/kam vazby podle směru z dialogu; nabídka směru
+  (`ChoiceEdit`) bere kolečko jen s fokusem; krok undo „Změnit Směr“ (popisek atributu místo klíče); literál
+  `"sb.feed"` jen v `model/feed.py` (`FEED_SYMBOL`); šablona pluginu se starými značkami se po `build` převede
+  (`feed.normalize_legacy_objects`, poznámka v `envocad/plugins.py` a ARCHITECTURE); `save_macro` píše verzi 3 jen
+  s `sb.feed`, jinak 2; MANUAL: popisek převedeného přívodu, vícepól a revize starých projektů, vývod 13 sběrnice.
+  Testy `tests/test_feed_review.py` (data `tests/data/v12_closed_revision.ecp` uložená verzí 12,
+  `tests/data/macros_v2/`), `tests/test_feed_gui.py`.
+- **Jedna značka přívodu/vývodu `sb.feed`** (`docs/design/znacka_privod_vyvod.md` vč. rozhodnutí 2026-10-20),
+  **formát projektu v13**, makra v3: přívod i vývod je značka *Přívod / vývod* se směrem v atributu `dir` (`in` |
+  `out`, výchozí přívod, nabídka ve Vlastnostech – nový nepovinný klíč atributu knihovny `choices`). Port nahoře,
+  kabel zespodu, směr **jen šipkou** (bez textu PŘÍVOD/VÝVOD). Predikáty jen v `envocad/model/feed.py` (`is_feed`,
+  `feed_dir`, `is_feed_in/out`, `feed_link_key`); všechna použití `sb.feed_in`/`sb.feed_out` přešla na ně, F7 hlásí
+  neplatný směr (`feed_dir`). **Migrace v12 → v13 bez přeskládání**: `sb.feed_in` rot r → `sb.feed` `dir=in` rot
+  r+180, `sb.feed_out` → `dir=out` – port na stejném místě se stejným směrem, vodiče (i `points`), `mp_pos`, `sl_pos`
+  a vazby se nerozpojí (test otevření starého projektu v12 s porovnáním poloh portů `tests/data/v12_feeds.ecp`).
+  Makra v1/v2 a schránka se převádějí při načtení, `save_macro` píše v3; `sync_builtin` smaže z SQLite vestavěné
+  řádky starých značek. Změna směru v GUI = jeden `SetAttrCommand` vč. odkud ↔ kam (`feed_dir_changes`), port bloku
+  ROZVADĚČ se přesune na druhou stranu, položka značky se přestaví. **Generátor**: RFVE.AC a RFVE (RD) mají přívody
+  i vývody ve spodní řadě, sběrnice nahoře, přívodní větev tokem nahoru do sběrnice (nové porty sběrnice `B1…B12`
+  zdola), hlavní vypínač za posledním přívodem; DC část RFVE jako „U“ se SPD nad ohybem a PE nad sběrnicí do XPE;
+  list RFVE / RFVE.AC se zvětší, když přetéká (dřív RFVE RD přetékal A3); šablona *AC rozvaděč FVE* stejně; DC
+  rozvaděče, HR, RE, RVN rozložením beze změny (jen nová značka; XMI/XMU v HR otočené portem dolů, vodič už nevede
+  přes kroužek svorky). Vestavěná makra přegenerována (`tools/gen_builtin_macros.py` je zase zdroj – srovnaný
+  s ručně upraveným „DC string po trase“, id prvků se při přegenerování drží), regresní snímek generátoru
+  přegenerován (změna značky, rozložení RFVE/RFVE.AC, XMI/XMU, PE lišta u rozvodu svorkami). **Vícepól se nemění**
+  (`multipole.sheet_poles`: přívody v geometrii starých značek, přívodní větev tokem nahoru otočená zpět);
+  **štítek kabelu ve vícepólu** je na straně proti portu podle otočení, ne podle druhu značky (štítek W15 přes XDS1
+  u RVN). Bez křížení vodičů na listech rozvaděčů z generátoru (test `test_no_wire_crossings_on_generated_switchboards`).
+  Testy `tests/test_feed.py`, `tests/test_feed_gui.py`.
+- **Označení rozvaděčů v generátoru podle firemního stylu ENVO** (`docs/NAVRH_TOPOLOGIE.md` kap. 8 bod 9; formát
+  projektu beze změny, staré projekty se nepřejmenovávají – jde jen o výstup generátoru): AC rozvaděč FVE **RFVE.AC**
+  (dřív RH), DC rozvaděč u technologie **RFVE.DC** (dřív RDCn) – při více střídačích jeden na střídač **RFVE.DC1,
+  RFVE.DC2…** v pořadí střídačů ve specifikaci; rozvaděče po trase zůstávají **RDC1…n** a číslují se souvisle jen mezi
+  sebou (dřív RDC1 po trase, RDC2 u technologie, RDC3 po trase…); hlavní rozvaděč nn u přípojky VN **HR** (dřív RHN),
+  vývod FVE v něm „k RFVE.AC (FVE)“ podle skutečného označení AC rozvaděče; rodinný dům beze změny jeden **RFVE**.
+  `switchboard.ref` a `connection.main_board.ref` ve specifikaci dál přebíjejí výchozí označení. Kód umístění/funkce
+  smí mít **tečku uvnitř** (`RFVE.AC` je jedna úroveň, ne dvě; tečka na začátku/konci nebo zdvojená je chyba) –
+  `validate_code`, `parse_designation` („+RFVE.AC-X1“), prostor označení, plné označení a popisky ji berou celou.
+  Průvodce ukazuje označení u druhu objektu a u DC rozvaděče u technologie. Regresní snímek přegenerován (mění se jen
+  označení rozvaděčů, názvy jejich listů, kódy struktur a texty vazeb přívodů „W2 RFVE.DC:X1 /1.D4“). Základ commit
+  537cdd8. Testy `tests/test_generate.py::test_switchboard_designations_*`, `test_dc_box_ref_helper`,
+  `tests/test_designation.py::test_dotted_location_code_is_one_level`.
+- **Generátor – opravy z review F0 (2. kolo)**, formát projektu beze změny (nový nepovinný atribut prvku
+  `in_unresolved`): **vývod FVE v HR** počítá proud FVE z vygenerovaných střídačů (P AC a fáze i z artiklu
+  `component_id` – dřív jen ze specifikace, 3× SE27.6K bez `p_ac` na 50 kVA dostaly vývod 50 A místo prázdného In
+  a chyby) a i zadané `ac.main_in` kontroluje proti proudu FVE (menší → prázdné In + chyba F7 „In vývodu FVE < proud
+  FVE“); rozhodnutí vývod FVE ≥ jistič střídače (ne 1,6×) zdokumentované (`fve_feeder_in`, MANUAL). **`u_vn`**: číslo
+  na začátku textu („35 kV, 50 Hz“ → 35 kV), tečka jako oddělovač tisíců („22.000 V“ → 22 kV), nečitelné nebo mimo
+  1–52 kV → **ValueError** s českou hláškou (dřív tiché 22 kV); nezadané `u_vn` se počítá jako 22 kV, ale do výkresu
+  (síť, MTN, napětí rozvaděče VN) se nepíše. **Držáky pojistek**: mez jen z `in_max_a` artiklu kategorie
+  `fuse_holder` (`generate.holder_max_in`), artikl držáku už **nepřepisuje In pojistky** (`Component.attr_values`
+  u držáku vynechá `in_` – dřív OPVP10 přepsal vložku na 32 A), `in_max_a` doplněné u OEZ OPVP10/14/22 (32/63/125 A,
+  katalog OEZ VA01-2024-CZ) a Eaton CHPV1U (30 A, datasheet Eaton; ostatní CHPV neověřené – prázdné), SolarEdge
+  25 A jen do max. In držáku, nová chyba F7 **`fuse_over_holder`** (In vložky > max. In držáku). **Jištění bez In**:
+  `fuse_no_in` / `breaker_no_in` jsou **varování** „Pojistka/Jistič bez In – doplňte“; **chyba** jen u prvků, kde
+  generátor In nechal prázdné, protože nic nevyhovělo (atribut `in_unresolved` = důvod, je v hlášce). Zástupné In
+  maker: proměnná bez hodnoty se nevaliduje (`resolve_values(..., unresolved=…)`), `_blank_unresolved` čistí i vodiče
+  a texty bez zdvojené mezery. Varování „Pojistka stringu …“ jednou za střídač. **DC rozvaděč s mnoha stringy** (50 mm
+  na string): list šablony (`apply_template(..., lib=)`) i generátoru se zvětší, když obsah přetéká
+  (`frame.grow_sheet_to_content`; 9 stringů A3 → A2, vícepól zůstává na A4). `connection.level` / `metering` /
+  `station` sjednoceně `.strip().lower()`. Dokumentace: MANUAL (vývod FVE, u_vn, In pojistek, tabulka kontrol
+  jištění), COMPONENTS (`in_max_a`). Regresní snímek beze změny. Testy `tests/test_generate.py` (review F0 2. kolo).
+- **Generátor – opravy z review (F0, `docs/NAVRH_TOPOLOGIE.md` kap. 6)**, formát projektu beze změny (v12):
+  **pojistka stringu, na kterou nevyhoví žádná velikost gPV** (např. Isc 18,5 A s EFH 10 DC, max. jištění modulu
+  10 A), zůstane **bez In** (dřív tiché 15 A) – v makru i v kódu – a F7 hlásí chybu `fuse_no_in`; řada gPV doplněná
+  o **30 / 32 A**, mez držáku z nového sloupce artiklu **`in_max_a`** (EFH 10 DC = 25 A, `docs/COMPONENTS.md`).
+  Nová kontrola F7 `protection_findings`: jistič / pojistka v rozvaděči bez In = chyba (`breaker_no_in`).
+  **SolarEdge** (pojistka stringu 25 A, standard ENVO) se pozná i podle typu / výrobce / artiklu střídače a režimu
+  `fixed_voltage` (`generate.is_solaredge`). **`mppt` „2.0“ / „2,0“** už generátor neshodí (zapíše „2“). **Rodinný
+  dům bez maker**: In pojistek po skupinách střídačů (dřív všechny podle prvního). **Hlavní rozvaděč nn (přípojka
+  VN)**: vývod FVE omezený selektivitou s hlavním jističem ze Sn (`fve_feeder_in`; 50 kVA → HJ 100 A, vývod 50 A místo
+  125 A), nejde-li splnit (proud FVE nad selektivním jističem), In zůstane prázdné + chyba F7; vývod spotřeby z řady
+  vývodů (16 A–), nic se tiše nedosazuje; zadané `connection.main_board.fve_in` platí. **`u_vn` s jednotkou**
+  („22000 V“, „22 000 V“, „22,5 kV“ – `generate.parse_voltage`; dřív 22 MV), převod MTN a texty v kV. **Rodinný dům
+  bez DC části** (`dc.tech_box` false) má RFVE „rozvaděč FVE (AC)“ a přípojku VN odmítne česky i bez DC části.
+  **Kabel baterie** z `battery.cable/cross/length` (výchozí H1Z2Z2-K 1x25, 25 mm², 5 m; dřív typ z `dc.cable` 1x6
+  s průřezem 25). **Cesta bez maker bez varování F7**: DC rozvaděč z kódu (`templates.build_dc_strings`) po 50 mm jako
+  makra (popisky SPD se nepřekrývaly), SPD stringů v RFVE na vývod XPE; u rodinného domu s rozvaděči po trase místo
+  na popisky kabelů před RFVE (dřív `text_overlap` u 2+ střídačů). Regresní snímek (`tests/data/generate_snapshot.json`)
+  se F0 nezměnil jen proto, že jeho čtyři specifikace dotčené případy neobsahují (modul s Isc 13,9 A, bez přípojky VN,
+  bez SolarEdge) – výstup jiných specifikací se mění. **Záměrné dopady na staré specifikace**: modul bez Isc (nebo
+  s Isc, na které nevyhoví žádná vložka gPV) → pojistky stringů **bez In + chyba F7** místo tichých 15 A; rodinný dům
+  s `connection.level` "vn" → **ValueError** (dřív se přípojka VN vygenerovala); vývod FVE v HR u malého
+  transformátoru menší nebo prázdný (viz výše). Testy
+  `tests/test_generate.py` (body 1–9, „výstup generátoru bez chyb a varování F7“ pro firmu, RD, bytový dům, vn
+  kiosk / kobky / sloup a bez maker). Známé: vícepól elektroměrového rozvaděče RE u přípojky VN – `xfail`, ROADMAP.
 - **Oprava: po vložení prvku nešly upravit jeho parametry v panelu Vlastnosti** na listu rozvaděče (vícepól / schéma rozvaděče) a v rozložení. Úpravy z panelu se posílaly jen do JPS scény aktivní záložky (`MainWindow.scene` je v odvozených pohledech `None`), takže se tiše zahodily; když nebyla otevřená záložka JPS listu, panel hlásil „Nic není vybráno“. Nově panel i úpravy jdou přes JPS scénu listu (otevře se skrytě), změna je přes `SetAttrCommand` s undo/redo. Testy `tests/test_gui_props_after_insert.py`.
 - Hlavní okno – dokončení návrhu `ux_lista.md`: souřadnice ve stavovém řádku se zaokrouhlují na mřížku 2,5 mm (tam, kam se bod umístí); pravé tlačítko na prázdné ploše vždy nabídne Vložit kopii (zašedlé, dokud není co vložit). Nové testy v `tests/test_main_window_ux.py`: každá akce lišt má ikonu a tooltip se zkratkou, položky kontextového menu (prvek, vodič, blok ROZVADĚČ, prázdná plocha, vícepól) fungují a `Ctrl+Z` je vrací, souřadnice po pohybu myši leží na mřížce.
 - Katalog z datasheetů (`katalogy/datasheet`): FV moduly **Runergy HY-DH96N11B 430–450 Wp** (N-type bifacial), střídače

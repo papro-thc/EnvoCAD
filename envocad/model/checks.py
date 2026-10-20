@@ -21,6 +21,7 @@ from envocad.model.designation import (
     validate_code,
     validate_ref,
 )
+from envocad.model.feed import FEED_SYMBOL, feed_dir_valid, is_feed_in, is_feed_out, raw_dir
 from envocad.model.notes import OPEN_NOTE_WORDS, count_label
 from envocad.model.project import (
     FEED_SYMBOLS,
@@ -43,8 +44,8 @@ OPTIONAL_PORT_SYMBOLS = {"fve.switchboard", "sb.pe_bar", "sb.busbar", "fve.termi
                          "sb.junction"}   # uzel odbočky: počet vodičů hlídá `junction_free`
 NO_REF_OK_SYMBOLS = {"fve.earth", "fve.grid", "fve.load", "sb.junction"}   # bez označení je v pořádku
 AGGREGATED_INFO = {"no_article": "Bez artiklu / typu", "ref_syntax": "Označení s firemním oddělovačem „.“ / „-“ (přípustné jako firemní číslování)"}
-NO_ARTICLE_SYMBOLS = {"fve.grid", "fve.load", "fve.earth", "fve.terminal", "fve.switchboard", "sb.feed_in",
-                      "sb.feed_out", "sb.pe_bar", "sb.busbar", "fve.pv_string", "fve.interrupt",
+NO_ARTICLE_SYMBOLS = {"fve.grid", "fve.load", "fve.earth", "fve.terminal", "fve.switchboard", FEED_SYMBOL,
+                      "sb.pe_bar", "sb.busbar", "fve.pv_string", "fve.interrupt",
                       "ctl.contact_no", "ctl.contact_nc", "ctl.contact_power"}
 
 
@@ -82,7 +83,7 @@ def check_project(project: Project, lib) -> list[Finding]:
     project = without_dangling(project)
     idx = DeviceIndex.build(project)
     # duplicitní označení: jako v EPLAN je úplné označení „=funkce+umístění-X1“ – v každém prostoru (func, loc)
-    # musí být označení jedinečné, mezi umístěními se smí opakovat (X1 v +RDC1 i v +RH). Listy se stejným
+    # musí být označení jedinečné, mezi umístěními se smí opakovat (X1 v +RDC1 i v +RFVE.AC). Listy se stejným
     # umístěním sdílejí prostor, list rozvaděče bez umístění má vlastní, vodiče JPS (kabely) jeden společný.
     # Prvky se stejným označením v prostoru tvoří přístroj (`xref.DeviceGroup`): smí v něm být cívka a stykač
     # (silové kontakty cívky), jinak jen jeden prvek. Kontakty a svorky se nepočítají. Přerušovací body se stejným
@@ -149,6 +150,10 @@ def check_project(project: Project, lib) -> list[Finding]:
                 if slots and not any(mp.terminal_numbers(e, len(slots))):
                     out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                        "Skupina svorek bez čísel (Úpravy → Očíslovat svorky)", "no_terminal_no"))
+            if e.symbol_id in FEED_SYMBOLS and not feed_dir_valid(e):
+                out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
+                                   f"Neplatný směr přívodu/vývodu „{raw_dir(e)}“ (in = přívod, out = vývod) – "
+                                   "bere se jako přívod", "feed_dir"))
             if (e.symbol_id in FEED_SYMBOLS and s.is_switchboard and linked_wire(project, s, e) is None
                     and not is_earthing_feed(s, e)):
                 out.append(Finding(INFO, s.id, s.name, e.id, False, e.ref,
@@ -213,6 +218,7 @@ def check_project(project: Project, lib) -> list[Finding]:
     out += contact_findings(project, idx)
     out += interrupt_findings(project, idx)
     out += spd_findings(project)
+    out += protection_findings(project, lib)
     out += designation_findings(project, lib, idx)
     out += revision_findings(full)
     out += note_findings(full)
@@ -230,7 +236,7 @@ def check_project(project: Project, lib) -> list[Finding]:
 def is_earthing_feed(sheet: Sheet, e: Element) -> bool:
     """Vývod jen s PE (XPE → ekvipotenciální svorkovnice HOP): uzemnění rozvaděče, ve schématu JPS obvykle bez
     vodiče – chybějící vazbu na JPS kontrola nehlásí."""
-    if e.symbol_id != "sb.feed_out":
+    if not is_feed_out(e):
         return False
     conds = [w.conductors for w in sheet.wires if w.touches(e.id)]
     return bool(conds) and all(c and set(c) <= {"PE", "PEN"} for c in conds)
@@ -443,7 +449,7 @@ def _place_text(project: Project, s: Sheet, e: Element) -> str:
 
 def _contact_findings(project: Project, index=None) -> list[Finding]:
     """Kontakt se páruje s přístrojem podle `ref` (napříč projektem, `xref.DeviceIndex`). Má-li stejné označení víc
-    přístrojů v různých prostorech (K1 v +RDC1 i v +RH), přednost má ten ve stejném prostoru označení (funkce,
+    přístrojů v různých prostorech (K1 v +RDC1 i v +RFVE.AC), přednost má ten ve stejném prostoru označení (funkce,
     umístění) jako kontakt. Nejednoznačné je to, jen když v prostoru kontaktu žádný z nich není."""
     from envocad.model.xref import DeviceIndex
     idx = index or DeviceIndex.build(project)
@@ -509,7 +515,7 @@ def contact_findings(project: Project, index=None) -> list[Finding]:
 
 
 SPD_SWITCHES = {"fve.dc_disconnect", "fve.fuse_disconnect", "fve.switch_disconnector", "sb.main_switch"}
-SPD_SOURCES = {"sb.feed_in", "fve.pv_string"}
+SPD_SOURCES = {"fve.pv_string"}   # + přívod (`is_feed_in`)
 
 
 def spd_findings(project: Project) -> list[Finding]:
@@ -529,11 +535,64 @@ def spd_findings(project: Project) -> list[Finding]:
                 d = by_id.get(oid)
                 if d is None or d.symbol_id not in SPD_SWITCHES:
                     continue
-                if any(by_id.get(x) is not None and by_id[x].symbol_id in SPD_SOURCES
+                if any(by_id.get(x) is not None and (by_id[x].symbol_id in SPD_SOURCES or is_feed_in(by_id[x]))
                        for x, _p in at.get((oid, oport), [])):
                     out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                        f"SPD na svorkách {d.ref}:{oport} na straně stringu – vypnutý {d.ref} ho "
                                        "neodpojí; připoj na výstupní svorky (strana střídače)", "spd_side"))
+    return out
+
+
+PROTECTION_SYMBOLS = {"fve.breaker_mcb", "fve.breaker_mccb", "sb.rcbo", "fve.fuse", "fve.fuse_disconnect"}
+FUSE_SYMBOLS = {"fve.fuse", "fve.fuse_disconnect"}
+IN_UNRESOLVED = "in_unresolved"   # nepovinný atribut: generátor In nedosadil, protože nic nevyhovělo (hodnota = důvod)
+
+
+def _num_attr(v) -> float | None:
+    try:
+        return float(str(v).replace(",", ".").split()[0])
+    except (TypeError, ValueError, IndexError):
+        return None
+
+
+def protection_findings(project: Project, lib=None) -> list[Finding]:
+    """Jistič / pojistka v rozvaděči bez In → WARNING „… bez In – doplňte“ (`fuse_no_in` / `breaker_no_in`).
+    ERROR jen tam, kde In nechal prázdné generátor, protože nic nevyhovělo (atribut `in_unresolved` s důvodem –
+    pojistka stringu, na kterou nevyhoví žádná velikost gPV; vývod HR bez selektivního jističe, který unese proud
+    FVE) – hláška pak nese důvod. Pojistka s artiklem držáku (kategorie fuse_holder, `lib`) a In vložky nad
+    `in_max_a` držáku → ERROR `fuse_over_holder`."""
+    out: list[Finding] = []
+    for s in project.sheets:
+        if not s.is_switchboard:
+            continue
+        for e in s.elements:
+            if e.symbol_id not in PROTECTION_SYMBOLS:
+                continue
+            fuse = e.symbol_id in FUSE_SYMBOLS
+            code = "fuse_no_in" if fuse else "breaker_no_in"
+            what = "Pojistka" if fuse else "Jistič"
+            in_ = str(e.attrs.get("in_") or "").strip()
+            if not in_:
+                why = str(e.attrs.get(IN_UNRESOLVED) or "").strip()
+                if why:
+                    out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref,
+                                       f"{what} bez In – generátor nenašel vyhovující hodnotu: {why}; zvolte ručně",
+                                       code))
+                else:
+                    out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref, f"{what} bez In – doplňte", code))
+                continue
+            if fuse and lib is not None and e.component_id and hasattr(lib, "component"):
+                try:
+                    comp = lib.component(e.component_id)
+                except Exception:  # noqa: BLE001 – knihovna nedostupná → bez kontroly držáku
+                    comp = None
+                if comp is None or getattr(comp, "category", "") != "fuse_holder":
+                    continue
+                max_in, val = comp.num("in_max_a"), _num_attr(in_)
+                if max_in and val is not None and val > max_in + 1e-9:
+                    out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref,
+                                       f"In vložky {in_} A > max. In držáku {max_in:g} A ({comp.part_number}) – "
+                                       "zvolte menší vložku nebo větší držák", "fuse_over_holder"))
     return out
 
 

@@ -932,7 +932,7 @@ class MainWindow(QMainWindow):
         from envocad.library.templates import apply_template, template
         before = commands.sheets_state(self.project)
         try:
-            apply_template(self.project, sheet, tid, params)
+            apply_template(self.project, sheet, tid, params, lib=self.library)
         except ValueError as ex:
             commands.restore_sheets_state(self.project, before)
             QMessageBox.warning(self, "Šablona", f"Šablonu nelze vložit: {ex}")

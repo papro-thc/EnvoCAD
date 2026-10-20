@@ -6,7 +6,15 @@ import re
 from pathlib import Path
 
 from envocad.library.macros import MACRO_VERSION, validate_macro
-from envocad.library.templates import AC_CONDUCTORS, DC_CONDUCTORS, GROUP_PITCH, _el, _terminal_group, _wire
+from envocad.library.templates import (
+    AC_CONDUCTORS,
+    DC_CONDUCTORS,
+    GROUP_PITCH,
+    _el,
+    _feed,
+    _terminal_group,
+    _wire,
+)
 from envocad.model.project import Project, Sheet, copy_fragment
 
 OUT = Path(__file__).resolve().parent.parent / "envocad" / "library" / "builtin" / "macros"
@@ -17,7 +25,7 @@ def ac_outlet() -> dict:
     p, s = Project(), Sheet(kind="switchboard")
     grp = _terminal_group(p, s, 60, 200, "X2", 1, len(AC_CONDUCTORS), "vývod")
     f = _el(p, s, "fve.breaker_mcb", 60, 170, "F", rot=270, in_="16", char="B", poles="3", modules="3")
-    out = _el(p, s, "sb.feed_out", 60, 140, "", desc="vývod")
+    out = _feed(p, s, "out", 60, 140, "", desc="vývod")
     out.attrs["ref"] = "X3"
     _wire(p, s, grp, "2", f, "1", AC_CONDUCTORS)
     _wire(p, s, f, "2", out, "1", AC_CONDUCTORS)
@@ -35,16 +43,16 @@ def dc_string_in() -> dict:
     """DC string v rozvaděči u technologie (parametrické: {k} číslo stringu, {nk} = n + k, {string} označení stringu,
     {fuse_in}, {spd}): přívod X{k} → pojistkový odpínač → vývod X{nk}; SPD na string, PE svodiče → XPE (sdílený vývod k HOP)."""
     p, s = Project(), Sheet(kind="switchboard")
-    feed = _el(p, s, "sb.feed_in", 60, 240, "", desc="od {string}")
+    feed = _feed(p, s, "in", 60, 240, "", rot=180, desc="od {string}")
     feed.attrs["ref"] = "X{k}"
     d = _el(p, s, "fve.fuse_disconnect", 60, 210, "F", rot=270, in_="{fuse_in}", char="gPV", un="1000", poles="2", modules="2")
     d.attrs["ref"] = "FU{i}.{j}"   # číslování ENVO: střídač.string
-    out = _el(p, s, "sb.feed_out", 60, 170, "", desc="{string} dál")
+    out = _feed(p, s, "out", 60, 170, "", desc="{string} dál")
     out.attrs["ref"] = "X{nk}"
     spd = _el(p, s, "fve.spd", 72.5, 180, "F", spd_type="{spd} DC", uc="1000 V DC", poles="3", modules="3", desc="string {string}",
               when="spd")   # prázdný typ svodiče = bez SPD
     spd.attrs["ref"] = "SPD-DC{i}.{j}"
-    xpe = _el(p, s, "sb.feed_out", 40, 130, "", desc="k HOP", shared="1", when="spd")   # vývod jen pro PE svodiče
+    xpe = _feed(p, s, "out", 40, 130, "", desc="k HOP", shared="1", when="spd")   # vývod jen pro PE svodiče
     xpe.attrs["ref"] = "XPE"
     _wire(p, s, feed, "1", d, "1", DC_CONDUCTORS)
     _wire(p, s, d, "2", out, "1", DC_CONDUCTORS)
@@ -55,55 +63,64 @@ def dc_string_in() -> dict:
 
 
 def dc_string_route() -> dict:
-    """DC string v rozvaděči po trase: přívod X{k} → odpínač DC ({disc_in}) → vývod X{nk}; SPD na string → XPE."""
+    """DC string v rozvaděči po trase: průchozí svorky přívod X{k} → vývod X{nk} (bez odpínače – pojistkové odpínače
+    jen v rozvaděči u střídače); SPD na string z přívodní svorky → XPE (sdílený vývod k HOP)."""
     p, s = Project(), Sheet(kind="switchboard")
-    feed = _el(p, s, "sb.feed_in", 60, 240, "", desc="od {string}")
+    feed = _feed(p, s, "in", 60, 240, "", rot=180, desc="od {string}")
     feed.attrs["ref"] = "X{k}"
-    d = _el(p, s, "fve.dc_disconnect", 60, 210, "Q", rot=270, in_="{disc_in}", un="1000", poles="2", modules="2")
-    d.attrs["ref"] = "QS{i}.{j}"
-    out = _el(p, s, "sb.feed_out", 60, 170, "", desc="{string} dál")
+    out = _feed(p, s, "out", 60, 170, "", desc="{string} dál")
     out.attrs["ref"] = "X{nk}"
     spd = _el(p, s, "fve.spd", 72.5, 180, "F", spd_type="{spd} DC", uc="1000 V DC", poles="3", modules="3", desc="string {string}",
               when="spd")   # prázdný typ svodiče = bez SPD
     spd.attrs["ref"] = "SPD-DC{i}.{j}"
-    xpe = _el(p, s, "sb.feed_out", 40, 130, "", desc="k HOP", shared="1", when="spd")   # vývod jen pro PE svodiče
+    xpe = _feed(p, s, "out", 40, 130, "", desc="k HOP", shared="1", when="spd")   # vývod jen pro PE svodiče
     xpe.attrs["ref"] = "XPE"
-    _wire(p, s, feed, "1", d, "1", DC_CONDUCTORS)
-    _wire(p, s, d, "2", out, "1", DC_CONDUCTORS)
-    _wire(p, s, d, "2", spd, "L", DC_CONDUCTORS)
+    _wire(p, s, feed, "1", out, "1", DC_CONDUCTORS)
+    _wire(p, s, feed, "1", spd, "L", DC_CONDUCTORS)
     pe = _wire(p, s, spd, "PE", xpe, "1", ["PE"])
     pe.points = [(95.0, 170.0), (95.0, 147.5), (40.0, 147.5)]   # PE vpravo kolem popisků vývodu, ne přes ně
-    return _frag(s, 50)   # rozteč 50 mm: popisky přívodu/SPD (typ, Uc, Up, ISCPV) se nepřekrývají se sousedním stringem
+    return _frag(s, 50)
+
+
+# AC rozvaděč FVE (RFVE.AC, AC část RFVE rodinného domu): sběrnice nahoře, vše přichází zespodu – přívody i vývody
+# jsou ve spodní řadě (y 105, port nahoře), přívodní větev teče nahoru do sběrnice (svorka X → jistič otočený tokem
+# nahoru → přívod zdola B{k}), jádro visí ze sběrnice dolů. Zleva: XPE, SPD, přívody po 30 mm, hlavní vypínač + XOUT.
+# Generátor (`generate._ac_core_after_feeds`) posune hlavní vypínač a XOUT za poslední přívod. docs/design/
+# znacka_privod_vyvod.md
+AC_BUS = (165, 175)          # sběrnice: čára x 90…270, vývody 1…12 x 97,5 + 15·(i−1), přívody zdola B1…B6 x 105 + 30·(k−1)
 
 
 def ac_feed() -> dict:
-    """AC přívod od střídače ({k}, {inverter}, {breaker_in}): X{k} → jistič → sběrnice 1 (sdílená) port T{k}."""
+    """AC přívod od střídače ({k}, {inverter}, {breaker_in}): X{k} dole → jistič nahoru → sběrnice 1 (sdílená) port B{k}."""
     p, s = Project(), Sheet(kind="switchboard")
-    feed = _el(p, s, "sb.feed_in", 60, 240, "", desc="od {inverter}")
+    feed = _feed(p, s, "in", 105, 105, "", desc="od {inverter}")
     feed.attrs["ref"] = "X{k}"
-    f = _el(p, s, "fve.breaker_mcb", 60, 210, "F", rot=270, in_="{breaker_in}", char="B", poles="3", modules="3")
-    bus = _el(p, s, "sb.busbar", 120, 175, "", desc="rozvod AC", in_="{main_in}", conductors=" ".join(AC_CONDUCTORS), shared="1")
+    f = _el(p, s, "fve.breaker_mcb", 105, 140, "F", rot=90, in_="{breaker_in}", char="B", poles="3", modules="3")
+    bus = _el(p, s, "sb.busbar", *AC_BUS, "", desc="rozvod AC", in_="{main_in}", conductors=" ".join(AC_CONDUCTORS), shared="1")
     bus.attrs["ref"] = "1"
     _wire(p, s, feed, "1", f, "1", AC_CONDUCTORS)
-    _wire(p, s, f, "2", bus, "T{k}", AC_CONDUCTORS)
+    _wire(p, s, f, "2", bus, "B{k}", AC_CONDUCTORS)   # zdola
     return _frag(s, 30)
 
 
 def ac_core() -> dict:
-    """AC jádro rozvaděče ({spd}, {main_in}): sběrnice 1 (sdílená) → SPD → XPE (k HOP, sdílený), sběrnice → hlavní vypínač → XOUT."""
+    """AC jádro rozvaděče ({spd}, {main_in}): sběrnice 1 (sdílená) → SPD a PE → XPE (k HOP, sdílený) vlevo, sběrnice →
+    hlavní vypínač → XOUT vpravo za přívody (jeden přívod; generátor posune za poslední)."""
     p, s = Project(), Sheet(kind="switchboard")
-    bus = _el(p, s, "sb.busbar", 120, 175, "", desc="rozvod AC", in_="{main_in}", conductors=" ".join(AC_CONDUCTORS), shared="1")
+    bus = _el(p, s, "sb.busbar", *AC_BUS, "", desc="rozvod AC", in_="{main_in}", conductors=" ".join(AC_CONDUCTORS), shared="1")
     bus.attrs["ref"] = "1"
-    spd = _el(p, s, "fve.spd", 60, 140, "F", spd_type="{spd}", poles="4", modules="4", when="spd")
-    xpe = _el(p, s, "sb.feed_out", 40, 105, "", desc="k HOP", shared="1")
+    spd = _el(p, s, "fve.spd", 82.5, 140, "F", spd_type="{spd}", poles="4", modules="4", when="spd")
+    xpe = _feed(p, s, "out", 60, 105, "", desc="k HOP", shared="1")
     xpe.attrs["ref"] = "XPE"
-    q = _el(p, s, "sb.main_switch", 120, 140, "Q", rot=270, in_="{main_in}", poles="4", modules="4")
-    out = _el(p, s, "sb.feed_out", 120, 105, "", desc="do HDS / DS")
+    q = _el(p, s, "sb.main_switch", 142.5, 140, "Q", rot=270, in_="{main_in}", poles="4", modules="4")
+    out = _feed(p, s, "out", 142.5, 105, "", desc="do HDS / DS")
     out.attrs["ref"] = "XOUT"
-    _wire(p, s, bus, "1", spd, "L", AC_CONDUCTORS[:4])
-    _wire(p, s, spd, "PE", xpe, "1", ["PE"])
-    _wire(p, s, bus, "4", xpe, "1", ["PE"])
-    _wire(p, s, bus, "3", q, "1", AC_CONDUCTORS)
+    _wire(p, s, bus, "1", spd, "L", AC_CONDUCTORS[:4]).points = [(97.5, 160.0), (82.5, 160.0)]
+    pe = _wire(p, s, spd, "PE", xpe, "1", ["PE"])
+    pe.points = [(82.5, 120.0), (60.0, 120.0)]
+    pe = _wire(p, s, bus, "1", xpe, "1", ["PE"])        # PE sběrnice odbočuje z téhož vývodu jako SPD, nad ním
+    pe.points = [(97.5, 165.0), (60.0, 165.0)]
+    _wire(p, s, bus, "4", q, "1", AC_CONDUCTORS)
     _wire(p, s, q, "2", out, "1", AC_CONDUCTORS)
     return _frag(s)
 
@@ -164,11 +181,10 @@ META = {
     },
     "DC string po trase": {
         "role": "dc_route",
-        "variables": [*_DC_AUTO, _num("disc_in", "In odpínače DC", "32", "A", required=True, min=1), _DC_SPD],
+        "variables": [*_DC_AUTO, _DC_SPD],
         "value_sets": [
-            {"name": "Odpínač 32 A, SPD T2", "values": {"disc_in": "32", "spd": "T2"}},
-            {"name": "Odpínač 32 A, SPD T1+T2", "values": {"disc_in": "32", "spd": "T1+T2"}},
-            {"name": "Odpínač 32 A bez SPD", "values": {"disc_in": "32", "spd": ""}},
+            {"name": "SPD T2", "values": {"spd": "T2"}},
+            {"name": "SPD T1+T2", "values": {"spd": "T1+T2"}},
         ],
         "repeat": {"count": "n", "pitch": 50},
     },
@@ -203,8 +219,8 @@ META = {
 MACROS = [
     ("AC vývod s jističem", "Skupina rozvodných svorek X2 → jistič 3p → vývod X3 (rozvaděč)", ac_outlet),
     ("DC string v rozvaděči", "Generátor (u technologie): X{k} → pojistkový odpínač FU{i}.{j} {fuse_in} → X{nk}, SPD-DC{i}.{j} {spd} DC, PE → XPE; proměnné k, nk, i, j, string, inverter, fuse_in, spd", dc_string_in),
-    ("DC string po trase", "Generátor (po trase): X{k} → odpínač DC QS{i}.{j} {disc_in} → X{nk}, SPD-DC{i}.{j} {spd} DC, PE → XPE; proměnné k, nk, i, j, string, inverter, disc_in, spd", dc_string_route),
-    ("AC přívod střídače", "Generátor: X{k} od {inverter} → jistič {breaker_in} → sběrnice 1 port T{k}; proměnné k, inverter, breaker_in, main_in", ac_feed),
+    ("DC string po trase", "Generátor (po trase): X{k} → X{nk} (průchozí svorky, bez odpínače), SPD-DC{i}.{j} {spd} DC z přívodní svorky, PE → XPE; pojistkové odpínače jen v rozvaděči u střídače; proměnné k, nk, i, j, string, inverter, spd", dc_string_route),
+    ("AC přívod střídače", "Generátor: X{k} od {inverter} (zespodu) → jistič {breaker_in} → sběrnice 1 port B{k}; proměnné k, inverter, breaker_in, main_in", ac_feed),
     ("AC jádro rozvaděče", "Generátor: sběrnice 1 → SPD {spd} → XPE (k HOP), sběrnice → hlavní vypínač {main_in} → XOUT", ac_core),
     ("String → střídač", "FV string s kabelem H1Z2Z2-K na DC vstup střídače (JPS)", jps_string_chain),
 ]
@@ -237,7 +253,18 @@ def _keep_ids(path: Path, fragment: dict) -> dict:
         old = json.loads(path.read_text(encoding="utf-8")).get("fragment")
     except (OSError, ValueError, AttributeError):
         return fragment
-    return old if isinstance(old, dict) and _canon_ids(old) == _canon_ids(fragment) else fragment
+    if not isinstance(old, dict):
+        return fragment
+    if _canon_ids(old) == _canon_ids(fragment):
+        return old
+    # změněný obsah se stejnými prvky a vodiči (pořadí): id převzít podle pořadí, ať diff ukazuje jen změnu obsahu
+    def ids(f: dict) -> list[str]:
+        return [str(x.get("id")) for key in ("elements", "wires") for x in f.get(key) or []]
+    a, b = ids(fragment), ids(old)
+    if len(a) != len(b):
+        return fragment
+    m = dict(zip(a, b, strict=True))
+    return json.loads(_ID.sub(lambda g: m.get(g.group(0), g.group(0)), json.dumps(fragment)))
 
 
 def main() -> None:

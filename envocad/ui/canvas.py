@@ -1,6 +1,7 @@
 """Scéna a pohled editoru: mřížka, snap, režimy (výběr / vkládání / vodič), zoom a posun."""
 from __future__ import annotations
 
+import dataclasses
 import logging
 from enum import Enum
 from itertools import pairwise
@@ -710,7 +711,9 @@ class SchematicScene(QGraphicsScene):
             return
         vals = dlg.values()
         if dlg.wire_combo is not None:
-            vals.update(feed_link_attrs(self.project, self.sheet, e, dlg.wire_id))
+            # vazba podle směru z dialogu (změna přívod ↔ vývod v témže dialogu: „Kam“ místo „Odkud“) – na kopii
+            shown = dataclasses.replace(e, attrs={**e.attrs, **vals})
+            vals.update(feed_link_attrs(self.project, self.sheet, shown, dlg.wire_id))
         self.undo.beginMacro(f"Upravit {e.ref or sym.name}")
         if dlg.component_id != e.component_id:
             self.undo.push(commands.SetComponentCommand(self, eid, e.component_id, dlg.component_id))

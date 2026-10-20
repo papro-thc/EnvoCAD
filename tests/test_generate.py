@@ -5,6 +5,7 @@ import pytest
 from envocad.generate import DEFAULT_SPEC, build_project
 from envocad.library.store import LibraryStore
 from envocad.model.checks import ERROR, WARNING, check_project
+from envocad.model.feed import is_feed_in
 from envocad.model.project import element_symbol
 
 
@@ -26,7 +27,7 @@ def test_build_project_from_spec(tmp_path):
     assert [pt.name for pt in element_symbol(p, blk, lib).ports] == ["X1", "X2", "XOUT", "XPE"]   # XPE = uzemnění na HOP
     # přívody rozvaděče jsou navázané na AC vodiče střídačů, kabely jako objekty
     sb = p.sheets[1]
-    feeds = [e for e in sb.elements if e.symbol_id == "sb.feed_in"]
+    feeds = [e for e in sb.elements if is_feed_in(e)]
     assert all(f.attrs.get("wire_id") for f in feeds) and len(p.cables) >= 8
     fs = check_project(p, lib)
     assert not [f for f in fs if f.severity in (ERROR, WARNING)], [f.text for f in fs if f.severity != "info"]
@@ -66,10 +67,10 @@ def test_dc_boxes_along_route():
     p = build_project(spec)
     lib = LibraryStore()
     s = p.sheets[0]
-    boxes = [e for e in s.elements if e.symbol_id == "fve.switchboard" and e.ref.startswith("RDC")]
-    assert [b.ref for b in boxes] == ["RDC1", "RDC2", "RDC3"]
+    boxes = [e for e in s.elements if e.symbol_id == "fve.switchboard" and e.ref.startswith(("RDC", "RFVE.DC"))]
+    assert [b.ref for b in boxes] == ["RDC1", "RDC2", "RFVE.DC"]   # po trase RDCn, u technologie RFVE.DC
     assert [pt.name for pt in element_symbol(p, boxes[0], lib).ports] == ["X1", "X2", "X3", "X4", "X5", "X6", "XPE"]
-    # string → RDC1 → RDC2 → RDC3 (u technologie) → střídač, každý string odděleně
+    # string → RDC1 → RDC2 → RFVE.DC (u technologie) → střídač, každý string odděleně
     g1 = next(e for e in s.elements if e.symbol_id == "fve.pv_string")
     chain = [w for w in s.wires if w.touches(g1.id)]
     assert len(chain) == 1 and chain[0].b.port == "X1"
@@ -85,7 +86,7 @@ def test_dc_boxes_along_route():
     assert len(fds) == 3 and fds[0].attrs["in_"] == "20"
     assert sum(1 for e in tech.elements if e.symbol_id == "fve.spd") == 3   # SPD na každý string, stringy se nespojují
     assert sorted(w.b.port for w in s.wires if w.touches(inv.id) and w.a.element_id == boxes[2].id) == ["DC1", "DC2", "DC3"]
-    assert all(f.attrs.get("wire_id") for f in tech.elements if f.symbol_id == "sb.feed_in")
+    assert all(f.attrs.get("wire_id") for f in tech.elements if is_feed_in(f))
     assert s.width > 420   # dva rozvaděče po trase → širší list
     fs = check_project(p, lib)
     assert not [f for f in fs if f.severity in (ERROR, WARNING)], [f.text for f in fs if f.severity != "info"]
@@ -306,7 +307,7 @@ def test_house_rejects_mv_and_unknown_building():
         build_project({**base, "building": "garáž"})
     p = build_project({**base, "building": "apartment"})
     assert p.meta["building"] == "bytový dům"
-    assert [sh.loc for sh in p.sheets if sh.is_switchboard] == ["RDC1", "RDC2", "RH"]
+    assert [sh.loc for sh in p.sheets if sh.is_switchboard] == ["RDC1", "RFVE.DC", "RFVE.AC"]
 
 
 def test_datasheet_solaredge_se25k_p1100_runergy():
@@ -321,3 +322,488 @@ def test_datasheet_solaredge_se25k_p1100_runergy():
     spec["module"] = {"component_id": "runergy-hy-dh96n11b-450"}
     p = build_project(spec)
     assert any("Isc max vstupu optimizéru" in f.text for f in check_project(p, lib) if f.severity == ERROR)
+
+
+# ---- F0: opravy z review generátoru (docs/NAVRH_TOPOLOGIE.md, kap. 6) ------------------------------------------
+_INV25 = {"p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30}
+_NO_MACROS = {"dc_tech": "", "dc_route": "", "ac_feed": "", "ac_core": ""}
+
+
+def _fuses(p, loc=None):
+    return [e for sh in p.sheets if sh.is_switchboard and (loc is None or sh.loc == loc)
+            for e in sh.elements if e.symbol_id == "fve.fuse_disconnect"]
+
+
+def _codes(p, lib, *codes):
+    return [f for f in check_project(p, lib) if f.code in codes]
+
+
+def test_string_fuse_series_and_holder_limit():
+    """Bod 1: řada gPV doplněná o 30/32 A, mez držáku (EFH 10 DC max 25 A)."""
+    from envocad.model.calc import GPV_FUSE_SIZES, string_fuse_in
+    assert {30.0, 32.0} <= set(GPV_FUSE_SIZES)
+    assert string_fuse_in(18.5) == 30.0                       # 1,5 × 18,5 = 27,75 → 30 A
+    assert string_fuse_in(18.5, max_in=25) is None            # EFH 10 DC: max 25 A → nevyhoví
+    assert string_fuse_in(13.9, max_in=25) == 25.0
+    assert string_fuse_in(13.9, i_fuse_max=10) is None        # max. jištění modulu 10 A
+    lib = LibraryStore()
+    assert lib.component("eti-efh-10-dc-2p").num("in_max_a") == 25
+
+
+@pytest.mark.parametrize("macros", [None, _NO_MACROS])
+@pytest.mark.parametrize("module", [{"isc": 18.5}, {"isc": 13.9, "i_fuse_max": 10}])
+def test_no_fitting_string_fuse_leaves_in_empty_with_f7_error(macros, module):
+    """Bod 1: žádná pojistka gPV nevyhoví → prázdné In (makro i kód) a chyba F7, žádné tiché 15 A."""
+    spec = {"module": module, "inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}]}
+    if macros is not None:
+        spec["macros"] = macros
+    p = build_project(spec)
+    fuses = _fuses(p)
+    assert fuses and all(f.attrs["in_"] == "" for f in fuses)
+    assert not any("987654321" in v for sh in p.sheets for e in sh.elements for v in e.attrs.values())
+    errs = _codes(p, LibraryStore(), "fuse_no_in")
+    assert len(errs) == len(fuses) and all(f.severity == ERROR for f in errs)
+
+
+def test_string_fuse_30a_without_holder_limit():
+    spec = {"module": {"isc": 18.5}, "dc": {"fuse_component": ""},
+            "inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}]}
+    assert {f.attrs["in_"] for f in _fuses(build_project(spec))} == {"30"}
+
+
+@pytest.mark.parametrize("mppt", ["2.0", "2,0", 2.0, "2"])
+def test_mppt_decimal_text(mppt):
+    """Bod 2: „2.0“ / „2,0“ v mppt nespadne a zapíše se jako celé číslo."""
+    p = build_project({"inverters": [{"ref": "T1", **_INV25, "mppt": mppt, "strings_per_mppt": "2,0",
+                                      "strings": [20, 20, 18]}]})
+    t = next(e for e in p.sheets[0].elements if e.symbol_id == "fve.inverter")
+    assert t.attrs["mppt"] == "2" and t.attrs["strings_per_mppt"] == "2"
+
+
+@pytest.mark.parametrize("macros", [None, _NO_MACROS])
+def test_house_fuse_in_per_inverter_group(macros):
+    """Bod 3 (+7): RFVE s více střídači – In pojistek po skupinách (SolarEdge 25 A, klasický string podle Isc)."""
+    spec = {"building": "house", "module": {"isc": 9.0},
+            "inverters": [{"ref": "T1", **_HOUSE_INV, "type": "SolarEdge SE10K", "strings": [12]},
+                          {"ref": "T2", **_HOUSE_INV, "type": "Fronius Symo 10", "strings": [12, 12]}]}
+    if macros is not None:
+        spec["macros"] = macros
+    p = build_project(spec)
+    assert sorted(f.attrs["in_"] for f in _fuses(p, "RFVE")) == ["15", "15", "25"]
+    fs = check_project(p, LibraryStore())
+    assert not [f for f in fs if f.severity in (ERROR, WARNING)], [f.text for f in fs if f.severity != "info"]
+
+
+def test_vn_fve_feeder_limited_by_main_breaker():
+    """Bod 4: vývod FVE v hlavním rozvaděči nn omezený selektivitou s hlavním jističem ze Sn (50 kVA → HJ 100 A)."""
+    from envocad.generate import fve_feeder_in
+    lib = LibraryStore()
+    spec = {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}],
+            "connection": {"level": "vn", "transformer": {"sn": 50}}}
+    p = build_project(spec)
+    rhn = next(sh for sh in p.sheets if sh.loc == "HR")
+    x1 = next(e for e in rhn.elements if e.ref == "X1")
+    w = next(w for w in rhn.wires if w.touches(x1.id))
+    feeder = rhn.element(w.a.element_id if w.b.element_id == x1.id else w.b.element_id)
+    ins = sorted((e.attrs["in_"] for e in rhn.elements if e.symbol_id == "fve.breaker_mccb"), key=float)
+    assert feeder.attrs["in_"] == "50" and ins == ["50", "50", "100"]   # vývod FVE, spotřeba, hlavní jistič
+    assert not [f for f in check_project(p, lib) if f.code in ("calc_selectivity", "breaker_no_in")]
+    # 630 kVA (HJ 1000 A): beze změny – In hlavního vypínače RFVE.AC
+    assert fve_feeder_in({"transformer": {"sn": 630}}, {"main_in": 125}, [])[0] == "125"
+    # FVE 60 kW na 50 kVA: žádný selektivní vývod neunese proud → prázdné In + chyba F7, nic se nedosazuje
+    big = {**spec, "inverters": [{"ref": "T1", **_INV25, "p_ac": 60, "strings": [20, 20]}]}
+    p = build_project(big)
+    rhn = next(sh for sh in p.sheets if sh.loc == "HR")
+    assert [e.attrs["in_"] for e in rhn.elements if e.symbol_id == "fve.breaker_mccb"].count("") == 1
+    assert [f.severity for f in _codes(p, lib, "breaker_no_in")] == [ERROR]
+    assert fve_feeder_in({"transformer": {"sn": 50}}, {"main_in": 125, "breaker_in": 40},
+                         [{"p_ac": 60}])[1].startswith("vývod FVE")
+    # zadané main_board.fve_in platí beze změny (selektivitu hlásí F7)
+    over = {**spec, "connection": {**spec["connection"], "main_board": {"fve_in": 125}}}
+    p = build_project(over)
+    assert any(f.code == "calc_selectivity" and f.severity == WARNING for f in check_project(p, lib))
+
+
+@pytest.mark.parametrize("text, volts", [("22 kV", 22000), ("22kV", 22000), ("22000 V", 22000), ("22 000 V", 22000),
+                                         ("22000", 22000), ("22", 22000), ("35 kV", 35000), ("22,5 kV", 22500),
+                                         ("22.5 kV", 22500), ("35 kV, 50 Hz", 35000), ("22.000 V", 22000),
+                                         ("22\u00a0000 V", 22000), ("10 kV", 10000), ("", 22000)])
+def test_parse_voltage(text, volts):
+    """Bod 5 (+ review F0 bod 2): u_vn s jednotkou, číslo na začátku textu, tečka jako oddělovač tisíců."""
+    from envocad.generate import parse_voltage
+    assert parse_voltage(text) == volts
+
+
+@pytest.mark.parametrize("text", ["nesmysl", "kV 22", "400 V", "0", "110 kV", "60000 V"])
+def test_parse_voltage_invalid_raises_czech(text):
+    """Review F0 bod 2: nečitelné / mimo rozsah vn (1–52 kV) → ValueError s českou hláškou, žádné tiché 22 kV."""
+    from envocad.generate import parse_voltage
+    with pytest.raises(ValueError, match="Napětí vn"):
+        parse_voltage(text)
+    spec = {"inverters": [{"ref": "T1", **_INV25, "strings": [20]}], "connection": {"level": "vn", "u_vn": text}}
+    with pytest.raises(ValueError, match="Napětí vn"):
+        build_project(spec)
+
+
+def test_voltage_label_not_written_when_u_vn_missing():
+    """Review F0 bod 2: nezadané u_vn – výpočet z 22 kV, ale do výkresu se dosazená hodnota nepíše."""
+    from envocad.generate import connection_currents, voltage_label
+    c = connection_currents({"u_vn": ""})
+    assert c["u_mv"] == 22000 and c["u_label"] == "" and voltage_label(None) == ""
+    assert connection_currents({"u_vn": "35 kV, 50 Hz"})["u_label"] == "35 kV"
+    p = build_project({"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}],
+                       "connection": {"level": "vn", "metering": "vn", "u_vn": ""}})
+    assert {e.attrs["voltage"] for e in p.sheets[0].elements if e.symbol_id == "fve.grid"} == {"3~ 50 Hz"}
+    assert not any("22" in e.attrs.get("ratio", "") for sh in p.sheets for e in sh.elements if e.symbol_id == "fve.vt")
+
+
+def test_u_vn_in_volts_gives_same_project_values():
+    from envocad.generate import connection_currents
+    a, b = connection_currents({"u_vn": "22 kV"}), connection_currents({"u_vn": "22000 V"})
+    assert a["i_mv"] == pytest.approx(b["i_mv"]) and a["fuse_vn"] == b["fuse_vn"] and b["u_label"] == "22 kV"
+    p = build_project({"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}],
+                       "connection": {"level": "vn", "metering": "vn", "u_vn": "22000 V"}})
+    tv = next(e for sh in p.sheets for e in sh.elements if e.symbol_id == "fve.vt")
+    assert tv.attrs["ratio"].startswith("22/√3")
+    assert {e.attrs["voltage"] for e in p.sheets[0].elements if e.symbol_id == "fve.grid"} == {"3~ 22 kV, 50 Hz"}
+
+
+def test_house_without_tech_box():
+    """Bod 6: RD bez DC části v RFVE – název „rozvaděč FVE (AC)“, přípojka VN odmítnutá česky."""
+    base = {"building": "house", "dc": {"tech_box": False}, "inverters": [{"ref": "T1", **_HOUSE_INV, "strings": [12]}]}
+    p = build_project(base)
+    blk = next(e for e in p.sheets[0].elements if e.ref == "RFVE")
+    assert blk.attrs["desc"] == "rozvaděč FVE (AC)"
+    assert not _fuses(p, "RFVE")
+    with pytest.raises(ValueError, match="Rodinný dům.*přípojka VN"):
+        build_project({**base, "connection": {"level": "vn"}})
+
+
+@pytest.mark.parametrize("inv, opt", [
+    ({"type": "SolarEdge SE10K"}, {}),
+    ({"manufacturer": "SolarEdge"}, {}),
+    ({"type": "SE17K", "string_mode": "fixed_voltage"}, {}),
+    ({"component_id": "solaredge-se17k"}, {}),
+    ({"type": "X"}, {"type": "Solar-Edge S440"}),
+])
+def test_solaredge_string_fuse_25a(inv, opt):
+    """Bod 7: SolarEdge podle typu / výrobce / artiklu střídače, režimu fixed_voltage nebo optimizéru → 25 A."""
+    from envocad.generate import _fuse_in, is_solaredge
+    from envocad.model.project import Element
+    t = Element("fve.inverter", 0, 0, attrs={k: v for k, v in inv.items() if k != "component_id"},
+                component_id=inv.get("component_id"))
+    assert is_solaredge(t, opt)
+    assert _fuse_in({"fuse_in": "", "fuse_component": "eti-efh-10-dc-2p"}, {"isc": 9.0}, opt, t) == "25"
+    assert not is_solaredge(Element("fve.inverter", 0, 0, attrs={"type": "Fronius Symo"}), {})
+    assert _fuse_in({"fuse_in": ""}, {"isc": 9.0}, {}, Element("fve.inverter", 0, 0, attrs={"type": "Fronius"})) == "15"
+
+
+def test_battery_cable_from_battery_spec():
+    """Bod 8: kabel baterie z `battery.cable/cross/length` (výchozí H1Z2Z2-K 1x25, 25 mm², 5 m), ne z `dc.cable`."""
+    def bat_wire(battery):
+        p = build_project({"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}], "battery": battery})
+        bat = next(e for e in p.sheets[0].elements if e.symbol_id == "fve.battery")
+        return next(w for sh in p.sheets for w in sh.wires if w.touches(bat.id)).attrs
+    w = bat_wire({"e_kwh": 10, "p_kw": 5})
+    assert (w["cable"], w["cross"], w["length"]) == ("H1Z2Z2-K 1x25", "25", "5")
+    w = bat_wire({"e_kwh": 10, "cable": "H1Z2Z2-K 1x35", "cross": 35, "length": 8})
+    assert (w["cable"], w["cross"], w["length"]) == ("H1Z2Z2-K 1x35", "35", "8")
+
+
+def test_build_dc_strings_fuse_list_and_pitch():
+    """Bod 9 / 3: DC rozvaděč bez makra – rozteč stringů jako makra (texty SPD se nepřekrývají), In po stringech."""
+    from envocad.library.templates import DC_STRING_PITCH, build_dc_strings
+    from envocad.model.project import Project
+    p = Project()
+    sh = p.sheets[0]
+    build_dc_strings(p, sh, ["G1", "G2"], "tech", ["25", "15"])
+    fuses = sorted((e for e in sh.elements if e.symbol_id == "fve.fuse_disconnect"), key=lambda e: e.x)
+    assert [f.attrs["in_"] for f in fuses] == ["25", "15"] and fuses[1].x - fuses[0].x == DC_STRING_PITCH
+    with pytest.raises(ValueError):
+        build_dc_strings(p, sh, ["G1", "G2"], "tech", ["25"])
+
+
+def test_protection_without_in_is_f7_error():
+    from envocad.model.checks import protection_findings
+    from envocad.model.project import Element
+    p = build_project({"inverters": [{"ref": "T1", **_INV25, "strings": [20]}]})
+    rh = next(sh for sh in p.sheets if sh.loc == "RFVE.AC")
+    br = next(e for e in rh.elements if e.symbol_id == "fve.breaker_mcb")
+    assert not protection_findings(p)
+    br.attrs["in_"] = " "      # ruční list bez In: neutrální varování
+    fs = protection_findings(p)
+    assert [(f.code, f.severity, f.target_id) for f in fs] == [("breaker_no_in", WARNING, br.id)]
+    assert fs[0].text == "Jistič bez In – doplňte"
+    br.attrs["in_unresolved"] = "nic nevyhovělo (test)"    # generátor In nedosadil → chyba s důvodem
+    fs = protection_findings(p)
+    assert [(f.code, f.severity) for f in fs] == [("breaker_no_in", ERROR)] and "nic nevyhovělo (test)" in fs[0].text
+    fu = Element("fve.fuse", attrs={"ref": "F9", "in_": ""})
+    rh.elements.append(fu)
+    assert ("fuse_no_in", WARNING, "Pojistka bez In – doplňte") in [(f.code, f.severity, f.text)
+                                                                   for f in protection_findings(p)]
+
+
+# výstup generátoru bez chyb a varování F7 – topologie z docs/NAVRH_TOPOLOGIE.md (kap. 5) a cesta bez maker
+_KNOWN_RE_METER = pytest.mark.xfail(
+    strict=True, reason="známé (i v main): vícepól elektroměrového rozvaděče RE – text elektroměru P přes žílu "
+                        "napěťových obvodů (mp_text_overlap); rozmístění vícepólu `multipole.auto_layout`, mimo F0")
+F7_CASES = {
+    "firma": {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20, 18]}, {"ref": "T2", **_INV25, "strings": [20, 20]}]},
+    "rd": {"building": "house", "inverters": [{"ref": "T1", **_HOUSE_INV, "strings": [12, 12]}],
+           "battery": {"e_kwh": 10, "p_kw": 5}},
+    "rd_2inv": {"building": "house", "inverters": [{"ref": "T1", **_HOUSE_INV, "strings": [12, 12]},
+                                                   {"ref": "T2", **_HOUSE_INV, "strings": [12]}]},
+    "bytovy_dum": {"building": "apartment", "inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}]},
+    "vn_kiosk": {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}], "connection": {"level": "vn"}},
+    "vn_kobky_mereni_vn": {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}],
+                           "connection": {"level": "vn", "station": "kobky", "metering": "vn"}},
+    "vn_sloup_50kva": {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}],
+                       "connection": {"level": "vn", "station": "sloup", "transformer": {"sn": 50}}},
+    "bez_maker": {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20, 18]}, {"ref": "T2", **_INV25, "strings": [20, 20]}],
+                  "macros": _NO_MACROS},
+    "bez_maker_svorky": {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}], "macros": _NO_MACROS,
+                         "ac": {"distribution": "terminals"}},
+    "rd_bez_maker": {"building": "house", "inverters": [{"ref": "T1", **_HOUSE_INV, "strings": [12, 12]}],
+                     "macros": _NO_MACROS},
+    "rd_2inv_bez_maker_svorky": {"building": "house", "macros": _NO_MACROS, "ac": {"distribution": "terminals"},
+                                 "dc": {"route_boxes": 2},
+                                 "inverters": [{"ref": "T1", **_HOUSE_INV, "strings": [12, 12, 12]},
+                                               {"ref": "T2", **_HOUSE_INV, "strings": [12]}]},
+}
+_F7_XFAIL = {"vn_kiosk", "vn_kobky_mereni_vn", "vn_sloup_50kva"}
+
+
+@pytest.mark.parametrize("name", [pytest.param(n, marks=_KNOWN_RE_METER) if n in _F7_XFAIL else n for n in F7_CASES])
+def test_generated_project_f7_clean(name):
+    p = build_project(F7_CASES[name])
+    fs = [f for f in check_project(p, LibraryStore()) if f.severity in (ERROR, WARNING)]
+    assert not fs, [(f.sheet_name, f.ref, f.text) for f in fs]
+
+
+@pytest.mark.parametrize("name", sorted(_F7_XFAIL))
+def test_generated_vn_only_known_re_meter_warning(name):
+    """Přípojka VN: kromě známého překryvu ve vícepólu RE (viz `_KNOWN_RE_METER`) bez chyb a varování."""
+    p = build_project(F7_CASES[name])
+    fs = [f for f in check_project(p, LibraryStore()) if f.severity in (ERROR, WARNING)]
+    assert [(f.code, f.sheet_name.split(" ")[0]) for f in fs] == [("mp_text_overlap", "RE")], [f.text for f in fs]
+
+
+# ---- označení rozvaděčů (docs/NAVRH_TOPOLOGIE.md, kap. 8 bod 9) -------------------------------------------------
+def test_switchboard_designations_company_two_inverters():
+    """Firma, 2 střídače: rozvaděč u technologie na střídač RFVE.DC1/RFVE.DC2 (pořadí střídačů), po trase RDC1, RDC2
+    souvisle, AC rozvaděč RFVE.AC; kódy jsou platné umístění (tečka uvnitř) a listy dědí +RFVE.DCn."""
+    from envocad.model.designation import LOC, validate_code
+    spec = {"inverters": [{"ref": "T1", **_INV25, "strings": [20]}, {"ref": "T2", **_INV25, "strings": [20]}],
+            "dc": {"route_boxes": 1}}
+    p = build_project(spec)
+    assert [sh.loc for sh in p.sheets if sh.is_switchboard] == ["RDC1", "RFVE.DC1", "RDC2", "RFVE.DC2", "RFVE.AC"]
+    assert all(not validate_code(sh.loc, LOC) for sh in p.switchboards())
+    tech = {b.attrs["desc"]: b.ref for b in p.sheets[0].elements if b.ref.startswith("RFVE.DC")}
+    assert tech == {"DC rozvaděč u T1": "RFVE.DC1", "DC rozvaděč u T2": "RFVE.DC2"}
+    assert {s.code for s in p.structures} >= {"RFVE.DC1", "RFVE.DC2", "RFVE.AC", "RDC1", "RDC2"}
+    assert not [f for f in check_project(p, LibraryStore()) if f.code in ("struct_syntax", "dup_ref")]
+
+
+def test_dc_box_ref_helper():
+    from envocad.generate import dc_box_ref
+    from envocad.model.project import Project
+    p = Project()
+    assert dc_box_ref("tech", 0, 1, p) == "RFVE.DC"
+    assert dc_box_ref("tech", 2, 3, p) == "RFVE.DC3"
+    assert dc_box_ref("route", 0, 1, p) == "RDC1"
+
+
+def test_switchboard_designations_vn_house_and_override():
+    """Přípojka VN: hlavní rozvaděč nn HR, vývod FVE „k RFVE.AC (FVE)“; rodinný dům jeden RFVE; zadané ref platí."""
+    p = build_project({"inverters": [{"ref": "T1", **_INV25, "strings": [20]}], "connection": {"level": "vn"}})
+    locs = [sh.loc for sh in p.switchboards()]
+    assert "HR" in locs and "RFVE.AC" in locs and "RHN" not in locs and "RH" not in locs
+    hr = next(sh for sh in p.switchboards() if sh.loc == "HR")
+    assert next(e for e in hr.elements if e.ref == "X1").attrs["desc"] == "k RFVE.AC (FVE)"
+    house = build_project({"building": "house", "inverters": [{"ref": "T1", **_HOUSE_INV, "strings": [12]}],
+                           "dc": {"route_boxes": 0}})
+    assert [sh.loc for sh in house.switchboards()] == ["RFVE"]
+    own = build_project({"inverters": [{"ref": "T1", **_INV25, "strings": [20]}], "switchboard": {"ref": "RH1"},
+                         "connection": {"level": "vn", "main_board": {"ref": "RHN"}}})
+    assert {"RH1", "RHN"} <= {sh.loc for sh in own.switchboards()}
+    hr = next(sh for sh in own.switchboards() if sh.loc == "RHN")
+    assert next(e for e in hr.elements if e.ref == "X1").attrs["desc"] == "k RH1 (FVE)"
+
+
+# ---- review F0 (2. kolo): vývod FVE z prvků střídačů, držáky pojistek, In bez řešení ---------------------------
+def _hr_feeder(p):
+    hr = next(sh for sh in p.sheets if sh.loc == "HR")
+    x1 = next(e for e in hr.elements if e.ref == "X1")
+    w = next(w for w in hr.wires if w.touches(x1.id))
+    return hr.element(w.a.element_id if w.b.element_id == x1.id else w.b.element_id)
+
+
+def test_vn_fve_feeder_current_from_inverter_components():
+    """Bod 1: 3× SolarEdge SE27.6K jen s component_id (bez p_ac ve spec) na trafu 50 kVA – proud FVE z p_ac
+    artiklu (≈ 120 A) → žádný selektivní vývod: prázdné In + chyba F7 s důvodem (dřív 50 A z jističe střídače)."""
+    from envocad.generate import inverters_ac_current
+    from envocad.model.project import Element
+    invs = [{"ref": f"T{i}", "component_id": "solaredge-se27.6k", "strings": [20]} for i in (1, 2, 3)]
+    p = build_project({"inverters": invs, "connection": {"level": "vn", "transformer": {"sn": 50}}})
+    ts = [e for sh in p.sheets for e in sh.elements if e.symbol_id == "fve.inverter"]
+    assert len(ts) == 3
+    assert inverters_ac_current(ts) == pytest.approx(3 * 27600 / (3 ** 0.5 * 400))
+    qf = _hr_feeder(p)
+    assert qf.attrs["in_"] == "" and "proud FVE" in qf.attrs["in_unresolved"]
+    errs = _codes(p, LibraryStore(), "breaker_no_in")
+    assert [(f.severity, f.target_id) for f in errs] == [(ERROR, qf.id)] and "proud FVE" in errs[0].text
+    # i 1f střídač z prvku (230 V)
+    assert inverters_ac_current([Element("fve.inverter", attrs={"p_ac": "4,6", "phases": "1"})]) == pytest.approx(20)
+
+
+def test_vn_fve_feeder_given_main_in_checked_against_fve_current():
+    """Bod 1: zadané ac.main_in (selektivní s HJ) menší než proud FVE → prázdné In + chyba F7, ne tiché 40 A."""
+    from envocad.generate import fve_feeder_in
+    conn = {"transformer": {"sn": 50}}
+    assert fve_feeder_in(conn, {"main_in": 40, "breaker_in": 40}, [{"p_ac": 25}]) == ("40", "")
+    fin, why = fve_feeder_in(conn, {"main_in": 40, "breaker_in": 32}, [{"p_ac": 30}])
+    assert fin == "" and "< proud FVE" in why
+    p = build_project({"inverters": [{"ref": "T1", **_INV25, "p_ac": 30, "strings": [20]}], "ac": {"main_in": 40},
+                       "connection": {"level": "vn", "transformer": {"sn": 50}}})
+    qf = _hr_feeder(p)
+    assert qf.attrs["in_"] == "" and [f.severity for f in _codes(p, LibraryStore(), "breaker_no_in")] == [ERROR]
+
+
+def test_fuse_holder_limit_from_in_max_a_only():
+    """Bod 3: mez držáku jen z in_max_a artiklu fuse_holder; In držáku (OPVP Ie) se do pojistky nepropisuje."""
+    from envocad.generate import holder_max_in
+    from envocad.model.project import Element
+    lib = LibraryStore()
+    assert {cid: holder_max_in(lib.component(cid)) for cid in
+            ("oez-opvp10-2", "oez-opvp14-3-s", "oez-opvp22-1", "eaton-chpv1u", "eaton-chpv2u", "eti-efh-10-dc-2p")} \
+        == {"oez-opvp10-2": 32, "oez-opvp14-3-s": 63, "oez-opvp22-1": 125, "eaton-chpv1u": 30, "eaton-chpv2u": None,
+            "eti-efh-10-dc-2p": 25}
+    assert holder_max_in(lib.component("eaton-pv-2a10f")) is None and holder_max_in(None) is None   # vložka, ne držák
+    opvp = lib.component("oez-opvp10-2")
+    assert opvp.params["in_"] == "32" and "in_" not in opvp.attr_values()
+    e = Element("fve.fuse_disconnect", attrs={"ref": "F1", "in_": "16"})
+    opvp.apply_to(e)
+    assert e.attrs["in_"] == "16" and e.component_id == "oez-opvp10-2"
+
+
+def test_fuse_component_keeps_fuse_in_and_f7_over_holder():
+    """Bod 3: artikl držáku nepřepíše In pojistky; In vložky > max. In držáku → chyba F7 `fuse_over_holder`."""
+    lib = LibraryStore()
+    spec = {"module": {"isc": 9.0}, "dc": {"fuse_component": "oez-opvp10-2"},
+            "inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}]}
+    p = build_project(spec)
+    assert {f.attrs["in_"] for f in _fuses(p)} == {"15"} and {f.component_id for f in _fuses(p)} == {"oez-opvp10-2"}
+    assert not _codes(p, lib, "fuse_over_holder")
+    p = build_project({**spec, "dc": {"fuse_component": "eti-efh-10-dc-2p", "fuse_in": 32}})
+    over = _codes(p, lib, "fuse_over_holder")
+    assert len(over) == len(_fuses(p)) == 2 and all(f.severity == ERROR and "25 A" in f.text for f in over)
+
+
+def test_solaredge_fuse_respects_holder_limit():
+    """Bod 3: OPTIMIZER_FUSE_IN (25 A) jen do max. In držáku."""
+    from envocad.generate import fuse_in_why
+    from envocad.model.calc import string_fuse_in
+    from envocad.model.project import Element
+    assert string_fuse_in(None, optimizer=True, max_in=25) == 25.0
+    assert string_fuse_in(None, optimizer=True, max_in=20) is None
+    se = Element("fve.inverter", attrs={"type": "SolarEdge SE10K"})
+    assert fuse_in_why({"fuse_in": "", "fuse_component": "oez-opvp10-2"}, {"isc": 9}, {}, se) == ("25", "")
+
+
+def test_unresolved_fuse_marked_and_logged_once(caplog):
+    """Bod 4 + 8: pojistka bez řešení nese in_unresolved (chyba F7 s důvodem); varování jednou za střídač, i když
+    má střídač rozvaděče po trase."""
+    import logging
+    spec = {"module": {"isc": 18.5}, "dc": {"route_boxes": 2},
+            "inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}]}
+    with caplog.at_level(logging.WARNING, logger="envocad.generate"):
+        p = build_project(spec)
+    assert len([r for r in caplog.records if "Pojistka stringu" in r.getMessage()]) == 1
+    fuses = _fuses(p)
+    assert fuses and all("gPV nevyhoví" in f.attrs["in_unresolved"] for f in fuses)
+    errs = _codes(p, LibraryStore(), "fuse_no_in")
+    assert len(errs) == len(fuses) and all(f.severity == ERROR and "Isc 18.5" in f.text for f in errs)
+
+
+def test_module_without_isc_gives_empty_in_with_reason():
+    """Bod 7 (záměrný dopad): modul bez Isc → prázdné In + chyba F7 „modul nemá Isc“ (dřív tiché 15 A)."""
+    p = build_project({"module": {"isc": ""}, "inverters": [{"ref": "T1", **_INV25, "strings": [20]}]})
+    assert [f.attrs["in_unresolved"] for f in _fuses(p)] == ["modul nemá Isc"]
+    assert [f.severity for f in _codes(p, LibraryStore(), "fuse_no_in")] == [ERROR]
+
+
+def test_resolve_values_skips_unresolved_variable():
+    """Bod 5: proměnná se zástupnou hodnotou (In neurčené generátorem) se nevaliduje (max, nabídka, povinnost);
+    přebitá sadou / zadáním se validuje normálně."""
+    from envocad.generate import UNRESOLVED_IN
+    from envocad.library.macros import Macro, MacroVar, resolve_values
+    m = Macro(name="T", description="", fragment={"elements": [], "wires": []}, path=None, source="",
+              variables=[MacroVar(name="fuse_in", label="In", type="number", required=True, max=63),
+                         MacroVar(name="c", label="Char", type="choice", choices=("gPV",), default="gPV")])
+    base = {"fuse_in": UNRESOLVED_IN}
+    _vals, errs = resolve_values(m, base=base, repeat=False)
+    assert errs                                                          # bez příznaku: 987654321 > 63
+    vals, errs = resolve_values(m, base=base, repeat=False, unresolved={"fuse_in"})
+    assert not errs and vals["fuse_in"] == UNRESOLVED_IN
+    _vals, errs = resolve_values(m, base=base, given={"fuse_in": "80"}, repeat=False, unresolved={"fuse_in"})
+    assert errs and "80" in errs[0]
+
+
+def test_blank_unresolved_cleans_wires_and_double_spaces():
+    """Bod 5: zástupné In se vymaže z prvků i vodičů (texty) bez zdvojené mezery."""
+    from envocad.generate import UNRESOLVED_IN, _blank_unresolved
+    from envocad.model.project import Element, Wire, WireEnd
+    e = Element("fve.fuse_disconnect", attrs={"in_": UNRESOLVED_IN, "desc": f"gPV {UNRESOLVED_IN} A 1000 V"})
+    w = Wire(WireEnd("a", "1"), WireEnd("b", "1"), attrs={"note": f"pojistka {UNRESOLVED_IN} A"})
+    _blank_unresolved([e], [w])
+    assert (e.attrs["in_"], e.attrs["desc"], w.attrs["note"]) == ("", "gPV A 1000 V", "pojistka A")
+
+
+def _inside(p, sh, lib):
+    from envocad.model.frame import inner_box
+    from envocad.model.textlayout import sheet_content_boxes
+    x0, y0, x1, y1 = inner_box(sh.width, sh.height)
+    return all(b[0] >= x0 and b[1] >= y0 and b[2] <= x1 and b[3] <= y1 for b in sheet_content_boxes(p, sh, lib))
+
+
+def test_dc_template_9_strings_fits_sheet():
+    """Bod 6: šablona DC rozvaděče s 9 stringy po 50 mm přetékala A3 (420 mm) – list se zvětší, obsah uvnitř."""
+    from envocad.library.templates import apply_template
+    from envocad.model import multipole as mp
+    from envocad.model.project import Element, Project
+    lib = LibraryStore()
+    for n, paper in ((4, "A3"), (9, "A2")):
+        p = Project()
+        blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
+        p.sheets[0].elements.append(blk)
+        sh = p.create_switchboard_sheet(blk)
+        apply_template(p, sh, "dc", {"n_strings": str(n)}, lib=lib)
+        assert sh.paper == paper and _inside(p, sh, lib)
+        # vícepól a plán svorkovnice zůstávají na stranách firemního standardu (ne na rozměru zvětšeného listu)
+        assert mp.paper_choice(sh) == mp.standard_switchboard_paper()
+    p = build_project({"inverters": [{"ref": "T1", **_INV25, "strings": [20] * 9}]})
+    dcs = [sh for sh in p.sheets if sh.loc.startswith(("RDC", "RFVE.DC"))]
+    # generátor: prodloužený formát na šířku se stejnou výškou (`frame.grow_sheet_long`), ne vyšší list
+    assert dcs and all(sh.paper == "A4×3" and sh.height == 297.0 and _inside(p, sh, lib) for sh in dcs)
+
+
+def test_grow_sheet_to_content_keeps_fitting_sheet():
+    from envocad.library.templates import apply_template
+    from envocad.model.frame import grow_sheet_to_content
+    from envocad.model.project import Project
+    lib = LibraryStore()
+    p = Project()
+    sh = p.sheets[0]
+    apply_template(p, sh, "dc", {"n_strings": "2"})
+    pos = [(e.x, e.y) for e in sh.elements]
+    assert not grow_sheet_to_content(p, sh, lib) and sh.paper == "A3" and pos == [(e.x, e.y) for e in sh.elements]
+
+
+@pytest.mark.parametrize("level", [" VN ", "vn", "Vn\t"])
+def test_connection_level_strip_lower(level):
+    """Bod 10: `connection.level` sjednoceně .strip().lower() (i RD odmítne „ VN “)."""
+    p = build_project({"inverters": [{"ref": "T1", **_INV25, "strings": [20]}], "connection": {"level": level}})
+    assert any(sh.loc == "HR" for sh in p.sheets)
+    with pytest.raises(ValueError, match="Rodinný dům"):
+        build_project({"building": "house", "inverters": [{"ref": "T1", **_HOUSE_INV, "strings": [12]}],
+                       "connection": {"level": level}})

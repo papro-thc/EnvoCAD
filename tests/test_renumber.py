@@ -79,7 +79,7 @@ def test_scopes_number_separately_and_skipped_symbols(lib):
     s1, s2 = p.create_switchboard_sheet(b1), p.create_switchboard_sheet(b2)
     f1 = Element("fve.breaker_mcb", 10, 10, attrs={"ref": "F4"})
     f2 = Element("fve.breaker_mcb", 10, 10, attrs={"ref": "F8"})
-    x = Element("sb.feed_in", 0, 10, attrs={"ref": "X7"})              # přívod se nečísluje
+    x = Element("sb.feed", 0, 10, rotation=180, attrs={"dir": "in", "ref": "X7"})              # přívod se nečísluje
     s1.elements += [f1, x]
     s2.elements.append(f2)
     apply_text_changes(p, renumber.plan(p, lib, renumber.ALL))

@@ -51,7 +51,9 @@ Zásada: **model nezávisí na UI.** Vše, co lze, se testuje bez spuštění Qt
   (`StructureId`: aspekt, kód, popis; kód mimo registr je platný, kontrola jen hlásí INFO). `Sheet.func` a
   `Sheet.loc` jsou výchozí aspekty prvků listu; prvek může přepsat `attrs["func"]` / `attrs["loc"]` (prázdné =
   dědit). `attrs["ref"]` je jen přístrojová část („F3“). Plné označení („=AC+RDC1-F3“) skládá
-  `model/designation.py` – používají ho výkazy a štítky; list rozvaděče má `+` = označení bloku.
+  `model/designation.py` – používají ho výkazy a štítky; list rozvaděče má `+` = označení bloku. Kód je jedna
+  úroveň; tečka uvnitř kódu (firemní `RFVE.AC`, `RFVE.DC1`) úrovně nedělí (`CODE_RE`, `parse_designation`). Generátor
+  označuje rozvaděče RFVE.AC / RFVE.DC(n) / RDCn / HR, u rodinného domu RFVE (`generate.dc_box_ref`).
 - **Revize** – `Project.revisions` (`Revision`: označení, datum, zpracoval, otisky listů při uzavření, značky
   `RevisionMark` na listu, prvku nebo vodiči). Značky vznikají z porovnání `model/diff.py` přes `model/revision.py`;
   kreslí se v editoru, PDF a DXF (vrstva `REVIZE`) a revizi listu ukazuje popisové pole. **Uzavření revize je měkký
@@ -144,6 +146,15 @@ Jeden model, dva pohledy nad stejnými daty:
 - Přepínání pohledu = jiný `QGraphicsScene` nad stejným `Sheet`; symboly pro vícepól se generují z jednopólových
   (N× opakovaný pólový symbol + společná spoušť), vlastní vícepólové symboly v knihovně jsou volitelné.
 - Svorkovnice a seznam kabelů se generují z `Wire.conductors` + `Wire.terminals`.
+- Přívod/vývod rozvaděče je jedna značka `sb.feed` (`dir` in/out); predikáty jen v `model/feed.py` (bez Qt). Vícepól
+  ho kreslí jako dřívější `sb.feed_in` / `sb.feed_out` (`feed.multipole_feed_view`) a přívodní větev, kterou list
+  rozvaděče kreslí tokem zespodu nahoru (RFVE, RFVE.AC – přívod portem nahoru, jistič rot 90), otočí zpět shora dolů
+  (`multipole.sheet_poles` / `flow_flipped`: prvek v pohledu je kopie se stejným id a atributy a jinou rotací).
+  Přívod/vývod převedený migrací v12 → v13 má technický atribut `mp_legacy="1"` – od něj se větev neotáčí (vícepól
+  starého projektu beze změny); otisk listu (`diff._canon_element`) kreslí `sb.feed` jako `sb.feed_in`/`sb.feed_out`
+  bez `dir` a `mp_legacy`, takže uzavřené revize starých projektů zůstanou uzavřené.
+  Štítek kabelu přívodu/vývodu je na straně proti portu (`feed_cable_up`). Změna směru v GUI = jeden `SetAttrCommand`
+  s navázanými změnami odkud ↔ kam (`project.feed_dir_changes`) a přestavbou položky značky.
 - Geometrie vícepólu (rozmístění `auto_layout`, stránkování `paginate`, popisky přístrojů `pole_label_lines`, trasy
   žil `conductor_route`, příčka PE svodiče `pe_join_segments`) je v `model/multipole.py`; `model/multipole_geometry.py`
   z ní bez Qt skládá texty a čáry celého pohledu a rozmisťuje popisky žil mimo cizí čáry – stejné polohy kreslí scéna
@@ -184,9 +195,14 @@ Tři vrstvy rozšíření, od nejjednodušší:
 3. **Pluginy** – `~/.envocad/plugins/*.py` s `register(ctx)` (`envocad/plugins.py`): položky menu, šablony
    rozvaděčů, importéry v menu, vlastní výkazy. Vzor: `envocad/plugins_builtin/example_counts.py`.
    Budoucí obory (HVAC, MaR, silnoproud budov) = balíček knihovny + plugin se šablonami a výkazy, jádro se nemění.
+   Přívod/vývod rozvaděče je v API jedna značka `sb.feed` + `attrs.dir` (`feed.FEED_SYMBOL`); šablona pluginu se
+   starými `sb.feed_in` / `sb.feed_out` se po `build` převede (`feed.normalize_legacy_objects` v `apply_template`),
+   callback menu, který vkládá prvky sám, musí použít `sb.feed`.
 
-Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **12** – ruční posun prvku v jednopólovém
-schématu `Element.sl_pos`, bez migrace; v11 žíly dle ČSN EN 60445 (DC+/DC− → L+/L−,
+Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **13** – jedna značka přívodu/vývodu
+`sb.feed` se směrem `attrs.dir` místo `sb.feed_in` / `sb.feed_out`, migrace bez přeskládání: přívod se pootočí o 180°,
+port zůstane na místě, vodiče se nerozpojí (`model/feed.py:normalize_legacy_element`, makra a schránka se převádějí
+při načtení); v12 ruční posun prvku v jednopólovém schématu `Element.sl_pos`, bez migrace; v11 žíly dle ČSN EN 60445 (DC+/DC− → L+/L−,
 `conductor_name`); v10 zrcadlení prvku `Element.mirror` a volné texty listu `Sheet.texts`; v9 přidala připomínky `Project.notes`;
 v8 přidala strukturní označení a revize v `Project`, `Sheet.func/loc`; migrace v `model/project.py:migrate`), takže
 rozšíření modelu nerozbije staré soubory. Načítání validuje strukturu (`Project.from_dict` → `CorruptProjectError`, česky „Soubor je poškozen: list X,

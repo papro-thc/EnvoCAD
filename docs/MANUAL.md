@@ -253,6 +253,24 @@ ve stejném prostoru označení (funkce a umístění).
 
 ## 4. Rozvaděče
 
+### Přívod a vývod
+Svorky přívodu i vývodu rozvaděče jsou **jedna značka *Přívod / vývod*** (`sb.feed`). Port je nahoře, kabel jde
+zespodu; jestli jde o přívod, nebo vývod, ukazuje **šipka** na kabelu (k svorce = přívod, od svorky = vývod) a volba
+**Směr** (přívod / vývod) v panelu Vlastnosti nebo v dialogu parametrů. Nová značka z knihovny je přívod. Přepnutí
+směru je jeden krok `Ctrl+Z`: s ním se přepočte „Odkud“ ↔ „Kam“ z vazby na blokové schéma a port bloku ROZVADĚČ se
+přesune na druhou stranu (přívody vlevo, vývody vpravo) – kabel zůstane připojený. Svorku shora (kabel přichází
+shora) uděláš otočením `R` o 180°. Na listech **RFVE** (rodinný dům) a **RFVE.AC** generátor kreslí **vše
+zespodu**: přívody i vývody ve spodní řadě, sběrnice nahoře a přívodní větev teče nahoru (svorka → jistič →
+sběrnice); DC stringy rozvaděče FVE jako „U“ (přívod, pojistkový odpojovač nahoru, ohyb, dolů na vývod; SPD nad
+ohybem, jeho PE nad sběrnicí do XPE). DC rozvaděče (RFVE.DC, RDCn), HR, RE a RVN mají rozložení jako dřív. Vícepól
+se tím nemění (přívody v něm zůstávají nahoře). **Starší projekty** (do formátu 12) se při otevření převedou beze
+ztráty: přívody i vývody dostanou novou značku, porty zůstanou na místě, nic se nepřeskládá (přibude jen šipka);
+převedený přívod je pootočený o 180°, **popisek** (označení, popis, Odkud) ale zůstane tam, kde byl – vpravo od svorky
+(přívod otočený o 90°/270° má popisek na stejné straně jako dřív). Vícepól starého listu zůstane, jak byl (ani ruční
+přívod zespodu se v něm neotáčí), uzavřené revize zůstanou uzavřené (převod nehlásí změnu listu).
+Přeskládat je můžeš přegenerováním nebo ručně (otočení `R` – vodič na port drží). Starší EnvoCAD projekt formátu 13
+a makra verze 3 neotevře.
+
 ### Založení
 V blokovém schématu vlož **Rozvaděč (blok)** (R1), zapoj do něj kabely a dvakrát na něj klikni. Poprvé program nabídne
 **šablonu**: *AC rozvaděč FVE* (přívod, hlavní vypínač, rozvod, SPD, vývody s jističi), *DC rozvaděč* (každý
@@ -262,7 +280,9 @@ string zvlášť: pojistkový odpínač (u technologie) nebo jen průchozí svor
 **Rozvod** v rozvaděči jde dvěma způsoby (parametr šablony i průvodce): **sběrnice potenciálů** – prvek
 *Sběrnice (rozvodný vodič)*; ve vícepólu se kreslí jako v EPLAN vodorovnými čarami L1 L2 L3 N PE přes
 celou stranu (i přes více stran) s názvem potenciálu a šipkou na obou koncích (`1L1`… – označení sběrnice je
-předpona), přístroje se na ni napojují odbočkou s tečkou; porty `T1…T10` shora, `1…10` zdola. PE je potenciál sběrnice (1PE),
+předpona), přístroje se na ni napojují odbočkou s tečkou; porty `T1…T12` shora (přívody), `1…13` zdola (vývody)
+a `B1…B12` zdola (přívody, které do sběrnice tečou zespodu; do 6 přívodů svisle pod nimi, při 7–12 přívodech
+schodovitě bez křížení – sběrnice je pak výš a hlavní vypínač visí z vývodu 13 za posledním přívodem). PE je potenciál sběrnice (1PE),
 PE sběrnice i PE svodiče přepětí jdou na vývod `XPE` – ekvipotenciální svorkovnici (HOP) vně rozvaděče. Nebo
 **rozvodné svorky s můstky** (skupiny svorek X2, můstky mezi nimi).
 
@@ -311,7 +331,7 @@ z pólu, na který klikneš). Makra z knihovny se vkládají taky. Totéž jde v
 ### Svorky a můstky
 Prvek **Svorkovnice** (`sb.terminal_block`) je v blokovém schématu *skupina svorek* jedné svorkovnice: označení X2 a
 v atributu „Svorka č.“ čísla (`1 2 3 4 5`, nebo jen první číslo – zbytek se dopočítá). Ve vícepólu má každá
-žíla vlastní svorku s číslem. **Přívod a vývod** (`sb.feed_in`, `sb.feed_out`) jsou také svorkovnice: ve
+žíla vlastní svorku s číslem. **Přívod a vývod** (jedna značka *Přívod / vývod* `sb.feed`) jsou také svorkovnice: ve
 vícepólu dostane každá žíla svorku s číslem (bez zadání 1…n, jinak „Svorka č.“ stejně jako u skupiny),
 jsou v plánu svorkovnice i v BOM. `Úpravy → Očíslovat svorky automaticky` doplní chybějící čísla (skupiny,
 PE lišta), ruční čísla nechá.
@@ -319,7 +339,7 @@ PE lišta), ruční čísla nechá.
 `Úpravy → Svorkovnice a můstky…` (`Ctrl+Shift+T`): tabulka svorek vybrané svorkovnice (vnitřní/vnější strana,
 můstek) a editace **můstků** – jedna skupina na řádek, čísla svorek pomlčkou (`1-6-11-16`). Můstky se kreslí
 ve vícepólu, v blokovém schématu čárkovaně mezi skupinami, a jsou ve výkazech a BOM. Můstky patří listu rozvaděče –
-svorkovnice X1 v RDC1 a X1 v RH jsou dvě různé. Přepnutí svorkovnice v dialogu rozpracované můstky nezahodí;
+svorkovnice X1 v RDC1 a X1 v RFVE.AC jsou dvě různé. Přepnutí svorkovnice v dialogu rozpracované můstky nezahodí;
 OK uloží změny všech svorkovnic jedním krokem undo a odmítne číslo svorky, které na svorkovnici není.
 Šířka skupiny svorek v rozložení = počet svorek × 6,2 mm, pokud atribut „Šířka skupiny“ nevyplníš.
 
@@ -430,6 +450,14 @@ Oteplení rozvaděče (sekce 4, Rozložení a skříň):
 | `thermal_device` | varování | teplota vzduchu v řadě přístroje překračuje jeho `t_max` z artiklu/atributu (nebo nejnižší teplota okolí skříně je pod jeho `t_min`) |
 | `thermal_device` | info | jedna položka na list: u N přístrojů chybí rozsah teplot z datasheetu (předpoklad 40 °C), kolik z nich je nad předpokladem |
 
+Jištění v rozvaděčích (`protection_findings`):
+
+| Kód | Závažnost | Význam |
+|---|---|---|
+| `fuse_no_in` / `breaker_no_in` | varování | „Pojistka bez In – doplňte“ / „Jistič bez In – doplňte“ (In prázdné, např. ručně kreslený list) |
+| `fuse_no_in` / `breaker_no_in` | chyba | In nechal prázdné generátor, protože nic nevyhovělo (atribut prvku `in_unresolved` = důvod, je v hlášce): pojistka stringu, na kterou nevyhoví žádná vložka gPV (Isc, max. jištění modulu, max. In držáku) nebo modul nemá Isc; vývod HR, na který není selektivní jistič, jenž unese proud FVE |
+| `fuse_over_holder` | chyba | In vložky je nad max. In přiřazeného držáku (artikl `fuse_holder`, sloupec `in_max_a`) |
+
 Připomínky (sekce 9):
 
 | Kód | Závažnost | Význam |
@@ -481,7 +509,7 @@ umístěním jeho blok.
 | `List → Vlastnosti listu (název, =funkce, +umístění)…` | funkce a umístění listu – výchozí pro všechny prvky a vodiče listu |
 | Panel Vlastnosti prvku, pole `Funkce (=)` a `Umístění (+)` | přepis pro jeden prvek; prázdné pole = převzít z listu |
 
-Kódy se píšou bez znaménka, jedna úroveň (`RS1`, ne `=RS1.2`), jen A–Z, 0–9 a `_`, nejvýš 10 znaků. Přejmenování
+Kódy se píšou bez znaménka, jedna úroveň (`RS1`; tečka nedělí úrovně), jen A–Z, 0–9, `_` a tečka uvnitř (firemní `RFVE.AC`), nejvýš 10 znaků. Přejmenování
 bloku rozvaděče (`ref` v panelu Vlastnosti) přejmenuje i jeho umístění v registru, na listech a v overridech prvků.
 
 Kontrola (`F7`) hlásí označení a strukturní údaje:
@@ -542,7 +570,7 @@ Vygeneruje se blokové schéma (stringy → DC rozvaděče → střídače → A
 kabelů a vazeb. Hned potom spusť `F7`.
 
 **Připojení k DS** (pole pod Distributorem): **nn** = AC rozvaděč FVE jde vývodem XOUT přímo do HDS (jako dřív).
-**VN** = trafostanice. AC rozvaděč FVE → **hlavní rozvaděč nn** RHN (přívod XT od transformátoru, hlavní jistič,
+**VN** = trafostanice. AC rozvaděč FVE → **hlavní rozvaděč nn** HR (přívod XT od transformátoru, hlavní jistič,
 přípojnice nn, vývod X1 k FVE, SPD T1, vývod X2 spotřeba objektu) → **transformátor** TR1 → podle pole **Trafostanice**:
 - **kiosková TS** (výchozí, nové stanice) – **rozvaděč VN** RVN po **polích**: kabelová pole (odpínač VN, uzemňovač,
   kapacitní indikátor napětí, kabelová koncovka, přívod XDS1/XDS2 z DS – u smyčky dvě), přípojnice VN, při měření na VN
@@ -554,12 +582,20 @@ přípojnice nn, vývod X1 k FVE, SPD T1, vývod X2 spotřeba objektu) → **tra
 
 **Elektroměrový rozvaděč** RE s fakturačním elektroměrem je samostatný: měřicí obvody k němu vedou kabely z vývodů
 XMI (proud ze sekundáru MTP) a XMU (napětí z přípojnice nn, při měření na VN ze sekundáru MTN) rozvaděče s měřením.
-Všechny části trafostanice (RVN, TR1, RHN, RE, prvky na sloupu) mají atribut **Trafostanice** („TS1 kiosková
+Všechny části trafostanice (RVN, TR1, HR, RE, prvky na sloupu) mají atribut **Trafostanice** („TS1 kiosková
 trafostanice“) a přístroje rozvaděče VN atribut **Pole / kobka** („P1 kabelové pole“) – oba jdou změnit v panelu
 vlastností a určují rámečky v jednopólovém schématu. Ze Sn transformátoru se dopočte hlavní jistič (In nn → nejbližší
 vyšší řada), převod MTP (x/5 A), pojistky VN (≈ 1,8 × In VN – ověř podle tabulky výrobce) a jistič spotřeby (≤ hlavní
 / 1,6 kvůli selektivitě); ve specifikaci je mění `connection.main_board.main_in`, `ct_ratio`, `fuse_vn`,
-`main_board.load_in`, označení TS `connection.ts.ref`/`desc`. Rozvaděč VN nemá vícepól ani plán svorkovnice
+`main_board.load_in`, označení TS `connection.ts.ref`/`desc`. **Vývod FVE v HR** má In hlavního vypínače RFVE.AC
+(`ac.main_in`), nejvýš největší jistič selektivní s hlavním jističem (poměr 1,6); musí unést **proud FVE** (součet
+jmenovitých AC proudů střídačů z jejich P AC a počtu fází – i z artiklu střídače) a nesmí být menší než jistič
+střídače v RFVE.AC. Rozhodnutí: vývod FVE ≥ jistič střídače, **ne 1,6 × jistič střídače** – selektivitu vůči
+jističům střídačů drží hlavní vypínač RFVE.AC a 1,6× by u malých trafostanic vývod zbytečně vyhnalo nad selektivní
+mez s hlavním jističem HR. Když takový jistič není (nebo je zadané `ac.main_in` pod proudem FVE), In zůstane prázdné
+a F7 hlásí chybu s důvodem; `connection.main_board.fve_in` platí vždy beze změny. **Napětí vn** (`u_vn`) se čte
+z čísla na začátku textu („22 kV“, „35 kV, 50 Hz“, „22 000 V“, „22.000 V“); nečitelné nebo mimo 1–52 kV je chyba
+zadání, nezadané se počítá jako 22 kV, ale do výkresu se nepíše. Rozvaděč VN nemá vícepól ani plán svorkovnice
 (dokumentuje se jednopólovým schématem), přístroje VN se na DIN lištu nerozmísťují.
 
 **Značky VN** (kategorie VN v knihovně, ČSN EN 60617): odpínač VN (kroužek + odpojovací čárka), odpojovač, vypínač VN
@@ -590,7 +626,9 @@ ETI EFH 10 DC 2p** (vložky CH10x38 gPV 1000 V, max 25 A; kategorie DC-20B – *
 odpínačem střídače), **svodič Weidmüller VPU PV I+II 3 1000** (ve výkresu typ, Uc 1000 V DC,
 Up ≤ 3,8 kV, ISCPV 11 kA – proto bez vlastní pojistky) připojený z výstupních svorek odpojovače (strana
 střídače) dvojitou dutinkou. **In pojistek** se při prázdném poli určí podle stringu (IEC 62548): nejmenší vložka
-≥ 1,5 × Isc modulu, nejvýš 2,4 × Isc a max. jištění modulu z katalogu; SolarEdge (střídač nebo optimizéry) 25 A.
+≥ 1,5 × Isc modulu, nejvýš 2,4 × Isc, max. jištění modulu z katalogu a max. In držáku (`in_max_a` artiklu
+`dc.fuse_component`, EFH 10 DC 25 A); SolarEdge (střídač nebo optimizéry) 25 A, pokud to držák snese. Když nic
+nevyhoví (nebo modul nemá Isc), In zůstane prázdné a F7 hlásí chybu s důvodem. Artikl držáku In vložky nemění.
 Artikly mění `dc.fuse_component` a `dc.spd_component` ve specifikaci. **Stringy se v rozvaděči nikdy nespojují** – každý jde
 zvlášť až na vlastní DC vstup střídače (DC1…DCn podle počtu MPPT × stringů na MPPT; zná-li střídač počet MPPT
 (zadáním nebo z artiklu), stringy se rozdělí na MPPT rovnoměrně – 1. string na MPPT 1, 2. na MPPT 2… –, jinak jdou
@@ -598,11 +636,17 @@ na DC1, DC2… za sebou; paralelní spojení dělá
 jen SolarEdge a kreslí se jako jeden string). Blok DC rozvaděče v blokovém schématu má porty podle přívodů
 (X1…Xn od stringů) a vývodů (Xn+1… dál). Když obojí vypneš, vloží se jen samostatný odpínač DC v blokovém schématu.
 Průvodce se ptá i na **objekt** (`building` ve specifikaci): **firma** a **bytový dům** mají DC rozvaděče a AC
-rozvaděč zvlášť; u **rodinného domu** je DC i AC v jednom **rozvaděči FVE (RFVE)** – místo DC rozvaděče u technologie
+rozvaděč **RFVE.AC** zvlášť; u **rodinného domu** je DC i AC v jednom **rozvaděči FVE (RFVE)** – místo DC rozvaděče u technologie
 má RFVE na každý string pojistkový odpojovač a SPD DC (přívody za AC přívody od střídačů, vývody ke střídači) a k tomu
 AC část s vývodem do HDS. V blokovém schématu stojí RFVE před střídačem, AC kabel od střídače se vrací shora;
 rozvaděče po trase zůstávají. Přípojka VN se u rodinného domu negeneruje.
-AC rozvaděč má přívody po střídačích, jističe, rozvodné svorky s můstky, SPD, hlavní vypínač a vývod do HDS.
+**Označení rozvaděčů** z generátoru (firemní styl ENVO): AC rozvaděč FVE **RFVE.AC**, DC rozvaděč u technologie
+**RFVE.DC** – při více střídačích má každý střídač svůj (**RFVE.DC1**, **RFVE.DC2**… v pořadí střídačů), rozvaděče po
+trase **RDC1…n** (číslované souvisle jen mezi sebou), hlavní rozvaděč nn u přípojky VN **HR**, u rodinného domu jeden
+**RFVE**. Tečka je uvnitř jednoho kódu umístění (`+RFVE.AC-X1`), nedělí úrovně. Jiné označení lze zadat ve specifikaci
+(`switchboard.ref`, `connection.main_board.ref`). Starší projekty se nepřejmenovávají.
+AC rozvaděč má přívody po střídačích, jističe, rozvodné svorky s můstky, SPD, hlavní vypínač a vývod do HDS; přívody
+i vývody jsou ve spodní řadě (vše zespodu), přívodní větev teče nahoru do sběrnice / rozvodných svorek.
 Označení jsou jedinečná uvnitř každého rozvaděče (jako v EPLAN `+RDC1-X1`), takže X1 smí být v každém
 rozvaděči; listy blokového schématu sdílejí jeden prostor označení.
 

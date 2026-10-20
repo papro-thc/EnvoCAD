@@ -321,12 +321,28 @@ class SplitWireCommand(_FeedFollowups, QUndoCommand):
         self.scene.add_wire_item(self.old)
 
 
+def _attr_label(scene, target_id: str, is_wire: bool, key: str) -> str:
+    """Český název atributu do textu kroku undo („Změnit Směr“, ne „Změnit dir“): popisek atributu značky prvku
+    (vodiče), jinak klíč."""
+    attrs = []
+    try:
+        if is_wire:
+            from envocad.model.project import SWITCHBOARD_WIRE_ATTRIBUTES, WIRE_ATTRIBUTES
+            attrs = WIRE_ATTRIBUTES + SWITCHBOARD_WIRE_ATTRIBUTES
+        else:
+            it = getattr(scene, "element_items", {}).get(target_id)
+            attrs = list(getattr(getattr(it, "symbol", None), "attributes", None) or [])
+    except Exception:  # noqa: BLE001 – text kroku undo nesmí shodit změnu
+        attrs = []
+    return next((a.label for a in attrs if a.key == key and a.label), key)
+
+
 class SetAttrCommand(_FeedFollowups, QUndoCommand):
     """Změna atributu. Ruční vazba přívodu/vývodu (`wire_id`) navíc přejmenuje konec vodiče JPS na bloku a předá
     žíly vodičům u přívodu (follow-upy, undo je vrátí)."""
 
     def __init__(self, scene, target_id: str, is_wire: bool, key: str, old: str, new: str):
-        super().__init__(f"Změnit {key}")
+        super().__init__(f"Změnit {_attr_label(scene, target_id, is_wire, key)}")
         self.scene, self.tid, self.is_wire, self.key, self.old, self.new = scene, target_id, is_wire, key, old, new
         self.had_key = key in self._target().attrs   # undo nového atributu ho zase odebere
 
@@ -345,6 +361,7 @@ class SetAttrCommand(_FeedFollowups, QUndoCommand):
     def _changed(self) -> None:
         """Překreslení a signál `attrs_changed` až po navázaných změnách – panel vlastností a pohledy tak vidí
         výsledný stav (i odkud/kam a kabel z vazby)."""
+        self._refresh_symbol()
         (self.scene.wire_items if self.is_wire else self.scene.element_items)[self.tid].update()
         if self._conds:
             _refresh_wires(self.scene, [c.wire_id for c in self._conds])
@@ -353,9 +370,40 @@ class SetAttrCommand(_FeedFollowups, QUndoCommand):
         self.scene.attrs_changed.emit(self.tid)
 
     def _feed_link(self, project) -> None:
-        if self.is_wire or self.key != "wire_id":
+        if self.is_wire:
             return
-        self._feed_link_followups(project, self.scene.sheet, self._target(), attrs=True)
+        if self.key == "dir":
+            self._feed_dir_followups(project)
+        elif self.key == "wire_id":
+            self._feed_link_followups(project, self.scene.sheet, self._target(), attrs=True)
+
+    def _feed_dir_followups(self, project) -> None:
+        """Směr přívodu/vývodu: odkud ↔ kam (z vazby na vodič JPS, jinak přesun ručního textu) jako navázané změny
+        téhož kroku undo (`feed_dir_changes`). Port bloku ROZVADĚČ se přesune sám (porty z listu), vodič drží."""
+        from envocad.model.feed import is_feed
+        from envocad.model.project import TextChange, apply_text_changes, feed_dir_changes
+        e = self._target()
+        if not is_feed(e):
+            return
+        ch = [TextChange("element", e.id, k, e.attrs.get(k), v)
+              for k, v in feed_dir_changes(project, self.scene.sheet, e).items()]
+        apply_text_changes(project, ch)
+        self._ports += ch
+
+    def _refresh_symbol(self) -> None:
+        """Obrázek prvku závisí na atributu (směr přívodu/vývodu – šipka, zobrazené odkud/kam): položka dostane novou
+        značku, jako blok ROZVADĚČ po změně listu."""
+        from envocad.model.feed import is_feed
+        it = getattr(self.scene, "element_items", {}).get(self.tid)
+        project = getattr(self.scene, "project", None)
+        if it is None or project is None or self.is_wire or self.key != "dir" or not is_feed(it.element):
+            return
+        from envocad.model.project import element_symbol
+        from envocad.ui.render import symbol_path
+        it.prepareGeometryChange()
+        it.symbol = element_symbol(project, it.element, self.scene.library)
+        it._path = symbol_path(it.symbol)
+        it.sync_from_model()
 
     def redo(self):
         self._set(self.new)

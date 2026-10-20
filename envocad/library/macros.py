@@ -13,6 +13,7 @@ vloží jedním undo příkazem) → případně `insert`. `instantiate` = `expa
 """
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import math
@@ -21,11 +22,15 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from envocad.model.feed import FEED_SYMBOL, LEGACY_FEEDS, normalize_legacy_fragment
+
 log = logging.getLogger("envocad.library")
 
 BUILTIN_DIR = Path(__file__).parent / "builtin" / "macros"
 
-MACRO_VERSION = 2
+# v3: značka přívodu/vývodu `sb.feed` (+ `dir`); starší EnvoCAD makro v3 odmítne (log) místo vložení zástupných „?“.
+# Makra v1/v2 se `sb.feed_in` / `sb.feed_out` se převádějí při načtení (`parse_macro`), soubor se nemění.
+MACRO_VERSION = 3
 RESERVED = frozenset({"k", "n", "nk", "i", "j", "string", "inverter"})   # kontext dodává generátor / opakování
 MAX_REPEAT = 100
 # kontextové názvy, které dosazuje opakování makra v každé iteraci (n = počet – to se zadává, viz `repeat_context_names`)
@@ -37,9 +42,9 @@ _PH = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 _NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _WHEN = re.compile(r"^\s*(!?)\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?:(!?=)(.*))?$")
 # prvky, kterým se při vložení nepřečíslovává označení (svorkovnice, přívody/vývody, sběrnice)
-_KEEP_REF = ("sb.terminal_block", "fve.terminal", "sb.feed_in", "sb.feed_out", "sb.busbar")
+_KEEP_REF = ("sb.terminal_block", "fve.terminal", FEED_SYMBOL, "sb.busbar")
 _TERMINAL_SYMBOLS = ("sb.terminal_block", "fve.terminal")
-_FEED_SYMBOLS = ("sb.feed_in", "sb.feed_out")
+_FEED_SYMBOLS = (FEED_SYMBOL,)
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -197,12 +202,24 @@ def implicit_variables(fragment: dict) -> list[MacroVar]:
 
 # ---------------------------------------------------------------------------------------------------------------
 # načtení, uložení, kontrola
+def _normalized_fragment(fragment: dict) -> dict:
+    """Výřez se starými značkami přívodu/vývodu (`sb.feed_in` / `sb.feed_out`, makra v1/v2, starší schránka) jako
+    kopie se značkou `sb.feed` + `dir` (`model/feed.normalize_legacy_element`); jinak týž slovník."""
+    els = fragment.get("elements") if isinstance(fragment, dict) else None
+    if not isinstance(els, list) or not any(isinstance(d, dict) and d.get("symbol_id") in LEGACY_FEEDS for d in els):
+        return fragment
+    out = copy.deepcopy(fragment)
+    normalize_legacy_fragment(out)
+    return out
+
+
 def parse_macro(data: dict, path: Path | str | None = None, source: str = "vlastní") -> Macro:
     """Makro z JSON dat (v1 i v2). ValueError, pokud data nejsou makro (chybí fragment). Ostatní nesrovnalosti
     snáší (neplatné položky vynechá) – podrobnou kontrolu dělá `validate_macro`."""
     fragment = data.get("fragment") if isinstance(data, dict) else None
     if not isinstance(fragment, dict):
         raise ValueError("Makro musí být objekt JSON s klíčem „fragment“.")  # noqa: TRY004 – neplatná data, ne typ
+    fragment = _normalized_fragment(fragment)   # makro v1/v2: sb.feed_in/out → sb.feed + dir (soubor se nemění)
     path = Path(path) if path else Path()
     try:
         version = int(data.get("version") or 1)
@@ -421,15 +438,23 @@ def list_macros() -> list[Macro]:
     return sorted(found.values(), key=lambda m: (m.source != "vestavěné", m.name.lower()))
 
 
+def macro_save_version(fragment: dict) -> int:
+    """Verze zapisovaného makra: 3 (`MACRO_VERSION`), obsahuje-li výřez značku `sb.feed`, jinak 2."""
+    els = fragment.get("elements") if isinstance(fragment, dict) else None
+    has_feed = any(isinstance(e, dict) and e.get("symbol_id") == FEED_SYMBOL for e in els or ())
+    return MACRO_VERSION if has_feed else 2
+
+
 def save_macro(name: str, description: str, fragment: dict, shared: bool = False) -> Path:
-    """Uloží makro ve formátu v2; proměnné odvodí ze zástupných symbolů `{x}` ve fragmentu (typ text). Vazby na
-    originál (kabel vodiče `cable_id`, vazba přívodu `wire_id`/odkud/kam) se neukládají."""
+    """Uloží makro; proměnné odvodí ze zástupných symbolů `{x}` ve fragmentu (typ text). Vazby na originál (kabel
+    vodiče `cable_id`, vazba přívodu `wire_id`/odkud/kam) se neukládají. Verze 3 jen s přívodem/vývodem `sb.feed`
+    (starší program by místo něj vložil zástupnou značku „?“), jinak 2 – makro bez přívodu otevře i starší EnvoCAD."""
     from envocad.model.project import detach_fragment
     fragment = detach_fragment(fragment)   # bez kabelu originálu (cable_id) a vazeb přívodů na vodiče JPS
     d = (shared_dir() if shared else None) or user_dir()
     d.mkdir(parents=True, exist_ok=True)
     p = d / f"{_slug(name)}.json"
-    data = {"version": MACRO_VERSION, "name": name, "description": description,
+    data = {"version": macro_save_version(fragment), "name": name, "description": description,
             "variables": [v.to_dict() for v in implicit_variables(fragment)], "fragment": fragment}
     p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     return p
@@ -530,7 +555,7 @@ def _count_errors(m: Macro, vals: dict, where: str) -> list[str]:
 
 def resolve_values(m: Macro, given: dict | None = None, value_set=None, components: ComponentLookup | None = None,
                    context: dict | None = None, base: dict | None = None,
-                   repeat: bool = True) -> tuple[dict[str, str], list[str]]:
+                   repeat: bool = True, unresolved=()) -> tuple[dict[str, str], list[str]]:
     """Hodnoty proměnných makra a chyby (česky; prázdný seznam = OK).
 
     Pořadí (pozdější vyhrává): `default` < `base` (základ volajícího, např. specifikace generátoru) < artikl (`from`)
@@ -542,7 +567,11 @@ def resolve_values(m: Macro, given: dict | None = None, value_set=None, componen
     Má-li makro `repeat` a volající nepředá `repeat=False` (generátor si opakování drží sám), názvy opakování
     (`repeat_context_names`: k, nk) se z `given` do výchozích hodnot nedosazují – dosadí je `expand` v každé iteraci
     (jinak by `j = "{k}"` dostalo u všech opakování stejné číslo). Počet opakování musí být celé číslo
-    0…min(max proměnné, MAX_REPEAT); prázdný = chyba. Hodnoty z `context` se kontrolují jen jako čísla (bez min/max)."""
+    0…min(max proměnné, MAX_REPEAT); prázdný = chyba. Hodnoty z `context` se kontrolují jen jako čísla (bez min/max).
+
+    `unresolved` = názvy proměnných, jejichž hodnotu z `base` volající neurčil (generátor: In pojistky, na kterou nic
+    nevyhovělo – v `base` je zástupná hodnota, z prvků se po rozvinutí vymaže). Dokud je hodnota ta z `base`
+    (nepřebila ji sada, artikl ani zadání), nekontroluje se povinnost, min/max ani nabídka."""
     given = {k: _str(v) for k, v in (given or {}).items()}
     context = {k: _str(v) for k, v in (context or {}).items()}
     base = {k: _str(v) for k, v in (base or {}).items()}
@@ -592,9 +621,12 @@ def resolve_values(m: Macro, given: dict | None = None, value_set=None, componen
     vals = {k: subst(v, src) for k, v in vals.items()}
     if repeating:
         errs += _count_errors(m, vals, where)
+    skip = {n for n in unresolved if n in base and vals.get(n) == subst(base[n], src)}
     for v in m.variables:
         if repeating and v.name == m.repeat.count:
             continue   # zkontroloval _count_errors
+        if v.name in skip:
+            continue   # hodnotu volající neurčil (zástupná) – nevaliduje se
         val = vals.get(v.name, "")
         if not val.strip():
             if v.required:
@@ -753,13 +785,13 @@ def expand(project, sheet, m: Macro | dict, values: dict, dx: float = 0.0, dy: f
     `shared` prvky, které už v listu jsou). `values` = výsledek `resolve_values`. `m` smí být i holý fragment (dict).
 
     `copy` = vložit jako kopii výřezu (jako dřívější `paste_fragment`): nesdíleným skupinám svorek se vymaže číslo
-    svorky (`terminal`), přívody/vývody (`sb.feed_in`/`sb.feed_out`) se přečíslují – obojí jen bez zástupného symbolu.
+    svorky (`terminal`), přívody/vývody (`sb.feed`) se přečíslují – obojí jen bez zástupného symbolu.
     Výchozí None = kopie u makra bez proměnných a opakování (`not m.has_parameters`, uživatelské výřezy); parametrická
     makra (vestavěná, generátor) si označení svorek a přívodů drží. Holý fragment (`instantiate`) = bez kopie."""
     if copy is None:
         copy = isinstance(m, Macro) and not m.has_parameters
     if isinstance(m, dict):
-        m = Macro(name="", description="", fragment=m, path=Path(), source="")
+        m = Macro(name="", description="", fragment=_normalized_fragment(m), path=Path(), source="")
     used = project.used_refs(sheet)
     created: list = []
     all_els: list = []

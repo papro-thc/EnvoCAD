@@ -9,6 +9,7 @@ from PySide6.QtCore import QPointF, Qt
 from PySide6.QtWidgets import QApplication
 
 from envocad.library.store import LibraryStore
+from envocad.model.feed import is_feed_out
 from envocad.model.project import Element, Project, Wire, WireEnd
 from envocad.ui.canvas import Mode
 from envocad.ui.main_window import MainWindow
@@ -1012,7 +1013,7 @@ def test_macro_insert_with_values_undo(app):
     p = Project(name="Makro hodnoty")
     s = p.sheets[0]
     # XPE už v listu je (sdílený prvek se nesmí zdvojit a undo ho nesmí smazat)
-    s.elements.append(Element("sb.feed_out", 10, 10, attrs={"ref": "XPE"}))
+    s.elements.append(Element("sb.feed", 10, 10, attrs={"dir": "out", "ref": "XPE"}))
     w = MainWindow(lib, p)
     w.open_sheet(s, "schematic")
     _check_macro_insert(w, s, w.view.scene(), lib, values)
@@ -1097,7 +1098,7 @@ def test_macro_values_dialog_repeat_numbers_each_instance(app):
     assert sorted(e.ref for e in s.elements if e.ref.startswith("FU")) == ["FU1.1", "FU1.2", "FU1.3"]
     descs = sorted(e.attrs["desc"] for e in s.elements if e.symbol_id == "fve.spd")
     assert descs == ["string G1", "string G2", "string G3"]
-    assert sorted(e.ref for e in s.elements if e.symbol_id == "sb.feed_out" and e.ref != "XPE") == ["X4", "X5", "X6"]
+    assert sorted(e.ref for e in s.elements if is_feed_out(e) and e.ref != "XPE") == ["X4", "X5", "X6"]
     # automatické pole změněné uživatelem se pošle (číslo střídače)
     dlg._fields["i"].setText("2")
     assert dlg.values()["inverter"] == "T2"
@@ -1187,7 +1188,7 @@ def test_insert_macro_without_parameters_is_copy(app, tmp_path):
     w.insert_macro(str(path))
     assert [e.attrs["terminal"] for e in s.elements if e.symbol_id == "fve.terminal"] == ["", ""]
     assert [e.ref for e in s.elements if e.symbol_id == "fve.breaker_mcb"] == ["F1", "F2"]
-    feeds = [e.ref for e in s.elements if e.symbol_id == "sb.feed_out"]
+    feeds = [e.ref for e in s.elements if is_feed_out(e)]
     assert len(set(feeds)) == 2 and "X5" not in feeds
     w.undo.undo()
     assert len(s.elements) == 3
@@ -1540,7 +1541,7 @@ def test_wizard_vn_connection_and_single_line_tab(app, tmp_path):
     d.conn_station.setCurrentIndex(d.conn_station.findData("kiosk"))
     d.conn_metering.setCurrentIndex(d.conn_metering.findData("vn"))
     p = build_project(d.spec())
-    assert {s.name.split()[0] for s in p.switchboards()} >= {"RHN", "RVN", "RE"}
+    assert {s.name.split()[0] for s in p.switchboards()} >= {"HR", "RVN", "RE"}
     w = MainWindow(LibraryStore(), p)
     w.open_single_line()
     assert isinstance(w.view, SingleLineView) and w.current_sheet is None and w.scene is None
@@ -1548,14 +1549,14 @@ def test_wizard_vn_connection_and_single_line_tab(app, tmp_path):
     assert sc.geometry.root is not None and sc.paper_label in ("A2", "A1")
     # ruční posun: transformátor (i vše pod ním) o 20 mm doprava, undo vrátí automatickou polohu
     tr = next(n for n in sc.geometry.nodes.values() if n.element.symbol_id == "fve.transformer")
-    rhn_x = next(n.x for n in sc.geometry.nodes.values() if n.element.ref == "XT" and n.sheet.name.startswith("RHN"))
+    hr_x = next(n.x for n in sc.geometry.nodes.values() if n.element.ref == "XT" and n.sheet.name.startswith("HR"))
     x0 = tr.x
     sc.move(tr.key, None, (20.0, 0.0))
     assert tr.element.sl_pos == (20.0, 0.0) and w.undo.canUndo()
     moved = {n.key: n for n in sc.geometry.nodes.values()}
     assert moved[tr.key].x == pytest.approx(x0 + 20)
-    assert next(n.x for n in moved.values() if n.element.ref == "XT" and n.sheet.name.startswith("RHN")) == \
-        pytest.approx(rhn_x + 20)
+    assert next(n.x for n in moved.values() if n.element.ref == "XT" and n.sheet.name.startswith("HR")) == \
+        pytest.approx(hr_x + 20)
     w.undo.undo()
     assert tr.element.sl_pos is None
     assert next(n.x for n in sc.geometry.nodes.values() if n.key == tr.key) == pytest.approx(x0)

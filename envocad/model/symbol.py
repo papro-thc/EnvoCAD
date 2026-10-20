@@ -44,6 +44,18 @@ class Attribute:
     default: str = ""
     show: bool = False
     fmt: str = ""        # formát zobrazené hodnoty ve výkresu, např. "{} modulů" (prázdné = hodnota sama)
+    # nepovinná nabídka hodnot [[hodnota, popisek], …] – ve Vlastnostech výběr místo textu (starší program ignoruje)
+    choices: list | None = None
+
+    def choice_items(self) -> list[tuple[str, str]]:
+        """Nabídka (hodnota, popisek); položka jako řetězec = hodnota i popisek. Bez nabídky prázdný seznam."""
+        out = []
+        for c in self.choices or []:
+            if isinstance(c, (list, tuple)) and c:
+                out.append((str(c[0]), str(c[1]) if len(c) > 1 else str(c[0])))
+            elif isinstance(c, str):
+                out.append((c, c))
+        return out
 
     def display(self, value: str) -> str:
         """Hodnota pro výkres podle `fmt`; hodnota, která už jednotku z formátu nese („25 kW“, „1000 V DC“ u
@@ -59,7 +71,10 @@ class Attribute:
         return self.fmt.format(value)
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        if self.choices is None:
+            d.pop("choices")
+        return d
 
 
 @dataclass

@@ -223,7 +223,7 @@ def test_grid_coords_and_interrupt_points():
     blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
     s1.elements += [t, blk]
     sb = p.create_switchboard_sheet(blk)
-    sb.elements.append(Element("sb.feed_in", 40, 250, attrs={"ref": "X1"}))
+    sb.elements.append(Element("sb.feed", 40, 250, rotation=180, attrs={"dir": "in", "ref": "X1"}))
     w = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "X1"), attrs={"ref": "W2"})
     s1.wires.append(w)
     assert wire_xref(p, w.id).startswith("→ R1:X1 /3.")
@@ -270,7 +270,7 @@ def test_potentials_and_branch():
     p = Project()
     s = p.sheets[0]
     lib = LibraryStore()
-    feed = Element("sb.feed_in", 50, 200, attrs={"ref": "X1"})
+    feed = Element("sb.feed", 50, 200, rotation=180, attrs={"dir": "in", "ref": "X1"})
     f1 = Element("fve.breaker_mcb", 100, 200, attrs={"ref": "F1", "poles": "1"})
     f2 = Element("fve.breaker_mcb", 100, 150, attrs={"ref": "F2", "poles": "1"})
     s.elements += [feed, f1, f2]
@@ -381,7 +381,7 @@ def test_derived_symbols_keep_function_class(tmp_path):
     blk = Element("fve.switchboard", attrs={"ref": "R1"})
     p.sheets[0].elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
-    sb.elements.append(Element("sb.feed_in", attrs={"ref": "X1"}))
+    sb.elements.append(Element("sb.feed", rotation=180, attrs={"dir": "in", "ref": "X1"}))
     assert element_symbol(p, blk, lib).classes == []              # odvozená značka bloku nezačne kontrolovat „R“
 
 

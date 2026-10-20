@@ -13,6 +13,7 @@ from itertools import pairwise
 
 from envocad.model import multipole as mp
 from envocad.model.designation import element_name
+from envocad.model.feed import FEED_SYMBOLS
 from envocad.model.project import Project, Sheet, element_symbol, linked_wire, switchboard_title, wire_label
 from envocad.model.symbol import rotate_dir, rotate_point
 from envocad.model.textlayout import (
@@ -183,8 +184,7 @@ def multipole_geometry(project: Project, sheet: Sheet, lib) -> MultipoleGeometry
     choice = mp.paper_choice(sheet)
     size = mp.page_size(sheet, choice)
     poles: dict[str, mp.ElementPoles] = {}
-    for e in sheet.elements:
-        poles[e.id] = mp.element_poles(sheet, e, element_symbol(project, e, lib))
+    poles.update(mp.sheet_poles(sheet, lambda e: element_symbol(project, e, lib)))
     title = switchboard_title(project, sheet)
     top_limit = size[1] - MARGIN - 4.0 - title_height(title) - TB_PAD
     bottom_limit = MARGIN + TB_H + TB_PAD
@@ -279,6 +279,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
     # prvky (póly, popisky, vazby, obtoky, příčky PE svodiče)
     for e in sheet.elements:
         ep = poles[e.id]
+        e = ep.element      # rotace ve vícepólu (přívod v souřadnicích starého sb.feed_in, otočená přívodní větev)
         if e.symbol_id == BUS:
             continue
         name = element_name(e)
@@ -537,7 +538,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
 
     # štítky kabelů u přívodů a vývodů
     for e in sheet.elements:
-        if e.symbol_id not in ("sb.feed_in", "sb.feed_out"):
+        if e.symbol_id not in FEED_SYMBOLS:
             continue
         ep = poles.get(e.id)
         if ep is None or not ep.switched:
@@ -551,7 +552,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
         width = max(max(xs) - min(xs) + 4.0, max(len(r) for r in rows) * 1.25 + 3.0)
         cx = (min(xs) + max(xs)) / 2
         tx0, tx1 = cx - width / 2, cx + width / 2
-        up = e.symbol_id == "sb.feed_in"
+        up = mp.feed_cable_up(ep)
         h = TAG_ROW * len(rows)
         y_edge = ep.origin[1] + (3.0 if up else -3.0)
         top = y_edge + h if up else y_edge

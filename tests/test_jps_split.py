@@ -12,6 +12,7 @@ from envocad.generate import JPS_AC_SHEET_NAME, build_project, ref_ranges
 from envocad.library.store import LibraryStore
 from envocad.model import calc
 from envocad.model.checks import AGGREGATED_INFO, WARNING, check_project
+from envocad.model.feed import is_feed_in
 from envocad.model.frame import paper_exceeds
 from envocad.model.potential import nets
 from envocad.model.project import FORMAT_VERSION, INTERRUPT_SYMBOL, Element, Project, Sheet, Wire, WireEnd
@@ -140,7 +141,7 @@ def test_reports_same_as_one_sheet(big, big_one_sheet, lib):
     refs = [r[0] for r in rows]
     assert len(refs) == len(set(refs)) == len(big.cables)
     w13 = next(r for r in rows if r[1] == "T1:AC")
-    assert w13[2] == "+RH-X1" and w13[3] == "CYKY-J 5x16" and w13[9] == JPS_AC_SHEET_NAME
+    assert w13[2] == "+RFVE.AC-X1" and w13[3] == "CYKY-J 5x16" and w13[9] == JPS_AC_SHEET_NAME
 
     def strip(rows, drop):
         return sorted(tuple(c for k, c in enumerate(r) if k not in drop) for r in rows)
@@ -171,8 +172,8 @@ def test_interrupt_xrefs_and_feed_link(big):
         assert re.fullmatch(rf"→ /{no}\.[A-H]\d", interrupt_xref(big, ac, i)), i.ref
         partner = next(e for e in interrupts(inv_sheet) if e.ref == i.ref)
         assert re.fullmatch(r"→ /1\.[A-H]\d", interrupt_xref(big, inv_sheet, partner))
-    sb = next(s for s in big.sheets if s.is_switchboard and s.loc == "RH")
-    x1 = next(e for e in sb.elements if e.symbol_id == "sb.feed_in" and e.ref == "X1")
+    sb = next(s for s in big.sheets if s.is_switchboard and s.loc == "RFVE.AC")
+    x1 = next(e for e in sb.elements if is_feed_in(e) and e.ref == "X1")
     assert re.fullmatch(r"W13 T1:AC /2\.[A-H]\d", x1.attrs["from"]) and x1.attrs["cable"] == "CYKY-J 5x16 16"
 
 
@@ -387,7 +388,7 @@ def test_documentation_pdf_contains_all_jps_sheets_a2(lib, tmp_path):
     b2.export(tmp_path / "jps2.pdf")
     # dokumentace zmenší každý list JPS na stranu A3 (jako dřív jeden list) – každý list má vlastní stranu s obsahem
     texts = [reader.pages[b2.page_starts[i] - 1].extract_text() for i, _s in sheet_items]
-    assert all(f"AC-T{k}" in texts[0] for k in (1, 2, 3)) and "RH" in texts[0]
+    assert all(f"AC-T{k}" in texts[0] for k in (1, 2, 3)) and "RFVE.AC" in texts[0]
     assert "AC-T1" in texts[1] and "AC-T2" in texts[1] and "AC-T3" not in texts[1]
     assert "AC-T3" in texts[2] and "AC-T1" not in texts[2]
 
@@ -467,14 +468,15 @@ def test_split_with_transformer_station(lib):
     """Přípojka VN (trafostanice, rozvaděč VN, transformátor, hlavní rozvaděč nn, elektroměrový rozvaděč) zůstává
     na listu „AC a připojení“; jednopólové schéma odvozené z blokového je stejné jako bez rozdělení."""
     from envocad.model.single_line import single_line_geometry
-    conn = {"connection": {"level": "vn", "station": "zdena", "metering": "vn"}}
+    # 6 × 25 kW ≈ 217 A: hlavní vypínač RFVE.AC (= vývod FVE v HR) 250 A – výchozí 125 A je pod proudem FVE (F7)
+    conn = {"connection": {"level": "vn", "station": "zdena", "metering": "vn"}, "ac": {"main_in": 250}}
     p, one = build_project(spec(6, **conn)), build_project(spec(6, jps={"split": "none"}, **conn))
     js = jps_sheets(p)
     assert len(js) == 4 and js[0].name == JPS_AC_SHEET_NAME and len(jps_sheets(one)) == 1
     ac = js[0]
     blocks = {e.ref for e in ac.elements if e.symbol_id == "fve.switchboard"}
     all_blocks = {e.ref for s in jps_sheets(one) for e in s.elements if e.symbol_id == "fve.switchboard"
-                  and not e.ref.startswith("RDC")}
+                  and not e.ref.startswith(("RDC", "RFVE.DC"))}
     assert blocks == all_blocks and any(e.symbol_id == "fve.transformer" for e in ac.elements)
     for s in js[1:]:
         assert {e.symbol_id for e in s.elements} <= {"fve.inverter", "fve.pv_string", "fve.switchboard", INTERRUPT_SYMBOL}

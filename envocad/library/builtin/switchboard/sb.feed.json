@@ -1,9 +1,9 @@
 {
-  "id": "sb.feed_out",
-  "name": "Vývod",
+  "id": "sb.feed",
+  "name": "Přívod / vývod",
   "category": "Svorky a propojení",
   "iec_ref": "X",
-  "description": "Vývodní svorky rozvaděče",
+  "description": "Přívodní nebo vývodní svorky rozvaděče (vazba na nadřazený list); směr v atributu Směr, ve výkresu jen šipkou na kabelovém výběžku",
   "primitives": [
     {
       "type": "circle",
@@ -23,15 +23,25 @@
       "x1": 0,
       "y1": -1.5,
       "x2": 0,
-      "y2": -5
+      "y2": -7.5
     },
     {
-      "type": "text",
-      "x": 0,
-      "y": -9,
-      "text": "VÝVOD",
-      "height": 2,
-      "align": "center"
+      "type": "polyline",
+      "points": [
+        [
+          -1,
+          -5.5
+        ],
+        [
+          0,
+          -3.5
+        ],
+        [
+          1,
+          -5.5
+        ]
+      ],
+      "closed": false
     }
   ],
   "ports": [
@@ -50,8 +60,30 @@
       "show": true
     },
     {
+      "key": "dir",
+      "label": "Směr",
+      "default": "in",
+      "show": false,
+      "choices": [
+        [
+          "in",
+          "přívod"
+        ],
+        [
+          "out",
+          "vývod"
+        ]
+      ]
+    },
+    {
       "key": "desc",
       "label": "Popis",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "from",
+      "label": "Odkud",
       "default": "",
       "show": true
     },
@@ -59,7 +91,7 @@
       "key": "to",
       "label": "Kam",
       "default": "",
-      "show": true
+      "show": false
     },
     {
       "key": "cable",

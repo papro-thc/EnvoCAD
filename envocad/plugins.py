@@ -17,6 +17,12 @@ v `register` spadne, po sobě nezanechá žádnou z nich. **Změny knihovny tran
 přes `ctx.library.put_symbol(...)` (nebo jinou metodu knihovny), zůstane v knihovně i po pádu pluginu; v logu je
 pak varování se seznamem zapsaných značek. Plugin, který knihovnu mění, ať to dělá až na konci `register`.
 
+Přívod / vývod rozvaděče je od formátu v13 jedna značka `sb.feed` se směrem v atributu `dir` ("in" / "out";
+`envocad.model.feed.FEED_SYMBOL`, šablony `templates._feed`). Starší id `sb.feed_in` / `sb.feed_out` už knihovna nemá:
+šablona pluginu (`ctx.add_template`), která je ještě vkládá, se po `build` převede (`feed.normalize_legacy_objects`,
+přívod se pootočí o 180° – port zůstane na místě); callback menu, který prvky vkládá sám, musí použít `sb.feed`
+(jinak se nakreslí zástupná značka „?“ a kontrola ji hlásí).
+
 Knihovna (symboly *.json, artikly *.csv) se rozšiřuje bez kódu – stačí soubory v `~/.envocad/library/`.
 Pluginy běží s plnými právy uživatele – instalujte jen vlastní / prověřené.
 """

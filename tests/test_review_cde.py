@@ -11,6 +11,7 @@ from envocad.export import reports
 from envocad.generate import build_project
 from envocad.library import store as st
 from envocad.library.store import LibraryStore
+from envocad.model.feed import is_feed_in
 from envocad.model.project import Element, Project, Sheet
 
 INV = {"p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30}
@@ -131,9 +132,9 @@ def test_rename_followups_skips_other_designation_space():
     s2.elements += [Element("fve.inverter", 100, 100, attrs={"ref": "T1"}), fed]
     ch = rename_followups(p, t1, "T1", "T5")
     assert fed.id not in {c.target_id for c in ch}
-    rh = next(e for e in p.sheets[0].elements if e.ref == "RH")
+    rh = next(e for e in p.sheets[0].elements if e.ref == "RFVE.AC")
     rh_sheet = p.switchboard_sheet(rh.id)
-    feed = next(e for e in rh_sheet.elements if e.symbol_id == "sb.feed_in" and e.attrs.get("desc") == "od T1")
+    feed = next(e for e in rh_sheet.elements if is_feed_in(e) and e.attrs.get("desc") == "od T1")
     assert feed.id in {c.target_id for c in ch}          # přívod navázaný na vodič od T1 se přepíše
     # ruční text podle šablony ve stejném prostoru (prokázaná vazba) se také přepíše
     same = Element("fve.load", 200, 100, attrs={"ref": "", "desc": "od T1"})
@@ -230,13 +231,13 @@ def test_export_scene_pdf_restores_theme_on_error(tmp_path):
 def test_device_list_groups_strips_by_scope(lib):
     p = build_project({"inverters": [{"ref": f"T{i + 1}", **INV, "strings": [18]} for i in range(2)],
                        "ac": {"distribution": "terminals"}})
-    rh = next(s for s in p.sheets if s.is_switchboard and s.loc == "RH")
+    rh = next(s for s in p.sheets if s.is_switchboard and s.loc == "RFVE.AC")
     grp = next(e for e in rh.elements if e.symbol_id == "sb.terminal_block")
     grp.attrs["loc"] = "RX"                              # skupina svorek X3 jiného umístění = jiná svorkovnice
     _h, rows = reports.device_list(p, lib, rh)
     _h, labs = reports.labels(p, lib, rh)
     strips = sorted(r[0] for r in rows if r[0].endswith("-X3"))
-    assert strips == sorted(r[0] for r in labs if r[0].endswith("-X3")) == ["+RH-X3", "+RX-X3"]
+    assert strips == sorted(r[0] for r in labs if r[0].endswith("-X3")) == ["+RFVE.AC-X3", "+RX-X3"]
 
 
 # ---- 8. vícepól: PE k přerušení nevede přes čísla svorek -------------------------------------------------------

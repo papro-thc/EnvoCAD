@@ -1,7 +1,7 @@
 {
  "default_1inv": {
   "format": "envocad-project",
-  "format_version": 12,
+  "format_version": 13,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -31,9 +31,9 @@
       "y": 205.0,
       "rotation": 0,
       "attrs": {
-       "ref": "RH",
+       "ref": "RFVE.AC",
        "desc": "AC rozvaděč FVE",
-       "sheet": "RH – AC rozvaděč FVE"
+       "sheet": "RFVE.AC – AC rozvaděč FVE"
       },
       "component_id": null
      },
@@ -141,9 +141,9 @@
       "y": 205.0,
       "rotation": 0,
       "attrs": {
-       "ref": "RDC2",
+       "ref": "RFVE.DC",
        "desc": "DC rozvaděč u T1",
-       "sheet": "RDC2 – DC rozvaděč u T1"
+       "sheet": "RFVE.DC – DC rozvaděč u T1"
       },
       "component_id": null
      },
@@ -574,12 +574,13 @@
     "elements": [
      {
       "id": "#39",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X1",
+       "dir": "in",
        "desc": "od G1",
        "wire_id": "#11",
        "from": "W1 G1:DC /1.B3",
@@ -589,15 +590,16 @@
      },
      {
       "id": "#40",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X4",
+       "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#13",
-       "to": "W2 RDC2:X1 /1.D4",
+       "to": "W2 RFVE.DC:X1 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -626,12 +628,13 @@
      },
      {
       "id": "#41",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 40.0,
       "y": 130.0,
       "rotation": 0,
       "attrs": {
        "ref": "XPE",
+       "dir": "out",
        "desc": "k HOP",
        "shared": "1"
       },
@@ -639,12 +642,13 @@
      },
      {
       "id": "#42",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X2",
+       "dir": "in",
        "desc": "od G2",
        "wire_id": "#17",
        "from": "W4 G2:DC /1.B4",
@@ -654,15 +658,16 @@
      },
      {
       "id": "#43",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X5",
+       "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#19",
-       "to": "W5 RDC2:X2 /1.D4",
+       "to": "W5 RFVE.DC:X2 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -691,12 +696,13 @@
      },
      {
       "id": "#44",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 160.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X3",
+       "dir": "in",
        "desc": "od G3",
        "wire_id": "#23",
        "from": "W7 G3:DC /1.B4",
@@ -706,15 +712,16 @@
      },
      {
       "id": "#45",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 160.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X6",
+       "dir": "out",
        "desc": "G3 dál",
        "wire_id": "#25",
-       "to": "W8 RDC2:X3 /1.D4",
+       "to": "W8 RFVE.DC:X3 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -966,7 +973,7 @@
    },
    {
     "id": "#55",
-    "name": "RDC2 – DC rozvaděč u T1",
+    "name": "RFVE.DC – DC rozvaděč u T1",
     "paper": "A3",
     "width": 420.0,
     "height": 297.0,
@@ -1016,12 +1023,13 @@
     "elements": [
      {
       "id": "#62",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X1",
+       "dir": "in",
        "desc": "od G1",
        "wire_id": "#13",
        "from": "W2 RDC1:X4 /1.C4",
@@ -1051,12 +1059,13 @@
      },
      {
       "id": "#63",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X4",
+       "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#15",
        "to": "W3 T1:DC1 /1.E4",
@@ -1088,12 +1097,13 @@
      },
      {
       "id": "#64",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 40.0,
       "y": 130.0,
       "rotation": 0,
       "attrs": {
        "ref": "XPE",
+       "dir": "out",
        "desc": "k HOP",
        "shared": "1"
       },
@@ -1101,12 +1111,13 @@
      },
      {
       "id": "#65",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X2",
+       "dir": "in",
        "desc": "od G2",
        "wire_id": "#19",
        "from": "W5 RDC1:X5 /1.C4",
@@ -1136,12 +1147,13 @@
      },
      {
       "id": "#66",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X5",
+       "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#21",
        "to": "W6 T1:DC2 /1.E4",
@@ -1173,12 +1185,13 @@
      },
      {
       "id": "#67",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 160.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X3",
+       "dir": "in",
        "desc": "od G3",
        "wire_id": "#25",
        "from": "W8 RDC1:X6 /1.C4",
@@ -1208,12 +1221,13 @@
      },
      {
       "id": "#68",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 160.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X6",
+       "dir": "out",
        "desc": "G3 dál",
        "wire_id": "#27",
        "to": "W9 T1:DC3 /1.E4",
@@ -1524,11 +1538,11 @@
     ],
     "bridges": {},
     "func": "",
-    "loc": "RDC2"
+    "loc": "RFVE.DC"
    },
    {
     "id": "#81",
-    "name": "RH – AC rozvaděč FVE",
+    "name": "RFVE.AC – AC rozvaděč FVE",
     "paper": "A3",
     "width": 420.0,
     "height": 297.0,
@@ -1564,12 +1578,13 @@
     "elements": [
      {
       "id": "#85",
-      "symbol_id": "sb.feed_in",
-      "x": 60.0,
-      "y": 240.0,
+      "symbol_id": "sb.feed",
+      "x": 105.0,
+      "y": 105.0,
       "rotation": 0,
       "attrs": {
        "ref": "X1",
+       "dir": "in",
        "desc": "od T1",
        "wire_id": "#29",
        "from": "W10 T1:AC /1.E4",
@@ -1580,9 +1595,9 @@
      {
       "id": "#82",
       "symbol_id": "fve.breaker_mcb",
-      "x": 60.0,
-      "y": 210.0,
-      "rotation": 270,
+      "x": 105.0,
+      "y": 140.0,
+      "rotation": 90,
       "attrs": {
        "ref": "F1",
        "in_": "40",
@@ -1595,7 +1610,7 @@
      {
       "id": "#86",
       "symbol_id": "sb.busbar",
-      "x": 120.0,
+      "x": 165.0,
       "y": 175.0,
       "rotation": 0,
       "attrs": {
@@ -1610,7 +1625,7 @@
      {
       "id": "#83",
       "symbol_id": "fve.spd",
-      "x": 90.0,
+      "x": 82.5,
       "y": 140.0,
       "rotation": 0,
       "attrs": {
@@ -1623,12 +1638,13 @@
      },
      {
       "id": "#87",
-      "symbol_id": "sb.feed_out",
-      "x": 70.0,
+      "symbol_id": "sb.feed",
+      "x": 60.0,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
        "ref": "XPE",
+       "dir": "out",
        "desc": "k HOP",
        "shared": "1",
        "wire_id": "#33",
@@ -1640,7 +1656,7 @@
      {
       "id": "#84",
       "symbol_id": "sb.main_switch",
-      "x": 150.0,
+      "x": 142.5,
       "y": 140.0,
       "rotation": 270,
       "attrs": {
@@ -1653,12 +1669,13 @@
      },
      {
       "id": "#88",
-      "symbol_id": "sb.feed_out",
-      "x": 150.0,
+      "symbol_id": "sb.feed",
+      "x": 142.5,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
        "ref": "XOUT",
+       "dir": "out",
        "desc": "do HDS / DS",
        "wire_id": "#31",
        "to": "W11 DS:1 /1.H3",
@@ -1699,7 +1716,7 @@
       },
       "b": {
        "element_id": "#86",
-       "port": "T1"
+       "port": "B1"
       },
       "points": [],
       "attrs": {
@@ -1724,7 +1741,16 @@
        "element_id": "#83",
        "port": "L"
       },
-      "points": [],
+      "points": [
+       [
+        97.5,
+        160.0
+       ],
+       [
+        82.5,
+        160.0
+       ]
+      ],
       "attrs": {
        "ref": ""
       },
@@ -1746,7 +1772,16 @@
        "element_id": "#87",
        "port": "1"
       },
-      "points": [],
+      "points": [
+       [
+        82.5,
+        120.0
+       ],
+       [
+        60.0,
+        120.0
+       ]
+      ],
       "attrs": {
        "ref": ""
       },
@@ -1759,13 +1794,22 @@
       "id": "#93",
       "a": {
        "element_id": "#86",
-       "port": "4"
+       "port": "1"
       },
       "b": {
        "element_id": "#87",
        "port": "1"
       },
-      "points": [],
+      "points": [
+       [
+        97.5,
+        165.0
+       ],
+       [
+        60.0,
+        165.0
+       ]
+      ],
       "attrs": {
        "ref": ""
       },
@@ -1778,7 +1822,7 @@
       "id": "#94",
       "a": {
        "element_id": "#86",
-       "port": "3"
+       "port": "4"
       },
       "b": {
        "element_id": "#84",
@@ -1823,7 +1867,7 @@
     ],
     "bridges": {},
     "func": "",
-    "loc": "RH"
+    "loc": "RFVE.AC"
    }
   ],
   "cables": [
@@ -2137,12 +2181,12 @@
    },
    {
     "aspect": "+",
-    "code": "RDC2",
+    "code": "RFVE.DC",
     "description": "DC rozvaděč u T1"
    },
    {
     "aspect": "+",
-    "code": "RH",
+    "code": "RFVE.AC",
     "description": "AC rozvaděč FVE"
    }
   ],
@@ -2151,7 +2195,7 @@
  },
  "two_inv": {
   "format": "envocad-project",
-  "format_version": 12,
+  "format_version": 13,
   "name": "FVE Test",
   "meta": {
    "investor": "Test s.r.o.",
@@ -2182,9 +2226,9 @@
       "y": 205.0,
       "rotation": 0,
       "attrs": {
-       "ref": "RH",
+       "ref": "RFVE.AC",
        "desc": "AC rozvaděč FVE",
-       "sheet": "RH – AC rozvaděč FVE"
+       "sheet": "RFVE.AC – AC rozvaděč FVE"
       },
       "component_id": null
      },
@@ -2292,9 +2336,9 @@
       "y": 257.5,
       "rotation": 0,
       "attrs": {
-       "ref": "RDC2",
+       "ref": "RFVE.DC1",
        "desc": "DC rozvaděč u T1",
-       "sheet": "RDC2 – DC rozvaděč u T1"
+       "sheet": "RFVE.DC1 – DC rozvaděč u T1"
       },
       "component_id": null
      },
@@ -2368,9 +2412,9 @@
       "y": 130.0,
       "rotation": 0,
       "attrs": {
-       "ref": "RDC3",
+       "ref": "RDC2",
        "desc": "DC rozvaděč po trase T2",
-       "sheet": "RDC3 – DC rozvaděč po trase T2"
+       "sheet": "RDC2 – DC rozvaděč po trase T2"
       },
       "component_id": null
      },
@@ -2381,9 +2425,9 @@
       "y": 130.0,
       "rotation": 0,
       "attrs": {
-       "ref": "RDC4",
+       "ref": "RFVE.DC2",
        "desc": "DC rozvaděč u T2",
-       "sheet": "RDC4 – DC rozvaděč u T2"
+       "sheet": "RFVE.DC2 – DC rozvaděč u T2"
       },
       "component_id": null
      },
@@ -3028,12 +3072,13 @@
     "elements": [
      {
       "id": "#58",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X1",
+       "dir": "in",
        "desc": "od G1",
        "wire_id": "#16",
        "from": "W1 G1:DC /1.B2",
@@ -3043,15 +3088,16 @@
      },
      {
       "id": "#59",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X4",
+       "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#18",
-       "to": "W2 RDC2:X1 /1.D3",
+       "to": "W2 RFVE.DC1:X1 /1.D3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -3080,12 +3126,13 @@
      },
      {
       "id": "#60",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 40.0,
       "y": 130.0,
       "rotation": 0,
       "attrs": {
        "ref": "XPE",
+       "dir": "out",
        "desc": "k HOP",
        "shared": "1"
       },
@@ -3093,12 +3140,13 @@
      },
      {
       "id": "#61",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X2",
+       "dir": "in",
        "desc": "od G2",
        "wire_id": "#22",
        "from": "W4 G2:DC /1.B3",
@@ -3108,15 +3156,16 @@
      },
      {
       "id": "#62",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X5",
+       "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#24",
-       "to": "W5 RDC2:X2 /1.D3",
+       "to": "W5 RFVE.DC1:X2 /1.D3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -3145,12 +3194,13 @@
      },
      {
       "id": "#63",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 160.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X3",
+       "dir": "in",
        "desc": "od G3",
        "wire_id": "#28",
        "from": "W7 G3:DC /1.B4",
@@ -3160,15 +3210,16 @@
      },
      {
       "id": "#64",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 160.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X6",
+       "dir": "out",
        "desc": "G3 dál",
        "wire_id": "#30",
-       "to": "W8 RDC2:X3 /1.D3",
+       "to": "W8 RFVE.DC1:X3 /1.D3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -3420,7 +3471,7 @@
    },
    {
     "id": "#74",
-    "name": "RDC2 – DC rozvaděč u T1",
+    "name": "RFVE.DC1 – DC rozvaděč u T1",
     "paper": "A3",
     "width": 420.0,
     "height": 297.0,
@@ -3470,12 +3521,13 @@
     "elements": [
      {
       "id": "#81",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X1",
+       "dir": "in",
        "desc": "od G1",
        "wire_id": "#18",
        "from": "W2 RDC1:X4 /1.C3",
@@ -3505,12 +3557,13 @@
      },
      {
       "id": "#82",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X4",
+       "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#20",
        "to": "W3 T1:DC1 /1.E3",
@@ -3542,12 +3595,13 @@
      },
      {
       "id": "#83",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 40.0,
       "y": 130.0,
       "rotation": 0,
       "attrs": {
        "ref": "XPE",
+       "dir": "out",
        "desc": "k HOP",
        "shared": "1"
       },
@@ -3555,12 +3609,13 @@
      },
      {
       "id": "#84",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X2",
+       "dir": "in",
        "desc": "od G2",
        "wire_id": "#24",
        "from": "W5 RDC1:X5 /1.C3",
@@ -3590,12 +3645,13 @@
      },
      {
       "id": "#85",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X5",
+       "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#26",
        "to": "W6 T1:DC2 /1.E3",
@@ -3627,12 +3683,13 @@
      },
      {
       "id": "#86",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 160.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X3",
+       "dir": "in",
        "desc": "od G3",
        "wire_id": "#30",
        "from": "W8 RDC1:X6 /1.C3",
@@ -3662,12 +3719,13 @@
      },
      {
       "id": "#87",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 160.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X6",
+       "dir": "out",
        "desc": "G3 dál",
        "wire_id": "#32",
        "to": "W9 T1:DC3 /1.E3",
@@ -3978,11 +4036,11 @@
     ],
     "bridges": {},
     "func": "",
-    "loc": "RDC2"
+    "loc": "RFVE.DC1"
    },
    {
     "id": "#100",
-    "name": "RDC3 – DC rozvaděč po trase T2",
+    "name": "RDC2 – DC rozvaděč po trase T2",
     "paper": "A3",
     "width": 420.0,
     "height": 297.0,
@@ -4012,12 +4070,13 @@
     "elements": [
      {
       "id": "#103",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X1",
+       "dir": "in",
        "desc": "od G4",
        "wire_id": "#36",
        "from": "W11 G4:DC /1.B4",
@@ -4027,15 +4086,16 @@
      },
      {
       "id": "#104",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X3",
+       "dir": "out",
        "desc": "G4 dál",
        "wire_id": "#38",
-       "to": "W12 RDC4:X1 /1.D5",
+       "to": "W12 RFVE.DC2:X1 /1.D5",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -4064,12 +4124,13 @@
      },
      {
       "id": "#105",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 40.0,
       "y": 130.0,
       "rotation": 0,
       "attrs": {
        "ref": "XPE",
+       "dir": "out",
        "desc": "k HOP",
        "shared": "1"
       },
@@ -4077,12 +4138,13 @@
      },
      {
       "id": "#106",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X2",
+       "dir": "in",
        "desc": "od G5",
        "wire_id": "#42",
        "from": "W14 G5:DC /1.B5",
@@ -4092,15 +4154,16 @@
      },
      {
       "id": "#107",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X4",
+       "dir": "out",
        "desc": "G5 dál",
        "wire_id": "#44",
-       "to": "W15 RDC4:X2 /1.D5",
+       "to": "W15 RFVE.DC2:X2 /1.D5",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -4276,11 +4339,11 @@
     ],
     "bridges": {},
     "func": "",
-    "loc": "RDC3"
+    "loc": "RDC2"
    },
    {
     "id": "#114",
-    "name": "RDC4 – DC rozvaděč u T2",
+    "name": "RFVE.DC2 – DC rozvaděč u T2",
     "paper": "A3",
     "width": 420.0,
     "height": 297.0,
@@ -4320,15 +4383,16 @@
     "elements": [
      {
       "id": "#119",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X1",
+       "dir": "in",
        "desc": "od G4",
        "wire_id": "#38",
-       "from": "W12 RDC3:X3 /1.C5",
+       "from": "W12 RDC2:X3 /1.C5",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -4355,12 +4419,13 @@
      },
      {
       "id": "#120",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X3",
+       "dir": "out",
        "desc": "G4 dál",
        "wire_id": "#40",
        "to": "W13 T2:DC1 /1.E5",
@@ -4392,12 +4457,13 @@
      },
      {
       "id": "#121",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 40.0,
       "y": 130.0,
       "rotation": 0,
       "attrs": {
        "ref": "XPE",
+       "dir": "out",
        "desc": "k HOP",
        "shared": "1"
       },
@@ -4405,15 +4471,16 @@
      },
      {
       "id": "#122",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X2",
+       "dir": "in",
        "desc": "od G5",
        "wire_id": "#44",
-       "from": "W15 RDC3:X4 /1.C5",
+       "from": "W15 RDC2:X4 /1.C5",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -4440,12 +4507,13 @@
      },
      {
       "id": "#123",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X4",
+       "dir": "out",
        "desc": "G5 dál",
        "wire_id": "#46",
        "to": "W16 T2:DC2 /1.E5",
@@ -4664,11 +4732,11 @@
     ],
     "bridges": {},
     "func": "",
-    "loc": "RDC4"
+    "loc": "RFVE.DC2"
    },
    {
     "id": "#132",
-    "name": "RH – AC rozvaděč FVE",
+    "name": "RFVE.AC – AC rozvaděč FVE",
     "paper": "A3",
     "width": 420.0,
     "height": 297.0,
@@ -4709,12 +4777,13 @@
     "elements": [
      {
       "id": "#137",
-      "symbol_id": "sb.feed_in",
-      "x": 60.0,
-      "y": 240.0,
+      "symbol_id": "sb.feed",
+      "x": 105.0,
+      "y": 105.0,
       "rotation": 0,
       "attrs": {
        "ref": "X1",
+       "dir": "in",
        "desc": "od T1",
        "wire_id": "#34",
        "from": "W10 T1:AC /1.E3",
@@ -4725,9 +4794,9 @@
      {
       "id": "#133",
       "symbol_id": "fve.breaker_mcb",
-      "x": 60.0,
-      "y": 210.0,
-      "rotation": 270,
+      "x": 105.0,
+      "y": 140.0,
+      "rotation": 90,
       "attrs": {
        "ref": "F1",
        "in_": "50",
@@ -4740,7 +4809,7 @@
      {
       "id": "#138",
       "symbol_id": "sb.busbar",
-      "x": 120.0,
+      "x": 165.0,
       "y": 175.0,
       "rotation": 0,
       "attrs": {
@@ -4754,12 +4823,13 @@
      },
      {
       "id": "#139",
-      "symbol_id": "sb.feed_in",
-      "x": 90.0,
-      "y": 240.0,
+      "symbol_id": "sb.feed",
+      "x": 135.0,
+      "y": 105.0,
       "rotation": 0,
       "attrs": {
        "ref": "X2",
+       "dir": "in",
        "desc": "od T2",
        "wire_id": "#48",
        "from": "W17 T2:AC /1.E5",
@@ -4770,9 +4840,9 @@
      {
       "id": "#134",
       "symbol_id": "fve.breaker_mcb",
-      "x": 90.0,
-      "y": 210.0,
-      "rotation": 270,
+      "x": 135.0,
+      "y": 140.0,
+      "rotation": 90,
       "attrs": {
        "ref": "F2",
        "in_": "50",
@@ -4785,7 +4855,7 @@
      {
       "id": "#135",
       "symbol_id": "fve.spd",
-      "x": 120.0,
+      "x": 82.5,
       "y": 140.0,
       "rotation": 0,
       "attrs": {
@@ -4798,12 +4868,13 @@
      },
      {
       "id": "#140",
-      "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "symbol_id": "sb.feed",
+      "x": 60.0,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
        "ref": "XPE",
+       "dir": "out",
        "desc": "k HOP",
        "shared": "1",
        "wire_id": "#52",
@@ -4815,7 +4886,7 @@
      {
       "id": "#136",
       "symbol_id": "sb.main_switch",
-      "x": 180.0,
+      "x": 172.5,
       "y": 140.0,
       "rotation": 270,
       "attrs": {
@@ -4828,12 +4899,13 @@
      },
      {
       "id": "#141",
-      "symbol_id": "sb.feed_out",
-      "x": 180.0,
+      "symbol_id": "sb.feed",
+      "x": 172.5,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
        "ref": "XOUT",
+       "dir": "out",
        "desc": "do HDS / DS",
        "wire_id": "#50",
        "to": "W18 DS:1 /1.H3",
@@ -4874,7 +4946,7 @@
       },
       "b": {
        "element_id": "#138",
-       "port": "T1"
+       "port": "B1"
       },
       "points": [],
       "attrs": {
@@ -4920,7 +4992,7 @@
       },
       "b": {
        "element_id": "#138",
-       "port": "T2"
+       "port": "B2"
       },
       "points": [],
       "attrs": {
@@ -4945,7 +5017,16 @@
        "element_id": "#135",
        "port": "L"
       },
-      "points": [],
+      "points": [
+       [
+        97.5,
+        160.0
+       ],
+       [
+        82.5,
+        160.0
+       ]
+      ],
       "attrs": {
        "ref": ""
       },
@@ -4967,7 +5048,16 @@
        "element_id": "#140",
        "port": "1"
       },
-      "points": [],
+      "points": [
+       [
+        82.5,
+        120.0
+       ],
+       [
+        60.0,
+        120.0
+       ]
+      ],
       "attrs": {
        "ref": ""
       },
@@ -4980,13 +5070,22 @@
       "id": "#148",
       "a": {
        "element_id": "#138",
-       "port": "4"
+       "port": "1"
       },
       "b": {
        "element_id": "#140",
        "port": "1"
       },
-      "points": [],
+      "points": [
+       [
+        97.5,
+        165.0
+       ],
+       [
+        60.0,
+        165.0
+       ]
+      ],
       "attrs": {
        "ref": ""
       },
@@ -4999,7 +5098,7 @@
       "id": "#149",
       "a": {
        "element_id": "#138",
-       "port": "3"
+       "port": "6"
       },
       "b": {
        "element_id": "#136",
@@ -5044,7 +5143,7 @@
     ],
     "bridges": {},
     "func": "",
-    "loc": "RH"
+    "loc": "RFVE.AC"
    }
   ],
   "cables": [
@@ -5534,22 +5633,22 @@
    },
    {
     "aspect": "+",
-    "code": "RDC2",
+    "code": "RFVE.DC1",
     "description": "DC rozvaděč u T1"
    },
    {
     "aspect": "+",
-    "code": "RDC3",
+    "code": "RDC2",
     "description": "DC rozvaděč po trase T2"
    },
    {
     "aspect": "+",
-    "code": "RDC4",
+    "code": "RFVE.DC2",
     "description": "DC rozvaděč u T2"
    },
    {
     "aspect": "+",
-    "code": "RH",
+    "code": "RFVE.AC",
     "description": "AC rozvaděč FVE"
    }
   ],
@@ -5558,7 +5657,7 @@
  },
  "route2_terminals": {
   "format": "envocad-project",
-  "format_version": 12,
+  "format_version": 13,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -5588,9 +5687,9 @@
       "y": 205.0,
       "rotation": 0,
       "attrs": {
-       "ref": "RH",
+       "ref": "RFVE.AC",
        "desc": "AC rozvaděč FVE",
-       "sheet": "RH – AC rozvaděč FVE"
+       "sheet": "RFVE.AC – AC rozvaděč FVE"
       },
       "component_id": null
      },
@@ -5690,9 +5789,9 @@
       "y": 205.0,
       "rotation": 0,
       "attrs": {
-       "ref": "RDC3",
+       "ref": "RFVE.DC",
        "desc": "DC rozvaděč u T1",
-       "sheet": "RDC3 – DC rozvaděč u T1"
+       "sheet": "RFVE.DC – DC rozvaděč u T1"
       },
       "component_id": null
      },
@@ -6040,12 +6139,13 @@
     "elements": [
      {
       "id": "#33",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X1",
+       "dir": "in",
        "desc": "od G1",
        "wire_id": "#10",
        "from": "W1 G1:DC /1.A3",
@@ -6055,12 +6155,13 @@
      },
      {
       "id": "#34",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X3",
+       "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#12",
        "to": "W2 RDC2:X1 /1.C4",
@@ -6092,12 +6193,13 @@
      },
      {
       "id": "#35",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 40.0,
       "y": 130.0,
       "rotation": 0,
       "attrs": {
        "ref": "XPE",
+       "dir": "out",
        "desc": "k HOP",
        "shared": "1"
       },
@@ -6105,12 +6207,13 @@
      },
      {
       "id": "#36",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X2",
+       "dir": "in",
        "desc": "od G2",
        "wire_id": "#18",
        "from": "W5 G2:DC /1.A4",
@@ -6120,12 +6223,13 @@
      },
      {
       "id": "#37",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X4",
+       "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#20",
        "to": "W6 RDC2:X2 /1.C4",
@@ -6338,12 +6442,13 @@
     "elements": [
      {
       "id": "#47",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X1",
+       "dir": "in",
        "desc": "od G1",
        "wire_id": "#12",
        "from": "W2 RDC1:X3 /1.B4",
@@ -6353,15 +6458,16 @@
      },
      {
       "id": "#48",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X3",
+       "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#14",
-       "to": "W3 RDC3:X1 /1.D4",
+       "to": "W3 RFVE.DC:X1 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -6390,12 +6496,13 @@
      },
      {
       "id": "#49",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 40.0,
       "y": 130.0,
       "rotation": 0,
       "attrs": {
        "ref": "XPE",
+       "dir": "out",
        "desc": "k HOP",
        "shared": "1"
       },
@@ -6403,12 +6510,13 @@
      },
      {
       "id": "#50",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X2",
+       "dir": "in",
        "desc": "od G2",
        "wire_id": "#20",
        "from": "W6 RDC1:X4 /1.B4",
@@ -6418,15 +6526,16 @@
      },
      {
       "id": "#51",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X4",
+       "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#22",
-       "to": "W7 RDC3:X2 /1.D4",
+       "to": "W7 RFVE.DC:X2 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -6606,7 +6715,7 @@
    },
    {
     "id": "#58",
-    "name": "RDC3 – DC rozvaděč u T1",
+    "name": "RFVE.DC – DC rozvaděč u T1",
     "paper": "A3",
     "width": 420.0,
     "height": 297.0,
@@ -6646,12 +6755,13 @@
     "elements": [
      {
       "id": "#63",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X1",
+       "dir": "in",
        "desc": "od G1",
        "wire_id": "#14",
        "from": "W3 RDC2:X3 /1.C4",
@@ -6681,12 +6791,13 @@
      },
      {
       "id": "#64",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X3",
+       "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#16",
        "to": "W4 T1:DC1 /1.F4",
@@ -6718,12 +6829,13 @@
      },
      {
       "id": "#65",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 40.0,
       "y": 130.0,
       "rotation": 0,
       "attrs": {
        "ref": "XPE",
+       "dir": "out",
        "desc": "k HOP",
        "shared": "1"
       },
@@ -6731,12 +6843,13 @@
      },
      {
       "id": "#66",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X2",
+       "dir": "in",
        "desc": "od G2",
        "wire_id": "#22",
        "from": "W7 RDC2:X4 /1.C4",
@@ -6766,12 +6879,13 @@
      },
      {
       "id": "#67",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X4",
+       "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#24",
        "to": "W8 T1:DC2 /1.F4",
@@ -6990,11 +7104,11 @@
     ],
     "bridges": {},
     "func": "",
-    "loc": "RDC3"
+    "loc": "RFVE.DC"
    },
    {
     "id": "#76",
-    "name": "RH – AC rozvaděč FVE",
+    "name": "RFVE.AC – AC rozvaděč FVE",
     "paper": "A3",
     "width": 420.0,
     "height": 297.0,
@@ -7045,12 +7159,13 @@
     "elements": [
      {
       "id": "#83",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 60.0,
-      "y": 240.0,
+      "y": 105.0,
       "rotation": 0,
       "attrs": {
        "ref": "X1",
+       "dir": "in",
        "desc": "od T1",
        "wire_id": "#26",
        "from": "W9 T1:AC /1.F4",
@@ -7062,8 +7177,8 @@
       "id": "#79",
       "symbol_id": "fve.breaker_mcb",
       "x": 60.0,
-      "y": 210.0,
-      "rotation": 270,
+      "y": 140.0,
+      "rotation": 90,
       "attrs": {
        "ref": "F1",
        "in_": "40",
@@ -7078,7 +7193,7 @@
       "symbol_id": "sb.terminal_block",
       "x": 60.0,
       "y": 170.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X2",
        "terminal": "1 2 3 4 5",
@@ -7116,12 +7231,13 @@
      },
      {
       "id": "#84",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 120.0,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
        "ref": "XOUT",
+       "dir": "out",
        "desc": "do HDS / DS",
        "wire_id": "#28",
        "to": "W10 DS:1 /1.H4",
@@ -7132,7 +7248,7 @@
      {
       "id": "#85",
       "symbol_id": "sb.pe_bar",
-      "x": 90.0,
+      "x": 97.5,
       "y": 110.0,
       "rotation": 0,
       "attrs": {
@@ -7245,9 +7361,18 @@
       },
       "b": {
        "element_id": "#85",
-       "port": "2"
+       "port": "1"
       },
-      "points": [],
+      "points": [
+       [
+        90.0,
+        160.0
+       ],
+       [
+        85.0,
+        160.0
+       ]
+      ],
       "attrs": {
        "ref": ""
       },
@@ -7287,7 +7412,7 @@
       },
       "b": {
        "element_id": "#85",
-       "port": "1"
+       "port": "2"
       },
       "points": [],
       "attrs": {
@@ -7352,7 +7477,7 @@
      ]
     },
     "func": "",
-    "loc": "RH"
+    "loc": "RFVE.AC"
    }
   ],
   "cables": [
@@ -7630,12 +7755,12 @@
    },
    {
     "aspect": "+",
-    "code": "RDC3",
+    "code": "RFVE.DC",
     "description": "DC rozvaděč u T1"
    },
    {
     "aspect": "+",
-    "code": "RH",
+    "code": "RFVE.AC",
     "description": "AC rozvaděč FVE"
    }
   ],
@@ -7644,7 +7769,7 @@
  },
  "with_component": {
   "format": "envocad-project",
-  "format_version": 12,
+  "format_version": 13,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -7674,9 +7799,9 @@
       "y": 205.0,
       "rotation": 0,
       "attrs": {
-       "ref": "RH",
+       "ref": "RFVE.AC",
        "desc": "AC rozvaděč FVE",
-       "sheet": "RH – AC rozvaděč FVE"
+       "sheet": "RFVE.AC – AC rozvaděč FVE"
       },
       "component_id": null
      },
@@ -7808,9 +7933,9 @@
       "y": 205.0,
       "rotation": 0,
       "attrs": {
-       "ref": "RDC2",
+       "ref": "RFVE.DC",
        "desc": "DC rozvaděč u T1",
-       "sheet": "RDC2 – DC rozvaděč u T1"
+       "sheet": "RFVE.DC – DC rozvaděč u T1"
       },
       "component_id": null
      },
@@ -8339,12 +8464,13 @@
     "elements": [
      {
       "id": "#47",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X1",
+       "dir": "in",
        "desc": "od G1",
        "wire_id": "#12",
        "from": "W1 G1:DC /1.A3",
@@ -8354,15 +8480,16 @@
      },
      {
       "id": "#48",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X5",
+       "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#14",
-       "to": "W2 RDC2:X1 /1.D4",
+       "to": "W2 RFVE.DC:X1 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -8391,12 +8518,13 @@
      },
      {
       "id": "#49",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 40.0,
       "y": 130.0,
       "rotation": 0,
       "attrs": {
        "ref": "XPE",
+       "dir": "out",
        "desc": "k HOP",
        "shared": "1"
       },
@@ -8404,12 +8532,13 @@
      },
      {
       "id": "#50",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X2",
+       "dir": "in",
        "desc": "od G2",
        "wire_id": "#18",
        "from": "W4 G2:DC /1.A3",
@@ -8419,15 +8548,16 @@
      },
      {
       "id": "#51",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X6",
+       "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#20",
-       "to": "W5 RDC2:X2 /1.D4",
+       "to": "W5 RFVE.DC:X2 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -8456,12 +8586,13 @@
      },
      {
       "id": "#52",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 160.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X3",
+       "dir": "in",
        "desc": "od G3",
        "wire_id": "#24",
        "from": "W7 G3:DC /1.A4",
@@ -8471,15 +8602,16 @@
      },
      {
       "id": "#53",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 160.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X7",
+       "dir": "out",
        "desc": "G3 dál",
        "wire_id": "#26",
-       "to": "W8 RDC2:X3 /1.D4",
+       "to": "W8 RFVE.DC:X3 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -8508,12 +8640,13 @@
      },
      {
       "id": "#54",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 210.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X4",
+       "dir": "in",
        "desc": "od G4",
        "wire_id": "#30",
        "from": "W10 G4:DC /1.A5",
@@ -8523,15 +8656,16 @@
      },
      {
       "id": "#55",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 210.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X8",
+       "dir": "out",
        "desc": "G4 dál",
        "wire_id": "#32",
-       "to": "W11 RDC2:X4 /1.D4",
+       "to": "W11 RFVE.DC:X4 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -8855,7 +8989,7 @@
    },
    {
     "id": "#68",
-    "name": "RDC2 – DC rozvaděč u T1",
+    "name": "RFVE.DC – DC rozvaděč u T1",
     "paper": "A3",
     "width": 420.0,
     "height": 297.0,
@@ -8915,12 +9049,13 @@
     "elements": [
      {
       "id": "#77",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X1",
+       "dir": "in",
        "desc": "od G1",
        "wire_id": "#14",
        "from": "W2 RDC1:X5 /1.C4",
@@ -8950,12 +9085,13 @@
      },
      {
       "id": "#78",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X5",
+       "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#16",
        "to": "W3 T1:DC1 /1.E4",
@@ -8987,12 +9123,13 @@
      },
      {
       "id": "#79",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 40.0,
       "y": 130.0,
       "rotation": 0,
       "attrs": {
        "ref": "XPE",
+       "dir": "out",
        "desc": "k HOP",
        "shared": "1"
       },
@@ -9000,12 +9137,13 @@
      },
      {
       "id": "#80",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X2",
+       "dir": "in",
        "desc": "od G2",
        "wire_id": "#20",
        "from": "W5 RDC1:X6 /1.C4",
@@ -9035,12 +9173,13 @@
      },
      {
       "id": "#81",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X6",
+       "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#22",
        "to": "W6 T1:DC2 /1.E4",
@@ -9072,12 +9211,13 @@
      },
      {
       "id": "#82",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 160.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X3",
+       "dir": "in",
        "desc": "od G3",
        "wire_id": "#26",
        "from": "W8 RDC1:X7 /1.C4",
@@ -9107,12 +9247,13 @@
      },
      {
       "id": "#83",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 160.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X7",
+       "dir": "out",
        "desc": "G3 dál",
        "wire_id": "#28",
        "to": "W9 T1:DC3 /1.E4",
@@ -9144,12 +9285,13 @@
      },
      {
       "id": "#84",
-      "symbol_id": "sb.feed_in",
+      "symbol_id": "sb.feed",
       "x": 210.0,
       "y": 240.0,
-      "rotation": 0,
+      "rotation": 180,
       "attrs": {
        "ref": "X4",
+       "dir": "in",
        "desc": "od G4",
        "wire_id": "#32",
        "from": "W11 RDC1:X8 /1.C4",
@@ -9179,12 +9321,13 @@
      },
      {
       "id": "#85",
-      "symbol_id": "sb.feed_out",
+      "symbol_id": "sb.feed",
       "x": 210.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
        "ref": "X8",
+       "dir": "out",
        "desc": "G4 dál",
        "wire_id": "#34",
        "to": "W12 T1:DC5 /1.E4",
@@ -9587,11 +9730,11 @@
     ],
     "bridges": {},
     "func": "",
-    "loc": "RDC2"
+    "loc": "RFVE.DC"
    },
    {
     "id": "#102",
-    "name": "RH – AC rozvaděč FVE",
+    "name": "RFVE.AC – AC rozvaděč FVE",
     "paper": "A3",
     "width": 420.0,
     "height": 297.0,
@@ -9627,12 +9770,13 @@
     "elements": [
      {
       "id": "#106",
-      "symbol_id": "sb.feed_in",
-      "x": 60.0,
-      "y": 240.0,
+      "symbol_id": "sb.feed",
+      "x": 105.0,
+      "y": 105.0,
       "rotation": 0,
       "attrs": {
        "ref": "X1",
+       "dir": "in",
        "desc": "od T1",
        "wire_id": "#36",
        "from": "W13 T1:AC /1.E4",
@@ -9643,9 +9787,9 @@
      {
       "id": "#103",
       "symbol_id": "fve.breaker_mcb",
-      "x": 60.0,
-      "y": 210.0,
-      "rotation": 270,
+      "x": 105.0,
+      "y": 140.0,
+      "rotation": 90,
       "attrs": {
        "ref": "F1",
        "in_": "40",
@@ -9658,7 +9802,7 @@
      {
       "id": "#107",
       "symbol_id": "sb.busbar",
-      "x": 120.0,
+      "x": 165.0,
       "y": 175.0,
       "rotation": 0,
       "attrs": {
@@ -9673,7 +9817,7 @@
      {
       "id": "#104",
       "symbol_id": "fve.spd",
-      "x": 90.0,
+      "x": 82.5,
       "y": 140.0,
       "rotation": 0,
       "attrs": {
@@ -9686,12 +9830,13 @@
      },
      {
       "id": "#108",
-      "symbol_id": "sb.feed_out",
-      "x": 70.0,
+      "symbol_id": "sb.feed",
+      "x": 60.0,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
        "ref": "XPE",
+       "dir": "out",
        "desc": "k HOP",
        "shared": "1",
        "wire_id": "#40",
@@ -9703,7 +9848,7 @@
      {
       "id": "#105",
       "symbol_id": "sb.main_switch",
-      "x": 150.0,
+      "x": 142.5,
       "y": 140.0,
       "rotation": 270,
       "attrs": {
@@ -9716,12 +9861,13 @@
      },
      {
       "id": "#109",
-      "symbol_id": "sb.feed_out",
-      "x": 150.0,
+      "symbol_id": "sb.feed",
+      "x": 142.5,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
        "ref": "XOUT",
+       "dir": "out",
        "desc": "do HDS / DS",
        "wire_id": "#38",
        "to": "W14 DS:1 /1.H3",
@@ -9762,7 +9908,7 @@
       },
       "b": {
        "element_id": "#107",
-       "port": "T1"
+       "port": "B1"
       },
       "points": [],
       "attrs": {
@@ -9787,7 +9933,16 @@
        "element_id": "#104",
        "port": "L"
       },
-      "points": [],
+      "points": [
+       [
+        97.5,
+        160.0
+       ],
+       [
+        82.5,
+        160.0
+       ]
+      ],
       "attrs": {
        "ref": ""
       },
@@ -9809,7 +9964,16 @@
        "element_id": "#108",
        "port": "1"
       },
-      "points": [],
+      "points": [
+       [
+        82.5,
+        120.0
+       ],
+       [
+        60.0,
+        120.0
+       ]
+      ],
       "attrs": {
        "ref": ""
       },
@@ -9822,13 +9986,22 @@
       "id": "#114",
       "a": {
        "element_id": "#107",
-       "port": "4"
+       "port": "1"
       },
       "b": {
        "element_id": "#108",
        "port": "1"
       },
-      "points": [],
+      "points": [
+       [
+        97.5,
+        165.0
+       ],
+       [
+        60.0,
+        165.0
+       ]
+      ],
       "attrs": {
        "ref": ""
       },
@@ -9841,7 +10014,7 @@
       "id": "#115",
       "a": {
        "element_id": "#107",
-       "port": "3"
+       "port": "4"
       },
       "b": {
        "element_id": "#105",
@@ -9886,7 +10059,7 @@
     ],
     "bridges": {},
     "func": "",
-    "loc": "RH"
+    "loc": "RFVE.AC"
    }
   ],
   "cables": [
@@ -10269,12 +10442,12 @@
    },
    {
     "aspect": "+",
-    "code": "RDC2",
+    "code": "RFVE.DC",
     "description": "DC rozvaděč u T1"
    },
    {
     "aspect": "+",
-    "code": "RH",
+    "code": "RFVE.AC",
     "description": "AC rozvaděč FVE"
    }
   ],

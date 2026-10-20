@@ -4,6 +4,7 @@ import pytest
 
 from envocad.library.store import LibraryStore
 from envocad.library.templates import TEMPLATES, apply_template
+from envocad.model.feed import is_feed_in, is_feed_out
 from envocad.model.project import FORMAT_VERSION, Element, Project, Sheet, Wire, WireEnd
 
 
@@ -149,12 +150,12 @@ def test_feed_link_to_jps_wire():
     sb = p.create_switchboard_sheet(blk)
     assert [c[0] for c in wire_choices(p, sb)] == [w.id]
     apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
-    feed = next(e for e in sb.elements if e.symbol_id == "sb.feed_in")
+    feed = next(e for e in sb.elements if is_feed_in(e))
     assert feed.attrs["wire_id"] == w.id and feed.attrs["from"].startswith("W2 T1:AC /1.") and feed.attrs["cable"] == "CYKY-J 5x16 16"
     assert linked_wire(p, sb, feed)[1] is w
     assert wire_xref(p, w.id) .startswith("→ R1:X1 /2.")
     assert feed_link_attrs(p, sb, feed, "") == {"wire_id": "", "from": "", "cable": ""}
-    out = next(e for e in sb.elements if e.symbol_id == "sb.feed_out")
+    out = next(e for e in sb.elements if is_feed_out(e))
     assert feed_link_attrs(p, sb, out, "") == {"wire_id": "", "to": "", "cable": ""}
     # seznam kabelů celého projektu: kabel je jen jednou (W2 v JPS) a má odkaz na rozvaděč
     from envocad.export import reports
@@ -215,7 +216,7 @@ def test_block_follows_switchboard_edits():
     ports = lambda: [pt.name for pt in element_symbol(p, blk, lib).ports]
     assert ports() == ["X1", "X4", "X5", "X6"]
     # nový vývod v rozvaděči → nový port
-    sb.elements.append(Element("sb.feed_out", 300, 100, attrs={"ref": "X7", "desc": "vývod 4"}))
+    sb.elements.append(Element("sb.feed", 300, 100, attrs={"dir": "out", "ref": "X7", "desc": "vývod 4"}))
     assert ports() == ["X1", "X4", "X5", "X6", "X7"]
     # vodič v JPS na X4, pak přejmenování vývodu X4 → X8: konec vodiče se přejmenuje
     w = Wire(WireEnd(blk.id, "X4"), WireEnd(load.id, "1"), attrs={"ref": "W3"})
@@ -319,7 +320,7 @@ def test_structures_and_revisions_roundtrip():
                    fingerprints={p.sheets[0].id: "abc"})
     p.revisions = [Revision("A", closed=True), rev]
     d = p.to_dict()
-    assert d["format_version"] == FORMAT_VERSION == 12
+    assert d["format_version"] == FORMAT_VERSION == 13
     q = Project.from_dict(json.loads(json.dumps(d)))
     assert q.to_dict() == d
     assert q.sheets[0].func == "AC" and q.sheets[0].loc == "STR"

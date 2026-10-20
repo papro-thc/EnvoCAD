@@ -10,8 +10,11 @@ import re
 import string
 from dataclasses import dataclass
 
+from envocad.model.feed import FEED_SYMBOL, feed_name
+
 FUNC, LOC = "=", "+"
 ASPECT_NAMES = {FUNC: "Funkce", LOC: "Umístění"}
+
 LOCATION_SYMBOLS = {"fve.switchboard"}          # prvky, jejichž ref je kód umístění
 MAX_CODE_LEN = 10
 
@@ -19,7 +22,7 @@ MAX_CODE_LEN = 10
 # Zkratky: DS = distribuční soustava (síť), HOP = hlavní ochranná přípojnice (ekvipotenciální svorkovnice).
 SHORT_NAMES = {
     "fve.grid": "DS", "fve.load": "spotřebič", "sb.junction": "uzel", "sb.busbar": "sběrnice",
-    "sb.pe_bar": "PE lišta", "fve.interrupt": "přerušovací bod", "sb.feed_in": "přívod", "sb.feed_out": "vývod",
+    "sb.pe_bar": "PE lišta", "fve.interrupt": "přerušovací bod",
     "fve.switchboard": "rozvaděč", "fve.pv_string": "string", "fve.battery": "baterie",
     "fve.inverter": "střídač", "fve.inverter_hybrid": "střídač",
 }
@@ -36,6 +39,8 @@ def element_name(e, lib=None) -> str:
     sid = getattr(e, "symbol_id", "") or ""
     if sid == "fve.earth":
         return "HOP" if "HOP" in str(e.attrs.get("desc", "")).upper() else "uzemnění"
+    if sid == FEED_SYMBOL:
+        return feed_name(e)          # přívod / vývod podle směru (`model/feed.py`)
     if sid in SHORT_NAMES:
         return SHORT_NAMES[sid]
     if lib is not None:
@@ -48,7 +53,7 @@ def element_name(e, lib=None) -> str:
     return sid.split(".")[-1] or "?"
 MAX_REF_LEN = 10
 MAX_FULL_LEN = 32
-CODE_RE = re.compile(r"[A-Z][A-Z0-9_]*")
+CODE_RE = re.compile(r"[A-Z][A-Z0-9_]*(?:\.[A-Z0-9_]+)*")   # tečka uvnitř – firemní RFVE.AC, RFVE.DC
 REF_CHARS_RE = re.compile(r"[A-Z0-9_]+")        # vodič smí začínat číslicí
 SEPARATORS = set("=+-.:/") | set(string.whitespace)
 # Firemní číslování ENVO (docs/ENVO_STYL.md) používá „.“ a vnitřní „-“ v označení: FU1.1, QS1.2, SPD-DC1.1.
@@ -85,8 +90,9 @@ class DesignationIssue:
 
 
 def parse_designation(text: str) -> Designation:
-    """„=AC+RS1-F3“, „+RS1-F3“, „F3“ → Designation. Opakovaný aspekt nebo víceúrovňový kód („=AC.1“, „+A+B“)
-    → ValueError. Přístrojová část je vše za prvním „-“ (firemní „SPD-DC1.1“ zůstane celé)."""
+    """„=AC+RS1-F3“, „+RS1-F3“, „+RFVE.AC-X1“, „F3“ → Designation. Tečka uvnitř kódu je jedna úroveň (firemní
+    RFVE.AC, RFVE.DC1 – `CODE_RE`); opakovaný aspekt („+A+B“) nebo tečka na začátku/konci kódu či zdvojená („+.A“,
+    „=AC.“, „+A..B“) → ValueError. Přístrojová část je vše za prvním „-“ (firemní „SPD-DC1.1“ zůstane celé)."""
     text = (text or "").strip()
     if not text:
         return Designation()
@@ -100,8 +106,8 @@ def parse_designation(text: str) -> Designation:
         code = code.strip()
         if sign in parts:
             raise ValueError(f"Označení {text!r}: aspekt {sign!r} je uvedený víckrát (víceúrovňové označení)")
-        if sign != "-" and "." in code:
-            raise ValueError(f"Označení {text!r}: víceúrovňový kód {code!r} není podporován")
+        if code.startswith(".") or code.endswith(".") or ".." in code:
+            raise ValueError(f"Označení {text!r}: tečka smí být jen uvnitř kódu {code!r} (RFVE.AC)")
         parts[sign] = code
     return Designation(parts.get(FUNC, ""), parts.get(LOC, ""), parts.get("-", ""))
 
@@ -121,7 +127,7 @@ def class_matches(ref: str, classes: list[str]) -> bool:
 
 
 def validate_code(code: str, aspect: str, where: str = "") -> list[DesignationIssue]:
-    """Kód funkce/umístění: A–Z, 0–9, _, začíná písmenem, nejvýš MAX_CODE_LEN znaků. `where` doplní text („listu X“)."""
+    """Kód funkce/umístění: A–Z, 0–9, _ a tečka uvnitř (RFVE.AC), začíná písmenem, nejvýš MAX_CODE_LEN znaků. `where` doplní text („listu X“)."""
     if not code:
         return []
     if CODE_RE.fullmatch(code) and len(code) <= MAX_CODE_LEN:
@@ -129,7 +135,7 @@ def validate_code(code: str, aspect: str, where: str = "") -> list[DesignationIs
     name = ASPECT_NAMES.get(aspect, "Kód")
     place = f" {where}" if where else ""
     return [DesignationIssue("struct_syntax", True,
-                             f"{name} „{code}“{place} není platný kód (A–Z, 0–9, _, max. {MAX_CODE_LEN})")]
+                             f"{name} „{code}“{place} není platný kód (A–Z, 0–9, _, tečka uvnitř, max. {MAX_CODE_LEN})")]
 
 
 def _separator_name(ch: str) -> str:

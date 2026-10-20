@@ -129,7 +129,7 @@ def test_device_terminal_rules():
 
 def test_device_terminal_dc_and_single_wires():
     _, s = _sb()
-    x = _el(s, "sb.feed_in", "X1")
+    x = _el(s, "sb.feed", "X1", dir="in")
     d = _el(s, "fve.fuse_disconnect", "F1", poles=2, modules=2)
     w = _w(s, x, "1", d, "1", ["DC+", "DC-"])
     assert device_terminal(s, w, "DC+", "b") == ("F1:1", True)
@@ -185,7 +185,7 @@ def test_unplaced_ends(lib):
     bus = _el(s, "sb.busbar", "1")
     f = _el(s, "fve.breaker_mcb", "F2", row=0, pos=0, in_=16, poles=1, modules=1)
     f5 = _el(s, "fve.breaker_mcb", "F5", in_=16, poles=1, modules=1)                 # neumístěn
-    out = _el(s, "sb.feed_out", "X3")
+    out = _el(s, "sb.feed", "X3", dir="out")
     j = _el(s, "sb.junction", "")
     w1 = _w(s, bus, "1", f, "1", ["L1"])
     w2 = _w(s, f, "2", out, "1", ["L1"])
@@ -284,7 +284,7 @@ def test_twin_ferrule_and_three_wires(lib):
 def test_production_wires_filter_sort_numbers(lib):
     p, s = _sb()
     p.sheets[0].wires.append(Wire(WireEnd("x", "1"), WireEnd("y", "1")))      # list JPS se nevypisuje
-    out = _el(s, "sb.feed_out", "X3")
+    out = _el(s, "sb.feed", "X3", dir="out")
     f3 = _el(s, "fve.breaker_mcb", "F3", row=1, pos=0, in_=16, poles=3, modules=3)
     f2 = _el(s, "fve.breaker_mcb", "F2", row=0, pos=3, in_=16, poles=3, modules=3)
     q = _el(s, "sb.main_switch", "Q1", row=0, pos=0, in_=63, poles=4, modules=4)
@@ -360,7 +360,7 @@ def test_template_production_list(lib):
 def test_wiring_list_color_on_switchboard(lib):
     p, s = _sb()
     f = _el(s, "fve.breaker_mcb", "F2", in_=16, poles=1, modules=1)
-    x = _el(s, "sb.feed_out", "X3")
+    x = _el(s, "sb.feed", "X3", dir="out")
     _w(s, f, "2", x, "1", ["L1", "N"], color="černá")
     head, rows = reports.wiring_list(p, lib, s)
     ci = head.index("Barva")
@@ -377,14 +377,14 @@ def test_switchboard_wire_attrs_roundtrip(tmp_path):
     assert [a.key for a in SWITCHBOARD_WIRE_ATTRIBUTES] == ["color", "end_a", "end_b", "prod"]
     p, s = _sb()
     f = _el(s, "fve.breaker_mcb", "F2")
-    x = _el(s, "sb.feed_out", "X3")
+    x = _el(s, "sb.feed", "X3", dir="out")
     attrs = {"color": "černá", "end_a": "-", "end_b": "kabelové oko M6", "prod": "0", "cross": "4"}
     w = _w(s, f, "2", x, "1", ["L1"], **attrs)
     s.layout.params.update({"wire_type": "H05V-K", "wire_end_mm": "80"})
     path = tmp_path / "v.ecp"
     p.save(path)
     import json
-    assert json.loads(path.read_text(encoding="utf-8"))["format_version"] == FORMAT_VERSION == 12
+    assert json.loads(path.read_text(encoding="utf-8"))["format_version"] == FORMAT_VERSION == 13
     q = Project.load(path)
     s2 = q.sheets[-1]
     assert s2.wires[0].attrs == attrs and s2.wires[0].id == w.id
@@ -436,7 +436,7 @@ def test_bypass_merged_into_one_row(lib):
     p, s = _sb()
     bus = _el(s, "sb.busbar", "1")
     f = _el(s, "fve.breaker_mcb", "F2", row=0, pos=0, in_=16, poles=3, modules=3)
-    x = _el(s, "sb.feed_out", "X3")
+    x = _el(s, "sb.feed", "X3", dir="out")
     w_in = _w(s, bus, "3", f, "1", AC)
     w_out = _w(s, f, "2", x, "1", AC)
     rows = _rows(p, s, lib)
@@ -458,7 +458,7 @@ def test_bypass_merged_into_one_row(lib):
     pe = next(r for r in _rows(p, s, lib) if r.conductor == "PE")
     assert "vede kolem F2, F5" in pe.notes and len(pe.wire_ids) == 3
     # nejednoznačné (dva vývody PE z přístroje) → beze sloučení, původní poznámka
-    _w(s, f5, "2", _el(s, "sb.feed_out", "X4"), "1", AC)
+    _w(s, f5, "2", _el(s, "sb.feed", "X4", dir="out"), "1", AC)
     pes = [r for r in _rows(p, s, lib) if r.conductor == "PE"]
     assert any("PE nespínaný – ve skutečnosti vede kolem F5" in r.notes for r in pes)
 
@@ -483,7 +483,7 @@ def test_switched_neutral_pole_numbers():
     bus = _el(s, "sb.busbar", "1")
     q = _el(s, "sb.main_switch", "Q1", poles=4, modules=4)
     f = _el(s, "fve.breaker_mcb", "F2", poles=3, modules=3)
-    x = _el(s, "sb.feed_out", "X3")
+    x = _el(s, "sb.feed", "X3", dir="out")
     w_in, w_out = _w(s, x, "1", q, "1", AC), _w(s, q, "2", bus, "IN", AC)
     assert device_terminal(s, w_in, "N", "b") == ("Q1:7", True)
     assert device_terminal(s, w_out, "N", "a") == ("Q1:8", True)
@@ -501,7 +501,7 @@ def test_power_contact_cross_from_contactor(lib):
     p, s = _sb()
     prm = WiringParams()
     k = _el(s, "ctl.contact_power", "K1", row=0, pos=0, poles=3, modules=3)
-    x = _el(s, "sb.feed_out", "X3")
+    x = _el(s, "sb.feed", "X3", dir="out")
     w = _w(s, k, "2", x, "1", AC[:3])
     assert wire_cross(p, s, w, prm, DeviceIndex.build(p)) == (1.5, "výchozí")
     pw = next(r for r in _rows(p, s, lib) if r.wire_id == w.id)
@@ -529,7 +529,7 @@ def test_number_note_and_empty_designation_column(lib, tmp_path):
     from envocad.export.xlsx_export import export_production_xlsx
     p, s = _sb()
     f = _el(s, "fve.breaker_mcb", "F2", row=0, pos=0, in_=16, poles=1, modules=1)
-    x = _el(s, "sb.feed_out", "X3")
+    x = _el(s, "sb.feed", "X3", dir="out")
     w = _w(s, f, "2", x, "1", ["L1"])
     head, rows = reports.production_wiring_list(p, lib, s, {})
     assert "Označení" not in head and len(rows[0]) == len(head)
@@ -604,7 +604,7 @@ def test_end_labels_and_unplaced_labels():
     """(12) Popisek koncovky s koncem; (13) wire_unplaced česky, uložená hodnota zůstává."""
     _, s = _sb()
     f = _el(s, "fve.breaker_mcb", "F2")
-    x = _el(s, "sb.feed_out", "X1")
+    x = _el(s, "sb.feed", "X1", dir="out")
     bus = _el(s, "sb.busbar", "1")
     w = _w(s, f, "2", x, "1", ["L1"])
     assert wire_end_labels(s, w) == {"end_a": "Koncovka A (F2:2)", "end_b": "Koncovka B (X1:1)"}
@@ -625,7 +625,7 @@ def test_sheets_sorted_naturally(lib):
         s = Sheet(name=name, kind="switchboard", loc=name, layout=_layout())
         p.sheets.append(s)
         f = _el(s, "fve.breaker_mcb", "F2", row=0, pos=0, in_=16, poles=1, modules=1)
-        _w(s, f, "2", _el(s, "sb.feed_out", "X3"), "1", ["L1"])
+        _w(s, f, "2", _el(s, "sb.feed", "X3", dir="out"), "1", ["L1"])
     assert [r.sheet for r in production_wires(p, None, {}, lib)] == ["RDC2", "RDC10"]
 
 

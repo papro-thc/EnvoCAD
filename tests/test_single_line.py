@@ -7,6 +7,7 @@ from envocad.generate import build_project, connection_currents
 from envocad.library.store import LibraryStore
 from envocad.model import multipole as mp
 from envocad.model.checks import check_project
+from envocad.model.feed import feed_dir, is_feed
 from envocad.model.single_line import build_tree, single_line_geometry
 
 INVS = [{"ref": "T1", "strings": [20] * 3}, {"ref": "T2", "strings": [20] * 2}]
@@ -51,14 +52,14 @@ def test_connection_currents():
 
 def test_nn_connection_unchanged():
     p = build_project({"name": "t", "inverters": INVS})
-    assert [s.name[:3] for s in p.switchboards()][-1] == "RH "
+    assert [s.name.split(" – ")[0] for s in p.switchboards()][-1] == "RFVE.AC"
     assert not any(e.symbol_id == "fve.transformer" for e in p.sheets[0].elements)
 
 
 @pytest.mark.parametrize("metering", ["nn", "vn"])
 def test_vn_connection_blocks_and_boards(metering):
     p = _vn(metering)
-    rhn, rvn, re_ = _board(p, "RHN"), _board(p, "RVN"), _board(p, "RE")
+    rhn, rvn, re_ = _board(p, "HR"), _board(p, "RVN"), _board(p, "RE")
     assert "fve.transformer" in _syms(p.sheets[0])
     assert "fve.ct" in _syms(rhn if metering == "nn" else rvn)
     assert _syms(re_).count("fve.meter") == 1 and "fve.meter" not in _syms(rhn) + _syms(rvn)
@@ -68,9 +69,9 @@ def test_vn_connection_blocks_and_boards(metering):
     assert _syms(rvn).count("fve.fuse_vn") == 1 and "fve.switch_disconnector" not in _syms(rvn)
     assert not mp.has_multipole(rvn) and mp.has_multipole(rhn) and mp.has_multipole(re_)
     # hlavní rozvaděč napájený od transformátoru: přívod XT, vývody X1 (FVE), XS (spotřeba) a měřicí obvody k RE
-    feeds = {e.ref: e.symbol_id for e in rhn.elements if e.symbol_id.startswith("sb.feed")}
-    meas = {"XMI": "sb.feed_out", "XMU": "sb.feed_out"} if metering == "nn" else {}
-    assert feeds == {"XT": "sb.feed_in", "X1": "sb.feed_out", "X2": "sb.feed_out", **meas}
+    feeds = {e.ref: feed_dir(e) for e in rhn.elements if is_feed(e)}
+    meas = {"XMI": "out", "XMU": "out"} if metering == "nn" else {}
+    assert feeds == {"XT": "in", "X1": "out", "X2": "out", **meas}
     # každý přístroj rozvaděče VN patří do pole (kromě přípojnic)
     cells = {e.attrs.get("cell") for e in rvn.elements if e.symbol_id != "sb.busbar"}
     names = {"P1 kabelové pole", "P2 kabelové pole", "P3 transformátorové pole"} if metering == "nn" else {
@@ -78,7 +79,7 @@ def test_vn_connection_blocks_and_boards(metering):
     assert cells == names
     # všechny části trafostanice nesou její označení
     st = {e.ref: e.attrs.get("station") for e in p.sheets[0].elements if e.attrs.get("station")}
-    assert set(st) == {"RHN", "TR1", "RVN", "RE"} and set(st.values()) == {"TS1 kiosková trafostanice"}
+    assert set(st) == {"HR", "TR1", "RVN", "RE"} and set(st.values()) == {"TS1 kiosková trafostanice"}
 
 
 def test_kobky_and_pole_station():
@@ -89,7 +90,7 @@ def test_kobky_and_pole_station():
     blk = _syms(p.sheets[0])
     assert {"fve.switch_disconnector_vn", "fve.fuse_vn", "fve.surge_arrester"} <= set(blk)
     assert blk.count("fve.grid") == 1                                       # bez smyčky
-    assert "fve.ct" in _syms(_board(p, "RHN"))                              # měření na nn
+    assert "fve.ct" in _syms(_board(p, "HR"))                              # měření na nn
 
 
 def test_vn_connection_checks_clean(lib):
@@ -184,14 +185,14 @@ def test_geometry_fits_page(lib, conn, paper):
         for _key, b in cells[k + 1:]:
             assert _apart(a, b)
     texts = {p.text for p in g.prims if p.kind == "text"}
-    assert {"RH", "T1", "DC: 3 stringy"} <= texts
+    assert {"RFVE.AC", "T1", "DC: 3 stringy"} <= texts
     if conn:
-        assert {"RHN", "TR1", "630 kVA", "TS1", "RE"} <= texts
+        assert {"HR", "TR1", "630 kVA", "TS1", "RE"} <= texts
         (box,) = g.stations.values()
         # rozvaděče TS v rámečku TS, rozvaděč FVE mimo
         sheets = {n.sheet.id: n.sheet.name.split()[0] for n in g.nodes.values() if n.sheet.is_switchboard}
         for sid, f in g.frames.items():
-            assert _inside(f, box) == (sheets[sid] != "RH"), sheets[sid]
+            assert _inside(f, box) == (sheets[sid] != "RFVE.AC"), sheets[sid]
         grids = [n for n in g.nodes.values() if n.element.symbol_id == "fve.grid"]
         assert grids and all(_apart((n.x - 1, n.down, n.x + 1, n.y), box) for n in grids)   # DS mimo TS
         assert any(t.startswith("W") and "22-AXEKVCEY" in t for t in texts) == (conn["connection"].get("station")
@@ -252,5 +253,5 @@ def test_single_line_dxf(tmp_path, lib):
     msp = doc.modelspace()
     texts = {e.dxf.text for e in msp.query("TEXT")}
     assert {"RVN", "TR1", "TA1", "TS1", "P3 měřicí pole"} <= texts
-    # rozvaděče RVN, RHN, RE, RH + 4 pole + trafostanice
+    # rozvaděče RVN, HR, RE, RFVE.AC + 4 pole + trafostanice
     assert len(msp.query('LWPOLYLINE[layer=="ROZVADECE"]')) == 9

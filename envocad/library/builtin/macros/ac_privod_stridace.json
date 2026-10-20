@@ -1,7 +1,7 @@
 {
- "version": 2,
+ "version": 3,
  "name": "AC přívod střídače",
- "description": "Generátor: X{k} od {inverter} → jistič {breaker_in} → sběrnice 1 port T{k}; proměnné k, inverter, breaker_in, main_in",
+ "description": "Generátor: X{k} od {inverter} (zespodu) → jistič {breaker_in} → sběrnice 1 port B{k}; proměnné k, inverter, breaker_in, main_in",
  "role": "ac_feed",
  "variables": [
   {
@@ -66,12 +66,13 @@
   "elements": [
    {
     "id": "551096cf3c5c",
-    "symbol_id": "sb.feed_in",
-    "x": 60,
-    "y": 240,
+    "symbol_id": "sb.feed",
+    "x": 105,
+    "y": 105,
     "rotation": 0,
     "attrs": {
      "ref": "X{k}",
+     "dir": "in",
      "desc": "od {inverter}"
     },
     "component_id": null
@@ -79,9 +80,9 @@
    {
     "id": "bfab44bb5679",
     "symbol_id": "fve.breaker_mcb",
-    "x": 60,
-    "y": 210,
-    "rotation": 270,
+    "x": 105,
+    "y": 140,
+    "rotation": 90,
     "attrs": {
      "ref": "F1",
      "in_": "{breaker_in}",
@@ -94,7 +95,7 @@
    {
     "id": "61446c03e353",
     "symbol_id": "sb.busbar",
-    "x": 120,
+    "x": 165,
     "y": 175,
     "rotation": 0,
     "attrs": {
@@ -139,7 +140,7 @@
     },
     "b": {
      "element_id": "61446c03e353",
-     "port": "T{k}"
+     "port": "B{k}"
     },
     "points": [],
     "attrs": {
