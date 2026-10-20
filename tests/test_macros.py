@@ -301,18 +301,12 @@ def test_component_from_and_apply_to_inverter_dc_inputs(lib):
 
 # ---- generátor ------------------------------------------------------------------------------------------------------
 def test_generator_regression_snapshot():
-    """Generátor po refaktoru maker dává stejný výstup jako před ním (snímek tests/data/generate_snapshot.json)."""
+    """Generátor po refaktoru (makra, balíček `envocad/generator/`) dává stejný výstup jako před ním – všechny
+    případy `generate_snapshot.CASES` (snímek tests/data/generate_snapshot.json)."""
     snap = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+    assert set(snap) == set(CASES)
     for name, spec in CASES.items():
         got = canon(build_project(spec))
-        if name == "with_component":
-            # záměrný rozdíl: artikl střídače doplní atributy, které specifikace nezadala (typ, výrobce, p_dc_max, Un)
-            inv = next(e for e in got["sheets"][0]["elements"] if e["symbol_id"] == "fve.inverter")
-            assert {k: inv["attrs"][k] for k in ("type", "manufacturer", "p_dc_max", "un")} == \
-                {"type": "STP 25-50", "manufacturer": "SMA", "p_dc_max": "37.5", "un": "400"}
-            assert inv["attrs"]["p_ac"] == "25" and inv["attrs"]["mppt"] == "3"   # zadané ve specifikaci zůstávají
-            old = next(e for e in snap[name]["sheets"][0]["elements"] if e["symbol_id"] == "fve.inverter")
-            old["attrs"].update({"type": "STP 25-50", "manufacturer": "SMA", "p_dc_max": "37.5", "un": "400"})
         assert got == snap[name], name
 
 
