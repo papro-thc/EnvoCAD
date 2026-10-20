@@ -277,3 +277,202 @@ def test_picker_filters_keep_unknown_values(app):
     d.p_from.setText("")
     d.phases.setCurrentText("1")
     assert [c.id for c in d._rows] == ["i3"] and "filtr Fáze" in d.table.item(0, 0).toolTip()
+
+
+# ---- optimizéry (docs/design/optimizery.md §4) --------------------------------------------------------------------
+def _optimizer(**kw):
+    params = {"p_max_w": "440", "u_in_max_v": "60", "isc_in_max_a": "14.5", "u_out_max_v": "60",
+              "modules_per_optimizer": "1", "compat": "SolarEdge", "n_min_3ph": "14", "n_max_3ph": "50",
+              "p_string_max_3ph_w": "11250", "string_mode": "fixed_voltage"}
+    params.update(kw.pop("params", {}))
+    return Component(id="t-opt", manufacturer="Test", part_number="TO-440", name="Testovací optimizér",
+                     category="optimizer", symbol_id="", source="datasheet", params=params, **kw)
+
+
+def test_picker_optimizer_columns_and_unverified(app):
+    web = _optimizer(params={"note": "WebSearch 2026-10-17"})
+    web.id, web.part_number = "t-opt-web", "TO-WEB"
+    d = ComponentPicker(FakeLibrary([_optimizer(), web, _module(), _inverter()]), categories=("optimizer",))
+    heads = [d.table.horizontalHeaderItem(i).text() for i in range(d.table.columnCount())]
+    assert heads == ["Výrobce", "Typ", "P [W]", "Uin max [V]", "Isc in [A]", "Moduly/opt.", "Kompatibilita", "Zdroj"]
+    assert len(d._rows) == 2 and d.p_unit.text() == "[W]"
+    ok = next(r for r, c in enumerate(d._rows) if c.id == "t-opt")
+    assert d.table.item(ok, 2).text() == "440" and not d.table.item(ok, 0).toolTip()
+    assert "WebSearch" in d.table.item(1 - ok, 0).toolTip()
+    d.p_to.setText("400")
+    assert [c.id for c in d._rows] == [] or all(c.num("p_max_w") is None for c in d._rows)
+
+
+def test_wizard_optimizer_component_mode_and_spec(app):
+    d = ProjectWizard(library=FakeLibrary([_optimizer()]))
+    assert d.spec()["optimizer"] == {"type": "", "per_module": 1}   # bez artiklu beze změny
+    assert "string_mode" not in d.spec()["inverters"][0]
+    d.set_optimizer_component(_optimizer())
+    assert d.opt_type.text() == "TO-440" and d.opt_per.text() == "1" and "Testovací optimizér" in d.opt_label.text()
+    assert d.spec()["optimizer"]["component_id"] == "t-opt"
+    d.set_optimizer_component(_optimizer(params={"modules_per_optimizer": "2"}))
+    assert d.opt_per.text() == "0.5" and d.spec()["optimizer"]["per_module"] == 0.5
+    assert [d.string_mode.itemText(i) for i in range(4)] == [
+        "Automaticky (z artiklu)", "Klasický", "S optimizéry", "Pevné napětí"]
+    d.string_mode.setCurrentIndex(2)
+    assert d.spec()["inverters"][0]["string_mode"] == "optimizer"
+    d.clear_optimizer()
+    assert "component_id" not in d.spec()["optimizer"] and "nevybrán" in d.opt_label.text()
+
+
+def test_wizard_optimizer_assistant_lines(app):
+    d = ProjectWizard(library=FakeLibrary([]))
+    d.set_module_component(_module(params={"p_wp": "400", "isc_a": "13.9"}))
+    d.set_inverter_component(_inverter(params={"u_string_v": "750", "u_dc_max_v": "900"}))
+    d.set_optimizer_component(_optimizer())          # režim z artiklu optimizéru: fixed_voltage
+    d.strings.setText("20,13,14")
+    txt = d.assistant_text()
+    assert "Režim stringů: pevné napětí" in txt and "optimizérů 14–50" in txt and "P stringu ≤ 11250 W" in txt
+    assert "Optimizér TO-440:" in txt and "Uin max 60 V" in txt
+    assert "13 modulů" in txt and "13 optimizérů ve stringu < min 14" in txt
+    d.string_mode.setCurrentIndex(1)                 # Klasický přebije artikl
+    assert "Režim stringů: klasický" in d.assistant_text() and "pevné napětí" not in d.assistant_text()
+
+
+def _same_as_f7(d):
+    from envocad.model import calc
+    assistant = [issues for group in d.string_results() for _n, issues in group]
+    f7 = [sc.issues for sc in calc.check_strings(build_project(d.spec()))]
+    assert assistant == f7
+    for issues in assistant:
+        for msg in issues:
+            assert msg in d.assistant_text()
+    return assistant
+
+
+@pytest.mark.parametrize("opt_id, inv_id, mode, strings, fields", [
+    ("solaredge-s440-1gm4mrm", "solaredge-se5k-rw0teben4", 0, "10,14,20,30", {}),
+    ("solaredge-s440-1gm4mrm", "solaredge-se5k-rw0teben4", 1, "14,20", {}),          # classic + vstup optimizéru
+    ("huawei-sun2000-450w-p2", "huawei-sun2000-50ktl-m3", 0, "20,20,18; 22", {}),
+    ("huawei-sun2000-450w-p2", "huawei-sun2000-50ktl-m3", 3, "20,14", {}),
+    (None, "sma-stp-25-50", 0, "20,18,22,22,20,16,20", {"mod_isc": "10"}),           # classic, různé délky na MPPT
+    (None, "huawei-sun2000-50ktl-m3", 0, "20,18,22,24,20,16,20", {}),
+])
+def test_assistant_optimizer_matches_f7(app, builtin_lib, opt_id, inv_id, mode, strings, fields):
+    d = ProjectWizard(library=builtin_lib)
+    d.set_module_component(builtin_lib.component("ja-solar-jam54d40-445-mb"))
+    d.set_inverter_component(builtin_lib.component(inv_id))
+    if opt_id:
+        d.set_optimizer_component(builtin_lib.component(opt_id))
+    d.string_mode.setCurrentIndex(mode)
+    for name, text in fields.items():
+        getattr(d, name).setText(text)
+    d.strings.setText(strings)
+    _same_as_f7(d)
+    if opt_id:
+        assert "Optimizér " in d.assistant_text()
+
+
+def test_assistant_parallel_strings_warning(app, builtin_lib):
+    d = ProjectWizard(library=builtin_lib)
+    d.set_module_component(builtin_lib.component("ja-solar-jam54d40-445-mb"))
+    d.set_inverter_component(builtin_lib.component("sma-stp-25-50"))   # 3 MPPT × 2 stringy
+    d.strings.setText("20,16,20,20")                  # 1. a 2. string sdílejí MPPT 1
+    res = _same_as_f7(d)
+    assert any("nestejná délka" in m for issues in res for m in issues)
+    assert "#b26a00" in d.assistant_text()           # jen varování → oranžově
+
+
+def test_propose_strings_with_optimizer_step(app, builtin_lib, warned):
+    d = ProjectWizard(library=builtin_lib)
+    d.set_module_component(builtin_lib.component("ja-solar-jam54d40-445-mb"))
+    d.set_inverter_component(builtin_lib.component("huawei-sun2000-50ktl-m3"))
+    d.set_optimizer_component(builtin_lib.component("huawei-sun2000-450w-p2"))
+    d.mod_total.setText("60")
+    d.strings.setText("20")
+    d.propose_strings()
+    assert d.strings.text()
+    res = _same_as_f7(d)
+    assert all(not any("není dovoleno" in m for m in issues) for issues in res)
+
+
+# ---- review optimizérů: vymazaný typ, ruční ks/modul, 1f pravidla (fixture artikly, ne vestavěná CSV) -------------
+def test_clearing_optimizer_type_drops_component(app):
+    d = ProjectWizard(library=FakeLibrary([_optimizer()]))
+    d.set_optimizer_component(_optimizer())
+    assert d.spec()["optimizer"]["component_id"] == "t-opt"
+    d.opt_type.setText("")                         # vymazaný typ = bez optimizérů
+    assert d._opt_comp is None and "nevybrán" in d.opt_label.text()
+    assert "component_id" not in d.spec()["optimizer"]
+    p = build_project(d.spec())
+    assert all(not e.attrs.get("n_optimizers") and not e.attrs.get("optimizer_id")
+               for e in p.sheets[0].elements if e.symbol_id == "fve.pv_string")
+
+
+def test_manual_per_module_against_component_is_reported(app):
+    d = ProjectWizard(library=FakeLibrary([]))
+    d.set_module_component(_module())
+    d.set_inverter_component(_inverter())
+    d.set_optimizer_component(_optimizer(params={"modules_per_optimizer": "2", "string_mode": ""}))
+    assert "neodpovídá artiklu" not in d.assistant_text()
+    d.opt_per.setText("1")                         # ručně přepsáno – nesmí se tiše přebít
+    txt = d.assistant_text()
+    assert "Ručně zadané 1 ks/modul neodpovídá artiklu (2 moduly na optimizér)" in txt and "0.5 ks/modul" in txt
+    d.clear_optimizer()                            # bez artiklu se ruční hodnota použije
+    assert "neodpovídá artiklu" not in d.assistant_text()
+
+
+def test_fixed_voltage_manual_half_per_module_even_lengths(app, warned):
+    d = ProjectWizard(library=FakeLibrary([]))
+    d.set_module_component(_module(params={"p_wp": "400"}))
+    d.set_inverter_component(_inverter(params={"mppt": "1", "u_string_v": "750", "u_dc_max_v": "900",
+                                               "string_mode": "fixed_voltage", "n_opt_min": "8", "n_opt_max": "25",
+                                               "p_string_max_w": "11250"}))
+    d.opt_type.setText("Ruční 2:1")
+    d.opt_per.setText("0.5")                       # bez artiklu: 2 moduly na optimizér → délky po 2
+    assert "po 2 modulech" in d.assistant_text()
+    d.mod_total.setText("51")
+    d.propose_strings()
+    groups = d._string_groups()
+    assert groups and all(n % 2 == 0 for g in groups for n in g)
+    assert not any("optimizér musí být na každém modulu" in m for row in d.string_results() for _n, i in row
+                   for m in i)
+
+
+class _CatalogOverLibrary:
+    """Skutečná knihovna (symboly, makra) + testovací artikly – pro `build_project` z průvodce."""
+
+    def __init__(self, real, comps):
+        self._real, self._c = real, comps
+
+    def component(self, cid):
+        return next((c for c in self._c if c.id == cid), None) or self._real.component(cid)
+
+    def components(self, *a, **k):
+        return list(self._c)
+
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
+
+def test_assistant_single_phase_rules_match_f7(app, monkeypatch):
+    """1f střídač: pravidla optimizéru `*_1ph` (přes `phases`) v asistentu i v generátoru / F7."""
+    from envocad import generate
+    from envocad.library.store import LibraryStore
+    from envocad.model import calc
+    opt = _optimizer(params={"n_min_1ph": "8", "n_max_1ph": "25", "p_string_max_1ph_w": "6200", "compat": "Test",
+                             "n_min_3ph": "16", "n_max_3ph": "50", "p_string_max_3ph_w": "11250"})
+    inv1 = _inverter(params={"phases": "1", "p_ac_kw": "5", "mppt": "1", "u_string_v": "380", "u_dc_max_v": "480"})
+    mod = _module(params={"p_wp": "400", "u_sys_max_v": "1000"})
+    lib = _CatalogOverLibrary(LibraryStore(), [opt, inv1, mod])
+    monkeypatch.setattr(generate, "_lib", lambda: lib)
+    d = ProjectWizard(library=lib)
+    d.set_module_component(mod)
+    d.set_inverter_component(inv1)
+    d.set_optimizer_component(opt)
+    d.strings.setText("7,15,16")                   # 7 < min 8 (1f); 15 ok; 16·400 W = 6400 > 6200 W (1f)
+    txt = d.assistant_text()
+    assert "optimizérů 8–25" in txt and "P stringu ≤ 6200 W" in txt and "16–50" not in txt
+    res = [issues for row in d.string_results() for _n, issues in row]
+    assert "7 optimizérů ve stringu < min 8" in res[0] and res[1] == []
+    assert "P stringu 6400 W > max 6200 W" in res[2]
+    f7 = [sc.issues for sc in calc.check_strings(build_project(d.spec()))]
+    assert res == f7
+    # stejný optimizér na 3f střídači → pravidla *_3ph
+    d.set_inverter_component(_inverter(params={"phases": "3", "u_string_v": "750", "u_dc_max_v": "900"}))
+    assert "optimizérů 16–50" in d.assistant_text() and "P stringu ≤ 11250 W" in d.assistant_text()

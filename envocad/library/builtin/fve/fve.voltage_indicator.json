@@ -1,0 +1,83 @@
+{
+  "id": "fve.voltage_indicator",
+  "name": "Kapacitní indikátor napětí",
+  "category": "VN",
+  "iec_ref": "P",
+  "description": "Kapacitní indikátor napětí VDS (ČSN EN 61243-5): vazební kapacita + doutnavka v kabelovém poli",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": 0,
+      "x2": -3,
+      "y2": 0
+    },
+    {
+      "type": "line",
+      "x1": -3,
+      "y1": -2,
+      "x2": -3,
+      "y2": 2
+    },
+    {
+      "type": "line",
+      "x1": -2,
+      "y1": -2,
+      "x2": -2,
+      "y2": 2
+    },
+    {
+      "type": "line",
+      "x1": -2,
+      "y1": 0,
+      "x2": 0,
+      "y2": 0
+    },
+    {
+      "type": "circle",
+      "cx": 2.5,
+      "cy": 0,
+      "r": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 0.73,
+      "y1": -1.77,
+      "x2": 4.27,
+      "y2": 1.77
+    },
+    {
+      "type": "line",
+      "x1": 0.73,
+      "y1": 1.77,
+      "x2": 4.27,
+      "y2": -1.77
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -7.5,
+      "y": 0,
+      "dir": "W"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    }
+  ],
+  "label_pos": {
+    "x": -5,
+    "y": -6
+  }
+}

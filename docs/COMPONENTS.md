@@ -43,11 +43,16 @@ Volitelné (podle kategorie): viz tabulka. Neznámou hodnotu nechte **prázdnou*
 | `p_ac_kw`, `p_dc_max_kwp`, `mppt`, `phases`, `i_ac_max_a` | střídače | kW, kWp, počet, 1/3, A |
 | `u_dc_max_v`, `u_mppt_min_v`, `u_mppt_max_v`, `i_mppt_max_a`, `strings_per_mppt` | střídače – pro kontrolu stringů (výpočty): max. vstupní napětí DC, okno MPPT, max. (provozní) vstupní proud na MPPT, počet stringů na MPPT. Platí u_mppt_min < u_mppt_max ≤ u_dc_max, strings_per_mppt ≥ 1 | V, V, V, A, ks |
 | `isc_mppt_max_a` | střídače – max. zkratový proud na MPPT (datasheet „Max. short-circuit current per MPPT“). S ním se kontroluje součet Isc paralelních stringů na MPPT (chyba) a součet Impp proti `i_mppt_max_a` (varování „omezení výkonu“); bez něj platí 1,25·Isc jednoho stringu proti `i_mppt_max_a` | A |
+| `string_mode`, `u_string_v`, `n_opt_min`, `n_opt_max`, `p_string_max_w` | střídače – režim stringů a pravidla pro optimizéry (`docs/design/optimizery.md`). `string_mode`: prázdné = `classic`, `optimizer` (klasické meze Uoc/MPPT + počet optimizérů a P stringu), `fixed_voltage` (SolarEdge: pevné napětí stringu `u_string_v`, délku určuje počet optimizérů; Uoc·n a okno MPPT se nekontrolují; platí `u_string_v` ≤ `u_dc_max_v`, `n_opt_min` ≤ `n_opt_max`). `n_opt_min`/`n_opt_max` = počet optimizérů ve stringu, `p_string_max_w` = max. výkon stringu. Jen hodnoty z listu střídače; neznámé nech prázdné (kontrola pak hlásí „chybí údaj“) | –, V, ks, ks, W |
 | `eff_max_pct`, `eff_eu_pct`, `weight_kg` | střídače – max. a evropská účinnost, hmotnost (jen katalog) | %, %, kg |
 | `p_wp`, `voc_v`, `vmp_v`, `isc_a`, `imp_a`, `beta_voc` | FV moduly (`pv_modules.csv`, STC) + tepl. součinitel Uoc. Povinné `voc_v`, `isc_a`; vmp < voc, imp < isc, −1 < β < 0, \|p_wp − vmp·imp\| ≤ 3 % p_wp | Wp, V, V, A, A, %/K |
 | `alpha_isc`, `gamma_pmax`, `noct_c` | FV moduly – tepl. součinitel Isc a Pmax, NOCT (jen katalog) | %/K, %/K, °C |
 | `u_sys_max_v`, `i_fuse_max_a` | FV moduly – max. napětí systému (kontrola Uoc stringu), max. jištění řady (rezerva) | V, A |
 | `technology`, `weight_kg` | FV moduly – technologie (text, např. „N-type TOPCon bifacial“), hmotnost; rozměry v `width_mm`, `height_mm`, `depth_mm`, provozní teploty v `t_min_c`, `t_max_c` | –, kg |
+| `p_max_w`, `p_tol_pct`, `u_in_max_v`, `isc_in_max_a`, `modules_per_optimizer` | optimizéry (`optimizers.csv`, `category=optimizer`, vstup od modulu). **Povinné** `p_max_w`, `u_in_max_v`, `isc_in_max_a` a `modules_per_optimizer` (1 nebo 2) – řádek bez nich se neukládá. `p_tol_pct` = tolerance P max dle výrobce (jen když ji výrobce uvádí, jinak prázdné = 0). Isc se porovnává s Isc STC modulu (bez 1,25) | W, %, V, A, ks |
+| `u_mppt_min_v`, `u_mppt_max_v`, `i_out_max_a`, `u_out_max_v` | optimizéry – okno MPPT vstupu (min < max ≤ `u_in_max_v`), max. výstupní proud a napětí. `u_out_max_v` omezí příspěvek optimizované jednotky k Uoc stringu v režimu `optimizer` | V, V, A, V |
+| `string_mode`, `partial_ok`, `compat` | optimizéry – doporučený režim stringů střídače (použije se, když ho nezadá spec ani artikl střídače), smíšení optimalizovaných a neoptimalizovaných modulů dovoleno (0/1), kompatibilní střídače podle výrobce (`SolarEdge`, `Huawei SUN2000`, `*`; položky oddělené `,` `;` `/`) | –, 0/1, text |
+| `n_min_1ph`, `n_max_1ph`, `p_string_max_1ph_w`, `n_min_3ph`, `n_max_3ph`, `p_string_max_3ph_w` | optimizéry – pravidla stringu z listu optimizéru podle fáze střídače: počet optimizérů ve stringu a max. výkon stringu. Z nich vznikají atributy stringu `opt_n_min`, `opt_n_max`, `opt_p_string_max`; ve výpočtu platí nejpřísnější z pravidel střídače a optimizéru. Výjimky („vyšší P stringu při ≥ N optimizérech“) patří do `note` | ks, ks, W |
 | `e_kwh`, `p_kw`, `u_dc_v` | baterie | kWh, kW, V |
 | `spd_type`, `uc_v`, `up_kv`, `iimp_ka`, `in_ka` | svodiče | T1 / T2 / T1+T2 / T1+T2 DC; V; kV; kA; kA |
 | `rows`, `modules_per_row`, `ip`, `ik`, `material`, `mounting`, `door` | skříně | |
@@ -74,6 +79,13 @@ vrací `Component.attr_values()`). Atributy, které artikl nezná, zůstanou, ja
 3. `symbol_id` jen z existujících symbolů (`fve.*`, `sb.*`) – seznam v `docs/LIBRARY_FORMAT.md`.
 4. Ověř: `python -m envocad.library.components validate soubor.csv` → žádné chyby.
 5. Vrať tabulku: soubor, počet řádků, které sloupce jsou vyplněné u kolika % řádků, co chybí.
+
+### Optimizéry (`optimizers.csv`, `docs/design/optimizery.md` §5)
+
+Pravidla jako u modulů a střídačů (jen WebSearch, doslovně se zdrojem, nic neodhaduj, `note` „WebSearch <datum>; nejistoty“).
+Povinné `p_max_w`, `u_in_max_v`, `isc_in_max_a`, `modules_per_optimizer` (jen se zdrojem), řádek musí projít `validate`.
+Pravidla stringu (`n_min_*`, `n_max_*`, `p_string_max_*_w`) z tabulky „PV system design“ v listu optimizéru.
+Atributy stringu z artiklu: `Component.optimizer_values(phases)` (ne `attr_values`/`apply_to`).
 
 ### FV moduly a střídače (katalog pro průvodce, `docs/design/katalog_fv.md` §5)
 

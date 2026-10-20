@@ -180,6 +180,36 @@
       "label": "Isc max na MPPT [A]",
       "default": "",
       "show": false
+    },
+    {
+      "key": "string_mode",
+      "label": "Režim stringů (classic / optimizer / fixed_voltage)",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "u_string",
+      "label": "Pevné napětí stringu [V]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "n_opt_min",
+      "label": "Optimizérů ve stringu min",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "n_opt_max",
+      "label": "Optimizérů ve stringu max",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "p_string_max",
+      "label": "P stringu max [W]",
+      "default": "",
+      "show": false
     }
   ],
   "label_pos": {

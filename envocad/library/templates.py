@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from envocad.model.project import Element, Project, Sheet, Wire, WireEnd
 
 AC_CONDUCTORS = ["L1", "L2", "L3", "N", "PE"]
-DC_CONDUCTORS = ["DC+", "DC-"]
+DC_CONDUCTORS = ["L+", "L-"]   # ČSN EN 60445
 
 
 @dataclass
@@ -227,35 +227,38 @@ def build_ac_fve(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
 
 
 def build_dc_strings(project: Project, sheet: Sheet, strings: list[str], kind: str = "tech", fuse_in: str = "15",
-                     disconnect_in: str = "32", spd: str = "T2") -> None:
+                     disconnect_in: str = "32", spd: str = "T2", first: int = 1, dx: float = 0.0) -> None:
     """DC rozvaděč: stringy se v rozvaděči NIKDY nespojují – každý prochází odděleně: přívod X1…Xn → pojistkový
-    odpínač (u technologie, `kind="tech"`) nebo odpínač DC (po trase) → vývod X(n+1)…X(2n), na každém stringu
-    vlastní SPD DC; PE lišta. (Paralelní spojení stringů dělá jen SolarEdge – to se kreslí jako jeden string.)"""
+    odpínač (u technologie, `kind="tech"`) → vývod X(n+1)…X(2n), na každém stringu vlastní SPD DC; PE lišta.
+    Rozvaděč po trase (`kind="route"`) odpínače nemá – přívod vede rovně na vývod, SPD odbočuje z přívodní svorky
+    (odpojovací místo jsou pojistkové odpínače u střídače). `first` = číslo prvního přívodu (rozvaděč FVE rodinného
+    domu má před DC částí přívody AC), `dx` = posun DC části v listu. `disconnect_in` se už nepoužívá (kompatibilita).
+    (Paralelní spojení stringů dělá jen SolarEdge – to se kreslí jako jeden string.)"""
     n = len(strings)
-    y, x0 = 200.0, 60.0
+    y, x0 = 200.0, 60.0 + dx
     devices: list[Element] = []
     spds: list[Element] = []
     pe = _el(project, sheet, "sb.pe_bar", x0 + (n - 1) * GROUP_PITCH / 2, y - 80, "", kind="PE")
-    pe.attrs["ref"] = f"X{2 * n + 1}"   # za přívody X1…Xn a vývody X(n+1)…X(2n)
+    pe.attrs["ref"] = f"X{first + 2 * n}"   # za přívody X1…Xn a vývody X(n+1)…X(2n)
     for k, g in enumerate(strings):
         x = x0 + k * GROUP_PITCH
         feed = _el(project, sheet, "sb.feed_in", x, y + 40, "", desc=f"od {g}")
-        feed.attrs["ref"] = f"X{k + 1}"
+        feed.attrs["ref"] = f"X{first + k}"
+        out = _el(project, sheet, "sb.feed_out", x, y - 30, "", desc=f"{g} dál")
+        out.attrs["ref"] = f"X{first + n + k}"
+        s_el = _el(project, sheet, "fve.spd", x + 12.5, y - 20, "F", spd_type=f"{spd} DC", uc="1000", poles="3", modules="3",
+                   desc=g if g.lower().startswith("string") else f"string {g}")
         if kind == "tech":
             d = _el(project, sheet, "fve.fuse_disconnect", x, y + 10, "F", rot=270, in_=fuse_in, char="gPV", un="1000",
                     poles="2", modules="2")
+            _wire(project, sheet, feed, "1", d, "1", DC_CONDUCTORS)
+            _wire(project, sheet, d, "2", out, "1", DC_CONDUCTORS)
+            _wire(project, sheet, d, "2", s_el, "L", DC_CONDUCTORS)
+            devices.append(d)
         else:
-            d = _el(project, sheet, "fve.dc_disconnect", x, y + 10, "Q", rot=270, in_=disconnect_in, un="1000",
-                    poles="2", modules="2")
-        out = _el(project, sheet, "sb.feed_out", x, y - 30, "", desc=f"{g} dál")
-        out.attrs["ref"] = f"X{n + k + 1}"
-        s_el = _el(project, sheet, "fve.spd", x + 12.5, y - 20, "F", spd_type=f"{spd} DC", uc="1000", poles="3", modules="3",
-                   desc=g if g.lower().startswith("string") else f"string {g}")
-        _wire(project, sheet, feed, "1", d, "1", DC_CONDUCTORS)
-        _wire(project, sheet, d, "2", out, "1", DC_CONDUCTORS)
-        _wire(project, sheet, d, "2", s_el, "L", DC_CONDUCTORS)
+            _wire(project, sheet, feed, "1", out, "1", DC_CONDUCTORS)
+            _wire(project, sheet, feed, "1", s_el, "L", DC_CONDUCTORS)
         _wire(project, sheet, s_el, "PE", pe, str(min(k + 1, 6)), ["PE"])
-        devices.append(d)
         spds.append(s_el)
     _place_sequential(sheet, [*devices, *spds])
 
@@ -264,9 +267,7 @@ def build_dc(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
     n_str = int_param(p, "n_strings", "Počet stringů", 1, DC_MAX_STRINGS)
     kind = dc_kind_param(p)
     i_fuse = current_param(p, "i_fuse", "In pojistkových odpínačů")
-    i_dc = current_param(p, "i_dc", "In odpínačů DC")
-    build_dc_strings(project, sheet, [f"string {i + 1}" for i in range(n_str)], kind, i_fuse, i_dc,
-                     _raw(p, "spd") or "T2")
+    build_dc_strings(project, sheet, [f"string {i + 1}" for i in range(n_str)], kind, i_fuse, spd=_raw(p, "spd") or "T2")
 
 
 def build_empty(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
@@ -282,10 +283,10 @@ TEMPLATES: list[Template] = [
               TemplateParam("i_out", "In jističů vývodů [A]", "32"), TemplateParam("feed_desc", "Přívod od", "od střídače"),
               TemplateParam("distribution", "Rozvod (bus = sběrnice / terminals = svorky)", "bus")],
              build_ac_fve),
-    Template("dc", "DC rozvaděč", "Každý string zvlášť: pojistkový odpínač (u technologie) nebo odpínač DC (po trase), SPD na string, vývod",
+    Template("dc", "DC rozvaděč", "Každý string zvlášť: pojistkový odpínač (u technologie), SPD na string, vývod; po trase jen SPD (bez odpínače)",
              [TemplateParam("n_strings", f"Počet stringů (1–{DC_MAX_STRINGS})", "4"),
               TemplateParam("kind", "Druh (tech / trasa)", "tech"),
-              TemplateParam("i_fuse", "In pojistkových odpínačů [A]", "15"), TemplateParam("i_dc", "In odpínačů DC [A]", "32"),
+              TemplateParam("i_fuse", "In pojistkových odpínačů [A]", "15"),
               TemplateParam("spd", "Typ SPD", "T2")],
              build_dc),
     Template("empty", "Prázdný list", "Jen přívod a PE můstek", [], build_empty),

@@ -149,7 +149,9 @@ def test_toc_lists_all_items_with_page_and_sheet_numbers(qapp, lib, tmp_path):
         assert r[0] == (str(st) if cnt == 1 else f"{st}–{st + cnt - 1}")
     assert b.page_starts[-1] + b.page_counts[-1] - 1 == n
     sheet_rows = [r for r, pg in zip(rows, b.pages) if pg[0] == "sheet"]
-    assert all(r[2] == sheet_number(p, pg[2][0]) for r, pg in zip(sheet_rows, [x for x in b.pages if x[0] == "sheet"]))
+    from envocad.model.single_line import page_label
+    assert all(r[2] == (page_label(p) if pg[2][1] == "single_line" else sheet_number(p, pg[2][0]))
+               for r, pg in zip(sheet_rows, [x for x in b.pages if x[0] == "sheet"]))
 
 
 def test_change_list_paginated_and_above_title_block(qapp, lib, proj, tmp_path):
@@ -256,6 +258,59 @@ def test_record_revision_twice_does_not_duplicate(qapp, lib, proj):
         w.close()
 
 
+def test_record_revision_exception_restores_model(qapp, lib, proj, monkeypatch):
+    """Výjimka uprostřed dočasné změny (`apply_changes`): try/finally vrátí revize i `meta` do původního stavu
+    a do undo nic nepřibude."""
+    from envocad.model import revision
+    from envocad.model.diff import change_list_text, diff_projects
+    from envocad.model.revision import revisions_state
+    from envocad.ui.main_window import MainWindow
+    old = Project.from_dict(proj.to_dict())
+    proj.sheets[0].elements[0].attrs["type"] = "jiný typ"
+    ch = diff_projects(old, proj, lib)
+    w = MainWindow(library=lib, project=proj)
+    try:
+        w.undo.clear()
+        before, meta = revisions_state(proj), dict(proj.meta)
+
+        def boom(*a, **k):
+            raise RuntimeError("selhalo")
+        monkeypatch.setattr(revision, "apply_changes", boom)
+        with pytest.raises(RuntimeError):
+            w.record_revision(ch, "B", "1.1.2026", "PR", change_list_text(ch, "B", "1.1.2026", "PR"))
+        assert revisions_state(proj) == before and proj.meta == meta
+        assert w.undo.count() == 0
+    finally:
+        w.undo.setClean()
+        w.close()
+
+
+def test_create_switchboard_sheet_exception_restores_model(qapp, lib, monkeypatch):
+    """Výjimka v modelu při zakládání listu rozvaděče: list, registr struktur i atribut „sheet“ bloku se vrátí
+    (try/finally), undo zůstane prázdné."""
+    from envocad.ui.main_window import MainWindow
+    p = Project(name="SB")
+    blk = Element("fve.switchboard", 100, 100, attrs={"ref": "RDC9"})
+    p.sheets[0].elements.append(blk)
+    orig = Project.create_switchboard_sheet
+
+    def half(self, block):
+        orig(self, block)
+        raise RuntimeError("selhalo")
+    w = MainWindow(library=lib, project=p)
+    try:
+        w.undo.clear()
+        state = p.to_dict()
+        monkeypatch.setattr(Project, "create_switchboard_sheet", half)
+        with pytest.raises(RuntimeError):
+            w.create_switchboard_sheet(blk)
+        assert p.to_dict() == state and "sheet" not in blk.attrs
+        assert w.undo.count() == 0
+    finally:
+        w.undo.setClean()
+        w.close()
+
+
 # ---- 6. výpočty pro jeden list -------------------------------------------------------------------------------
 def test_calculations_filtered_by_sheet(lib, proj):
     rh = proj.switchboards()[-1]
@@ -290,7 +345,11 @@ def test_exports_from_derived_views(qapp, lib, proj, tmp_path, monkeypatch):
             dxf = tmp_path / f"{kind}.dxf"
             monkeypatch.setattr(QFileDialog, "getSaveFileName", staticmethod(lambda *a, o=dxf, **k: (str(o), "")))
             n0 = len(msgs)
+            monkeypatch.setattr(w, "_ask_multipole_dxf_split", lambda: False)
             w.export_dxf()
+            if kind == "multipole":      # vícepól jde do DXF (jeden soubor, layout na stranu)
+                assert dxf.exists() and len(msgs) == n0, kind
+                continue
             assert not dxf.exists() and len(msgs) == n0 + 1 and "PDF" in msgs[-1][1], kind
     finally:
         w.undo.setClean()

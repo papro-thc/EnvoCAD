@@ -28,6 +28,7 @@ COLUMNS = [("manufacturer", "Výrobce"), ("part_number", "Typ"), ("name", "Náze
 # Katalog FV (docs/design/katalog_fv.md §4): sloupce podle kategorie. Klíč začínající „=“ je složený sloupec.
 MODULE_CATEGORIES = ("pv_module",)
 INVERTER_CATEGORIES = ("inverter", "inverter_hybrid")
+OPTIMIZER_CATEGORIES = ("optimizer",)
 MODULE_COLUMNS = [("manufacturer", "Výrobce"), ("part_number", "Typ"), ("p_wp", "P [Wp]"), ("voc_v", "Voc [V]"),
                   ("isc_a", "Isc [A]"), ("vmp_v", "Vmp [V]"), ("imp_a", "Imp [A]"), ("beta_voc", "β Voc [%/K]"),
                   ("u_sys_max_v", "Usys [V]"), ("technology", "Technologie"), ("=size", "Š×V [mm]"),
@@ -37,7 +38,12 @@ INVERTER_COLUMNS = [("manufacturer", "Výrobce"), ("part_number", "Typ"), ("p_ac
                     ("strings_per_mppt", "Str./MPPT"), ("u_dc_max_v", "U DC max [V]"), ("=mppt_window", "MPPT [V]"),
                     ("i_mppt_max_a", "I/MPPT [A]"), ("isc_mppt_max_a", "Isc/MPPT [A]"), ("=hybrid", "Hybrid"),
                     ("source", "Zdroj")]
-NUMERIC_COLUMNS = {"in_", "poles", "icu_ka", "idn_ma", "modules", "p_loss_w", "p_ac_kw", "e_kwh", "width_mm",
+OPTIMIZER_COLUMNS = [("manufacturer", "Výrobce"), ("part_number", "Typ"), ("p_max_w", "P [W]"),
+                     ("u_in_max_v", "Uin max [V]"), ("isc_in_max_a", "Isc in [A]"),
+                     ("modules_per_optimizer", "Moduly/opt."), ("compat", "Kompatibilita"), ("source", "Zdroj")]
+# klíč výkonu (filtr Výkon od–do, řazení) a jednotka podle druhu výběru
+POWER_KEY = {"module": ("p_wp", "[Wp]"), "inverter": ("p_ac_kw", "[kW]"), "optimizer": ("p_max_w", "[W]")}
+NUMERIC_COLUMNS = {"p_max_w", "u_in_max_v", "isc_in_max_a", "modules_per_optimizer", "in_", "poles", "icu_ka", "idn_ma", "modules", "p_loss_w", "p_ac_kw", "e_kwh", "width_mm",
                    "height_mm", "depth_mm", "p_wp", "voc_v", "isc_a", "vmp_v", "imp_a", "beta_voc", "u_sys_max_v",
                    "p_dc_max_kwp", "phases", "mppt", "strings_per_mppt", "u_dc_max_v", "i_mppt_max_a",
                    "isc_mppt_max_a", "=size", "=mppt_window"}
@@ -59,6 +65,11 @@ def incomplete_reasons(c: Component) -> list[str]:
             out.append("chybí U DC max")
         if not _has(c, "u_mppt_min_v", "u_mppt_max_v"):
             out.append("chybí okno MPPT")
+    elif c.category in OPTIMIZER_CATEGORIES:
+        out += [f"chybí {lab}" for key, lab in (("p_max_w", "P max"), ("u_in_max_v", "Uin max"),
+                                                ("isc_in_max_a", "Isc in max"),
+                                                ("modules_per_optimizer", "počet modulů na optimizér"))
+                if not _has(c, key)]
     else:
         return out
     if c.source in UNVERIFIED_SOURCES:
@@ -75,8 +86,10 @@ class ComponentPicker(QDialog):
         super().__init__(parent)
         self.categories = tuple(categories) if categories else None
         self.kind = ("module" if self.categories and set(self.categories) <= set(MODULE_CATEGORIES) else
-                     "inverter" if self.categories and set(self.categories) <= set(INVERTER_CATEGORIES) else "")
-        self.columns = {"module": MODULE_COLUMNS, "inverter": INVERTER_COLUMNS}.get(self.kind, COLUMNS)
+                     "inverter" if self.categories and set(self.categories) <= set(INVERTER_CATEGORIES) else
+                     "optimizer" if self.categories and set(self.categories) <= set(OPTIMIZER_CATEGORIES) else "")
+        self.columns = {"module": MODULE_COLUMNS, "inverter": INVERTER_COLUMNS,
+                        "optimizer": OPTIMIZER_COLUMNS}.get(self.kind, COLUMNS)
         self.setWindowTitle(title)
         self.resize(1000, 520)
         self.library = library
@@ -96,7 +109,7 @@ class ComponentPicker(QDialog):
         self.char.addItems(["Char.: vše", "B", "C", "D", "A", "AC", "gPV", "gG"])
         self.p_from = QLineEdit(placeholderText="Výkon od")
         self.p_to = QLineEdit(placeholderText="do")
-        self.p_unit = QLabel("[Wp]" if self.kind == "module" else "[kW]")
+        self.p_unit = QLabel(POWER_KEY.get(self.kind, ("", "[kW]"))[1])
         self.phases = QComboBox()
         self.phases.addItems(["Fáze: vše", "1", "3"])
         for w in (self.p_from, self.p_to):
@@ -182,7 +195,7 @@ class ComponentPicker(QDialog):
             except ValueError:
                 pass
         if self.kind:
-            key = "p_wp" if self.kind == "module" else "p_ac_kw"
+            key = POWER_KEY[self.kind][0]
             for edit, cmp in ((self.p_from, lambda v, lim: v >= lim), (self.p_to, lambda v, lim: v <= lim)):
                 try:
                     lim = float(edit.text().strip().replace(",", ".")) if edit.text().strip() else None
@@ -197,7 +210,7 @@ class ComponentPicker(QDialog):
         if self.char.currentIndex() > 0 and not self.kind:
             out = [c for c in out if (c.params.get("char") or "") == self.char.currentText()]
         if self.kind:
-            key = "p_wp" if self.kind == "module" else "p_ac_kw"
+            key = POWER_KEY[self.kind][0]
             return sorted(out, key=lambda c: (c.manufacturer, c.num(key) or 0, c.part_number))
         return sorted(out, key=lambda c: (c.manufacturer, c.num("in_") or 0, c.part_number))
 
@@ -216,7 +229,7 @@ class ComponentPicker(QDialog):
         out = []
         if not self.kind:
             return out
-        key = "p_wp" if self.kind == "module" else "p_ac_kw"
+        key = POWER_KEY[self.kind][0]
         if self._power_filter_active() and c.num(key) is None:
             out.append("výkon neuveden – filtr Výkon ho neskryje")
         if self.kind == "inverter" and self.phases.currentIndex() > 0 and c.num("phases") is None:

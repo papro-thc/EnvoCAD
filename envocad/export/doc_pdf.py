@@ -18,6 +18,7 @@ from PySide6.QtGui import QPageLayout, QPageSize, QPainter, QPdfWriter, QPen, QU
 
 from envocad.export import reports
 from envocad.export.pdf_export import set_scene_notes_visible
+from envocad.model import multipole as mp
 from envocad.model.frame import TB_H, company_names, frame_enabled, frame_geometry, sheet_number
 from envocad.model.project import Project, Sheet
 from envocad.ui import theme
@@ -180,8 +181,11 @@ class DocBuilder:
         for s in p.sheets:
             if not s.is_switchboard:
                 self.pages.append(("sheet", s.name, (s, "schematic")))
+        if self._has_single_line():
+            from envocad.ui.single_line_view import single_line_sheet
+            self.pages.append(("sheet", "Jednopólové schéma", (single_line_sheet(p), "single_line")))
         for s in p.sheets:
-            if s.is_switchboard:
+            if s.is_switchboard and mp.has_multipole(s):
                 self.pages.append(("sheet", f"{s.name} – schéma", (s, "multipole")))
                 self.pages.append(("sheet", f"{s.name} – plán svorkovnice", (s, "terminals")))
         for name, fn in reports.ALL_REPORTS:
@@ -196,8 +200,20 @@ class DocBuilder:
     # ---- tabulky (obsah, výkazy, změnový list) ------------------------------------------------------------
     TOC_HEAD = ("Strana", "Název", "List výkresu")
 
+    def _has_single_line(self) -> bool:
+        """Jednopólové schéma do dokumentace: projekt s rozvaděčem napojeným na DS (strom má rozvaděč)."""
+        from envocad.model.single_line import build_tree
+        try:
+            _root, nodes = build_tree(self.project, self.library)
+        except (KeyError, ValueError, AttributeError):
+            return False
+        return any(n.sheet.is_switchboard for n in nodes.values())
+
     def _toc_sheet_no(self, data) -> str:
         """Číslo listu výkresu (jako v popisovém poli listu) – jen u listů, u tabulek prázdné."""
+        if isinstance(data, tuple) and len(data) > 1 and data[1] == "single_line":
+            from envocad.model.single_line import page_label
+            return page_label(self.project)
         if isinstance(data, tuple) and data and isinstance(data[0], Sheet):
             return sheet_number(self.project, data[0])
         return ""
@@ -306,9 +322,11 @@ class DocBuilder:
         if key not in self._scenes:
             from envocad.ui.canvas import SchematicScene
             from envocad.ui.multipole_view import MultipoleScene
+            from envocad.ui.single_line_view import SingleLineScene
             from envocad.ui.terminal_plan_view import TerminalPlanScene
             undo = QUndoStack()
-            cls = {"schematic": SchematicScene, "multipole": MultipoleScene, "terminals": TerminalPlanScene}[kind]
+            cls = {"schematic": SchematicScene, "multipole": MultipoleScene, "terminals": TerminalPlanScene,
+                   "single_line": SingleLineScene}[kind]
             scene = cls(self.project, sheet, self.library, undo)
             scene.draw_grid = False
             set_scene_notes_visible(scene, False)
@@ -348,6 +366,8 @@ class DocBuilder:
         kind, _name, data = self.pages[idx]
         if kind == "sheet":
             sheet, view = data
+            if view == "single_line":
+                return tuple(float(v) for v in self._scene(sheet, view).paper_size)
             if view == "schematic" and self.jps_page == JPS_PAGE_SHEET:
                 return (float(sheet.width), float(sheet.height))
             if view != "schematic" and mp.paper_choice(sheet) != mp.SHEET_PAPER:
@@ -370,7 +390,7 @@ class DocBuilder:
                 painter.resetTransform()
             scale = min(writer.width() / pw, writer.height() / ph)
             scene.render(painter, QRectF(0, 0, pw * scale, ph * scale), src, Qt.KeepAspectRatio)
-        if kind == "terminals":
+        if kind in ("terminals", "single_line"):
             return
         from envocad.export.pdf_annots import PageMap
         from envocad.model.notes import notes_on_sheet

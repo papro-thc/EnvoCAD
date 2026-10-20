@@ -21,7 +21,7 @@ MIN_BAR_GAP = 22.0      # nejmenší mezera k PE liště při zhuštění na str
 SOURCE_SYMBOLS = {"sb.feed_in", "fve.pv_string", "fve.battery"}  # zdroje toku (síť je konec)
 
 # Kanonické pořadí žil (shora dolů / zleva doprava)
-CANON = ["L1", "L2", "L3", "N", "PE", "PEN", "DC+", "DC-", "+", "-", "L+", "L-"]
+CANON = ["L1", "L2", "L3", "N", "PE", "PEN", "L+", "L-", "M", "+", "-"]   # DC dle ČSN EN 60445: L+ / L− / M
 NEVER_SWITCHED = {"PE", "PEN"}
 TERMINAL_SYMBOLS = {"sb.feed_in", "sb.feed_out", "sb.terminal_block", "fve.terminal", "sb.pe_bar"}
 # řadové svorky: prvek v JPS = skupina svorek (jedna na žílu), čísla v atributu `terminal` ("1 2 3 4 5" nebo "1")
@@ -37,9 +37,10 @@ def canon_key(c: str) -> tuple[int, str]:
 
 
 def parse_conductors(text: str) -> list[str]:
-    """„L1 L2 L3 N PE“ / „L1,L2“ → seznam žil (bez duplicit, pořadí zachováno)."""
+    """„L1 L2 L3 N PE“ / „L1,L2“ → seznam žil (bez duplicit, pořadí zachováno); „DC+ DC-“ → „L+ L-“ (ČSN EN 60445)."""
+    from envocad.model.project import conductor_name
     out: list[str] = []
-    for tok in text.replace(",", " ").replace(";", " ").split():
+    for tok in (conductor_name(t) for t in text.replace(",", " ").replace(";", " ").split()):
         if tok not in out:
             out.append(tok)
     return out
@@ -50,12 +51,19 @@ def default_conductors(a: Element, pa: str, b: Element, pb: str) -> list[str]:
     for e in (a, b):
         if e.symbol_id.startswith("ctl."):  # ovládací obvod: jedna žíla
             return ["L"]
+    from envocad.model.inverter_io import io_conductors
+    for e, p in ((a, pa), (b, pb)):       # komunikační svorka střídače (RS485 → A, B; LAN; DI…)
+        if e.symbol_id in ("fve.inverter", "fve.inverter_hybrid"):
+            cores = io_conductors(p)
+            if cores is not None:
+                return cores
     for p in (pa, pb):
         up = p.upper()
-        if up in ("DC+", "DC-", "+", "-"):
-            return [p]
-        if up.startswith("DC") or up == "BAT":  # jednopólová DC čára = pár DC+ / DC-
-            return ["DC+", "DC-"]
+        if up in ("DC+", "DC-", "+", "-", "L+", "L-"):
+            from envocad.model.project import conductor_name
+            return [conductor_name(p)]
+        if up.startswith("DC") or up == "BAT":  # jednopólová DC čára = pár L+ / L− (ČSN EN 60445)
+            return ["L+", "L-"]
         if up == "PE":
             return ["PE"]
     poles = 1
@@ -66,6 +74,12 @@ def default_conductors(a: Element, pa: str, b: Element, pb: str) -> list[str]:
         except ValueError:
             pass
     return ["L1", "L2", "L3", "N", "PE"] if poles >= 3 else ["L1", "N", "PE"]
+
+
+def has_multipole(sheet) -> bool:
+    """List rozvaděče má vícepól a plán svorkovnice – ne rozvaděč VN (kobky, `layout.params["voltage_level"] == "vn"`),
+    ten se dokumentuje jednopólovým schématem."""
+    return sheet.layout.params.get("voltage_level", "") != "vn"
 
 
 def is_terminal_block(e: Element) -> bool:
@@ -98,10 +112,18 @@ def wire_conductors(w: Wire) -> list[str]:
 
 
 def through_ports(sym: Symbol, rotation: int) -> tuple[str, str] | None:
-    """Dvojice průchozích portů (proti sobě), pokud má symbol právě dva porty s opačným směrem."""
-    if len(sym.ports) != 2:
+    """Dvojice průchozích portů (proti sobě), pokud má symbol právě dva porty s opačným směrem – nebo dvojice
+    `multipole["through"]` u značky s dalšími porty (MTP: primár 1–2 v sérii, sekundár S zvlášť)."""
+    names = (sym.multipole or {}).get("through")
+    if names and len(names) == 2:
+        by_name = {p.name: p for p in sym.ports}
+        if names[0] not in by_name or names[1] not in by_name:
+            return None
+        p, q = by_name[names[0]], by_name[names[1]]
+    elif len(sym.ports) != 2:
         return None
-    p, q = sym.ports
+    else:
+        p, q = sym.ports
     if OPPOSITE.get(rotate_dir(p.dir, rotation)) == rotate_dir(q.dir, rotation):
         return (p.name, q.name)
     return None
@@ -710,6 +732,49 @@ def paginate(sheet: Sheet, poles: dict[str, ElementPoles], size: tuple[float, fl
     return page_of, n_pages
 
 
+@dataclass(frozen=True)
+class Bridge:
+    """Můstek svorkovnice ve vícepólu na jedné straně: čárkovaná čára přes středy svorek posunuté k portu 1."""
+    strip: str                                  # označení svorkovnice (X2)
+    group: tuple[str, ...]                      # čísla svorek skupiny můstku (celá skupina, i z jiných stran)
+    page: int
+    pts: tuple[tuple[float, float], ...]        # body na svorkách této strany (souřadnice pohledu), zleva
+
+
+def bridge_paths(sheet: Sheet, poles: dict[str, ElementPoles], page_of: dict[str, int]) -> list[Bridge]:
+    """Můstky svorkovnic listu (`Sheet.bridges`): spojí středy svorek se stejným označením X:n, posunuté ke straně
+    portu 1. Každá skupina v jiné vzdálenosti (2 mm + 0,6 mm × pořadí, po šesti dokola), aby se nepřekrývaly;
+    přes hranici stran se můstek kreslí po stranách zvlášť (strana s jedinou svorkou skupiny nic). Polohy pólů
+    (`ElementPoles.origin`) musí být už po rozmístění a stránkování."""
+    pos: dict[tuple[str, str], tuple[float, float, float, float, int]] = {}   # (x, y, směr k portu 1, strana)
+    for ep in poles.values():
+        e = ep.element
+        if not is_terminal_block(e) or not ep.per_pole:
+            continue
+        nums = terminal_numbers(e, len(ep.slots))
+        px, py = e.port_pos(ep.symbol, ep.through[0] if ep.through else ep.symbol.ports[0].name)
+        dx, dy = px - e.x, py - e.y
+        n = (dx * dx + dy * dy) ** 0.5 or 1.0
+        for c, num in zip(ep.slots, nums):
+            if num:
+                ox, oy = ep.pole_offset(c)
+                pos[(e.ref, num)] = (ep.origin[0] + ox, ep.origin[1] + oy, dx / n, dy / n, page_of.get(e.id, 0))
+    out: list[Bridge] = []
+    for strip, groups in sheet.bridges.items():
+        for gi, g in enumerate(groups):
+            hits = [pos[(strip, n)] for n in g if (strip, n) in pos]
+            if len(hits) < 2:
+                continue
+            off = 2.0 + 0.6 * (gi % 6)
+            for k in sorted({h[4] for h in hits}):
+                part = [h for h in hits if h[4] == k]
+                if len(part) < 2:
+                    continue
+                pts = sorted((x + ux * off, y + uy * off) for x, y, ux, uy, _k in part)
+                out.append(Bridge(strip, tuple(g), k, tuple(pts)))
+    return out
+
+
 def pe_join_ports(ep: ElementPoles) -> list[tuple[str, list[str]]]:
     """Porty průchozího prvku, na kterých je jen ochranný vodič (PE/PEN), který prvek nespíná ani nevede kolem –
     svodič přepětí (SPD): konce všech pólů na portu PE se spojí příčkou a PE vodič začíná na ní. Vrací
@@ -757,8 +822,7 @@ def pole_label_texts(ep: ElementPoles) -> list[tuple[str, float]]:
     e = ep.element
     lines = [(e.ref, 2.5)] if e.ref else []
     skip = {"ref", "terminal"} if is_terminal_block(e) else {"ref"}   # čísla svorek jsou u pólů
-    lines += [(a.display(e.attrs[a.key]), 2.0) for a in ep.symbol.attributes
-              if a.show and a.key not in skip and e.attrs.get(a.key)]
+    lines += [(a.display(e.attrs[a.key]), 2.0) for a in ep.symbol.label_attributes(e.attrs, skip)]
     return lines
 
 
@@ -792,6 +856,10 @@ def pole_label_lines(ep: ElementPoles) -> list[tuple[float, float, str, float, s
         boxes = [_rot_box(sym, *pole_anchor(ep, c), e.rotation) for c in ep.switched]
         x = min(b[0] for b in boxes) - LABEL_GAP
         y = max(b[3] for b in boxes) - lines[0][1]
+        # dlouhý popisek (SPD: typ, Uc, Up, ISCPV) nesmí sahat pod spodní porty – tam vede PE / vývodní žíly;
+        # posune se nahoru, aby poslední řádek ležel nad spodním okrajem pólů
+        stack = sum(h + 1.0 for _, h in lines[1:])
+        y = max(y, min(b[1] for b in boxes) + 1.5 + stack)
         out = []
         for text, h in lines:
             out.append((x, y, text, h, "right"))
@@ -844,16 +912,63 @@ def break_y(p: tuple[float, float], d: str, n: int, used: set[float]) -> float:
     return y
 
 
+BRANCH_CHAMFER = GRID / 2   # zkosení odbočky ze svorky (45°), jako uzel „T“ se směrem v EPLAN
+
+
+def branch_ends(sheet: Sheet, poles: dict[str, ElementPoles]) -> set[tuple[str, str]]:
+    """Konce vodičů, které jsou na svorce přístroje druhým vodičem (dvojitá dutinka): (id vodiče, „a“/„b“).
+
+    Ze stejného portu prvku vede víc vodičů (odpínač → vývod a → SPD): hlavní je ten, jehož protější pól leží
+    nejvíc v ose portu (pokračuje rovně), ostatní jsou odbočky – kreslí se ze svorky hned za vývodem se zkoseným
+    rohem, aby bylo vidět, že začínají na svorce, a ne v uzlu na čáře. Svorkovnice a sběrnice se nepočítají."""
+    groups: dict[tuple[str, str], list[tuple[float, str, str]]] = {}
+    for w in sheet.wires:
+        ea, eb = poles.get(w.a.element_id), poles.get(w.b.element_id)
+        if not ea or not eb or BUS_SYMBOL in (ea.element.symbol_id, eb.element.symbol_id):
+            continue
+        c = wire_conductors(w)[0]
+        for side, me, end, other, oend in (("a", ea, w.a, eb, w.b), ("b", eb, w.b, ea, w.a)):
+            if is_terminal_block(me.element) or me.element.symbol_id == "sb.pe_bar":
+                continue
+            try:
+                d = rotate_dir(me.symbol.port(end.port).dir, me.element.rotation)
+                px, py = me.pole_pos(end.port, c)
+                qx, qy = other.pole_pos(oend.port, c)
+            except (KeyError, StopIteration):
+                continue
+            off = abs(qx - px) if d in ("N", "S") else abs(qy - py)
+            groups.setdefault((me.element.id, end.port), []).append((off, w.id, side))
+    out: set[tuple[str, str]] = set()
+    for ends in groups.values():
+        if len(ends) < 2:
+            continue
+        ends.sort()
+        out |= {(wid, side) for _off, wid, side in ends[1:]}
+    return out
+
+
 def conductor_route(pa: tuple[float, float], da: str, pb: tuple[float, float], db: str, stagger: float = 0.0,
-                    jog: float = 0.8) -> list[tuple[float, float]]:
+                    jog: float = 0.8, branch: bool = False) -> list[tuple[float, float]]:
     """Trasa žíly ve vícepólu (model mm, Y nahoru): vývod GRID z každého portu, L/Z vedení, příčka Z-trasy v `jog`
-    délky (blízko cíle) posunutá o `stagger` (rovnoběžné žíly se nepřekrývají). Stejně kreslí scéna i kontrola."""
+    délky (blízko cíle) posunutá o `stagger` (rovnoběžné žíly se nepřekrývají). Stejně kreslí scéna i kontrola.
+    `branch` = odbočka ze svorky v `pa` (`branch_ends`): příčka hned za vývodem, roh zkosený pod 45°."""
     stub = GRID
     va, vb = DIR_VEC[da], DIR_VEC[db]
     sa = (pa[0] + va[0] * stub, pa[1] + va[1] * stub)
     sb = (pb[0] + vb[0] * stub, pb[1] + vb[1] * stub)
     pts = [pa, sa]
     horizontal_first = da in ("E", "W")
+    if branch and not horizontal_first and db in ("N", "S") and abs(sa[0] - sb[0]) > 1e-6:
+        # odbočky žil jednoho vodiče po 2 × `stagger` – mezi příčky se vejde popisek žíly
+        my = sa[1] - 2 * stagger if da == "S" else sa[1] + 2 * stagger
+        ch = BRANCH_CHAMFER
+        sx = 1.0 if sb[0] > sa[0] else -1.0
+        return [pa, (sa[0], my - va[1] * ch), (sa[0] + sx * ch, my), (sb[0], my), sb, pb]
+    if branch and horizontal_first and db in ("E", "W") and abs(sa[1] - sb[1]) > 1e-6:
+        mx = sa[0] + 2 * stagger if da == "E" else sa[0] - 2 * stagger
+        ch = BRANCH_CHAMFER
+        sy = 1.0 if sb[1] > sa[1] else -1.0
+        return [pa, (mx - va[0] * ch, sa[1]), (mx, sa[1] + sy * ch), (mx, sb[1]), sb, pb]
     if horizontal_first and db in ("E", "W") and abs(sa[1] - sb[1]) > 1e-6:
         mx = _snap(sa[0] + (sb[0] - sa[0]) * jog) + stagger
         pts += [(mx, sa[1]), (mx, sb[1])]
@@ -866,6 +981,20 @@ def conductor_route(pa: tuple[float, float], da: str, pb: tuple[float, float], d
         pts.append((sa[0], sb[1]))
     pts += [sb, pb]
     return pts
+
+
+def branch_side(branches: set[tuple[str, str]], wire_id: str) -> str:
+    """„a“/„b“, když je konec vodiče odbočkou ze svorky (`branch_ends`), jinak „“ (oba konce → „a“)."""
+    return "a" if (wire_id, "a") in branches else "b" if (wire_id, "b") in branches else ""
+
+
+def wire_route(pa: tuple[float, float], da: str, pb: tuple[float, float], db: str, stagger: float = 0.0,
+               branch: str = "") -> list[tuple[float, float]]:
+    """Trasa žíly mezi póly (`conductor_route`, `jog` 0,8); `branch` „a“/„b“ = ten konec je odbočka ze svorky
+    (`branch_ends`) – trasa se spočítá od něj a obrátí, aby body šly vždy od `pa` k `pb`."""
+    if branch == "b":
+        return conductor_route(pb, db, pa, da, stagger=stagger, jog=0.8, branch=True)[::-1]
+    return conductor_route(pa, da, pb, db, stagger=stagger, jog=0.8, branch=branch == "a")
 
 
 def conductor_label_anchor(pts: list[tuple[float, float]], staggered: bool) -> tuple[float, float, str, bool]:

@@ -132,6 +132,12 @@ def check_project(project: Project, lib) -> list[Finding]:
                 free = [p for p in real if p not in conn]
                 if e.symbol_id in INVERTER_SYMBOLS and any(p.startswith("DC") for p in conn):
                     free = [p for p in free if not p.startswith("DC")]   # volné DC vstupy střídače jsou rezerva
+                if e.symbol_id in INVERTER_SYMBOLS:          # záloha a komunikace střídače jsou nepovinné
+                    from envocad.model.inverter_io import inverter_io
+                    optional = set(inverter_io(e.attrs))
+                    free = [p for p in free if p not in optional]
+                    if not any(p in conn for p in optional):   # zapojená jen komunikace = částečně zapojený
+                        real = [p for p in real if p not in optional]
                 if free and (free != real):
                     out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                        f"Nezapojené porty: {', '.join(free)}", "free_port"))
@@ -146,7 +152,7 @@ def check_project(project: Project, lib) -> list[Finding]:
             if (e.symbol_id in FEED_SYMBOLS and s.is_switchboard and linked_wire(project, s, e) is None
                     and not is_earthing_feed(s, e)):
                 out.append(Finding(INFO, s.id, s.name, e.id, False, e.ref,
-                                   "Přívod/vývod bez vazby na vodič v JPS", "feed_unlinked"))
+                                   "Přívod/vývod bez vazby na vodič v blokovém schématu", "feed_unlinked"))
             if (e.symbol_id not in NO_ARTICLE_SYMBOLS and not e.component_id and not e.attrs.get("type")
                     and not mp.is_terminal_block(e) and idx.is_bom_device(e)):
                 out.append(Finding(INFO, s.id, s.name, e.id, False, e.ref, "Bez artiklu / typu", "no_article"))
@@ -186,7 +192,7 @@ def check_project(project: Project, lib) -> list[Finding]:
                 out.append(Finding(INFO, s.id, s.name, w.id, True, ref, "Vodič bez žil (vícepól ho kreslí jako L1)", "no_cond"))
         if s.is_switchboard and (not s.parent_element_id or project.sheet_of_element(s.parent_element_id) is None):
             out.append(Finding(WARNING, s.id, s.name, "", False, s.loc,
-                               "List rozvaděče bez bloku ROZVADĚČ v jednopólovém schématu (blok smazán?) – "
+                               "List rozvaděče bez bloku ROZVADĚČ v blokovém schématu (blok smazán?) – "
                                "vlož blok a propoj ho s listem, nebo list odstraň", "sb_no_block"))
         # můstky na neexistující svorky
         terms = set()
@@ -206,6 +212,7 @@ def check_project(project: Project, lib) -> list[Finding]:
     out += layout_findings(project)
     out += contact_findings(project, idx)
     out += interrupt_findings(project, idx)
+    out += spd_findings(project)
     out += designation_findings(project, lib, idx)
     out += revision_findings(full)
     out += note_findings(full)
@@ -501,6 +508,35 @@ def contact_findings(project: Project, index=None) -> list[Finding]:
     return out
 
 
+SPD_SWITCHES = {"fve.dc_disconnect", "fve.fuse_disconnect", "fve.switch_disconnector", "sb.main_switch"}
+SPD_SOURCES = {"sb.feed_in", "fve.pv_string"}
+
+
+def spd_findings(project: Project) -> list[Finding]:
+    """Svodič připojený na svorky odpínače na straně stringu (tam, kam vede i přívod od stringu): vypnutý odpínač
+    by SPD neodpojil – SPD patří na výstupní svorky (strana střídače), dvojitou dutinkou s vývodem."""
+    out = []
+    for s in project.sheets:
+        by_id = {e.id: e for e in s.elements}
+        at: dict[tuple[str, str], list[tuple[str, str]]] = {}
+        for w in s.wires:
+            at.setdefault((w.a.element_id, w.a.port), []).append((w.b.element_id, w.b.port))
+            at.setdefault((w.b.element_id, w.b.port), []).append((w.a.element_id, w.a.port))
+        for e in s.elements:
+            if e.symbol_id != "fve.spd":
+                continue
+            for oid, oport in at.get((e.id, "L"), []):
+                d = by_id.get(oid)
+                if d is None or d.symbol_id not in SPD_SWITCHES:
+                    continue
+                if any(by_id.get(x) is not None and by_id[x].symbol_id in SPD_SOURCES
+                       for x, _p in at.get((oid, oport), [])):
+                    out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
+                                       f"SPD na svorkách {d.ref}:{oport} na straně stringu – vypnutý {d.ref} ho "
+                                       "neodpojí; připoj na výstupní svorky (strana střídače)", "spd_side"))
+    return out
+
+
 def interrupt_findings(project: Project, index=None) -> list[Finding]:
     """Přerušovací body: víc zdrojů hvězdy ve skupině (`interrupt_star_multi`) – zdrojem je jen první; stejné
     označení ve 3+ bodech bez hvězdy (`interrupt_chain`, INFO u prvního bodu) – řetěz, výkazy přes něj kabel
@@ -544,7 +580,7 @@ def text_findings(project: Project, lib) -> list[Finding]:
             out.append(Finding(WARNING, s.id, s.name, a, w is not None, ref,
                                f"Překryv textu: {text} – posuň prvek / lom vodiče nebo uprav polohu popisku značky",
                                "text_overlap"))
-        if s.is_switchboard:
+        if s.is_switchboard and mp.has_multipole(s):
             out += multipole_text_findings(project, s, lib)
     return out
 
@@ -577,7 +613,7 @@ def multipole_text_findings(project: Project, s: Sheet, lib) -> list[Finding]:
 
 
 def potential_findings(project: Project, lib) -> list[Finding]:
-    """Potenciály: nepřípustně spojené potenciály v jedné síti (L–N, L–PE, DC+–DC−, fáze), uzel odbočky bez odbočky."""
+    """Potenciály: nepřípustně spojené potenciály v jedné síti (L–N, L–PE, L+–L−, fáze), uzel odbočky bez odbočky."""
     from envocad.model.potential import JUNCTION, nets
     out: list[Finding] = []
     for net in nets(project, lib):
@@ -616,7 +652,7 @@ def calc_findings(project: Project) -> list[Finding]:
         e = el_by_ref.get(sc.ref)
         s = sheet_of.get(e.id) if e else None
         for msg in sc.issues:
-            sev = WARNING if ("chybí" in msg or "nemá" in msg or "není" in msg or "omezení výkonu" in msg) else ERROR
+            sev = WARNING if calc.is_warning(msg) else ERROR   # závažnost hlášek stringu jen v `calc.is_warning`
             out.append(Finding(sev, s.id if s else "", s.name if s else "", e.id if e else "", False, sc.ref,
                                f"String: {msg}", "calc_string"))
     for cc in calc.check_cables(project):

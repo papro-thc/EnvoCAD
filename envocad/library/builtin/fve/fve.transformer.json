@@ -63,17 +63,31 @@
       "key": "sn",
       "label": "Sn [kVA]",
       "default": "",
-      "show": true
+      "show": true,
+      "fmt": "{} kVA"
     },
     {
       "key": "ratio",
       "label": "Převod",
       "default": "",
-      "show": false
+      "show": true
+    },
+    {
+      "key": "group",
+      "label": "Spojení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "uk",
+      "label": "uk [%]",
+      "default": "",
+      "show": true,
+      "fmt": "uk {} %"
     }
   ],
   "label_pos": {
     "x": -7.5,
-    "y": 6.5
+    "y": -8
   }
 }

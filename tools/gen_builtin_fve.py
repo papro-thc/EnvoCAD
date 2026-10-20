@@ -49,6 +49,11 @@ def attr(key, label, default="", show=False, fmt=""):
 CONTACT = [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0)]          # spínací kontakt (jeden pól)
 TRIP_X = [L(-4.3, 4.2, -2.3, 6.2), L(-4.3, 6.2, -2.3, 4.2)]                   # nadproudová spoušť (x) na volném konci nože
 DISC_BAR = [L(-2.5, -1.5, -2.5, 1.5)]                                          # značka odpojovače/odpínače (pevný kontakt)
+# VN (ČSN EN 60617-7): funkce odpínače = kroužek na pevném kontaktu (07-01-04) + odpojovací čárka (07-01-03),
+# funkce vypínače = křížek na pevném kontaktu (07-01-02); uzemnění 02-15-01 (tři čárky)
+LOAD_RING = [C(-2.5, 0, 0.8)]
+BREAKER_X = [L(-3.5, -1, -1.5, 1), L(-3.5, 1, -1.5, -1)]
+EARTH_V = [L(5, -3, 5, 3), L(6.25, -2, 6.25, 2), L(7.5, -1, 7.5, 1)]       # zem na konci vodorovné značky (port vlevo)
 
 
 # kontaktní obraz přístroje (páry svorek, viz docs/LIBRARY_FORMAT.md) – prázdný = bez kontrol a rezerv v zrcadle
@@ -69,6 +74,22 @@ PLOSS = attr("p_loss_w", "Ztrátový výkon při In [W]")
 # rozsah provozní teploty okolí přístroje dle datasheetu (skryté; z artiklu t_min_c/t_max_c) – ověření oteplení
 # po přístrojích (`model/thermal.py:device_temperatures`); prázdné = předpoklad DEFAULT_T_MAX_C
 TEMP = [attr("t_min", "Teplota okolí min [°C]"), attr("t_max", "Teplota okolí max [°C]")]
+
+# optimizér stringu z artiklu (skryté; `Component.optimizer_values`) + nepovinná orientace pole – kontrola stringů
+# (`model/calc.py`: vstup optimizéru, počet a výkon, paralelní stringy na MPPT); docs/design/optimizery.md
+OPT_ATTRS = [attr("optimizer_id", "Optimizér – artikl"), attr("opt_manufacturer", "Optimizér – výrobce"),
+             attr("opt_p_max", "Optimizér – P max vstupu [W]"), attr("opt_p_tol", "Optimizér – tolerance P [%]"),
+             attr("opt_u_in_max", "Optimizér – U max vstupu [V]"), attr("opt_u_mppt_min", "Optimizér – U MPPT min [V]"),
+             attr("opt_u_mppt_max", "Optimizér – U MPPT max [V]"),
+             attr("opt_isc_in_max", "Optimizér – Isc max vstupu [A]"), attr("opt_i_out_max", "Optimizér – I max výstupu [A]"),
+             attr("opt_u_out_max", "Optimizér – U max výstupu [V]"), attr("opt_modules", "Optimizér – modulů na optimizér"),
+             attr("opt_partial", "Optimizér – smíšení dovoleno (0/1)"), attr("opt_compat", "Optimizér – kompatibilita"),
+             attr("opt_n_min", "Optimizérů ve stringu min"), attr("opt_n_max", "Optimizérů ve stringu max"),
+             attr("opt_p_string_max", "P stringu max – optimizér [W]"), attr("orientation", "Orientace pole")]
+# režim stringu střídače (skryté; z artiklu nebo generátoru): classic | optimizer | fixed_voltage (`calc.InverterData`)
+INV_MODE_ATTRS = [attr("string_mode", "Režim stringů (classic / optimizer / fixed_voltage)"),
+                  attr("u_string", "Pevné napětí stringu [V]"), attr("n_opt_min", "Optimizérů ve stringu min"),
+                  attr("n_opt_max", "Optimizérů ve stringu max"), attr("p_string_max", "P stringu max [W]")]
 
 SYMBOLS = [
     {
@@ -92,7 +113,8 @@ SYMBOLS = [
                        # z artiklu FV modulu (skryté) – kontrola stringů a průvodce (`model/calc.py`)
                        attr("imp", "Impp modulu STC [A]"), attr("u_sys_max", "Max. napětí systému modulu [V]"),
                        # teplotní součinitele [%/K]: oba zadané → Umpp(t) s γ_Pmax − α_Isc místo β_Voc
-                       attr("gamma_pmax", "Tepl. součinitel Pmax [%/K]"), attr("alpha_isc", "Tepl. součinitel Isc [%/K]")],
+                       attr("gamma_pmax", "Tepl. součinitel Pmax [%/K]"), attr("alpha_isc", "Tepl. součinitel Isc [%/K]"),
+                       *OPT_ATTRS],
         "label_pos": {"x": -10, "y": 28},   # popisek nad značkou – vodič vpravo zůstane volný
     },
     {
@@ -133,7 +155,10 @@ SYMBOLS = [
         "primitives": [R(-2.5, -5, 5, 10), L(0, 5, 0, 7.5), L(0, -5, 0, -7.5), L(-2, -3.5, 2, 3.5),
                        L(1, 3.5, 2, 3.5), L(2, 2.5, 2, 3.5)],
         "ports": [P("L", 0, 7.5, "N"), P("PE", 0, -7.5, "S")],
-        "attributes": [REF, TYPE, MFR, attr("spd_type", "Typ SPD", "T2", True), attr("uc", "Uc [V]"),
+        "attributes": [REF, TYPE, MFR, attr("spd_type", "Typ SPD", "T2", True),
+                       # do výkresu (proč SPD nemá vlastní pojistku): Uc, ochranná úroveň Up, zkratová odolnost ISCPV
+                       attr("uc", "Uc [V]", "", True, "Uc {} V"), attr("up", "Up [kV]", "", True, "Up ≤ {} kV"),
+                       attr("iscpv", "ISCPV [kA]", "", True, "ISCPV {} kA"),
                        POLES, attr("modules", "Šířka [moduly]", "4"), *TEMP],
         "multipole": MP([R(-2.5, -5, 5, 10), L(0, 5, 0, 7.5), L(0, -5, 0, -7.5), L(-2, -3.5, 2, 3.5), L(1, 3.5, 2, 3.5), L(2, 2.5, 2, 3.5)], link=False),
         "label_pos": {"x": 4, "y": 2},
@@ -149,7 +174,7 @@ SYMBOLS = [
                        attr("mppt", "Počet MPPT"), attr("phases", "Fáze", "3"), attr("u_dc_max", "U DC max [V]"),
                        attr("u_mppt_min", "U MPPT min [V]"), attr("u_mppt_max", "U MPPT max [V]"),
                        attr("i_mppt_max", "I max na MPPT [A]"), attr("strings_per_mppt", "Stringů na MPPT"),
-                       attr("isc_mppt_max", "Isc max na MPPT [A]")],
+                       attr("isc_mppt_max", "Isc max na MPPT [A]"), *INV_MODE_ATTRS],
         "label_pos": {"x": -10, "y": 20},
     },
     {
@@ -163,7 +188,7 @@ SYMBOLS = [
                        attr("mppt", "Počet MPPT"), attr("phases", "Fáze", "3"), attr("u_dc_max", "U DC max [V]"),
                        attr("u_mppt_min", "U MPPT min [V]"), attr("u_mppt_max", "U MPPT max [V]"),
                        attr("i_mppt_max", "I max na MPPT [A]"), attr("strings_per_mppt", "Stringů na MPPT"),
-                       attr("isc_mppt_max", "Isc max na MPPT [A]")],
+                       attr("isc_mppt_max", "Isc max na MPPT [A]"), *INV_MODE_ATTRS],
         "label_pos": {"x": -10, "y": 20},
     },
     {
@@ -245,8 +270,108 @@ SYMBOLS = [
         "description": "Transformátor VN/NN",
         "primitives": [L(-10, 0, -7.5, 0), C(-2.5, 0, 5), C(2.5, 0, 5), L(7.5, 0, 10, 0)],
         "ports": [P("1", -10, 0, "W"), P("2", 10, 0, "E")],
-        "attributes": [REF, TYPE, attr("sn", "Sn [kVA]", "", True), attr("ratio", "Převod")],
-        "label_pos": {"x": -7.5, "y": 6.5},
+        "attributes": [REF, TYPE, attr("sn", "Sn [kVA]", "", True, "{} kVA"), attr("ratio", "Převod", "", True),
+                       attr("group", "Spojení", "", True), attr("uk", "uk [%]", "", True, "uk {} %")],
+        "label_pos": {"x": -7.5, "y": -8},
+    },
+    {
+        "id": "fve.ct", "name": "Měřicí transformátor proudu", "category": "Měření", "iec_ref": "T",
+        "function_class": ["T", "TA", "B"],
+        "description": "Měřicí transformátor proudu (MTP) – primár v sérii s vedením (1–2), sekundár S k elektroměru",
+        "primitives": [L(-7.5, 0, 7.5, 0), C(0, 0, 3), L(0, 3, 0, 5)],
+        "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E"), P("S", 0, 5, "N")],
+        "attributes": [REF, TYPE, MFR, attr("ratio", "Převod", "", True), attr("cls", "Třída přesnosti", "", True, "tř. {}"),
+                       attr("burden", "Zátěž [VA]", "", False, "{} VA"), attr("n", "Počet kusů", "3", True, "{}×"), POLES],
+        "multipole": {**MP([L(-7.5, 0, 7.5, 0), C(0, 0, 3)], link=False), "through": ["1", "2"]},
+        "label_pos": {"x": -5, "y": -6},
+    },
+    {
+        "id": "fve.vt", "name": "Měřicí transformátor napětí", "category": "Měření", "iec_ref": "T",
+        "function_class": ["T", "TV", "B"],
+        "description": "Měřicí transformátor napětí (MTN) – primár 1 na vedení, sekundár S k elektroměru",
+        "primitives": [L(-7.5, 0, -5, 0), C(-2.5, 0, 2.5), C(1.25, 0, 2.5), L(3.75, 0, 7.5, 0)],
+        "ports": [P("1", -7.5, 0, "W"), P("S", 7.5, 0, "E")],
+        "attributes": [REF, TYPE, MFR, attr("ratio", "Převod", "", True), attr("cls", "Třída přesnosti", "", True, "tř. {}"),
+                       attr("n", "Počet kusů", "3", True, "{}×")],
+        "label_pos": {"x": -5, "y": -6},
+    },
+    {
+        "id": "fve.earthing_switch", "name": "Uzemňovač", "category": "Spínání", "iec_ref": "Q",
+        "description": "Uzemňovač VN pole (spojí vedení se zemí)",
+        "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 5, 0), L(5, -3, 5, 3), L(6.25, -2, 6.25, 2),
+                       L(7.5, -1, 7.5, 1)],
+        "ports": [P("1", -7.5, 0, "W")],
+        "attributes": [REF, TYPE],
+        "label_pos": {"x": -5, "y": -6},
+    },
+    # ---- VN (trafostanice: kabelová, měřicí a transformátorová pole, sloupová TS) ------------------------------
+    {
+        "id": "fve.switch_disconnector_vn", "name": "Odpínač VN", "category": "VN", "iec_ref": "Q",
+        "description": "Odpínač VN (ČSN EN 60617 07-13-08): kabelové, měřicí a transformátorové pole, úsekový odpínač "
+                       "na sloupu",
+        "primitives": CONTACT + DISC_BAR + LOAD_RING,
+        "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("un", "Un [kV]", "", False, "{} kV"),
+                       attr("poles", "Póly", "3"), attr("modules", "Šířka [moduly]", "0")],
+        "multipole": MP(CONTACT + DISC_BAR + LOAD_RING),
+        "label_pos": {"x": -5, "y": -6},
+    },
+    {
+        "id": "fve.disconnector", "name": "Odpojovač", "category": "VN", "iec_ref": "Q",
+        "description": "Odpojovač (ČSN EN 60617 07-13-06) – spíná jen bez zatížení",
+        "primitives": CONTACT + DISC_BAR,
+        "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("poles", "Póly", "3"),
+                       attr("modules", "Šířka [moduly]", "0")],
+        "multipole": MP(CONTACT + DISC_BAR),
+        "label_pos": {"x": -5, "y": -6},
+    },
+    {
+        "id": "fve.breaker_vn", "name": "Vypínač VN", "category": "VN", "iec_ref": "Q",
+        "description": "Výkonový vypínač VN (ČSN EN 60617 07-13-05) – transformátorové pole nad 1000 kVA",
+        "primitives": CONTACT + BREAKER_X,
+        "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("protection", "Ochrana", "", True),
+                       attr("poles", "Póly", "3"), attr("modules", "Šířka [moduly]", "0")],
+        "multipole": MP(CONTACT + BREAKER_X),
+        "label_pos": {"x": -5, "y": -6},
+    },
+    {
+        "id": "fve.fuse_vn", "name": "Pojistka VN", "category": "VN", "iec_ref": "F",
+        "description": "Pojistka VN s úderníkem (ČSN EN 60617 07-21-03) – vybaví odpínač transformátorového pole",
+        "primitives": [R(-5, -2, 10, 4), L(-7.5, 0, 7.5, 0), L(3, -2, 3, 2), L(3, 2, 3, 4.5), L(2, 4.5, 4, 4.5)],
+        "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("un", "Un [kV]", "", False, "{} kV"),
+                       attr("poles", "Póly", "3"), attr("modules", "Šířka [moduly]", "0")],
+        "multipole": MP([R(-5, -2, 10, 4), L(-7.5, 0, 7.5, 0), L(3, -2, 3, 2)], link=False),
+        "label_pos": {"x": -5, "y": 4},
+    },
+    {
+        "id": "fve.cable_end", "name": "Kabelová koncovka", "category": "VN", "iec_ref": "X",
+        "description": "Kabelová koncovka VN – připojení kabelu v poli; špička k přístroji",
+        "primitives": [L(-7.5, 0, -2.5, 0), {"type": "polyline", "points": [[-2.5, 0], [2.5, 2.5], [2.5, -2.5]],
+                                               "closed": True}, L(2.5, 0, 7.5, 0)],
+        "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
+        "attributes": [REF, TYPE, attr("poles", "Póly", "3"), attr("modules", "Šířka [moduly]", "0")],
+        "label_pos": {"x": -5, "y": -6},
+    },
+    {
+        "id": "fve.voltage_indicator", "name": "Kapacitní indikátor napětí", "category": "VN", "iec_ref": "P",
+        "description": "Kapacitní indikátor napětí VDS (ČSN EN 61243-5): vazební kapacita + doutnavka v kabelovém poli",
+        "primitives": [L(-7.5, 0, -3, 0), L(-3, -2, -3, 2), L(-2, -2, -2, 2), L(-2, 0, 0, 0), C(2.5, 0, 2.5),
+                       L(0.73, -1.77, 4.27, 1.77), L(0.73, 1.77, 4.27, -1.77)],
+        "ports": [P("1", -7.5, 0, "W")],
+        "attributes": [REF, TYPE],
+        "label_pos": {"x": -5, "y": -6},
+    },
+    {
+        "id": "fve.surge_arrester", "name": "Svodič přepětí VN", "category": "VN", "iec_ref": "F",
+        "description": "Svodič přepětí VN (ČSN EN 60617 07-22-03) – vedení → zem, sloupová TS, kabelové pole",
+        "primitives": [L(-7.5, 0, -5, 0), R(-5, -1.5, 8, 3), L(-4, 0, 1, 0), L(-1, 1, 1, 0), L(-1, -1, 1, 0),
+                       L(3, 0, 5, 0)] + EARTH_V,
+        "ports": [P("1", -7.5, 0, "W")],
+        "attributes": [REF, TYPE, MFR, attr("uc", "Uc [kV]", "", True, "Uc {} kV"), attr("poles", "Póly", "3")],
+        "label_pos": {"x": -5, "y": -6},
     },
     {
         "id": "fve.terminal", "name": "Uzel / svorka", "category": "Svorky a propojení", "iec_ref": "X",

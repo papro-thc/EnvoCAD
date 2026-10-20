@@ -1,0 +1,98 @@
+{
+  "id": "fve.vt",
+  "name": "Měřicí transformátor napětí",
+  "category": "Měření",
+  "iec_ref": "T",
+  "function_class": [
+    "T",
+    "TV",
+    "B"
+  ],
+  "description": "Měřicí transformátor napětí (MTN) – primár 1 na vedení, sekundár S k elektroměru",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": 0,
+      "x2": -5,
+      "y2": 0
+    },
+    {
+      "type": "circle",
+      "cx": -2.5,
+      "cy": 0,
+      "r": 2.5
+    },
+    {
+      "type": "circle",
+      "cx": 1.25,
+      "cy": 0,
+      "r": 2.5
+    },
+    {
+      "type": "line",
+      "x1": 3.75,
+      "y1": 0,
+      "x2": 7.5,
+      "y2": 0
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -7.5,
+      "y": 0,
+      "dir": "W"
+    },
+    {
+      "name": "S",
+      "x": 7.5,
+      "y": 0,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "manufacturer",
+      "label": "Výrobce",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "ratio",
+      "label": "Převod",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "cls",
+      "label": "Třída přesnosti",
+      "default": "",
+      "show": true,
+      "fmt": "tř. {}"
+    },
+    {
+      "key": "n",
+      "label": "Počet kusů",
+      "default": "3",
+      "show": true,
+      "fmt": "{}×"
+    }
+  ],
+  "label_pos": {
+    "x": -5,
+    "y": -6
+  }
+}

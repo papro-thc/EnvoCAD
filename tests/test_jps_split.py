@@ -68,7 +68,7 @@ def test_big_jps_split_ac_first_then_inverter_sheets_a2(big):
     assert ac.name == JPS_AC_SHEET_NAME
     assert {e.symbol_id for e in ac.elements} == {"fve.switchboard", "fve.grid", "fve.earth", INTERRUPT_SYMBOL}
     assert sorted(e.ref for e in interrupts(ac)) == sorted(f"AC-T{i}" for i in range(1, 9))
-    assert [s.name for s in js[1:]] == [f"Jednopólové schéma – T{i}, T{i + 1}" for i in (1, 3, 5, 7)]
+    assert [s.name for s in js[1:]] == [f"Blokové schéma – T{i}, T{i + 1}" for i in (1, 3, 5, 7)]
     for s in js:
         assert (s.paper, s.width, s.height) == ("A2", 594.0, 420.0), s.name
     # každý střídač s celým DC řetězcem (stringy, DC rozvaděče) na jednom listu; na listu přerušení jeho AC kabelu
@@ -78,14 +78,14 @@ def test_big_jps_split_ac_first_then_inverter_sheets_a2(big):
         assert any(e.symbol_id == "fve.pv_string" for e in s.elements)
     checks = calc.check_strings(big)
     assert len(checks) == 32 and all(c.inverter for c in checks)   # string najde svůj střídač (stejný list)
-    assert big.to_dict()["format_version"] == FORMAT_VERSION == 9
+    assert big.to_dict()["format_version"] == FORMAT_VERSION
 
 
 def test_small_projects_stay_on_one_sheet():
     for n in (1, 2):
         p = build_project(spec(n))
         js = jps_sheets(p)
-        assert len(js) == 1 and js[0].name == "Jednopólové schéma" and js[0].paper in ("A3", "A2")
+        assert len(js) == 1 and js[0].name == "Blokové schéma" and js[0].paper in ("A3", "A2")
         assert not interrupts(js[0])
     # jeden střídač s mnoha stringy se nedělí (DC řetězec zůstává na jednom listu, větší formát)
     p = build_project(spec(1, per=12))
@@ -151,8 +151,8 @@ def test_reports_same_as_one_sheet(big, big_one_sheet, lib):
     assert not any("Přerušovací" in str(r[1]) for r in reports.bom(big, lib)[1])
 
     def jps_wiring(p):
-        return strip([r for r in reports.wiring_list(p, lib)[1] if r[0].startswith("Jednopólové")], {0})
-    assert jps_wiring(big) == jps_wiring(big_one_sheet)       # úsek pokračování nemá řádek „vodič“
+        return strip([r for r in reports.wiring_list(p, lib)[1] if r[0].startswith("Blokové")], {0})
+    assert jps_wiring(big) and jps_wiring(big) == jps_wiring(big_one_sheet)       # úsek pokračování nemá řádek „vodič“
 
     def cc(p):
         return sorted((c.ref, c.i_a, c.du_pct, tuple(c.issues)) for c in calc.check_cables(p))
@@ -348,7 +348,7 @@ def test_oversized_inverter_row_gets_bigger_paper():
     p = build_project(spec(3, per=12))
     js = jps_sheets(p)
     assert js[0].name == JPS_AC_SHEET_NAME and js[0].paper == "A2"
-    assert [s.name for s in js[1:]] == [f"Jednopólové schéma – T{i}" for i in (1, 2, 3)]
+    assert [s.name for s in js[1:]] == [f"Blokové schéma – T{i}" for i in (1, 2, 3)]
     assert all(paper_exceeds(s.paper, "A2") and s.paper != "vlastní" for s in js[1:])
 
 
@@ -357,7 +357,7 @@ def test_sheet_name_ranges():
     assert ref_ranges([f"T{i}" for i in range(1, 10)]) == "T1–T9"
     assert ref_ranges(["T1", "T2", "T3", "T5", "X", "T8", "T9", "T10"]) == "T1–T3, T5, X, T8–T10"
     p = build_project(spec(12, per=1))
-    assert [s.name for s in jps_sheets(p)][1:] == ["Jednopólové schéma – T1–T9", "Jednopólové schéma – T10–T12"]
+    assert [s.name for s in jps_sheets(p)][1:] == ["Blokové schéma – T1–T9", "Blokové schéma – T10–T12"]
 
 
 def test_split_project_roundtrip(big, lib):
@@ -442,3 +442,68 @@ def test_documentation_pdf_jps_page_default_from_standard(lib):
     finally:
         st["standard"]["doc_jps_page"] = "A3"
         save_settings(st)
+
+
+# ---- spolupráce s trafostanicí (přípojka VN) a rodinným domem (rozvaděč FVE) -----------------------------------
+def _same_reports_and_no_new_findings(p, one, lib):
+    def strip(rows, drop):
+        return sorted(tuple(c for k, c in enumerate(r) if k not in drop) for r in rows)
+    assert strip(reports.cables(p, lib)[1], {8, 9}) == strip(reports.cables(one, lib)[1], {8, 9})
+    assert strip(reports.cable_plan(p, lib)[1], {10}) == strip(reports.cable_plan(one, lib)[1], {10})
+    assert reports.bom(p, lib) == reports.bom(one, lib)
+    assert sorted((c.ref, c.i_a, c.du_pct) for c in calc.check_cables(p)) == \
+        sorted((c.ref, c.i_a, c.du_pct) for c in calc.check_cables(one))
+    strings = calc.check_strings(p)
+    assert strings and all(c.inverter for c in strings)
+    fs, f1 = check_project(p, lib), check_project(one, lib)
+    assert not [f for f in fs if f.severity == "chyba"]
+    new = {(f.severity, f.code) for f in fs if f.severity == WARNING} - {(f.severity, f.code) for f in f1}
+    assert not new, [f.text for f in fs if (f.severity, f.code) in new]
+    assert not {f.code for f in fs} & {"interrupt_alone", "cable_split", "dangling", "calc_string"}
+    assert Counter(f.code for f in fs)["no_cable"] == Counter(f.code for f in f1)["no_cable"]
+
+
+def test_split_with_transformer_station(lib):
+    """Přípojka VN (trafostanice, rozvaděč VN, transformátor, hlavní rozvaděč nn, elektroměrový rozvaděč) zůstává
+    na listu „AC a připojení“; jednopólové schéma odvozené z blokového je stejné jako bez rozdělení."""
+    from envocad.model.single_line import single_line_geometry
+    conn = {"connection": {"level": "vn", "station": "zdena", "metering": "vn"}}
+    p, one = build_project(spec(6, **conn)), build_project(spec(6, jps={"split": "none"}, **conn))
+    js = jps_sheets(p)
+    assert len(js) == 4 and js[0].name == JPS_AC_SHEET_NAME and len(jps_sheets(one)) == 1
+    ac = js[0]
+    blocks = {e.ref for e in ac.elements if e.symbol_id == "fve.switchboard"}
+    all_blocks = {e.ref for s in jps_sheets(one) for e in s.elements if e.symbol_id == "fve.switchboard"
+                  and not e.ref.startswith("RDC")}
+    assert blocks == all_blocks and any(e.symbol_id == "fve.transformer" for e in ac.elements)
+    for s in js[1:]:
+        assert {e.symbol_id for e in s.elements} <= {"fve.inverter", "fve.pv_string", "fve.switchboard", INTERRUPT_SYMBOL}
+    assert all(s.paper == "A2" for s in js)
+    _same_reports_and_no_new_findings(p, one, lib)
+    assert single_line_geometry(p, lib).prims == single_line_geometry(one, lib).prims
+
+
+@pytest.mark.parametrize("route", [0, 1])
+def test_split_house_combined_switchboard(lib, route):
+    """Rodinný dům nad A2: rozvaděč FVE (DC + AC) zůstává na listu „AC a připojení“ se sítí a HOP; DC vodiče
+    stringů / rozvaděčů po trase do RFVE a z RFVE do střídače i AC kabel vedou přes páry přerušení, údaje kabelu
+    nese úsek u RFVE."""
+    from envocad.model.single_line import single_line_geometry
+    extra = {"building": "rodinný dům", "dc": {"route_boxes": route}}
+    p, one = build_project(spec(3, **extra)), build_project(spec(3, jps={"split": "none"}, **extra))
+    js = jps_sheets(p)
+    assert len(js) >= 3 and js[0].name == JPS_AC_SHEET_NAME
+    ac = js[0]
+    assert [e.ref for e in ac.elements if e.symbol_id == "fve.switchboard"] == ["RFVE"]
+    assert {e.symbol_id for e in ac.elements} <= {"fve.switchboard", "fve.grid", "fve.earth", INTERRUPT_SYMBOL}
+    rfve = next(e for e in ac.elements if e.ref == "RFVE")
+    for w in ac.wires:                                   # vše u RFVE nese údaje kabelu, pokračování je u řady
+        if rfve.id in (w.a.element_id, w.b.element_id):
+            assert has_cable_data(w) and not is_continuation(p, ac, w)
+    for s in js[1:]:
+        for i in interrupts(s):
+            (w,) = [w for w in s.wires if w.touches(i.id)]
+            assert is_continuation(p, s, w)
+    assert all(s.paper == "A2" for s in js)
+    _same_reports_and_no_new_findings(p, one, lib)
+    assert single_line_geometry(p, lib).prims == single_line_geometry(one, lib).prims

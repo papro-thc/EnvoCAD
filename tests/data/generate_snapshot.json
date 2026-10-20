@@ -1,15 +1,16 @@
 {
  "default_1inv": {
   "format": "envocad-project",
-  "format_version": 9,
+  "format_version": 12,
   "name": "Nový projekt FVE",
   "meta": {
+   "building": "firma",
    "p_installed_kwp": "26.1"
   },
   "sheets": [
    {
     "id": "#1",
-    "name": "Jednopólové schéma",
+    "name": "Blokové schéma",
     "paper": "A2",
     "width": 594.0,
     "height": 420.0,
@@ -202,8 +203,8 @@
        "cable_id": "#12"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -227,8 +228,8 @@
        "cable_id": "#14"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -261,8 +262,8 @@
        "cable_id": "#16"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -295,8 +296,8 @@
        "cable_id": "#18"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -320,8 +321,8 @@
        "cable_id": "#20"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -354,8 +355,8 @@
        "cable_id": "#22"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -388,8 +389,8 @@
        "cable_id": "#24"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -413,8 +414,8 @@
        "cable_id": "#26"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -447,8 +448,8 @@
        "cable_id": "#28"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -561,33 +562,18 @@
       {
        "element_id": "#37",
        "row": 0,
-       "pos": 2.0
+       "pos": 3.0
       },
       {
        "element_id": "#38",
        "row": 0,
-       "pos": 5.0
-      },
-      {
-       "element_id": "#39",
-       "row": 0,
-       "pos": 7.0
-      },
-      {
-       "element_id": "#40",
-       "row": 0,
-       "pos": 10.0
-      },
-      {
-       "element_id": "#41",
-       "row": 0,
-       "pos": 12.0
+       "pos": 6.0
       }
      ]
     },
     "elements": [
      {
-      "id": "#42",
+      "id": "#39",
       "symbol_id": "sb.feed_in",
       "x": 60.0,
       "y": 240.0,
@@ -602,22 +588,7 @@
       "component_id": null
      },
      {
-      "id": "#36",
-      "symbol_id": "fve.dc_disconnect",
-      "x": 60.0,
-      "y": 210.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "QS1.1",
-       "in_": "32",
-       "un": "1000",
-       "poles": "2",
-       "modules": "2"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#43",
+      "id": "#40",
       "symbol_id": "sb.feed_out",
       "x": 60.0,
       "y": 170.0,
@@ -632,23 +603,29 @@
       "component_id": null
      },
      {
-      "id": "#37",
+      "id": "#36",
       "symbol_id": "fve.spd",
       "x": 72.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.1",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G1"
+       "desc": "string G1",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#44",
+      "id": "#41",
       "symbol_id": "sb.feed_out",
       "x": 40.0,
       "y": 130.0,
@@ -661,9 +638,9 @@
       "component_id": null
      },
      {
-      "id": "#45",
+      "id": "#42",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -676,24 +653,9 @@
       "component_id": null
      },
      {
-      "id": "#38",
-      "symbol_id": "fve.dc_disconnect",
-      "x": 100.0,
-      "y": 210.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "QS1.2",
-       "in_": "32",
-       "un": "1000",
-       "poles": "2",
-       "modules": "2"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#46",
+      "id": "#43",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -706,25 +668,31 @@
       "component_id": null
      },
      {
-      "id": "#39",
+      "id": "#37",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.2",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G2"
+       "desc": "string G2",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#47",
+      "id": "#44",
       "symbol_id": "sb.feed_in",
-      "x": 140.0,
+      "x": 160.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -737,24 +705,9 @@
       "component_id": null
      },
      {
-      "id": "#40",
-      "symbol_id": "fve.dc_disconnect",
-      "x": 140.0,
-      "y": 210.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "QS1.3",
-       "in_": "32",
-       "un": "1000",
-       "poles": "2",
-       "modules": "2"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#48",
+      "id": "#45",
       "symbol_id": "sb.feed_out",
-      "x": 140.0,
+      "x": 160.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -767,51 +720,37 @@
       "component_id": null
      },
      {
-      "id": "#41",
+      "id": "#38",
       "symbol_id": "fve.spd",
-      "x": 152.5,
+      "x": 172.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.3",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G3"
+       "desc": "string G3",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
      {
-      "id": "#49",
+      "id": "#46",
       "a": {
-       "element_id": "#42",
+       "element_id": "#39",
        "port": "1"
       },
       "b": {
-       "element_id": "#36",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#50",
-      "a": {
-       "element_id": "#36",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#43",
+       "element_id": "#40",
        "port": "1"
       },
       "points": [],
@@ -819,19 +758,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#51",
+      "id": "#47",
       "a": {
-       "element_id": "#36",
-       "port": "2"
+       "element_id": "#39",
+       "port": "1"
       },
       "b": {
-       "element_id": "#37",
+       "element_id": "#36",
        "port": "L"
       },
       "points": [],
@@ -839,19 +778,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#52",
+      "id": "#48",
       "a": {
-       "element_id": "#37",
+       "element_id": "#36",
        "port": "PE"
       },
       "b": {
-       "element_id": "#44",
+       "element_id": "#41",
        "port": "1"
       },
       "points": [
@@ -877,33 +816,13 @@
       "terminals": {}
      },
      {
-      "id": "#53",
+      "id": "#49",
       "a": {
-       "element_id": "#45",
+       "element_id": "#42",
        "port": "1"
       },
       "b": {
-       "element_id": "#38",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#54",
-      "a": {
-       "element_id": "#38",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#46",
+       "element_id": "#43",
        "port": "1"
       },
       "points": [],
@@ -911,19 +830,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#55",
+      "id": "#50",
       "a": {
-       "element_id": "#38",
-       "port": "2"
+       "element_id": "#42",
+       "port": "1"
       },
       "b": {
-       "element_id": "#39",
+       "element_id": "#37",
        "port": "L"
       },
       "points": [],
@@ -931,32 +850,32 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#56",
+      "id": "#51",
       "a": {
-       "element_id": "#39",
+       "element_id": "#37",
        "port": "PE"
       },
       "b": {
-       "element_id": "#44",
+       "element_id": "#41",
        "port": "1"
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -969,33 +888,13 @@
       "terminals": {}
      },
      {
-      "id": "#57",
+      "id": "#52",
       "a": {
-       "element_id": "#47",
+       "element_id": "#44",
        "port": "1"
       },
       "b": {
-       "element_id": "#40",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#58",
-      "a": {
-       "element_id": "#40",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#48",
+       "element_id": "#45",
        "port": "1"
       },
       "points": [],
@@ -1003,19 +902,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#59",
+      "id": "#53",
       "a": {
-       "element_id": "#40",
-       "port": "2"
+       "element_id": "#44",
+       "port": "1"
       },
       "b": {
-       "element_id": "#41",
+       "element_id": "#38",
        "port": "L"
       },
       "points": [],
@@ -1023,32 +922,32 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#60",
+      "id": "#54",
       "a": {
-       "element_id": "#41",
+       "element_id": "#38",
        "port": "PE"
       },
       "b": {
-       "element_id": "#44",
+       "element_id": "#41",
        "port": "1"
       },
       "points": [
        [
-        175.0,
+        195.0,
         170.0
        ],
        [
-        175.0,
+        195.0,
         147.5
        ],
        [
-        120.0,
+        140.0,
         147.5
        ]
       ],
@@ -1066,7 +965,7 @@
     "loc": "RDC1"
    },
    {
-    "id": "#61",
+    "id": "#55",
     "name": "RDC2 – DC rozvaděč u T1",
     "paper": "A3",
     "width": 420.0,
@@ -1083,32 +982,32 @@
      },
      "placements": [
       {
-       "element_id": "#62",
+       "element_id": "#56",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#63",
+       "element_id": "#57",
        "row": 0,
        "pos": 2.0
       },
       {
-       "element_id": "#64",
+       "element_id": "#58",
        "row": 0,
        "pos": 5.0
       },
       {
-       "element_id": "#65",
+       "element_id": "#59",
        "row": 0,
        "pos": 7.0
       },
       {
-       "element_id": "#66",
+       "element_id": "#60",
        "row": 0,
        "pos": 10.0
       },
       {
-       "element_id": "#67",
+       "element_id": "#61",
        "row": 0,
        "pos": 12.0
       }
@@ -1116,7 +1015,7 @@
     },
     "elements": [
      {
-      "id": "#68",
+      "id": "#62",
       "symbol_id": "sb.feed_in",
       "x": 60.0,
       "y": 240.0,
@@ -1131,23 +1030,27 @@
       "component_id": null
      },
      {
-      "id": "#62",
+      "id": "#56",
       "symbol_id": "fve.fuse_disconnect",
       "x": 60.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
        "ref": "FU1.1",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#69",
+      "id": "#63",
       "symbol_id": "sb.feed_out",
       "x": 60.0,
       "y": 170.0,
@@ -1162,23 +1065,29 @@
       "component_id": null
      },
      {
-      "id": "#63",
+      "id": "#57",
       "symbol_id": "fve.spd",
       "x": 72.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.1",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G1"
+       "desc": "string G1",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#70",
+      "id": "#64",
       "symbol_id": "sb.feed_out",
       "x": 40.0,
       "y": 130.0,
@@ -1191,9 +1100,9 @@
       "component_id": null
      },
      {
-      "id": "#71",
+      "id": "#65",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -1206,25 +1115,29 @@
       "component_id": null
      },
      {
-      "id": "#64",
+      "id": "#58",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 100.0,
+      "x": 110.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
        "ref": "FU1.2",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#72",
+      "id": "#66",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -1237,25 +1150,31 @@
       "component_id": null
      },
      {
-      "id": "#65",
+      "id": "#59",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.2",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G2"
+       "desc": "string G2",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#73",
+      "id": "#67",
       "symbol_id": "sb.feed_in",
-      "x": 140.0,
+      "x": 160.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -1268,25 +1187,29 @@
       "component_id": null
      },
      {
-      "id": "#66",
+      "id": "#60",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 140.0,
+      "x": 160.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
        "ref": "FU1.3",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#74",
+      "id": "#68",
       "symbol_id": "sb.feed_out",
-      "x": 140.0,
+      "x": 160.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -1299,31 +1222,37 @@
       "component_id": null
      },
      {
-      "id": "#67",
+      "id": "#61",
       "symbol_id": "fve.spd",
-      "x": 152.5,
+      "x": 172.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.3",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G3"
+       "desc": "string G3",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
      {
-      "id": "#75",
+      "id": "#69",
       "a": {
-       "element_id": "#68",
+       "element_id": "#62",
        "port": "1"
       },
       "b": {
-       "element_id": "#62",
+       "element_id": "#56",
        "port": "1"
       },
       "points": [],
@@ -1331,39 +1260,39 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#76",
+      "id": "#70",
       "a": {
-       "element_id": "#62",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#69",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#77",
-      "a": {
-       "element_id": "#62",
+       "element_id": "#56",
        "port": "2"
       },
       "b": {
        "element_id": "#63",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#71",
+      "a": {
+       "element_id": "#56",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#57",
        "port": "L"
       },
       "points": [],
@@ -1371,19 +1300,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#78",
+      "id": "#72",
       "a": {
-       "element_id": "#63",
+       "element_id": "#57",
        "port": "PE"
       },
       "b": {
-       "element_id": "#70",
+       "element_id": "#64",
        "port": "1"
       },
       "points": [
@@ -1409,53 +1338,53 @@
       "terminals": {}
      },
      {
-      "id": "#79",
+      "id": "#73",
       "a": {
-       "element_id": "#71",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#64",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#80",
-      "a": {
-       "element_id": "#64",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#72",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#81",
-      "a": {
-       "element_id": "#64",
-       "port": "2"
-      },
-      "b": {
        "element_id": "#65",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#58",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#74",
+      "a": {
+       "element_id": "#58",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#66",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#75",
+      "a": {
+       "element_id": "#58",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#59",
        "port": "L"
       },
       "points": [],
@@ -1463,32 +1392,32 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#82",
+      "id": "#76",
       "a": {
-       "element_id": "#65",
+       "element_id": "#59",
        "port": "PE"
       },
       "b": {
-       "element_id": "#70",
+       "element_id": "#64",
        "port": "1"
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -1501,53 +1430,53 @@
       "terminals": {}
      },
      {
-      "id": "#83",
+      "id": "#77",
       "a": {
-       "element_id": "#73",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#66",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#84",
-      "a": {
-       "element_id": "#66",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#74",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#85",
-      "a": {
-       "element_id": "#66",
-       "port": "2"
-      },
-      "b": {
        "element_id": "#67",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#60",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#78",
+      "a": {
+       "element_id": "#60",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#68",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#79",
+      "a": {
+       "element_id": "#60",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#61",
        "port": "L"
       },
       "points": [],
@@ -1555,32 +1484,32 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#86",
+      "id": "#80",
       "a": {
-       "element_id": "#67",
+       "element_id": "#61",
        "port": "PE"
       },
       "b": {
-       "element_id": "#70",
+       "element_id": "#64",
        "port": "1"
       },
       "points": [
        [
-        175.0,
+        195.0,
         170.0
        ],
        [
-        175.0,
+        195.0,
         147.5
        ],
        [
-        120.0,
+        140.0,
         147.5
        ]
       ],
@@ -1598,7 +1527,7 @@
     "loc": "RDC2"
    },
    {
-    "id": "#87",
+    "id": "#81",
     "name": "RH – AC rozvaděč FVE",
     "paper": "A3",
     "width": 420.0,
@@ -1616,17 +1545,17 @@
      },
      "placements": [
       {
-       "element_id": "#88",
+       "element_id": "#82",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#89",
+       "element_id": "#83",
        "row": 0,
        "pos": 3.0
       },
       {
-       "element_id": "#90",
+       "element_id": "#84",
        "row": 0,
        "pos": 7.0
       }
@@ -1634,7 +1563,7 @@
     },
     "elements": [
      {
-      "id": "#91",
+      "id": "#85",
       "symbol_id": "sb.feed_in",
       "x": 60.0,
       "y": 240.0,
@@ -1649,7 +1578,7 @@
       "component_id": null
      },
      {
-      "id": "#88",
+      "id": "#82",
       "symbol_id": "fve.breaker_mcb",
       "x": 60.0,
       "y": 210.0,
@@ -1664,7 +1593,7 @@
       "component_id": null
      },
      {
-      "id": "#92",
+      "id": "#86",
       "symbol_id": "sb.busbar",
       "x": 120.0,
       "y": 175.0,
@@ -1679,7 +1608,7 @@
       "component_id": null
      },
      {
-      "id": "#89",
+      "id": "#83",
       "symbol_id": "fve.spd",
       "x": 90.0,
       "y": 140.0,
@@ -1693,7 +1622,7 @@
       "component_id": null
      },
      {
-      "id": "#93",
+      "id": "#87",
       "symbol_id": "sb.feed_out",
       "x": 70.0,
       "y": 105.0,
@@ -1709,7 +1638,7 @@
       "component_id": null
      },
      {
-      "id": "#90",
+      "id": "#84",
       "symbol_id": "sb.main_switch",
       "x": 150.0,
       "y": 140.0,
@@ -1723,7 +1652,7 @@
       "component_id": null
      },
      {
-      "id": "#94",
+      "id": "#88",
       "symbol_id": "sb.feed_out",
       "x": 150.0,
       "y": 105.0,
@@ -1740,13 +1669,13 @@
     ],
     "wires": [
      {
-      "id": "#95",
+      "id": "#89",
       "a": {
-       "element_id": "#91",
+       "element_id": "#85",
        "port": "1"
       },
       "b": {
-       "element_id": "#88",
+       "element_id": "#82",
        "port": "1"
       },
       "points": [],
@@ -1763,13 +1692,13 @@
       "terminals": {}
      },
      {
-      "id": "#96",
+      "id": "#90",
       "a": {
-       "element_id": "#88",
+       "element_id": "#82",
        "port": "2"
       },
       "b": {
-       "element_id": "#92",
+       "element_id": "#86",
        "port": "T1"
       },
       "points": [],
@@ -1786,13 +1715,13 @@
       "terminals": {}
      },
      {
-      "id": "#97",
+      "id": "#91",
       "a": {
-       "element_id": "#92",
+       "element_id": "#86",
        "port": "1"
       },
       "b": {
-       "element_id": "#89",
+       "element_id": "#83",
        "port": "L"
       },
       "points": [],
@@ -1808,13 +1737,13 @@
       "terminals": {}
      },
      {
-      "id": "#98",
+      "id": "#92",
       "a": {
-       "element_id": "#89",
+       "element_id": "#83",
        "port": "PE"
       },
       "b": {
-       "element_id": "#93",
+       "element_id": "#87",
        "port": "1"
       },
       "points": [],
@@ -1827,13 +1756,13 @@
       "terminals": {}
      },
      {
-      "id": "#99",
+      "id": "#93",
       "a": {
-       "element_id": "#92",
+       "element_id": "#86",
        "port": "4"
       },
       "b": {
-       "element_id": "#93",
+       "element_id": "#87",
        "port": "1"
       },
       "points": [],
@@ -1846,13 +1775,13 @@
       "terminals": {}
      },
      {
-      "id": "#100",
+      "id": "#94",
       "a": {
-       "element_id": "#92",
+       "element_id": "#86",
        "port": "3"
       },
       "b": {
-       "element_id": "#90",
+       "element_id": "#84",
        "port": "1"
       },
       "points": [],
@@ -1869,13 +1798,13 @@
       "terminals": {}
      },
      {
-      "id": "#101",
+      "id": "#95",
       "a": {
-       "element_id": "#90",
+       "element_id": "#84",
        "port": "2"
       },
       "b": {
-       "element_id": "#94",
+       "element_id": "#88",
        "port": "1"
       },
       "points": [],
@@ -1905,12 +1834,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -1928,12 +1857,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -1951,12 +1880,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -1974,12 +1903,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -1997,12 +1926,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -2020,12 +1949,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -2043,12 +1972,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -2066,12 +1995,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -2089,12 +2018,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -2222,16 +2151,17 @@
  },
  "two_inv": {
   "format": "envocad-project",
-  "format_version": 9,
+  "format_version": 12,
   "name": "FVE Test",
   "meta": {
    "investor": "Test s.r.o.",
+   "building": "firma",
    "p_installed_kwp": "44.1"
   },
   "sheets": [
    {
     "id": "#1",
-    "name": "Jednopólové schéma",
+    "name": "Blokové schéma",
     "paper": "A2",
     "width": 594.0,
     "height": 420.0,
@@ -2513,8 +2443,8 @@
        "cable_id": "#17"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2538,8 +2468,8 @@
        "cable_id": "#19"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2572,8 +2502,8 @@
        "cable_id": "#21"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2606,8 +2536,8 @@
        "cable_id": "#23"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2631,8 +2561,8 @@
        "cable_id": "#25"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2665,8 +2595,8 @@
        "cable_id": "#27"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2699,8 +2629,8 @@
        "cable_id": "#29"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2724,8 +2654,8 @@
        "cable_id": "#31"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2758,8 +2688,8 @@
        "cable_id": "#33"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2820,8 +2750,8 @@
        "cable_id": "#37"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2845,8 +2775,8 @@
        "cable_id": "#39"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2879,8 +2809,8 @@
        "cable_id": "#41"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2913,8 +2843,8 @@
        "cable_id": "#43"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2938,8 +2868,8 @@
        "cable_id": "#45"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -2972,8 +2902,8 @@
        "cable_id": "#47"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -3086,33 +3016,18 @@
       {
        "element_id": "#56",
        "row": 0,
-       "pos": 2.0
+       "pos": 3.0
       },
       {
        "element_id": "#57",
        "row": 0,
-       "pos": 5.0
-      },
-      {
-       "element_id": "#58",
-       "row": 0,
-       "pos": 7.0
-      },
-      {
-       "element_id": "#59",
-       "row": 0,
-       "pos": 10.0
-      },
-      {
-       "element_id": "#60",
-       "row": 0,
-       "pos": 12.0
+       "pos": 6.0
       }
      ]
     },
     "elements": [
      {
-      "id": "#61",
+      "id": "#58",
       "symbol_id": "sb.feed_in",
       "x": 60.0,
       "y": 240.0,
@@ -3127,22 +3042,7 @@
       "component_id": null
      },
      {
-      "id": "#55",
-      "symbol_id": "fve.dc_disconnect",
-      "x": 60.0,
-      "y": 210.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "QS1.1",
-       "in_": "32",
-       "un": "1000",
-       "poles": "2",
-       "modules": "2"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#62",
+      "id": "#59",
       "symbol_id": "sb.feed_out",
       "x": 60.0,
       "y": 170.0,
@@ -3157,23 +3057,29 @@
       "component_id": null
      },
      {
-      "id": "#56",
+      "id": "#55",
       "symbol_id": "fve.spd",
       "x": 72.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.1",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G1"
+       "desc": "string G1",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#63",
+      "id": "#60",
       "symbol_id": "sb.feed_out",
       "x": 40.0,
       "y": 130.0,
@@ -3186,9 +3092,9 @@
       "component_id": null
      },
      {
-      "id": "#64",
+      "id": "#61",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -3201,24 +3107,9 @@
       "component_id": null
      },
      {
-      "id": "#57",
-      "symbol_id": "fve.dc_disconnect",
-      "x": 100.0,
-      "y": 210.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "QS1.2",
-       "in_": "32",
-       "un": "1000",
-       "poles": "2",
-       "modules": "2"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#65",
+      "id": "#62",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -3231,25 +3122,31 @@
       "component_id": null
      },
      {
-      "id": "#58",
+      "id": "#56",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.2",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G2"
+       "desc": "string G2",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#66",
+      "id": "#63",
       "symbol_id": "sb.feed_in",
-      "x": 140.0,
+      "x": 160.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -3262,24 +3159,9 @@
       "component_id": null
      },
      {
-      "id": "#59",
-      "symbol_id": "fve.dc_disconnect",
-      "x": 140.0,
-      "y": 210.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "QS1.3",
-       "in_": "32",
-       "un": "1000",
-       "poles": "2",
-       "modules": "2"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#67",
+      "id": "#64",
       "symbol_id": "sb.feed_out",
-      "x": 140.0,
+      "x": 160.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -3292,51 +3174,37 @@
       "component_id": null
      },
      {
-      "id": "#60",
+      "id": "#57",
       "symbol_id": "fve.spd",
-      "x": 152.5,
+      "x": 172.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.3",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G3"
+       "desc": "string G3",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
      {
-      "id": "#68",
+      "id": "#65",
       "a": {
-       "element_id": "#61",
+       "element_id": "#58",
        "port": "1"
       },
       "b": {
-       "element_id": "#55",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#69",
-      "a": {
-       "element_id": "#55",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#62",
+       "element_id": "#59",
        "port": "1"
       },
       "points": [],
@@ -3344,19 +3212,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#70",
+      "id": "#66",
       "a": {
-       "element_id": "#55",
-       "port": "2"
+       "element_id": "#58",
+       "port": "1"
       },
       "b": {
-       "element_id": "#56",
+       "element_id": "#55",
        "port": "L"
       },
       "points": [],
@@ -3364,19 +3232,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#71",
+      "id": "#67",
       "a": {
-       "element_id": "#56",
+       "element_id": "#55",
        "port": "PE"
       },
       "b": {
-       "element_id": "#63",
+       "element_id": "#60",
        "port": "1"
       },
       "points": [
@@ -3402,33 +3270,13 @@
       "terminals": {}
      },
      {
-      "id": "#72",
+      "id": "#68",
       "a": {
-       "element_id": "#64",
+       "element_id": "#61",
        "port": "1"
       },
       "b": {
-       "element_id": "#57",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#73",
-      "a": {
-       "element_id": "#57",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#65",
+       "element_id": "#62",
        "port": "1"
       },
       "points": [],
@@ -3436,19 +3284,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#74",
+      "id": "#69",
       "a": {
-       "element_id": "#57",
-       "port": "2"
+       "element_id": "#61",
+       "port": "1"
       },
       "b": {
-       "element_id": "#58",
+       "element_id": "#56",
        "port": "L"
       },
       "points": [],
@@ -3456,32 +3304,32 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#75",
+      "id": "#70",
       "a": {
-       "element_id": "#58",
+       "element_id": "#56",
        "port": "PE"
       },
       "b": {
-       "element_id": "#63",
+       "element_id": "#60",
        "port": "1"
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -3494,33 +3342,13 @@
       "terminals": {}
      },
      {
-      "id": "#76",
+      "id": "#71",
       "a": {
-       "element_id": "#66",
+       "element_id": "#63",
        "port": "1"
       },
       "b": {
-       "element_id": "#59",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#77",
-      "a": {
-       "element_id": "#59",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#67",
+       "element_id": "#64",
        "port": "1"
       },
       "points": [],
@@ -3528,19 +3356,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#78",
+      "id": "#72",
       "a": {
-       "element_id": "#59",
-       "port": "2"
+       "element_id": "#63",
+       "port": "1"
       },
       "b": {
-       "element_id": "#60",
+       "element_id": "#57",
        "port": "L"
       },
       "points": [],
@@ -3548,32 +3376,32 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#79",
+      "id": "#73",
       "a": {
-       "element_id": "#60",
+       "element_id": "#57",
        "port": "PE"
       },
       "b": {
-       "element_id": "#63",
+       "element_id": "#60",
        "port": "1"
       },
       "points": [
        [
-        175.0,
+        195.0,
         170.0
        ],
        [
-        175.0,
+        195.0,
         147.5
        ],
        [
-        120.0,
+        140.0,
         147.5
        ]
       ],
@@ -3591,7 +3419,7 @@
     "loc": "RDC1"
    },
    {
-    "id": "#80",
+    "id": "#74",
     "name": "RDC2 – DC rozvaděč u T1",
     "paper": "A3",
     "width": 420.0,
@@ -3608,32 +3436,32 @@
      },
      "placements": [
       {
-       "element_id": "#81",
+       "element_id": "#75",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#82",
+       "element_id": "#76",
        "row": 0,
        "pos": 2.0
       },
       {
-       "element_id": "#83",
+       "element_id": "#77",
        "row": 0,
        "pos": 5.0
       },
       {
-       "element_id": "#84",
+       "element_id": "#78",
        "row": 0,
        "pos": 7.0
       },
       {
-       "element_id": "#85",
+       "element_id": "#79",
        "row": 0,
        "pos": 10.0
       },
       {
-       "element_id": "#86",
+       "element_id": "#80",
        "row": 0,
        "pos": 12.0
       }
@@ -3641,7 +3469,7 @@
     },
     "elements": [
      {
-      "id": "#87",
+      "id": "#81",
       "symbol_id": "sb.feed_in",
       "x": 60.0,
       "y": 240.0,
@@ -3656,23 +3484,27 @@
       "component_id": null
      },
      {
-      "id": "#81",
+      "id": "#75",
       "symbol_id": "fve.fuse_disconnect",
       "x": 60.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
        "ref": "FU1.1",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#88",
+      "id": "#82",
       "symbol_id": "sb.feed_out",
       "x": 60.0,
       "y": 170.0,
@@ -3687,23 +3519,29 @@
       "component_id": null
      },
      {
-      "id": "#82",
+      "id": "#76",
       "symbol_id": "fve.spd",
       "x": 72.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.1",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G1"
+       "desc": "string G1",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#89",
+      "id": "#83",
       "symbol_id": "sb.feed_out",
       "x": 40.0,
       "y": 130.0,
@@ -3716,9 +3554,9 @@
       "component_id": null
      },
      {
-      "id": "#90",
+      "id": "#84",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -3731,25 +3569,29 @@
       "component_id": null
      },
      {
-      "id": "#83",
+      "id": "#77",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 100.0,
+      "x": 110.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
        "ref": "FU1.2",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#91",
+      "id": "#85",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -3762,25 +3604,31 @@
       "component_id": null
      },
      {
-      "id": "#84",
+      "id": "#78",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.2",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G2"
+       "desc": "string G2",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#92",
+      "id": "#86",
       "symbol_id": "sb.feed_in",
-      "x": 140.0,
+      "x": 160.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -3793,25 +3641,29 @@
       "component_id": null
      },
      {
-      "id": "#85",
+      "id": "#79",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 140.0,
+      "x": 160.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
        "ref": "FU1.3",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#93",
+      "id": "#87",
       "symbol_id": "sb.feed_out",
-      "x": 140.0,
+      "x": 160.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -3824,31 +3676,37 @@
       "component_id": null
      },
      {
-      "id": "#86",
+      "id": "#80",
       "symbol_id": "fve.spd",
-      "x": 152.5,
+      "x": 172.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.3",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G3"
+       "desc": "string G3",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
      {
-      "id": "#94",
+      "id": "#88",
       "a": {
-       "element_id": "#87",
+       "element_id": "#81",
        "port": "1"
       },
       "b": {
-       "element_id": "#81",
+       "element_id": "#75",
        "port": "1"
       },
       "points": [],
@@ -3856,39 +3714,39 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#95",
+      "id": "#89",
       "a": {
-       "element_id": "#81",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#88",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#96",
-      "a": {
-       "element_id": "#81",
+       "element_id": "#75",
        "port": "2"
       },
       "b": {
        "element_id": "#82",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#90",
+      "a": {
+       "element_id": "#75",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#76",
        "port": "L"
       },
       "points": [],
@@ -3896,19 +3754,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#97",
+      "id": "#91",
       "a": {
-       "element_id": "#82",
+       "element_id": "#76",
        "port": "PE"
       },
       "b": {
-       "element_id": "#89",
+       "element_id": "#83",
        "port": "1"
       },
       "points": [
@@ -3934,53 +3792,53 @@
       "terminals": {}
      },
      {
-      "id": "#98",
+      "id": "#92",
       "a": {
-       "element_id": "#90",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#83",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#99",
-      "a": {
-       "element_id": "#83",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#91",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#100",
-      "a": {
-       "element_id": "#83",
-       "port": "2"
-      },
-      "b": {
        "element_id": "#84",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#77",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#93",
+      "a": {
+       "element_id": "#77",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#85",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#94",
+      "a": {
+       "element_id": "#77",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#78",
        "port": "L"
       },
       "points": [],
@@ -3988,32 +3846,32 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#101",
+      "id": "#95",
       "a": {
-       "element_id": "#84",
+       "element_id": "#78",
        "port": "PE"
       },
       "b": {
-       "element_id": "#89",
+       "element_id": "#83",
        "port": "1"
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -4026,53 +3884,53 @@
       "terminals": {}
      },
      {
-      "id": "#102",
+      "id": "#96",
       "a": {
-       "element_id": "#92",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#85",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#103",
-      "a": {
-       "element_id": "#85",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#93",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#104",
-      "a": {
-       "element_id": "#85",
-       "port": "2"
-      },
-      "b": {
        "element_id": "#86",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#79",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#97",
+      "a": {
+       "element_id": "#79",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#87",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#98",
+      "a": {
+       "element_id": "#79",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#80",
        "port": "L"
       },
       "points": [],
@@ -4080,32 +3938,32 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#105",
+      "id": "#99",
       "a": {
-       "element_id": "#86",
+       "element_id": "#80",
        "port": "PE"
       },
       "b": {
-       "element_id": "#89",
+       "element_id": "#83",
        "port": "1"
       },
       "points": [
        [
-        175.0,
+        195.0,
         170.0
        ],
        [
-        175.0,
+        195.0,
         147.5
        ],
        [
-        120.0,
+        140.0,
         147.5
        ]
       ],
@@ -4123,7 +3981,7 @@
     "loc": "RDC2"
    },
    {
-    "id": "#106",
+    "id": "#100",
     "name": "RDC3 – DC rozvaděč po trase T2",
     "paper": "A3",
     "width": 420.0,
@@ -4140,30 +3998,20 @@
      },
      "placements": [
       {
-       "element_id": "#107",
+       "element_id": "#101",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#108",
+       "element_id": "#102",
        "row": 0,
-       "pos": 2.0
-      },
-      {
-       "element_id": "#109",
-       "row": 0,
-       "pos": 5.0
-      },
-      {
-       "element_id": "#110",
-       "row": 0,
-       "pos": 7.0
+       "pos": 3.0
       }
      ]
     },
     "elements": [
      {
-      "id": "#111",
+      "id": "#103",
       "symbol_id": "sb.feed_in",
       "x": 60.0,
       "y": 240.0,
@@ -4178,22 +4026,7 @@
       "component_id": null
      },
      {
-      "id": "#107",
-      "symbol_id": "fve.dc_disconnect",
-      "x": 60.0,
-      "y": 210.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "QS2.1",
-       "in_": "32",
-       "un": "1000",
-       "poles": "2",
-       "modules": "2"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#112",
+      "id": "#104",
       "symbol_id": "sb.feed_out",
       "x": 60.0,
       "y": 170.0,
@@ -4208,23 +4041,29 @@
       "component_id": null
      },
      {
-      "id": "#108",
+      "id": "#101",
       "symbol_id": "fve.spd",
       "x": 72.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC2.1",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G4"
+       "desc": "string G4",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#113",
+      "id": "#105",
       "symbol_id": "sb.feed_out",
       "x": 40.0,
       "y": 130.0,
@@ -4237,9 +4076,9 @@
       "component_id": null
      },
      {
-      "id": "#114",
+      "id": "#106",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -4252,24 +4091,9 @@
       "component_id": null
      },
      {
-      "id": "#109",
-      "symbol_id": "fve.dc_disconnect",
-      "x": 100.0,
-      "y": 210.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "QS2.2",
-       "in_": "32",
-       "un": "1000",
-       "poles": "2",
-       "modules": "2"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#115",
+      "id": "#107",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -4282,51 +4106,37 @@
       "component_id": null
      },
      {
-      "id": "#110",
+      "id": "#102",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC2.2",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G5"
+       "desc": "string G5",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
      {
-      "id": "#116",
+      "id": "#108",
       "a": {
-       "element_id": "#111",
+       "element_id": "#103",
        "port": "1"
       },
       "b": {
-       "element_id": "#107",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#117",
-      "a": {
-       "element_id": "#107",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#112",
+       "element_id": "#104",
        "port": "1"
       },
       "points": [],
@@ -4334,19 +4144,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#118",
+      "id": "#109",
       "a": {
-       "element_id": "#107",
-       "port": "2"
+       "element_id": "#103",
+       "port": "1"
       },
       "b": {
-       "element_id": "#108",
+       "element_id": "#101",
        "port": "L"
       },
       "points": [],
@@ -4354,19 +4164,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#119",
+      "id": "#110",
       "a": {
-       "element_id": "#108",
+       "element_id": "#101",
        "port": "PE"
       },
       "b": {
-       "element_id": "#113",
+       "element_id": "#105",
        "port": "1"
       },
       "points": [
@@ -4392,33 +4202,13 @@
       "terminals": {}
      },
      {
-      "id": "#120",
+      "id": "#111",
       "a": {
-       "element_id": "#114",
+       "element_id": "#106",
        "port": "1"
       },
       "b": {
-       "element_id": "#109",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#121",
-      "a": {
-       "element_id": "#109",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#115",
+       "element_id": "#107",
        "port": "1"
       },
       "points": [],
@@ -4426,19 +4216,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#122",
+      "id": "#112",
       "a": {
-       "element_id": "#109",
-       "port": "2"
+       "element_id": "#106",
+       "port": "1"
       },
       "b": {
-       "element_id": "#110",
+       "element_id": "#102",
        "port": "L"
       },
       "points": [],
@@ -4446,32 +4236,32 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#123",
+      "id": "#113",
       "a": {
-       "element_id": "#110",
+       "element_id": "#102",
        "port": "PE"
       },
       "b": {
-       "element_id": "#113",
+       "element_id": "#105",
        "port": "1"
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -4489,7 +4279,7 @@
     "loc": "RDC3"
    },
    {
-    "id": "#124",
+    "id": "#114",
     "name": "RDC4 – DC rozvaděč u T2",
     "paper": "A3",
     "width": 420.0,
@@ -4506,22 +4296,22 @@
      },
      "placements": [
       {
-       "element_id": "#125",
+       "element_id": "#115",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#126",
+       "element_id": "#116",
        "row": 0,
        "pos": 2.0
       },
       {
-       "element_id": "#127",
+       "element_id": "#117",
        "row": 0,
        "pos": 5.0
       },
       {
-       "element_id": "#128",
+       "element_id": "#118",
        "row": 0,
        "pos": 7.0
       }
@@ -4529,7 +4319,7 @@
     },
     "elements": [
      {
-      "id": "#129",
+      "id": "#119",
       "symbol_id": "sb.feed_in",
       "x": 60.0,
       "y": 240.0,
@@ -4544,23 +4334,27 @@
       "component_id": null
      },
      {
-      "id": "#125",
+      "id": "#115",
       "symbol_id": "fve.fuse_disconnect",
       "x": 60.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
        "ref": "FU2.1",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#130",
+      "id": "#120",
       "symbol_id": "sb.feed_out",
       "x": 60.0,
       "y": 170.0,
@@ -4575,23 +4369,29 @@
       "component_id": null
      },
      {
-      "id": "#126",
+      "id": "#116",
       "symbol_id": "fve.spd",
       "x": 72.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC2.1",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G4"
+       "desc": "string G4",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#131",
+      "id": "#121",
       "symbol_id": "sb.feed_out",
       "x": 40.0,
       "y": 130.0,
@@ -4604,9 +4404,9 @@
       "component_id": null
      },
      {
-      "id": "#132",
+      "id": "#122",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -4619,25 +4419,29 @@
       "component_id": null
      },
      {
-      "id": "#127",
+      "id": "#117",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 100.0,
+      "x": 110.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
        "ref": "FU2.2",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#133",
+      "id": "#123",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -4650,51 +4454,37 @@
       "component_id": null
      },
      {
-      "id": "#128",
+      "id": "#118",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC2.2",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G5"
+       "desc": "string G5",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
      {
-      "id": "#134",
+      "id": "#124",
       "a": {
-       "element_id": "#129",
+       "element_id": "#119",
        "port": "1"
       },
       "b": {
-       "element_id": "#125",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#135",
-      "a": {
-       "element_id": "#125",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#130",
+       "element_id": "#115",
        "port": "1"
       },
       "points": [],
@@ -4702,19 +4492,39 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#136",
+      "id": "#125",
       "a": {
-       "element_id": "#125",
+       "element_id": "#115",
        "port": "2"
       },
       "b": {
-       "element_id": "#126",
+       "element_id": "#120",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#126",
+      "a": {
+       "element_id": "#115",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#116",
        "port": "L"
       },
       "points": [],
@@ -4722,19 +4532,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#137",
+      "id": "#127",
       "a": {
-       "element_id": "#126",
+       "element_id": "#116",
        "port": "PE"
       },
       "b": {
-       "element_id": "#131",
+       "element_id": "#121",
        "port": "1"
       },
       "points": [
@@ -4760,33 +4570,13 @@
       "terminals": {}
      },
      {
-      "id": "#138",
+      "id": "#128",
       "a": {
-       "element_id": "#132",
+       "element_id": "#122",
        "port": "1"
       },
       "b": {
-       "element_id": "#127",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#139",
-      "a": {
-       "element_id": "#127",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#133",
+       "element_id": "#117",
        "port": "1"
       },
       "points": [],
@@ -4794,19 +4584,39 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#140",
+      "id": "#129",
       "a": {
-       "element_id": "#127",
+       "element_id": "#117",
        "port": "2"
       },
       "b": {
-       "element_id": "#128",
+       "element_id": "#123",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#130",
+      "a": {
+       "element_id": "#117",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#118",
        "port": "L"
       },
       "points": [],
@@ -4814,32 +4624,32 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#141",
+      "id": "#131",
       "a": {
-       "element_id": "#128",
+       "element_id": "#118",
        "port": "PE"
       },
       "b": {
-       "element_id": "#131",
+       "element_id": "#121",
        "port": "1"
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -4857,7 +4667,7 @@
     "loc": "RDC4"
    },
    {
-    "id": "#142",
+    "id": "#132",
     "name": "RH – AC rozvaděč FVE",
     "paper": "A3",
     "width": 420.0,
@@ -4875,22 +4685,22 @@
      },
      "placements": [
       {
-       "element_id": "#143",
+       "element_id": "#133",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#144",
+       "element_id": "#134",
        "row": 0,
        "pos": 3.0
       },
       {
-       "element_id": "#145",
+       "element_id": "#135",
        "row": 0,
        "pos": 6.0
       },
       {
-       "element_id": "#146",
+       "element_id": "#136",
        "row": 0,
        "pos": 10.0
       }
@@ -4898,7 +4708,7 @@
     },
     "elements": [
      {
-      "id": "#147",
+      "id": "#137",
       "symbol_id": "sb.feed_in",
       "x": 60.0,
       "y": 240.0,
@@ -4913,7 +4723,7 @@
       "component_id": null
      },
      {
-      "id": "#143",
+      "id": "#133",
       "symbol_id": "fve.breaker_mcb",
       "x": 60.0,
       "y": 210.0,
@@ -4928,7 +4738,7 @@
       "component_id": null
      },
      {
-      "id": "#148",
+      "id": "#138",
       "symbol_id": "sb.busbar",
       "x": 120.0,
       "y": 175.0,
@@ -4943,7 +4753,7 @@
       "component_id": null
      },
      {
-      "id": "#149",
+      "id": "#139",
       "symbol_id": "sb.feed_in",
       "x": 90.0,
       "y": 240.0,
@@ -4958,7 +4768,7 @@
       "component_id": null
      },
      {
-      "id": "#144",
+      "id": "#134",
       "symbol_id": "fve.breaker_mcb",
       "x": 90.0,
       "y": 210.0,
@@ -4973,7 +4783,7 @@
       "component_id": null
      },
      {
-      "id": "#145",
+      "id": "#135",
       "symbol_id": "fve.spd",
       "x": 120.0,
       "y": 140.0,
@@ -4987,7 +4797,7 @@
       "component_id": null
      },
      {
-      "id": "#150",
+      "id": "#140",
       "symbol_id": "sb.feed_out",
       "x": 100.0,
       "y": 105.0,
@@ -5003,7 +4813,7 @@
       "component_id": null
      },
      {
-      "id": "#146",
+      "id": "#136",
       "symbol_id": "sb.main_switch",
       "x": 180.0,
       "y": 140.0,
@@ -5017,7 +4827,7 @@
       "component_id": null
      },
      {
-      "id": "#151",
+      "id": "#141",
       "symbol_id": "sb.feed_out",
       "x": 180.0,
       "y": 105.0,
@@ -5034,13 +4844,13 @@
     ],
     "wires": [
      {
-      "id": "#152",
+      "id": "#142",
       "a": {
-       "element_id": "#147",
+       "element_id": "#137",
        "port": "1"
       },
       "b": {
-       "element_id": "#143",
+       "element_id": "#133",
        "port": "1"
       },
       "points": [],
@@ -5057,13 +4867,13 @@
       "terminals": {}
      },
      {
-      "id": "#153",
+      "id": "#143",
       "a": {
-       "element_id": "#143",
+       "element_id": "#133",
        "port": "2"
       },
       "b": {
-       "element_id": "#148",
+       "element_id": "#138",
        "port": "T1"
       },
       "points": [],
@@ -5080,13 +4890,13 @@
       "terminals": {}
      },
      {
-      "id": "#154",
+      "id": "#144",
       "a": {
-       "element_id": "#149",
+       "element_id": "#139",
        "port": "1"
       },
       "b": {
-       "element_id": "#144",
+       "element_id": "#134",
        "port": "1"
       },
       "points": [],
@@ -5103,13 +4913,13 @@
       "terminals": {}
      },
      {
-      "id": "#155",
+      "id": "#145",
       "a": {
-       "element_id": "#144",
+       "element_id": "#134",
        "port": "2"
       },
       "b": {
-       "element_id": "#148",
+       "element_id": "#138",
        "port": "T2"
       },
       "points": [],
@@ -5126,13 +4936,13 @@
       "terminals": {}
      },
      {
-      "id": "#156",
+      "id": "#146",
       "a": {
-       "element_id": "#148",
+       "element_id": "#138",
        "port": "1"
       },
       "b": {
-       "element_id": "#145",
+       "element_id": "#135",
        "port": "L"
       },
       "points": [],
@@ -5148,13 +4958,13 @@
       "terminals": {}
      },
      {
-      "id": "#157",
+      "id": "#147",
       "a": {
-       "element_id": "#145",
+       "element_id": "#135",
        "port": "PE"
       },
       "b": {
-       "element_id": "#150",
+       "element_id": "#140",
        "port": "1"
       },
       "points": [],
@@ -5167,13 +4977,13 @@
       "terminals": {}
      },
      {
-      "id": "#158",
+      "id": "#148",
       "a": {
-       "element_id": "#148",
+       "element_id": "#138",
        "port": "4"
       },
       "b": {
-       "element_id": "#150",
+       "element_id": "#140",
        "port": "1"
       },
       "points": [],
@@ -5186,13 +4996,13 @@
       "terminals": {}
      },
      {
-      "id": "#159",
+      "id": "#149",
       "a": {
-       "element_id": "#148",
+       "element_id": "#138",
        "port": "3"
       },
       "b": {
-       "element_id": "#146",
+       "element_id": "#136",
        "port": "1"
       },
       "points": [],
@@ -5209,13 +5019,13 @@
       "terminals": {}
      },
      {
-      "id": "#160",
+      "id": "#150",
       "a": {
-       "element_id": "#146",
+       "element_id": "#136",
        "port": "2"
       },
       "b": {
-       "element_id": "#151",
+       "element_id": "#141",
        "port": "1"
       },
       "points": [],
@@ -5245,12 +5055,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5268,12 +5078,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5291,12 +5101,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5314,12 +5124,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5337,12 +5147,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5360,12 +5170,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5383,12 +5193,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5406,12 +5216,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5429,12 +5239,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5490,12 +5300,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5513,12 +5323,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5536,12 +5346,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5559,12 +5369,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5582,12 +5392,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5605,12 +5415,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -5748,15 +5558,16 @@
  },
  "route2_terminals": {
   "format": "envocad-project",
-  "format_version": 9,
+  "format_version": 12,
   "name": "Nový projekt FVE",
   "meta": {
+   "building": "firma",
    "p_installed_kwp": "17.1"
   },
   "sheets": [
    {
     "id": "#1",
-    "name": "Jednopólové schéma",
+    "name": "Blokové schéma",
     "paper": "A2",
     "width": 594.0,
     "height": 420.0,
@@ -5929,8 +5740,8 @@
        "cable_id": "#11"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -5954,8 +5765,8 @@
        "cable_id": "#13"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -5979,8 +5790,8 @@
        "cable_id": "#15"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6013,8 +5824,8 @@
        "cable_id": "#17"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6047,8 +5858,8 @@
        "cable_id": "#19"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6072,8 +5883,8 @@
        "cable_id": "#21"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6097,8 +5908,8 @@
        "cable_id": "#23"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6131,8 +5942,8 @@
        "cable_id": "#25"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -6222,23 +6033,13 @@
       {
        "element_id": "#32",
        "row": 0,
-       "pos": 2.0
-      },
-      {
-       "element_id": "#33",
-       "row": 0,
-       "pos": 5.0
-      },
-      {
-       "element_id": "#34",
-       "row": 0,
-       "pos": 7.0
+       "pos": 3.0
       }
      ]
     },
     "elements": [
      {
-      "id": "#35",
+      "id": "#33",
       "symbol_id": "sb.feed_in",
       "x": 60.0,
       "y": 240.0,
@@ -6253,22 +6054,7 @@
       "component_id": null
      },
      {
-      "id": "#31",
-      "symbol_id": "fve.dc_disconnect",
-      "x": 60.0,
-      "y": 210.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "QS1.1",
-       "in_": "25",
-       "un": "1000",
-       "poles": "2",
-       "modules": "2"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#36",
+      "id": "#34",
       "symbol_id": "sb.feed_out",
       "x": 60.0,
       "y": 170.0,
@@ -6283,7 +6069,7 @@
       "component_id": null
      },
      {
-      "id": "#32",
+      "id": "#31",
       "symbol_id": "fve.spd",
       "x": 72.5,
       "y": 180.0,
@@ -6291,15 +6077,21 @@
       "attrs": {
        "ref": "SPD-DC1.1",
        "spd_type": "T1+T2 DC",
-       "uc": "1000",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G1"
+       "desc": "string G1",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#37",
+      "id": "#35",
       "symbol_id": "sb.feed_out",
       "x": 40.0,
       "y": 130.0,
@@ -6312,9 +6104,9 @@
       "component_id": null
      },
      {
-      "id": "#38",
+      "id": "#36",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -6327,24 +6119,9 @@
       "component_id": null
      },
      {
-      "id": "#33",
-      "symbol_id": "fve.dc_disconnect",
-      "x": 100.0,
-      "y": 210.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "QS1.2",
-       "in_": "25",
-       "un": "1000",
-       "poles": "2",
-       "modules": "2"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#39",
+      "id": "#37",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -6357,51 +6134,37 @@
       "component_id": null
      },
      {
-      "id": "#34",
+      "id": "#32",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.2",
        "spd_type": "T1+T2 DC",
-       "uc": "1000",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G2"
+       "desc": "string G2",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
      {
-      "id": "#40",
+      "id": "#38",
       "a": {
-       "element_id": "#35",
+       "element_id": "#33",
        "port": "1"
       },
       "b": {
-       "element_id": "#31",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#41",
-      "a": {
-       "element_id": "#31",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#36",
+       "element_id": "#34",
        "port": "1"
       },
       "points": [],
@@ -6409,19 +6172,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#42",
+      "id": "#39",
       "a": {
-       "element_id": "#31",
-       "port": "2"
+       "element_id": "#33",
+       "port": "1"
       },
       "b": {
-       "element_id": "#32",
+       "element_id": "#31",
        "port": "L"
       },
       "points": [],
@@ -6429,19 +6192,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#43",
+      "id": "#40",
       "a": {
-       "element_id": "#32",
+       "element_id": "#31",
        "port": "PE"
       },
       "b": {
-       "element_id": "#37",
+       "element_id": "#35",
        "port": "1"
       },
       "points": [
@@ -6467,33 +6230,13 @@
       "terminals": {}
      },
      {
-      "id": "#44",
+      "id": "#41",
       "a": {
-       "element_id": "#38",
+       "element_id": "#36",
        "port": "1"
       },
       "b": {
-       "element_id": "#33",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#45",
-      "a": {
-       "element_id": "#33",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#39",
+       "element_id": "#37",
        "port": "1"
       },
       "points": [],
@@ -6501,19 +6244,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#46",
+      "id": "#42",
       "a": {
-       "element_id": "#33",
-       "port": "2"
+       "element_id": "#36",
+       "port": "1"
       },
       "b": {
-       "element_id": "#34",
+       "element_id": "#32",
        "port": "L"
       },
       "points": [],
@@ -6521,32 +6264,32 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#47",
+      "id": "#43",
       "a": {
-       "element_id": "#34",
+       "element_id": "#32",
        "port": "PE"
       },
       "b": {
-       "element_id": "#37",
+       "element_id": "#35",
        "port": "1"
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -6564,7 +6307,7 @@
     "loc": "RDC1"
    },
    {
-    "id": "#48",
+    "id": "#44",
     "name": "RDC2 – DC rozvaděč po trase T1 (2)",
     "paper": "A3",
     "width": 420.0,
@@ -6581,30 +6324,20 @@
      },
      "placements": [
       {
-       "element_id": "#49",
+       "element_id": "#45",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#50",
+       "element_id": "#46",
        "row": 0,
-       "pos": 2.0
-      },
-      {
-       "element_id": "#51",
-       "row": 0,
-       "pos": 5.0
-      },
-      {
-       "element_id": "#52",
-       "row": 0,
-       "pos": 7.0
+       "pos": 3.0
       }
      ]
     },
     "elements": [
      {
-      "id": "#53",
+      "id": "#47",
       "symbol_id": "sb.feed_in",
       "x": 60.0,
       "y": 240.0,
@@ -6619,22 +6352,7 @@
       "component_id": null
      },
      {
-      "id": "#49",
-      "symbol_id": "fve.dc_disconnect",
-      "x": 60.0,
-      "y": 210.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "QS1.1",
-       "in_": "25",
-       "un": "1000",
-       "poles": "2",
-       "modules": "2"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#54",
+      "id": "#48",
       "symbol_id": "sb.feed_out",
       "x": 60.0,
       "y": 170.0,
@@ -6649,7 +6367,7 @@
       "component_id": null
      },
      {
-      "id": "#50",
+      "id": "#45",
       "symbol_id": "fve.spd",
       "x": 72.5,
       "y": 180.0,
@@ -6657,15 +6375,21 @@
       "attrs": {
        "ref": "SPD-DC1.1",
        "spd_type": "T1+T2 DC",
-       "uc": "1000",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G1"
+       "desc": "string G1",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#55",
+      "id": "#49",
       "symbol_id": "sb.feed_out",
       "x": 40.0,
       "y": 130.0,
@@ -6678,9 +6402,9 @@
       "component_id": null
      },
      {
-      "id": "#56",
+      "id": "#50",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -6694,23 +6418,8 @@
      },
      {
       "id": "#51",
-      "symbol_id": "fve.dc_disconnect",
-      "x": 100.0,
-      "y": 210.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "QS1.2",
-       "in_": "25",
-       "un": "1000",
-       "poles": "2",
-       "modules": "2"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#57",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -6723,51 +6432,37 @@
       "component_id": null
      },
      {
-      "id": "#52",
+      "id": "#46",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.2",
        "spd_type": "T1+T2 DC",
-       "uc": "1000",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G2"
+       "desc": "string G2",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
      {
-      "id": "#58",
+      "id": "#52",
       "a": {
-       "element_id": "#53",
+       "element_id": "#47",
        "port": "1"
       },
       "b": {
-       "element_id": "#49",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#59",
-      "a": {
-       "element_id": "#49",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#54",
+       "element_id": "#48",
        "port": "1"
       },
       "points": [],
@@ -6775,19 +6470,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#60",
+      "id": "#53",
       "a": {
-       "element_id": "#49",
-       "port": "2"
+       "element_id": "#47",
+       "port": "1"
       },
       "b": {
-       "element_id": "#50",
+       "element_id": "#45",
        "port": "L"
       },
       "points": [],
@@ -6795,19 +6490,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#61",
+      "id": "#54",
       "a": {
-       "element_id": "#50",
+       "element_id": "#45",
        "port": "PE"
       },
       "b": {
-       "element_id": "#55",
+       "element_id": "#49",
        "port": "1"
       },
       "points": [
@@ -6833,9 +6528,9 @@
       "terminals": {}
      },
      {
-      "id": "#62",
+      "id": "#55",
       "a": {
-       "element_id": "#56",
+       "element_id": "#50",
        "port": "1"
       },
       "b": {
@@ -6847,39 +6542,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#63",
+      "id": "#56",
       "a": {
-       "element_id": "#51",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#57",
+       "element_id": "#50",
        "port": "1"
       },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#64",
-      "a": {
-       "element_id": "#51",
-       "port": "2"
-      },
       "b": {
-       "element_id": "#52",
+       "element_id": "#46",
        "port": "L"
       },
       "points": [],
@@ -6887,32 +6562,32 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#65",
+      "id": "#57",
       "a": {
-       "element_id": "#52",
+       "element_id": "#46",
        "port": "PE"
       },
       "b": {
-       "element_id": "#55",
+       "element_id": "#49",
        "port": "1"
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -6930,7 +6605,7 @@
     "loc": "RDC2"
    },
    {
-    "id": "#66",
+    "id": "#58",
     "name": "RDC3 – DC rozvaděč u T1",
     "paper": "A3",
     "width": 420.0,
@@ -6947,22 +6622,22 @@
      },
      "placements": [
       {
-       "element_id": "#67",
+       "element_id": "#59",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#68",
+       "element_id": "#60",
        "row": 0,
        "pos": 2.0
       },
       {
-       "element_id": "#69",
+       "element_id": "#61",
        "row": 0,
        "pos": 5.0
       },
       {
-       "element_id": "#70",
+       "element_id": "#62",
        "row": 0,
        "pos": 7.0
       }
@@ -6970,7 +6645,7 @@
     },
     "elements": [
      {
-      "id": "#71",
+      "id": "#63",
       "symbol_id": "sb.feed_in",
       "x": 60.0,
       "y": 240.0,
@@ -6985,7 +6660,7 @@
       "component_id": null
      },
      {
-      "id": "#67",
+      "id": "#59",
       "symbol_id": "fve.fuse_disconnect",
       "x": 60.0,
       "y": 210.0,
@@ -6996,12 +6671,16 @@
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#72",
+      "id": "#64",
       "symbol_id": "sb.feed_out",
       "x": 60.0,
       "y": 170.0,
@@ -7016,7 +6695,7 @@
       "component_id": null
      },
      {
-      "id": "#68",
+      "id": "#60",
       "symbol_id": "fve.spd",
       "x": 72.5,
       "y": 180.0,
@@ -7024,15 +6703,21 @@
       "attrs": {
        "ref": "SPD-DC1.1",
        "spd_type": "T1+T2 DC",
-       "uc": "1000",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G1"
+       "desc": "string G1",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#73",
+      "id": "#65",
       "symbol_id": "sb.feed_out",
       "x": 40.0,
       "y": 130.0,
@@ -7045,9 +6730,9 @@
       "component_id": null
      },
      {
-      "id": "#74",
+      "id": "#66",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -7060,9 +6745,9 @@
       "component_id": null
      },
      {
-      "id": "#69",
+      "id": "#61",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 100.0,
+      "x": 110.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
@@ -7071,14 +6756,18 @@
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#75",
+      "id": "#67",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -7091,51 +6780,37 @@
       "component_id": null
      },
      {
-      "id": "#70",
+      "id": "#62",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.2",
        "spd_type": "T1+T2 DC",
-       "uc": "1000",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G2"
+       "desc": "string G2",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
      {
-      "id": "#76",
+      "id": "#68",
       "a": {
-       "element_id": "#71",
+       "element_id": "#63",
        "port": "1"
       },
       "b": {
-       "element_id": "#67",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#77",
-      "a": {
-       "element_id": "#67",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#72",
+       "element_id": "#59",
        "port": "1"
       },
       "points": [],
@@ -7143,19 +6818,39 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#78",
+      "id": "#69",
       "a": {
-       "element_id": "#67",
+       "element_id": "#59",
        "port": "2"
       },
       "b": {
-       "element_id": "#68",
+       "element_id": "#64",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#70",
+      "a": {
+       "element_id": "#59",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#60",
        "port": "L"
       },
       "points": [],
@@ -7163,19 +6858,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#79",
+      "id": "#71",
       "a": {
-       "element_id": "#68",
+       "element_id": "#60",
        "port": "PE"
       },
       "b": {
-       "element_id": "#73",
+       "element_id": "#65",
        "port": "1"
       },
       "points": [
@@ -7201,33 +6896,13 @@
       "terminals": {}
      },
      {
-      "id": "#80",
+      "id": "#72",
       "a": {
-       "element_id": "#74",
+       "element_id": "#66",
        "port": "1"
       },
       "b": {
-       "element_id": "#69",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#81",
-      "a": {
-       "element_id": "#69",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#75",
+       "element_id": "#61",
        "port": "1"
       },
       "points": [],
@@ -7235,19 +6910,39 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#82",
+      "id": "#73",
       "a": {
-       "element_id": "#69",
+       "element_id": "#61",
        "port": "2"
       },
       "b": {
-       "element_id": "#70",
+       "element_id": "#67",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#74",
+      "a": {
+       "element_id": "#61",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#62",
        "port": "L"
       },
       "points": [],
@@ -7255,32 +6950,32 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#83",
+      "id": "#75",
       "a": {
-       "element_id": "#70",
+       "element_id": "#62",
        "port": "PE"
       },
       "b": {
-       "element_id": "#73",
+       "element_id": "#65",
        "port": "1"
       },
       "points": [
        [
-        135.0,
+        145.0,
         170.0
        ],
        [
-        135.0,
+        145.0,
         147.5
        ],
        [
-        80.0,
+        90.0,
         147.5
        ]
       ],
@@ -7298,7 +6993,7 @@
     "loc": "RDC3"
    },
    {
-    "id": "#84",
+    "id": "#76",
     "name": "RH – AC rozvaděč FVE",
     "paper": "A3",
     "width": 420.0,
@@ -7316,32 +7011,32 @@
      },
      "placements": [
       {
-       "element_id": "#85",
+       "element_id": "#77",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#86",
+       "element_id": "#78",
        "row": 0,
        "pos": 4.0
       },
       {
-       "element_id": "#87",
+       "element_id": "#79",
        "row": 0,
        "pos": 8.0
       },
       {
-       "element_id": "#88",
+       "element_id": "#80",
        "row": 0,
        "pos": 11.0
       },
       {
-       "element_id": "#89",
+       "element_id": "#81",
        "row": 0,
        "pos": 12.77
       },
       {
-       "element_id": "#90",
+       "element_id": "#82",
        "row": 0,
        "pos": 14.54
       }
@@ -7349,7 +7044,7 @@
     },
     "elements": [
      {
-      "id": "#91",
+      "id": "#83",
       "symbol_id": "sb.feed_in",
       "x": 60.0,
       "y": 240.0,
@@ -7364,7 +7059,7 @@
       "component_id": null
      },
      {
-      "id": "#87",
+      "id": "#79",
       "symbol_id": "fve.breaker_mcb",
       "x": 60.0,
       "y": 210.0,
@@ -7379,7 +7074,7 @@
       "component_id": null
      },
      {
-      "id": "#88",
+      "id": "#80",
       "symbol_id": "sb.terminal_block",
       "x": 60.0,
       "y": 170.0,
@@ -7392,7 +7087,7 @@
       "component_id": null
      },
      {
-      "id": "#86",
+      "id": "#78",
       "symbol_id": "fve.spd",
       "x": 90.0,
       "y": 140.0,
@@ -7406,7 +7101,7 @@
       "component_id": null
      },
      {
-      "id": "#85",
+      "id": "#77",
       "symbol_id": "sb.main_switch",
       "x": 120.0,
       "y": 140.0,
@@ -7420,7 +7115,7 @@
       "component_id": null
      },
      {
-      "id": "#92",
+      "id": "#84",
       "symbol_id": "sb.feed_out",
       "x": 120.0,
       "y": 105.0,
@@ -7435,7 +7130,7 @@
       "component_id": null
      },
      {
-      "id": "#93",
+      "id": "#85",
       "symbol_id": "sb.pe_bar",
       "x": 90.0,
       "y": 110.0,
@@ -7447,7 +7142,7 @@
       "component_id": null
      },
      {
-      "id": "#89",
+      "id": "#81",
       "symbol_id": "sb.terminal_block",
       "x": 90.0,
       "y": 170.0,
@@ -7460,7 +7155,7 @@
       "component_id": null
      },
      {
-      "id": "#90",
+      "id": "#82",
       "symbol_id": "sb.terminal_block",
       "x": 120.0,
       "y": 170.0,
@@ -7475,36 +7170,13 @@
     ],
     "wires": [
      {
-      "id": "#94",
+      "id": "#86",
       "a": {
-       "element_id": "#91",
+       "element_id": "#83",
        "port": "1"
       },
       "b": {
-       "element_id": "#87",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#95",
-      "a": {
-       "element_id": "#87",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#88",
+       "element_id": "#79",
        "port": "1"
       },
       "points": [],
@@ -7521,13 +7193,36 @@
       "terminals": {}
      },
      {
-      "id": "#96",
+      "id": "#87",
       "a": {
-       "element_id": "#89",
+       "element_id": "#79",
        "port": "2"
       },
       "b": {
-       "element_id": "#86",
+       "element_id": "#80",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#88",
+      "a": {
+       "element_id": "#81",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#78",
        "port": "L"
       },
       "points": [],
@@ -7543,13 +7238,13 @@
       "terminals": {}
      },
      {
-      "id": "#97",
+      "id": "#89",
       "a": {
-       "element_id": "#89",
+       "element_id": "#81",
        "port": "2"
       },
       "b": {
-       "element_id": "#93",
+       "element_id": "#85",
        "port": "2"
       },
       "points": [],
@@ -7562,13 +7257,13 @@
       "terminals": {}
      },
      {
-      "id": "#98",
+      "id": "#90",
       "a": {
-       "element_id": "#90",
+       "element_id": "#82",
        "port": "2"
       },
       "b": {
-       "element_id": "#85",
+       "element_id": "#77",
        "port": "1"
       },
       "points": [],
@@ -7585,13 +7280,13 @@
       "terminals": {}
      },
      {
-      "id": "#99",
+      "id": "#91",
       "a": {
-       "element_id": "#86",
+       "element_id": "#78",
        "port": "PE"
       },
       "b": {
-       "element_id": "#93",
+       "element_id": "#85",
        "port": "1"
       },
       "points": [],
@@ -7604,13 +7299,13 @@
       "terminals": {}
      },
      {
-      "id": "#100",
+      "id": "#92",
       "a": {
-       "element_id": "#85",
+       "element_id": "#77",
        "port": "2"
       },
       "b": {
-       "element_id": "#92",
+       "element_id": "#84",
        "port": "1"
       },
       "points": [],
@@ -7668,12 +7363,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -7691,12 +7386,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -7714,12 +7409,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -7737,12 +7432,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -7760,12 +7455,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -7783,12 +7478,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -7806,12 +7501,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -7829,12 +7524,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -7949,15 +7644,16 @@
  },
  "with_component": {
   "format": "envocad-project",
-  "format_version": 9,
+  "format_version": 12,
   "name": "Nový projekt FVE",
   "meta": {
+   "building": "firma",
    "p_installed_kwp": "34.2"
   },
   "sheets": [
    {
     "id": "#1",
-    "name": "Jednopólové schéma",
+    "name": "Blokové schéma",
     "paper": "A2",
     "width": 594.0,
     "height": 420.0,
@@ -8174,8 +7870,8 @@
        "cable_id": "#13"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8199,8 +7895,8 @@
        "cable_id": "#15"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8233,8 +7929,8 @@
        "cable_id": "#17"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8267,8 +7963,8 @@
        "cable_id": "#19"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8292,8 +7988,8 @@
        "cable_id": "#21"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8326,8 +8022,8 @@
        "cable_id": "#23"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8360,8 +8056,8 @@
        "cable_id": "#25"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8385,8 +8081,8 @@
        "cable_id": "#27"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8419,8 +8115,8 @@
        "cable_id": "#29"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8453,8 +8149,8 @@
        "cable_id": "#31"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8478,8 +8174,8 @@
        "cable_id": "#33"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8512,8 +8208,8 @@
        "cable_id": "#35"
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -8626,43 +8322,23 @@
       {
        "element_id": "#44",
        "row": 0,
-       "pos": 2.0
+       "pos": 3.0
       },
       {
        "element_id": "#45",
        "row": 0,
-       "pos": 5.0
+       "pos": 6.0
       },
       {
        "element_id": "#46",
        "row": 0,
-       "pos": 7.0
-      },
-      {
-       "element_id": "#47",
-       "row": 0,
-       "pos": 10.0
-      },
-      {
-       "element_id": "#48",
-       "row": 0,
-       "pos": 12.0
-      },
-      {
-       "element_id": "#49",
-       "row": 0,
-       "pos": 15.0
-      },
-      {
-       "element_id": "#50",
-       "row": 0,
-       "pos": 17.0
+       "pos": 9.0
       }
      ]
     },
     "elements": [
      {
-      "id": "#51",
+      "id": "#47",
       "symbol_id": "sb.feed_in",
       "x": 60.0,
       "y": 240.0,
@@ -8677,22 +8353,7 @@
       "component_id": null
      },
      {
-      "id": "#43",
-      "symbol_id": "fve.dc_disconnect",
-      "x": 60.0,
-      "y": 210.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "QS1.1",
-       "in_": "32",
-       "un": "1000",
-       "poles": "2",
-       "modules": "2"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#52",
+      "id": "#48",
       "symbol_id": "sb.feed_out",
       "x": 60.0,
       "y": 170.0,
@@ -8707,23 +8368,29 @@
       "component_id": null
      },
      {
-      "id": "#44",
+      "id": "#43",
       "symbol_id": "fve.spd",
       "x": 72.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.1",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G1"
+       "desc": "string G1",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#53",
+      "id": "#49",
       "symbol_id": "sb.feed_out",
       "x": 40.0,
       "y": 130.0,
@@ -8736,9 +8403,9 @@
       "component_id": null
      },
      {
-      "id": "#54",
+      "id": "#50",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -8751,24 +8418,9 @@
       "component_id": null
      },
      {
-      "id": "#45",
-      "symbol_id": "fve.dc_disconnect",
-      "x": 100.0,
-      "y": 210.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "QS1.2",
-       "in_": "32",
-       "un": "1000",
-       "poles": "2",
-       "modules": "2"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#55",
+      "id": "#51",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -8781,25 +8433,31 @@
       "component_id": null
      },
      {
-      "id": "#46",
+      "id": "#44",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.2",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G2"
+       "desc": "string G2",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#56",
+      "id": "#52",
       "symbol_id": "sb.feed_in",
-      "x": 140.0,
+      "x": 160.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -8812,24 +8470,9 @@
       "component_id": null
      },
      {
-      "id": "#47",
-      "symbol_id": "fve.dc_disconnect",
-      "x": 140.0,
-      "y": 210.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "QS1.3",
-       "in_": "32",
-       "un": "1000",
-       "poles": "2",
-       "modules": "2"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#57",
+      "id": "#53",
       "symbol_id": "sb.feed_out",
-      "x": 140.0,
+      "x": 160.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -8842,25 +8485,31 @@
       "component_id": null
      },
      {
-      "id": "#48",
+      "id": "#45",
       "symbol_id": "fve.spd",
-      "x": 152.5,
+      "x": 172.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.3",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G3"
+       "desc": "string G3",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#58",
+      "id": "#54",
       "symbol_id": "sb.feed_in",
-      "x": 180.0,
+      "x": 210.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -8873,24 +8522,9 @@
       "component_id": null
      },
      {
-      "id": "#49",
-      "symbol_id": "fve.dc_disconnect",
-      "x": 180.0,
-      "y": 210.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "QS1.4",
-       "in_": "32",
-       "un": "1000",
-       "poles": "2",
-       "modules": "2"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#59",
+      "id": "#55",
       "symbol_id": "sb.feed_out",
-      "x": 180.0,
+      "x": 210.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -8903,51 +8537,37 @@
       "component_id": null
      },
      {
-      "id": "#50",
+      "id": "#46",
       "symbol_id": "fve.spd",
-      "x": 192.5,
+      "x": 222.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.4",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G4"
+       "desc": "string G4",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
      {
-      "id": "#60",
+      "id": "#56",
       "a": {
-       "element_id": "#51",
+       "element_id": "#47",
        "port": "1"
       },
       "b": {
-       "element_id": "#43",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#61",
-      "a": {
-       "element_id": "#43",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#52",
+       "element_id": "#48",
        "port": "1"
       },
       "points": [],
@@ -8955,19 +8575,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#62",
+      "id": "#57",
       "a": {
-       "element_id": "#43",
-       "port": "2"
+       "element_id": "#47",
+       "port": "1"
       },
       "b": {
-       "element_id": "#44",
+       "element_id": "#43",
        "port": "L"
       },
       "points": [],
@@ -8975,19 +8595,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#63",
+      "id": "#58",
       "a": {
-       "element_id": "#44",
+       "element_id": "#43",
        "port": "PE"
       },
       "b": {
-       "element_id": "#53",
+       "element_id": "#49",
        "port": "1"
       },
       "points": [
@@ -9013,13 +8633,13 @@
       "terminals": {}
      },
      {
-      "id": "#64",
+      "id": "#59",
       "a": {
-       "element_id": "#54",
+       "element_id": "#50",
        "port": "1"
       },
       "b": {
-       "element_id": "#45",
+       "element_id": "#51",
        "port": "1"
       },
       "points": [],
@@ -9027,16 +8647,140 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#60",
+      "a": {
+       "element_id": "#50",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#44",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#61",
+      "a": {
+       "element_id": "#44",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#49",
+       "port": "1"
+      },
+      "points": [
+       [
+        145.0,
+        170.0
+       ],
+       [
+        145.0,
+        147.5
+       ],
+       [
+        90.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#62",
+      "a": {
+       "element_id": "#52",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#53",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#63",
+      "a": {
+       "element_id": "#52",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#45",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#64",
+      "a": {
+       "element_id": "#45",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#49",
+       "port": "1"
+      },
+      "points": [
+       [
+        195.0,
+        170.0
+       ],
+       [
+        195.0,
+        147.5
+       ],
+       [
+        140.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
       ],
       "terminals": {}
      },
      {
       "id": "#65",
       "a": {
-       "element_id": "#45",
-       "port": "2"
+       "element_id": "#54",
+       "port": "1"
       },
       "b": {
        "element_id": "#55",
@@ -9047,16 +8791,16 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
       "id": "#66",
       "a": {
-       "element_id": "#45",
-       "port": "2"
+       "element_id": "#54",
+       "port": "1"
       },
       "b": {
        "element_id": "#46",
@@ -9067,8 +8811,8 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
@@ -9079,204 +8823,20 @@
        "port": "PE"
       },
       "b": {
-       "element_id": "#53",
+       "element_id": "#49",
        "port": "1"
       },
       "points": [
        [
-        135.0,
+        245.0,
         170.0
        ],
        [
-        135.0,
+        245.0,
         147.5
        ],
        [
-        80.0,
-        147.5
-       ]
-      ],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#68",
-      "a": {
-       "element_id": "#56",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#47",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#69",
-      "a": {
-       "element_id": "#47",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#57",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#70",
-      "a": {
-       "element_id": "#47",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#48",
-       "port": "L"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#71",
-      "a": {
-       "element_id": "#48",
-       "port": "PE"
-      },
-      "b": {
-       "element_id": "#53",
-       "port": "1"
-      },
-      "points": [
-       [
-        175.0,
-        170.0
-       ],
-       [
-        175.0,
-        147.5
-       ],
-       [
-        120.0,
-        147.5
-       ]
-      ],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#72",
-      "a": {
-       "element_id": "#58",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#49",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#73",
-      "a": {
-       "element_id": "#49",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#59",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#74",
-      "a": {
-       "element_id": "#49",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#50",
-       "port": "L"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#75",
-      "a": {
-       "element_id": "#50",
-       "port": "PE"
-      },
-      "b": {
-       "element_id": "#53",
-       "port": "1"
-      },
-      "points": [
-       [
-        215.0,
-        170.0
-       ],
-       [
-        215.0,
-        147.5
-       ],
-       [
-        160.0,
+        190.0,
         147.5
        ]
       ],
@@ -9294,7 +8854,7 @@
     "loc": "RDC1"
    },
    {
-    "id": "#76",
+    "id": "#68",
     "name": "RDC2 – DC rozvaděč u T1",
     "paper": "A3",
     "width": 420.0,
@@ -9311,42 +8871,42 @@
      },
      "placements": [
       {
-       "element_id": "#77",
+       "element_id": "#69",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#78",
+       "element_id": "#70",
        "row": 0,
        "pos": 2.0
       },
       {
-       "element_id": "#79",
+       "element_id": "#71",
        "row": 0,
        "pos": 5.0
       },
       {
-       "element_id": "#80",
+       "element_id": "#72",
        "row": 0,
        "pos": 7.0
       },
       {
-       "element_id": "#81",
+       "element_id": "#73",
        "row": 0,
        "pos": 10.0
       },
       {
-       "element_id": "#82",
+       "element_id": "#74",
        "row": 0,
        "pos": 12.0
       },
       {
-       "element_id": "#83",
+       "element_id": "#75",
        "row": 0,
        "pos": 15.0
       },
       {
-       "element_id": "#84",
+       "element_id": "#76",
        "row": 0,
        "pos": 17.0
       }
@@ -9354,7 +8914,7 @@
     },
     "elements": [
      {
-      "id": "#85",
+      "id": "#77",
       "symbol_id": "sb.feed_in",
       "x": 60.0,
       "y": 240.0,
@@ -9369,23 +8929,27 @@
       "component_id": null
      },
      {
-      "id": "#77",
+      "id": "#69",
       "symbol_id": "fve.fuse_disconnect",
       "x": 60.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
        "ref": "FU1.1",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#86",
+      "id": "#78",
       "symbol_id": "sb.feed_out",
       "x": 60.0,
       "y": 170.0,
@@ -9400,23 +8964,29 @@
       "component_id": null
      },
      {
-      "id": "#78",
+      "id": "#70",
       "symbol_id": "fve.spd",
       "x": 72.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.1",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G1"
+       "desc": "string G1",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#87",
+      "id": "#79",
       "symbol_id": "sb.feed_out",
       "x": 40.0,
       "y": 130.0,
@@ -9429,9 +8999,9 @@
       "component_id": null
      },
      {
-      "id": "#88",
+      "id": "#80",
       "symbol_id": "sb.feed_in",
-      "x": 100.0,
+      "x": 110.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -9444,25 +9014,29 @@
       "component_id": null
      },
      {
-      "id": "#79",
+      "id": "#71",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 100.0,
+      "x": 110.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
        "ref": "FU1.2",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#89",
+      "id": "#81",
       "symbol_id": "sb.feed_out",
-      "x": 100.0,
+      "x": 110.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -9475,25 +9049,31 @@
       "component_id": null
      },
      {
-      "id": "#80",
+      "id": "#72",
       "symbol_id": "fve.spd",
-      "x": 112.5,
+      "x": 122.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.2",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G2"
+       "desc": "string G2",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#90",
+      "id": "#82",
       "symbol_id": "sb.feed_in",
-      "x": 140.0,
+      "x": 160.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -9506,25 +9086,29 @@
       "component_id": null
      },
      {
-      "id": "#81",
+      "id": "#73",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 140.0,
+      "x": 160.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
        "ref": "FU1.3",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#91",
+      "id": "#83",
       "symbol_id": "sb.feed_out",
-      "x": 140.0,
+      "x": 160.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -9537,25 +9121,31 @@
       "component_id": null
      },
      {
-      "id": "#82",
+      "id": "#74",
       "symbol_id": "fve.spd",
-      "x": 152.5,
+      "x": 172.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.3",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G3"
+       "desc": "string G3",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#92",
+      "id": "#84",
       "symbol_id": "sb.feed_in",
-      "x": 180.0,
+      "x": 210.0,
       "y": 240.0,
       "rotation": 0,
       "attrs": {
@@ -9568,25 +9158,29 @@
       "component_id": null
      },
      {
-      "id": "#83",
+      "id": "#75",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 180.0,
+      "x": 210.0,
       "y": 210.0,
       "rotation": 270,
       "attrs": {
        "ref": "FU1.4",
-       "in_": "15",
+       "in_": "25",
        "char": "gPV",
        "un": "1000",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "type": "EFH 10 DC 2p",
+       "manufacturer": "ETI",
+       "p_loss_w": "6",
+       "cross_max": "25"
       },
-      "component_id": null
+      "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#93",
+      "id": "#85",
       "symbol_id": "sb.feed_out",
-      "x": 180.0,
+      "x": 210.0,
       "y": 170.0,
       "rotation": 0,
       "attrs": {
@@ -9599,31 +9193,37 @@
       "component_id": null
      },
      {
-      "id": "#84",
+      "id": "#76",
       "symbol_id": "fve.spd",
-      "x": 192.5,
+      "x": 222.5,
       "y": 180.0,
       "rotation": 0,
       "attrs": {
        "ref": "SPD-DC1.4",
-       "spd_type": "T2 DC",
-       "uc": "1000",
+       "spd_type": "T1+T2 DC",
+       "uc": "1000 V DC",
        "poles": "3",
        "modules": "3",
-       "desc": "string G4"
+       "desc": "string G4",
+       "type": "VPU PV I+II 3 1000",
+       "manufacturer": "Weidmüller",
+       "t_min": "-40",
+       "t_max": "85",
+       "up": "3,8",
+       "iscpv": "11"
       },
-      "component_id": null
+      "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      }
     ],
     "wires": [
      {
-      "id": "#94",
+      "id": "#86",
       "a": {
-       "element_id": "#85",
+       "element_id": "#77",
        "port": "1"
       },
       "b": {
-       "element_id": "#77",
+       "element_id": "#69",
        "port": "1"
       },
       "points": [],
@@ -9631,39 +9231,39 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#95",
+      "id": "#87",
       "a": {
-       "element_id": "#77",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#86",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#96",
-      "a": {
-       "element_id": "#77",
+       "element_id": "#69",
        "port": "2"
       },
       "b": {
        "element_id": "#78",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#88",
+      "a": {
+       "element_id": "#69",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#70",
        "port": "L"
       },
       "points": [],
@@ -9671,19 +9271,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
-      "id": "#97",
+      "id": "#89",
       "a": {
-       "element_id": "#78",
+       "element_id": "#70",
        "port": "PE"
       },
       "b": {
-       "element_id": "#87",
+       "element_id": "#79",
        "port": "1"
       },
       "points": [
@@ -9709,13 +9309,13 @@
       "terminals": {}
      },
      {
-      "id": "#98",
+      "id": "#90",
       "a": {
-       "element_id": "#88",
+       "element_id": "#80",
        "port": "1"
       },
       "b": {
-       "element_id": "#79",
+       "element_id": "#71",
        "port": "1"
       },
       "points": [],
@@ -9723,19 +9323,203 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#91",
+      "a": {
+       "element_id": "#71",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#81",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#92",
+      "a": {
+       "element_id": "#71",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#72",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#93",
+      "a": {
+       "element_id": "#72",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#79",
+       "port": "1"
+      },
+      "points": [
+       [
+        145.0,
+        170.0
+       ],
+       [
+        145.0,
+        147.5
+       ],
+       [
+        90.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#94",
+      "a": {
+       "element_id": "#82",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#73",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#95",
+      "a": {
+       "element_id": "#73",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#83",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#96",
+      "a": {
+       "element_id": "#73",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#74",
+       "port": "L"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#97",
+      "a": {
+       "element_id": "#74",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#79",
+       "port": "1"
+      },
+      "points": [
+       [
+        195.0,
+        170.0
+       ],
+       [
+        195.0,
+        147.5
+       ],
+       [
+        140.0,
+        147.5
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#98",
+      "a": {
+       "element_id": "#84",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#75",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
       "id": "#99",
       "a": {
-       "element_id": "#79",
+       "element_id": "#75",
        "port": "2"
       },
       "b": {
-       "element_id": "#89",
+       "element_id": "#85",
        "port": "1"
       },
       "points": [],
@@ -9743,19 +9527,19 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
       "id": "#100",
       "a": {
-       "element_id": "#79",
+       "element_id": "#75",
        "port": "2"
       },
       "b": {
-       "element_id": "#80",
+       "element_id": "#76",
        "port": "L"
       },
       "points": [],
@@ -9763,216 +9547,32 @@
        "ref": ""
       },
       "conductors": [
-       "DC+",
-       "DC-"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
       "id": "#101",
       "a": {
-       "element_id": "#80",
+       "element_id": "#76",
        "port": "PE"
       },
       "b": {
-       "element_id": "#87",
+       "element_id": "#79",
        "port": "1"
       },
       "points": [
        [
-        135.0,
+        245.0,
         170.0
        ],
        [
-        135.0,
+        245.0,
         147.5
        ],
        [
-        80.0,
-        147.5
-       ]
-      ],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#102",
-      "a": {
-       "element_id": "#90",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#81",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#103",
-      "a": {
-       "element_id": "#81",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#91",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#104",
-      "a": {
-       "element_id": "#81",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#82",
-       "port": "L"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#105",
-      "a": {
-       "element_id": "#82",
-       "port": "PE"
-      },
-      "b": {
-       "element_id": "#87",
-       "port": "1"
-      },
-      "points": [
-       [
-        175.0,
-        170.0
-       ],
-       [
-        175.0,
-        147.5
-       ],
-       [
-        120.0,
-        147.5
-       ]
-      ],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#106",
-      "a": {
-       "element_id": "#92",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#83",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#107",
-      "a": {
-       "element_id": "#83",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#93",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#108",
-      "a": {
-       "element_id": "#83",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#84",
-       "port": "L"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "DC+",
-       "DC-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#109",
-      "a": {
-       "element_id": "#84",
-       "port": "PE"
-      },
-      "b": {
-       "element_id": "#87",
-       "port": "1"
-      },
-      "points": [
-       [
-        215.0,
-        170.0
-       ],
-       [
-        215.0,
-        147.5
-       ],
-       [
-        160.0,
+        190.0,
         147.5
        ]
       ],
@@ -9990,7 +9590,7 @@
     "loc": "RDC2"
    },
    {
-    "id": "#110",
+    "id": "#102",
     "name": "RH – AC rozvaděč FVE",
     "paper": "A3",
     "width": 420.0,
@@ -10008,17 +9608,17 @@
      },
      "placements": [
       {
-       "element_id": "#111",
+       "element_id": "#103",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#112",
+       "element_id": "#104",
        "row": 0,
        "pos": 3.0
       },
       {
-       "element_id": "#113",
+       "element_id": "#105",
        "row": 0,
        "pos": 7.0
       }
@@ -10026,7 +9626,7 @@
     },
     "elements": [
      {
-      "id": "#114",
+      "id": "#106",
       "symbol_id": "sb.feed_in",
       "x": 60.0,
       "y": 240.0,
@@ -10041,7 +9641,7 @@
       "component_id": null
      },
      {
-      "id": "#111",
+      "id": "#103",
       "symbol_id": "fve.breaker_mcb",
       "x": 60.0,
       "y": 210.0,
@@ -10056,7 +9656,7 @@
       "component_id": null
      },
      {
-      "id": "#115",
+      "id": "#107",
       "symbol_id": "sb.busbar",
       "x": 120.0,
       "y": 175.0,
@@ -10071,7 +9671,7 @@
       "component_id": null
      },
      {
-      "id": "#112",
+      "id": "#104",
       "symbol_id": "fve.spd",
       "x": 90.0,
       "y": 140.0,
@@ -10085,7 +9685,7 @@
       "component_id": null
      },
      {
-      "id": "#116",
+      "id": "#108",
       "symbol_id": "sb.feed_out",
       "x": 70.0,
       "y": 105.0,
@@ -10101,7 +9701,7 @@
       "component_id": null
      },
      {
-      "id": "#113",
+      "id": "#105",
       "symbol_id": "sb.main_switch",
       "x": 150.0,
       "y": 140.0,
@@ -10115,7 +9715,7 @@
       "component_id": null
      },
      {
-      "id": "#117",
+      "id": "#109",
       "symbol_id": "sb.feed_out",
       "x": 150.0,
       "y": 105.0,
@@ -10132,13 +9732,13 @@
     ],
     "wires": [
      {
-      "id": "#118",
+      "id": "#110",
       "a": {
-       "element_id": "#114",
+       "element_id": "#106",
        "port": "1"
       },
       "b": {
-       "element_id": "#111",
+       "element_id": "#103",
        "port": "1"
       },
       "points": [],
@@ -10155,13 +9755,13 @@
       "terminals": {}
      },
      {
-      "id": "#119",
+      "id": "#111",
       "a": {
-       "element_id": "#111",
+       "element_id": "#103",
        "port": "2"
       },
       "b": {
-       "element_id": "#115",
+       "element_id": "#107",
        "port": "T1"
       },
       "points": [],
@@ -10178,13 +9778,13 @@
       "terminals": {}
      },
      {
-      "id": "#120",
+      "id": "#112",
       "a": {
-       "element_id": "#115",
+       "element_id": "#107",
        "port": "1"
       },
       "b": {
-       "element_id": "#112",
+       "element_id": "#104",
        "port": "L"
       },
       "points": [],
@@ -10200,13 +9800,13 @@
       "terminals": {}
      },
      {
-      "id": "#121",
+      "id": "#113",
       "a": {
-       "element_id": "#112",
+       "element_id": "#104",
        "port": "PE"
       },
       "b": {
-       "element_id": "#116",
+       "element_id": "#108",
        "port": "1"
       },
       "points": [],
@@ -10219,13 +9819,13 @@
       "terminals": {}
      },
      {
-      "id": "#122",
+      "id": "#114",
       "a": {
-       "element_id": "#115",
+       "element_id": "#107",
        "port": "4"
       },
       "b": {
-       "element_id": "#116",
+       "element_id": "#108",
        "port": "1"
       },
       "points": [],
@@ -10238,13 +9838,13 @@
       "terminals": {}
      },
      {
-      "id": "#123",
+      "id": "#115",
       "a": {
-       "element_id": "#115",
+       "element_id": "#107",
        "port": "3"
       },
       "b": {
-       "element_id": "#113",
+       "element_id": "#105",
        "port": "1"
       },
       "points": [],
@@ -10261,13 +9861,13 @@
       "terminals": {}
      },
      {
-      "id": "#124",
+      "id": "#116",
       "a": {
-       "element_id": "#113",
+       "element_id": "#105",
        "port": "2"
       },
       "b": {
-       "element_id": "#117",
+       "element_id": "#109",
        "port": "1"
       },
       "points": [],
@@ -10297,12 +9897,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10320,12 +9920,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10343,12 +9943,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10366,12 +9966,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10389,12 +9989,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10412,12 +10012,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10435,12 +10035,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10458,12 +10058,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10481,12 +10081,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10504,12 +10104,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10527,12 +10127,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }
@@ -10550,12 +10150,12 @@
     "cross": "6",
     "cores": [
      {
-      "name": "DC+",
+      "name": "L+",
       "number": "1",
       "color": "červená"
      },
      {
-      "name": "DC-",
+      "name": "L-",
       "number": "2",
       "color": "černá"
      }

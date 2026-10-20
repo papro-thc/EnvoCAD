@@ -113,7 +113,7 @@ def test_builtin_macros_are_valid_v2():
     assert roles == {"dc_tech": "DC string v rozvaděči", "dc_route": "DC string po trase",
                      "ac_feed": "AC přívod střídače", "ac_core": "AC jádro rozvaděče"}
     dc = found["DC string v rozvaděči"]
-    assert dc.repeat.count == "n" and dc.repeat.pitch == 40 and dc.value_sets
+    assert dc.repeat.count == "n" and dc.repeat.pitch == 50 and dc.value_sets
     assert all(v.label for v in dc.variables)
     assert not found["String → střídač"].has_parameters
 
@@ -250,7 +250,7 @@ def test_repeat_shared_grid_and_numbering(lib):
     descs = sorted(e.attrs["desc"] for e in els if e.symbol_id == "sb.feed_in")
     assert descs == ["od G1", "od G2"]
     fus = sorted((e for e in els if e.symbol_id == "fve.fuse_disconnect"), key=lambda e: e.x)
-    assert [e.x for e in fus] == [61.0, 101.0]                     # posun dx + (k−1)·40
+    assert [e.x for e in fus] == [61.0, 111.0]                     # posun dx + (k−1)·50
     assert not any("{" in v for e in els for v in e.attrs.values())
     assert not any("{" in w.a.port + w.b.port for w in wires)
     xpe = next(e for e in els if e.ref == "XPE")

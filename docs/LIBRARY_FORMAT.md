@@ -20,7 +20,7 @@ a při startu se nahrají do SQLite (`~/.envocad/library.db`), kde přibývají 
     {"type": "text",    "x": 0, "y": 12, "text": "DC", "height": 2.5, "align": "center"}
   ],
   "ports": [
-    {"name": "DC1", "x": -10, "y": 5,  "dir": "W"},   // v JPS je čára vždy jednopólová; pár DC+/DC- jsou žíly vodiče
+    {"name": "DC1", "x": -10, "y": 5,  "dir": "W"},   // v JPS je čára vždy jednopólová; pár L+/L- jsou žíly vodiče (ČSN EN 60445)
     {"name": "DC2", "x": -10, "y": -5, "dir": "W"},
     {"name": "AC",  "x": 10,  "y": 0,  "dir": "E"}
   ],
@@ -35,7 +35,8 @@ a při startu se nahrají do SQLite (`~/.envocad/library.db`), kde přibývají 
     "pole": [ ...primitiva jednoho pólu... ],   // kreslí se pro každou spínanou žílu (rozteč 7,5 mm)
     "common": [ ...kreslí se jednou u 1. pólu... ],  // spoušť, cívka, sumační transformátor…
     "link": true,                     // čárkovaná mechanická vazba pólů
-    "link_at": [0, 2]                 // bod pólu, kterým vazba prochází
+    "link_at": [0, 2],                // bod pólu, kterým vazba prochází
+    "through": ["1", "2"]             // nepovinné: průchozí porty u značky s dalšími porty (MTP: primár 1–2, sekundár S)
   }
 }
 ```

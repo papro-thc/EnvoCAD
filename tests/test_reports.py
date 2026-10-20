@@ -5,7 +5,7 @@ from envocad.export.docx_export import export_routine_test_docx
 from envocad.export.xlsx_export import export_reports_xlsx
 from envocad.library.store import LibraryStore
 from envocad.library.templates import apply_template
-from envocad.model.project import Element, Project, Sheet
+from envocad.model.project import Element, Project, Sheet, Wire, WireEnd
 
 
 def _proj():
@@ -142,3 +142,44 @@ def test_reports_full_designation(tmp_path):
     sb.wires.append(Wire(WireEnd(x1.id, "2"), WireEnd(g.id, "1"), conductors=["L1"]))
     _, rows = reports.terminals(p, lib, sb)
     assert any(r[4] == "+RH-F1:1" for r in rows)
+
+
+def test_cable_material_sums_by_type():
+    """Kabely a vodiče k objednání: kabely sečtené podle typu a průřezu, kabel přes více vodičů jednou, bez délky."""
+    from envocad.export.reports import NOT_IN_DOC, cable_material
+    from envocad.model.project import Cable
+    lib = LibraryStore()
+    p = Project()
+    s = p.sheets[0]
+    a = Element("fve.pv_string", 0, 100, attrs={"ref": "G1"})
+    b = Element("fve.pv_string", 0, 50, attrs={"ref": "G2"})
+    t = Element("fve.inverter", 100, 100, attrs={"ref": "T1"})
+    f = Element("fve.breaker_mcb", 200, 100, attrs={"ref": "F1"})
+    s.elements += [a, b, t, f]
+    s.wires += [Wire(WireEnd(a.id, "DC"), WireEnd(t.id, "DC1"), attrs={"ref": "W1", "cable": "H1Z2Z2-K 1x6", "cross": "6", "length": "25"}),
+                Wire(WireEnd(b.id, "DC"), WireEnd(t.id, "DC2"), attrs={"ref": "W2", "cable": "H1Z2Z2-K 1x6", "cross": "6", "length": "12,5 m"}),
+                Wire(WireEnd(t.id, "AC"), WireEnd(f.id, "1"), attrs={"ref": "W3", "cable_id": "k1"}),
+                Wire(WireEnd(t.id, "AC"), WireEnd(f.id, "2"), attrs={"ref": "W4", "cable_id": "k1"})]
+    p.cables.append(Cable(ref="W3", type="CYKY-J 5x10", cross="10", id="k1"))
+    head, rows = cable_material(p, lib)
+    by = {(r[1], r[2]): r for r in rows}
+    dc = by[("Kabel", "H1Z2Z2-K 1x6")]
+    assert dc[head.index("Ks")] == 2 and dc[head.index("Délka [m]")] == 37.5 and dc[head.index("Označení")] == "W1, W2"
+    ac = by[("Kabel", "CYKY-J 5x10")]
+    assert ac[head.index("Ks")] == 1 and ac[head.index("Délka [m]")] == "" and ac[head.index("Bez délky")] == 1
+    assert "Kabely a vodiče k objednání" in NOT_IN_DOC
+
+
+def test_cable_material_switchboard_wires_and_ferrules():
+    from envocad.export.reports import cable_material
+    lib = LibraryStore()
+    p = Project()
+    blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
+    p.sheets[0].elements.append(blk)
+    sb = p.create_switchboard_sheet(blk)
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
+    head, rows = cable_material(p, lib, sb)
+    kinds = {r[1] for r in rows}
+    assert {"Vodič rozvaděče", "Dutinka"} <= kinds
+    wires = [r for r in rows if r[1] == "Vodič rozvaděče"]
+    assert all(r[head.index("Ks")] >= 1 for r in wires) and any(r[head.index("Délka [m]")] for r in wires)

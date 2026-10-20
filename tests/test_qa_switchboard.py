@@ -75,10 +75,10 @@ def test_bus_template_all_ports_exist(lib, n):
 
 @pytest.mark.parametrize("kind", ["trasa", "Trasa", "po trase", "route", "  TRASA "])
 def test_dc_template_route_kinds(kind):
-    """#5: „trasa“ (i s velkým písmenem, „po trase“, „route“) = odpínače DC, ne pojistkové odpínače."""
+    """#5: „trasa“ (i s velkým písmenem, „po trase“, „route“) = jen SPD, bez odpínačů (ty jsou u střídače)."""
     _p, sb = _sb("dc", {"kind": kind, "n_strings": "2"})
     ids = {e.symbol_id for e in sb.elements}
-    assert "fve.dc_disconnect" in ids and "fve.fuse_disconnect" not in ids
+    assert "fve.spd" in ids and not ids & {"fve.dc_disconnect", "fve.fuse_disconnect"}
 
 
 def test_dc_template_tech_and_bad_kind():
@@ -332,7 +332,7 @@ def test_bom_and_potentials_full_designations(lib):
     assert head[-1] == "List"
     pe2 = next(r for r in rows if "+R2-X5:1" in r[4])
     assert pe2[-1] == "R2"
-    assert any("Jednopólové schéma" in r[-1] and "R1" in r[-1] for r in rows)
+    assert any("Blokové schéma" in r[-1] and "R1" in r[-1] for r in rows)
     head, rows = reports.device_list(p, lib)
     x2 = [r for r in rows if r[0] == "+R1-X2"]
     assert len(x2) == 1 and x2[0][head.index("Parametry")] == "20 svorek, 4 skupiny"

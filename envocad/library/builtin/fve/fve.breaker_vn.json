@@ -1,0 +1,151 @@
+{
+  "id": "fve.breaker_vn",
+  "name": "Vypínač VN",
+  "category": "VN",
+  "iec_ref": "Q",
+  "description": "Výkonový vypínač VN (ČSN EN 60617 07-13-05) – transformátorové pole nad 1000 kVA",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": 0,
+      "x2": -2.5,
+      "y2": 0
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 0,
+      "x2": -2,
+      "y2": 4
+    },
+    {
+      "type": "line",
+      "x1": 2.5,
+      "y1": 0,
+      "x2": 7.5,
+      "y2": 0
+    },
+    {
+      "type": "line",
+      "x1": -3.5,
+      "y1": -1,
+      "x2": -1.5,
+      "y2": 1
+    },
+    {
+      "type": "line",
+      "x1": -3.5,
+      "y1": 1,
+      "x2": -1.5,
+      "y2": -1
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -7.5,
+      "y": 0,
+      "dir": "W"
+    },
+    {
+      "name": "2",
+      "x": 7.5,
+      "y": 0,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "manufacturer",
+      "label": "Výrobce",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "in_",
+      "label": "In [A]",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "protection",
+      "label": "Ochrana",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "poles",
+      "label": "Póly",
+      "default": "3",
+      "show": false
+    },
+    {
+      "key": "modules",
+      "label": "Šířka [moduly]",
+      "default": "0",
+      "show": false
+    }
+  ],
+  "multipole": {
+    "pole": [
+      {
+        "type": "line",
+        "x1": -7.5,
+        "y1": 0,
+        "x2": -2.5,
+        "y2": 0
+      },
+      {
+        "type": "line",
+        "x1": 2.5,
+        "y1": 0,
+        "x2": -2,
+        "y2": 4
+      },
+      {
+        "type": "line",
+        "x1": 2.5,
+        "y1": 0,
+        "x2": 7.5,
+        "y2": 0
+      },
+      {
+        "type": "line",
+        "x1": -3.5,
+        "y1": -1,
+        "x2": -1.5,
+        "y2": 1
+      },
+      {
+        "type": "line",
+        "x1": -3.5,
+        "y1": 1,
+        "x2": -1.5,
+        "y2": -1
+      }
+    ],
+    "common": [],
+    "link": true,
+    "link_at": [
+      0,
+      2
+    ]
+  },
+  "label_pos": {
+    "x": -5,
+    "y": -6
+  }
+}

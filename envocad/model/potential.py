@@ -4,7 +4,7 @@ Uzel sítě = (list, prvek, port, žíla). Spojuje: vodič (obě strany, každá
 porty), průchozí svorka (port 1 ↔ 2 téže žíly), můstek svorkovnice (svorky stejné žíly… resp. stejného čísla),
 PE lišta (všechny porty), přívod/vývod rozvaděče ↔ vodič nadřazeného JPS (vazba), blok ROZVADĚČ ↔ jeho přívody,
 kabel přes dvojici přerušovacích bodů s úsekem pokračování (`xref.through_interrupt`, rozdělené JPS).
-Výstup: seznam sítí s názvem potenciálu (žíla + zdroj) a kontrola zkratů (L–N, L–PE, DC+–DC−).
+Výstup: seznam sítí s názvem potenciálu (žíla + zdroj) a kontrola zkratů (L–N, L–PE, L+–L−).
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from envocad.model.project import (
 JUNCTION = "sb.junction"
 BUS = "sb.busbar"
 SOURCE_ORDER = ("fve.grid", "fve.pv_string", "fve.battery", "fve.inverter", "fve.inverter_hybrid")
-LIVE = {"L1", "L2", "L3", "L", "DC+", "DC-", "DC−", "BAT+", "BAT-"}
+LIVE = {"L1", "L2", "L3", "L", "L+", "L-", "BAT+", "BAT-"}
 
 
 @dataclass
@@ -38,14 +38,15 @@ class Net:
 
     def short_issue(self) -> str:
         """Popis nepřípustného spojení potenciálů v jedné síti (prázdné = v pořádku)."""
-        c = {x.replace("−", "-") for x in self.conductors}
+        from envocad.model.project import conductor_name
+        c = {conductor_name(x).replace("−", "-") for x in self.conductors}
         live = sorted(c & LIVE)
         if "PE" in c and (live or "N" in c):
             return f"PE spojeno s {', '.join(live or ['N'])}"
         if "N" in c and live:
             return f"N spojeno s {', '.join(live)}"
-        if "DC+" in c and "DC-" in c:
-            return "DC+ spojeno s DC−"
+        if "L+" in c and "L-" in c:
+            return "L+ spojeno s L−"
         phases = sorted(x for x in live if x in ("L1", "L2", "L3"))
         if len(phases) > 1:
             return "spojené fáze " + ", ".join(phases)

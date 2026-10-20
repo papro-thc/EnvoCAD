@@ -22,3 +22,6 @@ htmlcov/
 
 # pracovní kopie agentů Claude Code
 .claude/worktrees/
+
+# záloha značek QET (lokální, nepublikovat)
+envocad/library/builtin/qet-symbols.zip

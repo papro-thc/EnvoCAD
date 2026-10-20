@@ -201,3 +201,44 @@ def test_generated_projects_have_no_ref_warnings():
             T.apply_template(tp, tp.create_switchboard_sheet(blk), t.id, {"distribution": dist})
             bad = [f.text for f in check_project(tp, lib) if f.code.startswith("ref_") and f.severity != "info"]
             assert not bad, (t.id, dist, bad)
+
+
+def test_calc_string_severity_modes():
+    """Závažnost hlášek stringu z `calc.is_warning` (docs/design/optimizery.md): chyby vstupu optimizéru, počtu,
+    výkonu a smíšení; varování chybějících údajů, tolerance, nestejných paralelních stringů a neznámého režimu."""
+    from envocad.generate import build_project
+    from envocad.model import calc
+    spec = {"inverters": [{"ref": "T1", "p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000,
+                           "i_mppt_max": 30, "strings_per_mppt": 2, "strings": [20, 18]}]}
+    p = build_project(spec)
+    lib = LibraryStore()
+
+    def string_findings():
+        return [(f.ref, f.severity, f.text) for f in check_project(p, lib) if f.code == "calc_string"]
+
+    # nestejná délka na jednom MPPT → varování u obou stringů
+    assert string_findings() == [("G1", WARNING, "String: nestejná délka stringů na MPPT (20 a 18 modulů, ΔUmpp 10 %)"),
+                                 ("G2", WARNING, "String: nestejná délka stringů na MPPT (20 a 18 modulů, ΔUmpp 10 %)")]
+    s = p.sheets[0]
+    g = {e.ref: e for e in s.elements if e.symbol_id == "fve.pv_string"}
+    t = next(e for e in s.elements if e.symbol_id == "fve.inverter")
+    g["G2"].attrs["n_modules"] = "20"
+    t.attrs["string_mode"] = "neco"
+    assert {(r, sev) for r, sev, _ in string_findings()} == {("G1", WARNING), ("G2", WARNING)}
+    # režim optimizer: smíšení bez opt_partial = chyba, P nad P max v toleranci = varování
+    t.attrs.update({"string_mode": "optimizer", "n_opt_min": "6"})
+    for e in g.values():
+        e.attrs.update({"p_module": "460", "opt_p_max": "450", "opt_p_tol": "5", "opt_u_in_max": "80",
+                        "opt_isc_in_max": "14.5", "n_optimizers": "20"})
+    g["G1"].attrs["n_optimizers"] = "18"
+    fs = string_findings()
+    assert ("G1", ERROR, "String: smíšení optimalizovaných a neoptimalizovaných modulů (18 z 20) není dovoleno") in fs
+    assert ("G2", WARNING, "String: P modulu 460 W > P max optimizéru 450 W – v toleranci výrobce 5 %") in fs
+    assert not [f for f in fs if f[0] == "G2" and f[1] == ERROR]
+    # pevné napětí: optimizér na každém modulu chybí = chyba, chybějící pravidla = varování
+    t.attrs.update({"string_mode": "fixed_voltage", "u_string": "750"})
+    fs = string_findings()
+    assert ("G1", ERROR, "String: 20 modulů, 18 optimizérů × 1 – optimizér musí být na každém modulu") in fs
+    assert ("G2", WARNING, "String: chybí údaj rozmezí počtu optimizérů ve stringu (doplňte z artiklu)") in fs
+    # F7 a výpočet používají stejnou klasifikaci
+    assert all((sev == WARNING) == calc.is_warning(text.removeprefix("String: ")) for _r, sev, text in fs)

@@ -25,7 +25,7 @@ from envocad.model.project import (
 )
 from envocad.model.symbol import GRID
 from envocad.ui import commands
-from envocad.ui.items import ElementItem, WireItem, route, snap
+from envocad.ui.items import ElementItem, TextItem, WireItem, route, snap
 from envocad.ui.notes_view import NoteItem
 from envocad.ui.render import draw_frame, draw_geometry, draw_revision_marks, draw_text, sp
 from envocad.ui.theme import PRINT, colors
@@ -38,6 +38,7 @@ class Mode(Enum):
     PLACE = 1
     WIRE = 2
     NOTE = 3
+    TEXT = 4
 
 
 class SchematicScene(QGraphicsScene):
@@ -45,6 +46,7 @@ class SchematicScene(QGraphicsScene):
     attrs_changed = Signal(str)           # id elementu/vodiče
     mode_changed = Signal(object)         # Mode
     open_switchboard = Signal(str)        # id bloku ROZVADĚČ
+    followup_wires = Signal(list)         # id vodičů (i jiných listů) změněných follow-upy příkazu (commands)
 
     def __init__(self, project: Project, sheet: Sheet, library: LibraryStore, undo: QUndoStack):
         super().__init__()
@@ -52,6 +54,7 @@ class SchematicScene(QGraphicsScene):
         self.element_items: dict[str, ElementItem] = {}
         self.wire_items: dict[str, WireItem] = {}
         self.note_items: dict[str, NoteItem] = {}
+        self.text_items: dict[str, TextItem] = {}
         self.mode = Mode.SELECT
         self.draw_grid = True
         self.ask_attributes = True  # dialog s parametry při vložení prvku (testy vypínají)
@@ -63,6 +66,7 @@ class SchematicScene(QGraphicsScene):
         self._wire_preview.setZValue(20)
         self._move_start: dict[str, tuple[float, float]] = {}
         self._note_move_start: dict[str, tuple[float, float]] = {}
+        self._text_move_start: dict[str, tuple[float, float]] = {}
         self._note_draw: tuple[QPointF, QPointF, str, bool] | None = None   # kotva (scéna), snap, cíl, vodič?
         self._note_preview = QGraphicsRectItem()
         self._note_preview.setPen(QPen(colors().preview, 0.3, Qt.DashLine))
@@ -90,8 +94,79 @@ class SchematicScene(QGraphicsScene):
         for wid, pts in route_sheet(self.project, self.sheet, self.library).items():   # stejné trasy jako PDF/DXF
             if wid in self.wire_items:
                 self.wire_items[wid].set_points(pts)
+        self.rebuild_texts()
         self.invalidate_text_layout()
         self.rebuild_notes()
+
+    # ---- volné texty listu ---------------------------------------------------------
+    def rebuild_texts(self) -> None:
+        """Položky volných textů podle `sheet.texts`; výběr se zachová podle id."""
+        from envocad.ui.items import TextItem
+        items = self.text_items
+        selected = {i for i, it in items.items() if it.isSelected()}
+        for it in items.values():
+            self.removeItem(it)
+        self.text_items = {}
+        for t in self.sheet.texts:
+            it = TextItem(t)
+            self.addItem(it)
+            self.text_items[t.id] = it
+            if t.id in selected:
+                it.setSelected(True)
+        self.invalidate_text_layout()
+
+    def _texts_state(self) -> list[dict]:
+        return [t.to_dict() for t in self.sheet.texts]
+
+    def add_text(self, x: float, y: float, text: str, height: float = 2.5) -> None:
+        from envocad.model.project import SheetText
+        if not text.strip():
+            return
+        before = self._texts_state()
+        self.undo.push(commands.SheetTextsCommand(self, before, [*before, SheetText(x, y, text, height).to_dict()],
+                                                  "Přidat text"))
+
+    def edit_text(self, tid: str) -> None:
+        """Dvojklik na text: dialog; prázdný text = smazat."""
+        from envocad.ui.text_dialog import TextDialog
+        try:
+            t = self.sheet.text(tid)
+        except KeyError:
+            return
+        views = self.views()
+        dlg = TextDialog(t.text, t.height, views[0] if views else None)
+        if dlg.exec() != TextDialog.Accepted:
+            return
+        text, height = dlg.values()
+        before = self._texts_state()
+        if not text.strip():
+            after = [d for d in before if d["id"] != tid]
+        else:
+            after = [{**d, "text": text, "height": height} if d["id"] == tid else d for d in before]
+        if after != before:
+            self.undo.push(commands.SheetTextsCommand(self, before, after, "Upravit text"))
+
+    def _place_text(self, x: float, y: float) -> None:
+        if not self.ask_attributes:
+            self.add_text(x, y, "Text")
+            return
+        from envocad.ui.text_dialog import TextDialog
+        views = self.views()
+        dlg = TextDialog(parent=views[0] if views else None, title="Nový text")
+        if dlg.exec() == TextDialog.Accepted:
+            self.add_text(x, y, *dlg.values())
+
+    def _take_text_moves(self):
+        """Posun vybraných textů od začátku tahu jako jeden příkaz (nebo None)."""
+        start, self._text_move_start = self._text_move_start, {}
+        if not start:
+            return None
+        before = self._texts_state()
+        pos = {tid: (it.pos().x(), -it.pos().y()) for tid, it in self.text_items.items() if tid in start}
+        after = [{**d, "x": pos[d["id"]][0], "y": pos[d["id"]][1]} if d["id"] in pos else d for d in before]
+        if after == before:
+            return None
+        return commands.SheetTextsCommand(self, before, after, "Posunout text")
 
     def add_element_item(self, e: Element) -> ElementItem:
         it = ElementItem(e, element_symbol(self.project, e, self.library))
@@ -108,7 +183,7 @@ class SchematicScene(QGraphicsScene):
         it = WireItem(w)
         self.addItem(it)
         self.wire_items[w.id] = it
-        self._route(it)
+        self.route_wire(it)
         return it
 
     def remove_wire_item(self, wid: str) -> None:
@@ -116,7 +191,7 @@ class SchematicScene(QGraphicsScene):
         if it:
             self.removeItem(it)
 
-    def _route(self, it: WireItem) -> None:
+    def route_wire(self, it: WireItem) -> None:
         """Trasa z modelu (model/routing.py): ruční lomy, jinak Z-trasa s odstupem od ostatních vodičů."""
         from envocad.model.routing import _inner_segments, best_route, ends
         from envocad.ui.items import path_points
@@ -218,6 +293,7 @@ class SchematicScene(QGraphicsScene):
         n = Note(self.sheet.id, x=ax, y=ay, target_id=target, is_wire=is_wire, author=current_user(),
                  created=now_iso())
         if w >= GRID and h >= GRID:
+            # model-write-ok: nová připomínka (ještě není v projektu), vloží ji příkaz připomínek
             n.x, n.y, n.w, n.h = min(ax, bx), min(ay, by), w, h
         return n
 
@@ -271,13 +347,14 @@ class SchematicScene(QGraphicsScene):
     def update_wires_of(self, eid: str) -> None:
         for it in self.wire_items.values():
             if it.wire.touches(eid):
-                self._route(it)
+                self.route_wire(it)
 
     _dragging = False
     _seg = None
     _move_wire_pts: ClassVar[dict] = {}   # při stisku se nahradí vlastním slovníkem instance
 
     def element_moved(self, it: ElementItem) -> None:
+        # model-write-ok: živý náhled tažení prvku, výslednou polohu zapíše MoveElementsCommand při puštění
         it.element.x, it.element.y = it.pos().x(), -it.pos().y()
         if self._dragging and it.element.id in self._move_start:
             self._follow_bends(it.element.id)
@@ -296,6 +373,7 @@ class SchematicScene(QGraphicsScene):
                 _, d = port_geometry(self.project, self.sheet, self.library, e, end.port)
                 st = self._move_start.get(end.element_id)
                 ends.append((d, (e.x - st[0], e.y - st[1]) if st else (0.0, 0.0)))
+            # model-write-ok: živý náhled tažení prvku, uzavře ho MoveElementsCommand při puštění
             w.points = follow_points(orig, ends[0][0], ends[0][1], ends[1][0], ends[1][1])
 
     # ---- režimy -------------------------------------------------------------
@@ -374,8 +452,9 @@ class SchematicScene(QGraphicsScene):
             a, b = pts[idx], pts[idx + 1]
             off = snap(-p.y() - start[1]) if abs(a[1] - b[1]) < 1e-6 else snap(p.x() - start[0])
             new = drag_segment(pts, idx, off) if off else None
+            # model-write-ok: živý náhled tažení úseku, uzavře ho SetWirePointsCommand při puštění
             it.wire.points = new if new is not None else list(_old)
-            self._route(it)
+            self.route_wire(it)
             return
         super().mouseMoveEvent(ev)
 
@@ -386,15 +465,22 @@ class SchematicScene(QGraphicsScene):
             return
         if self.mode == Mode.PLACE and ev.button() == Qt.LeftButton and self._place_symbol_id:
             sym = self.library.get_symbol(self._place_symbol_id)
-            e = Element(symbol_id=sym.id, x=snap(p.x()), y=-snap(p.y()), rotation=self._ghost.element.rotation)
+            e = Element(symbol_id=sym.id, x=snap(p.x()), y=-snap(p.y()), rotation=self._ghost.element.rotation,
+                        mirror=self._ghost.element.mirror)
+            # model-write-ok: nový prvek (ještě není v listu), vloží ho AddElementCommand
             e.attrs = {a.key: a.default for a in sym.attributes}
-            e.attrs["ref"] = self.project.next_ref(sym.iec_ref)
+            e.attrs["ref"] = self.project.next_ref(sym.iec_ref)  # model-write-ok: nový prvek, viz výše
             if self.ask_attributes:
                 # modální dialog až po doběhnutí události myši (uvnitř obsluhy stisku padá Qt na Windows)
                 QTimer.singleShot(0, lambda: self._finish_place(sym, e))
             else:
                 self.undo.push(commands.AddElementCommand(self, e))
             return  # zůstáváme v režimu vkládání (Esc / pravé tlačítko ukončí)
+        if self.mode == Mode.TEXT:
+            if ev.button() == Qt.LeftButton:
+                x, y = snap(p.x()), -snap(p.y())
+                QTimer.singleShot(0, lambda: self._place_text(x, y))   # dialog až po události myši
+            return
         if self.mode == Mode.NOTE:
             if ev.button() == Qt.LeftButton:
                 target, is_wire = self._note_target(p)
@@ -415,15 +501,17 @@ class SchematicScene(QGraphicsScene):
                 self.removeItem(self._wire_preview)
                 if not (a is b and pa == pb):
                     w = Wire(WireEnd(a.element.id, pa), WireEnd(b.element.id, pb))
+                    # model-write-ok: nový vodič (ještě není v listu), vloží ho AddWireCommand
                     w.conductors = default_conductors(a.element, pa, b.element, pb)
                     for j in (a.element, b.element):   # odbočka z uzlu: žíly a kabel podle vodiče, na kterém uzel je
                         if j.symbol_id == "sb.junction":
                             src = next((x for x in self.sheet.wires if x.touches(j.id)), None)
                             if src is not None:
-                                w.conductors = list(src.conductors)
+                                w.conductors = list(src.conductors)  # model-write-ok: nový vodič, viz výše
                             break
+                    # model-write-ok: nový vodič (ještě není v listu), vloží ho AddWireCommand
                     w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}
-                    w.attrs["ref"] = self.project.next_ref("W")
+                    w.attrs["ref"] = self.project.next_ref("W")  # model-write-ok: nový vodič, viz výše
                     if self.ask_attributes:
                         heading = f"<b>Vodič</b> {a.element.ref}:{pa} → {b.element.ref}:{pb}"
                         QTimer.singleShot(0, lambda: self._finish_wire(w, heading))
@@ -433,6 +521,7 @@ class SchematicScene(QGraphicsScene):
         # SELECT: úsek vodiče se dá chytit a posunout kolmo (vodorovný nahoru/dolů, svislý do stran)
         self._seg = None
         self._note_move_start = {}
+        self._text_move_start = {}
         if ev.button() == Qt.LeftButton:
             from PySide6.QtGui import QTransform
 
@@ -458,6 +547,8 @@ class SchematicScene(QGraphicsScene):
         self._dragging = bool(self._move_start)
         self._note_move_start = {it.note.id: (it.note.x, it.note.y) for it in self.selectedItems()
                                  if isinstance(it, NoteItem)}
+        self._text_move_start = {it.text.id: (it.text.x, it.text.y) for it in self.selectedItems()
+                                 if isinstance(it, TextItem)}
 
     def _branch_at(self, pos: QPointF) -> tuple[ElementItem, str] | None:
         """Klik na vodič v režimu kreslení: vodič se rozdělí uzlem odbočky a vrátí se jeho volný port."""
@@ -488,10 +579,13 @@ class SchematicScene(QGraphicsScene):
         dlg.used_refs = self._used_refs_for(sym.id)
         if dlg.exec() != ElementDialog.Accepted:
             return
+        # model-write-ok: nový prvek z dialogu, do modelu ho vloží AddElementCommand
         e.attrs = dlg.values()
         if dlg.wire_combo is not None:
+            # model-write-ok: odvozené atributy vazby nového prvku; port a žíly navázaného vodiče JPS mění
+            # follow-upy AddElementCommand (undo je vrátí)
             e.attrs.update(feed_link_attrs(self.project, self.sheet, e, dlg.wire_id))
-        e.component_id = dlg.component_id
+        e.component_id = dlg.component_id  # model-write-ok: artikl nového prvku z dialogu, viz výše
         self.undo.push(commands.AddElementCommand(self, e))
 
     def _wire_dialog_extra(self, w: Wire) -> dict:
@@ -515,8 +609,9 @@ class SchematicScene(QGraphicsScene):
         dlg.used_refs = self.project.used_refs(self.sheet)
         if dlg.exec() != WireDialog.Accepted:
             return
+        # model-write-ok: nový vodič z dialogu, do modelu ho vloží AddWireCommand
         w.attrs = dlg.values()
-        w.conductors = dlg.conductors()
+        w.conductors = dlg.conductors()  # model-write-ok: nový vodič z dialogu, viz výše
         self.undo.push(commands.AddWireCommand(self, w))
 
     def mouseDoubleClickEvent(self, ev):
@@ -525,6 +620,10 @@ class SchematicScene(QGraphicsScene):
         for nit in self.items(ev.scenePos()):
             if isinstance(nit, NoteItem):
                 self.edit_note_later(nit.note.id)
+                return None
+            if isinstance(nit, TextItem):
+                tid = nit.text.id
+                QTimer.singleShot(0, lambda tid=tid: self.edit_text(tid))
                 return None
         it = self._element_at(ev.scenePos())
         if it is not None:
@@ -591,6 +690,9 @@ class SchematicScene(QGraphicsScene):
         changed = [(k, v) for k, v in new.items() if old.get(k, "") != v]
         if not changed:
             return
+        # vazba přívodu (`wire_id`) před označením: přejmenování (`feed_port_followups`) pak přejmenuje port nově
+        # navázaného vodiče JPS; v opačném pořadí by port dostal dosavadní vodič a nová vazba by se ztratila
+        changed.sort(key=lambda kv: kv[0] != "wire_id")
         self.undo.beginMacro(label)
         for k, v in changed:
             self.set_attr(tid, is_wire, k, v)
@@ -623,11 +725,11 @@ class SchematicScene(QGraphicsScene):
 
     def _take_conductors_from_link(self, eid: str, wire_id: str) -> None:
         """Vodiče napojené na přívod/vývod převezmou žíly z navázaného vodiče JPS."""
-        from envocad.model.project import linked_wire
-        hit = linked_wire(self.project, self.sheet, self.sheet.element(eid))
-        if hit is None or not hit[1].conductors:
+        from envocad.model.project import effective_feed_wire
+        lw = effective_feed_wire(self.project, self.sheet, self.sheet.element(eid))
+        if lw is None or not lw.conductors:
             return
-        conds = list(hit[1].conductors)
+        conds = list(lw.conductors)
         for w in self.sheet.wires:
             if w.touches(eid) and w.conductors != conds:
                 self.undo.push(commands.SetConductorsCommand(self, w.id, w.conductors, conds))
@@ -685,12 +787,15 @@ class SchematicScene(QGraphicsScene):
                         wp[wid] = (old_pts, [tuple(x) for x in w.points])
             self._move_start = {}
             self._move_wire_pts = {}
-        both = bool(moves) and bool(note_moves)
-        if both:            # prvky i připomínky jedním tahem = jeden krok zpět
+        text_cmd = self._take_text_moves()
+        both = (bool(moves) + bool(note_moves) + (text_cmd is not None)) > 1
+        if both:            # prvky, připomínky a texty jedním tahem = jeden krok zpět
             self.undo.beginMacro("Posunout")
         if moves:
             self.undo.push(commands.MoveElementsCommand(self, moves, wp))
         self._push_note_moves(note_moves)
+        if text_cmd is not None:
+            self.undo.push(text_cmd)
         if both:
             self.undo.endMacro()
 
@@ -708,7 +813,7 @@ class SchematicScene(QGraphicsScene):
             nx, ny = it.pos().x(), -it.pos().y()
             if (nx, ny) != (ox, oy):
                 new = copy.deepcopy(n)
-                new.x, new.y = nx, ny
+                new.x, new.y = nx, ny  # model-write-ok: kopie připomínky (nový stav pro undo příkaz), ne model
                 moves.append((n, new))
         return moves
 
@@ -729,6 +834,8 @@ class SchematicScene(QGraphicsScene):
             self.delete_selected()
         elif ev.key() == Qt.Key_R:
             self.rotate_selected()
+        elif ev.key() == Qt.Key_M and not ev.modifiers():
+            self.mirror_selected()
         elif ev.key() == Qt.Key_W:
             self.start_wire()
         elif ev.key() == Qt.Key_N:
@@ -807,14 +914,19 @@ class SchematicScene(QGraphicsScene):
         eids = [it.element.id for it in self.selectedItems() if isinstance(it, ElementItem)]
         wids = [it.wire.id for it in self.selectedItems() if isinstance(it, WireItem)]
         nids = [it.note.id for it in self.selectedItems() if isinstance(it, NoteItem)]
+        tids = {it.text.id for it in self.selectedItems() if isinstance(it, TextItem)}
         # mazaný blok ROZVADĚČ: nabídnout smazání i jeho listu (jeden krok undo); bez dotazu list zůstane a kontrola
         # ho hlásí jako „list rozvaděče bez bloku“
         block_sheets = [s for s in (self.project.switchboard_sheet(eid) for eid in eids) if s is not None]
         ask = getattr(self, "ask_delete_block_sheets", None)
         drop_sheets = bool(block_sheets) and ask is not None and bool(ask(block_sheets))
-        macro = (nids and (eids or wids)) or drop_sheets
+        macro = (bool(nids) + bool(eids or wids) + bool(tids)) > 1 or drop_sheets
         if macro:
             self.undo.beginMacro("Smazat")
+        if tids:
+            before = self._texts_state()
+            self.undo.push(commands.SheetTextsCommand(self, before, [d for d in before if d["id"] not in tids],
+                                                      "Smazat text"))
         if eids or wids:
             self.undo.push(commands.RemoveItemsCommand(self, eids, wids))
         if drop_sheets:
@@ -833,12 +945,24 @@ class SchematicScene(QGraphicsScene):
 
     def rotate_selected(self) -> None:
         if self.mode == Mode.PLACE and self._ghost:
+            # model-write-ok: prvek náhledu vkládání (ghost) není v listu; rotaci převezme nový prvek
             self._ghost.element.rotation = (self._ghost.element.rotation + 90) % 360
             self._ghost.sync_from_model()
             return
         for it in self.selectedItems():
             if isinstance(it, ElementItem):
                 self.undo.push(commands.RotateElementCommand(self, it.element.id))
+
+    def mirror_selected(self) -> None:
+        """Zrcadlit vybrané prvky (M) jedním krokem undo; při vkládání zrcadlí náhled."""
+        if self.mode == Mode.PLACE and self._ghost:
+            # model-write-ok: prvek náhledu vkládání (ghost) není v listu; zrcadlení převezme nový prvek
+            self._ghost.element.mirror = not self._ghost.element.mirror
+            self._ghost.sync_from_model()
+            return
+        eids = [it.element.id for it in self.selectedItems() if isinstance(it, ElementItem)]
+        if eids:
+            self.undo.push(commands.MirrorElementsCommand(self, eids))
 
     def set_attr(self, target_id: str, is_wire: bool, key: str, value: str) -> None:
         if is_wire:

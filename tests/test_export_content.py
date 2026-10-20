@@ -116,7 +116,7 @@ def test_production_xlsx_numeric_cells(proj, lib, tmp_path):
     out = tmp_path / "vyroba.xlsx"
     export_production_xlsx(proj, lib, out, None, base={"wire_reserve_pct": "0"})
     wb = load_workbook(out)
-    assert wb.sheetnames == ["Výrobní seznam", "Parametry"]
+    assert wb.sheetnames == ["Výrobní seznam", "Návlečky", "Parametry"]
     ws = wb["Výrobní seznam"]
     head, rows = reports.production_wiring_list(proj, lib, None, {"wire_reserve_pct": "0"})
     assert rows

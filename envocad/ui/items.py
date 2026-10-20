@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QPainter, QPainterPath, QPen
+from PySide6.QtGui import QPainter, QPainterPath, QPen, QTransform
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QStyleOptionGraphicsItem, QWidget
 
 from envocad.model.designation import display_designation
 from envocad.model.project import Element, Wire, wire_label
-from envocad.model.symbol import GRID, Symbol, rotate_dir
+from envocad.model.symbol import GRID, Symbol, place_dir, rotate_point
 from envocad.ui.render import LINE_WIDTH, draw_text, paint_symbol, sp, symbol_path
 from envocad.ui.theme import colors
 
@@ -40,7 +40,11 @@ class ElementItem(QGraphicsItem):
     # ---- model ↔ item ----------------------------------------------------
     def sync_from_model(self) -> None:
         self.setPos(sp(self.element.x, self.element.y))
-        self.setRotation(-self.element.rotation)  # Qt otáčí po směru hod. ručiček
+        t = QTransform()
+        t.rotate(-self.element.rotation)  # Qt otáčí po směru hod. ručiček
+        if self.element.mirror:
+            t.scale(-1, 1)                # bod se nejdřív zrcadlí, pak otočí (`symbol.place_point`)
+        self.setTransform(t)
         self.prepareGeometryChange()
         self.update()
 
@@ -74,7 +78,7 @@ class ElementItem(QGraphicsItem):
         return self.mapToScene(sp(p.x, p.y))
 
     def port_dir(self, name: str) -> str:
-        return rotate_dir(self.symbol.port(name).dir, self.element.rotation)
+        return place_dir(self.symbol.port(name).dir, self.element.rotation, self.element.mirror)
 
     def port_at(self, scene_pos: QPointF, tol: float = 2.0) -> str | None:
         for p in self.symbol.ports:
@@ -87,7 +91,8 @@ class ElementItem(QGraphicsItem):
         painter.setRenderHint(QPainter.Antialiasing)
         c = colors()
         color = c.selection if self.isSelected() else c.ink
-        paint_symbol(painter, self.symbol, QPen(color, LINE_WIDTH, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        paint_symbol(painter, self.symbol, QPen(color, LINE_WIDTH, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+                     mirror=self.element.mirror)
         # porty
         painter.setPen(QPen(c.port, 0.2))
         painter.setBrush(Qt.NoBrush)
@@ -98,15 +103,13 @@ class ElementItem(QGraphicsItem):
         lab = sc.element_label(self.element) if hasattr(sc, "element_label") else None
         painter.save()
         painter.setPen(QPen(color, 0.2))
+        painter.setTransform(self.transform().inverted()[0], True)   # do souřadnic listu, počátek = prvek
         if lab is not None:
-            painter.rotate(self.element.rotation)   # do souřadnic listu (bez otočení prvku), počátek = prvek
             for x, y, text, h in lab.lines:
                 draw_text(painter, x - self.element.x, y - self.element.y, text, h, lab.align)
             painter.restore()
             return
-        lx, ly = self.symbol.label_pos
-        painter.translate(sp(lx, ly))
-        painter.rotate(self.element.rotation)
+        painter.translate(sp(*rotate_point(*self.symbol.label_pos, self.element.rotation)))   # popisek se nezrcadlí
         line = 0.0
         if self.element.ref:
             sheet = getattr(sc, "sheet", None)
@@ -224,3 +227,46 @@ def route(pa: QPointF, da: str, pb: QPointF, db: str, mid: list[QPointF], stagge
     path.lineTo(sb)
     path.lineTo(pb)
     return path
+
+
+class TextItem(QGraphicsItem):
+    """Volný text listu (`project.SheetText`): posun myší (přichycení 2,5 mm), dvojklik = úprava ve scéně."""
+    Type = QGraphicsItem.UserType + 3
+
+    def __init__(self, text):
+        super().__init__()
+        self.text = text
+        self.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsMovable
+                      | QGraphicsItem.ItemSendsGeometryChanges)
+        self.setZValue(9)
+        self.setPos(sp(text.x, text.y))
+
+    def type(self) -> int:
+        return self.Type
+
+    def itemChange(self, change, value):
+        if change == QGraphicsItem.ItemPositionChange and self.scene():
+            return QPointF(snap(value.x()), snap(value.y()))
+        return super().itemChange(change, value)
+
+    def _boxes(self) -> list[tuple[float, float, float, float]]:
+        from envocad.model.textlayout import sheet_text_boxes
+        t = self.text
+        return [(x1 - t.x, y1 - t.y, x2 - t.x, y2 - t.y) for x1, y1, x2, y2 in sheet_text_boxes(t)] or [(0, 0, 5, t.height)]
+
+    def boundingRect(self) -> QRectF:
+        bs = self._boxes()
+        x1, y1 = min(b[0] for b in bs), min(b[1] for b in bs)
+        x2, y2 = max(b[2] for b in bs), max(b[3] for b in bs)
+        return QRectF(x1, -y2, x2 - x1, y2 - y1).adjusted(-1, -1, 1, 1)
+
+    def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: QWidget | None = None) -> None:
+        from envocad.model.project import TEXT_LINE
+        c = colors()
+        color = c.selection if self.isSelected() else c.ink
+        painter.setPen(QPen(color, 0.2))
+        for i, line in enumerate(self.text.lines()):
+            draw_text(painter, 0, -i * TEXT_LINE * self.text.height, line, self.text.height, "left")
+        if self.isSelected():
+            painter.setPen(QPen(color, 0.15, Qt.DashLine))
+            painter.drawRect(self.boundingRect().adjusted(0.5, 0.5, -0.5, -0.5))

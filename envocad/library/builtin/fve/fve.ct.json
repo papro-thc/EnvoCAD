@@ -1,0 +1,138 @@
+{
+  "id": "fve.ct",
+  "name": "Měřicí transformátor proudu",
+  "category": "Měření",
+  "iec_ref": "T",
+  "function_class": [
+    "T",
+    "TA",
+    "B"
+  ],
+  "description": "Měřicí transformátor proudu (MTP) – primár v sérii s vedením (1–2), sekundár S k elektroměru",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": -7.5,
+      "y1": 0,
+      "x2": 7.5,
+      "y2": 0
+    },
+    {
+      "type": "circle",
+      "cx": 0,
+      "cy": 0,
+      "r": 3
+    },
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": 3,
+      "x2": 0,
+      "y2": 5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -7.5,
+      "y": 0,
+      "dir": "W"
+    },
+    {
+      "name": "2",
+      "x": 7.5,
+      "y": 0,
+      "dir": "E"
+    },
+    {
+      "name": "S",
+      "x": 0,
+      "y": 5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "manufacturer",
+      "label": "Výrobce",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "ratio",
+      "label": "Převod",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "cls",
+      "label": "Třída přesnosti",
+      "default": "",
+      "show": true,
+      "fmt": "tř. {}"
+    },
+    {
+      "key": "burden",
+      "label": "Zátěž [VA]",
+      "default": "",
+      "show": false,
+      "fmt": "{} VA"
+    },
+    {
+      "key": "n",
+      "label": "Počet kusů",
+      "default": "3",
+      "show": true,
+      "fmt": "{}×"
+    },
+    {
+      "key": "poles",
+      "label": "Póly",
+      "default": "3",
+      "show": false
+    }
+  ],
+  "multipole": {
+    "pole": [
+      {
+        "type": "line",
+        "x1": -7.5,
+        "y1": 0,
+        "x2": 7.5,
+        "y2": 0
+      },
+      {
+        "type": "circle",
+        "cx": 0,
+        "cy": 0,
+        "r": 3
+      }
+    ],
+    "common": [],
+    "link": false,
+    "link_at": [
+      0,
+      2
+    ],
+    "through": [
+      "1",
+      "2"
+    ]
+  },
+  "label_pos": {
+    "x": -5,
+    "y": -6
+  }
+}

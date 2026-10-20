@@ -9,6 +9,7 @@ from collections import OrderedDict
 
 from envocad.library.store import LibraryStore
 from envocad.model.designation import LOCATION_SYMBOLS, designation, element_name, full_designation, scope_key
+from envocad.model.notes import plural
 from envocad.model.project import INTERRUPT_SYMBOL, NON_DEVICE_SYMBOLS, Element, Project, Sheet, clean_view
 from envocad.model.xref import natural_key
 
@@ -203,8 +204,8 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
                     if n <= 0:
                         continue
                     params = f"{e.attrs['p_module']} Wp" if akey == "type" and e.attrs.get("p_module") else ""
-                    # výrobce modulu z atributu (artikl modulu ho propíše), optimizér zatím bez výrobce
-                    mfr = e.attrs.get("manufacturer", "") if akey == "type" else ""
+                    # výrobce modulu z atributu (artikl modulu ho propíše), optimizéru z `opt_manufacturer` (artikl)
+                    mfr = e.attrs.get("manufacturer" if akey == "type" else "opt_manufacturer", "")
                     key = (name, e.attrs.get(akey, ""), mfr, params)
                     groups.setdefault(key, []).append(f"{_tag(project, s, e)} ({n})")
                     qty[key] = qty.get(key, 0) + n
@@ -463,14 +464,16 @@ def production_wiring_list(project: Project, lib: LibraryStore, sheet: Sheet | N
     `model/wiring.py`; do PDF dokumentace nepatří (`NOT_IN_DOC`)."""
     from envocad.model.wiring import production_wires
     head = ["Č.", "Označení", "Žíla", "Odkud", "Kam", "Průřez [mm²]", "Barva", "Typ vodiče", "Délka [mm]",
-            "Koncovka odkud", "Koncovka kam", "Poznámka", "List"]
+            "Koncovka odkud", "Koncovka kam", "Návlečka odkud", "Návlečka kam", "Poznámka", "List"]
     rows = []
     for pw in production_wires(project, sheet, wiring_base() if base is None else base, lib):
         rows.append([pw.number, pw.ref, pw.conductor, pw.from_text, pw.to_text, _number(pw.cross), pw.color,
-                     pw.wire_type, _number(pw.length_mm), pw.end_from, pw.end_to, "; ".join(pw.notes), pw.sheet])
-    if not any(r[1] for r in rows):     # Označení prázdné všude → sloupec vynechat
-        head = [h for i, h in enumerate(head) if i != 1]
-        rows = [[x for i, x in enumerate(r) if i != 1] for r in rows]
+                     pw.wire_type, _number(pw.length_mm), pw.end_from, pw.end_to, pw.marker_from, pw.marker_to,
+                     "; ".join(pw.notes), pw.sheet])
+    drop = {i for i in (1, 11, 12) if not any(r[i] for r in rows)}   # prázdné všude (bez označení / bez návleček)
+    if drop:
+        head = [h for i, h in enumerate(head) if i not in drop]
+        rows = [[x for i, x in enumerate(r) if i not in drop] for r in rows]
     return head, rows
 
 
@@ -493,6 +496,25 @@ def production_subtitle(project: Project, sheet: Sheet | None = None, base: dict
     return lines
 
 
+def _g(v) -> str:
+    return "–" if v is None else f"{v:g}"
+
+
+def _modules(n: int) -> str:
+    return f"{n} {plural(n, 'modul', 'moduly', 'modulů')}"
+
+
+def fixed_voltage_parts(sc) -> tuple[str, str]:
+    """(„pevné U 750 V“, „P stringu 6160 / 11250 W“) stringu s pevným napětím (`calc.StringCheck`, neznámé „–“)."""
+    return f"pevné U {_g(sc.u_string)} V", f"P stringu {_g(sc.p_string)} / {_g(sc.p_string_max)} W"
+
+
+def fixed_voltage_text(sc) -> str:
+    """Hodnoty stringu s pevným napětím pro výkaz Výpočty: „14 optimizérů, pevné U 750 V, P stringu 6160 / 11250 W“."""
+    n_opt = f"{sc.n_opt} {plural(sc.n_opt, 'optimizér', 'optimizéry', 'optimizérů')}, " if sc.n_opt else ""
+    return n_opt + ", ".join(fixed_voltage_parts(sc))
+
+
 @over_clean
 def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Výkaz výpočtů: stringy vs. střídač, kabely (I, Iz, In, ΔU), selektivita."""
@@ -502,10 +524,15 @@ def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None
     for sc in calc.check_strings(project):
         if sheet is not None and sc.sheet != sheet.name:
             continue
-        vals = f"{sc.n} modulů, Uoc({sc.t_min:g} °C) = {sc.uoc_cold} V, Umpp({sc.t_max:g} °C) = {sc.umpp_hot} V, 1,25·Isc = {calc.SAFETY_ISC * sc.isc:.1f} A"
-        lim = f"{sc.inverter}: Umax {sc.u_dc_max or '–'} V, MPPT {sc.u_mppt_min or '–'}–{sc.u_mppt_max or '–'} V, Imax {sc.i_mppt_max or '–'} A"
-        if sc.isc_mppt_max:   # nové pravidlo: součet Isc paralelních stringů na MPPT
-            lim += f", Isc max MPPT {sc.isc_mppt_max:g} A ({sc.n_par} str. na MPPT)"
+        if sc.mode == "fixed_voltage":   # pevné napětí (SolarEdge): Uoc·n ani okno MPPT se nekontrolují
+            vals = f"{_modules(sc.n)}, {fixed_voltage_text(sc)}"
+            lim = f"{sc.inverter}: optimizérů {sc.n_opt_min or '–'}–{sc.n_opt_max or '–'}, " \
+                  f"P stringu ≤ {_g(sc.p_string_max)} W"
+        else:
+            vals = f"{_modules(sc.n)}, Uoc({sc.t_min:g} °C) = {sc.uoc_cold} V, Umpp({sc.t_max:g} °C) = {sc.umpp_hot} V, 1,25·Isc = {calc.SAFETY_ISC * sc.isc:.1f} A"
+            lim = f"{sc.inverter}: Umax {sc.u_dc_max or '–'} V, MPPT {sc.u_mppt_min or '–'}–{sc.u_mppt_max or '–'} V, Imax {sc.i_mppt_max or '–'} A"
+            if sc.isc_mppt_max:   # nové pravidlo: součet Isc paralelních stringů na MPPT
+                lim += f", Isc max MPPT {sc.isc_mppt_max:g} A ({sc.n_par} str. na MPPT)"
         rows.append(["String", sc.ref, vals, lim, "OK" if sc.ok else "; ".join(sc.issues)])
     for cc in calc.check_cables(project):
         if sheet is not None and cc.sheet != sheet.name:
@@ -549,13 +576,112 @@ def potentials(project: Project, lib: LibraryStore, sheet: Sheet | None = None) 
     return head, rows
 
 
+def _metres(v) -> float | None:
+    """„25“, „12,5“, „25 m“ → metry; prázdné / nečíselné → None."""
+    t = str(v or "").strip().lower().removesuffix("m").strip().replace(",", ".")
+    try:
+        x = float(t)
+    except ValueError:
+        return None
+    return x if x > 0 else None
+
+
+@over_clean
+def cable_material(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
+    """Kabely a vodiče k objednání: kabely JPS sečtené podle typu a průřezu (metry z délky kabelu/vodiče), vnitřní
+    vodiče rozvaděčů podle typu, průřezu a barvy (délky z výrobního zapojovacího seznamu – už s rezervou na konce)
+    a dutinky podle druhu. Sloupec „Bez délky“ = kolik položek délku nemá (součet je pak neúplný)."""
+    from envocad.model.wiring import production_wires
+    head = ["Pol.", "Druh", "Typ", "Průřez [mm²]", "Barva", "Ks", "Délka [m]", "Bez délky", "Označení"]
+    groups: OrderedDict[tuple, dict] = OrderedDict()
+
+    def add(key: tuple, length: float | None, ref: str = "", n: int = 1) -> None:
+        g = groups.setdefault(key, {"n": 0, "m": 0.0, "missing": 0, "refs": []})
+        g["n"] += n
+        if length is None:
+            g["missing"] += n
+        else:
+            g["m"] += length
+        if ref and ref not in g["refs"]:
+            g["refs"].append(ref)
+
+    seen: set[str] = set()                 # kabel přes více vodičů (svorky) se počítá jednou
+    for s in _sheets(project, sheet):
+        if s.is_switchboard:
+            continue
+        for w in s.wires:
+            c = project.cable_of_wire(w)
+            if c is not None:
+                if c.id in seen:
+                    continue
+                seen.add(c.id)
+                ctype, cross, length, ref = c.type, c.cross, c.length or w.attrs.get("length", ""), c.ref
+            else:
+                ctype, cross, length, ref = (w.attrs.get("cable", ""), w.attrs.get("cross", ""),
+                                             w.attrs.get("length", ""), w.attrs.get("ref", ""))
+            if not (ctype or cross):
+                continue
+            add(("Kabel", ctype, str(cross), ""), _metres(length), ref)
+    base = wiring_base()
+    for pw in production_wires(project, sheet, base, lib):
+        add(("Vodič rozvaděče", pw.wire_type, str(_number(pw.cross)), pw.color),
+            pw.length_mm / 1000 if pw.length_mm else None)
+        for fe in (pw.ferrule_from, pw.ferrule_to):
+            if fe is not None:
+                add(("Dutinka", fe.text(), "", ""), 0.0)
+    order = sorted(groups.items(), key=lambda kv: (["Kabel", "Vodič rozvaděče", "Dutinka"].index(kv[0][0]),
+                                                   kv[0][1], natural_key(kv[0][2]), kv[0][3]))
+    rows = []
+    for i, ((kind, typ, cross, color), g) in enumerate(order, start=1):
+        metres = "" if kind == "Dutinka" or g["missing"] == g["n"] else round(g["m"], 1)
+        rows.append([i, kind, typ, cross, color, g["n"], metres, g["missing"] if kind != "Dutinka" else "",
+                     ", ".join(sorted(g["refs"], key=_ref_key))])
+    return head, rows
+
+
+def _cable_tag(project: Project, s: Sheet, w) -> str:
+    """Označení kabelu na štítek: plné „=DC-W3“, bez aspektů „W3“."""
+    from envocad.model.designation import full_designation
+    t = full_designation(project, s, w) if w.attrs.get("ref") else ""
+    return t.removeprefix("-")
+
+
+@over_clean
+def marking(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
+    """Značení vodičů a kabelů pro tisk (ČSN EN 62491): štítek kabelu JPS na obou koncích (označení kabelu
+    a adresa protějšího konce) a návlečky vnitřních vodičů rozvaděčů na obou koncích podle druhu značení
+    (`wire_marking`: adresné / odkud-kam / číslo). Každý řádek = jeden štítek / návlečka."""
+    from envocad.model.wiring import production_wires
+    head = ["Druh", "Text", "Druhý řádek", "Umístění", "Vodič / kabel", "Žíla", "List"]
+    rows = []
+    for s in _sheets(project, sheet):
+        if s.is_switchboard:
+            continue
+        for w in s.wires:
+            tag = _cable_tag(project, s, w)
+            if not tag:
+                continue
+            a, b = s.element(w.a.element_id), s.element(w.b.element_id)
+            ea, eb = _port_text(project, s, a, w.a.port), _port_text(project, s, b, w.b.port)
+            rows.append(["Štítek kabelu", tag, f"→ {eb}", ea, tag, "", s.name])
+            rows.append(["Štítek kabelu", tag, f"→ {ea}", eb, tag, "", s.name])
+    for pw in production_wires(project, sheet, wiring_base(), lib):
+        name = pw.ref or str(pw.number)
+        if pw.marker_from:
+            rows.append(["Návlečka", pw.marker_from, "", pw.local_from or pw.from_text, name, pw.conductor, pw.sheet])
+        if pw.marker_to:
+            rows.append(["Návlečka", pw.marker_to, "", pw.local_to or pw.to_text, name, pw.conductor, pw.sheet])
+    return head, rows
+
+
 ALL_REPORTS = [("Data pro DS", dso_report), ("Výpočty", calculations), ("Přístroje", device_list), ("Výkaz materiálu", bom), ("Kabely", cables),
-               ("Kabelový plán", cable_plan), ("Zapojovací seznam", wiring_list),
-               ("Výrobní zapojovací seznam", production_wiring_list),
+               ("Kabelový plán", cable_plan), ("Kabely a vodiče k objednání", cable_material),
+               ("Zapojovací seznam", wiring_list),
+               ("Výrobní zapojovací seznam", production_wiring_list), ("Značení vodičů a kabelů", marking),
                ("Svorkovnice", terminals), ("Plán svorkovnice", terminal_plan_report), ("Potenciály", potentials), ("Štítky", labels)]
 
 # výkazy, které nejsou součástí PDF dokumentace (výrobní podklad pro dílnu) – `doc_pdf.DocBuilder.plan` je přeskočí
-NOT_IN_DOC = {"Výrobní zapojovací seznam"}
+NOT_IN_DOC = {"Výrobní zapojovací seznam", "Kabely a vodiče k objednání", "Značení vodičů a kabelů"}
 
 # doplňkové řádky podnadpisu výkazu v xlsx: název → fn(project, sheet) -> list[str]
 REPORT_SUBTITLES = {"Výrobní zapojovací seznam": production_subtitle}
