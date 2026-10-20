@@ -67,8 +67,8 @@ def test_v4_dc_ports_and_conductors():
     w1, w2 = p.sheets[0].wires
     assert (w1.a.port, w1.b.port) == ("DC", "DC1")
     assert (w2.a.port, w2.b.port) == ("DC", "DC2")
-    assert w1.conductors == ["DC+", "DC-"]
-    assert w2.conductors == ["DC-"]          # ručně zadané žíly migrace nepřepíše
+    assert w1.conductors == ["L+", "L-"]
+    assert w2.conductors == ["L-"]           # ručně zadané žíly migrace nepřepíše (jen název dle ČSN EN 60445)
     _ports_ok(p, LibraryStore())
     _roundtrip_stable(p)
 
@@ -189,7 +189,7 @@ def test_v7_revisions_from_meta_skips_header_and_free_text():
 
 def test_example_migrates_to_current():
     p = Project.load(EXAMPLE)
-    assert FORMAT_VERSION == 9
+    assert FORMAT_VERSION == 12
     assert all(s.func == "" and s.loc == "" for s in p.sheets)
     assert p.structures == [] and p.revisions == [] and p.notes == []
 
@@ -204,7 +204,7 @@ def test_v8_to_v9_notes():
     assert p.sheets[0].func == "AC" and p.structures[0].code == "AC"
     assert p.revisions[0].label == "A" and p.revisions[0].fingerprints == {"s1": "x"}
     out = p.to_dict()
-    assert out["format_version"] == 9 and out["notes"] == []
+    assert out["format_version"] == FORMAT_VERSION and out["notes"] == []
     _roundtrip_stable(p)
 
 
@@ -231,3 +231,62 @@ def test_v9_notes_roundtrip_and_v8_program_rejects():
             Project.from_dict(d)
     finally:
         prj.FORMAT_VERSION = old
+
+
+def test_v9_to_v10_mirror_and_texts():
+    """v10: zrcadlení prvku a volné texty listu – v9 je nemá (výchozí hodnoty), uloží se jen když jsou použité;
+    program s formátem 9 soubor v10 odmítne (nezahodí tiše zrcadlení a texty)."""
+    from envocad.model.project import SheetText
+    p = Project.from_dict(_v(9, [_sheet("s1", [_el("f", "fve.breaker_mcb", "F1")])]))
+    assert p.sheets[0].texts == [] and p.sheets[0].elements[0].mirror is False
+    out = p.to_dict()
+    assert "texts" not in out["sheets"][0] and "mirror" not in out["sheets"][0]["elements"][0]
+    p.sheets[0].elements[0].mirror = True
+    p.sheets[0].texts.append(SheetText(10, 20, "Řádek 1\nŘádek 2", 3.5))
+    d = json.loads(json.dumps(p.to_dict()))
+    assert d["format_version"] == FORMAT_VERSION and d["sheets"][0]["elements"][0]["mirror"] is True
+    q = Project.from_dict(d)
+    assert q.sheets[0].elements[0].mirror and q.sheets[0].texts[0].lines() == ["Řádek 1", "Řádek 2"]
+    _roundtrip_stable(q)
+    import envocad.model.project as prj
+    old = prj.FORMAT_VERSION
+    try:
+        prj.FORMAT_VERSION = 9
+        with pytest.raises(ValueError, match="novější"):
+            Project.from_dict(d)
+    finally:
+        prj.FORMAT_VERSION = old
+    bad = copy.deepcopy(d)
+    bad["sheets"][0]["texts"][0]["height"] = 0
+    with pytest.raises(ValueError, match="height"):
+        Project.from_dict(bad)
+
+
+def test_v10_to_v11_conductor_names_en60445():
+    """v11: žíly DC+ / DC− → L+ / L− (ČSN EN 60445) ve vodičích, svorkách žil, kabelech i atributu `conductors`."""
+    from envocad.model.project import conductor_name
+    sh = _sheet("s1", [_el("g", "fve.pv_string", "G1"), _el("t", "fve.inverter", "T1"),
+                       {"id": "x", "symbol_id": "sb.terminal_block", "x": 0, "y": 0,
+                        "attrs": {"ref": "X1", "conductors": "DC+, DC-"}}])
+    sh["wires"] = [{"id": "w1", "a": {"element_id": "g", "port": "DC"}, "b": {"element_id": "t", "port": "DC1"},
+                    "conductors": ["DC+", "DC−"], "terminals": {"DC+": {"a": "X1:1"}}, "attrs": {"ref": "W1"}}]
+    d = _v(10, [sh], cables=[{"id": "k", "ref": "W1", "cores": [{"name": "DC+"}, {"name": "DC-", "color": "černá"}]}])
+    p = Project.from_dict(d)
+    s = p.sheets[0]
+    assert s.wires[0].conductors == ["L+", "L-"] and s.wires[0].terminals == {"L+": {"a": "X1:1"}}
+    assert [c.name for c in p.cables[0].cores] == ["L+", "L-"]
+    assert s.element("x").attrs["conductors"] == "L+ L-"
+    assert p.to_dict()["format_version"] == FORMAT_VERSION
+    assert conductor_name("dc-") == "L-" and conductor_name("PE") == "PE"
+
+
+def test_v11_to_v12_single_line_offset():
+    """v12: ruční posun prvku v jednopólovém schématu (`sl_pos`) – v11 ho nemá, uloží se jen když je zadaný."""
+    p = Project.from_dict(_v(11, [_sheet("s1", [_el("f", "fve.breaker_mcb", "F1")])]))
+    e = p.sheets[0].elements[0]
+    assert e.sl_pos is None and "sl_pos" not in p.to_dict()["sheets"][0]["elements"][0]
+    e.sl_pos = (12.5, -5.0)
+    d = json.loads(json.dumps(p.to_dict()))
+    assert d["format_version"] == 12 and d["sheets"][0]["elements"][0]["sl_pos"] == [12.5, -5.0]
+    assert Project.from_dict(d).sheets[0].elements[0].sl_pos == (12.5, -5.0)
+    _roundtrip_stable(Project.from_dict(d))

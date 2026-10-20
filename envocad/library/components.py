@@ -27,7 +27,7 @@ NUMERIC = {"price_czk", "in_", "poles", "icu_ka", "idn_ma", "un_v", "modules", "
            "i_mppt_max_a", "strings_per_mppt", "beta_voc", "t_min_c", "t_max_c",
            # FV moduly (pv_modules.csv) a střídače – katalog pro průvodce (docs/design/katalog_fv.md)
            "alpha_isc", "gamma_pmax", "noct_c", "u_sys_max_v", "i_fuse_max_a", "weight_kg", "isc_mppt_max_a",
-           "eff_max_pct", "eff_eu_pct",
+           "eff_max_pct", "eff_eu_pct", "iscpv_ka",
            # optimizéry (optimizers.csv) a režim stringu střídače (docs/design/optimizery.md)
            "p_max_w", "p_tol_pct", "u_in_max_v", "isc_in_max_a", "i_out_max_a", "u_out_max_v", "modules_per_optimizer",
            "partial_ok", "n_min_1ph", "n_max_1ph", "p_string_max_1ph_w", "n_min_3ph", "n_max_3ph", "p_string_max_3ph_w",
@@ -55,8 +55,13 @@ PARAM_TO_ATTR = {
     "imp_a": "imp", "u_sys_max_v": "u_sys_max", "isc_mppt_max_a": "isc_mppt_max",
     # FV modul: teplotní součinitele [%/K] – oba zadané → součinitel Umpp = γ_Pmax − α_Isc (`calc.ModuleData`)
     "gamma_pmax": "gamma_pmax", "alpha_isc": "alpha_isc",
+    # FV modul: max. jištění modulu (IMOD_MAX_OCPR) – horní mez pojistky gPV stringu (`calc.string_fuse_in`)
+    "i_fuse_max_a": "i_fuse_max",
     # rozsah provozní teploty okolí přístroje [°C] dle datasheetu – ověření oteplení po přístrojích (`thermal`)
     "t_min_c": "t_min", "t_max_c": "t_max",
+    # SPD do výkresu: ochranná úroveň Up, zkratová odolnost ISCPV (DC SPD bez vlastní pojistky)
+    "up_kv": "up", "iscpv_ka": "iscpv",
+    "cross_max_mm2": "cross_max",   # max. průřez svorky – dvojitá dutinka se vejde? (`wiring.twin_clamp_note`)
     "contacts": "contacts",   # kontaktní obraz („1/2 3/4 5/6 13/14 21/22“) – zrcadlo kontaktů, kontroly kontaktů
     # střídač: režim stringu, pevné napětí stringu, pravidla stringu s optimizéry (`calc.InverterData`)
     "string_mode": "string_mode", "u_string_v": "u_string", "n_opt_min": "n_opt_min", "n_opt_max": "n_opt_max",
@@ -113,6 +118,8 @@ class Component:
             if v in (None, ""):
                 continue
             out[akey] = str(v)
+        if out.get("uc") and "DC" in (self.params.get("spd_type") or "").upper().split():
+            out["uc"] = f"{out['uc']} V DC"    # DC svodič: „Uc 1000 V DC“ ve výkresu (stejnosměrné napětí)
         return out
 
     def optimizer_values(self, phases=3) -> dict[str, str]:

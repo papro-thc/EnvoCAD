@@ -108,7 +108,7 @@ class AttrDialog(QDialog):
 
 
 CONDUCTOR_PRESETS = ["L1 L2 L3 N PE", "L1 L2 L3 PE", "L1 L2 L3 N", "L1 N PE", "L1 N", "L1", "N", "PE",
-                     "DC+ DC-", "DC+", "DC-", "PEN"]
+                     "L+ L-", "L+", "L-", "PEN"]
 
 
 def wire_auto_hints(project: Project, sheet: Sheet, w: Wire) -> dict[str, str]:
@@ -484,6 +484,12 @@ class ProjectWizard(QDialog):
         form.addRow("Místo", self.place)
         form.addRow("Číslo zakázky", self.order)
         form.addRow("Zpracoval", self.author)
+        self.building = QComboBox()
+        self.building.addItem("firma (DC rozvaděče a AC rozvaděč zvlášť)", "company")
+        self.building.addItem("rodinný dům (DC i AC v jednom rozvaděči RFVE)", "house")
+        self.building.addItem("bytový dům (DC rozvaděče a AC rozvaděč zvlášť)", "apartment")
+        self.building.setToolTip("Rodinný dům: pojistkové odpínače a SPD stringů jsou v rozvaděči FVE spolu s AC částí")
+        form.addRow("Objekt", self.building)
         self.mod_type = QLineEdit()
         self.mod_p = QLineEdit("450")
         self.mod_voc = QLineEdit("49.5")
@@ -560,13 +566,16 @@ class ProjectWizard(QDialog):
         form.addRow("DC kabel / průřez / délka string → 1. DC rozvaděč [m]", self._triple(self.dc_cable, self.dc_cross, self.dc_len))
         self.dc_route_boxes = QLineEdit("1")
         self.dc_route_len = QLineEdit("20")
-        self.dc_route_boxes.setToolTip("DC rozvaděče po trase (odpínač DC + SPD na každý string); 0 = žádný")
+        self.dc_route_boxes.setToolTip("DC rozvaděče po trase (jen SPD na každý string, bez odpínače); 0 = žádný")
         form.addRow("DC rozvaděčů po trase / délka kabelu mezi nimi [m]", self._pair(self.dc_route_boxes, self.dc_route_len))
         self.dc_tech_box = QCheckBox("DC rozvaděč u technologie (pojistkové odpínače + SPD)")
         self.dc_tech_box.setChecked(True)
         self.dc_tech_len = QLineEdit("5")
-        self.dc_fuse_in = QLineEdit("15")
-        self.dc_spd = QLineEdit("T2")
+        self.dc_fuse_in = QLineEdit("")
+        self.dc_fuse_in.setPlaceholderText("podle stringu")
+        self.dc_fuse_in.setToolTip("Prázdné = podle stringu: gPV ≥ 1,5 × Isc modulu (do 2,4 × Isc a max. jištění "
+                                   "modulu), SolarEdge 25 A. Pojistkový odpojovač ETI EFH 10 DC 2p (max 25 A).")
+        self.dc_spd = QLineEdit("T1+T2")
         form.addRow("", self.dc_tech_box)
         form.addRow("Délka ke střídači [m] / In pojistek [A] / SPD DC", self._triple(self.dc_tech_len, self.dc_fuse_in, self.dc_spd))
         self.ac_cable = QLineEdit(str(std.get("ac_cable") or "CYKY-J 5x16"))
@@ -585,6 +594,42 @@ class ProjectWizard(QDialog):
         form.addRow("Kabel do HDS / průřez / délka", self._triple(self.grid_cable, self.grid_cross, self.grid_len))
         self.dso = QLineEdit("")
         form.addRow("Distributor (DSO)", self.dso)
+        # připojení k DS: nn (AC rozvaděč FVE do HDS) nebo VN (hlavní rozvaděč nn, transformátor, rozvaděč VN)
+        self.conn_level = QComboBox()
+        self.conn_level.addItem("nn – AC rozvaděč FVE do HDS", "nn")
+        self.conn_level.addItem("VN – trafostanice (rozvaděč VN, transformátor, hlavní rozvaděč nn, elektroměrový)", "vn")
+        self.conn_station = QComboBox()
+        self.conn_station.addItem("kiosková TS (rozvaděč VN po polích)", "kiosk")
+        self.conn_station.addItem("zděná TS (kobky)", "kobky")
+        self.conn_station.addItem("sloupová TS (odpínač, pojistky a svodiče na sloupu)", "sloup")
+        self.conn_metering = QComboBox()
+        self.conn_metering.addItem("fakturační měření na straně nn", "nn")
+        self.conn_metering.addItem("fakturační měření na straně VN", "vn")
+        self.tr_sn = QLineEdit("630")
+        self.tr_sn.setPlaceholderText("Sn [kVA]")
+        self.conn_loop = QCheckBox("smyčka (2 kabelová pole)")
+        self.conn_loop.setChecked(True)
+        form.addRow("Připojení k DS", self.conn_level)
+        form.addRow("Trafostanice", self.conn_station)
+        form.addRow("Měření / Sn trafa [kVA]", self._triple(self.conn_metering, self.tr_sn, self.conn_loop))
+
+        def _conn_enabled() -> None:
+            house = self.building.currentData() == "house"   # rodinný dům: rozvaděč FVE do HDS, bez přípojky VN
+            if house:
+                self.conn_level.setCurrentIndex(0)
+            self.conn_level.setEnabled(not house)
+            on = self.conn_level.currentData() == "vn"
+            pole = self.conn_station.currentData() == "sloup"      # sloupová TS: měření na nn, bez kabelových polí
+            self.conn_station.setEnabled(on)
+            self.tr_sn.setEnabled(on)
+            self.conn_metering.setEnabled(on and not pole)
+            self.conn_loop.setEnabled(on and not pole)
+            if pole:
+                self.conn_metering.setCurrentIndex(0)
+        self.conn_level.currentIndexChanged.connect(lambda _i: _conn_enabled())
+        self.conn_station.currentIndexChanged.connect(lambda _i: _conn_enabled())
+        self.building.currentIndexChanged.connect(lambda _i: _conn_enabled())
+        _conn_enabled()
         body = QWidget()      # dlouhý formulář v posuvné oblasti, tlačítka OK / Zrušit zůstávají vidět
         body.setLayout(form)
         scroll = QScrollArea()
@@ -962,7 +1007,7 @@ class ProjectWizard(QDialog):
         ("dc_route_boxes", "Počet DC rozvaděčů po trase", {"integer": True, "strict": False}),
         ("dc_route_len", "Délka kabelu mezi DC rozvaděči [m]", {"strict": False, "allow_empty": True}),
         ("dc_tech_len", "Délka ke střídači [m]", {"strict": False, "allow_empty": True}),
-        ("dc_fuse_in", "In pojistek [A]", {}), ("ac_cross", "Průřez AC kabelu", {}),
+        ("ac_cross", "Průřez AC kabelu", {}),
         ("ac_len", "Délka AC kabelu [m]", {"strict": False, "allow_empty": True}),
         ("ac_breaker", "In jističe střídače [A]", {}), ("ac_main", "In hlavního vypínače [A]", {}),
         ("grid_cross", "Průřez kabelu do HDS", {}),
@@ -973,9 +1018,11 @@ class ProjectWizard(QDialog):
     _OPTIONAL = (
         ("mod_imp", "Impp modulu [A]", {}), ("mod_beta", "β Uoc [%/K]", {"minimum": -1.0}),
         ("inv_isc_mppt", "Isc max na MPPT [A]", {}), ("inv_spm", "Stringů na MPPT", {"integer": True}),
+        ("dc_fuse_in", "In pojistek [A]", {}),
         ("t_min", "Návrhová teplota min [°C]", {"temperature": True}),
         ("t_max", "Návrhová teplota max [°C]", {"temperature": True}),
         ("mod_total", "Celkem modulů", {"integer": True}),
+        ("tr_sn", "Sn transformátoru [kVA]", {}),
     )
 
     def _values(self) -> tuple[dict, list[str]]:
@@ -1056,6 +1103,7 @@ class ProjectWizard(QDialog):
             "name": self.name.text().strip() or "Nový projekt FVE",
             "meta": {"investor": self.investor.text().strip(), "place": self.place.text().strip(),
                      "order": self.order.text().strip(), "author": self.author.text().strip()},
+            "building": self.building.currentData(),
             "module": module,
             "site": site,
             "optimizer": optimizer,
@@ -1063,13 +1111,16 @@ class ProjectWizard(QDialog):
             "dc": {"cable": self.dc_cable.text().strip(), "cross": v["dc_cross"], "length": v["dc_len"],
                    "route_boxes": v["dc_route_boxes"], "route_length": v["dc_route_len"],
                    "tech_box": self.dc_tech_box.isChecked(), "tech_length": v["dc_tech_len"],
-                   "fuse_in": v["dc_fuse_in"], "spd": self.dc_spd.text().strip() or "T2",
+                   "fuse_in": v.get("dc_fuse_in") or "", "spd": self.dc_spd.text().strip() or "T1+T2",
                    "disconnect": not self.dc_tech_box.isChecked() and not v["dc_route_boxes"]},
             "ac": {"cable": self.ac_cable.text().strip(), "cross": v["ac_cross"], "length": v["ac_len"],
                    "breaker_in": v["ac_breaker"], "main_in": v["ac_main"],
                    "grid_cable": self.grid_cable.text().strip(), "grid_cross": v["grid_cross"],
                    "grid_length": v["grid_len"], "distribution": "bus" if self.ac_bus.isChecked() else "terminals"},
             "grid": {"dso": self.dso.text().strip()},
+            "connection": {"level": self.conn_level.currentData(), "metering": self.conn_metering.currentData(),
+                           "station": self.conn_station.currentData(),
+                           "loop": self.conn_loop.isChecked(), "transformer": {"sn": v.get("tr_sn") or 630}},
         }
 
 
@@ -1092,7 +1143,7 @@ class ElementDialog(AttrDialog):
             idx = self.wire_combo.findData(cur)
             self.wire_combo.setCurrentIndex(max(idx, 0))
             form = self.layout().itemAt(1).layout()
-            form.addRow("Vodič v JPS", self.wire_combo)
+            form.addRow("Vodič v blokovém schématu", self.wire_combo)
         if library is not None:
             row = QHBoxLayout()
             self.comp_label = QLabel(self._comp_text())
@@ -1211,7 +1262,7 @@ class EnclosurePanel(QWidget):
         root.addWidget(g2)
 
         from envocad.export.reports import wiring_base
-        from envocad.model.wiring import UNPLACED_LABELS, WIRING_PARAMS, WiringParams, parse_param
+        from envocad.model.wiring import CHOICE_LABELS, WIRING_PARAMS, WiringParams, parse_param
         eff = WiringParams.resolve(None, wiring_base())   # firemní standard, jinak výchozí hodnoty
         self._wiring_keys = {k for k, _l, _d in WIRING_PARAMS}
         # zaškrtnutá skupina = vlastní parametry rozvaděče; odškrtnutím se klíče wire_* z parametrů odeberou
@@ -1226,15 +1277,17 @@ class EnclosurePanel(QWidget):
         self._wiring_body = QWidget()
         f4 = QFormLayout(self._wiring_body)
         f4.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
-        self.unplaced = QComboBox()
+        self._choices: dict[str, QComboBox] = {}   # výběrové parametry (české popisky, ukládá se kód)
         for key, label, _default in WIRING_PARAMS:
-            if key == "wire_unplaced":   # výběr s českými popisky, ukládá se estimate / none
-                self.unplaced.addItem(f"výchozí ({eff.display(key)})", "")
-                for code, text in UNPLACED_LABELS.items():
-                    self.unplaced.addItem(text, code)
+            if key in CHOICE_LABELS:
+                combo = QComboBox()
+                combo.addItem(f"výchozí ({eff.display(key)})", "")
+                for code, text in CHOICE_LABELS[key].items():
+                    combo.addItem(text, code)
                 cur = parse_param(key, lay.params.get(key)) or ""
-                self.unplaced.setCurrentIndex(max(self.unplaced.findData(cur), 0))
-                f4.addRow(label, self.unplaced)
+                combo.setCurrentIndex(max(combo.findData(cur), 0))
+                f4.addRow(label, combo)
+                self._choices[key] = combo
                 continue
             ed = QLineEdit(lay.params.get(key, ""))
             ed.setPlaceholderText(eff.value(key))
@@ -1245,7 +1298,9 @@ class EnclosurePanel(QWidget):
         self._wiring_body.setVisible(self.wiring_group.isChecked())
         self.wiring_group.toggled.connect(self._wiring_body.setVisible)
         self.wiring_group.toggled.connect(lambda *_: self._apply("wiring"))
-        self.unplaced.currentIndexChanged.connect(lambda *_: self._apply("wire_unplaced"))
+        self.unplaced = self._choices["wire_unplaced"]
+        for key, combo in self._choices.items():
+            combo.currentIndexChanged.connect(lambda *_, key=key: self._apply(key))
         root.addWidget(self.wiring_group)
 
         # neplatná čísla (pole se zvýrazní, do modelu se nepropíší – platí předchozí hodnota)
@@ -1295,8 +1350,9 @@ class EnclosurePanel(QWidget):
                 if ed.text().strip() != text:
                     ed.setText(text)
             if own_wiring:
-                cur = parse_param("wire_unplaced", lay.params.get("wire_unplaced")) or ""
-                self.unplaced.setCurrentIndex(max(self.unplaced.findData(cur), 0))
+                for key, combo in self._choices.items():
+                    cur = parse_param(key, lay.params.get(key)) or ""
+                    combo.setCurrentIndex(max(combo.findData(cur), 0))
         finally:
             self._suspend = False
         self.refresh()
@@ -1425,8 +1481,9 @@ class EnclosurePanel(QWidget):
                  and (k in lay.params or defaults.get(k) != e.text().strip())}
         # neplatné číslo se do modelu nepropíše: zůstane předchozí hodnota (pole je zvýrazněné, viz `_mark_invalid`)
         edits.update({k: lay.params[k] for k in bad if k in lay.params})
-        if own_wiring and self.unplaced.currentData():
-            edits["wire_unplaced"] = self.unplaced.currentData()
+        for key, combo in self._choices.items():
+            if own_wiring and combo.currentData():
+                edits[key] = combo.currentData()
         # klíče, které panel nezná, zůstanou; wire_* spravuje skupina „Výrobní data“
         unknown = {k: v for k, v in lay.params.items() if k not in self._edits and k not in self._wiring_keys}
         lay.params = {**unknown, **edits}

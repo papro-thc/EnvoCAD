@@ -149,7 +149,7 @@ def diff_projects(old: Project, new: Project, lib=None) -> list[Change]:
                 d.append(f"značka: {o.symbol_id} → {e.symbol_id}")
             if (o.component_id or "") != (e.component_id or ""):
                 d.append(f"artikl: {o.component_id or '–'} → {e.component_id or '–'}")
-            if (o.x, o.y, o.rotation) != (e.x, e.y, e.rotation):
+            if (o.x, o.y, o.rotation, o.mirror) != (e.x, e.y, e.rotation, e.mirror):
                 d.append(MOVE_DETAIL)
             if d:
                 changes.append(Change("změněno", ns.name, e.ref, "prvek", "; ".join(d), eid, sheet_id=sid))

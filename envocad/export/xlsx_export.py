@@ -120,6 +120,10 @@ def export_production_xlsx(project: Project, lib: LibraryStore, path: Path | str
     head, rows = reports.production_wiring_list(project, lib, sheet, base)
     _write_table(ws, "Výrobní zapojovací seznam", _subtitle(project, sheet), head, rows,
                  reports.production_subtitle(project, sheet, base))
+    head, rows = reports.marking(project, lib, sheet)
+    rows = [r for r in rows if r[0] == "Návlečka"]          # výroba rozvaděče: jen návlečky (štítky kabelů jsou JPS)
+    if rows:
+        _write_table(wb.create_sheet("Návlečky"), "Návlečky (ČSN EN 62491)", _subtitle(project, sheet), head, rows)
     wp = wb.create_sheet("Parametry")
     sheets = [s for s in ([sheet] if sheet else project.sheets) if s.is_switchboard]
     prow = [[s.name, key, label, value, src] for s in sheets for key, label, value, src in param_sources(s.layout, base)]

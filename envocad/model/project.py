@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import json
 import logging
 import math
@@ -21,7 +22,7 @@ from envocad.model.designation import (
     scope_key,
     sheet_scope,
 )
-from envocad.model.symbol import Attribute, Port, Symbol, placeholder_symbol, rotate_point, with_orphan_ports
+from envocad.model.symbol import Attribute, Port, Symbol, place_point, placeholder_symbol, with_orphan_ports
 
 # Atributy vodiče (vodič nemá symbol, proto jsou definované zde)
 WIRE_ATTRIBUTES = [
@@ -42,7 +43,7 @@ SWITCHBOARD_WIRE_ATTRIBUTES = [
     Attribute("prod", "Do výrobního seznamu (0 = ne)"),
 ]
 
-FORMAT_VERSION = 9
+FORMAT_VERSION = 12
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 DEVICE_HEIGHT_MM = 45.0  # mm – výška modulového přístroje na liště (rozložení, délky vodičů)
@@ -170,6 +171,8 @@ class Element:
     component_id: str | None = None  # přiřazený artikl z knihovny
     mp_pos: tuple[float, float] | None = None  # ruční pozice ve vícepólu (None = automatické rozmístění)
     id: str = field(default_factory=_uid)
+    mirror: bool = False  # zrcadleno podle svislé osy značky (před otočením, v10); popisky a texty se nezrcadlí
+    sl_pos: tuple[float, float] | None = None  # ruční posun v jednopólovém schématu (dx, dy mm; v12), i podřízených
 
     @property
     def ref(self) -> str:
@@ -196,7 +199,7 @@ class Element:
 
     def port_pos(self, symbol: Symbol, port_name: str) -> tuple[float, float]:
         p = symbol.port(port_name)
-        rx, ry = rotate_point(p.x, p.y, self.rotation)
+        rx, ry = place_point(p.x, p.y, self.rotation, self.mirror)
         return (self.x + rx, self.y + ry)
 
     def to_dict(self) -> dict:
@@ -204,6 +207,8 @@ class Element:
             "id": self.id, "symbol_id": self.symbol_id, "x": self.x, "y": self.y,
             "rotation": self.rotation, "attrs": self.attrs, "component_id": self.component_id,
             **({"mp_pos": list(self.mp_pos)} if self.mp_pos else {}),
+            **({"mirror": True} if self.mirror else {}),
+            **({"sl_pos": list(self.sl_pos)} if self.sl_pos else {}),
         }
 
     @classmethod
@@ -215,14 +220,23 @@ class Element:
         return cls(
             symbol_id=str(d["symbol_id"]), x=_float(d["x"], "x"), y=_float(d["y"], "y"), rotation=rot,
             attrs=_str_attrs(d.get("attrs")), component_id=str(cid) if cid else None, id=str(d["id"]),
-            mp_pos=_point(d["mp_pos"], "mp_pos") if d.get("mp_pos") else None,
+            mp_pos=_point(d["mp_pos"], "mp_pos") if d.get("mp_pos") else None, mirror=d.get("mirror") is True,
+            sl_pos=_point(d["sl_pos"], "sl_pos") if d.get("sl_pos") else None,
         )
 
 
 # Barvy žil dle ČSN 33 0165 ed. 2 / HD 308 S2 (kabely CYKY, NYY…); DC podle zvyklosti FVE (červená +, černá −)
 CORE_COLORS = {"L1": "hnědá", "L2": "černá", "L3": "šedá", "L": "hnědá", "N": "modrá", "PE": "zelenožlutá",
-               "PEN": "zelenožlutá", "DC+": "červená", "DC-": "černá", "+": "červená", "-": "černá",
-               "L+": "červená", "L-": "černá"}
+               "PEN": "zelenožlutá", "+": "červená", "-": "černá", "L+": "červená", "L-": "černá", "M": "modrá"}
+# Označení žil dle ČSN EN 60445 (v11): stejnosměrné L+ / L− (kladný / záporný), střed M. Starší názvy z projektů
+# do v10, maker a ručního zadání se při načtení převedou (`conductor_name`).
+CONDUCTOR_ALIASES = {"DC+": "L+", "DC-": "L-", "DC−": "L-", "L−": "L-", "+DC": "L+", "-DC": "L-"}
+
+
+def conductor_name(c: str) -> str:
+    """Název žíly dle ČSN EN 60445: „DC+“ → „L+“, „DC−“/„DC-“ → „L-“; ostatní beze změny."""
+    c = str(c).strip()
+    return CONDUCTOR_ALIASES.get(c.upper(), c)
 
 
 @dataclass
@@ -270,7 +284,7 @@ class Cable:
     @classmethod
     def from_dict(cls, d: dict) -> Cable:
         return cls(ref=d.get("ref", ""), type=d.get("type", ""), cross=d.get("cross", ""),
-                   cores=[Core(c["name"], c.get("number", ""), c.get("color", "")) for c in d.get("cores", [])],
+                   cores=[Core(conductor_name(c["name"]), c.get("number", ""), c.get("color", "")) for c in d.get("cores", [])],
                    shield=bool(d.get("shield")), length=d.get("length", ""), route=d.get("route", ""),
                    note=d.get("note", ""), component_id=d.get("component_id"), id=d["id"])
 
@@ -314,8 +328,8 @@ class Wire:
         return cls(
             a=end("a"), b=end("b"),
             points=[_point(p, "points") for p in _list(d.get("points"), "points")], attrs=_str_attrs(d.get("attrs")),
-            conductors=[str(c) for c in _list(d.get("conductors"), "conductors")],
-            terminals={str(k): _str_attrs(v, "terminals") for k, v in _dict(d.get("terminals"), "terminals").items()},
+            conductors=[conductor_name(c) for c in _list(d.get("conductors"), "conductors")],
+            terminals={conductor_name(k): _str_attrs(v, "terminals") for k, v in _dict(d.get("terminals"), "terminals").items()},
             id=str(d["id"]),
         )
 
@@ -609,9 +623,39 @@ class Note:
                    resolved_by=d.get("resolved_by", ""), resolved=d.get("resolved", ""), id=d.get("id") or _uid())
 
 
+TEXT_HEIGHTS = (2.5, 3.5, 5.0, 7.0)   # výšky písma volného textu [mm] (ISO 3098)
+TEXT_LINE = 1.4                        # řádkování víceřádkového textu (× výška)
+
+
+@dataclass
+class SheetText:
+    """Volný text listu (v10): poznámka, nadpis části výkresu. (x, y) = levý bod základny prvního řádku [mm, Y nahoru];
+    další řádky (zalomení v `text`) jsou pod ním po `TEXT_LINE` × výška. Kreslí se ve výkresu, PDF i DXF; nepatří
+    k prvku a do výkazů nejde."""
+    x: float = 0.0
+    y: float = 0.0
+    text: str = ""
+    height: float = 2.5
+    id: str = field(default_factory=_uid)
+
+    def lines(self) -> list[str]:
+        return self.text.splitlines() or [""]
+
+    def to_dict(self) -> dict:
+        return {"id": self.id, "x": self.x, "y": self.y, "text": self.text, "height": self.height}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> SheetText:
+        h = _float(d.get("height", 2.5), "height")
+        if not 0.5 <= h <= 50:
+            raise ValueError(f"položka „height“ textu mimo rozsah 0,5–50 mm: {h}")
+        return cls(x=_float(d.get("x", 0), "x"), y=_float(d.get("y", 0), "y"), text=str(d.get("text") or ""),
+                   height=h, id=str(d.get("id") or _uid()))
+
+
 @dataclass
 class Sheet:
-    name: str = "Jednopólové schéma"
+    name: str = "Blokové schéma"
     paper: str = "A3"
     width: float = 420.0
     height: float = 297.0
@@ -629,6 +673,7 @@ class Sheet:
     # prázdné = podle firemního standardu (`multipole.paper_choice`). Nepovinný klíč – ukládá se, jen když je zadaný.
     mp_paper: str = ""
     id: str = field(default_factory=_uid)
+    texts: list[SheetText] = field(default_factory=list)   # volné texty listu (v10)
 
     @property
     def is_switchboard(self) -> bool:
@@ -655,7 +700,14 @@ class Sheet:
             "elements": [e.to_dict() for e in self.elements], "wires": [w.to_dict() for w in self.wires],
             "bridges": self.bridges, "func": self.func, "loc": self.loc,
             **({"mp_paper": self.mp_paper} if self.mp_paper else {}),
+            **({"texts": [t.to_dict() for t in self.texts]} if self.texts else {}),
         }
+
+    def text(self, tid: str) -> SheetText:
+        for t in self.texts:
+            if t.id == tid:
+                return t
+        raise KeyError(tid)
 
     def restore_state(self, d: dict) -> None:
         """Nastaví list na stav `d` (z `to_dict`) na místě – objekt listu zůstane (drží ho pohledy a příkazy undo).
@@ -689,6 +741,8 @@ class Sheet:
                      for k, v in _dict(d.get("bridges"), "bridges").items()},
             func=str(d.get("func") or ""), loc=str(d.get("loc") or ""),
             mp_paper=str(d.get("mp_paper") or ""),
+            texts=[_part(SheetText.from_dict, x, f"{where}, text {k + 1}")
+                   for k, x in enumerate(_list(d.get("texts"), "texts"))],
         )
 
 
@@ -1079,6 +1133,7 @@ def migrate(d: dict, ver: int) -> dict:
     if ver < 3:
         d.setdefault("bridges", {})  # v3: můstky svorkovnic
     # v4: volitelné `mp_pos` prvku (ruční pozice ve vícepólu) – bez migrace
+    # v12: volitelné `sl_pos` prvku (ruční posun v jednopólovém schématu) – bez migrace
     # v6: `cables` – kabely jako objekty; vytvoří se z vodičů při načtení (sync_cables)
     if ver < 5:
         # v5: FV string má jeden port DC (pár DC+/DC- jsou žíly), střídač porty DC1/DC2 místo DC+/DC-
@@ -1093,7 +1148,7 @@ def migrate(d: dict, ver: int) -> dict:
                         end["port"] = m[end["port"]]
                 if not w.get("conductors") and any(
                         sym_of.get(end["element_id"]) in port_map for end in (w["a"], w["b"])):
-                    w["conductors"] = ["DC+", "DC-"]
+                    w["conductors"] = ["L+", "L-"]
     if ver < 7 and d.get("bridges"):
         # v7: můstky patří listu (svorkovnice X1 je v každém rozvaděči jiná) – přesun k listu, kde svorkovnice je
         sheets = d.get("sheets", [])
@@ -1124,6 +1179,17 @@ def migrate(d: dict, ver: int) -> dict:
     if ver < 9:
         # v9: připomínky (Project.notes). Starší program v9 odmítne místo tichého zahození připomínek při uložení.
         d.setdefault("notes", [])
+    # v10: zrcadlení prvku (`Element.mirror`, jen když je True) a volné texty listu (`Sheet.texts`) – nepovinné,
+    # bez migrace dat. Starší program v10 odmítne místo tichého zahození zrcadlení a textů při uložení.
+    if ver < 11:
+        # v11: žíly dle ČSN EN 60445 – DC+ / DC− → L+ / L− (vodiče, svorky žil a kabely převádí už `from_dict`
+        # přes `conductor_name`); tady atribut `conductors` prvků (svorky, póly ve vícepólu)
+        for s in d.get("sheets", []):
+            for e in s.get("elements", []):
+                attrs = e.get("attrs") or {}
+                if isinstance(attrs.get("conductors"), str) and attrs["conductors"]:
+                    toks = attrs["conductors"].replace(",", " ").replace(";", " ").split()
+                    attrs["conductors"] = " ".join(conductor_name(t) for t in toks)
     d["format_version"] = FORMAT_VERSION
     return d
 
@@ -1135,12 +1201,15 @@ AUTO_TEXT_TEMPLATES = ("od {}", "{} dál", "string {}", "DC rozvaděč u {}", "D
 
 @dataclass(frozen=True)
 class TextChange:
-    """Změna textu navázaná na přejmenování: `kind` = "element" (atribut `key` prvku `target_id`) nebo "sheet"
-    (název listu `target_id`)."""
+    """Změna textu navázaná na přejmenování: `kind` = "element" (atribut `key` prvku `target_id`), "wire"
+    (atribut vodiče), "cable" (označení kabelu, `key` = "ref", `model.renumber`), "sheet"
+    (název listu `target_id`) nebo "wire_port" (port konce `key` = "a"/"b" vodiče `target_id` – konec vodiče JPS
+    na bloku ROZVADĚČ po přejmenování přívodu/vývodu, `feed_port_followups`). U „element“ znamená `old` None
+    chybějící klíč – undo ho odebere (odvozené atributy nové vazby přívodu, `SetAttrCommand`)."""
     kind: str
     target_id: str
     key: str
-    old: str
+    old: str | None
     new: str
 
 
@@ -1188,7 +1257,8 @@ def rename_followups(project: Project, element: Element, old: str, new: str) -> 
       ostatních prvků, kde je staré označení samostatným slovem, a názvy listů rozvaděčů, které takový popis nesou –
       jen u prvků, které s přejmenovaným prokazatelně souvisejí (`_rename_related`: stejný prostor označení, nebo
       list rozvaděče s přívodem/vývodem navázaným na vodič k němu). Stejný text v jiném prostoru označení (=B s
-      vlastním T1) se nemění. Ručně psané texty se nemění."""
+      vlastním T1) se nemění. Ručně psané texty se nemění;
+    - přívod/vývod rozvaděče: port navázaného vodiče JPS na bloku („X1“ → „X5“, `feed_port_followups`)."""
     if not old or not new or old == new:
         return []
     out: list[TextChange] = []
@@ -1217,6 +1287,10 @@ def rename_followups(project: Project, element: Element, old: str, new: str) -> 
                 cur = sheet_names.get(bs.id, bs.name) if bs is not None else ""
                 if bs is not None and cur.endswith(" – " + desc):
                     rename_sheet(bs, cur[: -len(desc)] + nd)
+    if element.symbol_id in FEED_SYMBOLS:
+        home = project.sheet_of_element(element.id)
+        if home is not None:
+            out += feed_port_followups(project, home, element, new)
     for sid, name in sheet_names.items():
         s = project.sheet(sid)
         out.append(TextChange("sheet", sid, "name", s.name, name))
@@ -1232,15 +1306,34 @@ def rename_followups(project: Project, element: Element, old: str, new: str) -> 
 def apply_text_changes(project: Project, changes: list[TextChange], undo: bool = False) -> None:
     """Provede (nebo s `undo` vrátí) změny z `rename_followups`."""
     els = {e.id: e for s in project.sheets for e in s.elements}
+    wires = {w.id: w for s in project.sheets for w in s.wires}
     for c in (reversed(changes) if undo else changes):
         val = c.old if undo else c.new
-        if c.kind == "sheet":
+        if c.kind == "wire_port":
+            w = wires.get(c.target_id)
+            if w is not None and c.key in ("a", "b"):
+                getattr(w, c.key).port = val
+        elif c.kind == "sheet":
             try:
                 project.sheet(c.target_id).name = val
             except KeyError:
                 continue
+        elif c.kind == "wire":
+            w = wires.get(c.target_id)
+            if w is not None:
+                if val is None:
+                    w.attrs.pop(c.key, None)
+                else:
+                    w.attrs[c.key] = val
+        elif c.kind == "cable":
+            cab = next((k for k in project.cables if k.id == c.target_id), None)
+            if cab is not None and c.key == "ref":
+                cab.ref = val or ""
         elif c.target_id in els:
-            els[c.target_id].attrs[c.key] = val
+            if val is None:
+                els[c.target_id].attrs.pop(c.key, None)
+            else:
+                els[c.target_id].attrs[c.key] = val
 
 
 def rename_structure(project: Project, aspect: str, old: str, new: str) -> int:
@@ -1410,7 +1503,7 @@ def paste_fragment(project: Project, fragment: dict, ref_prefix_of, dx: float = 
     els: list[Element] = []
     for d in fragment.get("elements", []):
         e = Element.from_dict(d)
-        new = Element(symbol_id=e.symbol_id, x=e.x + dx, y=e.y + dy, rotation=e.rotation,
+        new = Element(symbol_id=e.symbol_id, x=e.x + dx, y=e.y + dy, rotation=e.rotation, mirror=e.mirror,
                       attrs=detach_element_attrs(e.symbol_id, e.attrs), component_id=e.component_id)
         prefix = copy_prefix(e, ref_prefix_of(e.symbol_id))
         if e.symbol_id in ("sb.terminal_block", "fve.terminal"):
@@ -1630,12 +1723,22 @@ def inverter_dc_inputs(project: Project, e: Element) -> int:
     return max(n, 2)
 
 
+IO_ATTRIBUTE = Attribute("io", "Svorky střídače (záloha, komunikace) – prázdné = podle typu, „-“ = žádné", "", False)
+
+
 def inverter_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
-    """Značka střídače s DC vstupem na každý string (DC1…DCn vlevo); základní značka má DC1/DC2."""
+    """Značka střídače s DC vstupem na každý string (DC1…DCn vlevo); základní značka má DC1/DC2. Svorky typu
+    střídače (`inverter_io`: záložní výstup, generátor, komunikace, řízení výkonu) jsou v pásu pod značkou s porty
+    vpravo a popisem; baterie (BAT) je pak pod pásem. Atribut `io` je u střídače vždy (i bez svorek)."""
+    from envocad.model.inverter_io import inverter_io
+    attributes = list(base.attributes)
+    if not any(a.key == "io" for a in attributes):
+        attributes.append(IO_ATTRIBUTE)
     n = inverter_dc_inputs(project, e)
-    if n <= 2:
-        return base
-    h = max(20.0, 5.0 * n + 5.0)
+    io = [p for p in inverter_io(e.attrs) if p not in {q.name for q in base.ports}]
+    if n <= 2 and not io:
+        return dataclasses.replace(base, attributes=attributes)
+    h = max(20.0, 5.0 * n + 5.0) if n > 2 else 20.0
     half = h / 2
     prims = []
     for pr in base.primitives:
@@ -1647,11 +1750,21 @@ def inverter_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
             prims.append({**pr, "y": -half + 1.0})   # u spodní hrany uvnitř (port BAT je dole uprostřed)
         else:
             prims.append(pr)
-    ports = [Port(f"DC{k + 1}", -10, 2.5 * (n - 1) - 5 * k, "W") for k in range(n)]
-    ports += [p for p in base.ports if not p.name.startswith("DC")]
-    ports = [Port(p.name, p.x, (-half if p.y == -10 else (half if p.y == 10 else p.y)), p.dir) for p in ports]
+    if n > 2:
+        ports = [Port(f"DC{k + 1}", -10, 2.5 * (n - 1) - 5 * k, "W") for k in range(n)]
+        ports += [p for p in base.ports if not p.name.startswith("DC")]
+    else:
+        ports = list(base.ports)
+    bottom = -half - 5.0 * len(io)            # spodní hrana pásu svorek (bez svorek = spodní hrana značky)
+    ports = [Port(p.name, p.x, (bottom if p.y == -10 else (half if p.y == 10 else p.y)), p.dir) for p in ports]
+    if io:
+        prims.append({"type": "rect", "x": -10, "y": bottom, "w": 20, "h": -bottom - half})
+        for k, name in enumerate(io):
+            y = -half - 5.0 * k - 2.5
+            ports.append(Port(name, 10, y, "E"))
+            prims.append({"type": "text", "x": -8.5, "y": y - 0.7, "text": name, "height": 2.0, "align": "left"})
     return Symbol(id=base.id, name=base.name, category=base.category, description=base.description, iec_ref=base.iec_ref, function_class=base.function_class,
-                  primitives=prims, ports=ports, attributes=base.attributes, multipole=base.multipole,
+                  primitives=prims, ports=ports, attributes=attributes, multipole=base.multipole,
                   label_pos=(base.label_pos[0], half + 10.0))
 
 
@@ -1695,38 +1808,139 @@ def feed_wire_by_port(project: Project, sheet: Sheet, feed: Element) -> Wire | N
     return None
 
 
-def sync_feed_links(project: Project) -> int:
-    """Přívody/vývody rozvaděčů se navážou na vodiče JPS podle portu bloku (X1 → port X1); vrací počet změn.
-    Ruční vazba (`wire_id` na jiný vodič) má přednost, pokud ten vodič ještě existuje."""
-    changed = 0
+def effective_feed_wire(project: Project, sheet: Sheet, feed: Element) -> Wire | None:
+    """Vodič JPS, na který je přívod/vývod skutečně navázaný – stejné pravidlo jako `sync_feed_link_attrs`:
+    vodič na portu bloku se jménem přívodu má přednost, jinak ruční vazba (`wire_id` na existující vodič)."""
+    w = feed_wire_by_port(project, sheet, feed)
+    if w is not None:
+        return w
+    if not feed.attrs.get("wire_id"):
+        return None
+    hit = linked_wire(project, sheet, feed)
+    return hit[1] if hit is not None else None
+
+
+def _feeds(project: Project):
     for s in project.sheets:
-        if not s.is_switchboard:
+        if s.is_switchboard:
+            for f in s.elements:
+                if f.symbol_id in FEED_SYMBOLS:
+                    yield s, f
+
+
+def _sync_feed_attrs(project: Project, s: Sheet, f: Element) -> tuple[bool, Wire | None]:
+    """Odvozené atributy jednoho přívodu/vývodu (`wire_id`, odkud/kam, kabel). (změněno, nově navázaný vodič)."""
+    cur = f.attrs.get("wire_id", "")
+    w = feed_wire_by_port(project, s, f)
+    if cur and w is None and linked_wire(project, s, f) is not None:
+        return False, None            # ruční vazba (nebo přejmenovaný přívod/vývod před přejmenováním portu)
+    new_id = w.id if w else ""
+    if new_id != cur or (new_id and not f.attrs.get("cable") and w.attrs.get("cable")):
+        for k, v in feed_link_attrs(project, s, f, new_id).items():
+            if f.attrs.get(k, "") != v:   # nezměněnou hodnotu ani chybějící prázdný klíč nepřepisovat
+                f.attrs[k] = v
+        return True, w
+    return False, None
+
+
+def sync_feed_link_attrs(project: Project) -> int:
+    """Jen odvozená část vazeb přívodů/vývodů na vodiče JPS: `wire_id`, odkud/kam a kabel přívodu podle portu
+    bloku (X1 → port X1); ruční vazba (`wire_id` na jiný existující vodič) má přednost, když na portu žádný vodič
+    není. Idempotentní, primární data (žíly, porty vodičů) nemění – GUI ji volá po každé změně modelu mimo undo.
+    Doplňuje jen vazbu podle portu (vodič vložený na port bloku, přejmenovaný port); její zápisy undo nevrací –
+    po undo zůstanou místo chybějících klíčů prázdné hodnoty, které porovnání revizí nevidí. Ruční vazbu
+    (`wire_id` z dialogu / panelu) i s odkud/kam a kabelem zapisuje příkaz (`SetAttrCommand`), takže ji undo vrátí
+    celou; ruční vazbu (bez vodiče na portu) tato funkce nepřepisuje. Vrací počet změněných přívodů/vývodů."""
+    return sum(_sync_feed_attrs(project, s, f)[0] for s, f in _feeds(project))
+
+
+def sync_feed_links(project: Project) -> int:
+    """Plná synchronizace vazeb (načtení projektu, generátor – mimo undo): odvozené atributy
+    (`sync_feed_link_attrs`) a navíc primární follow-upy, které v GUI dělají příkazy: přejmenování konce vodiče
+    JPS na bloku podle označení přívodu s ruční vazbou (`feed_port_followups`) a převzetí žil nově navázaného
+    vodiče JPS vodiči rozvaděče u přívodu (`feed_conductor_changes`). Vrací počet změn."""
+    changed = 0
+    for s, f in _feeds(project):
+        ports = feed_port_followups(project, s, f, f.ref)
+        if ports:
+            apply_text_changes(project, ports)
+            changed += len(ports)
             continue
-        for f in s.elements:
-            if f.symbol_id not in FEED_SYMBOLS:
-                continue
-            cur = f.attrs.get("wire_id", "")
-            if cur and linked_wire(project, s, f) is not None and feed_wire_by_port(project, s, f) is None:
-                # ruční vazba (nebo přejmenovaný přívod/vývod): konec vodiče na bloku se přejmenuje na nové označení
-                _, lw = linked_wire(project, s, f)
-                block = s.parent_element_id
-                for end in (lw.a, lw.b):
-                    if end.element_id == block and end.port != f.ref and f.ref:
-                        end.port = f.ref
-                        changed += 1
-                continue
-            w = feed_wire_by_port(project, s, f)
-            new_id = w.id if w else ""
-            if new_id != cur or (new_id and not f.attrs.get("cable") and w.attrs.get("cable")):
-                for k, v in feed_link_attrs(project, s, f, new_id).items():
-                    if f.attrs.get(k, "") != v:   # nezměněnou hodnotu ani chybějící prázdný klíč nepřepisovat
-                        f.attrs[k] = v
-                if w and w.conductors:
-                    for sw in s.wires:
-                        if sw.touches(f.id) and sw.conductors != list(w.conductors):
-                            sw.conductors = list(w.conductors)
-                changed += 1
+        hit, w = _sync_feed_attrs(project, s, f)
+        if hit:
+            changed += 1
+            if w is not None:
+                apply_conductor_changes(project, feed_conductor_changes(s, f, w))
     return changed
+
+
+def feed_port_followups(project: Project, sheet: Sheet, feed: Element, new_ref: str) -> list[TextChange]:
+    """Přívod/vývod `feed` dostane označení `new_ref`: konec jeho navázaného vodiče JPS na bloku ROZVADĚČ se
+    přejmenuje na `new_ref` (`TextChange` „wire_port“). Nic, když na portu `new_ref` už nějaký vodič je (vazba
+    pak vede podle portu), když přívod žádný vodič nemá, nebo když vodič na blok nevede."""
+    block = sheet.parent_element_id
+    if feed.symbol_id not in FEED_SYMBOLS or not new_ref or not block:
+        return []
+    probe = Element(symbol_id=feed.symbol_id, attrs={**feed.attrs, "ref": new_ref}, id=feed.id)
+    if feed_wire_by_port(project, sheet, probe) is not None:
+        return []
+    hit = linked_wire(project, sheet, feed)     # ruční vazba, jinak port podle dosavadního označení
+    if hit is None:
+        return []
+    w = hit[1]
+    return [TextChange("wire_port", w.id, k, end.port, new_ref)
+            for k, end in (("a", w.a), ("b", w.b)) if end.element_id == block and end.port != new_ref]
+
+
+@dataclass(frozen=True)
+class ConductorChange:
+    """Změna žil vodiče `wire_id` navázaná na jinou změnu (převzetí žil vodiče JPS u přívodu rozvaděče);
+    svorky žil, které zmizely, se zahodí (jako `SetConductorsCommand`)."""
+    wire_id: str
+    old: list[str]
+    new: list[str]
+    old_terminals: dict
+    new_terminals: dict
+
+
+def feed_conductor_changes(sheet: Sheet, feed: Element, wire: Wire) -> list[ConductorChange]:
+    """Vodiče listu rozvaděče `sheet` napojené na přívod/vývod `feed` převezmou žíly vodiče JPS `wire`."""
+    conds = list(wire.conductors)
+    if not conds:
+        return []
+    out = []
+    for sw in sheet.wires:
+        if sw.touches(feed.id) and sw.conductors != conds:
+            old_t = {c: dict(t) for c, t in sw.terminals.items()}
+            new_t = {c: dict(t) for c, t in sw.terminals.items() if c in conds}
+            out.append(ConductorChange(sw.id, list(sw.conductors), conds, old_t, new_t))
+    return out
+
+
+def feed_conductor_followups(project: Project, wire: Wire) -> list[ConductorChange]:
+    """Žíly, které po vložení / změně vodiče JPS `wire` převezmou vodiče rozvaděčů u přívodů/vývodů navázaných
+    na `wire` (`effective_feed_wire`). Volají je příkazy (`AddWireCommand`, `SetConductorsCommand`,
+    `SetAttrCommand` s `wire_id`), aby undo změnu vrátilo; vodič uvnitř rozvaděče nic nevyvolá."""
+    home = next((s for s in project.sheets if any(w.id == wire.id for w in s.wires)), None)
+    if home is None or home.is_switchboard or not wire.conductors:
+        return []
+    out: list[ConductorChange] = []
+    for s, f in _feeds(project):
+        lw = effective_feed_wire(project, s, f)
+        if lw is not None and lw.id == wire.id:
+            out += feed_conductor_changes(s, f, wire)
+    return out
+
+
+def apply_conductor_changes(project: Project, changes: list[ConductorChange], undo: bool = False) -> None:
+    """Provede (nebo s `undo` vrátí) změny žil z `feed_conductor_followups`."""
+    wires = {w.id: w for s in project.sheets for w in s.wires}
+    for c in (reversed(changes) if undo else changes):
+        w = wires.get(c.wire_id)
+        if w is None:
+            continue
+        w.conductors = list(c.old if undo else c.new)
+        w.terminals = {k: dict(t) for k, t in (c.old_terminals if undo else c.new_terminals).items()}
 
 
 # ---- kabely ↔ vodiče -------------------------------------------------------------------------------------

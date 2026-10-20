@@ -95,7 +95,22 @@
       "key": "uc",
       "label": "Uc [V]",
       "default": "",
-      "show": false
+      "show": true,
+      "fmt": "Uc {} V"
+    },
+    {
+      "key": "up",
+      "label": "Up [kV]",
+      "default": "",
+      "show": true,
+      "fmt": "Up ≤ {} kV"
+    },
+    {
+      "key": "iscpv",
+      "label": "ISCPV [kA]",
+      "default": "",
+      "show": true,
+      "fmt": "ISCPV {} kA"
     },
     {
       "key": "poles",

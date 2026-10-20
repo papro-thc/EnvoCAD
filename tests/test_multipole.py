@@ -16,7 +16,7 @@ def test_default_conductors():
     assert mp.default_conductors(a, "2", b, "AC") == ["L1", "L2", "L3", "N", "PE"]
     assert mp.default_conductors(Element("fve.breaker_mcb", attrs={"poles": "1"}), "2", Element("fve.load"), "1") \
         == ["L1", "N", "PE"]
-    assert mp.default_conductors(Element("fve.pv_string"), "DC", Element("fve.inverter"), "DC1") == ["DC+", "DC-"]
+    assert mp.default_conductors(Element("fve.pv_string"), "DC", Element("fve.inverter"), "DC1") == ["L+", "L-"]
     assert mp.parse_conductors("L1, L2;L3 N N") == ["L1", "L2", "L3", "N"]
 
 

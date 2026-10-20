@@ -41,7 +41,7 @@ def dc_string_in() -> dict:
     d.attrs["ref"] = "FU{i}.{j}"   # číslování ENVO: střídač.string
     out = _el(p, s, "sb.feed_out", 60, 170, "", desc="{string} dál")
     out.attrs["ref"] = "X{nk}"
-    spd = _el(p, s, "fve.spd", 72.5, 180, "F", spd_type="{spd} DC", uc="1000", poles="3", modules="3", desc="string {string}",
+    spd = _el(p, s, "fve.spd", 72.5, 180, "F", spd_type="{spd} DC", uc="1000 V DC", poles="3", modules="3", desc="string {string}",
               when="spd")   # prázdný typ svodiče = bez SPD
     spd.attrs["ref"] = "SPD-DC{i}.{j}"
     xpe = _el(p, s, "sb.feed_out", 40, 130, "", desc="k HOP", shared="1", when="spd")   # vývod jen pro PE svodiče
@@ -51,7 +51,7 @@ def dc_string_in() -> dict:
     _wire(p, s, d, "2", spd, "L", DC_CONDUCTORS)
     pe = _wire(p, s, spd, "PE", xpe, "1", ["PE"])
     pe.points = [(95.0, 170.0), (95.0, 147.5), (40.0, 147.5)]   # PE vpravo kolem popisků vývodu, ne přes ně
-    return _frag(s, 40)   # rozteč 40 mm: popisky přívodu/SPD se nepřekrývají se sousedním stringem
+    return _frag(s, 50)   # rozteč 50 mm: popisky přívodu/SPD (typ, Uc, Up, ISCPV) se nepřekrývají se sousedním stringem
 
 
 def dc_string_route() -> dict:
@@ -63,7 +63,7 @@ def dc_string_route() -> dict:
     d.attrs["ref"] = "QS{i}.{j}"
     out = _el(p, s, "sb.feed_out", 60, 170, "", desc="{string} dál")
     out.attrs["ref"] = "X{nk}"
-    spd = _el(p, s, "fve.spd", 72.5, 180, "F", spd_type="{spd} DC", uc="1000", poles="3", modules="3", desc="string {string}",
+    spd = _el(p, s, "fve.spd", 72.5, 180, "F", spd_type="{spd} DC", uc="1000 V DC", poles="3", modules="3", desc="string {string}",
               when="spd")   # prázdný typ svodiče = bez SPD
     spd.attrs["ref"] = "SPD-DC{i}.{j}"
     xpe = _el(p, s, "sb.feed_out", 40, 130, "", desc="k HOP", shared="1", when="spd")   # vývod jen pro PE svodiče
@@ -73,7 +73,7 @@ def dc_string_route() -> dict:
     _wire(p, s, d, "2", spd, "L", DC_CONDUCTORS)
     pe = _wire(p, s, spd, "PE", xpe, "1", ["PE"])
     pe.points = [(95.0, 170.0), (95.0, 147.5), (40.0, 147.5)]   # PE vpravo kolem popisků vývodu, ne přes ně
-    return _frag(s, 40)   # rozteč 40 mm: popisky přívodu/SPD se nepřekrývají se sousedním stringem
+    return _frag(s, 50)   # rozteč 50 mm: popisky přívodu/SPD (typ, Uc, Up, ISCPV) se nepřekrývají se sousedním stringem
 
 
 def ac_feed() -> dict:
@@ -160,7 +160,7 @@ META = {
             {"name": "Pojistka 20 A gPV, SPD T1+T2", "values": {"fuse_in": "20", "spd": "T1+T2"}},
             {"name": "Pojistka 15 A gPV bez SPD", "values": {"fuse_in": "15", "spd": ""}},
         ],
-        "repeat": {"count": "n", "pitch": 40},
+        "repeat": {"count": "n", "pitch": 50},
     },
     "DC string po trase": {
         "role": "dc_route",
@@ -170,7 +170,7 @@ META = {
             {"name": "Odpínač 32 A, SPD T1+T2", "values": {"disc_in": "32", "spd": "T1+T2"}},
             {"name": "Odpínač 32 A bez SPD", "values": {"disc_in": "32", "spd": ""}},
         ],
-        "repeat": {"count": "n", "pitch": 40},
+        "repeat": {"count": "n", "pitch": 50},
     },
     "AC přívod střídače": {
         "role": "ac_feed",

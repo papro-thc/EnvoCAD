@@ -32,6 +32,11 @@ class Port:
         return asdict(self)
 
 
+# atribut → atribut, který ho v popisku ve výkresu nahradí, když je zadaný: typ SPD (T1+T2) je obsažený
+# v objednacím typu svodiče („VPU PV I+II 3 1000“) – ve výkresu typ, Uc, Up, ISCPV
+LABEL_SUPERSEDED = {"spd_type": "type"}
+
+
 @dataclass
 class Attribute:
     key: str
@@ -41,12 +46,16 @@ class Attribute:
     fmt: str = ""        # formát zobrazené hodnoty ve výkresu, např. "{} modulů" (prázdné = hodnota sama)
 
     def display(self, value: str) -> str:
-        """Hodnota pro výkres podle `fmt`; hodnota, která už jednotku z formátu nese („25 kW“), se nezdvojí."""
+        """Hodnota pro výkres podle `fmt`; hodnota, která už jednotku z formátu nese („25 kW“, „1000 V DC“ u
+        „Uc {} V“), se nezdvojí – dostane jen předponu formátu („Uc 1000 V DC“)."""
         if not (self.fmt and value):
             return value
-        suffix = self.fmt.split("{}", 1)[-1].strip() if "{}" in self.fmt else ""
+        prefix, suffix = (self.fmt.split("{}", 1) + [""])[:2] if "{}" in self.fmt else ("", "")
+        suffix = suffix.strip()
+        if suffix and suffix.lower() in str(value).lower().split():
+            return prefix + str(value).strip()
         if suffix and str(value).strip().lower().endswith(suffix.lower()):
-            return str(value)
+            return prefix + str(value).strip()
         return self.fmt.format(value)
 
     def to_dict(self) -> dict:
@@ -81,9 +90,15 @@ class Symbol:
             return list(self.function_class)
         return [self.iec_ref] if self.iec_ref else []
 
+    def label_attributes(self, attrs: dict, skip: set[str] | frozenset = frozenset({"ref"})) -> list[Attribute]:
+        """Zobrazované atributy s hodnotou (bez `skip`); atribut, který nahrazuje jiný zadaný (`LABEL_SUPERSEDED`:
+        typ SPD vedle objednacího typu svodiče), se vynechá – popisek SPD se pak vejde vedle pólů."""
+        return [a for a in self.attributes if a.show and a.key not in skip and attrs.get(a.key)
+                and not (a.key in LABEL_SUPERSEDED and attrs.get(LABEL_SUPERSEDED[a.key]))]
+
     def label_lines(self, attrs: dict) -> list[str]:
         """Řádky popisku prvku ve výkresu (bez označení): zobrazované atributy s formátem."""
-        return [a.display(attrs[a.key]) for a in self.attributes if a.show and a.key != "ref" and attrs.get(a.key)]
+        return [a.display(attrs[a.key]) for a in self.label_attributes(attrs)]
 
     def pole_symbol(self) -> Symbol:
         """Značka jednoho pólu pro vícepól (bez vlastní – celá značka)."""
@@ -93,11 +108,14 @@ class Symbol:
         return Symbol(id=self.id + "#pole", name=self.name, primitives=list(pole), ports=list(self.ports),
                       attributes=self.attributes, label_pos=self.label_pos)
 
-    def common_symbol(self) -> Symbol | None:
-        common = self.multipole.get("common")
+    def common_symbol(self, texts: bool = False) -> Symbol | None:
+        """Společná část vícepólové značky: tvary (`texts=False`, kreslí se u prvního pólu) nebo texty
+        (`texts=True`, např. „DC“ – kreslí se u posledního pólu, aby neležely přes další póly)."""
+        common = [p for p in self.multipole.get("common") or [] if (p.get("type") == "text") == texts]
         if not common:
             return None
-        return Symbol(id=self.id + "#common", name=self.name, primitives=list(common), ports=[])
+        return Symbol(id=self.id + ("#common_text" if texts else "#common"), name=self.name,
+                      primitives=common, ports=[])
 
     @property
     def pole_link(self) -> bool:
@@ -272,3 +290,18 @@ def rotate_dir(d: str, rot: int) -> str:
     steps = (rot // 90) % 4
     # DIRS = N,E,S,W (po směru hod. ručiček); rotace proti směru → index klesá
     return DIRS[(i - steps) % 4]
+
+
+def place_point(x: float, y: float, rot: int, mirror: bool = False) -> tuple[float, float]:
+    """Bod značky do souřadnic prvku: nejdřív zrcadlení podle svislé osy značky (x → −x), pak otočení."""
+    return rotate_point(-x if mirror else x, y, rot)
+
+
+def place_dir(d: str, rot: int, mirror: bool = False) -> str:
+    """Směr portu prvku: zrcadlení prohodí E/W, pak otočení (jako `place_point`)."""
+    if mirror and d in ("E", "W"):
+        d = "W" if d == "E" else "E"
+    return rotate_dir(d, rot)
+
+
+MIRROR_ALIGN = {"left": "right", "right": "left", "center": "center"}

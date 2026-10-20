@@ -12,7 +12,7 @@
 - [x] Dialog parametrů při vložení prvku/vodiče
 - [x] Rámeček a popisové pole listu (šablona ENVO) – logo doplnit po dodání
 - [ ] Příkazový řádek (styl ZWCAD/CADCraft): každá akce = příkaz, ovladatelné i z agentů
-- [ ] Automatické číslování označení (T1, F1, Q1…) s kontrolou duplicit
+- [x] Automatické číslování označení (T1, F1, Q1…) s kontrolou duplicit – nové prvky a kopie dostanou další volné číslo, F7 hlásí duplicity, Úpravy → Přečíslovat označení (podle polohy, jen chybějící/duplicitní nebo vše, kontakty s cívkou, 10/2026)
 
 ## v0.2 – Knihovna a výkazy
 - [ ] Editor symbolů (porty, atributy) přímo v GUI
@@ -28,7 +28,7 @@
 - [ ] BMEcat/ETIM importér (volná data výrobců)
 - [ ] Footprinty z DXF výrobců (OEZ, Hager) a editor portů importovaných symbolů
 - [ ] Ceny v artiklech + výkaz s cenami
-- [ ] Výkaz materiálu (.xlsx) a seznam kabelů z modelu
+- [x] Výkaz materiálu (.xlsx) a seznam kabelů z modelu – Výkaz materiálu, Kabely, Kabelový plán; nově Kabely a vodiče k objednání (metry kabelů podle typu, vodiče rozvaděče, dutinky; 10/2026)
 - [ ] Hromadný import DXF knihoven výrobců (SMA, Huawei, SolarEdge, Eaton, Schneider, OEZ…)
 
 ## v0.2 – Rozvaděče  ← hotovo v základu
@@ -67,7 +67,7 @@
 ## Proti EPLAN (analýza 10/2026) – zbývá
 - [x] Potenciály: T-odbočka vodiče do vodiče, sledování potenciálu přes svorky a můstky, kontrola N/PE (10/2026)
 - [ ] Funkční šablony artiklů (střídač → porty podle MPPT, jistič → příslušenství), přiřazení příslušenství k rámu – částečně: střídač → porty podle MPPT z artiklu (makra v2 / průvodce), jistič → příslušenství makrem
-- [ ] **Bloky typů střídačů**: každý typ střídače jako blok s vlastními svorkami – DC vstupy, AC, baterie, komunikace (RS485, Ethernet, CAN), DRMS / řízení výkonu (RTU, NS ochrana), měřicí smyčka – z katalogu `inverters.csv`; dnes má střídač jen DC1…DCn, AC (a BAT)
+- [x] **Bloky typů střídačů** (10/2026: pás svorek záloha/BMS/METER/RS485/LAN/DI/DRM/RSD podle profilu řady – Huawei, SolaX, GoodWe, Growatt, Sigenergy, SolarEdge; `model/inverter_io.py`, atribut `io`; zbývá: piny ověřit z návodů, katalog Sigenergy/Growatt/SolarEdge, měřicí smyčka/NA ochrana jako makra): každý typ střídače jako blok s vlastními svorkami – DC vstupy, AC, baterie, komunikace (RS485, Ethernet, CAN), DRMS / řízení výkonu (RTU, NS ochrana), měřicí smyčka – z katalogu `inverters.csv`; dnes má střídač jen DC1…DCn, AC (a BAT)
 - [ ] Rozložení jako výkres: montážní deska, žlaby a lišty podle artiklu s délkami, vrtací plán, výkaz montážního materiálu
 - [ ] Vícepatrové svorky, N-odpojovací svorky jako druh (svorkovnice přes více stran – hotovo 10/2026 stránkováním vícepólu)
 - [x] Makra (oblíbené sestavy) – hotovo 10/2026; zbývá: kopírování celého listu, hromadné přečíslování, editor značek v GUI
@@ -84,6 +84,7 @@ Pořadí = priorita. Body 1, 2 a 5 jsou nejlevnější start.
 - [x] **Revize ve výkresu**: označení změn z `model/diff.py` přímo v listu (obláček/trojúhelník s číslem revize), revize v popisovém poli, uzavření revize listu – hotovo 10/2026: trojúhelníky se značkou revize v editoru, PDF a DXF (vrstva `REVIZE`), revize listu v popisovém poli, uzavření revize = měkký zámek (kontrola `rev_closed_changed`). Záměrně vynechány: obláček a značky ve vícepólu (YAGNI)
 - [x] **Připomínkování (redlining)**: vrstva poznámek v projektu se stavem otevřeno/vyřešeno, export jako anotace do PDF (EPLAN eVIEW) – hotovo 10/2026: `Project.notes` (formát v9 + migrace), nástroj Kreslit → Připomínka (bod / oblast), dialog, Navigátor → Připomínky (filtr, hledání, skok), Zobrazit → Připomínky, export PDF jako anotace (pypdf) a DXF vrstva `PRIPOMINKY`, dotaz při uzavření revize, kontroly `note_open`, `note_orphan`. Záměrně vynechány (YAGNI): vlákna odpovědí, import komentářů z PDF, vícepól, obláček
 - [x] **Výrobní data rozvaděče**: zapojovací seznam s délkami z rozložení, barvou, průřezem, koncovkou/dutinkou (xlsx) – hotovo 10/2026: `model/wiring.py` (návrh `docs/design/vyrobni_data.md`), výkaz „Výrobní zapojovací seznam“ (mimo PDF dokumentaci), `export_production_xlsx` s listem Parametry, odvozené svorky přístrojů 1/2 → 1…6, délky po žlabech z rozložení, dutinky DIN 46228; formát v9 beze změny. GUI (atributy vodiče, parametry skříně, položka menu) dodělává gui-dev
+- [x] **Generovat skutečné jednopólové schéma** po vytvoření blokového schématu a rozvaděčů (požadavek 17. 10. 2026) – hotovo 10/2026: `model/single_line.py` odvozuje strom od DS přes bloky rozvaděčů do jejich listů (rámečky rozvaděčů, přípojnice, kabely, elektroměr u MTP, konec u střídačů), kreslicí seznam `Prim` pro scénu (`ui/single_line_view.py`, Zobrazit → Jednopólové schéma), PDF dokumentaci a DXF; generátor umí **přípojku VN** (`connection.level = "vn"`: hlavní rozvaděč nn, transformátor, rozvaděč VN s kobkami, fakturační měření nn/vn; nové značky MTP, MTN, uzemňovač). Doplněno 18. 10. 2026: pole / kobky VN v samostatných rámečcích, rámeček trafostanice (RVN, TR, RHN, elektroměrový rozvaděč RE), druh TS kiosková / zděná / sloupová, značky VN (ČSN EN 60617), ruční posun tažením (formát 12, `Element.sl_pos`). Dál: vícepól elektroměru (proud a napětí odděleně), DC část zkráceně (n × string), rozvaděč telemetrie AXY jako makro (dodá ENVO); ochrany VN a motorové pohony se v praxi ENVO nekreslí
 - [ ] **Formáty strojů pro výrobu vodičů** (Komax, Steinhauer…) – až při sériové výrobě; vstupem `wiring.ProductionWire`, výstup `export/machine_<výrobce>.py`
 - [ ] **Parametry artiklů pojmenovat podle ETIM/eCl@ss** – BMEcat importér pak jen mapuje sloupce
 - [x] Databáze FV modulů a střídačů pro výběr v průvodci (jako SurgePV/PVcase) – hotovo 10/2026: katalog `pv_modules.csv` + rozšířený `inverters.csv` (zdroje v poznámkách), výběr z katalogu v průvodci, asistent stringů (`model/calc.py`, sdílený s F7), návrhové teploty v projektu (`docs/design/katalog_fv.md`). Data zatím neúplná (WebSearch bez stahování datasheetů) – doplnit z PDF výrobců; importér PVsyst .PAN/.OND odložen
@@ -93,7 +94,7 @@ Pořadí = priorita. Body 1, 2 a 5 jsou nejlevnější start.
 
 ## Chyby k řešení
 - [x] Generovaný projekt se 4 a více střídači: JPS přetékal list – opraveno 10/2026 (formát A3–A0 podle obsahu); rozdělení velkých JPS na víc listů zůstává otevřené
-- [ ] Rozvaděčové artikly: doplnit `t_min_c`/`t_max_c` z datasheetů (zatím 76 řádků se zdrojem; OEZ LTN/LFN/OPVP, Eaton PF7 chybí)
+- [ ] Rozvaděčové artikly: doplnit `t_min_c`/`t_max_c` z datasheetů. Stav: ověřeno z PDF/stránek výrobce – OEZ 3VA1/3VA2 (−25…70 °C, katalog MO1-2020), OEZ SVBC-DC (−40…80 °C), Hager MCB/RCD (−25…70 °C, resp. −25…40 °C). Zbývá: Eaton (eaton.com z agentního prostředí nedostupný, ~250 řádků bez nového ověření), OEZ MCB/RCD/SPD AC (minikatalog teploty neuvádí), BMR PLA33 (bez údaje), skříně (se.com 403, soubor bez sloupců `t_min_c`/`t_max_c`)
 
 ## Odloženo (analýza 10/2026 – nebrzdí práci)
 - Příkazový řádek (styl ZWCAD/CADCraft) – až bude potřeba ovládat program z agentů

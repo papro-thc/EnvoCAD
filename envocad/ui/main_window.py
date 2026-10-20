@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from pathlib import Path
+from typing import ClassVar
 
+import shiboken6
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction, QKeySequence, QUndoStack
 from PySide6.QtWidgets import (
@@ -27,9 +30,10 @@ from envocad.ui.canvas import Mode, SchematicScene, SchematicView
 from envocad.ui.layout_view import LayoutScene, LayoutView
 from envocad.ui.multipole_view import MultipoleScene, MultipoleView
 from envocad.ui.notes_panel import NotesPanel
+from envocad.ui.single_line_view import SingleLineScene, SingleLineView
 from envocad.ui.terminal_plan_view import TerminalPlanScene, TerminalPlanView
 
-DERIVED_VIEWS = (MultipoleView, TerminalPlanView)  # pohledy odvozené z modelu – po změně se přestaví
+DERIVED_VIEWS = (MultipoleView, TerminalPlanView, SingleLineView)  # odvozené z modelu – po změně se přestaví
 from envocad.ui.panels import LibraryPanel, PropertiesPanel
 
 FILE_FILTER = "Projekt EnvoCAD (*.ecp)"
@@ -69,6 +73,14 @@ def free_symbol_id(library, sid: str) -> str:
     return f"{sid}_{n}"
 
 
+def export_files_message(files: list) -> str:
+    """Hláška po exportu do jednoho nebo více souborů („Exportováno 2 soubory: …“)."""
+    from envocad.model.notes import count_label
+    if len(files) == 1:
+        return f"Exportováno: {files[0]}"
+    return f"Exportováno {count_label(len(files), ('soubor', 'soubory', 'souborů'))}: {files[0]} …"
+
+
 class MainWindow(QMainWindow):
     def __init__(self, library: LibraryStore | None = None, project: Project | None = None):
         super().__init__()
@@ -99,7 +111,27 @@ class MainWindow(QMainWindow):
         self.nav_tabs.addTab(self.notes_panel, "Připomínky")
         self._dock("Navigátor", self.nav_tabs, Qt.LeftDockWidgetArea)
         self._dock("Vlastnosti", self.props_panel, Qt.RightDockWidgetArea)
+        from envocad.ui.navigator import ChecksPanel
+        self.checks_panel = ChecksPanel()
+        self.checks_panel.goto.connect(self.goto_target)
+        self.checks_panel.recheck.connect(self.run_checks)
+        self._dock("Kontrola", self.checks_panel, Qt.BottomDockWidgetArea)
+        self.checks_dock = self.findChild(QDockWidget, "Kontrola")
+        self.checks_dock.hide()
+        self._checks_timer = QTimer(self, singleShot=True, interval=800)   # obnova nálezů po změně projektu
+        self._checks_timer.timeout.connect(self._recheck_if_open)
+        # panel otevřený z minulého spuštění / ručně bez nálezů → zkontrolovat (odloženě, až je projekt načtený)
+        self.checks_dock.visibilityChanged.connect(
+            lambda on: on and self._findings is None and self._checks_timer.start())
         self.setStatusBar(QStatusBar())
+        self._build_status_widgets()
+        from envocad.ui.welcome import WelcomeOverlay
+        self.welcome = WelcomeOverlay(self.tabs)
+        self.welcome.wizard.connect(self.new_project_wizard)
+        self.welcome.open_project.connect(self.open_project)
+        self.welcome.open_recent.connect(self.open_path)
+        self.welcome.hide()
+        self.tabs.installEventFilter(self)
         self._build_actions()
         self._load_plugins()
         import uuid
@@ -116,6 +148,9 @@ class MainWindow(QMainWindow):
                                  f"Projekt nelze otevřít:\n{ex}\n\nEnvoCAD se spustí s prázdným projektem.")
             self._load_project(Project())
         self.resize(1400, 900)
+        self._default_layout = self.saveState()     # pro Zobrazit → Obnovit rozložení
+        self._restore_window()
+        self._update_toolbars()
         # automatické ukládání rozpracovaného projektu (obnova po pádu)
         self._autosave_timer = QTimer(self)
         self._autosave_timer.setInterval(120_000)
@@ -153,6 +188,8 @@ class MainWindow(QMainWindow):
     @property
     def current_sheet(self) -> Sheet | None:
         v = self.view
+        if isinstance(v, SingleLineView):      # jednopólové schéma je z celého projektu, ne z listu
+            return None
         return v.scene().sheet if isinstance(v, (SchematicView, LayoutView)) else None
 
     # ---- sestavení UI --------------------------------------------------------
@@ -164,32 +201,30 @@ class MainWindow(QMainWindow):
 
     def _build_actions(self) -> None:
         mb = self.menuBar()
-        tb = QToolBar("Hlavní")
-        tb.setObjectName("main_toolbar")
-        self.addToolBar(tb)
+        self.actions: dict[str, QAction] = {}     # id → akce (lišty, ikony, paleta příkazů)
 
-        def act(menu, text, slot, shortcut=None, toolbar=False):
+        def act(menu, text, slot, shortcut=None, key=None):
             a = QAction(text, self)
             if shortcut:
                 a.setShortcut(QKeySequence(shortcut))
             a.triggered.connect(slot)
             menu.addAction(a)
-            if toolbar:
-                tb.addAction(a)
+            if key:
+                self.actions[key] = a
             return a
 
         m_file = mb.addMenu("&Soubor")
-        act(m_file, "&Nový", self.new_project, "Ctrl+N", True)
+        act(m_file, "&Nový", self.new_project, "Ctrl+N", "new")
         act(m_file, "Nový projekt z průvodce…", self.new_project_wizard, "Ctrl+Shift+N")
         act(m_file, "Nový projekt ze specifikace (JSON)…", self.new_project_from_spec)
-        act(m_file, "&Otevřít…", self.open_project, "Ctrl+O", True)
+        act(m_file, "&Otevřít…", self.open_project, "Ctrl+O", "open")
         self.m_recent = m_file.addMenu("Poslední projekty")
         self._refresh_recent_menu()
-        act(m_file, "&Uložit", self.save_project, "Ctrl+S", True)
+        act(m_file, "&Uložit", self.save_project, "Ctrl+S", "save")
         act(m_file, "Uložit &jako…", self.save_project_as, "Ctrl+Shift+S")
         m_file.addSeparator()
-        act(m_file, "Export &DXF…", self.export_dxf)
-        act(m_file, "Export &PDF…", self.export_pdf)
+        act(m_file, "Export &DXF…", self.export_dxf, None, "export_dxf")
+        act(m_file, "Export &PDF…", self.export_pdf, None, "export_pdf")
         act(m_file, "Export PDF na A4 (zmenšeno)…", lambda: self.export_pdf("A4"))
         m_file.addSeparator()
         act(m_file, "Vlastnosti projektu…", self.edit_project_meta)
@@ -206,37 +241,50 @@ class MainWindow(QMainWindow):
         r.setShortcuts([QKeySequence.Redo, QKeySequence("Ctrl+Y")])
         m_edit.addAction(u)
         m_edit.addAction(r)
-        tb.addSeparator()
-        tb.addAction(u)
-        tb.addAction(r)
+        self.actions["undo"], self.actions["redo"] = u, r
         m_edit.addSeparator()
-        act(m_edit, "Kopírovat", lambda: self.scene and self.scene.copy_selected())
-        act(m_edit, "Vložit kopii", lambda: self.scene and self.scene.paste())
-        act(m_edit, "Uložit výběr jako makro…", self.save_macro, "Ctrl+Shift+S")
+        act(m_edit, "Kopírovat", lambda: self.scene and self.scene.copy_selected(), None, "copy")
+        act(m_edit, "Vložit kopii", lambda: self.scene and self.scene.paste(), None, "paste")
+        act(m_edit, "Uložit výběr jako makro…", self.save_macro, "Ctrl+Alt+M", "save_macro")
         act(m_edit, "Smazat makro…", self.delete_macro)
-        act(m_edit, "Smazat", lambda: self.scene and self.scene.delete_selected(), "Delete")
-        act(m_edit, "Otočit o 90°", lambda: self.draw_scene and self.draw_scene.rotate_selected(), "R")
+        act(m_edit, "Smazat", self.delete_selected, "Delete", "delete")
+        act(m_edit, "Otočit o 90°", lambda: self.draw_scene and self.draw_scene.rotate_selected(), "R", "rotate")
+        act(m_edit, "Zrcadlit", lambda: self.scene and self.scene.mirror_selected(), "M", "mirror")
+        act(m_edit, "Narovnat vodič (zrušit ruční lomy)", lambda: self.scene and self.scene.straighten_selected(),
+            "N", "straighten")
         m_edit.addSeparator()
-        act(m_edit, "Svorky vybraného vodiče…", self.edit_wire_terminals, "Ctrl+T")
+        act(m_edit, "Svorky vybraného vodiče…", self.edit_wire_terminals, "Ctrl+T", "terminals")
         act(m_edit, "Očíslovat svorky automaticky", self.auto_number_terminals)
+        act(m_edit, "Přečíslovat označení…", self.renumber_refs, None, "renumber")
         act(m_edit, "Svorkovnice a můstky…", self.edit_strip, "Ctrl+Shift+T")
-        act(m_edit, "Kabel vybraného vodiče (žíly, barvy, stínění)…", self.edit_cable, "Ctrl+Shift+K")
+        act(m_edit, "Kabel vybraného vodiče (žíly, barvy, stínění)…", self.edit_cable, "Ctrl+Shift+K", "cable")
         m_edit.addSeparator()
-        act(m_edit, "Najít označení…", self.find_ref, "Ctrl+F")
-        act(m_edit, "Kontrola projektu…", self.run_checks, "F7", True)
+        act(m_edit, "Najít označení…", self.find_ref, "Ctrl+F", "find")
+        act(m_edit, "Kontrola projektu…", self.run_checks, "F7", "checks")
+        act(m_edit, "Hledat příkaz…", self.command_palette, "Ctrl+K", "palette")
 
         m_draw = mb.addMenu("&Kreslit")
-        tb.addSeparator()
-        act(m_draw, "Vodič (W)", lambda: self.draw_scene and self.draw_scene.start_wire(), None, True)
-        act(m_draw, "Výběr (Esc)", lambda: self.draw_scene and self.draw_scene.set_mode(Mode.SELECT), None, True)
-        self.act_note = act(m_draw, "Připomínka", self.start_note, "Ctrl+Shift+P", True)
+        act(m_draw, "Výběr (Esc)", lambda: self.draw_scene and self.draw_scene.set_mode(Mode.SELECT), None, "select")
+        act(m_draw, "Vodič (W)", lambda: self.draw_scene and self.draw_scene.start_wire(), None, "wire")
+        act(m_draw, "Vložit značku z knihovny", self.insert_symbol, None, "insert_symbol")
+        act(m_draw, "Přerušovací bod", lambda: self.scene and self.scene.start_place("fve.interrupt"), None, "interrupt")
+        act(m_draw, "Text", lambda: self.scene and self.scene.set_mode(Mode.TEXT), "T", "text")
+        self.act_note = act(m_draw, "Připomínka", self.start_note, "Ctrl+Shift+P", "note")
 
         m_view = mb.addMenu("&Zobrazit")
-        act(m_view, "Přizpůsobit list", lambda: self.view and self.view.zoom_fit(), "Home", True)
-        act(m_view, "Vícepólový pohled", self.open_multipole, "Ctrl+M", True)
-        act(m_view, "Jednopólové schéma", self.open_singlepole, "Ctrl+J")
+        act(m_view, "Přizpůsobit list", lambda: self.view and self.view.zoom_fit(), "Home", "fit")
+        act(m_view, "Přiblížit", lambda: self.zoom(1.25), "Ctrl++", "zoom_in")
+        act(m_view, "Oddálit", lambda: self.zoom(1 / 1.25), "Ctrl+-", "zoom_out")
+        self.act_focus = act(m_view, "Jen výkres (skrýt panely)", lambda: None, "F11", "focus")
+        self.act_focus.setCheckable(True)
+        self.act_focus.toggled.connect(self.set_drawing_only)
+        m_view.addSeparator()
+        act(m_view, "Vícepólový pohled", self.open_multipole, "Ctrl+M", "view_multipole")
+        act(m_view, "Blokové schéma / jednopólová editace", self.open_singlepole, "Ctrl+J", "view_singlepole")
+        act(m_view, "Jednopólové schéma (odvozené z rozvaděčů)", self.open_single_line, "Ctrl+Shift+J",
+            "view_single_line")
         act(m_view, "Plán svorkovnice", lambda: self.current_sheet and self.open_sheet(self.current_sheet, "terminals"),
-            "Ctrl+Shift+M")
+            "Ctrl+Shift+M", "view_terminals")
         act(m_view, "Vícepól: rozmístit automaticky", lambda: isinstance(self.view, MultipoleView)
             and self.view.scene().reset_layout())
         self.act_dark = QAction("Tmavý režim", self, checkable=True)
@@ -244,6 +292,7 @@ class MainWindow(QMainWindow):
         self.act_dark.setChecked(theme.is_dark())
         self.act_dark.toggled.connect(self.set_dark)
         m_view.addAction(self.act_dark)
+        self.actions["dark"] = self.act_dark
         from envocad.model.frame import frame_enabled
         self.act_frame = QAction("Rámeček a popisové pole", self, checkable=True)
         self.act_frame.setChecked(frame_enabled())
@@ -253,6 +302,8 @@ class MainWindow(QMainWindow):
         self.act_notes.setChecked(self._notes_visible_setting())
         self.act_notes.toggled.connect(self.set_notes_visible)
         m_view.addAction(self.act_notes)
+        m_view.addSeparator()
+        act(m_view, "Obnovit rozložení panelů a lišt", self.reset_layout)
 
         m_proj = mb.addMenu("&Projekt")
         act(m_proj, "Strukturní označení…", self.edit_structures)
@@ -265,24 +316,24 @@ class MainWindow(QMainWindow):
         act(m_sheet, "Otevřít rozvaděč (schéma)", lambda: self._open_selected_switchboard("schematic"))
         act(m_sheet, "Rozvaděč – jednopólová editace", lambda: self._open_selected_switchboard("edit"))
         act(m_sheet, "Otevřít rozvaděč (rozložení)", lambda: self._open_selected_switchboard("layout"))
-        act(m_sheet, "Rozložení aktuálního rozvaděče", self.open_current_layout, "Ctrl+L", True)
-        self.act_enclosure = act(m_sheet, "Skříň rozvaděče (rozměry a parametry)…", self.edit_enclosure, "Ctrl+K", True)
+        act(m_sheet, "Rozložení aktuálního rozvaděče", self.open_current_layout, "Ctrl+L", "view_layout")
+        self.act_enclosure = act(m_sheet, "Skříň rozvaděče (rozměry a parametry)…", self.edit_enclosure, "Ctrl+Alt+K", "enclosure")
         act(m_sheet, "Vložit šablonu rozvaděče…", self.insert_template)
 
         m_out = mb.addMenu("&Výstupy")
         act(m_out, "Výkazy aktuálního listu (xlsx)…", lambda: self.export_xlsx(current_only=True))
-        act(m_out, "Výkazy celého projektu (xlsx)…", lambda: self.export_xlsx(current_only=False))
-        act(m_out, "Výrobní data rozvaděče (xlsx)…", self.export_production)
+        act(m_out, "Výkazy celého projektu (xlsx)…", lambda: self.export_xlsx(current_only=False), None, "reports")
+        act(m_out, "Výrobní data rozvaděče (xlsx)…", self.export_production, None, "production")
         act(m_out, "Protokol kusového ověření (docx)…", self.export_routine_test)
         act(m_out, "Technická zpráva (docx)…", self.export_tz)
-        act(m_out, "Štítky pro tiskárnu (CSV)…", self.export_labels_csv)
+        act(m_out, "Štítky pro tiskárnu (CSV)…", self.export_labels_csv, None, "labels")
         m_out.addSeparator()
         self.act_export_notes = QAction("Přidávat připomínky do exportu", self, checkable=True)
         self.act_export_notes.setChecked(self._export_notes())
         self.act_export_notes.toggled.connect(lambda on: self._settings().setValue("export/notes", bool(on)))
         m_out.addAction(self.act_export_notes)
         m_out.addSeparator()
-        act(m_out, "Celá dokumentace (PDF)…", self.export_documentation, "Ctrl+Shift+E", True)
+        act(m_out, "Celá dokumentace (PDF)…", self.export_documentation, "Ctrl+Shift+E", "doc_pdf")
 
         m_lib = mb.addMenu("&Knihovna")
         act(m_lib, "Importovat symbol z DXF…", self.import_dxf_symbol)
@@ -298,6 +349,8 @@ class MainWindow(QMainWindow):
         act(m_help, "Otevřít složku s logy", self.open_log_dir)
         act(m_help, "O programu", lambda: QMessageBox.about(
             self, "EnvoCAD", f"EnvoCAD {__version__}\nInterní nástroj ENVO pro elektro-dokumentaci FVE."))
+        self._build_toolbars()
+        self._shortcut_tooltips()
 
     # ---- pluginy ---------------------------------------------------------------
     def _load_plugins(self) -> None:
@@ -407,6 +460,14 @@ class MainWindow(QMainWindow):
         self._update_title()
         if self.view:
             self.view.zoom_fit()
+        self._findings = None                      # nálezy F7 patří předchozímu projektu
+        self.checks_panel.findings = None
+        self.checks_panel.summary.setText("Projekt zatím nebyl zkontrolován (F7)")
+        self.checks_panel.tree.clear()
+        if self.checks_dock.isVisible():
+            self._checks_timer.start()
+        self._update_status()
+        self._update_welcome()
         if unknown:
             self.statusBar().showMessage(f"Projekt obsahuje neznámé značky ({unknown}×) – kreslí se jako „?“, "
                                          "viz Kontrola projektu (F7)", 15_000)
@@ -424,7 +485,8 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _kind_of(view) -> str:
-        for cls, kind in ((LayoutView, "layout"), (MultipoleView, "multipole"), (TerminalPlanView, "terminals")):
+        for cls, kind in ((LayoutView, "layout"), (MultipoleView, "multipole"), (TerminalPlanView, "terminals"),
+                          (SingleLineView, "single_line")):
             if isinstance(view, cls):
                 return kind
         return "schematic"
@@ -463,6 +525,7 @@ class MainWindow(QMainWindow):
             scene.delete_requested.connect(lambda eids, wids, sh=sheet: self._delete_anywhere(sh, eids, wids))
             scene.mode_changed.connect(self._show_mode)
             scene.after_edit = lambda sh=sheet: self._rebuild_peer(sh, "schematic")
+            scene.followup_wires.connect(self._refresh_followup_wires)
             title = f"{sheet.name} – schéma" if sheet.is_switchboard else f"{sheet.name} – vícepól"
         elif kind == "terminals":
             scene = TerminalPlanScene(project, sheet, self.library, self.undo)
@@ -475,6 +538,7 @@ class MainWindow(QMainWindow):
             scene.attrs_changed.connect(lambda _id: self.props_panel.show_item(self._selected_item()))
             scene.mode_changed.connect(self._show_mode)
             scene.open_switchboard.connect(self.open_switchboard_from_block)
+            scene.followup_wires.connect(self._refresh_followup_wires)
             scene.ask_delete_block_sheets = self._ask_delete_block_sheets
             scene.sheet_presence_changed = self._sheet_presence_changed
             scene.notes_visible = self._notes_visible_setting()
@@ -500,6 +564,7 @@ class MainWindow(QMainWindow):
 
     def _add_tab(self, widget, view, scene, title: str) -> None:
         self._scenes.append(scene)  # držet referenci – scéna musí přežít stejně dlouho jako pohled
+        view.viewport().installEventFilter(self)   # souřadnice a zoom do stavového řádku, kontextové menu
         idx = self.tabs.addTab(widget, title)
         self.tabs.setCurrentIndex(idx)
         view.zoom_fit()
@@ -556,10 +621,12 @@ class MainWindow(QMainWindow):
         if isinstance(v, DERIVED_VIEWS) and getattr(v, "_dirty", False):
             v._dirty = False
             v.scene().rebuild()
+        self._update_toolbars()
+        self._update_status()
         if self.scene:
             self._show_mode(self.scene.mode)
         elif isinstance(self.view, MultipoleView):
-            self.statusBar().showMessage("Vícepól – odvozený z JPS; dvojklik na žílu = svorky, Ctrl+T, "
+            self.statusBar().showMessage("Vícepól – odvozený z jednopólové editace; dvojklik na žílu = svorky, Ctrl+T, "
                                          "Úpravy → Očíslovat svorky")
         elif isinstance(self.view, TerminalPlanView):
             self.statusBar().showMessage("Plán svorkovnice – odvozený z listu; Soubor → Export PDF")
@@ -720,7 +787,7 @@ class MainWindow(QMainWindow):
             block = ps.element(sh.parent_element_id)
             n = sum(1 for w in ps.wires if w.touches(block.id))
             text = (f"„{sh.name}“ je list rozvaděče {block.ref or ''} (blok ROZVADĚČ na listu „{ps.name}“).\n\n"
-                    "Odstranit list rozvaděče se vším obsahem?\n\nBlok ROZVADĚČ v jednopólovém schématu zůstane"
+                    "Odstranit list rozvaděče se vším obsahem?\n\nBlok ROZVADĚČ v blokovém schématu zůstane"
                     + (f" a {n} vodič(ů) na něm zůstane připojeno na portech označených „?“ (ukáže je Kontrola projektu)."
                        if n else "."))
         ids = {e.id for e in sh.elements}
@@ -752,8 +819,8 @@ class MainWindow(QMainWindow):
             finally:
                 self.undo.endMacro()
         # schéma rozvaděče je vícepólové; jednopólová podoba je jen editační (Ctrl+J)
+        # bez synchronizace: otevření listu model nemění (nový list a šablona jdou přes příkazy → _on_undo_changed)
         self.open_sheet(sheet, "multipole" if kind == "schematic" else kind)
-        self._sync_links_and_blocks()
 
     def _open_selected_switchboard(self, kind: str) -> None:
         if kind == "edit":
@@ -786,15 +853,20 @@ class MainWindow(QMainWindow):
             return existing
         p = self.project
         attr_before = block.attrs.get("sheet")
-        structs_before = list(p.structures)
-        sheet = p.create_switchboard_sheet(block)       # model připraví list; změny se vrátí a provede je příkaz
-        attr_after, structs_after = block.attrs.get("sheet"), list(p.structures)
-        p.sheets.remove(sheet)
-        p.structures = structs_before
-        if attr_before is None:
-            block.attrs.pop("sheet", None)
-        else:
-            block.attrs["sheet"] = attr_before
+        structs_before, sheets_before = list(p.structures), list(p.sheets)
+        # model připraví list dočasně; změny se vrátí (i při výjimce – model nesmí zůstat napůl změněný mimo undo)
+        # a provede je příkaz
+        try:
+            sheet = p.create_switchboard_sheet(block)
+            attr_after, structs_after = block.attrs.get("sheet"), list(p.structures)
+        finally:
+            # model-write-ok: návrat dočasné změny z create_switchboard_sheet (provede ji AddSheetCommand)
+            p.sheets[:] = sheets_before
+            p.structures = structs_before  # model-write-ok: návrat dočasné změny, viz výše
+            if attr_before is None:
+                block.attrs.pop("sheet", None)  # model-write-ok: návrat dočasné změny, viz výše
+            else:
+                block.attrs["sheet"] = attr_before  # model-write-ok: návrat dočasné změny, viz výše
         self.undo.push(commands.AddSheetCommand(p, sheet, on_change=self._sheet_presence_changed,
                                                 block_attr=(block, attr_before, attr_after),
                                                 structures=(structs_before, structs_after),
@@ -844,8 +916,8 @@ class MainWindow(QMainWindow):
     def _sheets_changed(self, sheet_ids: list[str]) -> None:
         """Po `SheetsStateCommand`: přestaví pohledy změněných listů (prvky a vodiče jsou nové objekty). Nejdřív se
         přestaví všechny scény, až potom porty bloků ROZVADĚČ – staré položky vodičů by mířily na neplatné porty."""
-        from envocad.model.project import sync_cables, sync_feed_links
-        sync_feed_links(self.project)
+        from envocad.model.project import sync_cables, sync_feed_link_attrs
+        sync_feed_link_attrs(self.project)
         sync_cables(self.project)
         for i in range(self.tabs.count()):
             w = self._unwrap(self.tabs.widget(i))
@@ -920,6 +992,7 @@ class MainWindow(QMainWindow):
     def set_dark(self, dark: bool) -> None:
         log.info("set_dark %s", dark)
         theme.apply(dark)
+        self._apply_icons()
         for i in range(self.tabs.count()):
             sc = self._unwrap(self.tabs.widget(i)).scene()
             sc.retheme() if isinstance(sc, SchematicScene) else sc.rebuild()
@@ -931,11 +1004,18 @@ class MainWindow(QMainWindow):
     def _show_mode(self, mode: Mode) -> None:
         txt = {Mode.SELECT: "Výběr", Mode.PLACE: "Vkládání symbolu – klik umístí, Esc/pravé tl. ukončí",
                Mode.WIRE: "Vodič – klikněte na port, pak na druhý port",
-               Mode.NOTE: "Připomínka – klik = bod, tah = obdélník, Esc/pravé tl. ukončí"}[mode]
+               Mode.NOTE: "Připomínka – klik = bod, tah = obdélník, Esc/pravé tl. ukončí",
+               Mode.TEXT: "Text – klik umístí text (dvojklik na text = úprava), Esc/pravé tl. ukončí"}[mode]
         self.statusBar().showMessage(txt)
+        self._sync_tool_checks()
 
     def _on_undo_changed(self, _value=None) -> None:
         self._update_title()
+        if hasattr(self, "welcome"):
+            self._update_status()
+            self._update_welcome()
+            if self.checks_dock.isVisible():
+                self._checks_timer.start()
         self._sync_links_and_blocks()
         self._refresh_tab_titles()   # název listu se mění i navázaně (přejmenování bloku rozvaděče)
         self.nav_panel._schedule()
@@ -1027,24 +1107,65 @@ class MainWindow(QMainWindow):
         self.nav_panel.filter.setText(text.strip())
         self.statusBar().showMessage(f"„{text}“ nenalezeno – v navigátoru je nastavený filtr", 4000)
 
+    CHECKS_HEIGHT = 150                          # výchozí výška panelu Kontrola – výkres má přednost
+
     def run_checks(self) -> None:
+        """F7: nálezy do panelu Kontrola (dole, neblokuje práci); s otevřeným panelem se po změnách obnovují."""
+        self._check_now()
+        if self.act_focus.isChecked():
+            self.act_focus.setChecked(False)
+        if not self.checks_dock.isVisible():
+            self.checks_dock.show()
+            if not self.checks_dock.isFloating():
+                self.resizeDocks([self.checks_dock], [self.CHECKS_HEIGHT], Qt.Vertical)
+        self.checks_dock.raise_()
+
+    def set_drawing_only(self, on: bool) -> None:
+        """Zobrazit → Jen výkres (F11): schová všechny panely (lišty zůstanou); druhým stiskem se vrátí, jak byly."""
+        if on:
+            self._hidden_docks = [d for d in self.findChildren(QDockWidget) if d.isVisible()]
+            for d in self._hidden_docks:
+                d.hide()
+        else:
+            for d in getattr(self, "_hidden_docks", []):
+                d.show()
+            self._hidden_docks = []
+
+    def _check_now(self) -> None:
         from envocad.model.checks import check_project
-        from envocad.ui.navigator import ChecksDialog
-        findings = check_project(self.project, self.library)
-        dlg = ChecksDialog(findings, self)
-        dlg.goto.connect(self.goto_target)
-        dlg.exec()
+        self._findings = check_project(self.project, self.library)
+        self.checks_panel.set_findings(self._findings)
+        self._update_status()
+
+    def _recheck_if_open(self) -> None:
+        if self.checks_dock.isVisible():
+            self._check_now()
 
     def _sync_links_and_blocks(self) -> None:
-        """Po změně modelu: vazby přívodů/vývodů na vodiče JPS (odvozené, mimo undo) a porty bloků ROZVADĚČ."""
-        from envocad.model.project import sync_cables, sync_feed_links
-        sync_feed_links(self.project)
+        """Po změně modelu: vazby přívodů/vývodů na vodiče JPS a kabely (jen odvozená data, mimo undo – žíly a porty
+        vodičů mění příkazy, `commands._FeedFollowups`) a porty bloků ROZVADĚČ."""
+        from envocad.model.project import sync_cables, sync_feed_link_attrs
+        sync_feed_link_attrs(self.project)
         sync_cables(self.project)
         for i in range(self.tabs.count()):
             sc = self._unwrap(self.tabs.widget(i)).scene()
             if isinstance(sc, SchematicScene):
                 sc.invalidate_xrefs()
         self._refresh_switchboard_blocks()
+
+    def _refresh_followup_wires(self, wire_ids: list) -> None:
+        """Follow-up příkazu (`commands._FeedFollowups`) změnil port nebo žíly vodičů i na jiných listech: jejich
+        položky ve všech otevřených schématech dostanou novou trasu a překreslí se (odvozené pohledy přestaví
+        `_on_undo_changed`)."""
+        for i in range(self.tabs.count()):
+            sc = self._unwrap(self.tabs.widget(i)).scene()
+            if not isinstance(sc, SchematicScene):
+                continue
+            for wid in wire_ids:
+                it = sc.wire_items.get(wid)
+                if it is not None:
+                    sc.route_wire(it)
+                    it.update()
 
     def _refresh_switchboard_blocks(self) -> None:
         """Bloky ROZVADĚČ v JPS mají porty podle přívodů/vývodů svého listu – po změně listu se přestaví."""
@@ -1071,6 +1192,19 @@ class MainWindow(QMainWindow):
         if sh is None:
             return
         self.open_sheet(sh, "multipole")
+
+    def open_single_line(self) -> None:
+        """Záložka jednopólového schématu (odvozené z blokového schématu a listů rozvaděčů, jen pro čtení)."""
+        for i in range(self.tabs.count()):
+            if isinstance(self._unwrap(self.tabs.widget(i)), SingleLineView):
+                self.tabs.setCurrentIndex(i)
+                self.view.scene().rebuild()
+                return
+        scene = SingleLineScene(self.project, None, self.library, self.undo)
+        view = SingleLineView(scene)
+        view._scene_ref = scene
+        self._add_tab(view, view, scene, "Jednopólové schéma")
+        view.zoom_fit()
 
     def open_singlepole(self) -> None:
         sh = self.current_sheet
@@ -1128,7 +1262,7 @@ class MainWindow(QMainWindow):
     def edit_cable(self) -> None:
         hit = self._selected_wire_id()
         if not hit:
-            QMessageBox.information(self, "Kabel", "Vyberte vodič v JPS.")
+            QMessageBox.information(self, "Kabel", "Vyberte vodič v blokovém schématu.")
             return
         sh, wid = hit
         from envocad.model.project import sync_cables
@@ -1157,6 +1291,28 @@ class MainWindow(QMainWindow):
         n = sc.auto_number_terminals()
         self.statusBar().showMessage(f"Očíslovány svorky u {n} vodičů" if n else "Všechny svorky už jsou přiřazené", 4000)
 
+    def renumber_refs(self) -> None:
+        """Úpravy → Přečíslovat označení: přístroje a vodiče podle polohy, jeden krok undo (`model.renumber`)."""
+        from envocad.ui.renumber_dialog import RenumberDialog
+        dlg = RenumberDialog(self.project, self.library, self.current_sheet, self)
+        if dlg.exec() != RenumberDialog.Accepted or not dlg.changes:
+            return
+        from envocad.model.renumber import summary
+        self.undo.push(commands.TextChangesCommand(self.project, dlg.all_changes(), self._refs_changed,
+                                                   "Přečíslovat označení"))
+        self.statusBar().showMessage(f"Přečíslováno: {summary(dlg.changes)}", 5000)
+
+    def _refs_changed(self) -> None:
+        """Po přečíslování / jeho undo: překreslit všechny otevřené pohledy a panel vlastností."""
+        for i in range(self.tabs.count()):
+            sc = self._unwrap(self.tabs.widget(i)).scene()
+            sc.rebuild()
+            sc.update()
+        self._sync_links_and_blocks()
+        self._refresh_tab_titles()
+        if self._findings is not None and self.checks_dock.isVisible():
+            self._checks_timer.start()
+
     def _update_title(self) -> None:
         name = self.project.path.name if self.project.path else "nepojmenovaný"
         dirty = "*" if not self.undo.isClean() else ""
@@ -1178,9 +1334,10 @@ class MainWindow(QMainWindow):
             from envocad.settings import load_settings
             st = load_settings()["standard"]
             p = Project()
+            # model-write-ok: nový projekt před načtením do okna (`_load_project`), zatím bez undo historie
             p.meta.update({k: str(v) for k, v in (st.get("project_meta") or {}).items()})
             if st.get("author"):
-                p.meta.setdefault("author", st["author"])
+                p.meta.setdefault("author", st["author"])  # model-write-ok: nový projekt, viz výše
             self._load_project(p)   # prázdný nový projekt bez změn zůstane čistý
 
     def _mark_new_project_dirty(self) -> None:
@@ -1237,7 +1394,7 @@ class MainWindow(QMainWindow):
         from envocad.ui.dialogs import MacroValuesDialog
         sc = self._active_schematic() or self.draw_scene
         if sc is None:
-            QMessageBox.information(self, "Makro", "Makro jde vložit jen do schématu (JPS nebo jednopólová editace rozvaděče).")
+            QMessageBox.information(self, "Makro", "Makro jde vložit jen do schématu (blokové schéma nebo jednopólová editace rozvaděče).")
             return
         m = load_macro(Path(path))
         if m is None:
@@ -1366,19 +1523,24 @@ class MainWindow(QMainWindow):
         before = revisions_state(self.project)
         prev = next((r for r in reversed(self.project.revisions) if not r.closed), None)
         prev_label = prev.label if prev is not None else ""
+        # změny se udělají dočasně: snímek po změně a návrat do původního stavu (i při výjimce – model nesmí zůstat
+        # napůl změněný mimo undo); do modelu je pak zapíše příkaz
         try:
-            rev = open_revision(self.project, label, date, author)
-        except ValueError as ex:
-            QMessageBox.warning(self, "Porovnání s revizí", f"{ex}.")
-            return False
-        apply_changes(self.project, rev, changes)
-        # řádky, které do otevřené revize zapsalo dřívější porovnání, se nahradí (opakované porovnání je nezdvojí);
-        # ručně psané řádky zůstanou
-        self.project.meta["changes"] = merge_change_lines(self.project.meta.get("changes", ""),
-                                                          {rev.label, prev_label}, change_text, rev.auto_lines)
-        rev.auto_lines = [ln.strip() for ln in change_text.splitlines() if ln.strip()]
-        after = revisions_state(self.project)
-        restore_revisions_state(self.project, before)
+            try:
+                rev = open_revision(self.project, label, date, author)
+            except ValueError as ex:
+                QMessageBox.warning(self, "Porovnání s revizí", f"{ex}.")
+                return False
+            apply_changes(self.project, rev, changes)
+            # řádky, které do otevřené revize zapsalo dřívější porovnání, se nahradí (opakované porovnání je
+            # nezdvojí); ručně psané řádky zůstanou
+            # model-write-ok: dočasná změna se snímkem `after`, finally ji vrátí a zapíše ReplaceRevisionsCommand
+            self.project.meta["changes"] = merge_change_lines(self.project.meta.get("changes", ""),
+                                                              {rev.label, prev_label}, change_text, rev.auto_lines)
+            rev.auto_lines = [ln.strip() for ln in change_text.splitlines() if ln.strip()]
+            after = revisions_state(self.project)
+        finally:
+            restore_revisions_state(self.project, before)
         self.undo.push(commands.ReplaceRevisionsCommand(self.project, before, after, "Porovnání s revizí"))
         return True
 
@@ -1470,8 +1632,7 @@ class MainWindow(QMainWindow):
     # ---- poslední projekty, autosave ------------------------------------------
     @staticmethod
     def _settings():
-        from PySide6.QtCore import QSettings
-        return QSettings("ENVO", "EnvoCAD")
+        return theme.app_settings()
 
     def _recent(self) -> list[str]:
         v = self._settings().value("files/recent", [])
@@ -1645,12 +1806,40 @@ class MainWindow(QMainWindow):
             sc.update()
 
     # ---- export / import -------------------------------------------------------
-    DXF_ONLY_SCHEMATIC = ("DXF se exportuje z jednopólového schématu nebo z listu rozvaděče v editoru. "
-                          "Vícepólové schéma, plán svorkovnice a rozložení rozvaděče exportuj do PDF "
+    DXF_ONLY_SCHEMATIC = ("DXF se exportuje z blokového schématu, z listu rozvaděče v editoru nebo "
+                          "z vícepólového schématu. Plán svorkovnice a rozložení rozvaděče exportuj do PDF "
                           "(Soubor → Export PDF nebo Výstupy → Celá dokumentace).")
 
+    def _ask_multipole_dxf_split(self) -> bool | None:
+        """Volba stránkování DXF vícepólu: False = jeden soubor (layout na stranu), True = soubor na stranu,
+        None = zrušeno."""
+        box = QMessageBox(QMessageBox.Question, "Export DXF vícepólu",
+                          "Jak uložit strany vícepólového schématu?", parent=self)
+        one = box.addButton("Jeden soubor (layout na stranu)", QMessageBox.AcceptRole)
+        split = box.addButton("Soubor na stranu", QMessageBox.AcceptRole)
+        box.addButton(QMessageBox.Cancel)
+        box.setDefaultButton(one)
+        box.exec()
+        return {one: False, split: True}.get(box.clickedButton())
+
     def export_dxf(self) -> None:
-        from envocad.export.dxf_export import export_sheet_dxf
+        from envocad.export.dxf_export import export_multipole_dxf, export_sheet_dxf, export_single_line_dxf
+        if isinstance(self.view, SingleLineView):
+            path, _ = QFileDialog.getSaveFileName(self, "Export DXF jednopólového schématu", "", "DXF (*.dxf)")
+            if path:
+                out = export_single_line_dxf(self.project, self.library, path)
+                self.statusBar().showMessage(f"Exportováno: {out}", 3000)
+            return
+        if isinstance(self.view, MultipoleView):       # vícepól: strany z kreslicího seznamu modelu
+            split = self._ask_multipole_dxf_split()
+            if split is None:
+                return
+            path, _ = QFileDialog.getSaveFileName(self, "Export DXF vícepólu", "", "DXF (*.dxf)")
+            if path:
+                files = export_multipole_dxf(self.project, self.view.scene().sheet, self.library, path,
+                                             split_pages=split)
+                self.statusBar().showMessage(export_files_message(files), 3000)
+            return
         if not self.scene:
             QMessageBox.information(self, "Export DXF", self.DXF_ONLY_SCHEMATIC if self.view is not None
                                     else "Není otevřený žádný list.")
@@ -1875,8 +2064,322 @@ class MainWindow(QMainWindow):
         from envocad.logging_setup import log_dir
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(log_dir())))
 
+    # ---- lišty -----------------------------------------------------------------
+    # (objectName, název, akce; None = oddělovač). Kreslení jen v JPS a vícepólu, Dispozice jen v rozložení.
+    TOOLBARS = (
+        ("tb_file", "Soubor", ("new", "open", "save", None, "export_pdf", "export_dxf")),
+        ("tb_edit", "Úpravy", ("undo", "redo", None, "copy", "paste", "delete", None, "find")),
+        ("tb_view", "Pohled", ("fit", "zoom_in", "zoom_out", "focus", None, "view_singlepole", "view_multipole",
+                               "view_layout", "view_terminals", None, "dark")),
+        ("tb_draw", "Kreslení", ("select", "wire", "insert_symbol", "interrupt", "text", "note", None, "rotate", "mirror",
+                                 "straighten")),
+        ("tb_layout", "Dispozice", ("enclosure", "production")),
+        ("tb_out", "Kontrola a výstupy", ("checks", "reports", "doc_pdf", "labels")),
+    )
+    ICONS: ClassVar[dict[str, str]] = {
+        "new": "file-plus", "open": "folder-open", "save": "save", "export_pdf": "file-down",
+        "export_dxf": "file-output", "undo": "undo-2", "redo": "redo-2", "copy": "copy", "paste": "clipboard-paste",
+        "delete": "trash-2", "find": "search", "fit": "scan", "zoom_in": "zoom-in", "zoom_out": "zoom-out", "focus": "expand",
+        "view_singlepole": "singlepole", "view_multipole": "multipole", "view_layout": "din-rail",
+        "view_terminals": "terminal-strip", "dark": "moon", "select": "mouse-pointer-2", "wire": "wire",
+        "insert_symbol": "component", "note": "message-square-plus", "rotate": "rotate-cw", "straighten": "straighten",
+        "mirror": "flip-horizontal-2", "text": "type", "interrupt": "interrupt",
+        "enclosure": "package", "production": "factory", "checks": "circle-check-big", "reports": "table",
+        "doc_pdf": "book-open", "labels": "tag",
+    }
+    TEXT_BESIDE: ClassVar[dict[str, str]] = {"checks": "Kontrola", "doc_pdf": "Dokumentace"}   # tlačítka s popiskem
+    TOOLS: ClassVar[dict[str, Mode]] = {"select": Mode.SELECT, "wire": Mode.WIRE, "insert_symbol": Mode.PLACE, "note": Mode.NOTE,
+                                        "text": Mode.TEXT}
+    JPS_ONLY = ("copy", "paste", "straighten", "mirror", "text", "interrupt")   # jen editor JPS / listu (ne vícepól)
+    VIEWS: ClassVar[dict[str, str]] = {"view_singlepole": "schematic", "view_multipole": "multipole", "view_layout": "layout",
+             "view_terminals": "terminals"}
+
+    def _build_toolbars(self) -> None:
+        from PySide6.QtCore import QSize
+        from PySide6.QtWidgets import QToolButton
+        self.toolbars: dict[str, QToolBar] = {}
+        for oid, title, keys in self.TOOLBARS:
+            tb = QToolBar(title, self)
+            tb.setObjectName(oid)
+            tb.setIconSize(QSize(20, 20))
+            tb.setToolButtonStyle(Qt.ToolButtonIconOnly)
+            for k in keys:
+                if k is None:
+                    tb.addSeparator()
+                    continue
+                a = self.actions[k]
+                tb.addAction(a)
+                if k in self.TEXT_BESIDE:
+                    a.setIconText(self.TEXT_BESIDE[k])
+                    btn = tb.widgetForAction(a)
+                    if isinstance(btn, QToolButton):
+                        btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+            self.addToolBar(tb)
+            self.toolbars[oid] = tb
+        # nástroje a pohledy jsou přepínače – zaškrtnutý = aktivní režim / zobrazený pohled
+        for k in (*self.TOOLS, *self.VIEWS):
+            a = self.actions[k]
+            a.setCheckable(True)
+            a.triggered.connect(lambda _on=False: self._update_toolbars())
+        self._apply_icons()
+
+    def _apply_icons(self) -> None:
+        """Ikony v barvách aktuální palety (po přepnutí motivu znovu)."""
+        from envocad.ui import icons
+        for k, name in self.ICONS.items():
+            if k in self.actions:
+                self.actions[k].setIcon(icons.icon(name))
+
+    def _sync_tool_checks(self) -> None:
+        sc = self.draw_scene
+        mode = getattr(sc, "mode", None)
+        for k, m in self.TOOLS.items():
+            self.actions[k].setChecked(sc is not None and mode == m)
+
+    def _update_toolbars(self) -> None:
+        """Kontext podle aktivní záložky: viditelnost lišt Kreslení/Dispozice, povolené akce, zaškrtnutý pohled."""
+        if not hasattr(self, "toolbars"):
+            return
+        v = self.view
+        kind = self._kind_of(v) if v is not None else None
+        draw, jps = self.draw_scene is not None, self.scene is not None
+        self.toolbars["tb_draw"].setVisible(draw)
+        self.toolbars["tb_layout"].setVisible(kind == "layout")
+        for k in ("delete", "rotate", *self.TOOLS):
+            self.actions[k].setEnabled(draw)
+        for k in self.JPS_ONLY:
+            self.actions[k].setEnabled(jps)
+        for k in ("fit", "zoom_in", "zoom_out"):
+            self.actions[k].setEnabled(v is not None)
+        for k, vk in self.VIEWS.items():
+            self.actions[k].setChecked(kind == vk)
+        self._sync_tool_checks()
+
+    def zoom(self, f: float) -> None:
+        v = self.view
+        if v is not None and 0.3 < v.transform().m11() * f < 40:
+            v.scale(f, f)
+        self._update_status()
+
+    def delete_selected(self) -> None:
+        """Úpravy → Smazat (Delete): JPS i schéma rozvaděče (vícepól)."""
+        if self.scene is not None:
+            self.scene.delete_selected()
+        elif isinstance(self.draw_scene, MultipoleScene):
+            self.draw_scene.delete_selected()
+
+    def insert_symbol(self) -> None:
+        """Kreslit → Vložit značku: značka vybraná v Knihovně jde rovnou do vkládání, jinak se ukáže Knihovna."""
+        sc = self.draw_scene
+        if sc is None:
+            self.statusBar().showMessage("Značky jde vkládat do schématu (blokové schéma nebo schéma rozvaděče)", 5000)
+            self._update_toolbars()
+            return
+        it = self.lib_panel.tree.currentItem()
+        sid = str(it.data(0, Qt.UserRole) or "") if it is not None else ""
+        if sid.startswith("macro:"):
+            self.insert_macro(sid[6:])
+        elif sid:
+            sc.start_place(sid)
+        else:
+            dock = self.findChild(QDockWidget, "Knihovna")
+            if dock is not None:
+                dock.show()
+                dock.raise_()
+            self.lib_panel.search.setFocus()
+            self.statusBar().showMessage("Vyberte značku v Knihovně – dvojklik ji vloží, nebo ji označte "
+                                         "a znovu Vložit značku", 8000)
+        self._sync_tool_checks()
+
+    # ---- hledání příkazů ------------------------------------------------------
+    def command_palette(self) -> None:
+        from envocad.ui.command_palette import CommandPalette
+        self._palette = CommandPalette(self.menuBar(), self)
+        self._palette.open()
+
+    # ---- stavový řádek ----------------------------------------------------------
+    def _build_status_widgets(self) -> None:
+        from PySide6.QtWidgets import QLabel, QToolButton
+
+        from envocad.model.symbol import GRID
+        sb = self.statusBar()
+        self._sb_coords = QLabel()
+        self._sb_coords.setMinimumWidth(150)
+        self._sb_grid = QLabel(f"Mřížka {GRID:g} mm".replace(".", ","))
+        self._sb_zoom = QLabel()
+        self._sb_zoom.setMinimumWidth(80)
+        self._sb_checks = QToolButton()
+        self._sb_checks.setAutoRaise(True)
+        self._sb_checks.setToolTip("Kontrola projektu (F7) – klik otevře panel Kontrola")
+        self._sb_checks.clicked.connect(self.run_checks)
+        self._sb_dirty = QLabel("● neuloženo")
+        self._sb_dirty.setToolTip("Projekt má neuložené změny (Ctrl+S)")
+        for w in (self._sb_coords, self._sb_grid, self._sb_zoom, self._sb_checks, self._sb_dirty):
+            sb.addPermanentWidget(w)
+        self._findings = None
+
+    def _update_status(self) -> None:
+        if not hasattr(self, "_sb_zoom"):
+            return
+        from envocad.ui.navigator import findings_badge
+        v = self.view
+        if v is not None:
+            px_per_mm = v.logicalDpiX() / 25.4          # 100 % = skutečná velikost na monitoru
+            self._sb_zoom.setText(f"Zoom {v.transform().m11() / px_per_mm * 100:.0f} %")
+        else:
+            self._sb_zoom.setText("")
+        self._sb_grid.setVisible(isinstance(v, SchematicView))
+        self._sb_checks.setText(findings_badge(self._findings))
+        self._sb_dirty.setVisible(not self.undo.isClean())
+
+    def _show_cursor(self, view, pos) -> None:
+        if isinstance(view, SchematicView):          # JPS, vícepól, plán svorkovnice: scéna = mm, Y dolů
+            p = view.mapToScene(pos)
+            self._sb_coords.setText(f"X {p.x():.1f}  Y {-p.y():.1f} mm".replace(".", ","))
+        else:
+            self._sb_coords.setText("")
+
+    def eventFilter(self, obj, ev) -> bool:
+        from PySide6.QtCore import QEvent
+        t = ev.type()
+        if obj is self.tabs:
+            if t == QEvent.Resize and self.welcome.isVisible():
+                self.welcome.place()
+            return False
+        view = obj.parent() if obj.parent() is self.view else None
+        if view is None:
+            return False
+        if t == QEvent.MouseMove:
+            self._show_cursor(view, ev.position().toPoint())
+        elif t in (QEvent.Wheel, QEvent.Resize):
+            QTimer.singleShot(0, self._update_status)
+        elif t == QEvent.Leave:
+            self._sb_coords.setText("")
+        elif t == QEvent.MouseButtonPress and ev.button() == Qt.RightButton:
+            sc = self.draw_scene
+            self._ctx_ok = sc is not None and sc.mode == Mode.SELECT   # pravé tl. v režimu jen ukončí režim
+        elif t == QEvent.ContextMenu:
+            from envocad.ui.notes_view import NoteItem
+            pos = view.mapToScene(ev.pos())
+            if any(isinstance(it, NoteItem) for it in view.scene().items(pos)):
+                return False                       # připomínka má vlastní menu (notes_view)
+            ok, self._ctx_ok = getattr(self, "_ctx_ok", False), False
+            menu = self.context_menu(pos) if ok else None
+            if menu is not None:
+                self._exec_menu(menu, ev.globalPos())
+            return ok
+        return False
+
+    def _exec_menu(self, menu, global_pos) -> None:
+        menu.exec(global_pos)
+
+    # ---- kontextové menu výkresu ----------------------------------------------
+    def context_menu(self, scene_pos):
+        """Menu pravého tlačítka v JPS a schématu rozvaděče: položka pod kurzorem se vybere (není-li už ve výběru),
+        nabídka = existující akce (vše přes undo), u prvku Vlastnosti / Otevřít rozvaděč, u vodiče Svorky a Kabel."""
+        from PySide6.QtWidgets import QMenu
+
+        from envocad.ui.items import ElementItem, WireItem
+        from envocad.ui.multipole_view import ConductorItem, PoleItem
+        sc = self.draw_scene
+        if sc is None:
+            return None
+        hit = next((it for it in sc.items(scene_pos)
+                    if isinstance(it, (ElementItem, WireItem, PoleItem, ConductorItem))), None)
+        if hit is not None and not hit.isSelected():
+            sc.clearSelection()
+            hit.setSelected(True)
+        menu = QMenu(self)
+        sheet = sc.sheet
+        if isinstance(hit, (ElementItem, PoleItem)):
+            eid = hit.element.id
+            if isinstance(hit, ElementItem) and hit.symbol.id == "fve.switchboard":
+                menu.addAction("Otevřít rozvaděč", lambda: self.open_switchboard_from_block(eid))
+            if isinstance(hit, ElementItem):
+                menu.addAction("Vlastnosti…", lambda: sc.edit_element(eid))
+            else:
+                menu.addAction("Vlastnosti…", lambda: self._edit_element_anywhere(sheet, eid))
+            menu.addSeparator()
+        elif isinstance(hit, (WireItem, ConductorItem)):
+            if isinstance(hit, WireItem):
+                wid = hit.wire.id
+                menu.addAction("Vlastnosti vodiče…", lambda: sc.edit_wire(wid))
+            menu.addAction(self.actions["terminals"])
+            menu.addAction(self.actions["cable"])
+            if isinstance(hit, WireItem):
+                menu.addAction(self.actions["straighten"])
+            menu.addSeparator()
+        if hit is not None:
+            for k in ("rotate", "mirror", "copy", "delete"):
+                if self.actions[k].isEnabled():
+                    menu.addAction(self.actions[k])
+            if self.scene is not None:
+                menu.addAction(self.actions["save_macro"])
+            menu.addSeparator()
+        if self.actions["paste"].isEnabled():
+            menu.addAction(self.actions["paste"])
+        menu.addAction(self.actions["insert_symbol"])
+        menu.addAction(self.actions["wire"])
+        menu.addSeparator()
+        menu.addAction(self.actions["fit"])
+        return menu
+
+    # ---- úvodní obrazovka ---------------------------------------------------------
+    def _update_welcome(self) -> None:
+        """Nový prázdný projekt (bez souboru, bez prvků, bez historie) → úvodní obrazovka přes výkres."""
+        empty = (self.project.path is None and self.undo.count() == 0
+                 and not any(s.elements or s.wires for s in self.project.sheets))
+        if empty:
+            self.welcome.set_recent(self._recent())
+            self.welcome.show()
+            self.welcome.raise_()
+            self.welcome.place()
+        else:
+            self.welcome.hide()
+
+    # ---- velikost okna a rozložení panelů -------------------------------------
+    def _restore_window(self) -> None:
+        """Velikost, poloha a rozložení doků/lišt z minulého spuštění (QSettings `window/*`)."""
+        st = self._settings()
+        geo, state = st.value("window/geometry"), st.value("window/state")
+        if geo:
+            self.restoreGeometry(geo)
+        if state:
+            self.restoreState(state)
+
+    def _save_window(self) -> None:
+        if self.act_focus.isChecked():            # „Jen výkres“ je dočasný – uloží se rozložení s panely
+            self.act_focus.setChecked(False)
+        st = self._settings()
+        st.setValue("window/geometry", self.saveGeometry())
+        st.setValue("window/state", self.saveState())
+
+    def reset_layout(self) -> None:
+        """Zobrazit → Obnovit rozložení: doky a lišty jako po prvním spuštění (skryté panely se znovu ukážou)."""
+        for d in self.findChildren(QDockWidget):
+            d.setFloating(False)
+            d.show()
+        self.restoreState(self._default_layout)
+        self._save_window()
+
+    def _shortcut_tooltips(self) -> None:
+        """Tooltip „název (zkratka)“ u všech akcí se zkratkou – i u Zpět/Znovu, jejichž text se mění s historií."""
+        def upd(a: QAction) -> None:
+            if not shiboken6.isValid(a):         # akce se právě ruší (zavření okna)
+                return
+            keys = a.shortcut().toString(QKeySequence.NativeText)
+            name = re.sub(r"&(.)", r"\1", a.text()).rstrip("…")     # bez & (&& = &) a „…“
+            tip = f"{name} ({keys})" if keys else name
+            if a.toolTip() != tip:
+                a.setToolTip(tip)
+        for a in self.findChildren(QAction):
+            if not a.shortcut().isEmpty():
+                upd(a)
+                a.changed.connect(lambda a=a: upd(a))
+
     def closeEvent(self, ev) -> None:
         if self._confirm_discard():
+            self._save_window()
             self._clear_autosave()   # uloženo nebo zahozeno – kopie tohoto okna už není potřeba
             ev.accept()
         else:

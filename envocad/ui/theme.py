@@ -1,6 +1,7 @@
 """Barevná témata (světlé / tmavé). Výkres má své barvy nezávisle na Qt paletě."""
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 from PySide6.QtCore import QSettings
@@ -78,9 +79,18 @@ def apply(dark: bool, app: QApplication | None = None) -> None:
     if app is not None:
         app.setStyle("Fusion")
         app.setPalette(_dark_palette() if dark else app.style().standardPalette())
-    QSettings("ENVO", "EnvoCAD").setValue("ui/dark", dark)
+    app_settings().setValue("ui/dark", dark)
+
+
+def app_settings() -> QSettings:
+    """Nastavení GUI (poslední projekty, motiv, okno). S `ENVOCAD_HOME` jde do `<home>/gui.ini` – testy i přenosná
+    instalace tak nesahají do registru / `~/.config` uživatele (na Windows QSettings.setPath registr nepřesměruje)."""
+    home = os.environ.get("ENVOCAD_HOME")
+    if home:
+        return QSettings(os.path.join(home, "gui.ini"), QSettings.IniFormat)
+    return QSettings("ENVO", "EnvoCAD")
 
 
 def load_saved() -> bool:
-    v = QSettings("ENVO", "EnvoCAD").value("ui/dark", True)
+    v = app_settings().value("ui/dark", True)
     return v in (True, "true", "True", 1, "1")

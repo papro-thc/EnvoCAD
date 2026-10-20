@@ -26,7 +26,7 @@ build-backend = "setuptools.build_meta"
 include = ["envocad*"]
 
 [tool.setuptools.package-data]
-envocad = ["library/builtin/**/*.json"]
+envocad = ["library/builtin/**/*.json", "resources/icons/*.svg", "resources/icons/*.txt"]
 
 [tool.ruff]
 line-length = 110
