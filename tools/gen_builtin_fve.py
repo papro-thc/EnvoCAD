@@ -75,6 +75,22 @@ PLOSS = attr("p_loss_w", "Ztrátový výkon při In [W]")
 # po přístrojích (`model/thermal.py:device_temperatures`); prázdné = předpoklad DEFAULT_T_MAX_C
 TEMP = [attr("t_min", "Teplota okolí min [°C]"), attr("t_max", "Teplota okolí max [°C]")]
 
+# optimizér stringu z artiklu (skryté; `Component.optimizer_values`) + nepovinná orientace pole – kontrola stringů
+# (`model/calc.py`: vstup optimizéru, počet a výkon, paralelní stringy na MPPT); docs/design/optimizery.md
+OPT_ATTRS = [attr("optimizer_id", "Optimizér – artikl"), attr("opt_manufacturer", "Optimizér – výrobce"),
+             attr("opt_p_max", "Optimizér – P max vstupu [W]"), attr("opt_p_tol", "Optimizér – tolerance P [%]"),
+             attr("opt_u_in_max", "Optimizér – U max vstupu [V]"), attr("opt_u_mppt_min", "Optimizér – U MPPT min [V]"),
+             attr("opt_u_mppt_max", "Optimizér – U MPPT max [V]"),
+             attr("opt_isc_in_max", "Optimizér – Isc max vstupu [A]"), attr("opt_i_out_max", "Optimizér – I max výstupu [A]"),
+             attr("opt_u_out_max", "Optimizér – U max výstupu [V]"), attr("opt_modules", "Optimizér – modulů na optimizér"),
+             attr("opt_partial", "Optimizér – smíšení dovoleno (0/1)"), attr("opt_compat", "Optimizér – kompatibilita"),
+             attr("opt_n_min", "Optimizérů ve stringu min"), attr("opt_n_max", "Optimizérů ve stringu max"),
+             attr("opt_p_string_max", "P stringu max – optimizér [W]"), attr("orientation", "Orientace pole")]
+# režim stringu střídače (skryté; z artiklu nebo generátoru): classic | optimizer | fixed_voltage (`calc.InverterData`)
+INV_MODE_ATTRS = [attr("string_mode", "Režim stringů (classic / optimizer / fixed_voltage)"),
+                  attr("u_string", "Pevné napětí stringu [V]"), attr("n_opt_min", "Optimizérů ve stringu min"),
+                  attr("n_opt_max", "Optimizérů ve stringu max"), attr("p_string_max", "P stringu max [W]")]
+
 SYMBOLS = [
     {
         "id": "fve.pv_string", "name": "FV string", "category": "Zdroje", "iec_ref": "G",
@@ -97,7 +113,8 @@ SYMBOLS = [
                        # z artiklu FV modulu (skryté) – kontrola stringů a průvodce (`model/calc.py`)
                        attr("imp", "Impp modulu STC [A]"), attr("u_sys_max", "Max. napětí systému modulu [V]"),
                        # teplotní součinitele [%/K]: oba zadané → Umpp(t) s γ_Pmax − α_Isc místo β_Voc
-                       attr("gamma_pmax", "Tepl. součinitel Pmax [%/K]"), attr("alpha_isc", "Tepl. součinitel Isc [%/K]")],
+                       attr("gamma_pmax", "Tepl. součinitel Pmax [%/K]"), attr("alpha_isc", "Tepl. součinitel Isc [%/K]"),
+                       *OPT_ATTRS],
         "label_pos": {"x": -10, "y": 28},   # popisek nad značkou – vodič vpravo zůstane volný
     },
     {
@@ -157,7 +174,7 @@ SYMBOLS = [
                        attr("mppt", "Počet MPPT"), attr("phases", "Fáze", "3"), attr("u_dc_max", "U DC max [V]"),
                        attr("u_mppt_min", "U MPPT min [V]"), attr("u_mppt_max", "U MPPT max [V]"),
                        attr("i_mppt_max", "I max na MPPT [A]"), attr("strings_per_mppt", "Stringů na MPPT"),
-                       attr("isc_mppt_max", "Isc max na MPPT [A]")],
+                       attr("isc_mppt_max", "Isc max na MPPT [A]"), *INV_MODE_ATTRS],
         "label_pos": {"x": -10, "y": 20},
     },
     {
@@ -171,7 +188,7 @@ SYMBOLS = [
                        attr("mppt", "Počet MPPT"), attr("phases", "Fáze", "3"), attr("u_dc_max", "U DC max [V]"),
                        attr("u_mppt_min", "U MPPT min [V]"), attr("u_mppt_max", "U MPPT max [V]"),
                        attr("i_mppt_max", "I max na MPPT [A]"), attr("strings_per_mppt", "Stringů na MPPT"),
-                       attr("isc_mppt_max", "Isc max na MPPT [A]")],
+                       attr("isc_mppt_max", "Isc max na MPPT [A]"), *INV_MODE_ATTRS],
         "label_pos": {"x": -10, "y": 20},
     },
     {

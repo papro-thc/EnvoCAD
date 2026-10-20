@@ -11,10 +11,13 @@ Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
              "alpha_isc": 0.045, "gamma_pmax": -0.29,                 # nepovinné [%/K]: oba → součinitel Umpp = γ − α
              "component_id": "ja-solar-jam54d40-450"},                # nepovinné: artikl modulu (pv_modules.csv)
   "site": {"t_min": -20, "t_max": 70},                                # návrhové teploty stringů → meta pv_t_min/pv_t_max
-  "optimizer": {"type": "", "per_module": 1},                        # optimizéry (prázdný typ = bez optimizérů)
+  "optimizer": {"type": "", "per_module": 1,                         # optimizéry (prázdný typ = bez optimizérů)
+                "component_id": "solaredge-s440-1gm4mrm"},            # nepovinné: artikl optimizéru (optimizers.csv)
   "inverters": [{"ref": "T1", "type": "SMA STP 25-50", "p_ac": 25, "phases": 3, "u_dc_max": 1100,
                  "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30, "strings": [20, 20, 18, 18],
                  "isc_mppt_max": 40, "strings_per_mppt": 2, "mppt": 2,       # nepovinné (jinak z artiklu, mppt dopočet)
+                 "string_mode": "", "u_string": 750, "n_opt_min": 14,        # nepovinné: režim stringů a pravidla
+                 "n_opt_max": 50, "p_string_max": 11250,                     # (jinak z artiklů střídače a optimizéru)
                  "component_id": "sma-stp-25-50"}],
   "dc": {"cable": "H1Z2Z2-K 1x6", "cross": 6, "length": 40,          # string → první DC rozvaděč
          "route_boxes": 1, "route_length": 20,                        # DC rozvaděče po trase (jen SPD, bez odpínače), kabel mezi nimi
@@ -48,6 +51,11 @@ za sebou DC1, DC2… (`calc.string_ports`). Neznámé `strings_per_mppt` zůstan
 paralelních stringů nesčítá); pro počet DC vstupů se počítá se 2 na MPPT.
 Artikl modulu (`module.component_id`) stejně doplní prázdné údaje modulu (p_wp, voc, vmp, isc, imp, beta_voc,
 u_sys_max, alpha_isc, gamma_pmax, typ, výrobce); zadané hodnoty specifikace vyhrávají a stringy dostanou `component_id` artiklu.
+Artikl optimizéru (`optimizer.component_id`, docs/design/optimizery.md) doplní prázdný typ (part_number) a
+`per_module` = 1 / modulů na optimizér; stringy dostanou atributy `opt_*` (`Component.optimizer_values(phases)`)
+a `n_optimizers` = ⌈n / modulů na optimizér⌉. Režim stringů střídače (`string_mode`): specifikace > artikl střídače >
+artikl optimizéru > classic (prázdné); pravidla `n_opt_min` / `n_opt_max` / `p_string_max` nejpřísnější ze známých
+(artikl střídače, artikl optimizéru pro fázi střídače), zadaná ve specifikaci vyhrávají. Bez `component_id` beze změny.
 `building` = druh objektu: u rodinného domu (`house`) je DC i AC rozvaděč v jednom – rozvaděč FVE (RFVE) má přívody
 od střídačů X1…Xn, DC přívody stringů a vývody ke střídači (pojistkové odpínače + SPD) a vývod do HDS; samostatný DC
 rozvaděč u technologie se netvoří (rozvaděče po trase zůstávají). Firma a bytový dům: DC rozvaděče a AC rozvaděč zvlášť.
@@ -59,6 +67,7 @@ v rozvaděči u střídače.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import re
 import sys
@@ -88,6 +97,8 @@ from envocad.model.project import (
     sync_cables,
     sync_feed_links,
 )
+
+log = logging.getLogger("envocad.generate")
 
 BATTERY_ROW_EXTRA = 40.0   # místo pro baterii pod hybridním střídačem (mm)
 INV_LABEL_SPACE = 40.0     # popisek DC kabelu („W12  2× H1Z2Z2-K 1x6 mm²“) mezi blokem rozvaděče a lomy ke střídači
@@ -178,6 +189,9 @@ def _build_project(spec: dict) -> Project:
     if isinstance(spec.get("module"), dict) and spec["module"].get("component_id"):
         # artikl modulu doplní jen to, co specifikace nezadala – proto před doplněním výchozích hodnot
         spec["module"] = _apply_module_component(spec["module"])
+    opt_comp = None
+    if isinstance(spec.get("optimizer"), dict) and spec["optimizer"].get("component_id"):
+        spec["optimizer"], opt_comp = _apply_optimizer_component(spec["optimizer"])
     building = building_kind(spec.get("building"))
     if building == "house" and not spec.get("switchboard"):
         spec["switchboard"] = dict(HOUSE_SWITCHBOARD)
@@ -246,10 +260,13 @@ def _build_project(spec: dict) -> Project:
             "u_dc_max": _s(inv.get("u_dc_max")), "u_mppt_min": _s(inv.get("u_mppt_min")),
             "u_mppt_max": _s(inv.get("u_mppt_max")), "i_mppt_max": _s(inv.get("i_mppt_max")),
             "p_dc_max": _s(inv.get("p_dc_max"))}, component_id=inv.get("component_id"))
-        if inv.get("isc_mppt_max") not in (None, ""):
-            t.attrs["isc_mppt_max"] = _s(inv["isc_mppt_max"])
+        for key in ("isc_mppt_max", *INVERTER_MODE_KEYS):   # jen zadané – starší specifikace beze změny výstupu
+            if inv.get(key) not in (None, ""):
+                t.attrs[key] = _s(inv[key])
         # artikl dřív než dopočet MPPT: jeho strings_per_mppt / mppt určí počet DC vstupů
         _apply_inverter_component(t, inv)
+        if opt_comp is not None:
+            _apply_optimizer_rules(t, inv, opt_comp)
         # pás svorek typu střídače (záloha, komunikace – `inverter_io`) visí pod značkou: místo v řadě
         from envocad.model.inverter_io import inverter_io
         row_extra[i] += 5.0 * len(inverter_io(t.attrs))
@@ -276,6 +293,11 @@ def _build_project(spec: dict) -> Project:
                 "isc": _s(mod.get("isc")), "beta_voc": _s(mod.get("beta_voc")),
                 "n_optimizers": _s(round(n_mod * opt_per)) if opt_per else "", "optimizer": _s(opt.get("type")) if opt_per else ""},
                 component_id=mod.get("component_id") or None)
+            if opt_comp is not None and opt_per:
+                # artikl optimizéru: parametry pro kontrolu stringů, počet zaokrouhlený nahoru (2:1 a lichý počet)
+                g.attrs.update(opt_comp.optimizer_values(t.attrs.get("phases") or 3))
+                g.attrs["optimizer"] = _s(opt.get("type"))
+                g.attrs["n_optimizers"] = _s(math.ceil(n_mod / _modules_per_optimizer(opt_comp)))
             for key in ("imp", "u_sys_max", "manufacturer", "alpha_isc", "gamma_pmax"):   # jen zadané – starší specifikace beze změny výstupu
                 if mod.get(key) not in (None, ""):
                     g.attrs[key] = _s(mod[key])
@@ -1065,6 +1087,59 @@ def _apply_inverter_component(t: Element, inv: dict) -> None:
         if inv.get(key) in (None, ""):
             t.attrs[key] = val
     t.component_id = comp.id
+
+
+INVERTER_MODE_KEYS = ("string_mode", "u_string", "n_opt_min", "n_opt_max", "p_string_max")
+
+
+def _modules_per_optimizer(comp) -> int:
+    mpo = comp.num("modules_per_optimizer")
+    return 2 if mpo == 2 else 1
+
+
+def _apply_optimizer_component(opt: dict) -> tuple[dict, object | None]:
+    """Artikl optimizéru (`optimizer.component_id`): prázdný typ ← part_number, `per_module` ← 1 / modulů na
+    optimizér (zadané jiné `per_module` se nepoužije – počet optimizérů musí odpovídat `opt_*` atributům; zaloguje
+    se varování, průvodce to hlásí v asistentu). Vrací (nová specifikace optimizéru, artikl | None); neznámý artikl →
+    beze změny a None. Průvodce při vymazaném typu `component_id` neposílá (= bez optimizérů)."""
+    out = dict(opt)
+    comp = _lib().component(opt.get("component_id"))
+    if comp is None or comp.category != "optimizer":
+        return out, None
+    if not str(out.get("type") or "").strip():
+        out["type"] = comp.part_number
+    per = 1 / _modules_per_optimizer(comp)
+    given = _num(opt.get("per_module"))
+    if given is not None and abs(given - per) > 1e-9:
+        log.warning("optimizer.per_module %g neodpovídá artiklu %s (%g ks/modul) – použije se hodnota z artiklu",
+                    given, comp.id, per)
+    out["per_module"] = per
+    out["component_id"] = comp.id
+    return out, comp
+
+
+def _apply_optimizer_rules(t: Element, inv: dict, comp) -> None:
+    """Režim stringů a pravidla z artiklu optimizéru do střídače: `string_mode` jen když ho nezadala specifikace ani
+    artikl střídače; `n_opt_min` = max, `n_opt_max` = min, `p_string_max` = min ze známých (artikl střídače, artikl
+    optimizéru pro fázi střídače); hodnoty ze specifikace vyhrávají."""
+    vals = comp.optimizer_values(t.attrs.get("phases") or 3)
+    mode = (comp.params.get("string_mode") or "").strip()
+    if not str(t.attrs.get("string_mode") or "").strip() and mode:
+        t.attrs["string_mode"] = mode
+    for key, okey, pick in (("n_opt_min", "opt_n_min", max), ("n_opt_max", "opt_n_max", min),
+                            ("p_string_max", "opt_p_string_max", min)):
+        if inv.get(key) not in (None, ""):
+            continue
+        known = [x for x in (_num(t.attrs.get(key)), _num(vals.get(okey))) if x is not None]
+        if known:
+            t.attrs[key] = f"{pick(known):g}"
+
+
+def _num(v) -> float | None:
+    try:
+        return float(str(v).replace(",", "."))
+    except (TypeError, ValueError):
+        return None
 
 
 def _align_bends(project: Project) -> None:

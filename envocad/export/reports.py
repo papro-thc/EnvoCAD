@@ -9,6 +9,7 @@ from collections import OrderedDict
 
 from envocad.library.store import LibraryStore
 from envocad.model.designation import LOCATION_SYMBOLS, designation, element_name, full_designation, scope_key
+from envocad.model.notes import plural
 from envocad.model.project import NON_DEVICE_SYMBOLS, Element, Project, Sheet, clean_view
 from envocad.model.xref import natural_key
 
@@ -184,8 +185,8 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
                     if n <= 0:
                         continue
                     params = f"{e.attrs['p_module']} Wp" if akey == "type" and e.attrs.get("p_module") else ""
-                    # výrobce modulu z atributu (artikl modulu ho propíše), optimizér zatím bez výrobce
-                    mfr = e.attrs.get("manufacturer", "") if akey == "type" else ""
+                    # výrobce modulu z atributu (artikl modulu ho propíše), optimizéru z `opt_manufacturer` (artikl)
+                    mfr = e.attrs.get("manufacturer" if akey == "type" else "opt_manufacturer", "")
                     key = (name, e.attrs.get(akey, ""), mfr, params)
                     groups.setdefault(key, []).append(f"{_tag(project, s, e)} ({n})")
                     qty[key] = qty.get(key, 0) + n
@@ -459,6 +460,25 @@ def production_subtitle(project: Project, sheet: Sheet | None = None, base: dict
     return lines
 
 
+def _g(v) -> str:
+    return "–" if v is None else f"{v:g}"
+
+
+def _modules(n: int) -> str:
+    return f"{n} {plural(n, 'modul', 'moduly', 'modulů')}"
+
+
+def fixed_voltage_parts(sc) -> tuple[str, str]:
+    """(„pevné U 750 V“, „P stringu 6160 / 11250 W“) stringu s pevným napětím (`calc.StringCheck`, neznámé „–“)."""
+    return f"pevné U {_g(sc.u_string)} V", f"P stringu {_g(sc.p_string)} / {_g(sc.p_string_max)} W"
+
+
+def fixed_voltage_text(sc) -> str:
+    """Hodnoty stringu s pevným napětím pro výkaz Výpočty: „14 optimizérů, pevné U 750 V, P stringu 6160 / 11250 W“."""
+    n_opt = f"{sc.n_opt} {plural(sc.n_opt, 'optimizér', 'optimizéry', 'optimizérů')}, " if sc.n_opt else ""
+    return n_opt + ", ".join(fixed_voltage_parts(sc))
+
+
 @over_clean
 def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Výkaz výpočtů: stringy vs. střídač, kabely (I, Iz, In, ΔU), selektivita."""
@@ -468,10 +488,15 @@ def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None
     for sc in calc.check_strings(project):
         if sheet is not None and sc.sheet != sheet.name:
             continue
-        vals = f"{sc.n} modulů, Uoc({sc.t_min:g} °C) = {sc.uoc_cold} V, Umpp({sc.t_max:g} °C) = {sc.umpp_hot} V, 1,25·Isc = {calc.SAFETY_ISC * sc.isc:.1f} A"
-        lim = f"{sc.inverter}: Umax {sc.u_dc_max or '–'} V, MPPT {sc.u_mppt_min or '–'}–{sc.u_mppt_max or '–'} V, Imax {sc.i_mppt_max or '–'} A"
-        if sc.isc_mppt_max:   # nové pravidlo: součet Isc paralelních stringů na MPPT
-            lim += f", Isc max MPPT {sc.isc_mppt_max:g} A ({sc.n_par} str. na MPPT)"
+        if sc.mode == "fixed_voltage":   # pevné napětí (SolarEdge): Uoc·n ani okno MPPT se nekontrolují
+            vals = f"{_modules(sc.n)}, {fixed_voltage_text(sc)}"
+            lim = f"{sc.inverter}: optimizérů {sc.n_opt_min or '–'}–{sc.n_opt_max or '–'}, " \
+                  f"P stringu ≤ {_g(sc.p_string_max)} W"
+        else:
+            vals = f"{_modules(sc.n)}, Uoc({sc.t_min:g} °C) = {sc.uoc_cold} V, Umpp({sc.t_max:g} °C) = {sc.umpp_hot} V, 1,25·Isc = {calc.SAFETY_ISC * sc.isc:.1f} A"
+            lim = f"{sc.inverter}: Umax {sc.u_dc_max or '–'} V, MPPT {sc.u_mppt_min or '–'}–{sc.u_mppt_max or '–'} V, Imax {sc.i_mppt_max or '–'} A"
+            if sc.isc_mppt_max:   # nové pravidlo: součet Isc paralelních stringů na MPPT
+                lim += f", Isc max MPPT {sc.isc_mppt_max:g} A ({sc.n_par} str. na MPPT)"
         rows.append(["String", sc.ref, vals, lim, "OK" if sc.ok else "; ".join(sc.issues)])
     for cc in calc.check_cables(project):
         if sheet is not None and cc.sheet != sheet.name:

@@ -177,6 +177,95 @@ def test_tz_uses_design_temperatures(tmp_path):
     assert "Uoc při -20 °C [V]" in heads and "Umpp při 75 °C [V]" in heads
 
 
+# ---- optimizéry: artikl optimizéru, režim stringů a nejpřísnější pravidla (docs/design/optimizery.md) -----------
+_OPT_CATALOG = """id;manufacturer;part_number;name;category;symbol_id;datasheet_url;source;p_max_w;u_in_max_v;isc_in_max_a;u_out_max_v;modules_per_optimizer;string_mode;partial_ok;compat;n_min_1ph;n_max_1ph;p_string_max_1ph_w;n_min_3ph;n_max_3ph;p_string_max_3ph_w;mppt;strings_per_mppt;u_dc_max_v;u_string_v;n_opt_min;n_opt_max;p_string_max_w
+test-opt-2;TestEdge;TP850;Optimizér 2:1;optimizer;;https://example.com/o.pdf;web;850;125;14,5;85;2;fixed_voltage;0;TestEdge;8;40;6800;14;50;11250;;;;;;;
+test-opt-1;TestWay;TW450;Optimizér 1:1;optimizer;;https://example.com/o1.pdf;web;450;80;14,5;80;1;optimizer;0;TestWay;;;;;;;;;;;;;
+test-inv-se;TestEdge;TE5K;Střídač 5 kW;inverter;fve.inverter;https://example.com/i.pdf;web;;;;;;;;;;;;;;;1;2;480;380;6;30;8000
+"""
+
+
+def _opt_catalog(tmp_path):
+    f = tmp_path / "opt.csv"
+    f.write_text(_OPT_CATALOG, encoding="utf-8")
+    assert LibraryStore().import_components_csv_v2(f) == 3
+
+
+def _opt_spec(strings, opt_id="test-opt-2", **inv):
+    return {"module": {"p_wp": 400, "voc": 49.5, "vmp": 41.5, "isc": 13.9, "type": "M400"},
+            "optimizer": {"type": "", "per_module": 1, "component_id": opt_id},
+            "inverters": [{"ref": "T1", "p_ac": 5, "phases": 1, "strings": strings, "component_id": "test-inv-se",
+                           **inv}]}
+
+
+def test_optimizer_component_to_strings_and_inverter(tmp_path):
+    _opt_catalog(tmp_path)
+    p = build_project(_opt_spec([18, 15]))
+    s = p.sheets[0]
+    g1, g2 = (e for e in s.elements if e.symbol_id == "fve.pv_string")
+    t = next(e for e in s.elements if e.symbol_id == "fve.inverter")
+    # artikl optimizéru: typ, ⌈n / 2⌉ optimizérů, parametry pro kontrolu (pravidla 1f), výrobce optimizéru
+    assert g1.attrs["optimizer"] == "TP850" and g1.attrs["n_optimizers"] == "9" and g2.attrs["n_optimizers"] == "8"
+    assert g1.attrs["opt_manufacturer"] == "TestEdge" and g1.attrs["optimizer_id"] == "test-opt-2"
+    assert (g1.attrs["opt_modules"], g1.attrs["opt_p_max"], g1.attrs["opt_n_min"], g1.attrs["opt_p_string_max"]) == \
+        ("2", "850", "8", "6800")
+    assert "manufacturer" not in g1.attrs and g1.attrs["type"] == "M400"     # modul beze změny
+    # střídač: režim z artiklu střídače, pravidla nejpřísnější pro 1f: min max(6, 8), max min(30, 40), P min(8000, 6800)
+    assert (t.attrs["string_mode"], t.attrs["u_string"]) == ("fixed_voltage", "380")
+    assert (t.attrs["n_opt_min"], t.attrs["n_opt_max"], t.attrs["p_string_max"]) == ("8", "30", "6800")
+    from envocad.model import calc
+    st = {sc.ref: sc for sc in calc.check_strings(p)}
+    assert st["G1"].mode == "fixed_voltage" and st["G1"].issues == ["P stringu 7200 W > max 6800 W"]
+    assert "15 modulů, 8 optimizérů × 2 – optimizér musí být na každém modulu" in st["G2"].issues
+    # 3f: pravidla optimizéru pro 3 fáze (min 14 > 6, P 8000 < 11250)
+    t3 = next(e for e in build_project(_opt_spec([16], phases=3)).sheets[0].elements if e.symbol_id == "fve.inverter")
+    assert (t3.attrs["n_opt_min"], t3.attrs["n_opt_max"], t3.attrs["p_string_max"]) == ("14", "30", "8000")
+    # specifikace vyhrává: režim i pravidla
+    p = build_project(_opt_spec([16], string_mode="classic", n_opt_max=12, p_string_max=9000))
+    t = next(e for e in p.sheets[0].elements if e.symbol_id == "fve.inverter")
+    assert (t.attrs["string_mode"], t.attrs["n_opt_max"], t.attrs["p_string_max"], t.attrs["n_opt_min"]) == \
+        ("classic", "12", "9000", "8")
+    # BOM: optimizér s výrobcem z artiklu
+    from envocad.export.reports import bom
+    rows = bom(p, LibraryStore(), p.sheets[0])[1]
+    opt = next(r for r in rows if r[1] == "Optimizér")
+    assert opt[2] == "TP850" and opt[3] == "TestEdge" and opt[5] == 8
+
+
+def test_optimizer_mode_from_optimizer_component(tmp_path):
+    _opt_catalog(tmp_path)
+    # střídač bez režimu (bez artiklu): režim z artiklu optimizéru, 1:1 → n_optimizers = n
+    spec = _opt_spec([20, 20], opt_id="test-opt-1", component_id=None, u_dc_max=1100, u_mppt_min=160,
+                     u_mppt_max=1000, i_mppt_max=26, phases=3)
+    spec["optimizer"]["type"] = "Vlastní typ"
+    p = build_project(spec)
+    g = next(e for e in p.sheets[0].elements if e.symbol_id == "fve.pv_string")
+    t = next(e for e in p.sheets[0].elements if e.symbol_id == "fve.inverter")
+    assert t.attrs["string_mode"] == "optimizer" and "n_opt_min" not in t.attrs
+    assert g.attrs["optimizer"] == "Vlastní typ" and g.attrs["n_optimizers"] == "20"   # zadaný typ vyhrává
+    from envocad.model import calc
+    assert all(sc.ok and sc.mode == "optimizer" for sc in calc.check_strings(p))
+    # neznámý artikl optimizéru: jako dřív (typ ze specifikace, round, bez atributů opt_*)
+    spec = _opt_spec([20], opt_id="neni", component_id=None)
+    spec["optimizer"]["type"] = "X"
+    g = next(e for e in build_project(spec).sheets[0].elements if e.symbol_id == "fve.pv_string")
+    assert g.attrs["n_optimizers"] == "20" and "optimizer_id" not in g.attrs
+
+
+def test_fixed_voltage_in_reports_and_tz(tmp_path):
+    from docx import Document
+
+    from envocad.export.reports import calculations
+    from envocad.export.tz_export import export_tz_docx
+    _opt_catalog(tmp_path)
+    p = build_project(_opt_spec([16]))
+    _, rows = calculations(p, LibraryStore())
+    assert rows[0][2] == "16 modulů, 8 optimizérů, pevné U 380 V, P stringu 6400 / 6800 W" and rows[0][4] == "OK"
+    assert rows[0][3] == "T1: optimizérů 8–30, P stringu ≤ 6800 W"
+    out = tmp_path / "tz.docx"
+    export_tz_docx(p, LibraryStore(), out)
+    text = "\n".join(c.text for t in Document(out).tables for r in t.rows for c in r.cells)
+    assert "pevné U 380 V" in text and "P stringu 6400 / 6800 W" in text
 _HOUSE_INV = {"p_ac": 10, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30}
 
 

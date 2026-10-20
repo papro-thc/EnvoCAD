@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from envocad.model.notes import plural
 from envocad.model.project import Element, Project, Sheet, Wire
@@ -22,6 +22,8 @@ DC_INPUTS_PER_MPPT_DEFAULT = 2      # vstupů na MPPT, když střídač `strings
 #                                     (generátor, `inverter_dc_inputs`), ne pro sčítání proudů stringů na MPPT
 SAFETY_ISC = 1.25                   # ČSN 33 2000-7-712: dimenzování DC na 1,25·Isc
 SELECTIVITY_RATIO = 1.6             # orientační poměr In pro selektivitu MCB–MCB v přetížení
+# režim stringu (atribut střídače `string_mode`, prázdné = classic) – docs/design/optimizery.md
+STRING_MODES = ("classic", "optimizer", "fixed_voltage")
 
 # Iz [A] Cu, PVC 70 °C, 30 °C okolí, 3 zatížené vodiče – ČSN 33 2000-5-52 tab. B.52.4/B.52.5 (ORIENTAČNÍ)
 IZ_3 = {
@@ -107,6 +109,7 @@ class ModuleData:
     p_wp: float | None = None
     alpha_isc: float | None = None
     gamma_pmax: float | None = None
+    component_id: str = ""   # artikl modulu (jen pro porovnání paralelních stringů, `parallel_issues`)
 
     @classmethod
     def from_attrs(cls, a: dict) -> ModuleData | None:
@@ -152,6 +155,12 @@ class InverterData:
     strings_per_mppt: int | None = None
     p_ac: float | None = None
     p_dc_max: float | None = None
+    string_mode: str = "classic"      # atribut `string_mode` tak, jak je (prázdné = classic); platný režim = `mode`
+    u_string: float | None = None     # pevné napětí stringu [V] (fixed_voltage, jen informativně / věrohodnost)
+    n_opt_min: int | None = None      # optimizérů ve stringu min / max (optimizer, fixed_voltage)
+    n_opt_max: int | None = None
+    p_string_max: float | None = None  # max. výkon stringu [W] (optimizer, fixed_voltage)
+    manufacturer: str = ""            # výrobce (kompatibilita optimizéru)
 
     @classmethod
     def from_attrs(cls, a: dict) -> InverterData:
@@ -162,7 +171,78 @@ class InverterData:
                    u_mppt_max=_f(a.get("u_mppt_max")), i_mppt_max=_f(a.get("i_mppt_max")),
                    isc_mppt_max=_f(a.get("isc_mppt_max")), mppt=int(mppt) if mppt and mppt >= 1 else None,
                    strings_per_mppt=int(spm) if spm and spm >= 1 else None, p_ac=_f(a.get("p_ac")),
-                   p_dc_max=_f(a.get("p_dc_max")))
+                   p_dc_max=_f(a.get("p_dc_max")),
+                   string_mode=str(a.get("string_mode") or "").strip() or "classic", u_string=_f(a.get("u_string")),
+                   n_opt_min=_int(a.get("n_opt_min")), n_opt_max=_int(a.get("n_opt_max")),
+                   p_string_max=_f(a.get("p_string_max")), manufacturer=str(a.get("manufacturer") or "").strip())
+
+    @property
+    def mode(self) -> str:
+        """Platný režim stringu: `string_mode` z `STRING_MODES`, neznámá hodnota → classic (`string_issues` varuje)."""
+        return self.string_mode if self.string_mode in STRING_MODES else "classic"
+
+
+def _int(v) -> int | None:
+    """Kladné celé číslo z atributu („14“, „14.0“), jinak None."""
+    x = _f(v)
+    return int(x) if x is not None and x >= 1 and float(x).is_integer() else None
+
+
+@dataclass(frozen=True)
+class OptimizerData:
+    """Optimizér stringu (z atributů `opt_*` stringu, viz `Component.optimizer_values`): P max vstupu [W], U max vstupu
+    [V], Isc max vstupu [A], modulů na optimizér (1 | 2), tolerance P dle výrobce [%], U MPPT min [V], I max a U max
+    výstupu, smíšení s neoptimalizovanými moduly dovoleno, typ, výrobce, kompatibilita („SolarEdge“, „*“) a pravidla
+    stringu z listu optimizéru pro fázi střídače (n_min, n_max optimizérů, P stringu max [W]), U MPPT max vstupu [V].
+
+    Předpoklad při 2 modulech na optimizér: oba moduly jsou na vstupu optimizéru zapojené **sériově** (dvojitý vstup
+    sériově, např. SolarEdge P850/P1100) – napětí vstupu = 2 · napětí modulu, proud = proud jednoho modulu (Isc se
+    nesčítá), výkon = 2 · P modulu. Paralelní dvojvstup by vyžadoval jiný výpočet (zatím nepodporováno)."""
+    p_max: float
+    u_in_max: float
+    isc_in_max: float | None
+    modules: int = 1
+    p_tol_pct: float = 0.0
+    u_mppt_min: float | None = None
+    i_out_max: float | None = None
+    u_out_max: float | None = None
+    partial_ok: bool = False
+    name: str = ""
+    manufacturer: str = ""
+    compat: str = ""
+    n_min: int | None = None
+    n_max: int | None = None
+    p_string_max: float | None = None
+    u_mppt_max: float | None = None
+    bad_modules: str = ""    # neplatná hodnota `opt_modules` (ne 1 ani 2) – počítá se s 1, `optimizer_issues` varuje
+
+    @classmethod
+    def from_attrs(cls, a: dict) -> OptimizerData | None:
+        """Z atributů stringu; bez `opt_p_max` nebo `opt_u_in_max` → None (optimizér bez parametrů). Neplatný počet
+        modulů na optimizér (`opt_modules` vyplněné, ale ne 1 ani 2) → počítá se s 1 a `bad_modules` = zadaná hodnota."""
+        p_max, u_in = _f(a.get("opt_p_max")), _f(a.get("opt_u_in_max"))
+        if not p_max or not u_in or p_max <= 0 or u_in <= 0:
+            return None
+        raw = str(a.get("opt_modules") or "").strip()
+        mpo = _int(raw)
+        bad = raw if raw and mpo not in (1, 2) else ""
+        return cls(p_max=p_max, u_in_max=u_in, isc_in_max=_f(a.get("opt_isc_in_max")),
+                   modules=mpo if mpo in (1, 2) else 1, bad_modules=bad, u_mppt_max=_f(a.get("opt_u_mppt_max")),
+                   p_tol_pct=_f(a.get("opt_p_tol")) or 0.0, u_mppt_min=_f(a.get("opt_u_mppt_min")),
+                   i_out_max=_f(a.get("opt_i_out_max")), u_out_max=_f(a.get("opt_u_out_max")),
+                   partial_ok=str(a.get("opt_partial") or "").strip() in ("1", "1.0", "true", "ano"),
+                   name=str(a.get("optimizer") or "").strip(), manufacturer=str(a.get("opt_manufacturer") or "").strip(),
+                   compat=str(a.get("opt_compat") or "").strip(), n_min=_int(a.get("opt_n_min")),
+                   n_max=_int(a.get("opt_n_max")), p_string_max=_f(a.get("opt_p_string_max")))
+
+    def compatible_with(self, manufacturer: str) -> bool | None:
+        """Kompatibilita se střídačem výrobce `manufacturer` podle `compat` (položky oddělené , ; /; „*“ = libovolný;
+        shoda prvního slova bez ohledu na velikost písmen). Neznámý výrobce nebo prázdné `compat` → None."""
+        man = (manufacturer or "").strip().lower().split()
+        entries = [x.strip().lower() for x in re.split(r"[,;/|]", self.compat) if x.strip()]
+        if not man or not entries:
+            return None
+        return any(x == "*" or x.split()[0] == man[0] for x in entries)
 
 
 @dataclass
@@ -173,6 +253,9 @@ class StringLimits:
     n_max: int | None
     n_par_max: int
     reasons: list[str] = field(default_factory=list)
+    step: int = 1                              # délky stringu po násobcích step (modulů na optimizér; `propose_strings`)
+    n_opt: tuple[int | None, int | None] | None = None   # rozmezí počtu optimizérů (optimizer, fixed_voltage)
+    mode: str = "classic"                      # platný režim stringu (`InverterData.mode`)
 
     @property
     def ok(self) -> bool:
@@ -226,8 +309,13 @@ def _u_strings(m: ModuleData, n: int, t_min: float, t_max: float) -> tuple[float
             round(n * m.vmp * (1 + kv * (t_min - 25)), 1))
 
 
-def _voltage_issues(m: ModuleData, inv: InverterData | None, n: int, t_min: float, t_max: float) -> list[str]:
+def _voltage_issues(m: ModuleData, inv: InverterData | None, n: int, t_min: float, t_max: float,
+                    uoc: float | None = None) -> list[str]:
+    """Napětí stringu proti střídači a modulu; `uoc` = Uoc stringu za studena, je-li jiné než n·Uoc(t_min) (režim
+    optimizer s U max výstupu optimizéru, `_uoc_capped`)."""
     uoc_cold, umpp_hot, umpp_cold = _u_strings(m, n, t_min, t_max)
+    if uoc is not None:
+        uoc_cold = uoc
     out = []
     if inv is not None and inv.u_dc_max and uoc_cold > inv.u_dc_max:
         out.append(f"Uoc při {t_min:g} °C {uoc_cold} V > Umax střídače {inv.u_dc_max:g} V")
@@ -258,35 +346,337 @@ def _current_issues(m: ModuleData, inv: InverterData, n_par: int) -> list[str]:
     return out
 
 
+# ---- optimizéry a režimy stringu (docs/design/optimizery.md) ---------------------------------------------------
+# Závažnost hlášek stringu: jediné místo pro F7 (`checks.calc_findings`) i barvu v asistentu průvodce. Varování jsou
+# vyjmenovaná šablonami (celé znění, `re.fullmatch`) – každá šablona odpovídá jedné varovné hlášce níže; cokoli jiného
+# (i nová, dosud nezařazená hláška) je chyba. Pevné texty jsou konstanty, aby se šablona a hláška nerozešly.
+MSG_NO_MODULES = "chybí počet modulů nebo Uoc modulu"
+MSG_NO_INVERTER = "string není propojen se střídačem"
+MSG_INV_NO_LIMITS = "střídač nemá zadané Umax / rozsah MPPT (doplňte z artiklu)"
+MSG_OPT_NO_PARAMS = "optimizér bez parametrů (doplňte z katalogu)"
+MSG_NO_OPTIMIZERS = "string nemá optimizéry (režim stringů s optimizéry)"
+MSG_PARALLEL_MODULES = "různé moduly stringů na MPPT"
+POWER_LIMIT_SUFFIX = " – omezení výkonu"     # přípona varování „omezení výkonu“ (proud MPPT, okno MPPT optimizéru)
+_WARNING_TEMPLATES = (
+    re.escape(MSG_NO_MODULES),
+    re.escape(MSG_NO_INVERTER),
+    re.escape(MSG_INV_NO_LIMITS),
+    re.escape(MSG_OPT_NO_PARAMS),
+    re.escape(MSG_NO_OPTIMIZERS),
+    re.escape(MSG_PARALLEL_MODULES),
+    r"neznámý režim stringu „.*“ – počítá se klasicky",
+    r".+" + re.escape(POWER_LIMIT_SUFFIX),
+    r"chybí údaj .+",
+    r"P .+ > P max optimizéru .+ – v toleranci výrobce .+",
+    r"optimizér .* není uveden jako kompatibilní se střídačem .*",
+    r"neplatný počet modulů na optimizér „.*“ .*",
+    r"nestejná délka stringů na MPPT \(.+\)",
+    r"různá orientace stringů na MPPT \(.+\)",
+)
+WARNING_PATTERNS = tuple(re.compile(p, re.DOTALL) for p in _WARNING_TEMPLATES)
+
+
+def is_warning(msg: str) -> bool:
+    """Hláška stringu (`string_issues`, `parallel_issues`, `capacity_issue`) je jen varování (chybějící údaj, omezení
+    výkonu, tolerance výrobce, nestejné paralelní stringy, neznámý režim…) – celé znění odpovídá šabloně
+    z `WARNING_PATTERNS`; jinak chyba."""
+    return any(p.fullmatch(msg) for p in WARNING_PATTERNS)
+
+
+def _unit_label(mpo: int) -> str:
+    return "modulu" if mpo == 1 else f"{mpo} modulů"
+
+
+def _optimizers(n: int) -> str:
+    return f"{n} {plural(n, 'optimizér', 'optimizéry', 'optimizérů')}"
+
+
+def optimizer_issues(m: ModuleData, opt: OptimizerData, t_min: float = T_MIN_DEFAULT, t_max: float = T_MAX_DEFAULT,
+                     inverter_manufacturer: str = "") -> list[str]:
+    """Vstup optimizéru (všechny režimy): mpo·Uoc(t_min) > U max vstupu → chyba; Isc STC modulu (bez 1,25 –
+    limit výrobce je vztažen k Isc modulu) > Isc max vstupu → chyba; mpo·P modulu > P max·(1 + tolerance) → chyba,
+    nad P max v toleranci výrobce → varování; mpo·Umpp(t_max) < U MPPT min → varování (omezení výkonu); `compat`
+    neodpovídá výrobci střídače → varování. Chybějící Isc max vstupu → varování „chybí údaj“. mpo·Umpp(t_min) > U MPPT
+    max optimizéru → varování (omezení výkonu). Neplatný počet modulů na optimizér (`bad_modules`) → varování, počítá
+    se s 1. Při mpo = 2 se předpokládá sériové zapojení modulů na vstupu (viz `OptimizerData`)."""
+    out = []
+    if opt.bad_modules:
+        out.append(f"neplatný počet modulů na optimizér „{opt.bad_modules}“ (povoleno 1 nebo 2) – počítá se s 1")
+    mpo = opt.modules
+    unit = _unit_label(mpo)
+    if m.voc:
+        u = round(mpo * m.uoc(t_min), 1)
+        if u > opt.u_in_max:
+            out.append(f"Uoc {unit} při {t_min:g} °C {u} V > Uin max optimizéru {opt.u_in_max:g} V")
+        if opt.u_mppt_min and m.vmp:
+            ump = round(mpo * m.ump(t_max), 1)
+            if ump < opt.u_mppt_min:
+                out.append(f"Umpp {unit} při {t_max:g} °C {ump} V < Umppt min optimizéru {opt.u_mppt_min:g} V"
+                           + POWER_LIMIT_SUFFIX)
+        if opt.u_mppt_max and m.vmp:
+            ump = round(mpo * m.ump(t_min), 1)
+            if ump > opt.u_mppt_max:
+                out.append(f"Umpp {unit} při {t_min:g} °C {ump} V > Umppt max optimizéru {opt.u_mppt_max:g} V"
+                           + POWER_LIMIT_SUFFIX)
+    if opt.isc_in_max is None:
+        out.append("chybí údaj Isc max vstupu optimizéru")
+    elif m.isc and m.isc > opt.isc_in_max:
+        out.append(f"Isc modulu {m.isc:g} A > Isc max vstupu optimizéru {opt.isc_in_max:g} A")
+    if m.p_wp:
+        p = mpo * m.p_wp
+        if p > opt.p_max * (1 + opt.p_tol_pct / 100.0) + 1e-9:
+            tol = f" + {opt.p_tol_pct:g} %" if opt.p_tol_pct else ""
+            out.append(f"P {unit} {p:g} W > P max optimizéru {opt.p_max:g} W{tol}")
+        elif p > opt.p_max:
+            out.append(f"P {unit} {p:g} W > P max optimizéru {opt.p_max:g} W – v toleranci výrobce {opt.p_tol_pct:g} %")
+    if opt.compatible_with(inverter_manufacturer) is False:
+        out.append(f"optimizér {opt.name or '?'} není uveden jako kompatibilní se střídačem {inverter_manufacturer} "
+                   f"(kompatibilita: {opt.compat})")
+    return out
+
+
+def optimizer_rules(inv: InverterData | None, opt: OptimizerData | None) -> tuple[int | None, int | None, float | None]:
+    """Nejpřísnější známá pravidla stringu ze střídače a optimizéru: (n_opt min = max, n_opt max = min, P stringu max
+    [W] = min); neznámé = None."""
+    lo = [x for x in (inv.n_opt_min if inv else None, opt.n_min if opt else None) if x]
+    hi = [x for x in (inv.n_opt_max if inv else None, opt.n_max if opt else None) if x]
+    pm = [x for x in (inv.p_string_max if inv else None, opt.p_string_max if opt else None) if x]
+    return (max(lo) if lo else None, min(hi) if hi else None, min(pm) if pm else None)
+
+
+def _uoc_capped(m: ModuleData, n: int, t_min: float, opt: OptimizerData | None, n_opt: int | None) -> float | None:
+    """Uoc stringu za studena v režimu optimizer, má-li optimizér U max výstupu: optimalizovaná jednotka přispívá
+    min(mpo·Uoc(t_min), U max výstupu), moduly bez optimizéru Uoc(t_min). Jinak None (počítá se n·Uoc)."""
+    if opt is None or not opt.u_out_max or not n:
+        return None
+    mpo, u1 = opt.modules, m.uoc(t_min)
+    optimized = min(n, (n_opt if n_opt is not None else math.ceil(n / mpo)) * mpo)
+    full, rest = divmod(optimized, mpo)
+    u = full * min(mpo * u1, opt.u_out_max) + min(rest * u1, opt.u_out_max) + (n - optimized) * u1
+    return round(u, 1)
+
+
+def _assumed_mpo(n: int, n_opt: int | None) -> int:
+    """Modulů na optimizér bez dat optimizéru (starý spec): z poměru modulů a optimizérů, 1 nebo 2."""
+    if not n_opt or not n:
+        return 1
+    return 2 if n >= 2 * n_opt else 1
+
+
+def _mode_issues(m: ModuleData, inv: InverterData, n: int, opt: OptimizerData | None, n_opt: int | None) -> list[str]:
+    """Počet optimizérů a výkon stringu (režimy optimizer a fixed_voltage) + pevné napětí (fixed_voltage)."""
+    out = []
+    mode = inv.mode
+    fixed = mode == "fixed_voltage"
+    if fixed:
+        if inv.u_string:
+            if inv.u_dc_max and inv.u_string > inv.u_dc_max:
+                out.append(f"pevné napětí stringu {inv.u_string:g} V > Umax střídače {inv.u_dc_max:g} V "
+                           "– nevěrohodné údaje střídače")
+        else:
+            out.append("chybí údaj pevné napětí stringu střídače")
+        # napětí stringu může dosáhnout až Umax střídače (regulace optimizérů) – Umax systému modulu proti
+        # max(pevné napětí, Umax střídače) ze známých hodnot
+        if m.u_sys_max:
+            u_top = max((x for x in (inv.u_string, inv.u_dc_max) if x), default=None)
+            if u_top and u_top > m.u_sys_max:
+                what = ("pevné napětí stringu" if u_top == inv.u_string and not (inv.u_dc_max or 0) > inv.u_string
+                        else "Umax střídače")
+                out.append(f"{what} {u_top:g} V > Umax systému modulu {m.u_sys_max:g} V")
+    mpo = opt.modules if opt is not None else _assumed_mpo(n, n_opt)
+    if n_opt is None and opt is not None and n:
+        n_opt = math.ceil(n / mpo)
+    if opt is None:
+        if n_opt:
+            out.append(MSG_OPT_NO_PARAMS)
+        elif fixed:
+            out.append("pevné napětí: string bez optimizérů – optimizér musí být na každém modulu")
+        else:
+            out.append(MSG_NO_OPTIMIZERS)
+    n_lo, n_hi, p_max = optimizer_rules(inv, opt)
+    if n_opt:
+        if n_lo and n_opt < n_lo:
+            out.append(f"{_optimizers(n_opt)} ve stringu < min {n_lo}")
+        if n_hi and n_opt > n_hi:
+            out.append(f"{_optimizers(n_opt)} ve stringu > max {n_hi}")
+    if fixed and (n_lo is None or n_hi is None):
+        out.append("chybí údaj rozmezí počtu optimizérů ve stringu (doplňte z artiklu)")
+    if p_max and m.p_wp and n and n * m.p_wp > p_max + 1e-9:
+        out.append(f"P stringu {n * m.p_wp:g} W > max {p_max:g} W")
+    if fixed and p_max is None:
+        out.append("chybí údaj max. výkon stringu (doplňte z artiklu)")
+    if fixed and n_opt and n != n_opt * mpo:
+        out.append(f"{_modules(n)}, {_optimizers(n_opt)} × {mpo} – optimizér musí být na každém modulu")
+    if mode == "optimizer" and opt is not None and n_opt is not None and n_opt * mpo < n and not opt.partial_ok:
+        out.append(f"smíšení optimalizovaných a neoptimalizovaných modulů ({n_opt * mpo} z {n}) není dovoleno")
+    return out
+
+
 def string_issues(m: ModuleData, inv: InverterData | None, n: int, n_par: int = 1, t_min: float = T_MIN_DEFAULT,
-                  t_max: float = T_MAX_DEFAULT) -> list[str]:
+                  t_max: float = T_MAX_DEFAULT, opt: OptimizerData | None = None,
+                  n_opt: int | None = None) -> list[str]:
     """České hlášky ke stringu n modulů, n_par paralelních stringů na stejném MPPT (prázdný seznam = vyhovuje).
-    Texty sdílí kontrola projektu (F7), výkaz Výpočty i asistent průvodce; „– omezení výkonu“ je jen varování."""
+    Texty sdílí kontrola projektu (F7), výkaz Výpočty i asistent průvodce; závažnost určuje `is_warning`.
+    Režim podle střídače (`InverterData.mode`): classic – napětí, okno MPPT, proudy; optimizer – navíc počet
+    optimizérů, P stringu, smíšení a Uoc s U max výstupu optimizéru; fixed_voltage – místo Uoc·n, okna MPPT a proudů
+    počet optimizérů, optimizér na každém modulu, P stringu a pevné napětí. `opt` (data optimizéru stringu) → kontrola
+    vstupu optimizéru ve všech režimech; `n_opt` = počet optimizérů ve stringu (atribut `n_optimizers`)."""
     out = []
     if not n or not m.voc:
-        out.append("chybí počet modulů nebo Uoc modulu")
+        out.append(MSG_NO_MODULES)
     if inv is None:
-        out.append("string není propojen se střídačem")
-    out += _voltage_issues(m, inv, n, t_min, t_max)
-    if inv is not None:
-        out += _current_issues(m, inv, n_par)
-        if not (inv.u_dc_max or inv.u_mppt_min):
-            out.append("střídač nemá zadané Umax / rozsah MPPT (doplňte z artiklu)")
+        out.append(MSG_NO_INVERTER)
+    mode = inv.mode if inv is not None else "classic"
+    if inv is not None and inv.string_mode != mode:
+        out.append(f"neznámý režim stringu „{inv.string_mode}“ – počítá se klasicky")
+    if mode != "fixed_voltage":
+        uoc = _uoc_capped(m, n, t_min, opt, n_opt) if mode == "optimizer" else None
+        out += _voltage_issues(m, inv, n, t_min, t_max, uoc)
+        if inv is not None:
+            out += _current_issues(m, inv, n_par)
+            if not (inv.u_dc_max or inv.u_mppt_min):
+                out.append(MSG_INV_NO_LIMITS)
+    if opt is not None:
+        out += optimizer_issues(m, opt, t_min, t_max, inv.manufacturer if inv is not None else "")
+    if mode in ("optimizer", "fixed_voltage"):
+        out += _mode_issues(m, inv, n, opt, n_opt)
+    elif opt is None and n_opt:
+        out.append(MSG_OPT_NO_PARAMS)
+    return out
+
+
+def _join_and(items: list) -> str:
+    items = [str(x) for x in items]
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " a " + items[-1]
+
+
+def parallel_issues(members: list[tuple[int, ModuleData | None, str]]) -> list[str]:
+    """Varování ke stringům na jednom MPPT (n modulů, modul, orientace): nestejná délka (s rozdílem Umpp STC), různé
+    moduly (`component_id`, jinak Voc/Vmp/Isc), různá orientace (jen vyplněné). Jeden string → []."""
+    out: list[str] = []
+    if len(members) < 2:
+        return out
+    ns = sorted({n for n, _m, _o in members if n}, reverse=True)
+    mods = [m for _n, m, _o in members if m is not None]
+    if len(ns) > 1:
+        umpp = [n * m.vmp for n, m, _o in members if n and m is not None and m.vmp]
+        if len(umpp) == len(members) and max(umpp) > 0:
+            d = 100 * (max(umpp) - min(umpp)) / max(umpp)
+        else:
+            d = 100 * (ns[0] - ns[-1]) / ns[0]
+        out.append(f"nestejná délka stringů na MPPT ({_join_and(ns)} modulů, ΔUmpp {d:.0f} %)")
+    by_id = all(m.component_id for m in mods)
+    if len({m.component_id if by_id else (m.voc, m.vmp, m.isc) for m in mods}) > 1:
+        out.append(MSG_PARALLEL_MODULES)
+    ors = sorted({o.strip() for _n, _m, o in members if o and o.strip()})
+    if len(ors) > 1:
+        out.append(f"různá orientace stringů na MPPT ({', '.join(ors)})")
     return out
 
 
 N_MODULES_LIMIT = 200   # strop hledání horní meze počtu modulů ve stringu (bez Umax / MPPT max → None)
 
 
+def modules_per_optimizer(per_module) -> int | None:
+    """Modulů na optimizér z „ks optimizérů na modul“ (1 → 1, 0,5 → 2); jiná nebo neplatná hodnota → None."""
+    per = _f(per_module)
+    if not per or per <= 0:
+        return None
+    mpo = 1 / per
+    return round(mpo) if abs(mpo - round(mpo)) < 1e-6 and round(mpo) in (1, 2) else None
+
+
 def string_limits(m: ModuleData, inv: InverterData, t_min: float = T_MIN_DEFAULT,
-                  t_max: float = T_MAX_DEFAULT) -> StringLimits:
+                  t_max: float = T_MAX_DEFAULT, opt: OptimizerData | None = None,
+                  mpo: int | None = None) -> StringLimits:
     """Rozsah počtu modulů ve stringu a paralelních stringů na MPPT – konzistentní se `string_issues`:
-    n_max = ⌊min(Umax, Umax systému modulu) / Uoc(t_min)⌋ a ⌊Umppt max / Umpp(t_min)⌋, n_min = ⌈Umppt min / Umpp(t_max)⌉."""
+    classic: n_max = ⌊min(Umax, Umax systému modulu) / Uoc(t_min)⌋ a ⌊Umppt max / Umpp(t_min)⌋,
+    n_min = ⌈Umppt min / Umpp(t_max)⌉; optimizer: totéž s U max výstupu optimizéru ∩ meze z počtu optimizérů
+    a P stringu, délky po násobcích modulů na optimizér; fixed_voltage: jen z počtu optimizérů a P stringu.
+    `mpo` = modulů na optimizér, když chybí data optimizéru (ruční „ks na modul“, `modules_per_optimizer`);
+    s `opt` platí `opt.modules`."""
+    if opt is not None or mpo not in (1, 2):
+        mpo = opt.modules if opt is not None else 1
+    if inv.mode == "fixed_voltage":
+        return _fixed_voltage_limits(m, inv, opt, mpo)
+    lim = _classic_limits(m, inv, t_min, t_max, opt if inv.mode == "optimizer" else None)
+    if inv.string_mode != inv.mode:
+        lim.reasons.insert(0, f"neznámý režim stringu „{inv.string_mode}“ – počítá se klasicky")
+    if inv.mode != "optimizer":
+        return lim
+    lim.mode = "optimizer"
+    n_lo, n_hi, p_max = optimizer_rules(inv, opt)
+    caps = [] if lim.n_max is None else [lim.n_max]
+    if n_hi:
+        caps.append(n_hi * mpo)
+        lim.reasons.append(f"nejvýš {_modules(n_hi * mpo)}: nejvýš {_optimizers(n_hi)} ve stringu")
+    if p_max and m.p_wp:
+        k = math.floor(p_max / m.p_wp / mpo + 1e-9) * mpo
+        caps.append(k)
+        lim.reasons.append(f"nejvýš {_modules(k)}: P stringu ≤ {p_max:g} W")
+    if n_lo and n_lo * mpo > lim.n_min:
+        lim.n_min = n_lo * mpo
+        lim.reasons.append(f"nejméně {_modules(lim.n_min)}: nejméně {_optimizers(n_lo)} ve stringu")
+    lim.n_max = min(caps) if caps else None
+    lim.step = mpo
+    lim.n_opt = (n_lo, n_hi) if (n_lo or n_hi) else None
+    _apply_step(lim)
+    return lim
+
+
+def _apply_step(lim: StringLimits) -> None:
+    """Meze na násobky `step` (n_min nahoru, n_max dolů) + důvod při prázdném rozsahu."""
+    if lim.step > 1:
+        lim.n_min = math.ceil(lim.n_min / lim.step) * lim.step
+        if lim.n_max is not None:
+            lim.n_max = lim.n_max // lim.step * lim.step
+        lim.reasons.append(f"{lim.step} moduly na optimizér – délka stringu po {lim.step}")
+    if lim.n_max is not None and lim.n_min > lim.n_max and not any("rozsah je prázdný" in r for r in lim.reasons):
+        lim.reasons.append(f"rozsah je prázdný (nejméně {lim.n_min}, nejvýš {lim.n_max} modulů) – modul a střídač "
+                           "k sobě nepasují")
+
+
+def _fixed_voltage_limits(m: ModuleData, inv: InverterData, opt: OptimizerData | None, mpo: int = 1) -> StringLimits:
+    """Meze stringu s pevným napětím (SolarEdge): n_min = n_opt_min·mpo, n_max = min(n_opt_max·mpo,
+    ⌊P stringu max / P modulu / mpo⌋·mpo), krok mpo, stringů na MPPT = strings_per_mppt (bez proudové meze)."""
+    n_lo, n_hi, p_max = optimizer_rules(inv, opt)
+    u = f" {inv.u_string:g} V" if inv.u_string else ""
+    reasons = [f"pevné napětí{u} – Uoc·n se nekontroluje"]
+    if n_lo or n_hi:
+        reasons.append(f"optimizérů {n_lo or '?'}–{n_hi or '?'}")
+    if n_lo is None or n_hi is None:
+        reasons.append("chybí údaj rozmezí počtu optimizérů ve stringu (doplňte z artiklu)")
+    caps = []
+    if n_hi:
+        caps.append(n_hi * mpo)
+    if p_max and m.p_wp:
+        k = math.floor(p_max / m.p_wp / mpo + 1e-9) * mpo
+        caps.append(k)
+        reasons.append(f"P stringu ≤ {p_max:g} W → nejvýš {_modules(k)}")
+    elif p_max is None:
+        reasons.append("chybí údaj max. výkon stringu (doplňte z artiklu)")
+    lim = StringLimits((n_lo or 1) * mpo, min(caps) if caps else None,
+                       max(1, inv.strings_per_mppt or DC_INPUTS_PER_MPPT_DEFAULT), reasons, step=mpo,
+                       n_opt=(n_lo, n_hi), mode="fixed_voltage")
+    _apply_step(lim)
+    return lim
+
+
+def _classic_limits(m: ModuleData, inv: InverterData, t_min: float, t_max: float,
+                    opt: OptimizerData | None = None) -> StringLimits:
+    """Klasické meze (napětí, okno MPPT, proudy); `opt` s U max výstupu = Uoc stringu s capem (režim optimizer)."""
     reasons: list[str] = []
     uoc1, ump_hot1, ump_cold1 = m.uoc(t_min), m.ump(t_max), m.ump(t_min)
+    # cap U max výstupu optimizéru jen když skutečně omezuje (mpo·Uoc(t_min) > U max výstupu)
+    capped = opt is not None and bool(opt.u_out_max) and opt.modules * uoc1 > opt.u_out_max
+    uoc_unit = opt.u_out_max / opt.modules if capped else uoc1
+    cap_note = f" (U výstupu optimizéru ≤ {opt.u_out_max:g} V)" if capped else ""
+
+    def issues(n: int) -> list[str]:
+        return _voltage_issues(m, inv, n, t_min, t_max, _uoc_capped(m, n, t_min, opt, None) if capped else None)
 
     def fits_high(n: int, which: str) -> bool:
-        return not any(which in x for x in _voltage_issues(m, inv, n, t_min, t_max))
+        return not any(which in x for x in issues(n))
 
     def upper(which: str, limit: float | None, per_module: float, label: str) -> int | None:
         if not limit or per_module <= 0:
@@ -300,10 +690,10 @@ def string_limits(m: ModuleData, inv: InverterData, t_min: float = T_MIN_DEFAULT
         return n
 
     caps = [
-        upper("Umax střídače", inv.u_dc_max, uoc1,
-              f"Uoc při {t_min:g} °C {uoc1:.1f} V/modul, Umax střídače {inv.u_dc_max or 0:g} V"),
-        upper("Umax systému modulu", m.u_sys_max, uoc1,
-              f"Uoc při {t_min:g} °C {uoc1:.1f} V/modul, Umax systému modulu {m.u_sys_max or 0:g} V"),
+        upper("Umax střídače", inv.u_dc_max, uoc_unit,
+              f"Uoc při {t_min:g} °C {uoc_unit:.1f} V/modul{cap_note}, Umax střídače {inv.u_dc_max or 0:g} V"),
+        upper("Umax systému modulu", m.u_sys_max, uoc_unit,
+              f"Uoc při {t_min:g} °C {uoc_unit:.1f} V/modul{cap_note}, Umax systému modulu {m.u_sys_max or 0:g} V"),
         upper("Umppt max", inv.u_mppt_max, ump_cold1,
               f"Umpp při {t_min:g} °C {ump_cold1:.1f} V/modul, Umppt max {inv.u_mppt_max or 0:g} V"),
     ]
@@ -312,16 +702,16 @@ def string_limits(m: ModuleData, inv: InverterData, t_min: float = T_MIN_DEFAULT
     n_min = 1
     if inv.u_mppt_min and ump_hot1 > 0:
         n_min = max(1, math.ceil(inv.u_mppt_min / ump_hot1))
-        while n_min > 1 and not any("Umppt min" in x for x in _voltage_issues(m, inv, n_min - 1, t_min, t_max)):
+        while n_min > 1 and not any("Umppt min" in x for x in issues(n_min - 1)):
             n_min -= 1
-        while n_min < N_MODULES_LIMIT and any("Umppt min" in x for x in _voltage_issues(m, inv, n_min, t_min, t_max)):
+        while n_min < N_MODULES_LIMIT and any("Umppt min" in x for x in issues(n_min)):
             n_min += 1
         reasons.append(f"nejméně {_modules(n_min)}: Umpp při {t_max:g} °C {ump_hot1:.1f} V/modul, "
                        f"Umppt min {inv.u_mppt_min:g} V")
     if m.vmp_from_beta and (inv.u_mppt_min or inv.u_mppt_max):
         reasons.append("Umpp z β_Voc – zjednodušení (modul nemá γ_Pmax a α_Isc)")
     if not (inv.u_dc_max or inv.u_mppt_min):
-        reasons.append("střídač nemá zadané Umax / rozsah MPPT (doplňte z artiklu)")
+        reasons.append(MSG_INV_NO_LIMITS)
     n_par_max = max(1, inv.strings_per_mppt or DC_INPUTS_PER_MPPT_DEFAULT)
     if inv.isc_mppt_max:
         if m.isc:
@@ -425,30 +815,69 @@ def suggest_inverter_count(p_dc_kwp: float, p_ac_kw: float, dc_ac_max: float = 1
     return max(1, math.ceil(p_dc_kwp / (p_ac_kw * dc_ac_max) - 1e-9))
 
 
+def _group_lengths(units: list[int], inv: InverterData, u_min: int, u_max: int) -> list[int]:
+    """Délky stringů jednoho střídače (v jednotkách step, sestupně) přeskládané tak, aby stringy na stejném MPPT
+    (`assign_mppt` – pořadí stringů = pořadí vstupů DCk vzestupně, vodiče se nekříží) měly stejnou délku, kde to jde.
+    Součet modulů se nemění; délky různých MPPT se smí lišit víc než o 1 (nejvýš o 2 jednotky, v mezích u_min…u_max).
+    Nejde-li to (nebo MPPT nezjištěn), vrací původní pořadí – smíšený je nejvýš jeden MPPT."""
+    mppts = assign_mppt(len(units), inv)
+    if len(units) < 2 or any(m is None for m in mppts) or len(set(mppts)) == len(units):
+        return units
+    sizes = [mppts.count(m) for m in dict.fromkeys(mppts)]   # stringů na MPPT v pořadí vstupů
+    total, n_groups = sum(units), len(sizes)
+    for spread in range(3):
+        for lo in range(total // len(units), total // len(units) - spread - 1, -1):
+            top = min(spread, u_max - lo)           # x_j ∈ 0…top (délka MPPT lo + x_j ≤ u_max)
+            if lo < u_min or top < 0:
+                continue
+            rest = total - lo * len(units)          # rozdělit jako Σ sizes[j] · x_j
+            if rest < 0:
+                continue
+            # reach[j] = součty dosažitelné skupinami j… (pro rekonstrukci zleva: delší stringy dřív)
+            reach = [set() for _ in range(n_groups + 1)]
+            reach[n_groups] = {0}
+            for j in range(n_groups - 1, -1, -1):
+                reach[j] = {r + sizes[j] * x for r in reach[j + 1] for x in range(top + 1) if r + sizes[j] * x <= rest}
+            if rest not in reach[0]:
+                continue
+            out: list[int] = []
+            for j in range(n_groups):
+                x = next(x for x in range(top, -1, -1) if rest - sizes[j] * x in reach[j + 1])
+                rest -= sizes[j] * x
+                out += [lo + x] * sizes[j]
+            return out
+    return units
+
+
 def propose_strings(n_total: int, n_inverters: int, lim: StringLimits,
                     inv: InverterData) -> tuple[list[list[int]], int]:
     """Návrh stringů: n_total modulů do co nejmenšího počtu stringů v mezích `lim`, rovnoměrně délky (liší se nejvýš
-    o 1 modul) i počtem na střídač; kapacita střídače = mppt · min(strings_per_mppt, n_par_max) stringů (neznámé mppt =
-    bez omezení). Vrací (stringy po střídačích – délky sestupně, počet modulů, které se nevešly)."""
+    o 1 modul, resp. o `lim.step` – délky jsou násobky step) i počtem na střídač; kapacita střídače = mppt ·
+    min(strings_per_mppt, n_par_max) stringů (neznámé mppt = bez omezení). Mimo pevné napětí se pak délky na střídači
+    přeskládají (`_group_lengths`), aby stringy na jednom MPPT měly stejnou délku, kde to jde – mezi MPPT se pak smí
+    lišit až o 2·step. Vrací (stringy po střídačích v pořadí vstupů DCk, počet modulů, které se nevešly)."""
     n_inv = max(1, int(n_inverters or 1))
     empty: list[list[int]] = [[] for _ in range(n_inv)]
     n_total = max(0, int(n_total or 0))
-    if not n_total or lim.n_max is None or lim.n_max < 1 or not lim.ok:
+    step = max(1, int(lim.step or 1))
+    if not n_total or lim.n_max is None or lim.n_max < step or not lim.ok:
         return empty, n_total
+    u_total, u_max, u_min = n_total // step, lim.n_max // step, max(1, math.ceil(lim.n_min / step))
     spm = inv.strings_per_mppt or DC_INPUTS_PER_MPPT_DEFAULT
     per_inv = inv.mppt * min(spm, lim.n_par_max) if inv.mppt else None
-    n_str = math.ceil(n_total / lim.n_max)
+    n_str = math.ceil(u_total / u_max) if u_total else 0
     if per_inv is not None:
         n_str = min(n_str, per_inv * n_inv)
-    n_str = min(n_str, n_total // max(1, lim.n_min))
+    n_str = min(n_str, u_total // u_min)
     if n_str <= 0:
         return empty, n_total
-    placed = min(n_total, n_str * lim.n_max)
+    placed = min(u_total, n_str * u_max)
     base, rem = divmod(placed, n_str)
-    lengths = [base + 1] * rem + [base] * (n_str - rem)
+    lengths = [(base + 1) * step] * rem + [base * step] * (n_str - rem)
     out = [lengths[i::n_inv] for i in range(n_inv)]   # střídavě: počty i délky na střídačích vyrovnané
-    return out, n_total - placed
-
+    if lim.mode != "fixed_voltage":   # pevné napětí: paralelní stringy se neporovnávají (`check_strings`)
+        out = [[u * step for u in _group_lengths([n // step for n in g], inv, u_min, u_max)] for g in out]
+    return out, n_total - placed * step
 
 @dataclass
 class StringCheck:
@@ -470,6 +899,13 @@ class StringCheck:
     isc_mppt_max: float | None = None
     t_min: float = T_MIN_DEFAULT
     t_max: float = T_MAX_DEFAULT
+    mode: str = "classic"               # platný režim stringu střídače (`InverterData.mode`)
+    n_opt: int | None = None            # optimizérů ve stringu (atribut, jinak ⌈n / mpo⌉ s daty optimizéru)
+    p_string: float | None = None       # P stringu [W] = n · P modulu
+    u_string: float | None = None       # pevné napětí stringu [V] (jen fixed_voltage)
+    p_string_max: float | None = None   # nejpřísnější P stringu max [W] (optimizer, fixed_voltage)
+    n_opt_min: int | None = None        # nejpřísnější rozmezí počtu optimizérů (optimizer, fixed_voltage)
+    n_opt_max: int | None = None
 
     @property
     def ok(self) -> bool:
@@ -538,8 +974,10 @@ def _breaker_on_wire(s: Sheet, w: Wire) -> tuple[float | None, str]:
 def check_strings(project: Project, t_min: float | None = None, t_max: float | None = None) -> list[StringCheck]:
     """Kontrola každého stringu proti střídači, na který vede (přes odpínače, pojistky, svorky, DC rozvaděče).
     Teploty: zadané, jinak `design_temperatures(project)`. Stringy na stejném MPPT (střídač + DCk → MPPT, jen se
-    známým `strings_per_mppt`) se počítají spolu (`n_par`) – uplatní se jen u střídače s `isc_mppt_max`. Víc stringů
-    na střídači než mppt · stringů na MPPT → `capacity_issue` u stringů nad kapacitu (v pořadí vstupů DCk)."""
+    známým `strings_per_mppt`) se počítají spolu (`n_par`) – uplatní se jen u střídače s `isc_mppt_max` – a v režimech
+    classic / optimizer se porovnají (`parallel_issues`). Víc stringů na střídači než mppt · stringů na MPPT →
+    `capacity_issue` u stringů nad kapacitu (v pořadí vstupů DCk). Režim stringu = atribut střídače `string_mode`,
+    data optimizéru = atributy `opt_*` stringu (`OptimizerData.from_attrs`), počet optimizérů = `n_optimizers`."""
     d_min, d_max = design_temperatures(project)
     t_min = d_min if t_min is None else t_min
     t_max = d_max if t_max is None else t_max
@@ -553,13 +991,13 @@ def check_strings(project: Project, t_min: float | None = None, t_max: float | N
             mt = re.fullmatch(r"DC(\d+)", port or "")
             pnum = int(mt.group(1)) if mt else None
             found.append((s, e, inv_el, inv, port_mppt(pnum, inv), pnum))
-    groups: dict[tuple[str, int], int] = {}
+    groups: dict[tuple[str, int], list[int]] = {}
     per_inv: dict[str, list[int]] = {}
     for i, (_s, _e, inv_el, _inv, mppt, _p) in enumerate(found):
         if inv_el is not None:
             per_inv.setdefault(inv_el.id, []).append(i)
             if mppt is not None:
-                groups[(inv_el.id, mppt)] = groups.get((inv_el.id, mppt), 0) + 1
+                groups.setdefault((inv_el.id, mppt), []).append(i)
     over: dict[int, str] = {}
     for idx in per_inv.values():
         inv_el, inv = found[idx[0]][2], found[idx[0]][3]
@@ -568,23 +1006,43 @@ def check_strings(project: Project, t_min: float | None = None, t_max: float | N
             ordered = sorted(idx, key=lambda i: (found[i][5] is None, found[i][5] or 0, i))
             over.update(dict.fromkeys(ordered[inverter_capacity(inv):], msg))
     out = []
+    modules: list[tuple[int, ModuleData | None]] = []
     for i, (s, e, inv_el, inv, mppt, _p) in enumerate(found):
         n = int(_f(e.attrs.get("n_modules"), 0) or 0)
-        m = ModuleData.from_attrs(e.attrs) or ModuleData(voc=0.0, vmp=0.0, isc=_f(e.attrs.get("isc")) or 0.0,
-                                                         imp=_f(e.attrs.get("imp")),
-                                                         beta_voc=_f(e.attrs.get("beta_voc")) or BETA_VOC_DEFAULT,
-                                                         u_sys_max=_f(e.attrs.get("u_sys_max")),
-                                                         alpha_isc=_f(e.attrs.get("alpha_isc")),
-                                                         gamma_pmax=_f(e.attrs.get("gamma_pmax")))
-        n_par = groups.get((inv_el.id, mppt), 1) if inv_el is not None and mppt is not None else 1
+        m0 = ModuleData.from_attrs(e.attrs)
+        m = m0 or ModuleData(voc=0.0, vmp=0.0, isc=_f(e.attrs.get("isc")) or 0.0, imp=_f(e.attrs.get("imp")),
+                             beta_voc=_f(e.attrs.get("beta_voc")) or BETA_VOC_DEFAULT,
+                             u_sys_max=_f(e.attrs.get("u_sys_max")), alpha_isc=_f(e.attrs.get("alpha_isc")),
+                             gamma_pmax=_f(e.attrs.get("gamma_pmax")), p_wp=_f(e.attrs.get("p_module")))
+        if e.component_id:
+            m = replace(m, component_id=e.component_id)
+        modules.append((n, m if m0 is not None else None))
+        opt = OptimizerData.from_attrs(e.attrs)
+        n_opt = _int(e.attrs.get("n_optimizers"))
+        group = groups.get((inv_el.id, mppt), []) if inv_el is not None and mppt is not None else []
+        n_par = len(group) or 1
         uoc_cold, umpp_hot, _umpp_cold = _u_strings(m, n, t_min, t_max)
+        mode = inv.mode if inv is not None else "classic"
+        n_lo, n_hi, p_max = optimizer_rules(inv, opt) if mode != "classic" else (None, None, None)
         sc = StringCheck(e.ref, n, uoc_cold, umpp_hot, m.isc, inv_el.ref if inv_el else "",
                          inv.u_dc_max if inv else None, inv.u_mppt_min if inv else None,
                          inv.u_mppt_max if inv else None, inv.i_mppt_max if inv else None,
                          sheet=s.name, mppt=mppt, n_par=n_par, isc_mppt_max=inv.isc_mppt_max if inv else None,
-                         t_min=t_min, t_max=t_max)
-        sc.issues = string_issues(m, inv, n, n_par, t_min, t_max) + ([over[i]] if i in over else [])
+                         t_min=t_min, t_max=t_max, mode=mode,
+                         n_opt=n_opt if n_opt is not None or opt is None or not n else math.ceil(n / opt.modules),
+                         p_string=round(n * m.p_wp, 1) if m.p_wp and n else None,
+                         u_string=inv.u_string if inv is not None and mode == "fixed_voltage" else None,
+                         p_string_max=p_max, n_opt_min=n_lo, n_opt_max=n_hi)
+        sc.issues = string_issues(m, inv, n, n_par, t_min, t_max, opt, n_opt) + ([over[i]] if i in over else [])
         out.append(sc)
+    for idx in groups.values():
+        inv = found[idx[0]][3]
+        if len(idx) < 2 or inv is None or inv.mode == "fixed_voltage":
+            continue
+        msgs = parallel_issues([(modules[i][0], modules[i][1], str(found[i][1].attrs.get("orientation") or ""))
+                                for i in idx])
+        for i in idx:
+            out[i].issues += msgs
     return out
 
 
