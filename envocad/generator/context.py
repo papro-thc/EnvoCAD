@@ -41,10 +41,15 @@ def _s(v) -> str:
 
 
 _BUILD_LIB = None    # knihovna sdílená během jednoho `build_project` (otevření LibraryStore = synchronizace souborů)
+# Globál modulu, ne stav vlákna: `build_project` ho nastaví na začátku a v `finally` vrátí None. Neplatí pro souběžné
+# sestavení z více vláken – druhé vlákno by vidělo cizí knihovnu jako „vnořené volání“ (SQLite spojení patří vláknu,
+# které ho otevřelo → ProgrammingError) a konec prvního sestavení by ji druhému vzal. Generátor se volá z jednoho
+# vlákna (GUI, CLI, testy); sestavení v pracovním vlákně jen tehdy, když jiné neběží.
 
 
 def _lib():
-    """Knihovna pro generátor: během `build_project` jedna instance pro celé sestavení, jinak nová."""
+    """Knihovna pro generátor: během `build_project` jedna instance pro celé sestavení (`_BUILD_LIB`), jinak nová.
+    `_BUILD_LIB` je společný pro celý proces – z jiného vlákna během běžícího sestavení se `_lib` nevolá (viz výše)."""
     if _BUILD_LIB is not None:
         return _BUILD_LIB
     from envocad.library.store import LibraryStore

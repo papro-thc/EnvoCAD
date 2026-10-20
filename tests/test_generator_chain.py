@@ -211,3 +211,11 @@ def test_nobody_imports_build_lib_by_name():
             if imported or other_attr:
                 bad.append(f"{path.relative_to(root)}:{node.lineno}")
     assert bad == []
+
+
+def test_generator_package_all_and_dir():
+    import envocad.generator as pkg
+    assert pkg.__all__ == ["build_project"] and "build_project" in dir(pkg)
+    assert all(getattr(pkg, n) is build.build_project for n in pkg.__all__)   # jako `from envocad.generator import *`
+    with pytest.raises(AttributeError):
+        pkg.neexistuje  # noqa: B018
