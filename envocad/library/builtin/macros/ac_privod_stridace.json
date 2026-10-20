@@ -103,7 +103,10 @@
      "desc": "rozvod AC",
      "in_": "{main_in}",
      "conductors": "L1 L2 L3 N PE",
-     "shared": "1"
+     "shared": "1",
+     "taps": "1",
+     "outs": "1",
+     "tap_pitch": "30"
     },
     "component_id": null
    }

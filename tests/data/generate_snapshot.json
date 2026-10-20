@@ -1618,7 +1618,10 @@
        "desc": "rozvod AC",
        "in_": "125",
        "conductors": "L1 L2 L3 N PE",
-       "shared": "1"
+       "shared": "1",
+       "taps": "1",
+       "outs": "1",
+       "tap_pitch": "30"
       },
       "component_id": null
      },
@@ -1735,22 +1738,13 @@
       "id": "#91",
       "a": {
        "element_id": "#86",
-       "port": "1"
+       "port": "2"
       },
       "b": {
        "element_id": "#83",
        "port": "L"
       },
-      "points": [
-       [
-        97.5,
-        160.0
-       ],
-       [
-        82.5,
-        160.0
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -1800,16 +1794,7 @@
        "element_id": "#87",
        "port": "1"
       },
-      "points": [
-       [
-        97.5,
-        165.0
-       ],
-       [
-        60.0,
-        165.0
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -1822,7 +1807,7 @@
       "id": "#94",
       "a": {
        "element_id": "#86",
-       "port": "4"
+       "port": "3"
       },
       "b": {
        "element_id": "#84",
@@ -4817,7 +4802,10 @@
        "desc": "rozvod AC",
        "in_": "125",
        "conductors": "L1 L2 L3 N PE",
-       "shared": "1"
+       "shared": "1",
+       "taps": "2",
+       "outs": "1",
+       "tap_pitch": "30"
       },
       "component_id": null
      },
@@ -5011,22 +4999,13 @@
       "id": "#146",
       "a": {
        "element_id": "#138",
-       "port": "1"
+       "port": "2"
       },
       "b": {
        "element_id": "#135",
        "port": "L"
       },
-      "points": [
-       [
-        97.5,
-        160.0
-       ],
-       [
-        82.5,
-        160.0
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -5076,16 +5055,7 @@
        "element_id": "#140",
        "port": "1"
       },
-      "points": [
-       [
-        97.5,
-        165.0
-       ],
-       [
-        60.0,
-        165.0
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -5098,7 +5068,7 @@
       "id": "#149",
       "a": {
        "element_id": "#138",
-       "port": "6"
+       "port": "3"
       },
       "b": {
        "element_id": "#136",
@@ -9810,7 +9780,10 @@
        "desc": "rozvod AC",
        "in_": "125",
        "conductors": "L1 L2 L3 N PE",
-       "shared": "1"
+       "shared": "1",
+       "taps": "1",
+       "outs": "1",
+       "tap_pitch": "30"
       },
       "component_id": null
      },
@@ -9927,22 +9900,13 @@
       "id": "#112",
       "a": {
        "element_id": "#107",
-       "port": "1"
+       "port": "2"
       },
       "b": {
        "element_id": "#104",
        "port": "L"
       },
-      "points": [
-       [
-        97.5,
-        160.0
-       ],
-       [
-        82.5,
-        160.0
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -9992,16 +9956,7 @@
        "element_id": "#108",
        "port": "1"
       },
-      "points": [
-       [
-        97.5,
-        165.0
-       ],
-       [
-        60.0,
-        165.0
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -10014,7 +9969,7 @@
       "id": "#115",
       "a": {
        "element_id": "#107",
-       "port": "4"
+       "port": "3"
       },
       "b": {
        "element_id": "#105",

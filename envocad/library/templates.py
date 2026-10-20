@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from envocad.model.busbar import B1_X, BusLayout
 from envocad.model.feed import FEED_SYMBOL, normalize_legacy_objects
 from envocad.model.project import Element, Project, Sheet, Wire, WireEnd
 
@@ -186,14 +187,19 @@ def build_ac_fve(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
     use_bus = distribution_param(p)
     y = 200.0
     x0 = 90.0                   # přívodní větev; vlevo od ní SPD a XPE / PE lišta
-    x_spd = x0 - GROUP_PITCH
     nc = len(AC_CONDUCTORS)
+    # sběrnice parametrická (`model/busbar.py`): přívod B1 nad hlavním vypínačem, vývod 1 (PE) nad XPE, 2 nad SPD,
+    # 3… nad jističi vývodů – všechny odbočky svisle
+    lay = BusLayout(1, n_out, GROUP_PITCH) if use_bus else None
+    bus_x = x0 - B1_X
+    x_spd = bus_x + lay.out_x("2") if lay else x0 - GROUP_PITCH
     feed = _feed(project, sheet, "in", x0, y - 95, "X", desc=p.get("feed_desc", "od střídače"))
     q = _el(project, sheet, "sb.main_switch", x0, y - 60, "Q", rot=90, in_=i_main, poles="4", modules="4")
     groups: list[Element] = []
     bus = None
     if use_bus:
-        bus = _el(project, sheet, "sb.busbar", x0 + 60, y - 25, "", desc="rozvod", in_=i_main, conductors=" ".join(AC_CONDUCTORS))
+        bus = _el(project, sheet, "sb.busbar", bus_x, y - 25, "", desc="rozvod", in_=i_main, conductors=" ".join(AC_CONDUCTORS),
+                  taps="1", outs=str(n_out), tap_pitch=f"{GROUP_PITCH:g}")
         bus.attrs["ref"] = "1"
     else:
         strip = project.next_ref("X")
@@ -210,12 +216,11 @@ def build_ac_fve(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
     _wire(project, sheet, feed, "1", q, "1", AC_CONDUCTORS)
     if use_bus:
         # PE je potenciál sběrnice; uzemnění = vývod na ekvipotenciální svorkovnici (HOP) vně rozvaděče
-        tap = bus.x - 67.5                                                  # vývod 1 sběrnice (SPD a PE)
         _wire(project, sheet, q, "2", bus, "B1", AC_CONDUCTORS)             # zdola pod přívodem (B1 = x sběrnice − 60)
-        _wire(project, sheet, bus, "1", spd, "L", AC_CONDUCTORS[:4]).points = [(tap, 160.0), (x_spd, 160.0)]
-        xpe = _feed(project, sheet, "out", x_spd - 22.5, y - 95, "X", desc="k HOP")
+        _wire(project, sheet, bus, "2", spd, "L", AC_CONDUCTORS[:4])
+        xpe = _feed(project, sheet, "out", bus_x + lay.out_x("1"), y - 95, "X", desc="k HOP")
         _wire(project, sheet, spd, "PE", xpe, "1", ["PE"]).points = [(x_spd, 120.0), (xpe.x, 120.0)]   # SPD na HOP
-        _wire(project, sheet, bus, "1", xpe, "1", ["PE"]).points = [(tap, 165.0), (xpe.x, 165.0)]
+        _wire(project, sheet, bus, "1", xpe, "1", ["PE"])
     else:
         pe = _el(project, sheet, "sb.pe_bar", x_spd + 7.5, y - 87.5, "X", kind="PE")   # port 2 pod SPD, port 1 vlevo
         _wire(project, sheet, q, "2", groups[0], "1", AC_CONDUCTORS)
@@ -224,7 +229,7 @@ def build_ac_fve(project: Project, sheet: Sheet, p: dict[str, str]) -> None:
         _wire(project, sheet, spd, "PE", pe, "2", ["PE"])
     outs: list[Element] = []
     for i in range(1, n_out + 1):
-        x = x0 + i * GROUP_PITCH
+        x = bus_x + lay.out_x(str(i + 2)) if lay else x0 + i * GROUP_PITCH
         f = _el(project, sheet, "fve.breaker_mcb", x, y - 60, "F", rot=270, in_=i_out, char="B", poles="3", modules="3")
         out = _feed(project, sheet, "out", x, y - 95, "X", desc=f"vývod {i}")
         if use_bus:

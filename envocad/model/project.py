@@ -13,6 +13,7 @@ import uuid
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 
+from envocad.model.busbar import BUS_SYMBOL, busbar_symbol
 from envocad.model.designation import (
     CABLE_SCOPE,
     FUNC,
@@ -1824,7 +1825,8 @@ def _used_ports(project: Project, e: Element) -> set[str]:
 
 
 def element_symbol(project: Project, e: Element, lib) -> Symbol:
-    """Značka prvku – blok ROZVADĚČ podle jeho listu, střídač podle počtu DC vstupů, jinak z knihovny.
+    """Značka prvku – blok ROZVADĚČ podle jeho listu, střídač podle počtu DC vstupů, sběrnice s atributem `taps`
+    podle počtu přívodů (`busbar.busbar_symbol`), jinak z knihovny.
     Nikdy nepadá na stavu projektu: symbol, který v knihovně není, nahradí zástupná značka (`placeholder`)
     s porty podle vodičů a port, na který vede vodič, ale značka ho nemá, se doplní jako osiřelý („X1?“,
     `orphan_ports`). Obojí hlásí kontrola projektu (`symbol`, `bad_port`)."""
@@ -1838,6 +1840,8 @@ def element_symbol(project: Project, e: Element, lib) -> Symbol:
         sym = inverter_symbol(project, e, base)
     elif is_feed(e):
         sym = feed_symbol(e, base)
+    elif e.symbol_id == BUS_SYMBOL:
+        sym = busbar_symbol(e, base, _used_ports(project, e))
     else:
         sym = base
     used = _used_ports(project, e)

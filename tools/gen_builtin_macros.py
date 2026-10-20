@@ -85,9 +85,12 @@ def dc_string_route() -> dict:
 # AC rozvaděč FVE (RFVE.AC, AC část RFVE rodinného domu): sběrnice nahoře, vše přichází zespodu – přívody i vývody
 # jsou ve spodní řadě (y 105, port nahoře), přívodní větev teče nahoru do sběrnice (svorka X → jistič otočený tokem
 # nahoru → přívod zdola B{k}), jádro visí ze sběrnice dolů. Zleva: XPE, SPD, přívody po 30 mm, hlavní vypínač + XOUT.
-# Generátor (`generate._ac_core_after_feeds`) posune hlavní vypínač a XOUT za poslední přívod. docs/design/
+# Sběrnice je parametrická (`model/busbar.py`, atribut `taps`): přívod B{k} x 105 + 30·(k−1) rovně nad jističem k,
+# vývod 1 (PE) nad XPE x 60, 2 nad SPD x 82,5, 3 za posledním přívodem nad hlavním vypínačem. Generátor
+# (`generate._ac_core_after_feeds`) nastaví počet přívodů a posune hlavní vypínač a XOUT pod vývod 3. docs/design/
 # znacka_privod_vyvod.md
-AC_BUS = (165, 175)          # sběrnice: čára x 90…270, vývody 1…12 x 97,5 + 15·(i−1), přívody zdola B1…B6 x 105 + 30·(k−1)
+AC_BUS = (165, 175)
+BUS_PARAMS = {"taps": "1", "outs": "1", "tap_pitch": "30"}   # = GROUP_PITCH, rozteč makra přívodu
 
 
 def ac_feed() -> dict:
@@ -96,7 +99,8 @@ def ac_feed() -> dict:
     feed = _feed(p, s, "in", 105, 105, "", desc="od {inverter}")
     feed.attrs["ref"] = "X{k}"
     f = _el(p, s, "fve.breaker_mcb", 105, 140, "F", rot=90, in_="{breaker_in}", char="B", poles="3", modules="3")
-    bus = _el(p, s, "sb.busbar", *AC_BUS, "", desc="rozvod AC", in_="{main_in}", conductors=" ".join(AC_CONDUCTORS), shared="1")
+    bus = _el(p, s, "sb.busbar", *AC_BUS, "", desc="rozvod AC", in_="{main_in}", conductors=" ".join(AC_CONDUCTORS), shared="1",
+              **BUS_PARAMS)
     bus.attrs["ref"] = "1"
     _wire(p, s, feed, "1", f, "1", AC_CONDUCTORS)
     _wire(p, s, f, "2", bus, "B{k}", AC_CONDUCTORS)   # zdola
@@ -104,10 +108,12 @@ def ac_feed() -> dict:
 
 
 def ac_core() -> dict:
-    """AC jádro rozvaděče ({spd}, {main_in}): sběrnice 1 (sdílená) → SPD a PE → XPE (k HOP, sdílený) vlevo, sběrnice →
-    hlavní vypínač → XOUT vpravo za přívody (jeden přívod; generátor posune za poslední)."""
+    """AC jádro rozvaděče ({spd}, {main_in}): sběrnice 1 (sdílená) → vývod 2 → SPD a vývod 1 (PE) → XPE (k HOP,
+    sdílený) vlevo, vývod 3 → hlavní vypínač → XOUT vpravo za přívody (jeden přívod; generátor posune za poslední).
+    Odbočky ze sběrnice svisle."""
     p, s = Project(), Sheet(kind="switchboard")
-    bus = _el(p, s, "sb.busbar", *AC_BUS, "", desc="rozvod AC", in_="{main_in}", conductors=" ".join(AC_CONDUCTORS), shared="1")
+    bus = _el(p, s, "sb.busbar", *AC_BUS, "", desc="rozvod AC", in_="{main_in}", conductors=" ".join(AC_CONDUCTORS), shared="1",
+              **BUS_PARAMS)
     bus.attrs["ref"] = "1"
     spd = _el(p, s, "fve.spd", 82.5, 140, "F", spd_type="{spd}", poles="4", modules="4", when="spd")
     xpe = _feed(p, s, "out", 60, 105, "", desc="k HOP", shared="1")
@@ -115,12 +121,11 @@ def ac_core() -> dict:
     q = _el(p, s, "sb.main_switch", 142.5, 140, "Q", rot=270, in_="{main_in}", poles="4", modules="4")
     out = _feed(p, s, "out", 142.5, 105, "", desc="do HDS / DS")
     out.attrs["ref"] = "XOUT"
-    _wire(p, s, bus, "1", spd, "L", AC_CONDUCTORS[:4]).points = [(97.5, 160.0), (82.5, 160.0)]
+    _wire(p, s, bus, "2", spd, "L", AC_CONDUCTORS[:4])
     pe = _wire(p, s, spd, "PE", xpe, "1", ["PE"])
     pe.points = [(82.5, 120.0), (60.0, 120.0)]
-    pe = _wire(p, s, bus, "1", xpe, "1", ["PE"])        # PE sběrnice odbočuje z téhož vývodu jako SPD, nad ním
-    pe.points = [(97.5, 165.0), (60.0, 165.0)]
-    _wire(p, s, bus, "4", q, "1", AC_CONDUCTORS)
+    _wire(p, s, bus, "1", xpe, "1", ["PE"])             # PE sběrnice rovně dolů do XPE
+    _wire(p, s, bus, "3", q, "1", AC_CONDUCTORS)
     _wire(p, s, q, "2", out, "1", AC_CONDUCTORS)
     return _frag(s)
 

@@ -3,7 +3,7 @@
   "name": "Sběrnice (rozvodný vodič)",
   "category": "Svorky a propojení",
   "iec_ref": "",
-  "description": "Rozvod potenciálů vodičem jako v EPLAN: ve vícepólu vodorovné čáry L1 L2 L3 N PE přes stranu s názvy potenciálů na koncích, přístroje se na ně napojují odbočkou; 1 vstup, 12 přívodů shora, 13 vývodů zdola, 12 přívodů zdola (B1…B12)",
+  "description": "Rozvod potenciálů vodičem jako v EPLAN: ve vícepólu vodorovné čáry L1 L2 L3 N PE přes stranu s názvy potenciálů na koncích, přístroje se na ně napojují odbočkou; 1 vstup, 12 přívodů shora, 13 vývodů zdola, 12 přívodů zdola (B1…B12); s atributem Přívody zdola (taps) délka a porty podle počtu přívodů – každý přívod Bk rovně nad svým přístrojem",
   "primitives": [
     {
       "type": "polyline",
@@ -287,6 +287,24 @@
       "key": "conductors",
       "label": "Vodiče",
       "default": "L1 L2 L3 N PE",
+      "show": false
+    },
+    {
+      "key": "taps",
+      "label": "Přívody zdola (počet; prázdné = pevná sběrnice)",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "outs",
+      "label": "Vývody vpravo (počet, parametrická sběrnice)",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "tap_pitch",
+      "label": "Rozteč přívodů [mm] (parametrická sběrnice)",
+      "default": "",
       "show": false
     }
   ],
