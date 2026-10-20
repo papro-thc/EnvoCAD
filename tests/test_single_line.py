@@ -51,7 +51,7 @@ def test_connection_currents():
 
 def test_nn_connection_unchanged():
     p = build_project({"name": "t", "inverters": INVS})
-    assert [s.name[:3] for s in p.switchboards()][-1] == "RH "
+    assert [s.name.split(" – ")[0] for s in p.switchboards()][-1] == "RFVE.AC"
     assert not any(e.symbol_id == "fve.transformer" for e in p.sheets[0].elements)
 
 
@@ -184,14 +184,14 @@ def test_geometry_fits_page(lib, conn, paper):
         for _key, b in cells[k + 1:]:
             assert _apart(a, b)
     texts = {p.text for p in g.prims if p.kind == "text"}
-    assert {"RH", "T1", "DC: 3 stringy"} <= texts
+    assert {"RFVE.AC", "T1", "DC: 3 stringy"} <= texts
     if conn:
         assert {"RHN", "TR1", "630 kVA", "TS1", "RE"} <= texts
         (box,) = g.stations.values()
         # rozvaděče TS v rámečku TS, rozvaděč FVE mimo
         sheets = {n.sheet.id: n.sheet.name.split()[0] for n in g.nodes.values() if n.sheet.is_switchboard}
         for sid, f in g.frames.items():
-            assert _inside(f, box) == (sheets[sid] != "RH"), sheets[sid]
+            assert _inside(f, box) == (sheets[sid] != "RFVE.AC"), sheets[sid]
         grids = [n for n in g.nodes.values() if n.element.symbol_id == "fve.grid"]
         assert grids and all(_apart((n.x - 1, n.down, n.x + 1, n.y), box) for n in grids)   # DS mimo TS
         assert any(t.startswith("W") and "22-AXEKVCEY" in t for t in texts) == (conn["connection"].get("station")

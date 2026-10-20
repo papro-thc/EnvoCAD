@@ -1569,7 +1569,7 @@ class StructuresDialog(QDialog):
         self.setWindowTitle("Strukturní označení")
         self.resize(480, 360)
         lay = QVBoxLayout(self)
-        lay.addWidget(QLabel("Aspekt „=“ je funkce, „+“ umístění. Kód: A–Z, 0–9, _, začíná písmenem."))
+        lay.addWidget(QLabel("Aspekt „=“ je funkce, „+“ umístění. Kód: A–Z, 0–9, _ a tečka uvnitř (RFVE.AC), začíná písmenem."))
         note = QLabel("Úprava kódu zde nepřejmenuje jeho použití na listech a prvcích. Umístění rozvaděče "
                       "přejmenuješ změnou označení jeho bloku.")
         note.setWordWrap(True)

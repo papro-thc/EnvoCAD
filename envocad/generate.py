@@ -29,7 +29,7 @@ Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
   "ac": {"cable": "CYKY-J 5x16", "cross": 16, "length": 30, "breaker_in": 40, "main_in": 125,
          "grid_cable": "CYKY-J 5x35", "grid_cross": 35, "grid_length": 20, "spd": "T1+T2", "enclosure": "",
          "distribution": "bus"},                                      # rozvod v AC rozvaděči: "bus" (sběrnice potenciálů) | "terminals" (svorky s můstky)
-  "switchboard": {"ref": "RH", "desc": "AC rozvaděč FVE"},
+  "switchboard": {"ref": "RFVE.AC", "desc": "AC rozvaděč FVE"},
   "grid": {"dso": "ČEZ Distribuce", "voltage": "3×400 V"},
   "connection": {"level": "vn", "metering": "nn",                     # "nn" = do HDS (výchozí), "vn" = trafostanice
                  "station": "kiosk", "ts": {"ref": "TS1", "desc": ""}, # kiosk | kobky (zděná) | sloup (sloupová)
@@ -132,7 +132,7 @@ DEFAULT_SPEC = {
     "ac": {"cable": "CYKY-J 5x16", "cross": 16, "length": 30, "breaker_in": 40, "main_in": 125,
            "grid_cable": "CYKY-J 5x35", "grid_cross": 35, "grid_length": 20, "spd": "T1+T2", "enclosure": "",
            "distribution": "bus"},
-    "switchboard": {"ref": "RH", "desc": "AC rozvaděč FVE"},
+    "switchboard": {"ref": "RFVE.AC", "desc": "AC rozvaděč FVE"},
     "grid": {"dso": "", "voltage": "3×400 V"},
     # připojení k DS: "nn" = AC rozvaděč FVE přímo do DS (HDS); "vn" = trafostanice: hlavní rozvaděč nn,
     # transformátor, rozvaděč VN (pole kioskové TS / kobky zděné TS; sloupová TS bez rozvaděče VN – odpínač, pojistky
@@ -398,7 +398,7 @@ def _build_project(spec: dict) -> Project:
     conn = spec.get("connection") or {}
     chain = None
     if _s(conn.get("level")).lower() == "vn":
-        # přípojka VN: RH → hlavní rozvaděč nn → transformátor → rozvaděč VN → DS (listy rozvaděčů níže)
+        # přípojka VN: AC rozvaděč FVE → hlavní rozvaděč nn → transformátor → rozvaděč VN → DS (listy rozvaděčů níže)
         chain = _connection_blocks(p, s, spec, blk, x_blk)
         grid = chain["grids"][0]
     else:
@@ -899,7 +899,7 @@ def connection_currents(conn: dict) -> dict:
 
 
 def _connection_blocks(p: Project, s: Sheet, spec: dict, blk: Element, x0: float) -> dict:
-    """Bloky přípojky VN v blokovém schématu: RH (XOUT) → hlavní rozvaděč nn → transformátor → rozvaděč VN → DS;
+    """Bloky přípojky VN v blokovém schématu: AC rozvaděč FVE (XOUT) → hlavní rozvaděč nn → transformátor → rozvaděč VN → DS;
     u sloupové TS místo rozvaděče VN pojistky VN, svodiče přepětí a úsekový odpínač na sloupu. Rozvaděče nn a VN
     jsou napájené ze strany DS (přívod = XT u hlavního rozvaděče, XDS1/XDS2 u rozvaděče VN), FVE je vývod X1
     hlavního rozvaděče – bloky i transformátor jsou zrcadlené, aby přívody ležely vpravo (k DS) a vodiče vedly zleva
@@ -989,7 +989,7 @@ def _connection_blocks(p: Project, s: Sheet, spec: dict, blk: Element, x0: float
 
 def _build_main_lv_board(p: Project, sheet: Sheet, conn: dict, ac: dict) -> None:
     """Hlavní rozvaděč nn (napájený z transformátoru): přívod XT → [MTP, měření na nn: sekundár → XMI, napětí
-    z přípojnice → XMU k elektroměrovému rozvaděči] → hlavní jistič → přípojnice nn → vývody: FVE (jistič → X1 k RH),
+    z přípojnice → XMU k elektroměrovému rozvaděči] → hlavní jistič → přípojnice nn → vývody: FVE (jistič → X1 k AC rozvaděči FVE),
     SPD T1, spotřeba objektu (jistič → X2)."""
     c = connection_currents(conn)
     mb = conn.get("main_board") or {}
@@ -1020,7 +1020,7 @@ def _build_main_lv_board(p: Project, sheet: Sheet, conn: dict, ac: dict) -> None
     _wire(p, sheet, qm, "2", bus, "IN", AC_CONDUCTORS)
     qf = _el(p, sheet, "fve.breaker_mccb", x0 + 7.5, y - 60, "Q", rot=270, in_=str(ac.get("main_in") or 125), poles="3",
              modules="6")
-    out_f = _el(p, sheet, "sb.feed_out", x0 + 7.5, y - 95, "", desc="k RH (FVE)")
+    out_f = _el(p, sheet, "sb.feed_out", x0 + 7.5, y - 95, "", desc="k RFVE.AC (FVE)")
     out_f.attrs["ref"] = "X1"
     spd = _el(p, sheet, "fve.spd", x0 + 37.5, y - 60, "F", spd_type="T1", poles="4", modules="4")
     pe = _el(p, sheet, "sb.pe_bar", x0 + 37.5, y - 90, "X", kind="PE")
@@ -1153,7 +1153,7 @@ def _build_meter_board(p: Project, sheet: Sheet, conn: dict) -> None:
 
 
 def _align_connection(project: Project, blk: Element, chain: dict) -> None:
-    """Bloky přípojky na výšku vodičů (vodiče vedou rovně): hlavní rozvaděč nn na XOUT bloku RH, transformátor na
+    """Bloky přípojky na výšku vodičů (vodiče vedou rovně): hlavní rozvaděč nn na XOUT bloku AC rozvaděče FVE, transformátor na
     přívod XT, rozvaděč VN vývodem X1 na transformátor (u sloupové TS přístroje na sloupu na port transformátoru),
     sítě na přívody XDS; spotřeba pod vývod X2, elektroměrový rozvaděč pod rozvaděč s měřením."""
     lib = _lib()

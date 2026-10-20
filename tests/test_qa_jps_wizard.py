@@ -175,7 +175,7 @@ def test_rename_followups_auto_texts_only():
     s = p.sheets[0]
     t1 = next(e for e in s.elements if e.ref == "T1")
     rdc1 = next(e for e in s.elements if e.ref == "RDC1")
-    rh = next(e for e in s.elements if e.ref == "RH")
+    rh = next(e for e in s.elements if e.ref == "RFVE.AC")
     rh_sheet = p.switchboard_sheet(rh.id)
     manual = next(e for e in rh_sheet.elements if e.symbol_id == "sb.feed_in" and e.ref == "X2")
     manual.attrs["desc"] = "od T1 přes jistič"   # ručně psaný text se nemění
@@ -301,7 +301,7 @@ def test_inverter_input_bundle_fans_without_overlap(lib, per):
 def test_grid_at_xout_height(lib, dist):
     p = build_project(spec(2, 6, ac={"distribution": dist}))
     s = p.sheets[0]
-    blk = next(e for e in s.elements if e.ref == "RH")
+    blk = next(e for e in s.elements if e.ref == "RFVE.AC")
     grid = next(e for e in s.elements if e.symbol_id == "fve.grid")
     sym_b, sym_g = element_symbol(p, blk, lib), element_symbol(p, grid, lib)
     assert blk.port_pos(sym_b, "XOUT")[1] == grid.port_pos(sym_g, "1")[1]

@@ -48,7 +48,7 @@ def element_name(e, lib=None) -> str:
     return sid.split(".")[-1] or "?"
 MAX_REF_LEN = 10
 MAX_FULL_LEN = 32
-CODE_RE = re.compile(r"[A-Z][A-Z0-9_]*")
+CODE_RE = re.compile(r"[A-Z][A-Z0-9_]*(?:\.[A-Z0-9_]+)*")   # tečka uvnitř – firemní RFVE.AC, RFVE.DC
 REF_CHARS_RE = re.compile(r"[A-Z0-9_]+")        # vodič smí začínat číslicí
 SEPARATORS = set("=+-.:/") | set(string.whitespace)
 # Firemní číslování ENVO (docs/ENVO_STYL.md) používá „.“ a vnitřní „-“ v označení: FU1.1, QS1.2, SPD-DC1.1.
@@ -121,7 +121,7 @@ def class_matches(ref: str, classes: list[str]) -> bool:
 
 
 def validate_code(code: str, aspect: str, where: str = "") -> list[DesignationIssue]:
-    """Kód funkce/umístění: A–Z, 0–9, _, začíná písmenem, nejvýš MAX_CODE_LEN znaků. `where` doplní text („listu X“)."""
+    """Kód funkce/umístění: A–Z, 0–9, _ a tečka uvnitř (RFVE.AC), začíná písmenem, nejvýš MAX_CODE_LEN znaků. `where` doplní text („listu X“)."""
     if not code:
         return []
     if CODE_RE.fullmatch(code) and len(code) <= MAX_CODE_LEN:
@@ -129,7 +129,7 @@ def validate_code(code: str, aspect: str, where: str = "") -> list[DesignationIs
     name = ASPECT_NAMES.get(aspect, "Kód")
     place = f" {where}" if where else ""
     return [DesignationIssue("struct_syntax", True,
-                             f"{name} „{code}“{place} není platný kód (A–Z, 0–9, _, max. {MAX_CODE_LEN})")]
+                             f"{name} „{code}“{place} není platný kód (A–Z, 0–9, _, tečka uvnitř, max. {MAX_CODE_LEN})")]
 
 
 def _separator_name(ch: str) -> str:

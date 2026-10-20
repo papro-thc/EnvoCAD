@@ -306,4 +306,4 @@ def test_house_rejects_mv_and_unknown_building():
         build_project({**base, "building": "garáž"})
     p = build_project({**base, "building": "apartment"})
     assert p.meta["building"] == "bytový dům"
-    assert [sh.loc for sh in p.sheets if sh.is_switchboard] == ["RDC1", "RDC2", "RH"]
+    assert [sh.loc for sh in p.sheets if sh.is_switchboard] == ["RDC1", "RDC2", "RFVE.AC"]
