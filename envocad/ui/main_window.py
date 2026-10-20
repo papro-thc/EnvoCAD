@@ -629,7 +629,10 @@ class MainWindow(QMainWindow):
         i = self._find_tab(sheet, "schematic")
         if i < 0:
             return None
-        return self._unwrap(self.tabs.widget(i)).scene().element_items.get(eid)
+        sc = self._unwrap(self.tabs.widget(i)).scene()
+        if eid not in sc.element_items and any(e.id == eid for e in sheet.elements):
+            sc.rebuild()   # prvek vložený v jiném pohledu (vícepól, rozložení) – JPS scéna ho ještě nezná
+        return sc.element_items.get(eid)
 
     def _close_tab(self, index: int) -> None:
         log.info("close_tab %s", index)

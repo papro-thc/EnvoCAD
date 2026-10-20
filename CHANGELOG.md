@@ -1,6 +1,7 @@
 # Changelog
 
 ## Nevydáno
+- **Oprava: po vložení prvku nešly upravit jeho parametry v panelu Vlastnosti** na listu rozvaděče (vícepól / schéma rozvaděče) a v rozložení. Úpravy z panelu se posílaly jen do JPS scény aktivní záložky (`MainWindow.scene` je v odvozených pohledech `None`), takže se tiše zahodily; když nebyla otevřená záložka JPS listu, panel hlásil „Nic není vybráno“. Nově panel i úpravy jdou přes JPS scénu listu (otevře se skrytě), změna je přes `SetAttrCommand` s undo/redo. Testy `tests/test_gui_props_after_insert.py`.
 - Katalog z datasheetů (`katalogy/datasheet`): FV moduly **Runergy HY-DH96N11B 430–450 Wp** (N-type bifacial), střídače
   **SolarEdge SE12.5K–SE27.6K** (pevné napětí 750 V, `string_mode` fixed_voltage) a optimizér **SolarEdge P1100**
   (2 moduly v sérii, pravidla stringu pro SE25K: 14–30 optimizérů, 13 500 W). Pozor: Runergy 450 Wp (Isc 16,07 A)
