@@ -36,7 +36,7 @@ Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
                  "station": "kiosk", "ts": {"ref": "TS1", "desc": ""}, # kiosk | kobky (zděná) | sloup (sloupová)
                  "u_vn": "22 kV", "loop": true,                       # „22 kV“ / „22000 V“ / „22“; smyčka = 2 kabelová pole
                  "transformer": {"sn": 630, "ratio": "22/0,42 kV", "group": "Dyn1", "uk": 6},
-                 "main_board": {"ref": "RHN", "main_in": "", "load_in": "",    # "" = ze Sn transformátoru
+                 "main_board": {"ref": "HR", "main_in": "", "load_in": "",    # "" = ze Sn transformátoru
                                 "fve_in": ""},                        # "" = ac.main_in omezené selektivitou (F7)
                  "ct_ratio": "", "fuse_vn": "", "vn_cable": "22-AXEKVCEY 3×1×70", "tr_cable": "4× 1-AYKY 3×240+120"},
   "battery": {"e_kwh": 10, "p_kw": 5, "type": "…",        # volitelné, jen u hybridního střídače
@@ -65,6 +65,10 @@ od střídačů X1…Xn, DC přívody stringů a vývody ke střídači (pojistk
 rozvaděč u technologie se netvoří (rozvaděče po trase zůstávají); s `dc.tech_box` false je RFVE jen AC („rozvaděč FVE
 (AC)“). Rodinný dům se připojuje do HDS – `connection.level` "vn" → ValueError. Firma a bytový dům: DC rozvaděče a AC
 rozvaděč zvlášť.
+Označení rozvaděčů (docs/NAVRH_TOPOLOGIE.md, kap. 8 bod 9): AC rozvaděč FVE RFVE.AC (`switchboard.ref`), DC rozvaděč
+u technologie RFVE.DC – při více střídačích (jeden rozvaděč u technologie na střídač) RFVE.DC1, RFVE.DC2… v pořadí
+střídačů; rozvaděče po trase RDC1…n (číslované souvisle jen mezi sebou), hlavní rozvaděč nn u přípojky VN HR
+(`connection.main_board.ref`), rodinný dům jeden rozvaděč RFVE. Zadané `ref` ve specifikaci platí.
 Rozvaděče po trase mají jen SPD (přívod vede rovně na vývod) – odpojovací místo stringů jsou pojistkové odpínače
 v rozvaděči u střídače.
 `site.t_min` / `site.t_max` [°C] se zapíšou do `meta["pv_t_min"]` / `meta["pv_t_max"]` (kontrola stringů,
@@ -119,6 +123,13 @@ INV_LABEL_SPACE = 40.0     # popisek DC kabelu („W12  2× H1Z2Z2-K 1x6 mm²“
 
 # druh objektu (`spec["building"]`) → text v projektu (meta „building“)
 BUILDINGS = {"company": "firma", "house": "rodinný dům", "apartment": "bytový dům"}
+# Označení rozvaděčů (docs/NAVRH_TOPOLOGIE.md, kap. 8 bod 9): AC rozvaděč FVE RFVE.AC, DC rozvaděč u technologie
+# RFVE.DC (víc rozvaděčů u technologie – jeden na střídač – RFVE.DC1, RFVE.DC2… v pořadí střídačů), rozvaděče po
+# trase RDC1…n (číslované jen mezi sebou), hlavní rozvaděč nn u přípojky VN HR; rodinný dům jeden rozvaděč RFVE.
+AC_SWITCHBOARD_REF = "RFVE.AC"
+DC_TECH_BOX_REF = "RFVE.DC"
+DC_ROUTE_BOX_PREFIX = "RDC"
+MAIN_LV_BOARD_REF = "HR"
 HOUSE_SWITCHBOARD = {"ref": "RFVE", "desc": "rozvaděč FVE (DC + AC)"}
 HOUSE_SWITCHBOARD_AC = {"ref": "RFVE", "desc": "rozvaděč FVE (AC)"}   # bez DC části (`dc.tech_box` = false)
 # kabel baterie (hybridní střídač → baterie), když ho specifikace (`battery.cable/cross/length`) nezadá
@@ -140,7 +151,7 @@ DEFAULT_SPEC = {
     "ac": {"cable": "CYKY-J 5x16", "cross": 16, "length": 30, "breaker_in": 40, "main_in": 125,
            "grid_cable": "CYKY-J 5x35", "grid_cross": 35, "grid_length": 20, "spd": "T1+T2", "enclosure": "",
            "distribution": "bus"},
-    "switchboard": {"ref": "RFVE.AC", "desc": "AC rozvaděč FVE"},
+    "switchboard": {"ref": AC_SWITCHBOARD_REF, "desc": "AC rozvaděč FVE"},
     "grid": {"dso": "", "voltage": "3×400 V"},
     # připojení k DS: "nn" = AC rozvaděč FVE přímo do DS (HDS); "vn" = trafostanice: hlavní rozvaděč nn,
     # transformátor, rozvaděč VN (pole kioskové TS / kobky zděné TS; sloupová TS bez rozvaděče VN – odpínač, pojistky
@@ -150,7 +161,7 @@ DEFAULT_SPEC = {
                    "ts": {"ref": "TS1", "desc": ""},
                    "transformer": {"sn": 630, "type": "", "ratio": "22/0,42 kV", "group": "Dyn1", "uk": 6},
                    "mv_board": {"ref": "RVN", "desc": "rozvaděč VN"},
-                   "main_board": {"ref": "RHN", "desc": "hlavní rozvaděč nn", "main_in": "", "load_in": "",
+                   "main_board": {"ref": MAIN_LV_BOARD_REF, "desc": "hlavní rozvaděč nn", "main_in": "", "load_in": "",
                                   "fve_in": ""},
                    "meter_board": {"ref": "RE", "desc": "elektroměrový rozvaděč"},
                    "ct_ratio": "", "fuse_vn": "",
@@ -275,6 +286,7 @@ def _build_project(spec: dict) -> Project:
     rows: list[list[Element]] = []      # prvky řady střídače (střídač, stringy, DC rozvaděče…) – rozdělení JPS na listy
     inverter_strings: list[list[Element]] = []
     dc_boxes: list[tuple[Element, list[Element], str, int, str]] = []   # (blok, stringy, druh, č. střídače, střídač)
+    n_tech = len(invs) if dc.get("tech_box") and not combined else 0   # DC rozvaděče u technologie (jeden na střídač)
     for i, inv in enumerate(invs):
         strings = inv.get("strings") or [1]
         y_mid = y - row_h[i] / 2
@@ -338,7 +350,7 @@ def _build_project(spec: dict) -> Project:
                 boxes.append(blk)
                 break
             desc = f"DC rozvaděč u {ref_t}" if kind == "tech" else (f"DC rozvaděč po trase {ref_t}" + (f" ({j + 1})" if n_route > 1 else ""))
-            b = Element("fve.switchboard", x_boxes[j], y_mid, attrs={"ref": p.next_ref("RDC"), "desc": desc})
+            b = Element("fve.switchboard", x_boxes[j], y_mid, attrs={"ref": dc_box_ref(kind, i, n_tech, p), "desc": desc})
             s.elements.append(b)
             boxes.append(b)
             row.append(b)
@@ -471,7 +483,7 @@ def _build_project(spec: dict) -> Project:
         _apply_spd_component(sb, dc.get("spd_component"))
         _apply_component(sb, dc.get("fuse_component"), "fve.fuse_disconnect")
     if chain is not None:
-        _build_main_lv_board(p, p.create_switchboard_sheet(chain["rhn"]), conn, ac, invs)
+        _build_main_lv_board(p, p.create_switchboard_sheet(chain["hr"]), conn, ac, invs, blk.ref)
         if chain["rvn"] is not None:
             _build_mv_board(p, p.create_switchboard_sheet(chain["rvn"]), conn)
         _build_meter_board(p, p.create_switchboard_sheet(chain["re"]), conn)
@@ -489,6 +501,15 @@ def _build_project(spec: dict) -> Project:
     sync_feed_links(p)
     sync_cables(p)
     return p
+
+
+def dc_box_ref(kind: str, inv_index: int, n_tech: int, p: Project) -> str:
+    """Označení DC rozvaděče generátoru: u technologie (`kind` "tech") RFVE.DC, je-li jediný, jinak RFVE.DC1, RFVE.DC2…
+    podle pořadí střídače (`inv_index` od 0; `n_tech` = počet rozvaděčů u technologie); po trase další volné RDCn
+    (rozvaděče u technologie číslo RDC neberou, takže po trase jdou RDC1…n souvisle)."""
+    if kind == "tech":
+        return DC_TECH_BOX_REF if n_tech <= 1 else f"{DC_TECH_BOX_REF}{inv_index + 1}"
+    return p.next_ref(DC_ROUTE_BOX_PREFIX)
 
 
 def jps_max_paper() -> str:
@@ -966,13 +987,13 @@ def _connection_blocks(p: Project, s: Sheet, spec: dict, blk: Element, x0: float
     station = station_label(conn)
     c = connection_currents(conn)
     u = c["u_label"]
-    x_rhn = x0 + 85.0
-    x_tr = x_rhn + 75.0
+    x_hr = x0 + 85.0
+    x_tr = x_hr + 75.0
     x_rvn = x_tr + 75.0
     x_grid = x_rvn + 70.0
-    rhn = Element("fve.switchboard", x_rhn, 150.0, mirror=True, attrs={
-        "ref": _s(mb.get("ref") or "RHN"), "desc": _s(mb.get("desc") or "hlavní rozvaděč nn"), "station": station})
-    s.elements.append(rhn)
+    hr = Element("fve.switchboard", x_hr, 150.0, mirror=True, attrs={
+        "ref": _s(mb.get("ref") or MAIN_LV_BOARD_REF), "desc": _s(mb.get("desc") or "hlavní rozvaděč nn"), "station": station})
+    s.elements.append(hr)
     tr = Element("fve.transformer", x_tr, 150.0, mirror=True, attrs={
         "ref": p.next_ref("TR"), "type": _s(tr_spec.get("type")), "sn": _s(tr_spec.get("sn")),
         "ratio": _s(tr_spec.get("ratio")), "group": _s(tr_spec.get("group")), "uk": _s(tr_spec.get("uk")),
@@ -995,7 +1016,7 @@ def _connection_blocks(p: Project, s: Sheet, spec: dict, blk: Element, x0: float
         rvn = Element("fve.switchboard", x_rvn, 150.0, mirror=True, attrs={
             "ref": _s(vb.get("ref") or "RVN"), "desc": _s(vb.get("desc") or "rozvaděč VN"), "station": station})
         s.elements.append(rvn)
-    re_ = Element("fve.switchboard", x_rhn if c["metering"] == "nn" or rvn is None else x_rvn, 70.0, attrs={
+    re_ = Element("fve.switchboard", x_hr if c["metering"] == "nn" or rvn is None else x_rvn, 70.0, attrs={
         "ref": _s(eb.get("ref") or "RE"), "desc": _s(eb.get("desc") or "elektroměrový rozvaděč"), "station": station})
     s.elements.append(re_)
     grids = []
@@ -1005,7 +1026,7 @@ def _connection_blocks(p: Project, s: Sheet, spec: dict, blk: Element, x0: float
         s.elements.append(g)
         grids.append(g)
     # spotřeba objektu: vývod X2 je vlevo (zrcadlený blok) – značka pod blokem, otočená portem nahoru
-    load = Element("fve.load", x_rhn, 110.0, attrs={"ref": "", "desc": _s(conn.get("load") or "spotřeba objektu")})
+    load = Element("fve.load", x_hr, 110.0, attrs={"ref": "", "desc": _s(conn.get("load") or "spotřeba objektu")})
     s.elements.append(load)
 
     def cable(a, pa, b, pb, conductors, prefix, points=None, cross=None):
@@ -1018,10 +1039,10 @@ def _connection_blocks(p: Project, s: Sheet, spec: dict, blk: Element, x0: float
     def plain(a, pa, b, pb, conductors):          # spoj bez kabelu (na sloupu: vodiče, lana)
         s.wires.append(Wire(WireEnd(a.id, pa), WireEnd(b.id, pb), conductors=list(conductors), attrs={"ref": ""}))
 
-    s.wires.append(Wire(WireEnd(blk.id, "XOUT"), WireEnd(rhn.id, "X1"), conductors=list(AC_CONDUCTORS),
+    s.wires.append(Wire(WireEnd(blk.id, "XOUT"), WireEnd(hr.id, "X1"), conductors=list(AC_CONDUCTORS),
                         attrs={"ref": p.next_ref("W"), "cable": _s(ac.get("grid_cable")), "cross": _s(ac.get("grid_cross")),
                                "length": _s(ac.get("grid_length")), "method": "D"}))
-    cable(rhn, "XT", tr, "2", AC_CONDUCTORS, "tr")
+    cable(hr, "XT", tr, "2", AC_CONDUCTORS, "tr")
     if rvn is not None:
         cable(tr, "1", rvn, "X1", VN_CONDUCTORS, "vn")
         for k, g in enumerate(grids):
@@ -1033,12 +1054,12 @@ def _connection_blocks(p: Project, s: Sheet, spec: dict, blk: Element, x0: float
         plain(fu, "2", tr, "1", VN_CONDUCTORS)
         plain(fu, "2", fv, "1", VN_CONDUCTORS)
     # měřicí obvody do elektroměrového rozvaděče: proud z MTP (XMI), napětí z přípojnice nn / MTN (XMU)
-    src = rhn if c["metering"] == "nn" or rvn is None else rvn
+    src = hr if c["metering"] == "nn" or rvn is None else rvn
     cable(src, "XMI", re_, "XMI", CT_CONDUCTORS, "meas_i", cross="meas_i_cross")
-    cable(src, "XMU", re_, "XMU", AC_CONDUCTORS[:4] if src is rhn else VT_CONDUCTORS, "meas_u", cross="meas_u_cross")
+    cable(src, "XMU", re_, "XMU", AC_CONDUCTORS[:4] if src is hr else VT_CONDUCTORS, "meas_u", cross="meas_u_cross")
     # stávající rozvod objektu – bez kabelu (projektant doplní podle skutečnosti)
-    s.wires.append(Wire(WireEnd(rhn.id, "X2"), WireEnd(load.id, "1"), conductors=list(AC_CONDUCTORS), attrs={"ref": ""}))
-    return {"rhn": rhn, "tr": tr, "rvn": rvn, "re": re_, "src": src, "pole": pole, "grids": grids, "load": load}
+    s.wires.append(Wire(WireEnd(hr.id, "X2"), WireEnd(load.id, "1"), conductors=list(AC_CONDUCTORS), attrs={"ref": ""}))
+    return {"hr": hr, "tr": tr, "rvn": rvn, "re": re_, "src": src, "pole": pole, "grids": grids, "load": load}
 
 
 def inverters_ac_current(invs: list[dict]) -> float:
@@ -1055,9 +1076,9 @@ def fve_feeder_in(conn: dict, ac: dict, invs: list[dict]) -> tuple[str, str]:
     """In vývodu FVE v hlavním rozvaděči nn (přípojka VN) a hláška, když nejde splnit (jinak "").
 
     Zadané `main_board.fve_in` platí beze změny (selektivitu pak hlídá F7 `calc_selectivity`). Jinak In hlavního
-    vypínače RH (`ac.main_in`), omezené na největší jistič selektivní s hlavním jističem nn (In·1,6 ≤ hlavní jistič,
+    vypínače AC rozvaděče FVE (`ac.main_in`), omezené na největší jistič selektivní s hlavním jističem nn (In·1,6 ≤ hlavní jistič,
     `calc.SELECTIVITY_RATIO`; hlavní jistič je ze Sn transformátoru). Omezený vývod musí unést proud FVE (součet
-    střídačů) a být nad jističi střídačů v RH (`ac.breaker_in`); když takový neexistuje, vrací ("", důvod) – In se
+    střídačů) a být nad jističi střídačů v AC rozvaděči FVE (`ac.breaker_in`); když takový neexistuje, vrací ("", důvod) – In se
     nedosazuje, kontrola F7 hlásí jistič bez In (`breaker_no_in`)."""
     from envocad.model.calc import SELECTIVITY_RATIO
     mb = conn.get("main_board") or {}
@@ -1080,9 +1101,10 @@ def fve_feeder_in(conn: dict, ac: dict, invs: list[dict]) -> tuple[str, str]:
     return "", why
 
 
-def _build_main_lv_board(p: Project, sheet: Sheet, conn: dict, ac: dict, invs: list[dict] | None = None) -> None:
+def _build_main_lv_board(p: Project, sheet: Sheet, conn: dict, ac: dict, invs: list[dict] | None = None,
+                         fve_ref: str = AC_SWITCHBOARD_REF) -> None:
     """Hlavní rozvaděč nn (napájený z transformátoru): přívod XT → [MTP, měření na nn: sekundár → XMI, napětí
-    z přípojnice → XMU k elektroměrovému rozvaděči] → hlavní jistič → přípojnice nn → vývody: FVE (jistič → X1 k RH,
+    z přípojnice → XMU k elektroměrovému rozvaděči] → hlavní jistič → přípojnice nn → vývody: FVE (jistič → X1 k AC rozvaděči FVE,
     In `fve_feeder_in`), SPD T1, spotřeba objektu (jistič → X2, In nejvýš hlavní jistič / 1,6). In, které nejde
     splnit, zůstane prázdné (F7)."""
     from envocad.model.calc import SELECTIVITY_RATIO
@@ -1115,7 +1137,7 @@ def _build_main_lv_board(p: Project, sheet: Sheet, conn: dict, ac: dict, invs: l
     _wire(p, sheet, qm, "2", bus, "IN", AC_CONDUCTORS)
     fve_in, _why = fve_feeder_in(conn, ac, invs or [])
     qf = _el(p, sheet, "fve.breaker_mccb", x0 + 7.5, y - 60, "Q", rot=270, in_=fve_in, poles="3", modules="6")
-    out_f = _el(p, sheet, "sb.feed_out", x0 + 7.5, y - 95, "", desc="k RH (FVE)")
+    out_f = _el(p, sheet, "sb.feed_out", x0 + 7.5, y - 95, "", desc=f"k {fve_ref} (FVE)" if fve_ref else "k AC rozvaděči FVE")
     out_f.attrs["ref"] = "X1"
     spd = _el(p, sheet, "fve.spd", x0 + 37.5, y - 60, "F", spd_type="T1", poles="4", modules="4")
     pe = _el(p, sheet, "sb.pe_bar", x0 + 37.5, y - 90, "X", kind="PE")
@@ -1272,8 +1294,8 @@ def _align_connection(project: Project, blk: Element, chain: dict) -> None:
     def wire_to(eid: str, port: str | None = None):
         return [w for w in sheet.wires if w.touches(eid) and (port is None or port in (w.a.port, w.b.port))]
 
-    align(chain["rhn"], "X1", port_pos(blk, "XOUT"))
-    align(chain["tr"], "2", port_pos(chain["rhn"], "XT"))
+    align(chain["hr"], "X1", port_pos(blk, "XOUT"))
+    align(chain["tr"], "2", port_pos(chain["hr"], "XT"))
     t1 = port_pos(chain["tr"], "1")
     if chain["rvn"] is not None:
         align(chain["rvn"], "X1", t1)
@@ -1297,8 +1319,8 @@ def _align_connection(project: Project, blk: Element, chain: dict) -> None:
             for w in sheet.wires:
                 if w.touches(g.id):
                     w.points = [(x_bend, pos[1]), (x_bend, pos[1] - 15.0 * k)]
-    xs = port_pos(chain["rhn"], "X2")
-    low = bottom_of(chain["rhn"]) - 25.0
+    xs = port_pos(chain["hr"], "X2")
+    low = bottom_of(chain["hr"]) - 25.0
     if xs is not None:
         # spotřeba pod blokem: z X2 (vlevo, blok je zrcadlený) kousek vlevo, svisle dolů pod blok a vpravo do značky
         load = chain["load"]
@@ -1312,7 +1334,7 @@ def _align_connection(project: Project, blk: Element, chain: dict) -> None:
     # svisle dolů (XMI blíž bloku) a vodorovně do přívodů RE – vodorovný úsek je nejdelší, popisky kabelů leží nad
     # ním a nepřekrývají se (svislý úsek by popisek nesl vpravo přes druhý vodič)
     src, re_ = chain["src"], chain["re"]
-    top = min(low - 20.0, bottom_of(src) - 25.0) if src is chain["rhn"] else bottom_of(src) - 25.0
+    top = min(low - 20.0, bottom_of(src) - 25.0) if src is chain["hr"] else bottom_of(src) - 25.0
     a, ps0 = port_pos(re_, "XMI"), port_pos(src, "XMI")
     if a is not None and ps0 is not None:
         re_.y += top - a[1]
