@@ -39,7 +39,8 @@ Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
                  "ct_ratio": "", "fuse_vn": "", "vn_cable": "22-AXEKVCEY 3×1×70", "tr_cable": "4× 1-AYKY 3×240+120"},
   "battery": {"e_kwh": 10, "p_kw": 5, "type": "…"},       # volitelné, jen u hybridního střídače
   "macros": {"dc_tech": "DC string v rozvaděči", "dc_route": "DC string po trase",   # rozvaděče se skládají z maker
-             "ac_feed": "AC přívod střídače", "ac_core": "AC jádro rozvaděče"}       # (knihovna → Makra); "" = kód
+             "ac_feed": "AC přívod střídače", "ac_core": "AC jádro rozvaděče"},      # (knihovna → Makra); "" = kód
+  "jps": {"split": "auto", "max_paper": "A2", "paper": "A2"}   # rozdělení velkého JPS na listy (viz níže)
 }
 Položka `macros` smí být i objekt {"name": "DC string v rozvaděči", "value_set": "Pojistka 20 A gPV, SPD T1+T2",
 "values": {"fuse_in": 25}} – sada hodnot a hodnoty proměnných makra přebijí základ ze `dc`/`ac` (docs/LIBRARY_FORMAT.md,
@@ -63,6 +64,14 @@ Rozvaděče po trase mají jen SPD (přívod vede rovně na vývod) – odpojova
 v rozvaděči u střídače.
 `site.t_min` / `site.t_max` [°C] se zapíšou do `meta["pv_t_min"]` / `meta["pv_t_max"]` (kontrola stringů,
 `calc.design_temperatures`); bez nich platí výchozí −10 / 70 °C.
+`jps.split` "auto" (výchozí) rozdělí JPS, které by se nevešlo na `jps.max_paper` (výchozí firemní standard
+`jps_max_paper` = A2), na listy formátu `jps.paper` (výchozí = limit): první „Blokové schéma – AC a připojení“
+(AC rozvaděč, síť, HOP; u přípojky VN celá přípojka – hlavní rozvaděč nn, transformátor, rozvaděč VN, elektroměrový
+rozvaděč, rámeček TS; u rodinného domu rozvaděč FVE s DC i AC částí) jako přehled, za ním listy střídačů („Blokové
+schéma – T1–T3“). Vodiče mezi řadou střídače a listem AC (AC kabel „AC-T1“, u rodinného domu i DC vodiče do RFVE a
+z něj „RFVE-X5“) vedou přes páry přerušovacích bodů, údaje kabelu nese jen úsek na listu AC. "none" = vždy jeden
+list (zvětší se formát). Odvozené jednopólové schéma je stejné jako bez rozdělení. Návrh
+`docs/design/dluhy_dxf_jps.md`, bod B.
 """
 from __future__ import annotations
 
@@ -248,6 +257,7 @@ def _build_project(spec: dict) -> Project:
     k_all = 0                   # pořadí stringu v rozvaděči FVE (přes všechny střídače)
     y = y_top
     inverter_elements: list[Element] = []
+    rows: list[list[Element]] = []      # prvky řady střídače (střídač, stringy, DC rozvaděče…) – rozdělení JPS na listy
     inverter_strings: list[list[Element]] = []
     dc_boxes: list[tuple[Element, list[Element], str, int, str]] = []   # (blok, stringy, druh, č. střídače, střídač)
     for i, inv in enumerate(invs):
@@ -281,6 +291,8 @@ def _build_project(spec: dict) -> Project:
             t.attrs["mppt"] = str(max(1, -(-len(strings) // spm)))
         s.elements.append(t)
         inverter_elements.append(t)
+        row = [t]
+        rows.append(row)
         gens: list[Element] = []
         inverter_strings.append(gens)
         for k, n_mod in enumerate(strings):
@@ -303,6 +315,7 @@ def _build_project(spec: dict) -> Project:
                     g.attrs[key] = _s(mod[key])
             s.elements.append(g)
             gens.append(g)
+            row.append(g)
         # DC rozvaděče: po trase (jen SPD) a u technologie (pojistkové odpínače + SPD); stringy jimi procházejí odděleně
         boxes: list[Element] = []
         for j in range(n_boxes):
@@ -314,6 +327,7 @@ def _build_project(spec: dict) -> Project:
             b = Element("fve.switchboard", x_boxes[j], y_mid, attrs={"ref": p.next_ref("RDC"), "desc": desc})
             s.elements.append(b)
             boxes.append(b)
+            row.append(b)
             dc_boxes.append((b, gens, kind, i + 1, ref_t))
         n_str = len(gens)
         # porty bloku DC rozvaděče (viz switchboard_symbol): rozteč PORT_PITCH, shora dolů
@@ -351,6 +365,7 @@ def _build_project(spec: dict) -> Project:
                 q = Element("fve.dc_disconnect", x_dc, g.y, attrs={"ref": p.next_ref("Q"), "in_": _s(dc.get("disconnect_in") or 32),
                                                                   "poles": "2", "modules": "2"})
                 s.elements.append(q)
+                row.append(q)
                 s.wires.append(Wire(WireEnd(g.id, "DC"), WireEnd(q.id, "1"), conductors=list(DC_CONDUCTORS),
                                     attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": _s(dc.get("cross")),
                                            "length": _s(dc.get("length")), "method": "E"}))
@@ -377,6 +392,7 @@ def _build_project(spec: dict) -> Project:
             "ref": "G" + str(len([e for e in s.elements if e.symbol_id == "fve.pv_string"]) + 1),
             "type": _s(b.get("type")), "e_kwh": _s(b.get("e_kwh")), "p_kw": _s(b.get("p_kw"))})
         s.elements.append(bat)
+        rows[0].append(bat)
         s.wires.append(Wire(WireEnd(t0.id, "BAT"), WireEnd(bat.id, "DC"), conductors=list(DC_CONDUCTORS),
                             attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": "25", "length": "5"}))
     conn = spec.get("connection") or {}
@@ -452,12 +468,185 @@ def _build_project(spec: dict) -> Project:
         _align_outputs(p, blk, None if chain else grid, earth)
     if chain is not None:
         _align_connection(p, blk, chain)
-    from envocad.model.frame import fit_sheet_to_content
-    fit_sheet_to_content(p, s, _lib())
+    _place_jps(p, s, spec.get("jps") or {}, rows, ac_wires, blk)
     # až po rozmístění na list: vazby přívodů ukládají texty s polohou v JPS („W3 T1:DC1 /1.F3“)
     sync_feed_links(p)
     sync_cables(p)
     return p
+
+
+def jps_max_paper() -> str:
+    """Největší formát jednoho listu JPS z firemního standardu (`standard.jps_max_paper`, výchozí „A2“)."""
+    from envocad.settings import load_settings
+    try:
+        return str(load_settings()["standard"].get("jps_max_paper") or "A2")
+    except (OSError, ValueError, KeyError, TypeError):
+        return "A2"
+
+
+JPS_AC_SUFFIX = "AC a připojení"
+JPS_AC_SHEET_NAME = "Blokové schéma – " + JPS_AC_SUFFIX   # list generátoru se jmenuje „Blokové schéma“
+INTERRUPT_GAP_INV = 15.0   # AC port střídače → port přerušovacího bodu na listu střídače (mm)
+INTERRUPT_GAP_BLOCK = 30.0  # port bloku rozvaděče v řadě střídače → přerušovací bod (místo pro odkaz vazby vývodu)
+INTERRUPT_GAP_AC = 60.0    # port přerušovacího bodu → port bloku AC rozvaděče (místo pro popisek AC kabelu)
+
+
+def _place_jps(p: Project, s: Sheet, opts: dict, rows: list[list[Element]], ac_wires: list[Wire],
+               blk: Element) -> None:
+    """Rozmístí JPS na list (`frame.fit_placement`). Přesáhl by jeden list `jps.max_paper` (jinak standard
+    `jps_max_paper`, výchozí A2) a `jps.split` není „none“, rozdělí se JPS na listy formátu `jps.paper` (výchozí
+    = limit; jen při 2+ střídačích): první list „AC a připojení“ (blok AC rozvaděče, síť, HOP) jako přehled, za ním
+    listy střídačů (stringy → DC rozvaděče → střídač, baterie) balené hladově, dokud se vejdou. Řez vede AC kabelem:
+    pár `fve.interrupt` „AC-T1“; údaje kabelu nese jen úsek u bloku AC rozvaděče, úsek u střídače je pokračování bez
+    označení a kabelu (`xref.is_blank_wire`).
+
+    Výjimka: řada jednoho střídače (DC řetězec se nedělí), která se sama nevejde ani na `jps.paper`, dostane svůj
+    list v nejmenším normalizovaném formátu, do kterého se vejde (A1, A0, jinak „vlastní“) – limit tedy platí pro
+    balení řad, ne pro jednu přerostlou řadu (např. 3 střídače × 12 stringů: listy střídačů A1, AC list A2)."""
+    from envocad.model.frame import PAPER_SIZES, apply_placement, fit_placement, paper_exceeds
+    from envocad.model.textlayout import sheet_content_boxes
+    lib = _lib()
+    boxes = sheet_content_boxes(p, s, lib)
+    if not boxes:
+        return
+    placement = fit_placement(boxes)
+    limit = _s(opts.get("max_paper")) or jps_max_paper()
+    if (_s(opts.get("split")) or "auto") == "none" or len(rows) < 2 or not paper_exceeds(placement[0], limit):
+        apply_placement(s, placement)     # jeden střídač: DC řetězec se nedělí, oddělit jen AC část nemá smysl
+        return
+    paper = _s(opts.get("paper")) or limit
+    sizes = [x for x in PAPER_SIZES if x[0] == paper] or [x for x in PAPER_SIZES if x[0] == "A2"]
+    sheets = _split_jps(p, s, rows, ac_wires, blk, sizes)
+    for sh in [s, *sheets]:
+        bx = sheet_content_boxes(p, sh, lib)
+        if bx:
+            pl = fit_placement(bx, sizes)
+            if pl[0] == "vlastní":        # řada střídače sama přesahuje formát listu → nejmenší normalizovaný
+                pl = fit_placement(bx)
+            apply_placement(sh, pl)
+
+
+def _split_jps(p: Project, s: Sheet, rows: list[list[Element]], ac_wires: list[Wire], blk: Element,
+               sizes) -> list[Sheet]:
+    """Přesune řady střídačů z `s` na nové listy (hned za `s`) a vodiče mezi řadou a zbytkem listu (AC kabel; u
+    rodinného domu i DC vodiče přes rozvaděč FVE, který zůstává na listu „AC a připojení“) přeruší párem
+    přerušovacích bodů; `s` zůstane listem „AC a připojení“. Vrací listy střídačů v pořadí."""
+    from envocad.model.frame import fit_placement
+    from envocad.model.project import INTERRUPT_SYMBOL, element_symbol
+    from envocad.model.symbol import rotate_dir
+    from envocad.model.textlayout import sheet_content_boxes
+    lib = _lib()
+    base = s.name or "Blokové schéma"
+    s.name = f"{base} – {JPS_AC_SUFFIX}"
+    sym_int = lib.get_symbol(INTERRUPT_SYMBOL)
+    port_dx = sym_int.port("1").x            # port přerušovacího bodu vlevo od jeho středu (rotace 0)
+    ac_ids = {w.id for w in ac_wires}
+
+    def side(e: Element, port: str) -> tuple[float, float, int]:
+        """Poloha portu a směr ven (+1 vpravo, −1 vlevo) – přerušovací bod stojí ve směru vodiče od portu."""
+        sym = element_symbol(p, e, lib)
+        x, y = e.port_pos(sym, port)
+        d = rotate_dir(sym.port(port).dir, e.rotation)
+        if e.mirror and d in ("E", "W"):
+            d = "W" if d == "E" else "E"
+        return x, y, (-1 if d == "W" else 1)
+
+    def interrupt(e: Element, port: str, ref: str, gap: float) -> Element:
+        x, y, sgn = side(e, port)
+        # rotace 0: port vlevo, šipka vpravo (bod vpravo od portu); 180: port vpravo, šipka vlevo
+        i = Element(INTERRUPT_SYMBOL, x + sgn * (gap - port_dx), y, rotation=0 if sgn > 0 else 180,
+                    attrs={"ref": ref})
+        return i
+
+    moves: list[tuple[set[str], list[Wire]]] = []       # (id prvků řady, vodiče řady) pro každý střídač
+    for row in rows:
+        t = row[0]
+        row_ids = {e.id for e in row}
+        new_ids: set[str] = set()
+        # každý vodič mezi řadou a zbytkem listu (AC kabel k bloku AC rozvaděče; u rodinného domu i DC vodiče
+        # stringů do rozvaděče FVE a z něj do střídače) se přeruší párem přerušovacích bodů; údaje kabelu zůstávají
+        # u úseku mimo řadu (list „AC a připojení“), úsek u řady je prázdné pokračování
+        for w in [w for w in s.wires if (w.a.element_id in row_ids) != (w.b.element_id in row_ids)]:
+            inside, outside = (w.a, w.b) if w.a.element_id in row_ids else (w.b, w.a)
+            e_in, e_out = s.element(inside.element_id), s.element(outside.element_id)
+            ref = f"AC-{t.ref}" if w.id in ac_ids else f"{e_out.ref or 'P'}-{outside.port}"
+            # u bloku rozvaděče (DC rozvaděč po trase) má úsek odkaz vazby na vývod („/5.A1“) – delší úsek
+            i_in = interrupt(e_in, inside.port, ref,
+                             INTERRUPT_GAP_BLOCK if e_in.symbol_id == "fve.switchboard" else INTERRUPT_GAP_INV)
+            i_out = interrupt(e_out, outside.port, ref, INTERRUPT_GAP_AC)
+            s.elements += [i_in, i_out]
+            s.wires.append(Wire(WireEnd(e_in.id, inside.port), WireEnd(i_in.id, "1"), conductors=list(w.conductors),
+                                attrs={"ref": ""}))
+            if inside is w.a:
+                w.a = WireEnd(i_out.id, "1")
+            else:
+                w.b = WireEnd(i_out.id, "1")
+            w.points = []                    # přerušovací bod stojí na výšce portu – vodič vede rovně
+            new_ids.add(i_in.id)
+        ids = row_ids | new_ids
+        moves.append((ids, [w for w in s.wires if w.a.element_id in ids and w.b.element_id in ids]))
+
+    def move(src: Sheet, dst: Sheet, ids: set[str], wires: list[Wire]) -> None:
+        dst.elements += [e for e in src.elements if e.id in ids]
+        src.elements = [e for e in src.elements if e.id not in ids]
+        wset = {w.id for w in wires}
+        dst.wires += [w for w in src.wires if w.id in wset]
+        src.wires = [w for w in src.wires if w.id not in wset]
+
+    def new_sheet(after: Sheet) -> Sheet:
+        sh = Sheet(name=base, func=s.func, loc=s.loc)
+        p.sheets.insert(p.sheets.index(after) + 1, sh)
+        return sh
+
+    def fits(sh: Sheet) -> bool:
+        bx = sheet_content_boxes(p, sh, lib)
+        return not bx or fit_placement(bx, sizes)[0] != "vlastní"
+
+    sheets: list[Sheet] = []
+    groups: list[list[int]] = []
+    for i, (ids, wires) in enumerate(moves):
+        if not sheets:
+            sheets.append(new_sheet(s))
+            groups.append([])
+        cur = sheets[-1]
+        move(s, cur, ids, wires)
+        groups[-1].append(i)
+        if len(groups[-1]) > 1 and not fits(cur):     # řada se nevešla – začne nový list
+            nxt = new_sheet(cur)
+            move(cur, nxt, ids, wires)
+            groups[-1].pop()
+            sheets.append(nxt)
+            groups.append([i])
+    for sh, grp in zip(sheets, groups):
+        sh.name = f"{base} – " + ref_ranges([rows[i][0].ref for i in grp])
+    return sheets
+
+
+def ref_ranges(refs: list[str]) -> str:
+    """Označení do názvu listu: souvislé řady 3+ stejné předpony jako rozsah („T1–T9“), jinak výčet
+    („T1, T2“, „T1–T3, T5“). Pořadí se zachová."""
+    out: list[str] = []
+    run: list[tuple[str, int, str]] = []          # (předpona, číslo, označení)
+
+    def flush() -> None:
+        if len(run) >= 3:
+            out.append(f"{run[0][2]}–{run[-1][2]}")
+        else:
+            out.extend(r[2] for r in run)
+        run.clear()
+
+    for ref in refs:
+        m = re.fullmatch(r"(.*?)(\d+)", ref)
+        if m and run and run[-1][0] == m.group(1) and run[-1][1] + 1 == int(m.group(2)):
+            run.append((m.group(1), int(m.group(2)), ref))
+            continue
+        flush()
+        if m:
+            run.append((m.group(1), int(m.group(2)), ref))
+        else:
+            out.append(ref)
+    flush()
+    return ", ".join(out)
 
 
 def building_kind(v) -> str:
@@ -1144,10 +1333,19 @@ def _num(v) -> float | None:
 
 def _align_bends(project: Project) -> None:
     """Lomy vodičů JPS podle skutečných poloh portů (porty bloků rozvaděčů a střídačů se dopočítají až z listů):
-    svislý úsek [(x, y1), (x, y2)] dostane y1 = port A, y2 = port B – vodič je pak jen vodorovný–svislý–vodorovný."""
-    from envocad.model.project import element_symbol
+    vodič s jediným svislým úsekem [(x, y1), (x, y2)] dostane y1 = y portu A, y2 = y portu B – je pak jen
+    vodorovný–svislý–vodorovný. Svislé úseky víc vodičů do jednoho prvku (konec B) se přeskládají na svých x tak,
+    aby se nekřížily (shora dolů: nejvyšší nejdál, zdola nahoru: nejnižší nejdál). Volá se před rozdělením JPS na
+    listy (`_place_jps` – rozmístění posouvá prvky i lomy celého listu stejně), projde všechny listy, které nejsou
+    rozvaděč."""
     lib = _lib()
-    s = project.sheets[0]
+    for s in project.sheets:
+        if not s.is_switchboard:
+            _align_bends_sheet(project, s, lib)
+
+
+def _align_bends_sheet(project: Project, s: Sheet, lib) -> None:
+    from envocad.model.project import element_symbol
     groups: dict[str, list] = {}
     for w in s.wires:
         if len(w.points) != 2 or abs(w.points[0][0] - w.points[1][0]) > 1e-6:

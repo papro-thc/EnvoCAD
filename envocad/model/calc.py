@@ -12,7 +12,7 @@ from collections import Counter
 from dataclasses import dataclass, field, replace
 
 from envocad.model.notes import plural
-from envocad.model.project import Element, Project, Sheet, Wire
+from envocad.model.project import INTERRUPT_SYMBOL, Element, Project, Sheet, Wire
 
 RHO_CU, RHO_AL = 0.0225, 0.036      # Ω·mm²/m při provozní teplotě ~70 °C (orientační)
 T_MIN_DEFAULT, T_MAX_DEFAULT = -10.0, 70.0  # °C: nejnižší okolí (Uoc), teplota článku při plném slunci (Umpp)
@@ -940,22 +940,38 @@ def _wire_system(w: Wire) -> tuple[str, float]:
     return "1f", 230.0
 
 
-def _source_current(project: Project, s: Sheet, w: Wire, inverter_u_dc: float | None) -> tuple[float | None, str]:
-    """Proud vodičem podle zdroje na jeho konci: string (1,25·Isc), střídač AC (P/√3U), jistič (In)."""
+def _far_ends(project: Project, s: Sheet, w: Wire, groups: dict | None = None) -> list[tuple[Element, str]]:
+    """Konce vodiče (prvek, port); přerušovací bod hlavního úseku s pokračováním za protějškem se nahradí skutečným
+    koncem (`xref.through_interrupt` – AC kabel přes listy JPS vede ze střídače). `groups` = `interrupt_groups`."""
+    out = []
     for end in (w.a, w.b):
-        e = s.element(end.element_id)
+        e, port = s.element(end.element_id), end.port
+        if e.symbol_id == INTERRUPT_SYMBOL:
+            from envocad.model.xref import through_interrupt
+            hit = through_interrupt(project, s, e, port, groups)
+            if hit is not None:
+                e, port = hit.element, hit.port
+        out.append((e, port))
+    return out
+
+
+def _source_current(project: Project, s: Sheet, w: Wire, inverter_u_dc: float | None,
+                    groups: dict | None = None) -> tuple[float | None, str]:
+    """Proud vodičem podle zdroje na jeho konci: string (1,25·Isc), střídač AC (P/√3U), jistič (In). Konec na
+    přerušovacím bodu ve dvojici se sleduje za protějšek (`_far_ends`)."""
+    ends = _far_ends(project, s, w, groups)
+    for e, port in ends:
         if e.symbol_id == "fve.pv_string":
             isc = _f(e.attrs.get("isc"))
             if isc:
                 return round(SAFETY_ISC * isc, 2), f"1,25·Isc stringu {e.ref}"
-        if e.symbol_id in ("fve.inverter", "fve.inverter_hybrid") and end.port == "AC":
+        if e.symbol_id in ("fve.inverter", "fve.inverter_hybrid") and port == "AC":
             p = _f(e.attrs.get("p_ac"))
             if p:
                 ph = _f(e.attrs.get("phases"), 3)
                 i = p * 1000 / (3 ** 0.5 * 400) if ph == 3 else p * 1000 / 230
                 return round(i, 1), f"P_AC střídače {e.ref}"
-    for end in (w.a, w.b):
-        e = s.element(end.element_id)
+    for e, _port in ends:
         i_n = _f(e.attrs.get("in_"))
         if i_n and e.symbol_id in ("fve.breaker_mcb", "fve.breaker_mccb", "sb.rcbo", "sb.main_switch",
                                    "fve.switch_disconnector", "fve.fuse", "fve.dc_disconnect"):
@@ -982,11 +998,13 @@ def check_strings(project: Project, t_min: float | None = None, t_max: float | N
     t_min = d_min if t_min is None else t_min
     t_max = d_max if t_max is None else t_max
     found = []
+    from envocad.model.xref import interrupt_groups
+    igroups = interrupt_groups(project)      # jednou – string přes přerušení (rozdělené blokové schéma)
     for s in project.sheets:
         for e in s.elements:
             if e.symbol_id != "fve.pv_string":
                 continue
-            inv_el, port = _trace_inverter(project, s, e)
+            inv_el, port = _trace_inverter(project, s, e, groups=igroups)
             inv = InverterData.from_attrs(inv_el.attrs) if inv_el is not None else None
             mt = re.fullmatch(r"DC(\d+)", port or "")
             pnum = int(mt.group(1)) if mt else None
@@ -1051,21 +1069,38 @@ _PASS_THROUGH = ("fve.dc_disconnect", "fve.fuse", "fve.terminal", "sb.terminal_b
 _INVERTERS = ("fve.inverter", "fve.inverter_hybrid")
 
 
-def _find_inverter(project: Project, s: Sheet, start: Element, max_depth: int = 8) -> Element | None:
+def _wire_steps(project: Project, s: Sheet, e: Element, groups: dict | None):
+    """Vodiče u prvku: (list, konec u prvku, druhý konec, přes protějšek). Přerušovací bod dvojice, kde jeden úsek
+    je prázdné pokračování (rozdělené blokové schéma, `xref.is_blank_wire`), pokračuje vodičem u protějšku na jeho
+    listu – string najde svůj střídač i přes rozvaděč FVE na jiném listu. Jiná přerušení se nepřeskakují."""
+    out = [(s, end, other, False) for w in s.wires for end, other in ((w.a, w.b), (w.b, w.a))
+           if end.element_id == e.id]
+    if e.symbol_id == INTERRUPT_SYMBOL and groups:
+        from envocad.model.xref import _pair_segments, is_blank_wire
+        hit = _pair_segments(project, s, e, groups)
+        if hit is not None and is_blank_wire(hit[0]) != is_blank_wire(hit[3]):
+            _own, ps, pe, _w = hit
+            out += [(ps, end, other, True) for w in ps.wires for end, other in ((w.a, w.b), (w.b, w.a))
+                    if end.element_id == pe.id]
+    return out
+
+
+def _find_inverter(project: Project, s: Sheet, start: Element, max_depth: int = 12,
+                   groups: dict | None = None) -> Element | None:
     seen = {start.id}
-    frontier = [start.id]
+    frontier = [(s, start)]
     for _ in range(max_depth):
         nxt = []
-        for eid in frontier:
-            for w in s.wires:
-                for end, other in ((w.a, w.b), (w.b, w.a)):
-                    if end.element_id == eid and other.element_id not in seen:
-                        o = s.element(other.element_id)
-                        if o.symbol_id in _INVERTERS:
-                            return o
-                        if o.symbol_id in _PASS_THROUGH:
-                            seen.add(o.id)
-                            nxt.append(o.id)
+        for fs, fe in frontier:
+            for ps, _end, other, _via in _wire_steps(project, fs, fe, groups):
+                if other.element_id in seen:
+                    continue
+                o = ps.element(other.element_id)
+                if o.symbol_id in _INVERTERS:
+                    return o
+                if o.symbol_id in _PASS_THROUGH:
+                    seen.add(o.id)
+                    nxt.append((ps, o))
         frontier = nxt
         if not frontier:
             break
@@ -1085,43 +1120,46 @@ def _block_exit(s: Sheet, block: Element, port: str) -> str | None:
     return f"X{nums[i + half]}" if i < half else None
 
 
-def _trace_inverter(project: Project, s: Sheet, start: Element, max_depth: int = 8) -> tuple[Element | None, str]:
+def _trace_inverter(project: Project, s: Sheet, start: Element, max_depth: int = 12,
+                    groups: dict | None = None) -> tuple[Element | None, str]:
     """(střídač, port střídače) pro string: střídač jako `_find_inverter`; port jen při jednoznačném řetězci
-    vodičů (přes průchozí prvky, bloky DC rozvaděčů párem portů), jinak "" (MPPT nezjištěn → bez sčítání proudů)."""
-    inv = _find_inverter(project, s, start, max_depth)
+    vodičů (přes průchozí prvky, bloky DC rozvaděčů párem portů, dvojice přerušení s pokračováním), jinak ""
+    (MPPT nezjištěn → bez sčítání proudů)."""
+    inv = _find_inverter(project, s, start, max_depth, groups)
     if inv is None:
         return None, ""
-    cur, entered = start, None
+    cs, cur, entered = s, start, None
     visited = {start.id}
     for _ in range(max_depth + 1):
-        exit_port = _block_exit(s, cur, entered) if cur.symbol_id == "fve.switchboard" else None
+        exit_port = _block_exit(cs, cur, entered) if cur.symbol_id == "fve.switchboard" else None
         if cur.symbol_id == "fve.switchboard" and exit_port is None:
             return inv, ""
         nxt = []
-        for w in s.wires:
-            for end, other in ((w.a, w.b), (w.b, w.a)):
-                if end.element_id != cur.id or other.element_id in visited:
-                    continue
-                if exit_port is not None and end.port != exit_port:
-                    continue
-                if exit_port is None and entered is not None and end.port == entered:
-                    continue
-                nxt.append(other)
-        if len({(o.element_id, o.port) for o in nxt}) != 1:
+        for ps, end, other, via in _wire_steps(project, cs, cur, groups):
+            if other.element_id in visited:
+                continue
+            if not via and exit_port is not None and end.port != exit_port:
+                continue
+            if not via and exit_port is None and entered is not None and end.port == entered:
+                continue
+            nxt.append((ps, other))
+        if len({(o.element_id, o.port) for _ps, o in nxt}) != 1:
             return inv, ""
-        o = nxt[0]
-        el = s.element(o.element_id)
+        ps, o = nxt[0]
+        el = ps.element(o.element_id)
         if el.symbol_id in _INVERTERS:
             return (inv, o.port) if el.id == inv.id else (inv, "")
         if el.symbol_id not in _PASS_THROUGH:
             return inv, ""
         visited.add(el.id)
-        cur, entered = el, o.port
+        cs, cur, entered = ps, el, o.port
     return inv, ""
 
 
 def check_cables(project: Project, t_ambient: float = 30.0, du_limit_pct: float = 3.0) -> list[CableCheck]:
+    from envocad.model.xref import interrupt_groups
     out = []
+    groups = interrupt_groups(project)     # jednou – konce přes přerušení (`_far_ends`)
     for s in project.sheets:
         for w in s.wires:
             if not (w.attrs.get("ref") or w.attrs.get("cable") or w.attrs.get("cross")):
@@ -1130,11 +1168,10 @@ def check_cables(project: Project, t_ambient: float = 30.0, du_limit_pct: float 
             length = _f(w.attrs.get("length"))
             system, u = _wire_system(w)
             alu = "AYKY" in (w.attrs.get("cable") or "").upper() or "AL" in (w.attrs.get("cable") or "").upper().split()
-            i_a, _src = _source_current(project, s, w, None)
+            i_a, _src = _source_current(project, s, w, None, groups)
             if system == "dc":
                 # napětí stringu pro úbytek: Umpp ≈ n·vmp z připojeného stringu
-                for end in (w.a, w.b):
-                    e = s.element(end.element_id)
+                for e, _port in _far_ends(project, s, w, groups):
                     if e.symbol_id == "fve.pv_string":
                         n = _f(e.attrs.get("n_modules"), 0) or 0
                         vmp = _f(e.attrs.get("vmp")) or (_f(e.attrs.get("voc")) or 0) * 0.82

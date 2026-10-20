@@ -52,7 +52,7 @@
 
 ## v0.4 – Vícelistové projekty a dokumentace
 - [x] Vazba přívod/vývod rozvaděče ↔ vodič JPS (křížový odkaz, kabel jen jednou)
-- [ ] Křížové odkazy potenciálů mezi listy JPS
+- [x] Křížové odkazy potenciálů mezi listy JPS – hotovo 10/2026: přerušovací body se stejným označením jsou v `potential.nets` jeden potenciál (dvojice, řetěz, hvězda)
 - [ ] Generování částí TZ/DSPS z modelu (šablony)
 - [ ] Sdílená knihovna pro celé ENVO (PostgreSQL nebo sdílený soubor)
 
@@ -93,7 +93,7 @@ Pořadí = priorita. Body 1, 2 a 5 jsou nejlevnější start.
 - Nedělat: předprojekt / P&ID (Preplanning), cloud (eVIEW/eManage) – stačí JPS, průvodce a sdílená knihovna
 
 ## Chyby k řešení
-- [x] Generovaný projekt se 4 a více střídači: JPS přetékal list – opraveno 10/2026 (formát A3–A0 podle obsahu); rozdělení velkých JPS na víc listů zůstává otevřené
+- [x] Generovaný projekt se 4 a více střídači: JPS přetékal list – opraveno 10/2026 (formát A3–A0 podle obsahu); rozdělení velkých JPS na víc listů hotovo 10/2026 (`docs/design/dluhy_dxf_jps.md` bod B): nad A2 generátor dělí na listy A2 – AC list (AC rozvaděč, síť, HOP) první, za ním listy střídačů; AC kabel přes pár přerušení „AC-T1“ jako jeden kabel (`xref.through_interrupt`), F7 `cable_split`. Záměrně vynecháno (YAGNI): ruční příkaz „Rozdělit list“, párování prvků přesunutých mezi listy v `diff_projects`
 - [ ] Rozvaděčové artikly: doplnit `t_min_c`/`t_max_c` z datasheetů. Stav: ověřeno z PDF/stránek výrobce – OEZ 3VA1/3VA2 (−25…70 °C, katalog MO1-2020), OEZ SVBC-DC (−40…80 °C), Hager MCB/RCD (−25…70 °C, resp. −25…40 °C). Zbývá: Eaton (eaton.com z agentního prostředí nedostupný, ~250 řádků bez nového ověření), OEZ MCB/RCD/SPD AC (minikatalog teploty neuvádí), BMR PLA33 (bez údaje), skříně (se.com 403, soubor bez sloupců `t_min_c`/`t_max_c`)
 
 ## Odloženo (analýza 10/2026 – nebrzdí práci)

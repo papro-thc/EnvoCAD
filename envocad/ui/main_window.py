@@ -1452,6 +1452,22 @@ class MainWindow(QMainWindow):
         if not ok:
             return
         s["switchboard_paper"] = v
+        from envocad.export.doc_pdf import JPS_PAGE_LABELS, standard_jps_page
+        from envocad.model.frame import PAPER_SIZES
+        jps_papers = [n for n, _w, _h in PAPER_SIZES]
+        cur = str(s.get("jps_max_paper") or "A2")
+        v, ok = QInputDialog.getItem(self, "Firemní standard", "Největší list JPS z průvodce (větší se rozdělí na listy)",
+                                     jps_papers, jps_papers.index(cur) if cur in jps_papers else 1, False)
+        if not ok:
+            return
+        s["jps_max_paper"] = v
+        keys = list(JPS_PAGE_LABELS)
+        labels = [JPS_PAGE_LABELS[k] for k in keys]
+        v, ok = QInputDialog.getItem(self, "Firemní standard", "Listy JPS v PDF dokumentace (výchozí volba)",
+                                     labels, keys.index(standard_jps_page()), False)
+        if not ok:
+            return
+        s["doc_jps_page"] = keys[labels.index(v)]
         save_settings(st)
         for sh in self.project.switchboards():     # listy bez vlastní volby formátu se přestaví
             self._rebuild_sheet_views(sh)
@@ -1894,9 +1910,23 @@ class MainWindow(QMainWindow):
         from envocad.export.doc_pdf import export_documentation_pdf
         base = self.project.name.replace("/", "-") or "dokumentace"
         path, _ = QFileDialog.getSaveFileName(self, "Celá dokumentace", f"{base} – dokumentace.pdf", "PDF (*.pdf)")
-        if path:
-            n = export_documentation_pdf(self.project, self.library, path, notes=self._export_notes())
-            self.statusBar().showMessage(f"Exportováno {n} stran: {path}", 5000)
+        if not path:
+            return
+        jps_page = self._ask_doc_jps_page()
+        if jps_page is None:
+            return
+        n = export_documentation_pdf(self.project, self.library, path, notes=self._export_notes(), jps_page=jps_page)
+        self.statusBar().showMessage(f"Exportováno {n} stran: {path}", 5000)
+
+    def _ask_doc_jps_page(self) -> str | None:
+        """Volba při exportu PDF dokumentace: listy JPS „Zmenšit na A3“ / „Skutečný formát listu“ (výchozí podle
+        firemního standardu `doc_jps_page`). Zrušení → None."""
+        from envocad.export.doc_pdf import JPS_PAGE_LABELS, standard_jps_page
+        keys = list(JPS_PAGE_LABELS)
+        labels = [JPS_PAGE_LABELS[k] for k in keys]
+        v, ok = QInputDialog.getItem(self, "Celá dokumentace", "Listy jednopólového schématu v PDF:", labels,
+                                     keys.index(standard_jps_page()), False)
+        return keys[labels.index(v)] if ok and v in labels else None
 
     def export_labels_csv(self) -> None:
         """Štítky pro Brady/Partex apod.: CSV se středníkem, UTF-8 s BOM (Excel/tiskárna to otevře přímo)."""

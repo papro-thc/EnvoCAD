@@ -2,7 +2,8 @@
 
 Uzel sítě = (list, prvek, port, žíla). Spojuje: vodič (obě strany, každá žíla), uzel odbočky (`sb.junction` – všechny
 porty), průchozí svorka (port 1 ↔ 2 téže žíly), můstek svorkovnice (svorky stejné žíly… resp. stejného čísla),
-PE lišta (všechny porty), přívod/vývod rozvaděče ↔ vodič nadřazeného JPS (vazba), blok ROZVADĚČ ↔ jeho přívody.
+PE lišta (všechny porty), přívod/vývod rozvaděče ↔ vodič nadřazeného JPS (vazba), blok ROZVADĚČ ↔ jeho přívody,
+kabel přes dvojici přerušovacích bodů s úsekem pokračování (`xref.through_interrupt`, rozdělené JPS).
 Výstup: seznam sítí s názvem potenciálu (žíla + zdroj) a kontrola zkratů (L–N, L–PE, L+–L−).
 """
 from __future__ import annotations
@@ -143,6 +144,31 @@ def nets(project: Project, lib) -> list[Net]:
                     p0 = sym_port.setdefault(e0, _first_port(project, s.element(e0), lib))
                     p1 = sym_port.setdefault(eid, _first_port(project, s.element(eid), lib))
                     uf.union((s.id, e0, p0, c0), (s.id, eid, p1, c))
+    # kabel přes dvojici přerušovacích bodů (hlavní úsek ↔ pokračování, `xref.through_interrupt` – rozdělené JPS)
+    # je jeden potenciál i přes listy; ostatní přerušení (ruční projekt s daty na obou úsecích, řetěz, hvězda) se
+    # nespojují – potenciály zůstávají jako dřív po listech
+    from envocad.model.xref import interrupt_groups, through_interrupt
+    groups_i = interrupt_groups(project)
+    pairs = [ms for ms in groups_i.values() if len(ms) == 2
+             and any(through_interrupt(project, s, e, groups=groups_i) is not None for s, e in ms)]
+    ends_at: dict[str, list[tuple[str, Wire, str]]] = {}     # id přerušovacího bodu → (list, vodič, port)
+    if pairs:
+        ids = {e.id for ms in pairs for _, e in ms}
+        for s in project.sheets:
+            for w in s.wires:
+                for end in (w.a, w.b):
+                    if end.element_id in ids:
+                        ends_at.setdefault(end.element_id, []).append((s.id, w, end.port))
+    for members in pairs:
+        nodes: dict[str, tuple] = {}
+        for _s, e in members:
+            for sid, w, port in ends_at.get(e.id, ()):
+                for c in mp.wire_conductors(w):
+                    node = (sid, e.id, port, c)
+                    if c in nodes:
+                        uf.union(nodes[c], node)
+                    else:
+                        nodes[c] = node
     groups: dict[tuple, Net] = {}
     sheets = {s.id: s for s in project.sheets}
     for key in list(uf.p):

@@ -152,7 +152,8 @@ class _Edge:
 
 def _graph(project: Project):
     """Sousedství prvků přes vodiče všech listů; vodič na port bloku ROZVADĚČ vede na přívod/vývod jeho listu se
-    stejným označením. Skupiny řadových svorek jedné svorkovnice propojené můstky = jeden uzel (rozvod svorkami).
+    stejným označením. Skupiny řadových svorek jedné svorkovnice propojené můstky = jeden uzel (rozvod svorkami);
+    kabel přes dvojici přerušovacích bodů s úsekem pokračování (rozdělené blokové schéma) vede na skutečný konec.
     Měřicí obvody (od elektroměru přes průchozí prvky – přívody, vývody, svorky – s nejvýš dvěma vodiči) se ze
     sousedství vyjmou. Vrací (sousedství, prvky, uzly-přípojnice, měření {elektroměr: [(prvek, port, vodič, port
     elektroměru)]})."""
@@ -175,6 +176,19 @@ def _graph(project: Project):
                 for e in members:
                     rep[(s.id, e.id)] = head
 
+    # kabel přes dvojici přerušovacích bodů (rozdělené blokové schéma, `xref.through_interrupt`): hlavní úsek vede
+    # rovnou na skutečný konec za protějškem, úsek pokračování se vynechá – strom je stejný jako bez rozdělení
+    from envocad.model.xref import interrupt_groups, is_continuation, through_interrupt
+    igroups = interrupt_groups(project)
+    thru: dict[Key, tuple[Key, str]] = {}
+    for members in igroups.values():
+        if len(members) != 2:
+            continue
+        for s, e in members:
+            hit = through_interrupt(project, s, e, groups=igroups)
+            if hit is not None:
+                thru[(s.id, e.id)] = ((hit.sheet.id, hit.element.id), hit.port)
+
     def resolve(s: Sheet, end) -> tuple[Key, str] | None:
         e = s.element(end.element_id)
         if e is None or e.symbol_id in SKIP_SYMBOLS:
@@ -185,12 +199,15 @@ def _graph(project: Project):
             if f is not None:
                 return (sb.id, f.id), "1"
         key = (s.id, e.id)
+        if key in thru:
+            key, port = thru[key]
+            return rep.get(key, key), port
         return rep.get(key, key), end.port
 
     edges: list[tuple[Key, str, Key, str, Wire, Sheet]] = []
     for s in project.sheets:
         for w in s.wires:
-            if set(mp.wire_conductors(w)) <= {"PE"}:
+            if set(mp.wire_conductors(w)) <= {"PE"} or (thru and is_continuation(project, s, w, igroups)):
                 continue
             a, b = resolve(s, w.a), resolve(s, w.b)
             if a is None or b is None or a[0] == b[0]:

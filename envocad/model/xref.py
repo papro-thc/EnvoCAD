@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass, field
 from itertools import pairwise
 from types import SimpleNamespace
+from typing import NamedTuple
 
 from envocad.model.designation import Designation, designation, scope_key
 from envocad.model.multipole import is_terminal_block
@@ -24,6 +25,7 @@ from envocad.model.project import (
     Element,
     Project,
     Sheet,
+    Wire,
     is_contact,
 )
 from envocad.model.symbol import GRID
@@ -523,3 +525,115 @@ def interrupt_xref(project: Project, sheet: Sheet, e: Element, groups: dict | No
 def interrupt_partner_of(link: InterruptLink) -> Placed | None:
     """Jeden protějšek pro zpětnou kompatibilitu: next, jinak prev, jinak zdroj, jinak první cíl."""
     return link.next or link.prev or link.source or (link.targets[0] if link.targets else None)
+
+
+# ---- vodič přes dvojici přerušovacích bodů (velké JPS rozdělené na listy) ------------------------------------
+# Pravidlo (kabel přes přerušení):
+#   * „skutečná data kabelu“ = typ kabelu nebo průřez (`has_cable_data`) – podle nich se hlásí `no_cable` a
+#     `cable_split`. Samotné označení nestačí: GUI dává automatické „W12“ každému nakreslenému vodiči.
+#   * úsek pokračování = vodič **úplně prázdný** (bez označení, typu i průřezu – `is_blank_wire`), jehož přerušovací
+#     bod je ve dvojici, oba body mají jediný vodič a úsek za protějškem prázdný není (`continuation_main`).
+#     Vodič s označením pokračováním není nikdy: `sync_cables` z něj dělá samostatný kabel (seznam kabelů, kabelový
+#     plán), takže by se kabel zdvojil, a ruční projekt (auto označení na obou úsecích) se tak chová jako dřív
+#     („P:1“ na obou koncích, oba úseky ve výkazech). Generátor píše úsek u střídače s `ref=""` → pokračování.
+#   * přes přerušení se sleduje (`through_interrupt`) jen od hlavního úseku k pokračování; od pokračování ani mezi
+#     dvěma úseky s daty se nesleduje (zůstává „P:1“).
+class ThroughEnd(NamedTuple):
+    """Skutečný konec vodiče za přerušením: list, prvek, port a vodič pokračování s jeho stranou („a“/„b“) u prvku."""
+    sheet: Sheet
+    element: Element
+    port: str
+    wire: Wire
+    side: str
+
+
+def has_cable_data(w) -> bool:
+    """Vodič nese skutečné údaje kabelu (typ kabelu nebo průřez). Samotné označení nestačí (auto „W12“ z GUI)."""
+    return bool(w.attrs.get("cable") or w.attrs.get("cross"))
+
+
+def is_blank_wire(w) -> bool:
+    """Vodič bez označení, typu kabelu i průřezu – kandidát na úsek pokračování přes přerušení."""
+    return not (w.attrs.get("ref") or has_cable_data(w))
+
+
+def _wires_at(sheet: Sheet, e: Element) -> list:
+    return [w for w in sheet.wires if w.a.element_id == e.id or w.b.element_id == e.id]
+
+
+def _pair_segments(project: Project, sheet: Sheet, e: Element, groups: dict | None = None):
+    """Přerušovací bod ve **dvojici**, oba body s jediným vodičem → (vodič u `e`, list protějšku, protějšek, vodič
+    u protějšku). Jinak None (řetěz, hvězda, osamělý, odbočka na některém bodu, bod bez vodiče)."""
+    if e.symbol_id != INTERRUPT_SYMBOL or not e.ref:
+        return None
+    link = interrupt_link(project, sheet, e, groups)
+    if link.mode != "pair":
+        return None
+    ps, pe = link.next or link.prev
+    own, other = _wires_at(sheet, e), _wires_at(ps, pe)
+    if len(own) != 1 or len(other) != 1 or own[0] is other[0]:
+        return None
+    return own[0], ps, pe, other[0]
+
+
+def through_interrupt(project: Project, sheet: Sheet, element: Element, port: str = "",
+                      groups: dict | None = None) -> ThroughEnd | None:
+    """Skutečný konec vodiče za přerušovacím bodem `element`: jen když vodič u `element` je hlavní úsek (není
+    prázdný) a vodič u protějšku je jeho pokračování (`is_blank_wire`) – např. přerušení „AC-T1“ u bloku AC
+    rozvaděče → (list střídače, T1, "AC", vodič pokračování, strana). Jinak None (ruční projekt s označením na obou
+    úsecích, řetěz, hvězda, odbočka). `port` = port přerušovacího bodu (shodné rozhraní s konci vodičů);
+    `groups` = `interrupt_groups` (předat při opakovaném volání)."""
+    del port
+    hit = _pair_segments(project, sheet, element, groups)
+    if hit is None:
+        return None
+    own, ps, pe, w = hit
+    if is_blank_wire(own) or not is_blank_wire(w):
+        return None
+    side = "b" if w.a.element_id == pe.id else "a"
+    far = w.b if side == "b" else w.a
+    try:
+        return ThroughEnd(ps, ps.element(far.element_id), far.port, w, side)
+    except KeyError:
+        return None
+
+
+def continuation_main(project: Project, sheet: Sheet, w, groups: dict | None = None):
+    """Úsek pokračování kabelu přes dvojici přerušovacích bodů (prázdný vodič `w`, protějšek má jediný neprázdný
+    vodič) → (list, hlavní úsek). Jinak None. Kabel je jeden: výkazy úsek pokračování přeskakují."""
+    if not is_blank_wire(w):
+        return None
+    for end in (w.a, w.b):
+        try:
+            e = sheet.element(end.element_id)
+        except KeyError:
+            continue
+        hit = _pair_segments(project, sheet, e, groups)
+        if hit is not None and hit[0] is w and not is_blank_wire(hit[3]):
+            return hit[1], hit[3]
+    return None
+
+
+def is_continuation(project: Project, sheet: Sheet, w, groups: dict | None = None) -> bool:
+    return continuation_main(project, sheet, w, groups) is not None
+
+
+def split_cable_partner(project: Project, sheet: Sheet, w, groups: dict | None = None):
+    """Skutečné údaje kabelu (typ/průřez) na **obou** úsecích přes dvojici přerušovacích bodů → (list, vodič na
+    protějšku), jinak None. Samotné označení (auto „W12“) se nepočítá."""
+    if not has_cable_data(w):
+        return None
+    for end in (w.a, w.b):
+        try:
+            e = sheet.element(end.element_id)
+        except KeyError:
+            continue
+        hit = _pair_segments(project, sheet, e, groups)
+        if hit is not None and hit[0] is w and has_cable_data(hit[3]):
+            return hit[1], hit[3]
+    return None
+
+
+def interrupt_chains(groups: dict[str, list[Placed]]) -> list[tuple[str, list[Placed]]]:
+    """Skupiny přerušení se stejným označením ve 3+ bodech bez zdroje hvězdy (řetěz) – (označení, body)."""
+    return [(ref, ms) for ref, ms in groups.items() if len(ms) > 2 and not any(is_star_source(e) for _, e in ms)]

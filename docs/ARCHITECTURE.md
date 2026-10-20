@@ -64,7 +64,19 @@ Zásada: **model nezávisí na UI.** Vše, co lze, se testuje bez spuštění Qt
 - **Přístroj a křížové odkazy** (`model/xref.py`) – přístroj = skupina prvků se stejným `ref` v jednom prostoru
   označení (`DeviceIndex.build(project)`, O(N), hostitel = cívka, jinak první prvek). Přes skupinu se počítají
   kontakty (`contacts`, zrcadlo pod hostitelem), stykač s cívkou a přerušovací body (dvojice, řetěz, hvězda).
-  Čistá data bez Qt; návrh v `docs/design/xref_zrcadleni_kontaktu.md`.
+  Čistá data bez Qt; návrh v `docs/design/xref_zrcadleni_kontaktu.md`. Kabel přes dvojici přerušovacích bodů:
+  „data kabelu“ = typ nebo průřez (`has_cable_data`, podle nich `no_cable` a `cable_split`); úsek pokračování =
+  vodič úplně prázdný – ani označení (`is_blank_wire`; vodič s označením je pro `sync_cables` samostatný kabel), oba
+  body mají jediný vodič a protější úsek prázdný není (`continuation_main`). `through_interrupt` sleduje jen od
+  hlavního úseku k pokračování a vrací `ThroughEnd` (list, prvek, port, vodič pokračování, strana – svorka se počítá
+  z vodiče pokračování). Výkazy (Odkud/Kam, zapojovací seznam), výpočet kabelů, vazba přívodu a potenciály tak vidí
+  jeden kabel; ruční projekt s auto označením na obou úsecích se chová jako dřív („P:1“). `groups`
+  (`interrupt_groups`) se předávají jednou za výkaz. Generátor dělí velké JPS na listy (nad `standard.jps_max_paper`
+  = A2): AC list první, listy střídačů za ním („T1–T3“), AC kabel přes pár přerušení „AC-T1“ s daty jen u bloku AC
+  rozvaděče, úsek u střídače s `ref=""` (`generate._split_jps` přeruší každý vodič mezi řadou a listem AC – u rodinného
+  domu i DC vodiče přes RFVE; přípojka VN zůstává na listu AC); přerostlá řada jednoho střídače dostane větší formát.
+  Odvozené jednopólové schéma (`single_line._graph`) a kontrola stringů (`calc._wire_steps`) jdou přes pár přerušení. PDF dokumentace: listy JPS zmenšit na A3 / skutečný formát (`DocBuilder(jps_page=…)`, standard
+  `doc_jps_page`).
 - **Výrobní data rozvaděče** (`model/wiring.py`) – výrobní zapojovací seznam pro dílnu: každá žíla vnitřního vodiče
   listu rozvaděče s průřezem (`wire_cross`: atribut, nejmenší In přístrojů přes `IN_TO_CROSS`, řízení, minimum),
   barvou (`conductor_color`), typem, koncovkou (`end_for`, dutinky `FERRULE_DIN46228`, dvojitá při dvou žilách ve

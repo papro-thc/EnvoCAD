@@ -1,7 +1,8 @@
 """Celá dokumentace do jednoho PDF: titulní list, obsah, listy JPS, schéma + plán svorkovnice každého rozvaděče,
 tabulkové výkazy a změnový list. Strany A3 na šířku; schéma (vícepól) a plán svorkovnice listu rozvaděče mají
 formát svých stran (`multipole.page_size`, výchozí A4 na šířku) – PDF má smíšené formáty stran (`QPdfWriter.
-setPageLayout` před každou novou stranou).
+setPageLayout` před každou novou stranou). Listy JPS se zmenší na A3 (výchozí), nebo mají stranu ve skutečném
+formátu listu (A2, A1…) – volba `jps_page` při exportu, výchozí z firemního standardu `doc_jps_page`.
 
 Obsah, výkazy i změnový list jsou tabulky (`_TableLayout`): šířky sloupců podle obsahu a šířky strany, dlouhý
 text se v buňce zalomí, tabulka pokračuje na dalších stranách. Počet stran se spočítá předem (obsah ukazuje
@@ -32,6 +33,19 @@ TABLE_TOP = 18.0          # začátek tabulky pod horním okrajem kreslicí ploc
 MIN_COL = 8.0             # nejužší sloupec
 MAX_WORD = 30.0           # delší slovo se smí lámat po znacích (nesnižuje min. šířku sloupce víc)
 FOOTER_H = 2.5            # „strana n/N“ bez rámečku
+# listy JPS v dokumentaci: zmenšit na stranu A3 (dosavadní chování) / strana ve skutečném formátu listu
+JPS_PAGE_A3, JPS_PAGE_SHEET = "A3", "list"
+JPS_PAGE_LABELS = {JPS_PAGE_A3: "Zmenšit na A3", JPS_PAGE_SHEET: "Skutečný formát listu"}
+
+
+def standard_jps_page() -> str:
+    """Výchozí volba listů JPS v PDF dokumentace z firemního standardu (`standard.doc_jps_page`, výchozí „A3“)."""
+    from envocad.settings import load_settings
+    try:
+        v = str(load_settings()["standard"].get("doc_jps_page") or JPS_PAGE_A3)
+    except (OSError, ValueError, KeyError, TypeError):
+        v = JPS_PAGE_A3
+    return v if v in JPS_PAGE_LABELS else JPS_PAGE_A3
 
 
 def _page_layout(size: tuple[float, float]) -> QPageLayout:
@@ -144,9 +158,11 @@ def table_layout(project: Project, head: list[str], rows: list[list], widths: li
 class DocBuilder:
     """Sestaví seznam stran (pro obsah) a pak je vykreslí."""
 
-    def __init__(self, project: Project, library):
+    def __init__(self, project: Project, library, jps_page: str | None = None):
         from envocad.model.project import without_dangling
         self.project, self.library = without_dangling(project), library   # bez vodičů na neexistující prvek
+        # listy JPS: „A3“ = zmenšit na A3, „list“ = strana ve skutečném formátu listu; None = firemní standard
+        self.jps_page = jps_page if jps_page in JPS_PAGE_LABELS else standard_jps_page()
         self.pages: list[tuple[str, str, object]] = []  # (druh, název, data)
         self._page = ""  # „3/16“ aktuální strany pro popisové pole
         self._pdf_page = 0  # index aktuální fyzické strany PDF (od 0), zvyšuje se u každého newPage()
@@ -344,13 +360,16 @@ class DocBuilder:
 
     def _item_size(self, idx: int) -> tuple[float, float]:
         """Rozměr stran položky: vícepól a plán svorkovnice listu rozvaděče = formát jejich stran (výchozí A4);
-        JPS, tabulky a vícepól ve formátu listu („list“, starší projekty) = A3 (list se do ní zmenší)."""
+        list JPS = A3 (list se do ní zmenší), při `jps_page` „list“ skutečný rozměr listu (A2, A1, vlastní…);
+        tabulky a vícepól ve formátu listu („list“, starší projekty) = A3."""
         from envocad.model import multipole as mp
         kind, _name, data = self.pages[idx]
         if kind == "sheet":
             sheet, view = data
             if view == "single_line":
                 return tuple(float(v) for v in self._scene(sheet, view).paper_size)
+            if view == "schematic" and self.jps_page == JPS_PAGE_SHEET:
+                return (float(sheet.width), float(sheet.height))
             if view != "schematic" and mp.paper_choice(sheet) != mp.SHEET_PAPER:
                 w, h = getattr(self._scene(sheet, view), "paper_size", (PAGE_W, PAGE_H))
                 return (float(w), float(h))
@@ -450,7 +469,7 @@ class DocBuilder:
         self.plan()
         self._pdf_page = 0
         self.note_pages = []
-        self._size = (PAGE_W, PAGE_H)
+        self._size = (PAGE_W, PAGE_H)      # titulní list je vždy první a A3
         writer = QPdfWriter(str(path))
         writer.setPageSize(QPageSize(QSizeF(PAGE_W, PAGE_H), QPageSize.Millimeter))
         writer.setPageLayout(_page_layout(self._size))
@@ -489,6 +508,8 @@ class DocBuilder:
         return count
 
 
-def export_documentation_pdf(project: Project, library, path: Path | str, notes: bool = False) -> int:
-    """Vrátí počet stran. `notes=True` = otevřené připomínky jako anotace PDF."""
-    return DocBuilder(project, library).export(path, notes=notes)
+def export_documentation_pdf(project: Project, library, path: Path | str, notes: bool = False,
+                             jps_page: str | None = None) -> int:
+    """Vrátí počet stran. `notes=True` = otevřené připomínky jako anotace PDF. `jps_page` = „A3“ (listy JPS zmenšit
+    na A3) / „list“ (strana ve skutečném formátu listu); None = firemní standard `doc_jps_page`."""
+    return DocBuilder(project, library, jps_page).export(path, notes=notes)
