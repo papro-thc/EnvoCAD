@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 from envocad.generator import context
-from envocad.generator.boards.base import ChainContext
+from envocad.generator.boards.base import ChainContext, ChainPorts
 from envocad.generator.context import (
     _s,
 )
@@ -21,6 +21,7 @@ from envocad.library.templates import (
 )
 from envocad.model.busbar import OUTS_ATTR, PITCH_ATTR, TAPS_ATTR, BusLayout, layout_of
 from envocad.model.project import Element, Project, Sheet, element_symbol
+from envocad.model.topology import ChainNode
 
 # ---- AC rozvaděč FVE: vše přichází zespodu ----------------------------------------------------------------------
 # Rozhodnutí 3 (docs/design/znacka_privod_vyvod.md): na listu RFVE.AC a RFVE rodinného domu jsou přívody i vývody ve
@@ -270,3 +271,21 @@ def build_main_sheet(ctx: ChainContext) -> Sheet:
         _build_ac_switchboard(p, sb, invs, ac, spec)
     ctx.done.add("main")
     return sb
+
+
+class RfveAcBuilder:
+    """Role `rfve_ac` – AC rozvaděč FVE: blok vzniká před stringy (`chain.create_main_block`), přívody X1…Xn od
+    střídačů, vývod XOUT k síti; list z maker nebo kódem (před ním listy DC rozvaděčů)."""
+    name = "rfve_ac"
+
+    def block(self, ctx: ChainContext, node: ChainNode) -> Element | None:
+        return ctx.main
+
+    def ports(self, ctx: ChainContext, node: ChainNode) -> ChainPorts:
+        return ChainPorts(tuple(f"X{i + 1}" for i in range(len(ctx.inverters))), "XOUT")
+
+    def build(self, ctx: ChainContext, node: ChainNode) -> None:
+        build_main_sheet(ctx)
+
+
+BUILDER = RfveAcBuilder()

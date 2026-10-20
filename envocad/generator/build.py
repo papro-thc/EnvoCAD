@@ -1,8 +1,9 @@
 """Sestavení projektu FVE ze specifikace (bez Qt) – veřejné `build_project` (re-export v `envocad.generate`).
 
 Postup (`docs/design/topologie_f1_f2.md`, kap. 1.3): specifikace doplněná z artiklů a sloučená s `DEFAULT_SPEC` →
-`pv.plan` (pracovní souřadnice) → `chain.create_main_block` (blok hlavního AC článku **před** stringy – pořadí prvků)
-→ `pv.build` (střídače, stringy, DC rozvaděče, baterie) → `chain.build` (zbytek řetězce, listy, rozmístění)."""
+`spec.select_topology` (preset řetězce, na nesloučené specifikaci) → `pv.plan` (pracovní souřadnice) →
+`chain.create_main_block` (blok hlavního AC článku **před** stringy – pořadí prvků) → `pv.build` (střídače, stringy,
+DC rozvaděče, baterie) → `chain.build` (průchod topologií: bloky a listy článků, rozmístění)."""
 from __future__ import annotations
 
 from envocad.generator import chain, context, pv
@@ -16,6 +17,7 @@ from envocad.generator.spec import (
     _apply_module_component,
     _apply_optimizer_component,
     building_kind,
+    select_topology,
 )
 from envocad.model.project import Project
 
@@ -44,6 +46,7 @@ def _build_project(spec: dict) -> Project:
     if building == "house" and not spec.get("switchboard"):
         tech = _merge(DEFAULT_SPEC["dc"], spec.get("dc") or {}).get("tech_box")
         spec["switchboard"] = dict(HOUSE_SWITCHBOARD if tech else HOUSE_SWITCHBOARD_AC)
+    raw = spec                         # nesloučená: `DEFAULT_SPEC` má connection.level "nn" (výběr topologie)
     spec = _merge(DEFAULT_SPEC, spec)
     invs = spec.get("inverters") or []
     if not invs:
@@ -56,6 +59,8 @@ def _build_project(spec: dict) -> Project:
     if building == "house" and _s((spec.get("connection") or {}).get("level")).strip().lower() == "vn":
         raise ValueError("Rodinný dům: rozvaděč FVE se připojuje do HDS (připojení na nn) – přípojka VN se "
                          "negeneruje. Zvolte druh objektu firma, nebo připojení nn.")
+    # topologie před vznikem prvního prvku (pořadí = id, `next_ref`); neplatná volba → ValueError
+    topology = select_topology(raw)
     p = Project(name=spec["name"], meta={k: _s(v) for k, v in spec["meta"].items()})
     p.meta.setdefault("building", BUILDINGS[building])
     site = spec.get("site") or {}
@@ -65,7 +70,7 @@ def _build_project(spec: dict) -> Project:
     s = p.sheets[0]
     s.name = "Blokové schéma"
     ctx = ChainContext(spec=spec, project=p, sheet=s, building=building, combined=combined,
-                       geo=pv.plan(spec, combined), opt_comp=opt_comp)
+                       geo=pv.plan(spec, combined), topology=topology, opt_comp=opt_comp)
     chain.create_main_block(ctx)
     pv.build(ctx)
     chain.build(ctx)

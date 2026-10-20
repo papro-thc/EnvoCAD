@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 from envocad.generator import context
-from envocad.generator.boards.base import ChainContext
+from envocad.generator.boards.base import ChainContext, ChainPorts
 from envocad.generator.boards.macro_glue import FUSE_SYMBOLS, _dc_box_from_macro
 from envocad.generator.boards.rfve_ac import AC_ROW_BOTTOM, AC_ROW_DEVICES
 from envocad.generator.context import (
@@ -18,6 +18,7 @@ from envocad.library.templates import (
 from envocad.model.busbar import line_end, line_span
 from envocad.model.feed import is_feed_in, is_feed_out
 from envocad.model.project import Element, Project, Sheet, Wire, element_symbol
+from envocad.model.topology import ChainNode
 
 
 def _add_dc_part(p: Project, sheet: Sheet, groups: list[tuple[int, str, list[str], str]], entry, dc: dict,
@@ -182,3 +183,24 @@ def build_dc_part(ctx: ChainContext, sb: Sheet) -> None:
     whys = [why for fin, why in ctx.fuse_cache.values() if not fin]
     if whys:   # pojistky bez In jsou jen ze skupin, kde nic nevyhovělo
         _mark_unresolved(sb.elements, FUSE_SYMBOLS, "; ".join(dict.fromkeys(whys)))
+
+
+class RfveBuilder:
+    """Role `rfve` – rozvaděč FVE rodinného domu (jeden blok před střídači, rozhodnutí 7): AC část jako RFVE.AC,
+    s `dc.tech_box` i DC část stringů (pojistkové odpínače + SPD, tvar „U“)."""
+    name = "rfve"
+
+    def block(self, ctx: ChainContext, node: ChainNode) -> Element | None:
+        return ctx.main
+
+    def ports(self, ctx: ChainContext, node: ChainNode) -> ChainPorts:
+        return ChainPorts(tuple(f"X{i + 1}" for i in range(len(ctx.inverters))), "XOUT")
+
+    def build(self, ctx: ChainContext, node: ChainNode) -> None:
+        from envocad.generator.boards.rfve_ac import build_main_sheet
+        sb = build_main_sheet(ctx)
+        if ctx.combined:
+            build_dc_part(ctx, sb)
+
+
+BUILDER = RfveBuilder()

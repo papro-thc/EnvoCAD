@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import re
 
-from envocad.generator.boards.base import ChainContext
+from envocad.generator.boards.base import ChainContext, ChainPorts
 from envocad.generator.context import (
     AC_SWITCHBOARD_REF,
     MAIN_LV_BOARD_REF,
@@ -23,6 +23,7 @@ from envocad.library.templates import (
 )
 from envocad.model.feed import FEED_SYMBOL
 from envocad.model.project import Element, Project, Sheet, Wire, WireEnd
+from envocad.model.topology import ChainNode
 
 # ---- přípojka VN: hlavní rozvaděč nn HR, transformátor, rozvaděč VN -------------------------------------------------
 LV_BREAKER_SIZES = (100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3200, 4000)
@@ -460,3 +461,23 @@ def build_sheets(ctx: ChainContext) -> None:
     if chain["rvn"] is not None:
         _build_mv_board(p, p.create_switchboard_sheet(chain["rvn"]), conn)
     _build_meter_board(p, p.create_switchboard_sheet(chain["re"]), conn)
+
+
+class MvBuilder:
+    """Přípojka VN jako jeden složený builder (role hr, tr, rvn, grid a odbočka re topologie `vn`): bloky
+    `_connection_blocks` (přívod HR = X1 od RFVE.AC, DS na XDS), listy HR, RVN, RE. Volá se jednou za průchod."""
+    name = "mv"
+
+    def block(self, ctx: ChainContext, node: ChainNode) -> Element | None:
+        build_blocks(ctx)
+        return ctx.mv["hr"]
+
+    def ports(self, ctx: ChainContext, node: ChainNode) -> ChainPorts:
+        return ChainPorts(("X1",), "XT")
+
+    def build(self, ctx: ChainContext, node: ChainNode) -> None:
+        build_sheets(ctx)
+
+
+BUILDER = MvBuilder()
+MV_ROLES = ("hr", "tr", "rvn", "re", "grid")   # role topologie `vn`, které obslouží `MvBuilder`

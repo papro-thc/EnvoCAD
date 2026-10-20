@@ -4,9 +4,10 @@ kap. 1.3 (kroky 5–6)."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Protocol
 
 from envocad.model.project import Element, Project, Sheet, Wire
-from envocad.model.topology import Topology
+from envocad.model.topology import ChainNode, Topology
 
 
 @dataclass
@@ -53,8 +54,29 @@ class ChainContext:
     mv: dict | None = None        # bloky přípojky VN (`boards.mv._connection_blocks`)
     fuse_cache: dict[str, tuple[str, str]] = field(default_factory=dict)
     done: set[str] = field(default_factory=set)    # už sestavené části (listy DC rozvaděčů, hlavní rozvaděč…)
+    tail: tuple[Element, str] | None = None         # poslední blok řetězce směrem k síti a jeho vývod (XOUT)
 
     @property
     def main(self) -> Element:
         """Blok hlavního AC článku (RFVE.AC, u rodinného domu RFVE) – přívody od střídačů X1…Xn."""
         return self.blocks["main"]
+
+
+@dataclass(frozen=True)
+class ChainPorts:
+    """Porty bloku článku řetězce: přívody od FV strany (`pv_side`, např. X1…Xn) a vývod k síti (`grid_side`, XOUT)."""
+    pv_side: tuple[str, ...]
+    grid_side: str
+
+
+class BoardBuilder(Protocol):
+    """Builder článku řetězce (`boards/<role>.py`, registr `chain.BOARD_BUILDERS`). `chain.build` ho volá ve dvou
+    průchodech topologií: `block` (blok v JPS za FV částí; vrací blok článku, nebo None) a `build` (list rozvaděče).
+    Builder, který obslouží víc rolí (přípojka VN), se v každém průchodu volá jen jednou – `name` je klíč."""
+    name: str
+
+    def block(self, ctx: ChainContext, node: ChainNode) -> Element | None: ...
+
+    def ports(self, ctx: ChainContext, node: ChainNode) -> ChainPorts: ...
+
+    def build(self, ctx: ChainContext, node: ChainNode) -> None: ...

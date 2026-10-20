@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from envocad.generator import context
-from envocad.generator.boards.base import ChainContext
+from envocad.generator.boards.base import ChainContext, ChainPorts
 from envocad.generator.boards.macro_glue import FUSE_SYMBOLS, _dc_box_from_macro
 from envocad.generator.context import (
     DC_ROUTE_BOX_PREFIX,
@@ -14,6 +14,7 @@ from envocad.generator.context import (
 from envocad.generator.spec import fuse_in_why
 from envocad.library.templates import build_dc_strings
 from envocad.model.project import Element, Project, Sheet
+from envocad.model.topology import ChainNode
 
 
 def dc_box_ref(kind: str, inv_index: int, n_tech: int, p: Project) -> str:
@@ -98,3 +99,21 @@ def build_dc_sheets(ctx: ChainContext) -> None:
         _apply_component(sheet, dc.get("fuse_component"), "fve.fuse_disconnect")
         if not fin:
             _mark_unresolved(sheet.elements, FUSE_SYMBOLS, why)
+
+
+class RfveDcBuilder:
+    """Role `rfve_dc` – DC rozvaděče: bloky vznikají ve FV části (v řadě střídače, `pv.build`; F1 = jeden RFVE.DC na
+    střídač, společný RFVE.DC až F2), builder vytvoří jejich listy (i listy rozvaděčů po trase)."""
+    name = "rfve_dc"
+
+    def block(self, ctx: ChainContext, node: ChainNode) -> Element | None:
+        return None
+
+    def ports(self, ctx: ChainContext, node: ChainNode) -> ChainPorts:
+        return ChainPorts((), "")
+
+    def build(self, ctx: ChainContext, node: ChainNode) -> None:
+        build_dc_sheets(ctx)
+
+
+BUILDER = RfveDcBuilder()

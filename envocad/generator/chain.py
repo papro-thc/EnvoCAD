@@ -1,10 +1,16 @@
-"""Řetězec FVE za střídači (bez Qt): blok hlavního AC článku, síť / přípojka VN, uzemnění, listy rozvaděčů,
-zarovnání a rozmístění JPS. 2. polovina `generate._build_project` (refaktoring F1, krok 5)."""
+"""Průchod topologií řetězce FVE (bez Qt): blok hlavního AC článku, bloky a listy článků přes registr builderů
+(`BOARD_BUILDERS`), uzemnění, zarovnání a rozmístění JPS. Návrh `docs/design/topologie_f1_f2.md`, kap. 1.3 (kroky 5–6).
+
+`build` projde `ctx.topology.nodes` dvakrát – nejdřív bloky v JPS (`BoardBuilder.block`), pak listy rozvaděčů
+(`BoardBuilder.build`) – v pořadí uzlů, takže pořadí prvků i `next_ref` zůstává jako před refaktoringem. Role bez
+builderu se přeskočí (F1: stávající RD, HR a RE na nn, HDS – přijdou v F2); u topologie `vn` obslouží HR, TR, RVN,
+DS a odbočku RE jeden složený builder `mv`. Střídače (`inverter`) a vše před nimi staví `pv.build`.
+"""
 from __future__ import annotations
 
-from envocad.generator.boards import mv, rfve, rfve_ac, rfve_dc
-from envocad.generator.boards.base import ChainContext
-from envocad.generator.context import _s
+from envocad.generator.boards import grid, mv, rfve, rfve_ac, rfve_dc
+from envocad.generator.boards.base import BoardBuilder, ChainContext
+from envocad.generator.context import _s, log
 from envocad.generator.jps import _place_jps
 from envocad.generator.layout import (
     _align_bends,
@@ -14,29 +20,34 @@ from envocad.generator.layout import (
     _grow_switchboards,
     _route_house,
 )
-from envocad.library.templates import AC_CONDUCTORS
 from envocad.model.project import Element, Wire, WireEnd, sync_cables, sync_feed_links
+from envocad.model.topology import ChainNode
+
+# role → builder článku (F2 doplní rd, hr a re na nn, hds)
+BOARD_BUILDERS: dict[str, BoardBuilder] = {
+    "rfve_dc": rfve_dc.BUILDER,
+    "rfve_ac": rfve_ac.BUILDER,
+    "rfve": rfve.BUILDER,
+    "grid": grid.BUILDER,
+}
+
+
+def builder_for(ctx: ChainContext, node: ChainNode) -> BoardBuilder | None:
+    """Builder článku: u topologie na vn obslouží HR, TR, RVN, DS a RE přípojka VN (`mv`), jinak registr podle role;
+    None = role zatím bez builderu (přeskočí se)."""
+    if ctx.topology is not None and ctx.topology.level == "vn" and node.role in mv.MV_ROLES:
+        return mv.BUILDER
+    return BOARD_BUILDERS.get(node.role)
 
 
 def create_main_block(ctx: ChainContext) -> Element:
-    """Blok hlavního AC článku (RFVE.AC, u rodinného domu RFVE) – vzniká **před** stringy (pořadí prvků v listu)."""
+    """Blok hlavního AC článku (RFVE.AC, u rodinného domu RFVE) – vzniká **před** stringy (pořadí prvků v listu).
+    Označení zatím ze `spec.switchboard` (legacy; označení z presetu je F2)."""
     sw = ctx.spec["switchboard"]
     blk = Element("fve.switchboard", ctx.geo.x_blk, 150.0, attrs={"ref": sw["ref"], "desc": sw["desc"]})
     ctx.sheet.elements.append(blk)
     ctx.blocks["main"] = blk
     return blk
-
-
-def _grid_block(ctx: ChainContext) -> None:
-    """DS za hlavním AC článkem (připojení na nn): vodič XOUT → DS s kabelem `ac.grid_*`."""
-    p, s, ac, blk = ctx.project, ctx.sheet, ctx.spec["ac"], ctx.main
-    grid = Element("fve.grid", ctx.geo.x_grid, 150.0, attrs={"ref": "", "voltage": _s(ctx.spec["grid"].get("voltage")),
-                                                             "dso": _s(ctx.spec["grid"].get("dso"))})
-    s.elements.append(grid)
-    s.wires.append(Wire(WireEnd(blk.id, "XOUT"), WireEnd(grid.id, "1"), conductors=list(AC_CONDUCTORS),
-                        attrs={"ref": p.next_ref("W"), "cable": _s(ac.get("grid_cable")),
-                               "cross": _s(ac.get("grid_cross")), "length": _s(ac.get("grid_length")), "method": "D"}))
-    ctx.grid = grid
 
 
 def _earth_block(ctx: ChainContext) -> None:
@@ -53,25 +64,50 @@ def _earth_block(ctx: ChainContext) -> None:
     ctx.earth = earth
 
 
+def _chain_nodes(ctx: ChainContext) -> list[tuple[ChainNode, BoardBuilder]]:
+    """Uzly topologie s builderem (bez střídačů – ty staví `pv.build`); role bez builderu se zalogují a přeskočí."""
+    out = []
+    for node in ctx.topology.nodes if ctx.topology is not None else ():
+        if node.role == "inverter":
+            continue
+        b = builder_for(ctx, node)
+        if b is None:
+            log.debug("Topologie %s: článek „%s“ zatím nemá builder – přeskočen", ctx.topology.id, node.role)
+            continue
+        out.append((node, b))
+    return out
+
+
 def build(ctx: ChainContext) -> None:
-    """Zbytek projektu po FV části (`pv.build`): bloky za hlavním AC článkem, uzemnění, listy rozvaděčů (DC, hlavní
-    AC, přípojka VN), zarovnání, rozmístění JPS na listy a vazby přívodů."""
-    p, spec = ctx.project, ctx.spec
-    conn = spec.get("connection") or {}
-    if _s(conn.get("level")).strip().lower() == "vn":
-        # přípojka VN: RFVE.AC → hlavní rozvaděč nn HR → transformátor → rozvaděč VN → DS (listy rozvaděčů níže)
-        mv.build_blocks(ctx)
-    else:
-        _grid_block(ctx)
+    """Zbytek projektu po FV části (`pv.build`) průchodem topologií: bloky článků za hlavním AC článkem (síť /
+    přípojka VN), uzemnění, listy rozvaděčů (DC, hlavní AC, přípojka VN), zarovnání, rozmístění JPS a vazby přívodů."""
+    p = ctx.project
+    nodes = _chain_nodes(ctx)
+    # 1. průchod: bloky v JPS (kabel k síti vede z vývodu posledního bloku – `ctx.tail`)
+    for node, b in nodes:
+        if f"block:{b.name}" in ctx.done:
+            continue
+        ctx.done.add(f"block:{b.name}")
+        el = b.block(ctx, node)
+        if el is not None:
+            ctx.blocks.setdefault(node.role, el)
+            grid_side = b.ports(ctx, node).grid_side
+            if grid_side:
+                ctx.tail = (el, grid_side)
+    if ctx.grid is None:              # vlastní topologie bez článku „grid“: DS za koncem řetězce jako dřív
+        grid.build_grid(ctx)
     _earth_block(ctx)
     p.meta.setdefault("p_installed_kwp", f"{ctx.kwp:g}")
-    # listy DC rozvaděčů a AC rozvaděče
-    rfve_dc.build_dc_sheets(ctx)
-    sb = rfve_ac.build_main_sheet(ctx)
-    if ctx.combined:
-        rfve.build_dc_part(ctx, sb)
-    if ctx.mv is not None:
-        mv.build_sheets(ctx)
+    # 2. průchod: listy rozvaděčů (DC rozvaděče před hlavním AC rozvaděčem – zajistí `build_main_sheet`)
+    for node, b in nodes:
+        if f"build:{b.name}" in ctx.done:
+            continue
+        ctx.done.add(f"build:{b.name}")
+        b.build(ctx, node)
+    if "main" not in ctx.done:        # vlastní topologie bez RFVE.AC / RFVE: hlavní AC rozvaděč je vždy
+        sb = rfve_ac.build_main_sheet(ctx)
+        if ctx.combined:
+            rfve.build_dc_part(ctx, sb)
     _layout(ctx)
 
 
