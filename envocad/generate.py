@@ -88,6 +88,7 @@ from __future__ import annotations
 # kap. 1.3; přehled v docs/ARCHITECTURE.md). Knihovnu generátoru drží `envocad.generator.context` (`_lib`, `_BUILD_LIB`)
 # – testy ji patchují tam, ne tady (re-export by byl jen kopie). Logger zůstává "envocad.generate".
 import sys
+import types
 
 from envocad.generator.boards.macro_glue import (
     UNRESOLVED_IN,
@@ -130,6 +131,77 @@ __all__ = [
     "is_solaredge", "load_spec", "log", "main", "parse_number", "parse_strings", "parse_voltage", "ref_ranges",
     "voltage_label",
 ]
+
+
+# Jména, která `envocad.generate` měl před refaktoringem F1 (všechna top-level jména na commitu aaf9040, i soukromá
+# a importovaná) a dnes jsou jinde: přístup přes `envocad.generate.<jméno>` je přesměruje na nové umístění
+# s DeprecationWarning (`__getattr__`); zápis (`monkeypatch.setattr(generate, "_lib", …)`) jde do nového modulu
+# (`_DeprecatedModule.__setattr__`) – kopie v `envocad.generate` by sestavení nijak neovlivnila.
+_MOVED_BY_MODULE: dict[str, tuple[str, ...]] = {
+    "envocad.generator.boards.macro_glue": ("FUSE_SYMBOLS", "_ac_box_from_macros", "_dc_box_from_macro",
+        "_insert_macro", "_macro_vars",),
+    "envocad.generator.boards.mv": ("CELL_NAMES", "CT_CONDUCTORS", "CT_PRIMARY_SIZES", "LV_BREAKER_SIZES",
+        "LV_FEEDER_SIZES", "STATIONS", "U_LV", "U_MV_DEFAULT", "U_MV_RANGE", "VN_BREAKER_FROM_KVA", "VN_CONDUCTORS",
+        "VN_FUSE_FACTOR", "VN_FUSE_SIZES", "VT_CONDUCTORS", "_VOLTAGE_RE", "_build_main_lv_board",
+        "_build_meter_board", "_build_mv_board", "_connection_blocks", "_next_size", "station_kind", "station_label",),
+    "envocad.generator.boards.rfve": ("DC_AC_GAP", "DC_PE_AROUND", "DC_PE_JOIN_DY", "DC_PE_Y", "DC_SPD_DX",
+        "DC_SPD_Y", "DC_U_GAP", "DC_U_PITCH", "DC_U_TOP", "DC_U_WIDTH", "DC_U_X0", "_add_dc_part", "_dc_from_below",),
+    "envocad.generator.boards.rfve_ac": ("AC_BUS_POS", "AC_CORE_GAP", "AC_FEED_X0", "AC_ROW_BOTTOM",
+        "AC_ROW_DEVICES", "BUS_DROP_STEP", "BUS_OUTPUTS", "_ac_core_parametric", "_build_ac_switchboard",
+        "_bus_b_ports_by_x", "_bus_drop_points", "_bus_out_x",),
+    "envocad.generator.boards.rfve_dc": ("_apply_component", "_apply_spd_component", "_mark_unresolved",),
+    "envocad.generator.build": ("_build_project",),
+    "envocad.generator.context": ("BATTERY_CABLE", "BATTERY_ROW_EXTRA", "DC_ROUTE_BOX_PREFIX", "DC_TECH_BOX_REF",
+        "INV_LABEL_SPACE", "_BUILD_LIB", "_int_attr", "_lib", "_merge", "_num", "_num_or", "_s",),
+    "envocad.generator.jps": ("INTERRUPT_GAP_AC", "INTERRUPT_GAP_BLOCK", "INTERRUPT_GAP_INV", "JPS_AC_SUFFIX",
+        "_place_jps", "_split_jps", "jps_max_paper",),
+    "envocad.generator.layout": ("_align_bends", "_align_bends_sheet", "_align_connection", "_align_outputs",
+        "_align_route_boxes", "_grow_switchboards", "_route_house",),
+    "envocad.generator.spec": ("HOUSE_SWITCHBOARD", "HOUSE_SWITCHBOARD_AC", "INVERTER_MODE_KEYS",
+        "MODULE_SPEC_FROM_ATTR", "_apply_inverter_component", "_apply_module_component", "_apply_optimizer_rules",
+        "_modules_per_optimizer",),
+    "envocad.library.templates": ("AC_CONDUCTORS", "DC_CONDUCTORS", "GROUP_PITCH", "_bridge_groups", "_el", "_feed",
+        "_place_sequential", "_terminal_group", "_wire", "build_dc_strings",),
+    "envocad.model.busbar": ("BusLayout", "OUTS_ATTR", "PITCH_ATTR", "TAPS_ATTR", "layout_of", "line_end",
+        "line_span",),
+    "envocad.model.calc": ("DC_INPUTS_PER_MPPT_DEFAULT", "InverterData", "string_ports",),
+    "envocad.model.feed": ("FEED_SYMBOL", "is_feed_in", "is_feed_out",),
+    "envocad.model.project": ("Element", "PORT_PITCH", "Project", "Sheet", "Wire", "WireEnd", "element_symbol",
+        "sync_cables", "sync_feed_links",),
+}
+_MOVED: dict[str, str] = {name: mod for mod, names in _MOVED_BY_MODULE.items() for name in names}
+
+
+def _moved_module(name: str):
+    import importlib
+    import warnings
+    target = _MOVED[name]
+    warnings.warn(f"envocad.generate.{name} je přesunuto do {target}.{name} – importujte ho odtud "
+                  "(envocad.generate je jen re-export veřejného API).", DeprecationWarning, stacklevel=3)
+    return importlib.import_module(target)
+
+
+def __getattr__(name: str):
+    if name in _MOVED:
+        return getattr(_moved_module(name), name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted({*globals(), *_MOVED})
+
+
+class _DeprecatedModule(types.ModuleType):
+    """Zápis přesunutého jména (`generate._lib = …`, `monkeypatch.setattr`) jde do nového modulu s varováním."""
+
+    def __setattr__(self, name: str, value) -> None:
+        if name in _MOVED and name not in self.__dict__:
+            setattr(_moved_module(name), name, value)
+            return
+        super().__setattr__(name, value)
+
+
+sys.modules[__name__].__class__ = _DeprecatedModule
 
 
 def main(argv: list[str] | None = None) -> int:

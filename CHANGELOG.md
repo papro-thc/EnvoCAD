@@ -14,7 +14,7 @@
   jsou 2 klíče meta. Testy, které podstrkují knihovnu, patchují `envocad.generator.context._lib`. Formát projektu
   beze změny. Testy `tests/test_generator_chain.py`.
 - **RFVE rodinného domu: PE svodičů bez křížení u XPE** – PE svodičů DC (kolem levého konce sběrnice) se připojuje
-  k vodiči vývod 1 → XPE zleva o 5 mm výš než PE svodiče AC zprava (`generate.DC_PE_JOIN_DY`): dvě odbočky „T“ místo
+  k vodiči vývod 1 → XPE zleva o 5 mm výš než PE svodiče AC zprava (`generator.boards.rfve.DC_PE_JOIN_DY`): dvě odbočky „T“ místo
   bodu se čtyřmi směry, který vypadal jako křížení bez uzlu. Vestavěná makra beze změny (rozložení dělá
   `_dc_from_below`). Test `test_switchboards_no_crossing_without_node` (všechny listy rozvaděčů RD 1/3 střídače,
   makra i kód, rozvod svorkami, firma 1–12 střídačů; `_cross_nodes` v `tests/test_feed_review.py`), F7 čisté.
