@@ -1,6 +1,13 @@
 # Changelog
 
 ## Nevydáno
+- **Topologie připojení jako data (F1, 1. část)** – `model/topology.py` (`Topology`, `ChainNode`, `CableLink`,
+  `parse_topology`, `validate_topology` s chybami česky), knihovna `library/topologies.py` (vestavěné
+  `builtin/topologies/`, sdílené `<knihovna>/topologies/`, vlastní `~/.envocad/topologies/`; vlastní > sdílená >
+  vestavěná), presety `rd`, `nn`, `nn_hr_meter`, `vn` (RFVE / RFVE.DC / RFVE.AC / HR / RE / HDS / TR / RVN) a výběr
+  `generator/spec.select_topology` podle rozhodnutí (`docs/NAVRH_TOPOLOGIE.md`, kap. 8). Knihovna značek složku
+  `topologies/` nenačítá (`store.NON_SYMBOL_DIRS`). Generátor topologii zatím nepoužívá – výstup beze změny;
+  formát projektu beze změny. Formát: `docs/LIBRARY_FORMAT.md`, „Formát topologie“.
 - **`sb.feed` – opravy z review** (formát projektu zůstává v13 – v13 ještě nikde není –, bez migrace navíc):
   **uzavřená revize v12 zůstane po migraci uzavřená** – otisk listu (`diff._canon_element`) kreslí `sb.feed` kanonicky
   jako dřívější `sb.feed_in` / `sb.feed_out` bez `dir` (rotace v otisku není; převod přívodu o 180° zpět = stará

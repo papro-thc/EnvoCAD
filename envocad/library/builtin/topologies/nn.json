@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "id": "nn",
+  "name": "Připojení na nn",
+  "description": "Firma nebo bytový dům, připojení na nn: stringy → RFVE.DC (společný) → střídače → RFVE.AC → stávající hlavní rozvaděč HR → stávající elektroměrový rozvaděč RE → HDS → DS. Nad 30 kWp síťová ochrana v RFVE.AC.",
+  "buildings": ["company", "apartment"],
+  "level": "nn",
+  "nodes": [
+    {"role": "rfve_dc", "ref": "RFVE.DC", "desc": "DC rozvaděč FVE", "per_inverter": false, "macros": {}},
+    {"role": "inverter"},
+    {"role": "rfve_ac", "ref": "RFVE.AC", "desc": "AC rozvaděč FVE", "macros": {},
+     "options": {"grid_protection": "auto"}},
+    {"role": "hr", "ref": "HR", "desc": "hlavní rozvaděč", "existing": true,
+     "options": {"main_device": "breaker", "fve_device": "breaker"}},
+    {"role": "re", "ref": "RE", "desc": "elektroměrový rozvaděč", "existing": true,
+     "options": {"metering": "direct", "boundary": "hds"}},
+    {"role": "hds", "ref": "HDS", "desc": "hlavní domovní skříň", "sheet": false, "options": {"char": "gG"}},
+    {"role": "grid", "desc": "distribuční soustava", "sheet": false}
+  ]
+}

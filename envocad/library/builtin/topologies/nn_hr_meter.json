@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "id": "nn_hr_meter",
+  "name": "Připojení na nn, měření v HR",
+  "description": "Jako připojení na nn, ale fakturační měření je ve stávajícím hlavním rozvaděči HR (bez RE): stringy → RFVE.DC → střídače → RFVE.AC → HR → HDS → DS. Volí projektant podle stávající situace.",
+  "buildings": ["company", "apartment"],
+  "level": "nn",
+  "nodes": [
+    {"role": "rfve_dc", "ref": "RFVE.DC", "desc": "DC rozvaděč FVE", "per_inverter": false, "macros": {}},
+    {"role": "inverter"},
+    {"role": "rfve_ac", "ref": "RFVE.AC", "desc": "AC rozvaděč FVE", "macros": {},
+     "options": {"grid_protection": "auto"}},
+    {"role": "hr", "ref": "HR", "desc": "hlavní rozvaděč", "existing": true,
+     "options": {"main_device": "breaker", "fve_device": "breaker", "metering": "direct", "boundary": "hds"}},
+    {"role": "hds", "ref": "HDS", "desc": "hlavní domovní skříň", "sheet": false, "options": {"char": "gG"}},
+    {"role": "grid", "desc": "distribuční soustava", "sheet": false}
+  ]
+}
