@@ -68,7 +68,8 @@ def test_validate_code():
     assert validate_code("RS1", "+") == []
     assert validate_code("", "=") == []
     assert validate_code("AC_2", "=") == []
-    for bad in ("RS 1", "rs1", "1RS", "A-B", "ABCDEFGHIJK"):
+    assert validate_code("RFVE.AC", "+") == []      # firemní styl ENVO
+    for bad in ("RS 1", "rs1", "1RS", "A-B", "ABCDEFGHIJK", ".RS", "RS.", "R..S"):
         issues = validate_code(bad, "+", "listu X")
         assert [i.code for i in issues] == ["struct_syntax"] and issues[0].error, bad
     assert "Umístění „RS 1“ listu X" in validate_code("RS 1", "+", "listu X")[0].text

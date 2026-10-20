@@ -43,7 +43,7 @@ def test_split_project_opens_all_jps_sheets_without_model_change(app, tmp_path):
                 no = {str(p.sheets.index(x) + 1) for x in others if any(o.ref == e.ref for o in x.elements)}
                 xref = scene.element_xref(e)
                 assert xref.startswith("→ /") and xref[3:].split(".")[0] in no, (e.ref, xref)
-        for s in (x for x in p.sheets if x.is_switchboard and x.loc == "RH"):
+        for s in (x for x in p.sheets if x.is_switchboard and x.loc == "RFVE.AC"):
             w.open_sheet(s, "multipole")
             app.processEvents()
         assert json.dumps(p.to_dict(), sort_keys=True, ensure_ascii=False) == before

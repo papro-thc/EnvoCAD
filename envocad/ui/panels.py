@@ -102,7 +102,7 @@ class LibraryPanel(QWidget):
 
 
 CONTACTS_HINT = "1/2 3/4 5/6 13/14 21/22, NO:11/14 NC:11/12"
-DESIGNATION_KEYS = ("func", "loc")    # override aspektů prvku – kód A–Z, 0–9, _
+DESIGNATION_KEYS = ("func", "loc")    # override aspektů prvku – kód A–Z, 0–9, _, tečka uvnitř
 
 
 class PropertiesPanel(QWidget):

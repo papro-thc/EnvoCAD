@@ -319,7 +319,7 @@ PE lišta), ruční čísla nechá.
 `Úpravy → Svorkovnice a můstky…` (`Ctrl+Shift+T`): tabulka svorek vybrané svorkovnice (vnitřní/vnější strana,
 můstek) a editace **můstků** – jedna skupina na řádek, čísla svorek pomlčkou (`1-6-11-16`). Můstky se kreslí
 ve vícepólu, v blokovém schématu čárkovaně mezi skupinami, a jsou ve výkazech a BOM. Můstky patří listu rozvaděče –
-svorkovnice X1 v RDC1 a X1 v RH jsou dvě různé. Přepnutí svorkovnice v dialogu rozpracované můstky nezahodí;
+svorkovnice X1 v RDC1 a X1 v RFVE.AC jsou dvě různé. Přepnutí svorkovnice v dialogu rozpracované můstky nezahodí;
 OK uloží změny všech svorkovnic jedním krokem undo a odmítne číslo svorky, které na svorkovnici není.
 Šířka skupiny svorek v rozložení = počet svorek × 6,2 mm, pokud atribut „Šířka skupiny“ nevyplníš.
 
@@ -481,7 +481,7 @@ umístěním jeho blok.
 | `List → Vlastnosti listu (název, =funkce, +umístění)…` | funkce a umístění listu – výchozí pro všechny prvky a vodiče listu |
 | Panel Vlastnosti prvku, pole `Funkce (=)` a `Umístění (+)` | přepis pro jeden prvek; prázdné pole = převzít z listu |
 
-Kódy se píšou bez znaménka, jedna úroveň (`RS1`, ne `=RS1.2`), jen A–Z, 0–9 a `_`, nejvýš 10 znaků. Přejmenování
+Kódy se píšou bez znaménka, jedna úroveň (`RS1`; tečka nedělí úrovně), jen A–Z, 0–9, `_` a tečka uvnitř (firemní `RFVE.AC`), nejvýš 10 znaků. Přejmenování
 bloku rozvaděče (`ref` v panelu Vlastnosti) přejmenuje i jeho umístění v registru, na listech a v overridech prvků.
 
 Kontrola (`F7`) hlásí označení a strukturní údaje:
@@ -598,7 +598,7 @@ na DC1, DC2… za sebou; paralelní spojení dělá
 jen SolarEdge a kreslí se jako jeden string). Blok DC rozvaděče v blokovém schématu má porty podle přívodů
 (X1…Xn od stringů) a vývodů (Xn+1… dál). Když obojí vypneš, vloží se jen samostatný odpínač DC v blokovém schématu.
 Průvodce se ptá i na **objekt** (`building` ve specifikaci): **firma** a **bytový dům** mají DC rozvaděče a AC
-rozvaděč zvlášť; u **rodinného domu** je DC i AC v jednom **rozvaděči FVE (RFVE)** – místo DC rozvaděče u technologie
+rozvaděč **RFVE.AC** zvlášť; u **rodinného domu** je DC i AC v jednom **rozvaděči FVE (RFVE)** – místo DC rozvaděče u technologie
 má RFVE na každý string pojistkový odpojovač a SPD DC (přívody za AC přívody od střídačů, vývody ke střídači) a k tomu
 AC část s vývodem do HDS. V blokovém schématu stojí RFVE před střídačem, AC kabel od střídače se vrací shora;
 rozvaděče po trase zůstávají. Přípojka VN se u rodinného domu negeneruje.

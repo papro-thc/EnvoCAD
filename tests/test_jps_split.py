@@ -140,7 +140,7 @@ def test_reports_same_as_one_sheet(big, big_one_sheet, lib):
     refs = [r[0] for r in rows]
     assert len(refs) == len(set(refs)) == len(big.cables)
     w13 = next(r for r in rows if r[1] == "T1:AC")
-    assert w13[2] == "+RH-X1" and w13[3] == "CYKY-J 5x16" and w13[9] == JPS_AC_SHEET_NAME
+    assert w13[2] == "+RFVE.AC-X1" and w13[3] == "CYKY-J 5x16" and w13[9] == JPS_AC_SHEET_NAME
 
     def strip(rows, drop):
         return sorted(tuple(c for k, c in enumerate(r) if k not in drop) for r in rows)
@@ -171,7 +171,7 @@ def test_interrupt_xrefs_and_feed_link(big):
         assert re.fullmatch(rf"→ /{no}\.[A-H]\d", interrupt_xref(big, ac, i)), i.ref
         partner = next(e for e in interrupts(inv_sheet) if e.ref == i.ref)
         assert re.fullmatch(r"→ /1\.[A-H]\d", interrupt_xref(big, inv_sheet, partner))
-    sb = next(s for s in big.sheets if s.is_switchboard and s.loc == "RH")
+    sb = next(s for s in big.sheets if s.is_switchboard and s.loc == "RFVE.AC")
     x1 = next(e for e in sb.elements if e.symbol_id == "sb.feed_in" and e.ref == "X1")
     assert re.fullmatch(r"W13 T1:AC /2\.[A-H]\d", x1.attrs["from"]) and x1.attrs["cable"] == "CYKY-J 5x16 16"
 
@@ -387,7 +387,7 @@ def test_documentation_pdf_contains_all_jps_sheets_a2(lib, tmp_path):
     b2.export(tmp_path / "jps2.pdf")
     # dokumentace zmenší každý list JPS na stranu A3 (jako dřív jeden list) – každý list má vlastní stranu s obsahem
     texts = [reader.pages[b2.page_starts[i] - 1].extract_text() for i, _s in sheet_items]
-    assert all(f"AC-T{k}" in texts[0] for k in (1, 2, 3)) and "RH" in texts[0]
+    assert all(f"AC-T{k}" in texts[0] for k in (1, 2, 3)) and "RFVE.AC" in texts[0]
     assert "AC-T1" in texts[1] and "AC-T2" in texts[1] and "AC-T3" not in texts[1]
     assert "AC-T3" in texts[2] and "AC-T1" not in texts[2]
 

@@ -97,7 +97,7 @@ prostoru označení (cívka `ctl.coil` + případně stykač `fve.contactor` kre
 kontakty cívky – položkou výkazu, rozložení a tepla je pak stykač). Zrcadlo kontaktů je tabulka pod hostitelem
 (cívka, jinak hlavní prvek) – `envocad/model/xref.py`, návrh `docs/design/xref_zrcadleni_kontaktu.md`.
 
-Kódy `func`/`loc` se zadávají bez znaménka („AC“, „RDC1“), jedna úroveň, znaky A–Z, 0–9, _ (max. 10).
+Kódy `func`/`loc` se zadávají bez znaménka („AC“, „RDC1“), jedna úroveň, znaky A–Z, 0–9, _ a tečka uvnitř – firemní `RFVE.AC`, `RFVE.DC` (max. 10).
 Plné označení prvku je pak `=AC+RDC1-F3` (viz `envocad/model/designation.py`).
 
 ## Atributy vnitřního vodiče rozvaděče (výrobní data)
