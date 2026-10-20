@@ -218,3 +218,23 @@ duplicitní `_snap`/`_ceil_grid`, nepoužitý `elide_text`, dynamické atributy 
 7. **RFVE u RD** – varianta A (dva bloky jednoho rozvaděče, změna formátu), nebo B (jako dnes)?
 8. **Baterie / záložní okruhy (backup)** – patří do řetězce (záložní rozvaděč za hybridním střídačem)? Ve 1. verzi
    navrhuji mimo řetězec jako dnes.
+
+## 8. Rozhodnutí (Patrik, 2026-10-20)
+
+1. **Hranice 30 kWp** = instalovaný výkon DC (kWp). RD nad 30 kWp má stejný řetězec (rd). Firma pod 30 kWp výchozí
+   NN řetězec, ale volba NN / VN zůstává projektantovi. Nad 30 kWp přibývá požadavek na **síťovou ochranu** – je
+   v RFVE_AC (u RD v RFVE).
+2. **Bytový dům** → NN řetězec.
+3. **RFVE_AC** vždy společný, pokud střídače nejsou na jiném místě. **RFVE_DC** většinou společný, může být vlastní
+   na střídač (volba ve specifikaci / průvodci; výchozí společný).
+4. **RD / HR** kreslit jako stávající (jen dotčená část). Vývod FVE jistič nebo pojistkový odpínač – určí projektant;
+   **do 80 A vždy jistič**.
+5. **RE na nn**: přímé / nepřímé měření a hranici vlastnictví určí projektant (podle stávající situace). **Hlavní
+   jistič před elektroměrem kreslit vždy, vypínač instalace za elektroměrem také.**
+6. **Měření v HR** určí projektant podle stávající situace (volba, žádná automatika).
+7. **RFVE u RD = jeden blok** (varianta B, bez změny formátu – F3 odpadá).
+8. **Baterie a záloha**: baterie je vždy součástí schématu. V RFVE je **přepínač sítí** (mustr dodá Patrik), **EPS
+   vývod střídače vede vždy na něj**; zálohované okruhy za přepínačem zakreslí projektant.
+
+Mustry RFVE a RFVE_AC (makra) připraví Patrik; do té doby generátor používá vestavěný kód a role maker jsou
+připravené (F4 po dodání mustrů).
