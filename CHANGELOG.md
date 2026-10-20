@@ -1,6 +1,7 @@
 # Changelog
 
 ## Nevydáno
+- Hlavní okno – dokončení návrhu `ux_lista.md`: souřadnice ve stavovém řádku se zaokrouhlují na mřížku 2,5 mm (tam, kam se bod umístí); pravé tlačítko na prázdné ploše vždy nabídne Vložit kopii (zašedlé, dokud není co vložit). Nové testy v `tests/test_main_window_ux.py`: každá akce lišt má ikonu a tooltip se zkratkou, položky kontextového menu (prvek, vodič, blok ROZVADĚČ, prázdná plocha, vícepól) fungují a `Ctrl+Z` je vrací, souřadnice po pohybu myši leží na mřížce.
 - Katalog z datasheetů (`katalogy/datasheet`): FV moduly **Runergy HY-DH96N11B 430–450 Wp** (N-type bifacial), střídače
   **SolarEdge SE12.5K–SE27.6K** (pevné napětí 750 V, `string_mode` fixed_voltage) a optimizér **SolarEdge P1100**
   (2 moduly v sérii, pravidla stringu pro SE25K: 14–30 optimizérů, 13 500 W). Pozor: Runergy 450 Wp (Isc 16,07 A)
