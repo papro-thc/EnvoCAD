@@ -18,7 +18,7 @@ cd EnvoCAD
 
 ## Instalace (Windows i Linux)
 
-Doporučený Python 3.11–3.13 (3.14 je nový a PySide6 na něm není prověřené).
+Podporovaný Python 3.11–3.14 (na 3.14 ověřeno celou sadou testů s PySide6 6.12).
 
 ```
 # Windows (PowerShell)

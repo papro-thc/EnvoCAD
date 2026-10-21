@@ -2,7 +2,7 @@
 name = "envocad"
 version = "0.11.0"
 description = "Interní nástroj ENVO pro elektro-dokumentaci FVE (jednopólová schémata, knihovna prvků)"
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.11,<3.15"
 dependencies = [
     "PySide6>=6.6",
     "ezdxf>=1.1",

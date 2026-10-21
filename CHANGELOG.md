@@ -1,6 +1,7 @@
 # Changelog
 
 ## Nevydáno
+- **Python 3.14** podporován (`requires-python` <3.15); celá sada testů prošla na Pythonu 3.14 s PySide6 6.12.
 - **Průvodce – topologie připojení (F5)** (`ui/wizard_topology.py`, `TopologyPanel`): skupiny „Objekt a připojení“
   (druh objektu, nn / vn – u RD zakázané s vysvětlením, předvolba topologie filtrovaná podle objektu a úrovně vč. sdílených
   / vlastních, živý náhled `chain_text()`, měření v RE / HR, RFVE.DC na střídač, síťová ochrana auto / ano / ne
