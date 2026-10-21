@@ -254,3 +254,6 @@ připravené (F4 po dodání mustrů).
 10. **Přepínač sítí a EPS vývod** jen u rodinného domu (RFVE); u firmy a bytového domu se nekreslí. **Hotovo** (F2,
     krok 9: `generator/boards/eps.py`, značka `fve.changeover_switch`). Síťová ochrana nad 30 kWp (bod 1) – F2 krok 8,
     skupiny RFVE.AC na jiném místě (bod 3) – F2 krok 10.
+11. **Skupiny střídačů (`ac_group`)** (2026-10-21): síťová ochrana v každém RFVE.AC zvlášť. Rodinné domy se na vn
+    nepřipojují (beze změny – chyba). Skupiny zatím jen u nn s HR; RD a vn hlásí srozumitelnou chybu (rozšíření podle
+    potřeby).
