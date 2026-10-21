@@ -108,7 +108,15 @@ testy, `ui/main_window.py`, `ui/dialogs.py`). **Upravit testy**: `test_wizard_ca
 **Stav (2026-10-21): kroky 1–6 hotové** (větev `feature/topologie-f2`, CHANGELOG). Odchylky: In stávajících HJ (RE)
 i hlavního přístroje RD/HR bez zadání → `in_unresolved` (chyba F7), u vypínače RD také (`protection_findings` hlásí
 `in_unresolved` u jakéhokoli přístroje). Nepřímé měření: elektroměr v RE přímo na sekundáru MTP (bez svorek XMI/XMU).
-Řetězec stávajících článků firmy v řadě pod FV částí (užší list). Kroky 7–10 zbývají.
+Kroky 7–10 hotové (2026-10-21, CHANGELOG). Řetězec stávajících článků **svisle** (rozhodnutí uživatele):
+firma pod RFVE.AC (`layout._chain_column`), RD ve sloupci vpravo (`layout._house_column`), volba rozložení podle
+hodnocení (`chain._choose_chain_layout`); listy střídačů rozděleného JPS bez pruhu po společném RFVE.DC
+(`jps.close_gaps`), samostatný RFVE.DC na listu AC pod / nad zbytkem (`jps.stack_components`). Odchylky kroků 7–10:
+selektivita – rovnost In povolena u dvojic mimo `calc.CHAIN_STRICT`, poměr 1,6 jen dva jističe; síťová ochrana
+z vývodu 4 sběrnice (ne 6), EPS z prvního volného vývodu za ochranou (makro `ac_eps` vývod 5); vodič BACKUP → XE{i}
+přes pár přerušení „EPS-T{i}“; přepínač sítí se kreslí bez otočení (porty 1 a 2 nahoře, 3 dole); skupiny `ac_group`
+jen nn s RFVE.AC a HR (RD / vn → ValueError), RFVE.AC{n} → HR X{3…} přes pár přerušení „AC{n}-HR“, řady střídačů
+po skupinách; generátor nezadaný hlavní vypínač RFVE.AC dimenzuje ≥ vývod FVE, jistič střídače podle proudu.
 
 Bloky za prvním AC článkem zleva doprava, zrcadlené (přívod vpravo, k DS) jako dnes RHN; zarovnání zobecní
 `_align_connection` (`align(next, pv_port, port(prev, grid_side))`). U RD vede XOUT RFVE (`_route_house`) na RD.

@@ -1,6 +1,32 @@
 # Changelog
 
 ## Nevydáno
+- **Topologie F2 – kroky 7–10 a svislý řetězec** (`docs/design/topologie_f1_f2.md`, kap. 2). Formát projektu beze
+  změny (v14) – nové jsou značky `fve.grid_protection`, `fve.changeover_switch`, vestavěné makro „EPS přepínač sítí“
+  (role `ac_eps`), nepovinné atributy prvků (`chain`, `eps`, `acts_on`) a klíč standardu `grid_protection_kwp`.
+  - **Řetězec stávajících článků svisle** (rozhodnutí uživatele d): firma HR → RE → HDS → DS pod RFVE.AC („had“,
+    `layout._chain_column`, varianta s RFVE.AC u horního střídače), RD ve sloupci vpravo (`layout._house_column`),
+    DS vedle HDS; vedení RFVE.AC → HR už neobchází list. Volba rozložení podle hodnocení (křížení, překryvy textů,
+    formát, plocha). Rozdělené JPS: listy střídačů bez pruhu po společném RFVE.DC (`jps.close_gaps`), samostatný
+    RFVE.DC na listu AC pod / nad zbytkem (`jps.stack_components`); lomy stringů před rozvaděčem po trase jen pro řadu.
+    Všechny případy snímku, které se před F2 vešly na A2, mají stejný počet listů ≤ A2 (test
+    `test_snapshot_cases_fit_like_main`); RD s 1–3 střídači A3 → A2 (přibyl řetězec RD → RE → HDS → DS).
+  - **Krok 7 – F7 selektivita v řetězci**: `calc.check_selectivity_tree` (nad `single_line.build_tree`, dvojice přes
+    list), `checks.chain_findings`: `chain_selectivity`, `fve_out_fuse_le80`, `grid_protection_missing`,
+    `eps_unconnected`; HDS bez In → `breaker_no_in`. Generátor: nezadaný hlavní vypínač RFVE.AC ≥ vývod FVE (9 střídačů
+    400 A místo 125 A), nezadaný jistič přívodu střídače podle proudu (10 kW → 16 A); zadané hodnoty se nepřepisují.
+  - **Krok 8 – síťová ochrana** nad `standard.grid_protection_kwp` (30 kWp DC) v RFVE.AC / RFVE: relé z vývodu 4
+    sběrnice, `acts_on` = hlavní vypínač; makro jádra `when: grid_protection`, kód i rozvod svorkami; přepis
+    `chain.rfve_ac|rfve.grid_protection` `auto|1|0`.
+  - **Krok 9 – EPS a přepínač sítí jen u RD**: hybridní střídač s baterií (svorka BACKUP, `eps="1"`) → pár přerušení
+    „EPS-T1“ → RFVE.XE1 → přepínač I-0-II (síť z přípojnice) → XB1 → „zálohované okruhy“; makro `ac_eps` nebo kód.
+  - **Krok 10 – `inverters[].ac_group`**: skupina = RFVE.AC{n} + vlastní vývod FVE v HR (X1, X3…), kabel přes pár
+    přerušení „AC{n}-HR“; jen nn s HR (RD / vn → ValueError).
+  - Vícepól: podstrom bez vazby na sběrnici (DC stringy RFVE) nezačíná na straně se sběrnými čarami (dříve překryvy
+    popisků SPD přes 1L1…1PE u RD se 3 střídači). Thermal: ztráty přepínače sítí a síťové ochrany (orientačně).
+  - Testy `tests/test_generator_f2.py` (+38), úpravy `test_busbar`, `test_qa_jps_wizard` (DS u HDS), `test_macros`;
+    fixture RD v `test_generate` 63/63/80 A. Snímek generátoru přegenerován (+3 případy: síťová ochrana, RD s EPS,
+    skupiny).
 - **Topologie F2 – nové články řetězce na nn** (`docs/design/topologie_f1_f2.md`, kap. 2, kroky 1–6; rozhodnutí
   `docs/NAVRH_TOPOLOGIE.md`, kap. 8). Formát projektu beze změny (v14) – nové jsou značka knihovny `fve.hds`
   a nepovinné atributy (`boundary`, `in_unresolved`) a volné texty listu.

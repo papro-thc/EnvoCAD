@@ -689,8 +689,28 @@ HDS s DS:
   RD bez zadání = dřívější `ac.grid_*`). Nový úsek bez průřezu dostane nejmenší průřez pro In přístroje, který ho jistí
   (vývod FVE, tabulka Iz); stávající úsek bez údajů je vodič bez označení a kabelu.
 
-U firmy stojí stávající články v řadě pod FV částí (vývod RFVE.AC vede dolů a zespodu do HR), u rodinného domu hned
-za RFVE pod střídači – výkres menší FVE zůstane na jednom listu A2. Volby se zadávají ve specifikaci, např.
+Stávající články se skládají **svisle** („had“, každý další pod předchozím): u firmy pod RFVE.AC (vývod XOUT vede
+krátce vpravo za uzemnění a dolů do HR), u rodinného domu ve sloupci vpravo od FV části (vývod RFVE pod střídači a
+nahoru do RD); DS stojí vedle HDS. Generátor zkusí i řadu pod FV částí / za RFVE.AC a nechá rozložení s nejmenším
+výkresem bez křížení a překryvů textů – projekty, které se vešly na jeden list A2 před F2, se vejdou i teď.
+
+**Kontrola řetězce (F7)**: selektivita přes listy (vývod FVE v RD / HR < hlavní jistič před elektroměrem < pojistky
+HDS, jistič střídače ≤ vývod FVE, odpínač nesmí mít In pod jištěním, které ho chrání) – `chain_selectivity`; pojistkový
+vývod FVE do 80 A (`fve_out_fuse_le80`), chybějící síťová ochrana nad hranicí (`grid_protection_missing`), EPS vývod,
+který nevede na přepínač sítí (`eps_unconnected`), HDS bez In (`breaker_no_in`). Zadané hodnoty generátor
+nepřepisuje – nevyhovující nahlásí. Nezadaný hlavní vypínač AC rozvaděče je nejméně 125 A a nejméně vývod FVE,
+nezadaný jistič přívodu střídače podle proudu střídače.
+
+**Síťová ochrana** nad 30 kWp instalovaného výkonu DC (hranice ve firemním standardu `grid_protection_kwp`): relé
+U<> f<> v RFVE.AC (u rodinného domu v RFVE) měří z přípojnice za hlavním vypínačem a působí na něj; přepis
+`"chain": {"rfve_ac": {"grid_protection": "1" | "0" | "auto"}}` (u RD `rfve`).
+
+**EPS a přepínač sítí** jen u rodinného domu s hybridním střídačem a baterií: EPS vývod (BACKUP) střídače vede přes
+pár přerušení „EPS-T1“ na přívod XE1 RFVE → přepínač sítí I-0-II (síť z přípojnice) → vývod XB1 „zálohované
+okruhy“. U firmy a bytového domu se nekreslí.
+
+**Střídače na jiném místě**: `"inverters": [{…, "ac_group": "hala B"}]` – skupina má vlastní RFVE.AC2 (hlavní
+RFVE.AC1) a vlastní vývod FVE v HR (X3…; kabel přes pár přerušení „AC2-HR“). Jen nn s HR (firma, bytový dům). Volby se zadávají ve specifikaci, např.
 `"chain": {"hr": {"main_in": 250}, "re": {"main_in": 250, "metering": "indirect", "boundary": "re_main"},
 "hds": {"in_": 315}}` (přehled v `docs/LIBRARY_FORMAT.md`, „Volby článků“). Průvodce je zatím nenabízí (F5).
 Jednofázový střídač (`phases` 1) má AC kabel třížilový (L N PE) s průřezem podle proudu. Vlastní nebo firemní presety

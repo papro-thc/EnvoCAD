@@ -39,14 +39,18 @@ envocad/
     pv.py        plan (pracovní souřadnice řad) a build (střídače, stringy, DC rozvaděče, DC/AC vodiče, baterie)
     chain.py     průchod topology.nodes přes registr BOARD_BUILDERS: 1. bloky (`block`) a vodiče mezi články
                  (`link` – kabel `chain.<role>.*`, stávající úsek bez údajů a HDS → DS bez kabelu, nový bez průřezu
-                 `calc.min_cross`), 2. listy (`build`); HOP, zarovnání (řetězec stávajících článků firmy v řadě pod FV
-                 částí – `layout._chain_below`, u RD hned za RFVE), hranice vlastnictví, rozmístění JPS, vazby přívodů
-    layout.py    zarovnání bloků a lomů JPS, trasa RD, zvětšení listů rozvaděčů
-    jps.py       rozmístění JPS na list a dělení na listy střídačů
+                 `calc.min_cross`), 2. listy (`build`); HOP, zarovnání – řetězec stávajících článků svisle (firma pod
+                 RFVE.AC `layout._chain_column`, RD vpravo `layout._house_column`) nebo v řadě; volba podle hodnocení
+                 (`_choose_chain_layout`: křížení, překryvy, formát), hranice vlastnictví, rozmístění JPS, vazby přívodů
+    layout.py    zarovnání bloků a lomů JPS, trasa RD, svislý řetězec (`_stack_column`), zvětšení listů rozvaděčů
+    jps.py       rozmístění JPS na list a dělení na listy střídačů (`close_gaps`, `stack_components`)
     boards/      jeden modul na roli: base (ChainContext, ChainPorts, BoardBuilder), rfve_dc (i společný RFVE.DC),
                  rfve_ac, rfve (rozvaděč FVE RD), house_board (stávající RD / HR: hlavní přístroj, vývod FVE, stávající
                  rozvody), meter_board (RE na nn a funkce měření – i měření v HR), hds (`fve.hds`), grid (DS na nn),
-                 mv (přípojka VN: HR+TR+RVN+RE jako jeden builder), macro_glue (makra)
+                 mv (přípojka VN: HR+TR+RVN+RE jako jeden builder), macro_glue (makra), eps (EPS a přepínač sítí
+                 RD), groups (skupiny střídačů `ac_group` – RFVE.AC{n}); přístroje řetězce nesou atribut `chain`
+                 (inv, rfve_main, fve_out, main, meter_main, inst_switch) pro `calc.check_selectivity_tree` (F7
+                 `checks.chain_findings`)
   ui/         PySide6 GUI (nikdy neobsahuje business logiku)
     canvas.py       QGraphicsView – mřížka, zoom, snap
     items.py        QGraphicsItem obaly nad Element/Wire

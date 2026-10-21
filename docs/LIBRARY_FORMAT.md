@@ -218,7 +218,7 @@ Makro = pojmenovaná sestava prvků a vodičů (výřez listu) k opakovanému vk
   "version": 3,
   "name": "DC string v rozvaděči",
   "description": "…",
-  "role": "dc_tech",                       // role v generátoru: dc_tech | dc_route | ac_feed | ac_core | ""
+  "role": "dc_tech",                       // role v generátoru: dc_tech | dc_route | ac_feed | ac_core | ac_eps | ""
   "variables": [
     {"name": "n", "label": "Počet stringů", "type": "number", "default": "1", "min": 1, "max": 50, "auto": true},
     {"name": "j", "label": "Číslo stringu u střídače", "type": "number", "default": "{k}", "auto": true},
@@ -382,7 +382,19 @@ Volby článku: `spec["chain"][role]` > `options` článku presetu > výchozí h
 | `re` | `switch_in` | `main_in` | In vypínače instalace |
 | `re` | `boundary` | `hds` | hranice vlastnictví `hds` \| `re_main` \| `re_meter` (atribut `boundary="1"` na HDS / HJ / elektroměru + text v blokovém schématu) |
 | `hds` | `in_`, `char`, `poles` | `""`, `gG`, `3` | pojistky HDS (`fve.hds`) |
-| `rfve`, `rfve_ac` | `grid_protection` | `auto` | síťová ochrana (F2 krok 8 – zatím bez logiky) |
+| `rfve`, `rfve_ac` | `grid_protection` | `auto` | síťová ochrana `fve.grid_protection`: `auto` = instalovaný výkon DC nad `standard.grid_protection_kwp` (30 kWp), `1` vždy, `0` nikdy (F7 `grid_protection_missing`); jinak ValueError |
+
+Nepovinné klíče střídače: `inverters[].ac_group` – skupina střídačů na jiném místě (krok 10): každá skupina má vlastní
+AC rozvaděč RFVE.AC{n} (hlavní „“ = RFVE.AC1) a vlastní vývod FVE ve stávajícím HR (X1, X3, X4…; X2 = stávající
+rozvody); jen nn s RFVE.AC a HR (firma, bytový dům, měření v HR), jinak ValueError. Řady střídačů se v blokovém
+schématu seřadí po skupinách.
+
+**Role maker v generátoru** (`spec.macros.<role>`): `dc_tech`, `dc_route`, `ac_feed`, `ac_core` (výchozí vestavěná),
+`ac_eps` (jen rodinný dům s hybridním střídačem a baterií; vestavěné „EPS přepínač sítí“, výchozí je kód). Jádro
+`ac_core` má auto proměnnou `grid_protection` („1“ / „“) – prvky s `"when": "grid_protection"` (vestavěné: síťová
+ochrana z vývodu 4 sběrnice; `acts_on` doplní generátor = hlavní vypínač). `ac_eps` na hybridní střídač: auto `i`,
+`inverter`, `eps_in` (In přepínače), `main_in`; kotvy `sb.feed` `dir=in` `XE{i}` (EPS od střídače), `sb.feed`
+`dir=out` `XB{i}` (zálohované okruhy), sdílená sběrnice `1` vývod 5 (síťová strana přepínače).
 
 **Výběr topologie** (`envocad/generator/spec.select_topology(spec, topologies)`): `spec["topology"]` zadané → ten preset
 (jediná cesta k `nn_hr_meter`); jinak rodinný dům → `rd` (i nad 30 kWp), `connection.level` "vn" → `vn`, jinak `nn`

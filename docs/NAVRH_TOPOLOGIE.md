@@ -251,4 +251,6 @@ připravené (F4 po dodání mustrů).
    podle pořadí střídače ve specifikaci (ne podle čísla v `ref` střídače); rozvaděče po trase `RDC1…n` souvisle (číslo
    RDC rozvaděče u technologie neberou). Návrh výše píše `RFVE_DC` / `RFVE_AC` – platí `RFVE.DC` / `RFVE.AC`
    (kód umístění s tečkou uvnitř, `designation.CODE_RE`). Společný RFVE.DC (bod 3) je hotový (F2, krok 2).
-10. **Přepínač sítí a EPS vývod** jen u rodinného domu (RFVE); u firmy a bytového domu se nekreslí.
+10. **Přepínač sítí a EPS vývod** jen u rodinného domu (RFVE); u firmy a bytového domu se nekreslí. **Hotovo** (F2,
+    krok 9: `generator/boards/eps.py`, značka `fve.changeover_switch`). Síťová ochrana nad 30 kWp (bod 1) – F2 krok 8,
+    skupiny RFVE.AC na jiném místě (bod 3) – F2 krok 10.
