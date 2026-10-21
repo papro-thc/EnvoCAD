@@ -71,7 +71,7 @@ def test_big_jps_split_ac_first_then_inverter_sheets_a2(big):
     assert big.sheets[:5] == js                             # listy JPS před listy rozvaděčů
     ac = js[0]
     assert ac.name == JPS_AC_SHEET_NAME
-    assert {e.symbol_id for e in ac.elements} == {"fve.switchboard", "fve.grid", "fve.earth", INTERRUPT_SYMBOL}
+    assert {e.symbol_id for e in ac.elements} == {"fve.switchboard", "fve.grid", "fve.hds", "fve.earth", INTERRUPT_SYMBOL}
     assert sorted(e.ref for e in interrupts(ac)) == sorted(f"AC-T{i}" for i in range(1, 9))
     assert [s.name for s in js[1:]] == [f"Blokové schéma – T{i}, T{i + 1}" for i in (1, 3, 5, 7)]
     for s in js:
@@ -197,7 +197,8 @@ def test_potential_joins_inverter_with_switchboard_block(big, lib):
 def test_checks_no_new_findings_on_split_project(big, big_one_sheet, lib):
     f_split, f_one = check_project(big, lib), check_project(big_one_sheet, lib)
     codes = {f.code for f in f_split}
-    assert not codes & {"interrupt_alone", "cable_split", "no_cable", "dup_ref", "text_overlap", "free_port",
+    # „no_cable“ (INFO) má i nerozdělený projekt: vodič HDS → DS je záměrně bez kabelu (F2) – porovná `count` níže
+    assert not codes & {"interrupt_alone", "cable_split", "dup_ref", "text_overlap", "free_port",
                         "unconnected", "potential", "calc_cable", "calc_string"}
     # mimo souhrnné INFO (ty se slučují po listech – víc listů = víc souhrnných řádků) stejné nálezy jako jeden list
     def count(fs):
@@ -501,7 +502,7 @@ def test_split_house_combined_switchboard(lib, route):
     assert len(js) >= 3 and js[0].name == JPS_AC_SHEET_NAME
     ac = js[0]
     assert [e.ref for e in ac.elements if e.symbol_id == "fve.switchboard"] == ["RFVE"]
-    assert {e.symbol_id for e in ac.elements} <= {"fve.switchboard", "fve.grid", "fve.earth", INTERRUPT_SYMBOL}
+    assert {e.symbol_id for e in ac.elements} <= {"fve.switchboard", "fve.grid", "fve.hds", "fve.earth", INTERRUPT_SYMBOL}
     rfve = next(e for e in ac.elements if e.ref == "RFVE")
     for w in ac.wires:                                   # vše u RFVE nese údaje kabelu, pokračování je u řady
         if rfve.id in (w.a.element_id, w.b.element_id):

@@ -6,7 +6,7 @@ from generate_snapshot import CASES, canon
 
 from envocad import generate
 from envocad.generator import build, chain, context
-from envocad.generator.boards import grid, mv, rfve, rfve_ac, rfve_dc
+from envocad.generator.boards import grid, hds, mv, rfve, rfve_ac, rfve_dc
 from envocad.generator.boards.base import ChainContext, PvGeometry
 from envocad.library.topologies import load_topologies
 from envocad.model.project import Project
@@ -35,16 +35,16 @@ def test_builders_per_role():
     ctx = _ctx(topos["nn"])
     got = {n.role: chain.builder_for(ctx, n) for n in topos["nn"].nodes}
     assert got == {"rfve_dc": rfve_dc.BUILDER, "inverter": None, "rfve_ac": rfve_ac.BUILDER, "hr": None, "re": None,
-                   "hds": None, "grid": grid.BUILDER}       # F1: stávající HR, RE a HDS ještě bez builderu
+                   "hds": hds.BUILDER, "grid": grid.BUILDER}
     ctx = _ctx(topos["rd"])
-    assert [chain.builder_for(ctx, n) for n in topos["rd"].nodes] == [rfve.BUILDER, None, None, None, None,
+    assert [chain.builder_for(ctx, n) for n in topos["rd"].nodes] == [rfve.BUILDER, None, None, None, hds.BUILDER,
                                                                        grid.BUILDER]
     ctx = _ctx(topos["vn"])
     got = {n.role: chain.builder_for(ctx, n) for n in topos["vn"].nodes}
     assert {r: got[r] for r in ("hr", "tr", "rvn", "grid", "re")} == dict.fromkeys(("hr", "tr", "rvn", "grid", "re"),
                                                                                    mv.BUILDER)
     # průchod přeskočí střídače a role bez builderu
-    assert [n.role for n, _b in chain._chain_nodes(_ctx(topos["nn"]))] == ["rfve_dc", "rfve_ac", "grid"]
+    assert [n.role for n, _b in chain._chain_nodes(_ctx(topos["nn"]))] == ["rfve_dc", "rfve_ac", "hds", "grid"]
 
 
 def test_topology_selected_from_unmerged_spec():
@@ -79,17 +79,22 @@ def test_invalid_topology_raises(spec, msg):
 
 
 def test_custom_topology_without_grid_and_ac_node(tmp_path, monkeypatch):
-    """Vlastní topologie bez článku RFVE.AC a DS: hlavní AC rozvaděč a DS vzniknou i tak (výkres jako u nn)."""
+    """Vlastní topologie bez článku RFVE.AC a DS: hlavní AC rozvaděč a DS vzniknou i tak (výkres jako u topologie
+    RFVE.DC → T → RFVE.AC → DS)."""
     import json
     home = tmp_path / "home"
     (home / "topologies").mkdir(parents=True)
     (home / "topologies" / "jen_dc.json").write_text(json.dumps({
         "version": 1, "id": "jen_dc", "name": "Jen DC", "level": "nn",
         "nodes": [{"role": "rfve_dc"}, {"role": "inverter"}]}), encoding="utf-8")
+    (home / "topologies" / "primo.json").write_text(json.dumps({
+        "version": 1, "id": "primo", "name": "Přímo do DS", "level": "nn",
+        "nodes": [{"role": "rfve_dc", "ref": "RFVE.DC"}, {"role": "inverter"}, {"role": "rfve_ac", "ref": "RFVE.AC"},
+                  {"role": "grid"}]}), encoding="utf-8")
     monkeypatch.setenv("ENVOCAD_HOME", str(home))
     assert "jen_dc" in load_topologies()
     spec = CASES["two_inv"]
-    a = canon(generate.build_project(spec))
+    a = canon(generate.build_project({**spec, "topology": "primo"}))
     b = canon(generate.build_project({**spec, "topology": "jen_dc"}))
     assert a["sheets"] == b["sheets"]
 

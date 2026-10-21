@@ -1,0 +1,96 @@
+{
+  "id": "fve.hds",
+  "name": "Hlavní domovní skříň (HDS)",
+  "category": "Síť a zátěž",
+  "iec_ref": "",
+  "description": "Hlavní domovní / přípojková skříň s pojistkami – hranice DS a odběratele (port 1 odběratel, 2 DS)",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -10,
+      "y": -7.5,
+      "w": 20,
+      "h": 15
+    },
+    {
+      "type": "line",
+      "x1": -12.5,
+      "y1": 0,
+      "x2": -4,
+      "y2": 0
+    },
+    {
+      "type": "rect",
+      "x": -4,
+      "y": -1.5,
+      "w": 8,
+      "h": 3
+    },
+    {
+      "type": "line",
+      "x1": -4,
+      "y1": 0,
+      "x2": 12.5,
+      "y2": 0
+    },
+    {
+      "type": "text",
+      "x": 0,
+      "y": 3,
+      "text": "HDS",
+      "height": 2,
+      "align": "center"
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": -12.5,
+      "y": 0,
+      "dir": "W"
+    },
+    {
+      "name": "2",
+      "x": 12.5,
+      "y": 0,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "desc",
+      "label": "Popis",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "in_",
+      "label": "In pojistek [A]",
+      "default": "",
+      "show": true,
+      "fmt": "{} A"
+    },
+    {
+      "key": "char",
+      "label": "Charakteristika",
+      "default": "gG",
+      "show": true
+    },
+    {
+      "key": "poles",
+      "label": "Póly",
+      "default": "3",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": -10,
+    "y": 15
+  }
+}

@@ -54,10 +54,13 @@ def _align_route_boxes(p: Project, blk: Element, chains: list[list[Element]]) ->
             w.points = []
 
 
-def _route_house(p: Project, blk: Element, ac_wires: list[Wire], grid: Element, earth: Element | None) -> None:
+def _route_house(p: Project, blk: Element, ac_wires: list[Wire], first: tuple[Element, str, Wire],
+                 earth: Element | None) -> None:
     """JPS rodinného domu: rozvaděč FVE stojí před střídači. AC vodiče od střídačů vedou nad vším zpět na přívody
-    X1…Xn vlevo (vnější lom pro dolní střídač – bez křížení), vývod XOUT pod vším k síti za střídači, uzemnění (HOP)
-    hned pod vývod XPE."""
+    X1…Xn vlevo (vnější lom pro dolní střídač – bez křížení), vývod XOUT pod vším k prvnímu článku za střídači
+    (`first` = blok, jeho přívod, vodič – RD, jinak HDS / DS), uzemnění (HOP) hned pod vývod XPE."""
+    from envocad.model.textlayout import symbol_box
+    grid, grid_port, w_grid = first
     from envocad.model.textlayout import sheet_content_boxes
     lib = context._lib()
     s = p.sheets[0]
@@ -70,7 +73,6 @@ def _route_house(p: Project, blk: Element, ac_wires: list[Wire], grid: Element, 
 
     sheet = p.switchboard_sheet(blk.id)
     names = {e.ref for e in (sheet.elements if sheet else []) if is_feed_out(e)}
-    w_grid = next(w for w in s.wires if grid.id in (w.a.element_id, w.b.element_id))
     w_earth = next((w for w in s.wires if earth is not None and earth.id in (w.a.element_id, w.b.element_id)), None)
     if earth is not None and "XPE" not in names:   # bez svodičů a PE vývodu (rozvod svorkami) – uzemnění nekreslit
         s.elements.remove(earth)
@@ -104,9 +106,37 @@ def _route_house(p: Project, blk: Element, ac_wires: list[Wire], grid: Element, 
         from envocad.model.textlayout import compute_layout
         lp = compute_layout(p, s, lib).wires.get(w_earth.id)
         x_out = max([x_out, *(snap(b[2] + 5.0) for b in (lp.boxes if lp else []))])
-    bottom = min((b[1] for b in boxes if b[2] >= x_out - 5.0 and b[0] <= grid.x + 10.0), default=blk.y)
-    grid.y = snap(bottom - 7.5)
-    w_grid.points = [(x_out, out[1]), (x_out, grid.y)]
+    sym = element_symbol(p, grid, lib)
+    above = symbol_box(grid, sym)[3] - port(grid, grid_port)[1]      # značka nad přívodem (blok RD: popis, řádky)
+    bottom = min((b[1] for b in boxes if b[2] >= x_out - 5.0 and b[0] <= grid.x + 25.0), default=blk.y)
+    y = snap(bottom - 7.5 - max(0.0, above))
+    grid.y += y - port(grid, grid_port)[1]
+    w_grid.points = [(x_out, out[1]), (x_out, y)]
+
+
+def _align_chain(project: Project, links: list[tuple[Element, str, Element, str, Wire]]) -> None:
+    """Bloky řetězce za prvním článkem k síti na výšku vývodu předchozího (vodiče vedou rovně): RE na přívod RD/HR,
+    HDS na přívod RE, DS na HDS. `links` v pořadí řetězce (`ChainContext.links`)."""
+    lib = context._lib()
+    for prev, pport, el, port, w in links:
+        y_prev = prev.port_pos(element_symbol(project, prev, lib), pport)[1]
+        el.y += y_prev - el.port_pos(element_symbol(project, el, lib), port)[1]
+        w.points = []
+
+
+def place_load(project: Project, blk: Element, port: str, load: Element, w: Wire) -> None:
+    """Spotřeba objektu pod zrcadleným blokem (stávající RD / HR, vývod X2 vlevo): z vývodu kousek vlevo, svisle
+    dolů pod blok a vpravo do značky (jako `_align_connection` u přípojky VN)."""
+    lib = context._lib()
+    sym = element_symbol(project, blk, lib)
+    if not any(pt.name == port for pt in sym.ports):
+        return
+    xs = blk.port_pos(sym, port)
+    low = blk.y - max(abs(pt.y) for pt in sym.ports) - 25.0
+    lp = load.port_pos(element_symbol(project, load, lib), "1")
+    load.x += xs[0] + 7.5 - lp[0]
+    load.y += low - lp[1]
+    w.points = [(xs[0] - 20.0, xs[1]), (xs[0] - 20.0, low)]
 
 
 def _align_outputs(project: Project, blk: Element, grid: Element | None, earth: Element | None) -> None:

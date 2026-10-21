@@ -111,3 +111,48 @@ def test_rfve_dc_common_split_jps():
     assert not [f for f in check_project(p, lib) if f.severity in (ERROR, WARNING)]
     _root, nodes = build_tree(p, lib, dc=True)
     assert sum(n.element.symbol_id == "fve.pv_string" for n in nodes.values()) == 32
+
+
+# ---- krok 3: HDS ------------------------------------------------------------------------------------------------
+def test_hds_symbol_contract():
+    from envocad.library.store import LibraryStore
+    sym = LibraryStore().get_symbol("fve.hds")
+    assert [(p.name, p.x, p.y, p.dir) for p in sym.ports] == [("1", -12.5, 0, "W"), ("2", 12.5, 0, "E")]
+    assert {a.key for a in sym.attributes} >= {"ref", "desc", "in_", "char", "poles"}
+    assert all(p.x % 2.5 == 0 and p.y % 2.5 == 0 for p in sym.ports)
+
+
+def test_hds_block_before_grid_without_cable():
+    """Řetězec nn i rd končí HDS → DS: blok `fve.hds` (In a charakteristika z `chain.hds`), vodič do DS bez kabelu
+    a bez označení; odvozené JPS ho nese (neotáčí se)."""
+    from envocad.library.store import LibraryStore
+    from envocad.model.single_line import NO_ROTATE_PREFIXES, build_tree
+    for spec in ({"inverters": [{"ref": "T1", **_INV, "strings": [20]}], "chain": {"hds": {"in_": 100}}},
+                 {"building": "house", "inverters": [{"ref": "T1", **_INV, "strings": [12]}],
+                  "chain": {"hds": {"in_": 100}}}):
+        p = build_project(spec)
+        s = p.sheets[0]
+        hds = next(e for e in s.elements if e.symbol_id == "fve.hds")
+        grid = next(e for e in s.elements if e.symbol_id == "fve.grid")
+        assert hds.ref == "HDS" and hds.attrs["in_"] == "100" and hds.attrs["char"] == "gG"
+        w = next(w for w in s.wires if w.touches(hds.id) and w.touches(grid.id))
+        assert (w.a.port, w.b.port) == ("2", "1") and w.attrs == {"ref": ""}
+        _root, nodes = build_tree(p, LibraryStore())
+        assert any(n.element.id == hds.id for n in nodes.values())
+    assert "fve.hds" in NO_ROTATE_PREFIXES
+
+
+def test_hds_in_selectivity():
+    """Pojistky HDS jsou jisticí přístroj selektivity: jistič za nimi s větším In → nález."""
+    from envocad.model.calc import SELECTIVITY_DEVICES, check_selectivity
+    from envocad.model.project import Element, Project, Wire, WireEnd
+    assert "fve.hds" in SELECTIVITY_DEVICES and "fve.fuse_disconnect" in SELECTIVITY_DEVICES
+    p = Project()
+    s = p.sheets[0]
+    g = Element("fve.grid", 100, 0, attrs={"ref": ""})
+    h = Element("fve.hds", 70, 0, attrs={"ref": "HDS", "in_": "50"})
+    q = Element("fve.breaker_mccb", 40, 0, attrs={"ref": "Q1", "in_": "63"})
+    s.elements += [g, h, q]
+    s.wires += [Wire(WireEnd(h.id, "2"), WireEnd(g.id, "1")), Wire(WireEnd(q.id, "2"), WireEnd(h.id, "1"))]
+    (row,) = check_selectivity(p)
+    assert row[:4] == ("Q1", "HDS", 63.0, 50.0) and "menší In" in row[4]

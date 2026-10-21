@@ -9,6 +9,9 @@ from typing import Protocol
 from envocad.model.project import Element, Project, Sheet, Wire
 from envocad.model.topology import ChainNode, Topology
 
+CHAIN_PITCH = 75.0   # rozestup bloků řetězce za prvním článkem k síti (RD/HR → RE → HDS → DS) – popisek kabelu
+CHAIN_PITCH_PLAIN = 50.0   # … vodič bez kabelu (stávající úsek, HDS → DS) – jen mezera mezi bloky
+
 
 @dataclass
 class PvGeometry:
@@ -57,6 +60,31 @@ class ChainContext:
     done: set[str] = field(default_factory=set)    # už sestavené části (listy DC rozvaděčů, hlavní rozvaděč…)
     tail: tuple[Element, str] | None = None         # poslední blok řetězce směrem k síti a jeho vývod (XOUT)
     dc_common: Element | None = None                # společný DC rozvaděč u technologie RFVE.DC (2+ střídače)
+    tail_node: ChainNode | None = None              # článek `tail` (kabel k dalšímu článku podle jeho role)
+    # vodiče mezi články řetězce za hlavním AC článkem: (předchozí blok, jeho vývod, blok, jeho přívod, vodič)
+    links: list[tuple[Element, str, Element, str, Wire]] = field(default_factory=list)
+    loads: list[tuple[Element, str, Element, Wire]] = field(default_factory=list)   # spotřeba pod RD / HR
+    node_in: dict[str, str] = field(default_factory=dict)   # role → In přístroje, který jistí kabel od předchozího
+    #                                                         článku (vývod FVE v RD/HR, HJ v RE, pojistky HDS)
+
+    def next_x(self) -> float:
+        """x dalšího bloku řetězce (zleva doprava): první za hlavním AC článkem na sloupci sítě (`geo.x_grid`),
+        další po `CHAIN_PITCH` – mezi bloky se vejde popisek kabelu."""
+        if self.tail is None or self.tail[0] is self.blocks.get("main"):
+            return self.geo.x_grid
+        return self.tail[0].x + (CHAIN_PITCH_PLAIN if self.link_plain() else CHAIN_PITCH)
+
+    def link_plain(self) -> bool:
+        """Vodič od `tail` k dalšímu článku bude bez kabelu a popisku (od HDS; stávající článek bez údajů kabelu)."""
+        from envocad.generator.spec import chain_options
+        node = self.tail_node
+        if node is None:
+            return False
+        if node.role == "hds":
+            return True
+        o = chain_options(self.spec, self.topology, node.role)
+        return node.existing and not any(str(o.get(k) or "").strip() or getattr(node.link, k, "")
+                                         for k in ("cable", "cross"))
 
     @property
     def main(self) -> Element:

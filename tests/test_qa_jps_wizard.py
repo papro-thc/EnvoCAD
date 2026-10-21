@@ -216,7 +216,7 @@ def test_switchboard_sheet_without_block_is_warning(lib):
 def test_generated_multipole_has_no_text_overlaps(lib, kw):
     from envocad.model.multipole_geometry import multipole_text_overlaps
     p = build_project(spec(2, 4, **kw))
-    for s in p.sheets[1:]:
+    for s in p.switchboards():
         assert multipole_text_overlaps(p, s, lib) == [], s.name
 
 

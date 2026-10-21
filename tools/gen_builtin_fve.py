@@ -261,6 +261,18 @@ SYMBOLS = [
         "label_pos": {"x": -5, "y": -8},
     },
     {
+        # hlavní domovní skříň (přípojková skříň DS) s pojistkami – článek řetězce mezi elektroměrovým rozvaděčem a DS,
+        # jisticí přístroj v selektivitě (docs/design/topologie_f1_f2.md, kap. 2 bod 3); tok zleva (odběratel) doprava
+        "id": "fve.hds", "name": "Hlavní domovní skříň (HDS)", "category": "Síť a zátěž", "iec_ref": "",
+        "description": "Hlavní domovní / přípojková skříň s pojistkami – hranice DS a odběratele (port 1 odběratel, 2 DS)",
+        "primitives": [R(-10, -7.5, 20, 15), L(-12.5, 0, -4, 0), R(-4, -1.5, 8, 3), L(-4, 0, 12.5, 0),
+                       T(0, 3, "HDS", 2)],
+        "ports": [P("1", -12.5, 0, "W"), P("2", 12.5, 0, "E")],
+        "attributes": [REF, attr("desc", "Popis", "", True), attr("in_", "In pojistek [A]", "", True, "{} A"),
+                       attr("char", "Charakteristika", "gG", True), POLES],
+        "label_pos": {"x": -10, "y": 15},
+    },
+    {
         "id": "fve.load", "name": "Spotřeba objektu", "category": "Síť a zátěž", "iec_ref": "",
         "description": "Stávající rozvod / spotřeba objektu",
         "primitives": [L(-7.5, 0, -5, 0), R(-5, -5, 15, 10), T(2.5, -1, "Spotřeba", 2)],

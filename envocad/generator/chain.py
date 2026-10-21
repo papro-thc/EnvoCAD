@@ -8,28 +8,33 @@ DS a odbočku RE jeden složený builder `mv`. Střídače (`inverter`) a vše p
 """
 from __future__ import annotations
 
-from envocad.generator.boards import grid, mv, rfve, rfve_ac, rfve_dc
+from envocad.generator.boards import grid, hds, mv, rfve, rfve_ac, rfve_dc
 from envocad.generator.boards.base import BoardBuilder, ChainContext
 from envocad.generator.context import _s, log
 from envocad.generator.jps import _place_jps
 from envocad.generator.layout import (
     _align_bends,
+    _align_chain,
     _align_connection,
     _align_outputs,
     _align_route_boxes,
     _grow_switchboards,
     _route_house,
 )
+from envocad.library.templates import AC_CONDUCTORS
 from envocad.model.project import Element, Wire, WireEnd, sync_cables, sync_feed_links
 from envocad.model.topology import ChainNode
 
-# role → builder článku (F2 doplní rd, hr a re na nn, hds)
+# role → builder článku
 BOARD_BUILDERS: dict[str, BoardBuilder] = {
     "rfve_dc": rfve_dc.BUILDER,
     "rfve_ac": rfve_ac.BUILDER,
     "rfve": rfve.BUILDER,
+    "hds": hds.BUILDER,
     "grid": grid.BUILDER,
 }
+MAIN_ROLES = ("rfve", "rfve_ac")
+CABLE_KEYS = ("cable", "cross", "length", "method")
 
 
 def builder_for(ctx: ChainContext, node: ChainNode) -> BoardBuilder | None:
@@ -48,6 +53,45 @@ def create_main_block(ctx: ChainContext) -> Element:
     ctx.sheet.elements.append(blk)
     ctx.blocks["main"] = blk
     return blk
+
+
+def link_attrs(ctx: ChainContext, prev: ChainNode | None, node: ChainNode) -> dict:
+    """Atributy vodiče od článku `prev` k článku `node` (kabel článku směrem k síti, kap. 2 bod 6): `chain.<role>`
+    (cable / cross / length / method) > `link` článku presetu > u hlavního AC článku dřívější `ac.grid_*`.
+    Od HDS k DS vodič bez kabelu; stávající úsek (`existing`) bez údajů = vodič bez označení. Nový úsek bez průřezu
+    → nejmenší průřez pro In přístroje, který kabel jistí (`ctx.node_in[node.role]`, `calc.min_cross`)."""
+    from envocad.generator.spec import chain_options
+    from envocad.model.calc import min_cross
+    role = prev.role if prev is not None else "rfve_ac"
+    if role == "hds":
+        return {"ref": ""}
+    o = chain_options(ctx.spec, ctx.topology, role)
+    link_ = prev.link if prev is not None else None
+    vals = {k: _s(o.get(k)).strip() or (_s(getattr(link_, k, "")).strip() if link_ is not None else "")
+            for k in CABLE_KEYS}
+    if role in MAIN_ROLES:
+        ac = ctx.spec["ac"]
+        for k in ("cable", "cross", "length"):
+            vals[k] = vals[k] or _s(ac.get(f"grid_{k}")).strip()
+        vals["method"] = vals["method"] or "D"
+    elif prev is not None and prev.existing and not (vals["cable"] or vals["cross"]):
+        return {"ref": ""}
+    vals["method"] = vals["method"] or "C"
+    if not vals["cross"]:
+        from envocad.generator.context import _num
+        x = min_cross(_num(ctx.node_in.get(node.role)) or 0.0, vals["method"])
+        vals["cross"] = f"{x:g}" if x else ""
+    return {"ref": ctx.project.next_ref("W"), **vals}
+
+
+def link(ctx: ChainContext, el: Element, port: str, node: ChainNode) -> Wire:
+    """Vodič od vývodu předchozího článku (`ctx.tail`) k přívodu `port` bloku `el` článku `node` (`ctx.links`)."""
+    prev, pport = ctx.tail
+    w = Wire(WireEnd(prev.id, pport), WireEnd(el.id, port), conductors=list(AC_CONDUCTORS),
+             attrs=link_attrs(ctx, ctx.tail_node, node))
+    ctx.sheet.wires.append(w)
+    ctx.links.append((prev, pport, el, port, w))
+    return w
 
 
 def _earth_block(ctx: ChainContext) -> None:
@@ -91,9 +135,12 @@ def build(ctx: ChainContext) -> None:
         el = b.block(ctx, node)
         if el is not None:
             ctx.blocks.setdefault(node.role, el)
-            grid_side = b.ports(ctx, node).grid_side
-            if grid_side:
-                ctx.tail = (el, grid_side)
+            ports = b.ports(ctx, node)
+            if getattr(b, "linked", False) and ctx.tail is not None and ports.pv_side:
+                link(ctx, el, ports.pv_side[0], node)
+            if ports.grid_side:
+                ctx.tail = (el, ports.grid_side)
+                ctx.tail_node = node
     if ctx.grid is None:              # vlastní topologie bez článku „grid“: DS za koncem řetězce jako dřív
         grid.build_grid(ctx)
     _earth_block(ctx)
@@ -111,6 +158,14 @@ def build(ctx: ChainContext) -> None:
     _layout(ctx)
 
 
+def _place_loads(ctx: ChainContext) -> None:
+    """Spotřeba objektu (`fve.load` na vývodu X2 stávajícího RD / HR) pod blokem – builder ji registruje
+    v `ctx.loads` (blok, port, značka, vodič); vodič z X2 vlevo (blok je zrcadlený), svisle dolů pod blok a do značky."""
+    from envocad.generator.layout import place_load
+    for blk, port, load, w in ctx.loads:
+        place_load(ctx.project, blk, port, load, w)
+
+
 def _layout(ctx: ChainContext) -> None:
     """Zarovnání bloků a lomů JPS, rozmístění na list(y), zvětšení přetékajících listů rozvaděčů, vazby přívodů."""
     p, s, blk = ctx.project, ctx.sheet, ctx.main
@@ -119,10 +174,14 @@ def _layout(ctx: ChainContext) -> None:
         _align_route_boxes(p, target, [[b for b, _g, k, no, _r in ctx.dc_boxes if no == i + 1 and b is not target]
                                        for i in range(len(ctx.inverters))])
     _align_bends(p)
-    if ctx.combined:
-        _route_house(p, blk, ctx.ac_wires, ctx.grid, ctx.earth)
+    links = list(ctx.links)
+    if ctx.combined and links:
+        _prev, _pp, first, port, w = links.pop(0)
+        _route_house(p, blk, ctx.ac_wires, (first, port, w), ctx.earth)
     else:
-        _align_outputs(p, blk, None if ctx.mv else ctx.grid, ctx.earth)
+        _align_outputs(p, blk, None, ctx.earth)
+    _align_chain(p, links)
+    _place_loads(ctx)
     if ctx.mv is not None:
         _align_connection(p, blk, ctx.mv)
     _place_jps(p, s, ctx.spec.get("jps") or {}, ctx.rows, ctx.ac_wires, blk)

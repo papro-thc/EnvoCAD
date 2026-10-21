@@ -84,6 +84,20 @@ def ampacity(cross: float, method: str = "C", loaded: int = 3, aluminium: bool =
     return round(iz * kt * grouping, 1)
 
 
+def min_cross(in_a: float, method: str = "C", loaded: int = 3, aluminium: bool = False,
+              t_ambient: float = 30.0) -> float | None:
+    """Nejmenší průřez z tabulky Iz (`IZ_3`, způsob uložení `method`), jehož zatížitelnost (`ampacity`) je ≥ `in_a`
+    (In jisticího přístroje kabelu, ČSN 33 2000-4-43: In ≤ Iz). Nic nevyhoví (nad 240 mm²) nebo neplatné In → None –
+    průřez se pak nedosazuje (prázdný = nález F7)."""
+    if not in_a or in_a <= 0:
+        return None
+    for cross in sorted(IZ_3.get(method, IZ_3["C"])):
+        iz = ampacity(cross, method, loaded, aluminium, t_ambient)
+        if iz is not None and iz >= in_a - 1e-9:
+            return float(cross)
+    return None
+
+
 def voltage_drop(i_a: float, length_m: float, cross: float, system: str, u_v: float, aluminium: bool = False,
                  cos_phi: float = 1.0) -> tuple[float, float]:
     """ΔU [V] a [%]; system = '3f' | '1f' | 'dc' (jen činná složka – orientační)."""
@@ -1208,12 +1222,17 @@ def check_cables(project: Project, t_ambient: float = 30.0, du_limit_pct: float 
     return out
 
 
+# jisticí přístroje v selektivitě: jističe, pojistky (i pojistkový odpínač – vývod FVE nad 80 A) a pojistky HDS
+SELECTIVITY_DEVICES = frozenset({"fve.breaker_mcb", "fve.breaker_mccb", "sb.rcbo", "fve.fuse", "fve.fuse_disconnect",
+                                 "fve.hds"})
+
+
 def check_selectivity(project: Project, sheet: Sheet | None = None) -> list[tuple[str, str, float, float, str]]:
     """Dvojice jistič → nadřazený jistič po cestě ke zdroji; vrací (dolní, horní, In_d, In_h, hlášení).
     `sheet` = jen dvojice na tomto listu (výkaz pro jeden list), jinak všechny listy."""
     from envocad.model.multipole import is_flow_source
     out = []
-    breakers = {"fve.breaker_mcb", "fve.breaker_mccb", "sb.rcbo", "fve.fuse"}
+    breakers = SELECTIVITY_DEVICES
     for s in project.sheets:
         if sheet is not None and s.id != sheet.id:
             continue

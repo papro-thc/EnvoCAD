@@ -45,7 +45,7 @@ BRANCH_SYMBOLS = {"fve.earthing_switch", "fve.spd", "fve.vt", "fve.voltage_indic
 LEAF_PREFIXES = ("fve.inverter",)      # bez `dc` strom končí u střídače
 # značky, které se neotáčí (text by byl svisle, vodič vede do portu i z boku): DS, spotřeba, elektroměr, střídač…
 NO_ROTATE_PREFIXES = ("fve.grid", "fve.load", "fve.meter", "fve.inverter", "fve.switchboard", "fve.pv_string",
-                      "fve.battery")
+                      "fve.battery", "fve.hds")
 
 GAP = 4.0           # mezera mezi značkami ve sloupci (mm)
 BUS_GAP = 7.5       # přípojnice → začátek vývodů
