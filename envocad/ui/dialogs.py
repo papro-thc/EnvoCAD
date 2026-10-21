@@ -37,6 +37,7 @@ from envocad.model.project import (
     enclosure_param_error,
 )
 from envocad.model.symbol import Attribute, Symbol
+from envocad.ui.wizard_topology import TopologyPanel
 
 _CZECH_BUTTONS = (
     (QDialogButtonBox.Ok, "OK"), (QDialogButtonBox.Cancel, "Zrušit"), (QDialogButtonBox.Yes, "Ano"),
@@ -525,12 +526,15 @@ class ProjectWizard(QDialog):
         form.addRow("Místo", self.place)
         form.addRow("Číslo zakázky", self.order)
         form.addRow("Zpracoval", self.author)
+        self.grp_conn = QGroupBox("Objekt a připojení")
+        cform = QFormLayout(self.grp_conn)
+        form.addRow(self.grp_conn)
         self.building = QComboBox()
         self.building.addItem("firma (DC rozvaděče RFVE.DC a AC rozvaděč RFVE.AC zvlášť)", "company")
         self.building.addItem("rodinný dům (DC i AC v jednom rozvaděči RFVE)", "house")
         self.building.addItem("bytový dům (DC rozvaděče RFVE.DC a AC rozvaděč RFVE.AC zvlášť)", "apartment")
         self.building.setToolTip("Rodinný dům: pojistkové odpínače a SPD stringů jsou v rozvaděči FVE spolu s AC částí")
-        form.addRow("Objekt", self.building)
+        cform.addRow("Druh objektu", self.building)
         self.mod_type = QLineEdit()
         self.mod_p = QLineEdit("450")
         self.mod_voc = QLineEdit("49.5")
@@ -650,9 +654,12 @@ class ProjectWizard(QDialog):
         self.tr_sn.setPlaceholderText("Sn [kVA]")
         self.conn_loop = QCheckBox("smyčka (2 kabelová pole)")
         self.conn_loop.setChecked(True)
-        form.addRow("Připojení k DS", self.conn_level)
-        form.addRow("Trafostanice", self.conn_station)
-        form.addRow("Měření / Sn trafa [kVA]", self._triple(self.conn_metering, self.tr_sn, self.conn_loop))
+        cform.addRow("Připojení k DS", self.conn_level)
+        cform.addRow("Trafostanice", self.conn_station)
+        cform.addRow("Měření / Sn trafa [kVA]", self._triple(self.conn_metering, self.tr_sn, self.conn_loop))
+        # topologie připojení (F5): předvolba, náhled řetězce, stávající rozvaděče, skupiny střídačů
+        self.topo = TopologyPanel(self)
+        self.topo.add_object_rows(cform)
 
         def _conn_enabled() -> None:
             house = self.building.currentData() == "house"   # rodinný dům: rozvaděč FVE do HDS, bez přípojky VN
@@ -671,6 +678,9 @@ class ProjectWizard(QDialog):
         self.conn_station.currentIndexChanged.connect(lambda _i: _conn_enabled())
         self.building.currentIndexChanged.connect(lambda _i: _conn_enabled())
         _conn_enabled()
+        form.addRow(self.topo.existing_group)
+        form.addRow(self.topo.inverter_group)
+        self.topo.refresh()
         body = QWidget()      # dlouhý formulář v posuvné oblasti, tlačítka OK / Zrušit zůstávají vidět
         body.setLayout(form)
         scroll = QScrollArea()
@@ -1098,10 +1108,23 @@ class ProjectWizard(QDialog):
 
     def errors(self) -> list[str]:
         """Chyby vstupu česky (prázdné = lze generovat)."""
-        return self._values()[1]
+        return self._values()[1] + self.topo.errors()
+
+    def generator_errors(self) -> list[str]:
+        """Chyby, které ohlásí až generátor (ValueError česky) – jen když uživatel změnil topologii, stávající
+        rozvaděče nebo skupiny střídačů; výchozí specifikace se tu nesestavuje."""
+        if not self.topo.has_changes():
+            return []
+        from envocad.generate import build_project
+        from envocad.settings import apply_standard_to_spec
+        try:
+            build_project(apply_standard_to_spec(self.spec()))
+        except ValueError as ex:
+            return [str(ex)]
+        return []
 
     def accept(self) -> None:
-        errs = self.errors()
+        errs = self.errors() or self.generator_errors()
         if errs:   # dialog zůstane otevřený, uživatel opraví pole
             QMessageBox.warning(self, "Nový projekt FVE", "Opravte prosím zadání:\n\n" + "\n".join(f"• {e}" for e in errs))
             return
@@ -1110,13 +1133,16 @@ class ProjectWizard(QDialog):
     def spec(self) -> dict:
         """Specifikace pro `build_project`; neplatný vstup → ValueError s českými hláškami (viz `errors`)."""
         v, errs = self._values()
-        if errs:
-            raise ValueError("\n".join(errs))
+        topo_parts, topo_errs = self.topo.parts()
+        if errs or topo_errs:
+            raise ValueError("\n".join(errs + topo_errs))
         inverters = [{"ref": f"T{i + 1}", "type": self.inv_type.text().strip(), "p_ac": v["inv_p"],
                       "u_dc_max": v["inv_udc"], "u_mppt_min": v["inv_mppt"],
                       "u_mppt_max": v["inv_mppt_max"], "i_mppt_max": v["inv_imax"],
                       "strings": st} for i, st in enumerate(v["strings"])]
-        for inv in inverters:   # nepovinné údaje a artikl střídače
+        for i, inv in enumerate(inverters):   # nepovinné údaje a artikl střídače
+            if self.topo.ac_group_for(i):
+                inv["ac_group"] = self.topo.ac_group_for(i)
             if v.get("inv_isc_mppt") not in (None, ""):
                 inv["isc_mppt_max"] = v["inv_isc_mppt"]
             if v.get("inv_spm") not in (None, ""):
@@ -1140,7 +1166,7 @@ class ProjectWizard(QDialog):
         if self._opt_comp is not None and optimizer["type"]:   # bez typu = bez optimizérů, artikl se neposílá
             optimizer["component_id"] = self._opt_comp.id
         site = {k: v[k] for k in ("t_min", "t_max") if v.get(k) not in (None, "")}
-        return {
+        spec = {
             "name": self.name.text().strip() or "Nový projekt FVE",
             "meta": {"investor": self.investor.text().strip(), "place": self.place.text().strip(),
                      "order": self.order.text().strip(), "author": self.author.text().strip()},
@@ -1163,6 +1189,8 @@ class ProjectWizard(QDialog):
                            "station": self.conn_station.currentData(),
                            "loop": self.conn_loop.isChecked(), "transformer": {"sn": v.get("tr_sn") or 630}},
         }
+        spec.update(topo_parts)   # topology a chain.* jen při změně od výchozího
+        return spec
 
 
 class ElementDialog(AttrDialog):

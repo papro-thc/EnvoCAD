@@ -750,8 +750,19 @@ přerušení „EPS-T1“ na přívod XE1 RFVE → přepínač sítí I-0-II (s�
 **Střídače na jiném místě**: `"inverters": [{…, "ac_group": "hala B"}]` – skupina má vlastní RFVE.AC2 (hlavní
 RFVE.AC1) a vlastní vývod FVE v HR (X3…; kabel přes pár přerušení „AC2-HR“). Jen nn s HR (firma, bytový dům). Volby se
 zadávají ve specifikaci, např. `"chain": {"hr": {"main_in": 250}, "re": {"main_in": 250, "metering": "indirect",
-"boundary": "re_main"}, "hds": {"in_": 315}}` (přehled v `docs/LIBRARY_FORMAT.md`, „Volby článků“). Průvodce je zatím
-nenabízí (F5).
+"boundary": "re_main"}, "hds": {"in_": 315}}` (přehled v `docs/LIBRARY_FORMAT.md`, „Volby článků“). Totéž nabízí průvodce
+(viz níže).
+
+**Průvodce – topologie připojení.** Skupina **Objekt a připojení**: druh objektu, nn / vn (u rodinného domu je vn
+zakázané – RD se připojuje do HDS), **Topologie** (Automaticky, nebo preset filtrovaný podle druhu objektu a úrovně,
+včetně sdílených a vlastních), živý náhled řetězce („stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS“),
+fakturační měření v RE / v HR, samostatný RFVE.DC na střídač (jen při 2 a více střídačích) a síťová ochrana
+(automaticky / ano / ne; průvodce ukáže instalované kWp proti hranici 30 kWp). Skupina **Stávající rozvaděče**: hlavní
+přístroj a In RD / HR, vývod FVE (jistič, nebo pojistkový odpínač – do 80 A včetně je nedostupný, vždy jistič) a jeho In,
+HJ v RE, měření přímé / nepřímé s převodem MTP, hranice vlastnictví, In a charakteristika HDS. Údaje se propíšou do
+popisku bloků; **prázdné pole = neuvedeno** (nic se nepíše, žádná chyba). U vn se tyto údaje zadávají v poli Připojení
+k DS. Skupina **Skupiny střídačů**: u každého střídače volitelné umístění (jen nn, firma a bytový dům). Do specifikace
+se `topology` a `chain.*` zapíšou jen při změně od výchozího. Chybu, kterou ohlásí až generátor, průvodce ukáže hned.
 Jednofázový střídač (`phases` 1) má AC kabel třížilový (L N PE) s průřezem podle proudu. Vlastní nebo firemní presety
 (`~/.envocad/topologies/`, sdílená knihovna `topologies/`) s neznámou rolí se nenačtou (záznam v logu) a platí
 vestavěný preset; preset pro rodinný dům musí mít rozvaděč FVE `rfve`, preset na vn aspoň jeden článek přípojky VN.
