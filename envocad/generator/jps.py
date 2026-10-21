@@ -27,7 +27,7 @@ INTERRUPT_GAP_AC = 60.0    # port přerušovacího bodu → port bloku AC rozvad
 
 
 def _place_jps(p: Project, s: Sheet, opts: dict, rows: list[list[Element]], ac_wires: list[Wire],
-               blk: Element) -> None:
+               blk: Element, after_split=None) -> None:
     """Rozmístí JPS na list (`frame.fit_placement`). Přesáhl by jeden list `jps.max_paper` (jinak standard
     `jps_max_paper`, výchozí A2) a `jps.split` není „none“, rozdělí se JPS na listy formátu `jps.paper` (výchozí
     = limit; jen při 2+ střídačích): první list „AC a připojení“ (blok AC rozvaděče, síť, HOP) jako přehled, za ním
@@ -37,7 +37,8 @@ def _place_jps(p: Project, s: Sheet, opts: dict, rows: list[list[Element]], ac_w
 
     Výjimka: řada jednoho střídače (DC řetězec se nedělí), která se sama nevejde ani na `jps.paper`, dostane svůj
     list v nejmenším normalizovaném formátu, do kterého se vejde (A1, A0, jinak „vlastní“) – limit tedy platí pro
-    balení řad, ne pro jednu přerostlou řadu (např. 3 střídače × 12 stringů: listy střídačů A1, AC list A2)."""
+    balení řad, ne pro jednu přerostlou řadu (např. 3 střídače × 12 stringů: listy střídačů A1, AC list A2).
+    `after_split` = volání po rozdělení, před rozmístěním listů (řetězec stávajících článků pod obsah listu AC)."""
     from envocad.model.frame import PAPER_SIZES, apply_placement, fit_placement, paper_exceeds
     from envocad.model.textlayout import sheet_content_boxes
     lib = context._lib()
@@ -52,6 +53,8 @@ def _place_jps(p: Project, s: Sheet, opts: dict, rows: list[list[Element]], ac_w
     paper = _s(opts.get("paper")) or limit
     sizes = [x for x in PAPER_SIZES if x[0] == paper] or [x for x in PAPER_SIZES if x[0] == "A2"]
     sheets = _split_jps(p, s, rows, ac_wires, blk, sizes)
+    if after_split is not None:       # list „AC a připojení“ bez řad střídačů: řetězec znovu pod jeho obsah
+        after_split()
     for sh in [s, *sheets]:
         bx = sheet_content_boxes(p, sh, lib)
         if bx:

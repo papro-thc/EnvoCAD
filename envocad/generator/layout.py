@@ -108,10 +108,81 @@ def _route_house(p: Project, blk: Element, ac_wires: list[Wire], first: tuple[El
         x_out = max([x_out, *(snap(b[2] + 5.0) for b in (lp.boxes if lp else []))])
     sym = element_symbol(p, grid, lib)
     above = symbol_box(grid, sym)[3] - port(grid, grid_port)[1]      # značka nad přívodem (blok RD: popis, řádky)
-    bottom = min((b[1] for b in boxes if b[2] >= x_out - 5.0 and b[0] <= grid.x + 25.0), default=blk.y)
+    # pod vším vpravo od svislého úseku: za prvním článkem pokračuje řetězec (RE, HDS, DS) ve stejné výšce
+    bottom = min((b[1] for b in boxes if b[2] >= x_out - 5.0), default=blk.y)
     y = snap(bottom - 7.5 - max(0.0, above))
     grid.y += y - port(grid, grid_port)[1]
     w_grid.points = [(x_out, out[1]), (x_out, y)]
+
+
+def _chain_below(p: Project, blk: Element, links: list, loads: list, earth: Element | None,
+                 x0: dict[str, float] | None = None) -> bool:
+    """Firma / bytový dům na nn: řetězec stávajících článků (HR → RE → HDS → DS) v řadě pod FV částí – vodič
+    z vývodu XOUT hlavního AC rozvaděče vede vpravo, svisle dolů pod řetězec, vlevo a zespodu do přívodu X1 prvního
+    článku; řetězec končí vlevo od svislého úseku. Výkres zůstane úzký (řetězec v jedné řadě za RFVE.AC by
+    vícestřídačovou FVE přenesl přes A2 a rozdělil na listy). Nevejde-li se řetězec pod FV část, vrací False (pak
+    zůstane v řadě za RFVE.AC)."""
+    from envocad.model.textlayout import compute_layout, sheet_content_boxes, symbol_box
+    lib = context._lib()
+    s = p.sheets[0]
+    if not links:
+        return False
+
+    def port(e: Element, name: str) -> tuple[float, float]:
+        return e.port_pos(element_symbol(p, e, lib), name)
+
+    def snap(v: float) -> float:
+        return round(v / 2.5) * 2.5
+
+    _prev, _pp, first, fport, w0 = links[0]
+    chain_els = [first, *(el for _p, _q, el, _r, _w in links[1:]), *(ld for _b, _pt, ld, _w in loads)]
+    chain_ids = {e.id for e in chain_els}
+    if x0 is not None:                # opakované volání (po rozdělení JPS): od původních x řetězce
+        for e in chain_els:
+            e.x = x0.setdefault(e.id, e.x)
+    chain_wires = {w.id for *_x, w in links} | {w.id for *_x, w in loads}
+    keep_el, keep_w = s.elements, s.wires
+    s.elements = [e for e in keep_el if e.id not in chain_ids]
+    s.wires = [w for w in keep_w if w.id not in chain_wires]
+    try:
+        boxes = sheet_content_boxes(p, s, lib)
+        lay = compute_layout(p, s, lib)
+    finally:
+        s.elements, s.wires = keep_el, keep_w
+    if not boxes:
+        return False
+    out = port(blk, "XOUT")
+    x_out = out[0] + 15.0
+    w_earth = next((w for w in s.wires if earth is not None and w.touches(earth.id)), None)
+    if w_earth is not None and w_earth.id in lay.wires:
+        x_out = max([x_out, *(snap(b[2] + 5.0) for b in lay.wires[w_earth.id].boxes)])
+    x_left = min(b[0] for b in boxes)
+    bottom = min(b[1] for b in boxes)
+    # řetězec v řadě: první blok na výšku pod obsah, další zarovnané (`_align_chain`), spotřeba pod HR / RD
+    above = symbol_box(first, element_symbol(p, first, lib))[3] - port(first, fport)[1]
+    first.y += snap(bottom - 15.0 - above) - port(first, fport)[1]
+    _align_chain(p, links[1:])
+    for b, pt, ld, w in loads:
+        place_load(p, b, pt, ld, w)
+    lo = min(symbol_box(e, element_symbol(p, e, lib))[0] for e in chain_els)
+    hi = max(symbol_box(e, element_symbol(p, e, lib))[2] for e in chain_els)
+    x_l_need = 40.0                                    # zespodu do X1: svislý úsek vlevo od řetězce (popisek)
+    dx = snap(x_out - 25.0 - hi)
+    if lo + dx - x_l_need < x_left:
+        dx = snap(x_left + x_l_need - lo)
+    if hi + dx > x_out - 15.0:
+        return False
+    for e in chain_els:
+        e.x += dx
+    for _b, _pt, _ld, w in loads:
+        w.points = [(x + dx, y) for x, y in w.points]
+    s.elements, s.wires = [e for e in keep_el], keep_w
+    rows = [b for e in chain_els for b in [symbol_box(e, element_symbol(p, e, lib))]]
+    y_low = snap(min(b[1] for b in rows) - 20.0)
+    x1 = port(first, fport)
+    x_l = snap(x1[0] - 30.0)
+    w0.points = [(x_out, out[1]), (x_out, y_low), (x_l, y_low), (x_l, x1[1])]
+    return True
 
 
 def _align_chain(project: Project, links: list[tuple[Element, str, Element, str, Wire]]) -> None:

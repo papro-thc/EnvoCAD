@@ -145,7 +145,8 @@ def test_legacy_custom_macros_keep_fixed_busbar(lib, tmp_path, monkeypatch):
     """Vlastní makra ve starém rozložení (v2, přívod shora T{k}): sběrnice bez atributu = pevná geometrie."""
     import shutil
 
-    from envocad.generate import build_project
+    from chain_data import build_project  # F2: In stávajících článků zadané
+
     from envocad.library import macros
     d = tmp_path / "macros"
     d.mkdir()
@@ -165,7 +166,8 @@ def test_custom_from_below_macro_without_attribute_keeps_old_layout(lib, tmp_pat
     (B7…B12 se schody, bez křížení, bez nálezů)."""
     import shutil
 
-    from envocad.generate import build_project
+    from chain_data import build_project  # F2: In stávajících článků zadané
+
     from envocad.library import macros
     d = tmp_path / "macros"
     d.mkdir()
@@ -188,7 +190,7 @@ def test_custom_from_below_macro_without_attribute_keeps_old_layout(lib, tmp_pat
 @pytest.mark.parametrize("use_macros", [True, False], ids=["makra", "kod"])
 @pytest.mark.parametrize("n", [1, 2, 6, 7, 9, 12])
 def test_rfve_ac_branches_straight(lib, n, use_macros):
-    from envocad.generate import build_project
+    from chain_data import build_project  # F2: In stávajících článků zadané
     spec = {"inverters": [{"ref": f"T{i + 1}", **INV, "strings": [20]} for i in range(n)]}
     if not use_macros:
         spec["macros"] = {"ac_feed": "", "ac_core": ""}
@@ -212,7 +214,7 @@ def test_rfve_ac_branches_straight(lib, n, use_macros):
 
 @pytest.mark.parametrize("n", [1, 3])
 def test_rfve_house_branches_straight(lib, n):
-    from envocad.generate import build_project
+    from chain_data import build_project  # F2: In stávajících článků zadané
     p = build_project({"building": "house",
                        "inverters": [{"ref": f"T{i + 1}", **HOUSE_INV, "strings": [12, 12] if n == 1 else [12]}
                                      for i in range(n)]})
@@ -264,7 +266,7 @@ def test_switchboards_no_crossing_without_node(lib, case):
     """Na žádném generovaném listu rozvaděče se vodiče nekříží – ani úsekem přes úsek (`_crossings`), ani odbočkami
     ze všech čtyř stran v jednom bodě bez uzlu (`_cross_nodes`; RFVE: PE svodičů DC zleva a PE svodiče AC zprava na
     vodiči vývod 1 → XPE). Kontrola projektu (F7) na listech rozvaděčů bez chyb a varování."""
-    from envocad.generate import build_project
+    from chain_data import build_project  # F2: In stávajících článků zadané
     p = build_project(_ALL_SWITCHBOARD_CASES[case])
     sheets = p.switchboards()
     assert sheets
@@ -282,7 +284,8 @@ def test_switchboards_no_crossing_without_node(lib, case):
 def test_house_pe_branches_join_xpe_as_tees(lib):
     """RFVE rodinného domu: PE svodičů DC přichází zleva k vodiči vývod 1 → XPE výš než PE svodiče AC zprava –
     dvě odbočky „T“ místo jednoho bodu se čtyřmi směry."""
-    from envocad.generate import build_project
+    from chain_data import build_project  # F2: In stávajících článků zadané
+
     from envocad.model.routing import route_sheet
     p = build_project(_house_spec(1))
     s = next(s for s in p.switchboards() if s.loc == "RFVE")
@@ -324,7 +327,8 @@ def test_ac_template_branches_straight(lib, n_out):
 # ---- vícepól -----------------------------------------------------------------------------------------------------
 @pytest.mark.parametrize("case", ["ac9", "house"])
 def test_multipole_with_parametric_bus(lib, case):
-    from envocad.generate import build_project
+    from chain_data import build_project  # F2: In stávajících článků zadané
+
     from envocad.model import multipole as mp
     from envocad.model.multipole_geometry import multipole_geometry
     if case == "ac9":

@@ -20,6 +20,7 @@ from envocad.library.templates import (
     _wire,
 )
 from envocad.model.busbar import OUTS_ATTR, PITCH_ATTR, TAPS_ATTR, BusLayout, layout_of
+from envocad.model.feed import is_feed
 from envocad.model.project import Element, Project, Sheet, element_symbol
 from envocad.model.topology import ChainNode
 
@@ -266,8 +267,40 @@ def build_main_sheet(ctx: ChainContext) -> Sheet:
     sb.layout.params.setdefault("in_", _s(ac.get("main_in") or 125))
     if not _ac_box_from_macros(p, sb, invs, ac, spec.get("macros") or {}):
         _build_ac_switchboard(p, sb, invs, ac, spec)
+    single_phase_feeds(ctx, sb)
     ctx.done.add("main")
     return sb
+
+
+def single_phase_feeds(ctx: ChainContext, sb: Sheet) -> None:
+    """Přívodní větev jednofázového střídače (AC kabel L N PE, `pv.ac_cable_of`): vodiče přívod → jistič → rozvod
+    se žilami L1 N PE a jistič 1+N (2 póly, In podle proudu střídače `pv.ac1_breaker_in`) – vícepól pak kreslí fázi a N přes jistič, PE kolem (z makra i kódem)."""
+    from envocad.generator.pv import AC1_CONDUCTORS, ac1_breaker_in
+    by_id = {e.id: e for e in sb.elements}
+    inv_of = {w.id: t for w, t in zip(ctx.ac_wires, ctx.inverters)}
+    for w_jps in ctx.ac_wires:
+        if list(w_jps.conductors) != AC1_CONDUCTORS:
+            continue
+        port = w_jps.b.port if w_jps.b.element_id == ctx.main.id else w_jps.a.port
+        feed = next((e for e in sb.elements if e.ref == port and is_feed(e)), None)
+        if feed is None:
+            continue
+        cur, seen = feed, {feed.id}
+        for _ in range(3):                # přívod → jistič → rozvod (sběrnice / svorky)
+            nxt = [w for w in sb.wires if w.touches(cur.id)
+                   and (w.b.element_id if w.a.element_id == cur.id else w.a.element_id) not in seen]
+            if len(nxt) != 1:
+                break
+            w = nxt[0]
+            w.conductors = list(AC1_CONDUCTORS)
+            cur = by_id[w.b.element_id if w.a.element_id == cur.id else w.a.element_id]
+            seen.add(cur.id)
+            if cur.symbol_id in ("fve.breaker_mcb", "fve.breaker_mccb", "sb.rcbo"):
+                cur.attrs["poles"] = "2"
+                cur.attrs["modules"] = "2"
+                cur.attrs["in_"] = ac1_breaker_in(inv_of[w_jps.id]) or cur.attrs.get("in_", "")
+            else:
+                break
 
 
 class RfveAcBuilder:

@@ -70,6 +70,46 @@ def plan(spec: dict, combined: bool, per_inverter: bool = True) -> PvGeometry:
                       x_blk=x_blk, x_grid=x_grid, common_dc=common_dc)
 
 
+AC1_CONDUCTORS = ["L1", "N", "PE"]     # jednofázový střídač (ČSN EN 60445)
+AC1_MIN_CROSS = 2.5                    # nejmenší průřez AC kabelu jednofázového střídače [mm²]
+AC1_MAX_DROP_PCT = 3.0                 # úbytek napětí na AC kabelu (jako kontrola `calc.check_cables`)
+
+
+AC1_BREAKER_SIZES = (10, 13, 16, 20, 25, 32, 40, 50, 63)
+
+
+def ac1_breaker_in(t: Element) -> str:
+    """In jističe přívodu jednofázového střídače: nejbližší řada ≥ P AC / 230 V; neznámý výkon → ""."""
+    from envocad.generator.context import _num
+    p_kw = _num(t.attrs.get("p_ac"))
+    if not p_kw:
+        return ""
+    i_a = p_kw * 1000 / 230.0
+    return f"{next((x for x in AC1_BREAKER_SIZES if x >= i_a - 1e-9), AC1_BREAKER_SIZES[-1]):g}"
+
+
+def ac_cable_of(t: Element, ac: dict) -> tuple[list[str], str, str]:
+    """Žíly, typ a průřez AC kabelu střídač → AC rozvaděč. Třífázový: `ac.cable` / `ac.cross` (5 žil). Jednofázový
+    (`phases` 1): 3 žíly L1 N PE, průřez podle proudu střídače (P AC / 230 V, uložení B1, 2 zatížené žíly –
+    `calc.min_cross` i pro In jističe přívodu `ac1_breaker_in`, nejméně 2,5 mm², a úbytek do 3 % na `ac.length`) a typ „CYKY-J 3x{průřez}“ (řada a izolace z `ac.cable`); neznámý výkon →
+    průřez z `ac.cross`."""
+    from envocad.generator.context import _num
+    from envocad.model.calc import min_cross
+    if (_num(t.attrs.get("phases")) or 3) != 1:
+        return list(AC_CONDUCTORS), _s(ac.get("cable")), _s(ac.get("cross"))
+    from envocad.model.calc import IZ_3, voltage_drop
+    p_kw = _num(t.attrs.get("p_ac"))
+    i_a = p_kw * 1000 / 230.0 if p_kw else 0.0
+    i_n = _num(ac1_breaker_in(t)) or i_a
+    x = min_cross(max(i_a, i_n), "B1", loaded=2) if i_a else None     # Iz ≥ In jističe přívodu (In ≤ Iz)
+    length = _num(ac.get("length"))
+    while x and length and voltage_drop(i_a, length, x, "1f", 230.0)[1] > AC1_MAX_DROP_PCT:
+        x = next((c for c in sorted(IZ_3["B1"]) if c > x), None)     # i úbytek napětí (kontrola F7 3 %)
+    cross = f"{max(x, AC1_MIN_CROSS):g}".replace(".", ",") if x else _s(ac.get("cross"))
+    family = (_s(ac.get("cable")).split() or ["CYKY-J"])[0]
+    return list(AC1_CONDUCTORS), f"{family} 3x{cross}", cross
+
+
 def _common_lanes(geo: PvGeometry, invs: list) -> list[int]:
     """Společný RFVE.DC: první lom (pořadí zleva) vodičů každého střídače před jeho DC vstupy. Střídač nejdál od
     středu bloku (y 150) má lomy nejvíc vlevo, nejbližší vpravo – vodiče nahoru i dolů se pak nekříží (pořadí uvnitř
@@ -240,8 +280,9 @@ def build(ctx: ChainContext) -> None:
             k_all += 1
         common_gens.extend(gens)
         # AC vodič ke bloku rozvaděče – port podle přívodu (X1, X2…), doplní se po vytvoření listu
-        w_ac = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, f"X{i + 1}"), conductors=list(AC_CONDUCTORS),
-                    attrs={"ref": p.next_ref("W"), "cable": _s(ac.get("cable")), "cross": _s(ac.get("cross")),
+        conductors, cable, cross = ac_cable_of(t, ac)
+        w_ac = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, f"X{i + 1}"), conductors=conductors,
+                    attrs={"ref": p.next_ref("W"), "cable": cable, "cross": cross,
                            "length": _s(ac.get("length")), "method": "B1"})
         s.wires.append(w_ac)
         ac_wires.append(w_ac)

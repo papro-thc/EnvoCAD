@@ -90,6 +90,17 @@ CASES: dict[str, dict] = {
     "two_inv_per_inverter": {"name": "FVE Test", "meta": {"investor": "Test s.r.o."}, "inverters": [{"ref": "T1", **_INV, "strings": [20, 20, 18]},
                                            {"ref": "T2", **_INV, "strings": [20, 20]}],
                              "ac": {"breaker_in": 50, "main_in": 125}, "chain": {"rfve_dc": {"per_inverter": True}}},
+    # stávající články se zadanými In: nn s pojistkovým vývodem FVE nad 80 A a kabelem HR → RE, měření v HR,
+    # rodinný dům s nepřímým měřením a hranicí za elektroměrem
+    "nn_existing_fuse": {"inverters": [{"ref": f"T{i}", **_INV, "strings": [20, 20]} for i in (1, 2, 3, 4)],
+                         "chain": {"hr": {"main_in": 400, "fve_device": "fuse_disconnect", "fve_in": 160,
+                                          "cable": "AYKY-J 4x150", "length": 15},
+                                   "re": {"main_in": 400, "metering": "indirect"}, "hds": {"in_": 500}}},
+    "nn_hr_meter": {"topology": "nn_hr_meter", "inverters": [{"ref": "T1", **_INV, "strings": [20, 20]}],
+                    "chain": {"hr": {"main_in": 160, "boundary": "re_main"}, "hds": {"in_": 200}}},
+    "house_existing": {"building": "house", "inverters": [{"ref": "T1", **_INV, "strings": [16, 16]}],
+                       "chain": {"rd": {"main_in": 63}, "re": {"main_in": 63, "boundary": "re_meter"},
+                                 "hds": {"in_": 80}}},
     # jednofázový střídač
     "inverter_1phase": {"inverters": [{"ref": "T1", "p_ac": 5, "phases": 1, "u_dc_max": 600, "u_mppt_min": 90,
                                        "u_mppt_max": 550, "i_mppt_max": 16, "strings": [12, 10]}]},

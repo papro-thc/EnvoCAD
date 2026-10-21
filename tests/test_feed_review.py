@@ -160,7 +160,7 @@ def test_feed_macro_layout_detection(legacy_macros):
 
 @pytest.mark.parametrize("n", [1, 3])
 def test_legacy_ac_macros_generate_clean(lib, legacy_macros, n):
-    from envocad.generate import build_project
+    from chain_data import build_project  # F2: In stávajících článků zadané
     p = build_project({"inverters": [{"ref": f"T{i + 1}", **INV, "strings": [20]} for i in range(n)],
                        "macros": legacy_macros})
     ac = next(s for s in p.sheets if s.loc == "RFVE.AC")
@@ -175,7 +175,7 @@ def test_legacy_ac_macros_generate_clean(lib, legacy_macros, n):
 @pytest.mark.parametrize("use_macros", [True, False], ids=["makra", "kod"])
 @pytest.mark.parametrize("n", [7, 9, 12])
 def test_many_inverters_no_crossings(lib, n, use_macros):
-    from envocad.generate import build_project
+    from chain_data import build_project  # F2: In stávajících článků zadané
     spec = {"inverters": [{"ref": f"T{i + 1}", **INV, "strings": [20]} for i in range(n)]}
     if not use_macros:
         spec["macros"] = {"ac_feed": "", "ac_core": ""}
@@ -293,7 +293,8 @@ def test_saved_macro_version_by_content(tmp_path, monkeypatch):
 
 # ---- 12. široký list rozvaděče: prodloužený formát na šířku ------------------------------------------------------
 def test_wide_house_switchboard_gets_long_landscape_paper(lib):
-    from envocad.generate import build_project
+    from chain_data import build_project  # F2: In stávajících článků zadané
+
     from envocad.model.frame import LONG_PAPERS
     p = build_project({"building": "house",
                        "inverters": [{"ref": f"T{i + 1}", **HOUSE_INV, "strings": [12, 12, 12]} for i in range(3)]})

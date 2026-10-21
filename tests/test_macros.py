@@ -497,7 +497,9 @@ def test_generator_breaker_in_is_number_and_normalized():
     """breaker_in zůstává číslo v A (dokumentace MANUAL.md); „40.0“ → „40“ (nález 8 – normalizace nic nerozbíjí)."""
     base = {"inverters": [{"ref": "T1", "p_ac": 25, "strings": [20]}]}
     p = build_project({**base, "ac": {"breaker_in": 40.0}, "dc": {"fuse_in": "15.0"}})
-    ins = {e.attrs["in_"] for s in p.sheets for e in s.elements if e.symbol_id in ("fve.breaker_mcb", "fve.fuse_disconnect")}
+    # jen rozvaděče FVE (In stávajících HR / RE zadá projektant, F2)
+    ins = {e.attrs["in_"] for s in p.sheets if s.loc.startswith(("RDC", "RFVE"))
+           for e in s.elements if e.symbol_id in ("fve.breaker_mcb", "fve.fuse_disconnect")}
     assert ins == {"40", "15"}
     with pytest.raises(ValueError, match="In jističe.*není číslo"):
         build_project({**base, "ac": {"breaker_in": "C40"}})

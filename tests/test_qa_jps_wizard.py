@@ -6,6 +6,7 @@ import time
 from itertools import pairwise
 
 import pytest
+from chain_data import with_existing
 
 from envocad.generate import build_project, parse_number, parse_strings
 from envocad.library.store import LibraryStore
@@ -30,10 +31,15 @@ def lib():
     return LibraryStore()
 
 
+def _ac(p):
+    """List AC rozvaděče FVE (RFVE.AC, u rodinného domu RFVE) – za ním jsou od F2 listy stávajících HR / RD a RE."""
+    return next(s for s in p.switchboards() if s.loc in ("RFVE.AC", "RFVE"))
+
+
 def spec(n=1, per=4, **kw):
     s = {"inverters": [{"ref": f"T{i + 1}", **INV, "strings": [20] * per} for i in range(n)]}
     s.update(kw)
-    return s
+    return with_existing(s)
 
 
 def _inside(b, box) -> bool:
@@ -140,7 +146,7 @@ def test_suggest_numbering_dc_and_ac_macros(lib):
     from envocad.library.macros import K_START, expand, find_macro, resolve_values, suggest_numbering
     p = build_project(spec(1, 4))
     rdc = next(s for s in p.sheets if s.name.startswith("RFVE.DC"))
-    rh = p.sheets[-1]
+    rh = _ac(p)
     dc = find_macro("DC string v rozvaděči")
     sug = suggest_numbering(p, rdc, dc)
     assert sug == {K_START: "9"}    # X1–X4 přívody, X5–X8 vývody → další volné X9
@@ -160,7 +166,7 @@ def test_suggest_numbering_dc_and_ac_macros(lib):
 
 def test_dup_ref_reports_duplicate_feeds(lib):
     p = build_project(spec(1, 4))
-    rh = p.sheets[-1]
+    rh = _ac(p)
     x1 = next(e for e in rh.elements if is_feed_in(e) and e.ref == "X1")
     dup = Element("sb.feed", x1.x + 60, x1.y, rotation=180, attrs={"dir": "in", "ref": "X1", "desc": "od T9"})
     rh.elements.append(dup)
@@ -247,9 +253,9 @@ def test_multipole_overlap_detected():
 
 def test_spd_pole_ends_joined_to_pe(lib):
     from envocad.model import multipole as mp
-    for kw, sheet_idx in (({}, -1), ({}, 2)):
+    for kw, sheet_idx in (({}, None), ({}, 2)):
         p = build_project(spec(1, 2, **kw))
-        s = p.sheets[sheet_idx]
+        s = _ac(p) if sheet_idx is None else p.sheets[sheet_idx]
         spd = next(e for e in s.elements if e.symbol_id == "fve.spd")
         ep = mp.element_poles(s, spd, element_symbol(p, spd, lib))
         segs = mp.pe_join_segments(ep)
@@ -259,8 +265,8 @@ def test_spd_pole_ends_joined_to_pe(lib):
         ends = [ep.pole_pos("PE", c) for c in [*ep.switched, "PE"]]   # konce pólů i začátek PE vodiče
         assert all(abs(y - y1) < 1e-9 and x1 - 1e-9 <= x <= x2 + 1e-9 for x, y in ends)
     # jistič (PE jde kolem, ne přes pól) příčku nemá
-    br = next(e for e in p.sheets[-1].elements if e.symbol_id == "fve.breaker_mcb")
-    assert mp.pe_join_segments(mp.element_poles(p.sheets[-1], br, element_symbol(p, br, lib))) == []
+    br = next(e for e in _ac(p).elements if e.symbol_id == "fve.breaker_mcb")
+    assert mp.pe_join_segments(mp.element_poles(_ac(p), br, element_symbol(p, br, lib))) == []
 
 
 def test_pe_bar_inside_frame_below_outputs(lib):
@@ -322,12 +328,13 @@ def test_element_name_and_reports_use_it(lib):
     p = build_project(spec(1, 2))
     _head, rows = cables(p, lib)
     text = json.dumps(rows, ensure_ascii=False)
-    assert "DS:1" in text and "HOP:PE" in text and "fve." not in text
+    # F2: kabel RFVE.AC vede do stávajícího HR (+HR-X1), vodič HDS → DS je bez kabelu
+    assert "+HR-X1" in text and "HOP:PE" in text and "fve." not in text
     from envocad.model.project import feed_link_index, wire_xref
     w_grid = next(w for w in p.sheets[0].wires if p.sheets[0].element(w.b.element_id).symbol_id == "fve.grid")
-    blk_sheet = p.sheets[-1]
+    blk_sheet = _ac(p)
     xout = next(e for e in blk_sheet.elements if e.ref == "XOUT")
-    assert "DS:1" in xout.attrs.get("to", "") and "fve.grid" not in wire_xref(p, w_grid.id, feed_link_index(p))
+    assert "HR:X1" in xout.attrs.get("to", "") and "fve.grid" not in wire_xref(p, w_grid.id, feed_link_index(p))
 
 
 # ---- 12. šum kontroly -----------------------------------------------------------------------------------------
@@ -344,7 +351,7 @@ def test_info_aggregated_and_xpe_not_unlinked(lib):
     # vývod XPE (jen PE, k HOP) bez vodiče v JPS se nehlásí; jiný nenavázaný vývod ano
     p = build_project(spec(1, 2))
     p.sheets[0].wires = [w for w in p.sheets[0].wires if w.conductors != ["PE"]]   # smaž XPE → HOP v JPS
-    rh = p.sheets[-1]
+    rh = _ac(p)
     fs = [f for f in check_project(p, lib) if f.code == "feed_unlinked"]
     xpe = next(e for e in rh.elements if e.ref == "XPE")
     assert xpe.id not in {f.target_id for f in fs}
@@ -431,7 +438,7 @@ def test_save_macro_writes_under_envocad_home(tmp_path, monkeypatch):
 def test_terminal_distribution_groups_placed(lib):
     from envocad.model.checks import layout_problems
     p = build_project(spec(2, 2, ac={"distribution": "terminals"}))
-    rh = p.sheets[-1]
+    rh = _ac(p)
     groups = [e for e in rh.elements if e.symbol_id == "sb.terminal_block"]
     assert len(groups) == 4 and all(e.modules > 0 for e in groups)
     assert all(rh.layout.placement(e.id) is not None for e in groups)

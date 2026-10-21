@@ -35,7 +35,7 @@ class GridBuilder:
     linked = True
 
     def block(self, ctx: ChainContext, node: ChainNode) -> Element | None:
-        return grid_element(ctx, ctx.next_x())
+        return grid_element(ctx, ctx.next_x(small=True))
 
     def ports(self, ctx: ChainContext, node: ChainNode) -> ChainPorts:
         return ChainPorts(("1",), "")

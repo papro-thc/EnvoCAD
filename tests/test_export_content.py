@@ -249,7 +249,11 @@ def test_documentation_pages_counted_with_multipole(proj, lib, tmp_path, qapp, m
     n = b.export(out)
     assert n == len(pypdf.PdfReader(out).pages)
     n_mp = sum(1 for k, _, d in b.pages if k == "sheet" and d[1] == "multipole")
-    assert n_mp and all(c == 2 for (k, _, d), c in zip(b.pages, b.page_counts) if k == "sheet" and d[1] == "multipole")
+    # rozvaděče FVE se na úzký list nevejdou (2 strany); stávající HR / RE (F2, pár přístrojů) mají stranu jednu
+    fve = ("RDC", "RFVE")
+    assert n_mp and all(c == 2 for (k, _, d), c in zip(b.pages, b.page_counts)
+                        if k == "sheet" and d[1] == "multipole" and d[0].loc.startswith(fve))
+    assert all(c in (1, 2) for (k, _, d), c in zip(b.pages, b.page_counts) if k == "sheet" and d[1] == "multipole")
     assert n == sum(b.page_counts)                       # každý vícepól má o stranu víc, dlouhé tabulky pokračují
     assert b.page_starts == [1 + sum(b.page_counts[:i]) for i in range(len(b.pages))]
     totals = {pg.split("/")[1] for pg in seen}

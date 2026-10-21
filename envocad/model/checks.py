@@ -567,6 +567,12 @@ def protection_findings(project: Project, lib=None) -> list[Finding]:
             continue
         for e in s.elements:
             if e.symbol_id not in PROTECTION_SYMBOLS:
+                # jiný přístroj, kterému generátor In nedosadil (stávající hlavní vypínač RD s neznámým In)
+                why = str(e.attrs.get(IN_UNRESOLVED) or "").strip()
+                if why and not str(e.attrs.get("in_") or "").strip():
+                    out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref,
+                                       f"Přístroj bez In – generátor nenašel vyhovující hodnotu: {why}; zvolte ručně",
+                                       "breaker_no_in"))
                 continue
             fuse = e.symbol_id in FUSE_SYMBOLS
             code = "fuse_no_in" if fuse else "breaker_no_in"

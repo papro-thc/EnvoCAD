@@ -8,7 +8,7 @@ DS a odbočku RE jeden složený builder `mv`. Střídače (`inverter`) a vše p
 """
 from __future__ import annotations
 
-from envocad.generator.boards import grid, hds, mv, rfve, rfve_ac, rfve_dc
+from envocad.generator.boards import grid, hds, house_board, meter_board, mv, rfve, rfve_ac, rfve_dc
 from envocad.generator.boards.base import BoardBuilder, ChainContext
 from envocad.generator.context import _s, log
 from envocad.generator.jps import _place_jps
@@ -18,6 +18,7 @@ from envocad.generator.layout import (
     _align_connection,
     _align_outputs,
     _align_route_boxes,
+    _chain_below,
     _grow_switchboards,
     _route_house,
 )
@@ -30,6 +31,9 @@ BOARD_BUILDERS: dict[str, BoardBuilder] = {
     "rfve_dc": rfve_dc.BUILDER,
     "rfve_ac": rfve_ac.BUILDER,
     "rfve": rfve.BUILDER,
+    "rd": house_board.RD_BUILDER,
+    "hr": house_board.HR_BUILDER,
+    "re": meter_board.BUILDER,
     "hds": hds.BUILDER,
     "grid": grid.BUILDER,
 }
@@ -71,7 +75,9 @@ def link_attrs(ctx: ChainContext, prev: ChainNode | None, node: ChainNode) -> di
             for k in CABLE_KEYS}
     if role in MAIN_ROLES:
         ac = ctx.spec["ac"]
-        for k in ("cable", "cross", "length"):
+        # dřívější `ac.grid_*` jen když článek kabel nezadal (zadaný typ bez průřezu → průřez se dopočte)
+        given = bool(vals["cable"] or vals["cross"])
+        for k in ("length",) if given else ("cable", "cross", "length"):
             vals[k] = vals[k] or _s(ac.get(f"grid_{k}")).strip()
         vals["method"] = vals["method"] or "D"
     elif prev is not None and prev.existing and not (vals["cable"] or vals["cross"]):
@@ -166,6 +172,48 @@ def _place_loads(ctx: ChainContext) -> None:
         place_load(ctx.project, blk, port, load, w)
 
 
+def _boundary_text(ctx: ChainContext) -> None:
+    """Hranice vlastnictví DS / odběratel: `hds` → atribut `boundary` na HDS a text nad ním; `re_main` / `re_meter`
+    (atribut na HJ / elektroměru v listu) → text nad blokem rozvaděče s měřením. Volný text listu (`Sheet.texts`,
+    posouvá se s rozmístěním listu)."""
+    from envocad.generator.boards.meter_board import BOUNDARY_TEXT
+    from envocad.model.project import SheetText
+    from envocad.model.textlayout import symbol_box
+    if ctx.boundary is None:
+        return
+    blk, mode = ctx.boundary
+    target = blk
+    if mode == "hds":
+        target = next((e for e in ctx.sheet.elements if e.symbol_id == hds.HDS_SYMBOL), None)
+        if target is None:
+            return
+        target.attrs["boundary"] = "1"
+    from envocad.generator import context
+    from envocad.model.project import element_symbol
+    x0, _y0, _x1, y1 = symbol_box(target, element_symbol(ctx.project, target, context._lib()))
+    x, y = round(x0 / 2.5) * 2.5, round((y1 + 7.5) / 2.5) * 2.5
+    old = next((t for t in ctx.sheet.texts if t.text == BOUNDARY_TEXT), None)
+    if old is not None:               # znovu po přeskládání řetězce (rozdělené JPS)
+        old.x, old.y = x, y
+        return
+    ctx.sheet.texts.append(SheetText(x=x, y=y, text=BOUNDARY_TEXT, height=2.0))
+
+
+def _paper(ctx: ChainContext) -> str:
+    """Formát, na který by se vešlo blokové schéma (`frame.fit_placement`) – volba rozložení řetězce."""
+    from envocad.generator import context
+    from envocad.model.frame import fit_placement
+    from envocad.model.textlayout import sheet_content_boxes
+    boxes = sheet_content_boxes(ctx.project, ctx.sheet, context._lib())
+    return fit_placement(boxes)[0] if boxes else "A3"
+
+
+def _paper_index(name: str) -> int:
+    from envocad.model.frame import PAPER_SIZES
+    order = [n for n, _w, _h in PAPER_SIZES]
+    return order.index(name) if name in order else len(order)
+
+
 def _layout(ctx: ChainContext) -> None:
     """Zarovnání bloků a lomů JPS, rozmístění na list(y), zvětšení přetékajících listů rozvaděčů, vazby přívodů."""
     p, s, blk = ctx.project, ctx.sheet, ctx.main
@@ -175,16 +223,41 @@ def _layout(ctx: ChainContext) -> None:
                                        for i in range(len(ctx.inverters))])
     _align_bends(p)
     links = list(ctx.links)
+    below = False
+    x0: dict[str, float] = {}
+
+    def in_row() -> None:
+        for e_id, x in x0.items():        # řetězec zpět za RFVE.AC (po nepovedeném umístění pod obsah)
+            ctx.sheet.element(e_id).x = x
+        _align_chain(p, links)
+        _place_loads(ctx)
+
     if ctx.combined and links:
         _prev, _pp, first, port, w = links.pop(0)
         _route_house(p, blk, ctx.ac_wires, (first, port, w), ctx.earth)
     else:
         _align_outputs(p, blk, None, ctx.earth)
-    _align_chain(p, links)
-    _place_loads(ctx)
+        # firma na nn s několika články za RFVE.AC: řetězec v řadě pod FV částí (užší výkres), pokud tím list
+        # vyjde menší (vysoké FV části s mnoha stringy zůstane řetězec v řadě za RFVE.AC)
+        if ctx.mv is None and len(links) > 2:
+            in_row()
+            paper_row = _paper(ctx)
+            below = _chain_below(p, blk, links, ctx.loads, ctx.earth, x0)
+            if below and _paper_index(_paper(ctx)) > _paper_index(paper_row):
+                below = False
+    if not below:
+        in_row()
+
+    def after_split() -> None:
+        if below:
+            if not _chain_below(p, blk, links, ctx.loads, ctx.earth, x0):
+                in_row()
+            _boundary_text(ctx)
+
+    _boundary_text(ctx)
     if ctx.mv is not None:
         _align_connection(p, blk, ctx.mv)
-    _place_jps(p, s, ctx.spec.get("jps") or {}, ctx.rows, ctx.ac_wires, blk)
+    _place_jps(p, s, ctx.spec.get("jps") or {}, ctx.rows, ctx.ac_wires, blk, after_split)
     # až po rozmístění na list: vazby přívodů ukládají texty s polohou v JPS („W3 T1:DC1 /1.F3“); listy DC rozvaděčů,
     # které přetékají formát (DC rozvaděč s mnoha stringy po 50 mm), se zvětší – před vazbami (sloupce listu)
     # i po nich (delší texty vazeb)

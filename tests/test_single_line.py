@@ -52,7 +52,8 @@ def test_connection_currents():
 
 def test_nn_connection_unchanged():
     p = build_project({"name": "t", "inverters": INVS})
-    assert [s.name.split(" – ")[0] for s in p.switchboards()][-1] == "RFVE.AC"
+    # F2: za RFVE.AC stávající HR a RE (bez trafostanice)
+    assert [s.name.split(" – ")[0] for s in p.switchboards()][-3:] == ["RFVE.AC", "HR", "RE"]
     assert not any(e.symbol_id == "fve.transformer" for e in p.sheets[0].elements)
 
 
@@ -152,7 +153,7 @@ def test_tree_with_dc(lib):
 def test_terminal_distribution_is_bus(lib):
     p = build_project({"name": "t", "inverters": INVS, "ac": {"distribution": "terminals"}})
     _root, nodes = build_tree(p, lib)
-    buses = [n for n in nodes.values() if n.kind == "bus"]
+    buses = [n for n in nodes.values() if n.kind == "bus" and n.sheet.loc == "RFVE.AC"]   # (HR má přípojnici)
     assert len(buses) == 1 and len(buses[0].children) >= 3      # 2 jističe + SPD (+ hlavní vypínač z druhé strany)
 
 
@@ -164,7 +165,7 @@ def _apart(a, b):
     return a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1]
 
 
-@pytest.mark.parametrize(("conn", "paper"), [({}, "A3"), ({"connection": {"level": "vn"}}, "A2"),
+@pytest.mark.parametrize(("conn", "paper"), [({}, "A2"), ({"connection": {"level": "vn"}}, "A2"),   # nn: F2 s HR, RE, HDS
                                              ({"connection": {"level": "vn", "station": "sloup"}}, "A2")])
 def test_geometry_fits_page(lib, conn, paper):
     from envocad.model.frame import MARGIN

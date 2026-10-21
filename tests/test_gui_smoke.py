@@ -613,7 +613,7 @@ def test_edit_in_switchboard_schematic(app):
     p = build_project(spec)
     w = MainWindow(LibraryStore(), p)
     w._edit_element_anywhere = lambda *a, **k: None   # bez modálního dialogu
-    sb = p.sheets[-1]
+    sb = next(s for s in p.switchboards() if s.loc == "RFVE.AC")
     w.open_sheet(sb, "multipole")
     sc = w.view.scene()
     assert isinstance(sc, MultipoleScene) and w.draw_scene is sc
@@ -659,7 +659,7 @@ def test_feed_cable_tag_edit_and_move(app):
     w.show()
     calls = []
     w._edit_element_anywhere = lambda sh, eid: calls.append(eid)
-    sb = p.sheets[-1]
+    sb = next(s for s in p.switchboards() if s.loc == "RFVE.AC")
     w.open_sheet(sb, "multipole")
     app.processEvents()
     w.view.zoom_fit()

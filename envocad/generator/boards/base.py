@@ -9,8 +9,12 @@ from typing import Protocol
 from envocad.model.project import Element, Project, Sheet, Wire
 from envocad.model.topology import ChainNode, Topology
 
+HOUSE_CHAIN_DX = 100.0     # RFVE → první článek řetězce u rodinného domu (pod střídači, za popiskem uzemnění)
 CHAIN_PITCH = 75.0   # rozestup bloků řetězce za prvním článkem k síti (RD/HR → RE → HDS → DS) – popisek kabelu
-CHAIN_PITCH_PLAIN = 50.0   # … vodič bez kabelu (stávající úsek, HDS → DS) – jen mezera mezi bloky
+CHAIN_BOARD_EXTRA = 25.0   # … k bloku rozvaděče s kabelem (popisek s odkazy na oba konce)
+CHAIN_BOARD_PAIR = 25.0    # … mezi dvěma bloky rozvaděčů bez kabelu („→ RD:XIN /4.A1, RE:XOUT /5.A4“)
+CHAIN_PITCH_PLAIN = 55.0
+CHAIN_PITCH_SMALL = 40.0   # … HDS → DS (malé značky, vodič bez kabelu a bez odkazu)   # … vodič bez kabelu (stávající úsek, HDS → DS) – jen mezera mezi bloky
 
 
 @dataclass
@@ -63,16 +67,28 @@ class ChainContext:
     tail_node: ChainNode | None = None              # článek `tail` (kabel k dalšímu článku podle jeho role)
     # vodiče mezi články řetězce za hlavním AC článkem: (předchozí blok, jeho vývod, blok, jeho přívod, vodič)
     links: list[tuple[Element, str, Element, str, Wire]] = field(default_factory=list)
+    boundary: tuple[Element, str] | None = None     # blok s měřením a hranice vlastnictví (hds | re_main | re_meter)
     loads: list[tuple[Element, str, Element, Wire]] = field(default_factory=list)   # spotřeba pod RD / HR
     node_in: dict[str, str] = field(default_factory=dict)   # role → In přístroje, který jistí kabel od předchozího
     #                                                         článku (vývod FVE v RD/HR, HJ v RE, pojistky HDS)
 
-    def next_x(self) -> float:
+    def next_x(self, board: bool = False, small: bool = False) -> float:
         """x dalšího bloku řetězce (zleva doprava): první za hlavním AC článkem na sloupci sítě (`geo.x_grid`),
-        další po `CHAIN_PITCH` – mezi bloky se vejde popisek kabelu."""
+        další po `CHAIN_PITCH` – mezi bloky se vejde popisek kabelu. `board` = blok rozvaděče: kabel k němu nese
+        křížový odkaz na dva vývody/přívody (delší popisek) – o `CHAIN_BOARD_EXTRA` dál."""
+        plain = self.link_plain()
+        extra = CHAIN_BOARD_EXTRA if board and not plain else 0.0
+        if board and plain and self.tail is not None and self.tail[0].symbol_id == "fve.switchboard":
+            extra = CHAIN_BOARD_PAIR    # vodič bez kabelu mezi dvěma rozvaděči: odkaz na oba konce
         if self.tail is None or self.tail[0] is self.blocks.get("main"):
-            return self.geo.x_grid
-        return self.tail[0].x + (CHAIN_PITCH_PLAIN if self.link_plain() else CHAIN_PITCH)
+            if self.combined and self.topology is not None and self.topology.node("rd") is not None:
+                # rodinný dům: vývod XOUT RFVE vede pod vším (`layout._route_house`) – řetězec RD → RE → HDS → DS
+                # začíná pod střídači hned za RFVE (ne až za nimi), výkres zůstane užší
+                return self.blocks["main"].x + HOUSE_CHAIN_DX + extra
+            return self.geo.x_grid + extra
+        if small and plain:             # DS za HDS: krátký vodič bez popisku
+            return self.tail[0].x + CHAIN_PITCH_SMALL
+        return self.tail[0].x + (CHAIN_PITCH_PLAIN if plain else CHAIN_PITCH) + extra
 
     def link_plain(self) -> bool:
         """Vodič od `tail` k dalšímu článku bude bez kabelu a popisku (od HDS; stávající článek bez údajů kabelu)."""

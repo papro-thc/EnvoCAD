@@ -270,7 +270,7 @@ SYMBOLS = [
         "ports": [P("1", -12.5, 0, "W"), P("2", 12.5, 0, "E")],
         "attributes": [REF, attr("desc", "Popis", "", True), attr("in_", "In pojistek [A]", "", True, "{} A"),
                        attr("char", "Charakteristika", "gG", True), POLES],
-        "label_pos": {"x": -10, "y": 15},
+        "label_pos": {"x": -10, "y": -10},   # popisek pod skříní – nad ní je místo pro text hranice vlastnictví
     },
     {
         "id": "fve.load", "name": "Spotřeba objektu", "category": "Síť a zátěž", "iec_ref": "",
