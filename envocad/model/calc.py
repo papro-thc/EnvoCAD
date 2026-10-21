@@ -1090,20 +1090,26 @@ def _wire_steps(project: Project, s: Sheet, e: Element, groups: dict | None):
 
 def _find_inverter(project: Project, s: Sheet, start: Element, max_depth: int = 12,
                    groups: dict | None = None) -> Element | None:
+    # blok DC rozvaděče se prochází párem portů (`_block_exit`): společný rozvaděč u technologie (RFVE.DC pro víc
+    # střídačů) vede každý string jen na jeho střídač; nejednoznačné zapojení bloku = všechny vodiče jako dřív
     seen = {start.id}
-    frontier = [(s, start)]
+    frontier: list[tuple[Sheet, Element, str | None]] = [(s, start, None)]
     for _ in range(max_depth):
         nxt = []
-        for fs, fe in frontier:
-            for ps, _end, other, _via in _wire_steps(project, fs, fe, groups):
-                if other.element_id in seen:
+        for fs, fe, entered in frontier:
+            exit_port = _block_exit(fs, fe, entered) if fe.symbol_id == "fve.switchboard" and entered else None
+            for ps, end, other, via in _wire_steps(project, fs, fe, groups):
+                if exit_port is not None and not via and end.port != exit_port:
                     continue
                 o = ps.element(other.element_id)
+                key = f"{o.id}:{other.port}" if o.symbol_id == "fve.switchboard" else o.id
+                if key in seen or other.element_id == start.id:
+                    continue
                 if o.symbol_id in _INVERTERS:
                     return o
                 if o.symbol_id in _PASS_THROUGH:
-                    seen.add(o.id)
-                    nxt.append((ps, o))
+                    seen.add(key)
+                    nxt.append((ps, o, other.port))
         frontier = nxt
         if not frontier:
             break

@@ -31,7 +31,11 @@ INV = {"p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_m
 
 
 def spec(n, per=4, **kw):
-    s = {"inverters": [{"ref": f"T{i + 1}", **INV, "strings": [20] * per} for i in range(n)]}
+    """Firma, n střídačů × per stringů. DC rozvaděč u technologie na střídač (`chain.rfve_dc.per_inverter`) – testy
+    mechanismu dělení počítají s DC řetězcem celým v řadě střídače; společný RFVE.DC (výchozí od F2) na listu „AC
+    a připojení“ testuje `test_generator_f2.py`."""
+    s = {"inverters": [{"ref": f"T{i + 1}", **INV, "strings": [20] * per} for i in range(n)],
+         "chain": {"rfve_dc": {"per_inverter": True}}}
     s.update(kw)
     return s
 

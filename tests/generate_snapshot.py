@@ -85,6 +85,11 @@ CASES: dict[str, dict] = {
                      "macros": {"dc_tech": {"name": "DC string v rozvaděči", "value_set": "Pojistka 15 A gPV, SPD T2",
                                             "values": {"fuse_in": 12}},
                                 "ac_feed": {"name": "AC přívod střídače", "values": {"breaker_in": 32}}}},
+    # --- F2 (docs/design/topologie_f1_f2.md, kap. 2) ---
+    # DC rozvaděč u technologie na střídač (`chain.rfve_dc.per_inverter`) – stav před F2 (výchozí je společný RFVE.DC)
+    "two_inv_per_inverter": {"name": "FVE Test", "meta": {"investor": "Test s.r.o."}, "inverters": [{"ref": "T1", **_INV, "strings": [20, 20, 18]},
+                                           {"ref": "T2", **_INV, "strings": [20, 20]}],
+                             "ac": {"breaker_in": 50, "main_in": 125}, "chain": {"rfve_dc": {"per_inverter": True}}},
     # jednofázový střídač
     "inverter_1phase": {"inverters": [{"ref": "T1", "p_ac": 5, "phases": 1, "u_dc_max": 600, "u_mppt_min": 90,
                                        "u_mppt_max": 550, "i_mppt_max": 16, "strings": [12, 10]}]},

@@ -190,18 +190,30 @@ def _graph(project: Project):
             if hit is not None:
                 thru[(s.id, e.id)] = ((hit.sheet.id, hit.element.id), hit.port)
 
+    def block_feed(e: Element, port: str) -> tuple[Key, str] | None:
+        """Port bloku ROZVADĚČ → přívod/vývod jeho listu se stejným označením."""
+        sb = project.switchboard_sheet(e.id)
+        f = feeds.get(sb.id, {}).get(port) if sb is not None else None
+        return ((sb.id, f.id), "1") if f is not None else None
+
     def resolve(s: Sheet, end) -> tuple[Key, str] | None:
         e = s.element(end.element_id)
         if e is None or e.symbol_id in SKIP_SYMBOLS:
             return None
         if e.symbol_id == "fve.switchboard":
-            sb = project.switchboard_sheet(e.id)
-            f = feeds.get(sb.id, {}).get(end.port) if sb is not None else None
-            if f is not None:
-                return (sb.id, f.id), "1"
+            hit = block_feed(e, end.port)
+            if hit is not None:
+                return hit
         key = (s.id, e.id)
         if key in thru:
             key, port = thru[key]
+            # kabel přes dvojici přerušení končí na bloku rozvaděče (DC vodiče u společného RFVE.DC / RFVE na
+            # rozděleném blokovém schématu) – pokračuje do jeho listu
+            be = els[key][1] if key in els else None
+            if be is not None and be.symbol_id == "fve.switchboard":
+                hit = block_feed(be, port)
+                if hit is not None:
+                    return hit
             return rep.get(key, key), port
         return rep.get(key, key), end.port
 

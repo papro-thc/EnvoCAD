@@ -19,7 +19,9 @@ def test_build_project_from_spec(tmp_path):
             "ac": {"breaker_in": 50, "main_in": 125}}
     p = build_project(spec)
     s = p.sheets[0]
-    assert len(p.sheets) == 6 and all(sh.is_switchboard for sh in p.sheets[1:])  # 2 střídače × (po trase + u technologie) + AC
+    # 2 střídače × po trase + společný u technologie (F2) + AC; za nimi stávající články řetězce
+    assert all(sh.is_switchboard for sh in p.sheets[1:])
+    assert [sh.loc for sh in p.sheets[1:5]] == ["RDC1", "RDC2", "RFVE.DC", "RFVE.AC"]
     assert len([e for e in s.elements if e.symbol_id == "fve.pv_string"]) == 5
     assert p.meta["p_installed_kwp"] == "44.1"
     lib = LibraryStore()
@@ -553,6 +555,8 @@ F7_CASES = {
            "battery": {"e_kwh": 10, "p_kw": 5}},
     "rd_2inv": {"building": "house", "inverters": [{"ref": "T1", **_HOUSE_INV, "strings": [12, 12]},
                                                    {"ref": "T2", **_HOUSE_INV, "strings": [12]}]},
+    "nn_hr_meter": {"topology": "nn_hr_meter",
+                    "inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}, {"ref": "T2", **_INV25, "strings": [20]}]},
     "bytovy_dum": {"building": "apartment", "inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}]},
     "vn_kiosk": {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}], "connection": {"level": "vn"}},
     "vn_kobky_mereni_vn": {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}],
@@ -590,13 +594,17 @@ def test_generated_vn_only_known_re_meter_warning(name):
 
 # ---- označení rozvaděčů (docs/NAVRH_TOPOLOGIE.md, kap. 8 bod 9) -------------------------------------------------
 def test_switchboard_designations_company_two_inverters():
-    """Firma, 2 střídače: rozvaděč u technologie na střídač RFVE.DC1/RFVE.DC2 (pořadí střídačů), po trase RDC1, RDC2
-    souvisle, AC rozvaděč RFVE.AC; kódy jsou platné umístění (tečka uvnitř) a listy dědí +RFVE.DCn."""
+    """Firma, 2 střídače s `chain.rfve_dc.per_inverter`: rozvaděč u technologie na střídač RFVE.DC1/RFVE.DC2 (pořadí
+    střídačů), po trase RDC1, RDC2 souvisle, AC rozvaděč RFVE.AC; kódy jsou platné umístění (tečka uvnitř) a listy
+    dědí +RFVE.DCn. Bez volby (výchozí od F2) jeden společný RFVE.DC za rozvaděči po trase."""
     from envocad.model.designation import LOC, validate_code
     spec = {"inverters": [{"ref": "T1", **_INV25, "strings": [20]}, {"ref": "T2", **_INV25, "strings": [20]}],
             "dc": {"route_boxes": 1}}
-    p = build_project(spec)
-    assert [sh.loc for sh in p.sheets if sh.is_switchboard] == ["RDC1", "RFVE.DC1", "RDC2", "RFVE.DC2", "RFVE.AC"]
+    common = build_project(spec)
+    assert [sh.loc for sh in common.sheets if sh.is_switchboard][:4] == ["RDC1", "RDC2", "RFVE.DC", "RFVE.AC"]
+    p = build_project({**spec, "chain": {"rfve_dc": {"per_inverter": True}}})
+    assert [sh.loc for sh in p.sheets if sh.is_switchboard][:5] == ["RDC1", "RFVE.DC1", "RDC2", "RFVE.DC2",
+                                                                     "RFVE.AC"]
     assert all(not validate_code(sh.loc, LOC) for sh in p.switchboards())
     tech = {b.attrs["desc"]: b.ref for b in p.sheets[0].elements if b.ref.startswith("RFVE.DC")}
     assert tech == {"DC rozvaděč u T1": "RFVE.DC1", "DC rozvaděč u T2": "RFVE.DC2"}

@@ -268,7 +268,9 @@ def build_dc_strings(project: Project, sheet: Sheet, strings: list[str], kind: s
     devices: list[Element] = []
     spds: list[Element] = []
     if pe is None:
-        pe = _el(project, sheet, "sb.pe_bar", x0 + (n - 1) * DC_STRING_PITCH / 2, y - 80, "", kind="PE")
+        # do 6 stringů lišta uprostřed (port na string); víc stringů: lišta vlevo, port 1 před prvním stringem
+        x_pe = x0 + (n - 1) * DC_STRING_PITCH / 2 if n <= 6 else x0 - 15.0 + 12.5
+        pe = _el(project, sheet, "sb.pe_bar", x_pe, y - 80, "", kind="PE")
         pe.attrs["ref"] = f"X{first + 2 * n}"   # za přívody X1…Xn a vývody X(n+1)…X(2n)
     pe_bar = pe.symbol_id == "sb.pe_bar"
     for k, g in enumerate(strings):
@@ -289,7 +291,13 @@ def build_dc_strings(project: Project, sheet: Sheet, strings: list[str], kind: s
         else:
             _wire(project, sheet, feed, "1", out, "1", DC_CONDUCTORS)
             _wire(project, sheet, feed, "1", s_el, "L", DC_CONDUCTORS)
-        _wire(project, sheet, s_el, "PE", pe, str(min(k + 1, 6)) if pe_bar else "1", ["PE"])
+        if pe_bar and n > 6:
+            # víc stringů než portů PE lišty: všechny PE do portu 1 po společné sběrné čáře nad lištou (souběh do
+            # téhož konce = odbočka) – jinak by se vodiče do portu 6 křížily
+            px = pe.x - 12.5
+            _wire(project, sheet, s_el, "PE", pe, "1", ["PE"]).points = [(s_el.x, y - 55.0), (px, y - 55.0)]
+        else:
+            _wire(project, sheet, s_el, "PE", pe, str(min(k + 1, 6)) if pe_bar else "1", ["PE"])
         spds.append(s_el)
     _place_sequential(sheet, [*devices, *spds])
 

@@ -518,13 +518,14 @@ def test_wizard_spec_dc_boxes(app):
     spec = d.spec()
     assert spec["dc"]["route_boxes"] == 2 and spec["dc"]["tech_box"] is True and spec["dc"]["disconnect"] is False
     p = build_project(spec)
-    assert len([s for s in p.sheets if s.is_switchboard]) == 2 * 3 + 1
+    dc = [s.loc for s in p.sheets if s.loc.startswith(("RDC", "RFVE.DC"))]
+    assert len(dc) == 2 * 2 + 1 and dc[-1] == "RFVE.DC"     # po trase na střídač + společný u technologie (F2)
     d.dc_tech_box.setChecked(False)
     d.dc_route_boxes.setText("0")
     spec = d.spec()
     assert spec["dc"]["disconnect"] is True
     p = build_project(spec)
-    assert len([s for s in p.sheets if s.is_switchboard]) == 1
+    assert not [s for s in p.sheets if s.loc.startswith(("RDC", "RFVE.DC"))]
     assert any(e.symbol_id == "fve.dc_disconnect" for e in p.sheets[0].elements)
     # rodinný dům: jeden rozvaděč RFVE (DC + AC), přípojka VN nejde zvolit
     d.dc_tech_box.setChecked(True)
@@ -534,7 +535,7 @@ def test_wizard_spec_dc_boxes(app):
     spec = d.spec()
     assert spec["building"] == "house"
     p = build_project(spec)
-    assert [s.loc for s in p.sheets if s.is_switchboard] == ["RFVE"]
+    assert [s.loc for s in p.sheets if s.is_switchboard and s.loc.startswith("RFVE")] == ["RFVE"]
 
 
 def test_macro_insert_and_branch_gui(app):

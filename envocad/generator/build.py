@@ -19,6 +19,7 @@ from envocad.generator.spec import (
     building_kind,
     chain_text,
     resolve_chain_refs,
+    rfve_dc_per_inverter,
     select_topology,
 )
 from envocad.model.project import Project
@@ -79,7 +80,7 @@ def _build_project(spec: dict) -> Project:
     s = p.sheets[0]
     s.name = "Blokové schéma"
     ctx = ChainContext(spec=spec, project=p, sheet=s, building=building, combined=combined,
-                       geo=pv.plan(spec, combined), topology=topology, opt_comp=opt_comp)
+                       geo=pv.plan(spec, combined, rfve_dc_per_inverter(raw, topology)), topology=topology, opt_comp=opt_comp)
     chain.create_main_block(ctx)
     pv.build(ctx)
     chain.build(ctx)

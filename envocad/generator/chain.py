@@ -114,9 +114,10 @@ def build(ctx: ChainContext) -> None:
 def _layout(ctx: ChainContext) -> None:
     """Zarovnání bloků a lomů JPS, rozmístění na list(y), zvětšení přetékajících listů rozvaděčů, vazby přívodů."""
     p, s, blk = ctx.project, ctx.sheet, ctx.main
-    if ctx.combined:
-        _align_route_boxes(p, blk, [[b for b, _g, _k, no, _r in ctx.dc_boxes if no == i + 1]
-                                    for i in range(len(ctx.inverters))])
+    if ctx.combined or ctx.dc_common is not None:   # rozvaděče po trase na výšku přívodů RFVE / společného RFVE.DC
+        target = blk if ctx.combined else ctx.dc_common
+        _align_route_boxes(p, target, [[b for b, _g, k, no, _r in ctx.dc_boxes if no == i + 1 and b is not target]
+                                       for i in range(len(ctx.inverters))])
     _align_bends(p)
     if ctx.combined:
         _route_house(p, blk, ctx.ac_wires, ctx.grid, ctx.earth)

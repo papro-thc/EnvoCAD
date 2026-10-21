@@ -22,6 +22,7 @@ JPS_AC_SUFFIX = "AC a připojení"
 JPS_AC_SHEET_NAME = "Blokové schéma – " + JPS_AC_SUFFIX   # list generátoru se jmenuje „Blokové schéma“
 INTERRUPT_GAP_INV = 15.0   # AC port střídače → port přerušovacího bodu na listu střídače (mm)
 INTERRUPT_GAP_BLOCK = 30.0  # port bloku rozvaděče v řadě střídače → přerušovací bod (místo pro odkaz vazby vývodu)
+INTERRUPT_FAN_PITCH = 10.0  # rozestup přerušení u DC vstupů střídače (vstupy jsou po 5 mm – popisky by se kryly)
 INTERRUPT_GAP_AC = 60.0    # port přerušovacího bodu → port bloku AC rozvaděče (místo pro popisek AC kabelu)
 
 
@@ -92,6 +93,7 @@ def _split_jps(p: Project, s: Sheet, rows: list[list[Element]], ac_wires: list[W
                     attrs={"ref": ref})
         return i
 
+    fans: dict[str, list] = {}       # střídač → přerušení u jeho DC vstupů (vstupy po 5 mm, body se rozestoupí)
     moves: list[tuple[set[str], list[Wire]]] = []       # (id prvků řady, vodiče řady) pro každý střídač
     for row in rows:
         t = row[0]
@@ -109,14 +111,20 @@ def _split_jps(p: Project, s: Sheet, rows: list[list[Element]], ac_wires: list[W
                              INTERRUPT_GAP_BLOCK if e_in.symbol_id == "fve.switchboard" else INTERRUPT_GAP_INV)
             i_out = interrupt(e_out, outside.port, ref, INTERRUPT_GAP_AC)
             s.elements += [i_in, i_out]
-            s.wires.append(Wire(WireEnd(e_in.id, inside.port), WireEnd(i_in.id, "1"), conductors=list(w.conductors),
-                                attrs={"ref": ""}))
+            w_in = Wire(WireEnd(e_in.id, inside.port), WireEnd(i_in.id, "1"), conductors=list(w.conductors),
+                        attrs={"ref": ""})
+            s.wires.append(w_in)
+            if w.id not in ac_ids and e_in.symbol_id != "fve.switchboard":
+                fans.setdefault(e_in.id, []).append((i_in, w_in, e_in, inside.port))
             if inside is w.a:
                 w.a = WireEnd(i_out.id, "1")
             else:
                 w.b = WireEnd(i_out.id, "1")
             w.points = []                    # přerušovací bod stojí na výšce portu – vodič vede rovně
             new_ids.add(i_in.id)
+        for items in fans.values():
+            _fan_interrupts(items, side)
+        fans.clear()
         ids = row_ids | new_ids
         moves.append((ids, [w for w in s.wires if w.a.element_id in ids and w.b.element_id in ids]))
 
@@ -154,6 +162,29 @@ def _split_jps(p: Project, s: Sheet, rows: list[list[Element]], ac_wires: list[W
     for sh, grp in zip(sheets, groups):
         sh.name = f"{base} – " + ref_ranges([rows[i][0].ref for i in grp])
     return sheets
+
+
+def _fan_interrupts(items: list, side) -> None:
+    """Přerušení u DC vstupů jednoho střídače (společný RFVE.DC / RFVE zůstává na listu „AC a připojení“): body po
+    `INTERRUPT_FAN_PITCH` kolem středu vstupů, dál od střídače; úsek k vstupu s lomem. Vodič blíž středu má lom víc
+    vlevo, krajní nejblíž střídači – úseky nahoru i dolů se nekříží."""
+    if len(items) < 2:
+        return
+    ports = [(it, *side(it[2], it[3])) for it in items]          # (položka, x, y, směr)
+    ports.sort(key=lambda t: -t[2])
+    m = len(ports)
+    yc = sum(t[2] for t in ports) / m
+    sgn = ports[0][3]
+    x_port = ports[0][1]
+    ys = [round((yc + ((m - 1) / 2 - r) * INTERRUPT_FAN_PITCH) / 2.5) * 2.5 for r in range(m)]
+    order = sorted(range(m), key=lambda r: abs(ys[r] - ports[r][2]))   # nejmenší odchylka → lom nejdál od střídače
+    x_pt = x_port + sgn * (10.0 + 5.0 * m + INTERRUPT_GAP_INV)
+    for j, r in enumerate(order):
+        (i_el, w_in, _e, _port), px, py, _d = ports[r]
+        i_el.x += x_pt - (px + sgn * INTERRUPT_GAP_INV)
+        i_el.y += ys[r] - py
+        xl = x_port + sgn * (10.0 + 5.0 * (m - 1 - j))
+        w_in.points = [(xl, py), (xl, ys[r])]
 
 
 def ref_ranges(refs: list[str]) -> str:

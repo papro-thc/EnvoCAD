@@ -28,9 +28,11 @@ from envocad.model.calc import DC_INPUTS_PER_MPPT_DEFAULT, InverterData, string_
 from envocad.model.project import PORT_PITCH, Element, Wire, WireEnd, element_symbol
 
 
-def plan(spec: dict, combined: bool) -> PvGeometry:
+def plan(spec: dict, combined: bool, per_inverter: bool = True) -> PvGeometry:
     """Pracovní souřadnice JPS ze sloučené specifikace: výšky řad střídačů, sloupce rozvaděčů, střídačů, hlavního
-    AC článku a sítě. `combined` = rodinný dům s DC částí v rozvaděči FVE (stojí na místě DC rozvaděče u technologie)."""
+    AC článku a sítě. `combined` = rodinný dům s DC částí v rozvaděči FVE (stojí na místě DC rozvaděče u technologie).
+    `per_inverter` False = jeden společný DC rozvaděč u technologie (RFVE.DC) pro 2+ střídače: lomy všech stringů
+    před ním i za ním (před střídači) – `PvGeometry.common_dc`."""
     invs = spec.get("inverters") or []
     dc = spec["dc"]
     # svislé rozestupy řad střídačů podle počtu stringů; souřadnice jsou zatím pracovní – na list (formát, střed,
@@ -46,24 +48,42 @@ def plan(spec: dict, combined: bool) -> PvGeometry:
     x_str = 35.0
     n_max = max(len(inv.get("strings") or [1]) for inv in invs)
     n_all = sum(len(inv.get("strings") or [1]) for inv in invs)
+    common_dc = not combined and bool(dc.get("tech_box")) and not per_inverter and len(invs) > 1
     # rozvaděč FVE: lomy všech stringů do jednoho bloku a vlevo od něj svislé úseky AC vodičů od střídačů
-    n_lanes = n_all + len(invs) if combined else n_max
+    n_lanes = n_all + len(invs) if combined else (n_all if common_dc else n_max)
     dc_first = len(invs) + (1 if (spec["ac"].get("distribution") or "bus") == "bus" else 2)   # za AC přívody (a svorkami X(n+1))
     x_box0 = x_str + 60.0 + 5.0 * n_lanes   # lomy stringů až za popisky kabelů u stringů
     x_boxes = [x_box0 + j * box_pitch for j in range(n_boxes)]
-    if combined and n_boxes > 1:
+    if (combined or common_dc) and n_boxes > 1:
         # rozvaděč FVE za rozvaděči po trase: popisek kabelu od rozvaděče po trase (~40 mm) se musí vejít před lomy
         # všech DC vodičů do RFVE (5 mm na string a na AC vodič střídače) – jinak popisek přetéká přes svůj lom
         x_boxes[-1] = x_boxes[-2] + max(box_pitch, 70.0 + 5.0 * n_lanes)
     x_dc = 130.0                                                   # samostatný odpínač DC (bez rozvaděčů)
     # před střídačem: popisek kabelu za blokem rozvaděče + vějíř lomů (5 mm na string) před DC vstupy střídače
-    x_inv = (x_boxes[-1] + max(80.0, 15.0 + INV_LABEL_SPACE + 5.0 * n_max + 10.0)) if n_boxes else 200.0
+    n_fan = n_all if common_dc else n_max          # lomy před DC vstupy střídačů (u společného RFVE.DC všechny)
+    x_inv = (x_boxes[-1] + max(80.0, 15.0 + INV_LABEL_SPACE + 5.0 * n_fan + 10.0)) if n_boxes else 200.0
     x_blk, x_grid = x_inv + 110.0, x_inv + 185.0   # mezi střídačem a rozvaděčem se vejde popisek AC kabelu
     if combined:   # rozvaděč FVE na místě DC rozvaděče u technologie (před střídači), síť za střídači
         x_blk, x_grid = x_boxes[-1], x_inv + 75.0
     return PvGeometry(row_h=row_h, row_extra=row_extra, y_top=y_top, n_route=n_route, n_boxes=n_boxes, x_str=x_str,
                       n_max=n_max, n_all=n_all, dc_first=dc_first, x_boxes=x_boxes, x_dc=x_dc, x_inv=x_inv,
-                      x_blk=x_blk, x_grid=x_grid)
+                      x_blk=x_blk, x_grid=x_grid, common_dc=common_dc)
+
+
+def _common_lanes(geo: PvGeometry, invs: list) -> list[int]:
+    """Společný RFVE.DC: první lom (pořadí zleva) vodičů každého střídače před jeho DC vstupy. Střídač nejdál od
+    středu bloku (y 150) má lomy nejvíc vlevo, nejbližší vpravo – vodiče nahoru i dolů se pak nekříží (pořadí uvnitř
+    skupiny střídače doladí `layout._align_bends`)."""
+    y, mids = geo.y_top, []
+    for i in range(len(invs)):
+        mids.append(y - geo.row_h[i] / 2)
+        y -= geo.row_h[i] + geo.row_extra[i]
+    order = sorted(range(len(invs)), key=lambda i: (-abs(mids[i] - 150.0), i))
+    lane0, acc = [0] * len(invs), 0
+    for i in order:
+        lane0[i] = acc
+        acc += len(invs[i].get("strings") or [1])
+    return lane0
 
 
 def build(ctx: ChainContext) -> None:
@@ -88,8 +108,11 @@ def build(ctx: ChainContext) -> None:
     rows = ctx.rows             # prvky řady střídače (střídač, stringy, DC rozvaděče…) – rozdělení JPS na listy
     inverter_strings = ctx.strings
     dc_boxes = ctx.dc_boxes     # (blok, stringy, druh, č. střídače, střídač)
-    n_tech = len(invs) if dc.get("tech_box") and not combined else 0   # DC rozvaděče u technologie (jeden na střídač)
+    common = geo.common_dc      # jeden společný RFVE.DC (2+ střídače) – přívody X1…Xn všech stringů, vývody za nimi
+    n_tech = len(invs) if dc.get("tech_box") and not combined and not common else 0   # DC rozvaděče u technologie na střídač
     tech_ref = node_ref(spec, ctx.topology, "rfve_dc", default=DC_TECH_BOX_REF)
+    common_gens: list[Element] = []
+    lane0 = _common_lanes(geo, invs) if common else []
     for i, inv in enumerate(invs):
         strings = inv.get("strings") or [1]
         y_mid = y - row_h[i] / 2
@@ -152,6 +175,13 @@ def build(ctx: ChainContext) -> None:
             if kind == "tech" and combined:
                 boxes.append(blk)
                 break
+            if kind == "tech" and common:
+                if ctx.dc_common is None:   # blok vznikne u prvního střídače, list až za rozvaděči po trase
+                    ctx.dc_common = Element("fve.switchboard", x_boxes[j], 150.0,
+                                            attrs={"ref": tech_ref, "desc": "DC rozvaděč u technologie"})
+                    s.elements.append(ctx.dc_common)
+                boxes.append(ctx.dc_common)
+                break
             desc = f"DC rozvaděč u {ref_t}" if kind == "tech" else (f"DC rozvaděč po trase {ref_t}" + (f" ({j + 1})" if n_route > 1 else ""))
             b = Element("fve.switchboard", x_boxes[j], y_mid, attrs={"ref": dc_box_ref(kind, i, n_tech, p, tech_ref), "desc": desc})
             s.elements.append(b)
@@ -177,6 +207,10 @@ def build(ctx: ChainContext) -> None:
                         port_in, port_out = f"X{dc_first + k_all}", f"X{dc_first + n_all + k_all}"
                         xj = b.x - 15.0 - 5.0 * len(invs) - 5.0 * (n_all - k_all)
                         pts = [(xj, prev.y if j == 0 else port_y[k]), (xj, port_y[k])]
+                    elif b is ctx.dc_common:   # společný RFVE.DC: přívody X1…Xn všech stringů, vývody X(n+1)…
+                        port_in, port_out = f"X{1 + k_all}", f"X{1 + n_all + k_all}"
+                        xj = b.x - 15.0 - 5.0 * (n_all - k_all)
+                        pts = [(xj, prev.y if j == 0 else port_y[k]), (xj, port_y[k])]
                     s.wires.append(Wire(WireEnd(prev.id, prev_port), WireEnd(b.id, port_in), conductors=list(DC_CONDUCTORS),
                                         points=pts,
                                         attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": _s(dc.get("cross")),
@@ -184,7 +218,7 @@ def build(ctx: ChainContext) -> None:
                     prev, prev_port = b, port_out
                 # vějíř lomů těsně před DC vstupy střídače (5 mm rozestup) – za popiskem kabelu, mimo značku střídače;
                 # pořadí lomů bez křížení doladí `_align_bends`
-                xb = t.x - 10.0 - 5.0 * (n_str - k)
+                xb = t.x - 10.0 - 5.0 * ((n_all - lane0[i] - k) if common else (n_str - k))
                 y_inv = t.y + (2.5 * (n_in - 1) - 5.0 * j_in if n_in > 2 else (5.0 if j_in == 0 else -5.0))
                 s.wires.append(Wire(WireEnd(prev.id, prev_port), WireEnd(t.id, port_inv), conductors=list(DC_CONDUCTORS),
                                     points=[(xb, port_y[k]), (xb, y_inv)],
@@ -204,6 +238,7 @@ def build(ctx: ChainContext) -> None:
                                     attrs={"ref": p.next_ref("W"), "cable": _s(dc.get("cable")), "cross": _s(dc.get("cross")),
                                            "length": _s(dc.get("length")), "method": "E"}))
             k_all += 1
+        common_gens.extend(gens)
         # AC vodič ke bloku rozvaděče – port podle přívodu (X1, X2…), doplní se po vytvoření listu
         w_ac = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, f"X{i + 1}"), conductors=list(AC_CONDUCTORS),
                     attrs={"ref": p.next_ref("W"), "cable": _s(ac.get("cable")), "cross": _s(ac.get("cross")),
@@ -211,6 +246,8 @@ def build(ctx: ChainContext) -> None:
         s.wires.append(w_ac)
         ac_wires.append(w_ac)
         y -= row_h[i] + row_extra[i]
+    if ctx.dc_common is not None:   # list společného RFVE.DC za listy rozvaděčů po trase
+        dc_boxes.append((ctx.dc_common, common_gens, "tech", 0, ""))
     if spec.get("battery"):
         b = spec["battery"]
         t0 = inverter_elements[0]

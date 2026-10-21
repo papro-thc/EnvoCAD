@@ -27,6 +27,7 @@ class PvGeometry:
     x_inv: float
     x_blk: float                 # blok hlavního AC článku (RFVE.AC / RFVE)
     x_grid: float
+    common_dc: bool = False      # jeden společný DC rozvaděč u technologie pro všechny střídače (F2, rozhodnutí 3)
 
 
 @dataclass
@@ -55,6 +56,7 @@ class ChainContext:
     fuse_cache: dict[str, tuple[str, str]] = field(default_factory=dict)
     done: set[str] = field(default_factory=set)    # už sestavené části (listy DC rozvaděčů, hlavní rozvaděč…)
     tail: tuple[Element, str] | None = None         # poslední blok řetězce směrem k síti a jeho vývod (XOUT)
+    dc_common: Element | None = None                # společný DC rozvaděč u technologie RFVE.DC (2+ střídače)
 
     @property
     def main(self) -> Element:

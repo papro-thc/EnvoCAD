@@ -177,6 +177,16 @@ def node_desc(spec: Mapping, topology: Topology | None, role: str, legacy: str =
     return desc or _s(legacy).strip() or default or (node.desc if node is not None else "")
 
 
+def rfve_dc_per_inverter(spec: Mapping, topology: Topology | None) -> bool:
+    """DC rozvaděč u technologie na každý střídač (RFVE.DC1, RFVE.DC2…) místo jednoho společného RFVE.DC:
+    `chain.rfve_dc.per_inverter` > `per_inverter` článku presetu > False (rozhodnutí 3 – výchozí společný)."""
+    given = (spec.get("chain") or {}).get("rfve_dc") if isinstance(spec.get("chain"), Mapping) else None
+    if isinstance(given, Mapping) and _s(given.get("per_inverter")).strip():
+        return chain_flag(given.get("per_inverter"))
+    node = topology.node("rfve_dc") if topology is not None else None
+    return bool(node.per_inverter) if node is not None else False
+
+
 def resolve_chain_refs(spec: dict, raw: Mapping, topology: Topology) -> None:
     """Označení a popisy článků do sloučené specifikace (`spec`, na místě): hlavní AC článek (`switchboard`),
     HR / RVN / RE přípojky VN (`connection.*_board`) – podle `node_ref` / `node_desc`. `raw` = specifikace před
