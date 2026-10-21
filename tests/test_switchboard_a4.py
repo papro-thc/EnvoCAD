@@ -307,6 +307,8 @@ def test_documentation_mixed_formats_and_page_counts(qapp, lib, tmp_path):
     assert b.page_starts == [1 + sum(b.page_counts[:i]) for i in range(len(b.pages))]
     for (kind, _name, data), start, cnt in zip(b.pages, b.page_starts, b.page_counts):
         want = A4_PT if kind == "sheet" and data[1] in ("multipole", "terminals") else A3_PT
+        if kind == "sheet" and data[1] == "single_line":   # jednopólové schéma ve svém formátu (F2: s HR, RE → A2)
+            want = (594 * 72 / 25.4, 420 * 72 / 25.4)
         for i in range(start - 1, start - 1 + cnt):
             box = pages[i].mediabox
             assert (round(float(box.width)), round(float(box.height))) == (round(want[0]), round(want[1])), \

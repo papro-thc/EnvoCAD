@@ -7,6 +7,8 @@ from itertools import pairwise
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("ac_builtin")   # AC listy vestavěným kódem (standard `ac_builtin`)
+
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QLabel, QMessageBox
@@ -105,7 +107,7 @@ def test_macro_dialog_prefills_next_free_numbers(app, lib):
     assert any("Číslovat od" in e for e in d.errors)
     # AC přívod do RFVE.AC s X1 → k = 2, střídač T2
     ac = find_macro("AC přívod střídače")
-    d = MacroValuesDialog(ac, lib, project=p, sheet=p.sheets[-1])
+    d = MacroValuesDialog(ac, lib, project=p, sheet=next(s for s in p.switchboards() if s.loc == "RFVE.AC"))
     vals = d.values()
     assert not d.errors and vals["k"] == "2" and vals["inverter"] == "T2"
     # bez listu se nic nepředvyplňuje (výchozí k = 1)
@@ -175,7 +177,7 @@ def test_rename_inverter_updates_auto_texts_in_one_undo_step(app, lib):
     n0 = w.undo.count()
     sc.set_attr(t1.id, False, "ref", "T9")
     assert w.undo.count() == n0 + 1
-    rh = p.sheets[-1]
+    rh = next(s for s in p.switchboards() if s.loc == "RFVE.AC")
     assert "od T9" in [e.attrs.get("desc") for e in rh.elements if is_feed_in(e)]
     rdc1 = next(e for e in p.sheets[0].elements if e.ref == "RDC1")
     assert p.switchboard_sheet(rdc1.id).name == "RDC1 – DC rozvaděč po trase T9"

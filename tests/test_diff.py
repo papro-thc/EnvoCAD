@@ -1,8 +1,12 @@
 """Porovnání revizí (bez Qt)."""
 
+import pytest
+
 from envocad.generate import build_project
 from envocad.model.diff import change_list_text, diff_projects, summary
 from envocad.model.project import Element, Project
+
+pytestmark = pytest.mark.usefixtures("ac_builtin")   # AC listy vestavěným kódem (standard `ac_builtin`)
 
 
 def test_diff_projects(tmp_path):

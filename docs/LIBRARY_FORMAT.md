@@ -161,6 +161,18 @@ a `modules` (šířka na DIN liště v modulech 17,5 mm; `0` = nemodulový, nero
 Symboly pro list rozvaděče mají prefix `sb.` (`envocad/library/builtin/switchboard/`): sběrnice `sb.busbar`
 (porty IN, T1…T12 shora, vývody 1…13 zdola po 15 mm), přívod/vývod `sb.feed` (viz níže), svorkovnice `sb.terminal_block` (šířka skupiny `modules`; prázdná = počet svorek × 6,2 mm), PE/N můstek `sb.pe_bar`.
 
+### Blok rozvaděče bez listu `fve.switchboard` (formát projektu v15)
+
+Blok ROZVADĚČ má porty podle přívodů / vývodů svého listu (`project.switchboard_symbol`). Bez listu (stávající RD /
+HR / RE, RFVE.AC bez mustru) je nese **v atributech**: `ports_in` (přívody vlevo, „XIN“ / „X1 X2 XE1“) a `ports_out`
+(vývody vpravo, „XOUT XPE“), označení oddělená mezerou / čárkou; s listem se přidají porty, které list nemá.
+`protect` = jištění portů („X1=63, X3=40“, A) pro kontrolu kabelu (`calc.check_cables` – In jištění vývodu vs Iz).
+Údaje článku v popisku (zobrazené atributy): `main` (hlavní přístroj), `fve_out` (vývod FVE), `metering` (měření),
+`inv_protect` (jištění střídačů), `grid_protection` (požadavek síťové ochrany – F7 `grid_protection_missing` ho
+uzná). Kontrola: blok s porty z atributů = INFO `block_only` (ne `no_sheet`). Přívod / vývod listu s `anchor="1"` je
+kotva bez zapojení (AC část RFVE bez mustru) – nezapojená = INFO `feed_anchor`. Hlavní vypínač `sb.main_switch` má
+atribut `trip` (vypínací spoušť vazebního prvku síťové ochrany).
+
 ### Přívod / vývod `sb.feed` (formát projektu v13)
 
 Jedna značka pro přívod i vývod rozvaděče (`docs/design/znacka_privod_vyvod.md`); jediné místo s predikáty je
@@ -218,7 +230,7 @@ Makro = pojmenovaná sestava prvků a vodičů (výřez listu) k opakovanému vk
   "version": 3,
   "name": "DC string v rozvaděči",
   "description": "…",
-  "role": "dc_tech",                       // role v generátoru: dc_tech | dc_route | ac_feed | ac_core | ""
+  "role": "dc_tech",                       // role v generátoru: dc_tech | dc_route | ac_feed | ac_core | ac_eps | ""
   "variables": [
     {"name": "n", "label": "Počet stringů", "type": "number", "default": "1", "min": 1, "max": 50, "auto": true},
     {"name": "j", "label": "Číslo stringu u střídače", "type": "number", "default": "{k}", "auto": true},
@@ -361,11 +373,48 @@ Topologie = řetězec článků připojení od zdroje k síti (návrh `docs/desi
 | `link` | `{}` | kabel k dalšímu článku směrem k síti: `cable`, `cross`, `length`, `method` |
 
 Uzly před `inverter` jsou DC strana, za ním AC; `rfve` (rodinný dům) stojí před střídači a je i prvním AC článkem.
-Volby článků vestavěných presetů (logiku doplní F2): `rfve` – `grid_protection` (`auto` = síťová ochrana nad 30 kWp
-instalovaného výkonu DC), `changeover_switch` (přepínač sítí a EPS vývod – jen rodinný dům); `rfve_ac` –
-`grid_protection`; `rd` / `hr` – `main_device` (`switch` | `breaker`), `fve_device` (`breaker` | `fuse_disconnect`,
-do 80 A vždy jistič), u `nn_hr_meter` `metering`; `re` – `metering` (`direct` | `indirect`), `boundary` (`hds` |
-`re_main` | `re_meter`); `hds` – `char`.
+### Volby článků (`spec["chain"]`, F2)
+Volby článku: `spec["chain"][role]` > `options` článku presetu > výchozí hodnota generátoru; kabel k dalšímu článku
+`spec["chain"][role]` > `link` presetu (> `ac.grid_*` u hlavního AC článku, jen zadané ve specifikaci – jinak průřez
+pro In vývodu FVE). Logika `envocad/generator/boards/`, pravidla jištění `envocad/generator/currents.py`.
+
+| role | klíč | výchozí | význam |
+|---|---|---|---|
+| všechny | `ref`, `desc` | z presetu | označení a popis bloku (přepis; dřívější `switchboard.ref`, `connection.*_board.ref` také) |
+| všechny | `cable`, `cross`, `length`, `method` | `""` | kabel od článku k dalšímu směrem k síti; nový úsek bez `cross` → `calc.min_cross(In, method)`; stávající (`existing`) bez `cable`/`cross` = vodič bez označení; od `hds` k DS vždy bez kabelu |
+| `rfve_ac`, `rfve`, `rd`, `hr`, `re`, `rvn` | `builtin` | standard `ac_builtin` (`false`) | list článku vestavěným kódem (jako před rozhodnutím 12); `false` = RFVE.AC / AC část RFVE z mustru (jinak blok bez listu / kotvy), RD / HR / RE (i HR, RVN, RE trafostanice na vn) jen blok bez listu s údaji v atributech |
+| `rfve_dc` | `per_inverter` | `false` | DC rozvaděč u technologie na střídač (RFVE.DC1…n, stav před F2); jinak jeden společný RFVE.DC (přerostl-li by s ním list „AC a připojení“ limit, generátor vezme RFVE.DC na střídač, když klíč nezadáš) |
+| `rd`, `hr` | `main_device` | `switch` (RD), `breaker` (HR) | hlavní přístroj stávajícího rozvaděče |
+| `rd`, `hr` | `main_in` | `""` | In stávajícího hlavního přístroje; v listu (`builtin`) prázdné → `in_unresolved`, chyba F7 `breaker_no_in`; v bloku bez listu jen údaj v popisku |
+| `rd`, `hr` | `fve_device` | `breaker` | vývod FVE: `breaker` \| `fuse_disconnect`; pojistka s `fve_in` ≤ 80 A → ValueError |
+| `rd`, `hr` | `fve_in` | nejbližší velikost ≥ max(Σ proudů střídačů, největší jistič střídače) | In vývodu FVE (blok bez listu: i `protect` „X1=…“ pro kontrolu kabelu) |
+| `rd`, `hr` | `load` | „stávající rozvody objektu“ | popis vývodu X2 a značky spotřeby |
+| `hr` | `metering`, `ct_ratio`, `switch_in`, `boundary` | `""` | měření v HR (topologie `nn_hr_meter`) – jako `re` |
+| `re` | `main_in`, `char` | `""`, `B` | hlavní jistič před elektroměrem (do 125 A MCB, jinak MCCB); prázdné In v listu → chyba F7 |
+| `re` | `metering` | `direct` | `direct` (elektroměr v sérii) \| `indirect` (MTP, elektroměr na sekundáru) |
+| `re` | `ct_ratio` | z `main_in` | převod MTP („200/5 A“) |
+| `re` | `switch_in` | `main_in` | In vypínače instalace |
+| `re` | `boundary` | `hds` | hranice vlastnictví `hds` \| `re_main` \| `re_meter` (atribut `boundary="1"` na HDS / HJ / elektroměru + text v blokovém schématu) |
+| `hds` | `in_`, `char`, `poles` | `""`, `gG`, `3` | pojistky HDS (`fve.hds`); prázdné In = jen INFO `hds_no_in` |
+| `rfve`, `rfve_ac` | `grid_protection` | `auto` | síťová ochrana `fve.grid_protection`: `auto` = instalovaný výkon DC nad `standard.grid_protection_kwp` (30 kWp), `1` vždy, `0` nikdy (F7 `grid_protection_missing`); jinak ValueError |
+
+Nepovinné klíče střídače: `inverters[].ac_group` – skupina střídačů na jiném místě (krok 10): každá skupina má vlastní
+AC rozvaděč RFVE.AC{n} (hlavní „“ = RFVE.AC1) a vlastní vývod FVE ve stávajícím HR (X1, X3, X4…; X2 = stávající
+rozvody); jen nn s RFVE.AC a HR (firma, bytový dům, měření v HR), jinak ValueError. Řady střídačů se v blokovém
+schématu seřadí po skupinách.
+
+**Role maker v generátoru** (`spec.macros.<role>`): `dc_tech`, `dc_route` (DC rozvaděče – výchozí vestavěná),
+`ac_feed`, `ac_core`, `ac_eps` (AC část). **AC část je mustr** (rozhodnutí 12): list RFVE.AC / AC část RFVE vznikne jen
+z maker rolí `ac_feed` + `ac_core` ze **sdílené nebo vlastní** knihovny (zdroj makra není „vestavěné“) – název
+zadaný ve specifikaci (`spec.macros`, jen zadaný uživatelem) > `node.macros` presetu > první makro s klíčem `role`;
+`ac_eps` volitelně (bez něj u RD jen kotvy XE{i} / XB{i}). Vestavěná makra a kód AC části platí jen s volbou
+`builtin` / standardem `ac_builtin` (pak i `spec.macros` s vestavěnými názvy, prázdný název = kód). Jádro `ac_core` má
+auto proměnnou `grid_protection` („1“ / „“) – prvky s `"when": "grid_protection"` (vestavěné: síťová ochrana z vývodu
+4 sběrnice přes jistič měřicího vstupu; `acts_on` a vypínací spoušť `trip` vazebního prvku doplní generátor = hlavní
+vypínač, nemá-li ochrana `acts_on` z mustru). `ac_eps` na hybridní střídač s baterií: auto `i`, `inverter`, `eps_in`
+(In jističe před přepínačem i přepínače), `main_in`; kotvy `sb.feed` `dir=in` `XE{i}` (EPS od střídače), `sb.feed`
+`dir=out` `XB{i}` (zálohované okruhy), sdílená sběrnice `1` vývod 5 → **jistič** → port 1 přepínače (síťová strana).
+Požadavky na mustr (síťová ochrana, EPS) v `docs/design/topologie_f1_f2.md`, kap. 3.
 
 **Výběr topologie** (`envocad/generator/spec.select_topology(spec, topologies)`): `spec["topology"]` zadané → ten preset
 (jediná cesta k `nn_hr_meter`); jinak rodinný dům → `rd` (i nad 30 kWp), `connection.level` "vn" → `vn`, jinak `nn`

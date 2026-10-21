@@ -420,9 +420,23 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
             end = max(end, e) if sign > 0 else min(end, e)
         return end
 
+    buses = {i for i in poles if poles[i].element.symbol_id == "sb.busbar"}
+    on_bus = buses | {n for b in buses for n in nb[b]}       # sběrnice a vše, co na ni vede vodičem
+
+    def subtree(i: str) -> list[str]:
+        return [i, *(x for c in children[i] for x in subtree(c))]
+
     cursor = y_top if horizontal else x0
+    rail_pages: set[int] = set()
     for r in roots:
+        tree = subtree(r)
+        # podstrom bez vazby na sběrnici (DC string rozvaděče FVE) nezačíná na straně se sběrnými čarami (vedou
+        # přes celou stranu) – přístroje by ležely v jejich pásu (popisky SPD přes 1L1…1PE); začne na další straně
+        if paging and rail_pages and not on_bus.intersection(tree) and page_at(cursor) <= max(rail_pages):
+            cursor = x0 + (max(rail_pages) + 1) * page_w
         cursor = after(place(r, cursor))
+        if paging:
+            rail_pages |= {page_at(out[i][0]) for i in tree if i in on_bus and i in out}
     for b in bars:
         ns = [n for n in nb[b] if n in out]
         d = max([depth[n] for n in ns] + [depth[x] for x in sinks], default=depth[b] - 1) + 1   # PE lišta dole pod vývody

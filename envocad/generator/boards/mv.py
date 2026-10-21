@@ -234,7 +234,8 @@ def fve_feeder_in(conn: dict, ac: dict, invs) -> tuple[str, str]:
 
     `invs` = vygenerované prvky střídačů (proud FVE z jejich `p_ac` a `phases`, i z artiklu) nebo slovníky
     specifikace. Zadané `main_board.fve_in` platí beze změny (selektivitu pak hlídá F7 `calc_selectivity`). Jinak
-    In hlavního vypínače RFVE.AC (`ac.main_in`), omezené na největší jistič selektivní s hlavním jističem HR
+    nejbližší velikost ≥ max(Σ proudů střídačů, jistič střídače) (jako vývod FVE v RD / HR, B3; bez střídačů In
+    hlavního vypínače RFVE.AC `ac.main_in`), omezená na největší jistič selektivní s hlavním jističem HR
     (In·1,6 ≤ hlavní jistič, `calc.SELECTIVITY_RATIO`; hlavní jistič je ze Sn transformátoru).
 
     Vývod musí unést proud FVE (součet střídačů) a nesmí být menší než jistič střídače v RFVE.AC (`ac.breaker_in`).
@@ -248,17 +249,21 @@ def fve_feeder_in(conn: dict, ac: dict, invs) -> tuple[str, str]:
     if _s(mb.get("fve_in")).strip():
         return _s(mb["fve_in"]).strip(), ""
     main_in = float(connection_currents(conn)["main_in"])
-    want = _num_or(ac.get("main_in"), 125.0)
-    i_fve = inverters_ac_current(invs)
-    need = max(i_fve, _num_or(ac.get("breaker_in"), 0.0))
+    given = _num_or(ac.get("main_in"), 125.0)
+    from envocad.generator.currents import breaker_ins, fve_current
+    i_fve = fve_current(invs)          # proud z artiklu (i_ac_max), jinak z P AC
+    need = max([i_fve, *breaker_ins({"ac": ac}, invs)])
+    # vývod jako u RD / HR na nn (B3): nejbližší velikost ≥ max(Σ proudů, jistič střídače); bez střídačů In hlavního
+    # vypínače RFVE.AC. Zadaný hlavní vypínač RFVE.AC pod proudem FVE je chyba zadání (nedosazuje se)
+    want = _next_size(need, LV_FEEDER_SIZES) if need else given
     selective = [x for x in LV_FEEDER_SIZES if x * SELECTIVITY_RATIO <= main_in + 1e-9]
     if selective and want <= selective[-1]:
-        if want >= need - 1e-9:
-            return f"{want:g}", ""
-        why = (f"In vývodu FVE {want:g} A (ac.main_in) < proud FVE / jistič střídače {need:.0f} A – zvětšete "
-               "ac.main_in, nebo zadejte main_board.fve_in")
-        log.warning("Hlavní rozvaděč HR: %s", why)
-        return "", why
+        if not _s(ac.get("main_in_auto")) and given < need - 1e-9:
+            why = (f"In vývodu FVE: hlavní vypínač RFVE.AC {given:g} A (ac.main_in) < proud FVE / jistič střídače "
+                   f"{need:.0f} A – zvětšete ac.main_in, nebo zadejte main_board.fve_in")
+            log.warning("Hlavní rozvaděč HR: %s", why)
+            return "", why
+        return f"{want:g}", ""
     if selective and selective[-1] >= need:
         log.info("Vývod FVE v HR omezen z %g A na %g A (selektivita s hlavním jističem %g A)",
                  want, selective[-1], main_in)
@@ -287,6 +292,7 @@ def _build_main_lv_board(p: Project, sheet: Sheet, conn: dict, ac: dict, invs=No
     feed = _feed(p, sheet, "in", x0, y + 70, "", rot=180, desc="od transformátoru")
     feed.attrs["ref"] = "XT"
     qm = _el(p, sheet, "fve.breaker_mccb", x0, y + 10, "Q", rot=270, in_=c["main_in"], poles="3", modules="9")
+    qm.attrs["chain"] = "main"
     bus = _el(p, sheet, "sb.busbar", x0 + 75, y - 25, "", desc="přípojnice nn", in_=c["main_in"],
               conductors=" ".join(AC_CONDUCTORS))
     bus.attrs["ref"] = "2"
@@ -308,6 +314,7 @@ def _build_main_lv_board(p: Project, sheet: Sheet, conn: dict, ac: dict, invs=No
     _wire(p, sheet, qm, "2", bus, "IN", AC_CONDUCTORS)
     fve_in, why = fve_feeder_in(conn, ac, invs or [])
     qf = _el(p, sheet, "fve.breaker_mccb", x0 + 7.5, y - 60, "Q", rot=270, in_=fve_in, poles="3", modules="6")
+    qf.attrs["chain"] = "fve_out"
     if not fve_in:
         qf.attrs["in_unresolved"] = why
     out_f = _feed(p, sheet, "out", x0 + 7.5, y - 95, "", desc=f"k {fve_ref} (FVE)" if fve_ref else "k AC rozvaděči FVE")
@@ -448,28 +455,86 @@ def _build_meter_board(p: Project, sheet: Sheet, conn: dict) -> None:
 
 
 def build_blocks(ctx: ChainContext) -> None:
-    """Bloky přípojky VN za hlavním AC článkem (`_connection_blocks`): HR, TR, RVN / přístroje na sloupu, RE, DS."""
+    """Bloky přípojky VN za hlavním AC článkem (`_connection_blocks`): HR, TR, RVN / přístroje na sloupu, RE, DS.
+    Kabel RFVE.AC → HR: `ac.grid_*` jen zadané uživatelem, jinak nejmenší průřez pro In vývodu FVE v HR (D3)."""
     ctx.mv = _connection_blocks(ctx.project, ctx.sheet, ctx.spec, ctx.main, ctx.geo.x_blk)
     ctx.grid = ctx.mv["grids"][0]
+    raw_ac = ctx.raw.get("ac") if isinstance(ctx.raw.get("ac"), dict) else {}
+    if _s(raw_ac.get("grid_cable")).strip() or _s(raw_ac.get("grid_cross")).strip():
+        return
+    from envocad.generator.chain import cable_for
+    from envocad.model.calc import min_cross
+    hr = ctx.mv["hr"]
+    w = next((w for w in ctx.sheet.wires if w.touches(ctx.main.id) and w.touches(hr.id)), None)
+    fin, _why = fve_feeder_in(ctx.spec.get("connection") or {}, ctx.spec["ac"], ctx.inverters)
+    x = min_cross(_num(fin) or 0.0, "D")
+    if w is not None and x:
+        w.attrs.update({"cable": cable_for(ctx.spec, x), "cross": f"{x:g}".replace(".", ",")})
+
+
+def _boards(ctx: ChainContext) -> list[tuple[str, Element, object]]:
+    """(role, blok, funkce listu) rozvaděčů přípojky VN: HR, RVN (ne u sloupové TS), RE."""
+    conn = ctx.spec.get("connection") or {}
+    chain = ctx.mv
+    out = [("hr", chain["hr"], lambda p, sh: _build_main_lv_board(p, sh, conn, ctx.spec["ac"], ctx.inverters,
+                                                                  ctx.main.ref))]
+    if chain["rvn"] is not None:
+        out.append(("rvn", chain["rvn"], lambda p, sh: _build_mv_board(p, sh, conn)))
+    out.append(("re", chain["re"], lambda p, sh: _build_meter_board(p, sh, conn)))
+    return out
 
 
 def build_sheets(ctx: ChainContext) -> None:
-    """Listy přípojky VN: hlavní rozvaděč nn HR, rozvaděč VN (ne u sloupové TS), elektroměrový rozvaděč RE."""
-    p, chain = ctx.project, ctx.mv
+    """Listy přípojky VN (HR, RVN, RE) jen s volbou vestavěného kódu (`chain.<role>.builtin` / standard
+    `ac_builtin`); jinak jsou rozvaděče trafostanice bloky bez listu (`block_attrs`, rozhodnutí 12)."""
+    from envocad.generator.spec import builtin_wanted
+    p = ctx.project
+    for role, blk, make in _boards(ctx):
+        if builtin_wanted(ctx.spec, ctx.topology, role):
+            make(p, p.create_switchboard_sheet(blk))
+
+
+def block_attrs(ctx: ChainContext) -> None:
+    """Rozvaděče trafostanice bez listu (výchozí rozsah): porty bloku z přívodů / vývodů vestavěného listu (sestaví se
+    naslepo v pomocném projektu – porty i jejich pořadí jako s listem) a údaje v popisku – hlavní jistič, vývod FVE,
+    měření, pojistky / vypínač VN; jištění vývodu FVE `protect` (kontrola kabelu od RFVE.AC)."""
+    from envocad.generator.spec import builtin_wanted
+    from envocad.model.feed import is_feed_in, is_feed_out
     conn = ctx.spec.get("connection") or {}
-    _build_main_lv_board(p, p.create_switchboard_sheet(chain["hr"]), conn, ctx.spec["ac"], ctx.inverters, ctx.main.ref)
-    if chain["rvn"] is not None:
-        _build_mv_board(p, p.create_switchboard_sheet(chain["rvn"]), conn)
-    _build_meter_board(p, p.create_switchboard_sheet(chain["re"]), conn)
+    c = connection_currents(conn)
+    for role, blk, make in _boards(ctx):
+        if builtin_wanted(ctx.spec, ctx.topology, role):
+            continue
+        tmp = Sheet(kind="switchboard")
+        make(Project(), tmp)
+        blk.attrs["ports_in"] = " ".join(e.ref for e in tmp.elements if is_feed_in(e) and e.ref)
+        blk.attrs["ports_out"] = " ".join(e.ref for e in tmp.elements if is_feed_out(e) and e.ref)
+        if role == "hr":
+            fin, _why = fve_feeder_in(conn, ctx.spec["ac"], ctx.inverters)
+            blk.attrs["main"] = f"hlavní jistič {c['main_in']} A"
+            blk.attrs["fve_out"] = f"jistič {fin} A" if fin else "jistič (In neurčené)"
+            if fin:
+                blk.attrs["protect"] = f"X1={fin}"
+            if c["metering"] == "nn":
+                blk.attrs["metering"] = f"na nn, MTP {c['ct_ratio']}"
+        elif role == "rvn":
+            blk.attrs["main"] = ("vypínač VN s ochranou" if c["breaker_vn"]
+                                 else f"pojistky VN {c['fuse_vn']} A")
+            if c["metering"] == "vn":
+                blk.attrs["metering"] = f"na vn, MTP {c['ct_ratio']}, MTN"
+        else:
+            blk.attrs["metering"] = "fakturační elektroměr"
 
 
 class MvBuilder:
     """Přípojka VN jako jeden složený builder (role hr, tr, rvn, grid a odbočka re topologie `vn`): bloky
-    `_connection_blocks` (přívod HR = X1 od RFVE.AC, DS na XDS), listy HR, RVN, RE. Volá se jednou za průchod."""
+    `_connection_blocks` (přívod HR = X1 od RFVE.AC, DS na XDS); HR, RVN, RE výchozí jen bloky (porty a údaje
+    v atributech), listy s volbou `builtin`. Volá se jednou za průchod."""
     name = "mv"
 
     def block(self, ctx: ChainContext, node: ChainNode) -> Element | None:
         build_blocks(ctx)
+        block_attrs(ctx)
         return ctx.mv["hr"]
 
     def ports(self, ctx: ChainContext, node: ChainNode) -> ChainPorts:

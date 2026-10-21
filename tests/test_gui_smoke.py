@@ -518,13 +518,14 @@ def test_wizard_spec_dc_boxes(app):
     spec = d.spec()
     assert spec["dc"]["route_boxes"] == 2 and spec["dc"]["tech_box"] is True and spec["dc"]["disconnect"] is False
     p = build_project(spec)
-    assert len([s for s in p.sheets if s.is_switchboard]) == 2 * 3 + 1
+    dc = [s.loc for s in p.sheets if s.loc.startswith(("RDC", "RFVE.DC"))]
+    assert len(dc) == 2 * 2 + 1 and dc[-1] == "RFVE.DC"     # po trase na střídač + společný u technologie (F2)
     d.dc_tech_box.setChecked(False)
     d.dc_route_boxes.setText("0")
     spec = d.spec()
     assert spec["dc"]["disconnect"] is True
     p = build_project(spec)
-    assert len([s for s in p.sheets if s.is_switchboard]) == 1
+    assert not [s for s in p.sheets if s.loc.startswith(("RDC", "RFVE.DC"))]
     assert any(e.symbol_id == "fve.dc_disconnect" for e in p.sheets[0].elements)
     # rodinný dům: jeden rozvaděč RFVE (DC + AC), přípojka VN nejde zvolit
     d.dc_tech_box.setChecked(True)
@@ -534,7 +535,7 @@ def test_wizard_spec_dc_boxes(app):
     spec = d.spec()
     assert spec["building"] == "house"
     p = build_project(spec)
-    assert [s.loc for s in p.sheets if s.is_switchboard] == ["RFVE"]
+    assert [s.loc for s in p.sheets if s.is_switchboard and s.loc.startswith("RFVE")] == ["RFVE"]
 
 
 def test_macro_insert_and_branch_gui(app):
@@ -599,6 +600,7 @@ def test_multipole_pagination(app):
         assert out.stat().st_size > 5000
 
 
+@pytest.mark.usefixtures("ac_builtin_fn")   # list RFVE.AC vestavěným kódem
 def test_edit_in_switchboard_schematic(app):
     """Ve schématu rozvaděče (vícepól) jde vkládat prvky a kreslit žíly – i u vygenerovaného projektu."""
     from PySide6.QtCore import QPointF
@@ -612,7 +614,7 @@ def test_edit_in_switchboard_schematic(app):
     p = build_project(spec)
     w = MainWindow(LibraryStore(), p)
     w._edit_element_anywhere = lambda *a, **k: None   # bez modálního dialogu
-    sb = p.sheets[-1]
+    sb = next(s for s in p.switchboards() if s.loc == "RFVE.AC")
     w.open_sheet(sb, "multipole")
     sc = w.view.scene()
     assert isinstance(sc, MultipoleScene) and w.draw_scene is sc
@@ -642,6 +644,7 @@ def test_edit_in_switchboard_schematic(app):
     w.close()
 
 
+@pytest.mark.usefixtures("ac_builtin_fn")   # list RFVE.AC vestavěným kódem
 def test_feed_cable_tag_edit_and_move(app):
     """Štítek kabelu u přívodu: dvojklik otevře parametry přívodu, tažení posune celý přívod."""
     from PySide6.QtCore import QPoint, Qt
@@ -658,7 +661,7 @@ def test_feed_cable_tag_edit_and_move(app):
     w.show()
     calls = []
     w._edit_element_anywhere = lambda sh, eid: calls.append(eid)
-    sb = p.sheets[-1]
+    sb = next(s for s in p.switchboards() if s.loc == "RFVE.AC")
     w.open_sheet(sb, "multipole")
     app.processEvents()
     w.view.zoom_fit()
@@ -1522,6 +1525,7 @@ def test_menu_export_production_xlsx(app, tmp_path, monkeypatch):
         win.close()
 
 
+@pytest.mark.usefixtures("ac_builtin_fn")   # listy trafostanice vestavěným kódem
 def test_wizard_vn_connection_and_single_line_tab(app, tmp_path):
     from envocad.generate import build_project
     from envocad.ui.dialogs import ProjectWizard
@@ -1569,6 +1573,30 @@ def test_wizard_vn_connection_and_single_line_tab(app, tmp_path):
     w.close()
 
 
+def test_block_ports_change_refreshes_symbol(app, tmp_path):
+    """Blok rozvaděče bez listu (formát v15): změna portů v atributu `ports_out` ve Vlastnostech – položka dostane
+    novou značku s porty z atributu, vodič se překreslí; undo vrátí původní porty."""
+    from PySide6.QtGui import QUndoStack
+
+    from envocad.ui import commands
+    from envocad.ui.canvas import SchematicScene
+    p = Project()
+    s = p.sheets[0]
+    hr = Element("fve.switchboard", 100, 150, attrs={"ref": "HR", "ports_in": "XIN", "ports_out": "X1"})
+    g = Element("fve.grid", 200, 150, attrs={"ref": ""})
+    s.elements += [hr, g]
+    s.wires.append(Wire(WireEnd(hr.id, "XIN"), WireEnd(g.id, "1")))
+    lib = LibraryStore(tmp_path / "lib.db")
+    undo = QUndoStack()
+    sc = SchematicScene(p, s, lib, undo)
+    names = lambda: {q.name for q in sc.element_items[hr.id].symbol.ports}
+    assert names() == {"XIN", "X1"}
+    undo.push(commands.SetAttrCommand(sc, hr.id, False, "ports_out", "X1", "X1 X2 X3"))
+    assert names() == {"XIN", "X1", "X2", "X3"}
+    undo.undo()
+    assert names() == {"XIN", "X1"}
+
+
 def test_busbar_taps_change_refreshes_symbol(app, tmp_path):
     """Změna počtu přívodů parametrické sběrnice ve Vlastnostech: položka dostane novou značku (délka, porty B{k})
     a vodiče se překreslí k novým portům; undo vrátí původní značku."""
@@ -1591,3 +1619,19 @@ def test_busbar_taps_change_refreshes_symbol(app, tmp_path):
     assert bus.attrs["taps"] == "4" and {"B3", "B4"} <= names()
     undo.undo()
     assert bus.attrs["taps"] == "2" and "B4" not in names()
+
+
+@pytest.mark.parametrize("building,level", [("company", "nn"), ("house", "nn"), ("apartment", "nn"),
+                                            ("company", "vn")])
+def test_wizard_defaults_f7_clean(app, building, level):
+    """Výchozí pole průvodce (stringy „18,18,18,18; 18,18“ – Uoc při −20 °C pod 1100 V střídače): projekt firma, RD,
+    BD i přípojka VN projde kontrolou F7 bez chyb a varování."""
+    from envocad.generate import build_project
+    from envocad.model.checks import ERROR, WARNING, check_project
+    from envocad.ui.dialogs import ProjectWizard
+    d = ProjectWizard()
+    d.building.setCurrentIndex(d.building.findData(building))
+    d.conn_level.setCurrentIndex(d.conn_level.findData(level))
+    p = build_project(d.spec())
+    bad = [(f.code, f.ref, f.text) for f in check_project(p, LibraryStore()) if f.severity in (ERROR, WARNING)]
+    assert bad == []

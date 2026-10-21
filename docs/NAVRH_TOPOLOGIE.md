@@ -246,9 +246,27 @@ připravené (F4 po dodání mustrů).
    **RFVE.AC** (AC rozvaděč FVE, dřív RH); u rodinného domu jeden rozvaděč **RFVE**. Dnešní „RH“ je chyba. Rozvaděče
    po trase zůstávají RDCn. Hlavní rozvaděč nn u vn = HR (dřív RHN). Základ: commit 537cdd8 (RH → RFVE.AC).
    **Hotovo v generátoru** (10/2026): `generator.context.AC_SWITCHBOARD_REF`, `DC_TECH_BOX_REF`,
-   `MAIN_LV_BOARD_REF`, `generator.boards.rfve_dc.dc_box_ref`. Dnes je DC rozvaděč u technologie vždy na střídač:
-   jediný = `RFVE.DC`, víc = `RFVE.DC1`, `RFVE.DC2`…
+   `MAIN_LV_BOARD_REF`, `generator.boards.rfve_dc.dc_box_ref`; od F2 z presetu (`node.ref`). DC rozvaděč u technologie
+   je od F2 společný `RFVE.DC`; s `chain.rfve_dc.per_inverter` na střídač: jediný = `RFVE.DC`, víc = `RFVE.DC1`, `RFVE.DC2`…
    podle pořadí střídače ve specifikaci (ne podle čísla v `ref` střídače); rozvaděče po trase `RDC1…n` souvisle (číslo
    RDC rozvaděče u technologie neberou). Návrh výše píše `RFVE_DC` / `RFVE_AC` – platí `RFVE.DC` / `RFVE.AC`
-   (kód umístění s tečkou uvnitř, `designation.CODE_RE`). Společný RFVE.DC (bod 3) zatím není – přijde s F1.
-10. **Přepínač sítí a EPS vývod** jen u rodinného domu (RFVE); u firmy a bytového domu se nekreslí.
+   (kód umístění s tečkou uvnitř, `designation.CODE_RE`). Společný RFVE.DC (bod 3) je hotový (F2, krok 2).
+10. **Přepínač sítí a EPS vývod** jen u rodinného domu (RFVE); u firmy a bytového domu se nekreslí. **Hotovo** (F2,
+    krok 9: `generator/boards/eps.py`, značka `fve.changeover_switch`). Síťová ochrana nad 30 kWp (bod 1) – F2 krok 8,
+    skupiny RFVE.AC na jiném místě (bod 3) – F2 krok 10.
+11. **Skupiny střídačů (`ac_group`)** (2026-10-21): síťová ochrana v každém RFVE.AC zvlášť. Rodinné domy se na vn
+    nepřipojují (beze změny – chyba). Skupiny zatím jen u nn s HR; RD a vn hlásí srozumitelnou chybu (rozšíření podle
+    potřeby).
+12. **Rozsah generátoru** (2026-10-21, Patrik): generátor dělá hlavně **blokové schéma a DC rozvaděče**. AC rozvaděče
+    připraví Patrik (mustry). Proto: RD / HR / RE / HDS jen jako **bloky bez listů** (žádné chyby F7 o chybějícím In
+    stávajících přístrojů); list RFVE.AC (a AC část RFVE u RD) jen když existuje mustr (makra rolí `ac_feed`/`ac_core`/
+    `ac_eps` ve sdílené / vlastní knihovně), jinak blok bez listu (u RD list RFVE jen s DC částí + přívody/vývody).
+    Vestavěný kód AC listů zůstává jako volba (`chain.<role>.builtin: true` / standard) pro testy a nouzi.
+    **Hotovo** (2026-10-21): bloky bez listu nesou porty v atributech `ports_in` / `ports_out` (formát projektu v15,
+    migrace v14 → v15 bez změny dat) a údaje článku v popisku (`main`, `fve_out`, `metering`, `inv_protect`,
+    `grid_protection`, jištění portů `protect` pro kontrolu kabelů); mustr = makra rolí `ac_feed` + `ac_core` ve
+    sdílené / vlastní knihovně (`generator/spec.pattern_macro`); RD: list RFVE s DC částí a kotvami AC části
+    (`anchor="1"`); standard `ac_builtin`. F7 jen nad nakreslenými přístroji (selektivita přes blok bez listu se
+    nehodnotí, HDS bez In jen INFO, síťová ochrana jako požadavek bloku, EPS do RFVE bez AC části INFO). Přípojka VN
+    (rozhodnutí uživatele 2026-10-21): i HR, RVN, RE trafostanice jen bloky (porty z přívodů / vývodů vestavěného
+    listu), listy TS jen s `builtin`. Jistič přívodu střídače ≥ 1,25 × max. AC proud i z artiklu (`i_ac_max_a`).

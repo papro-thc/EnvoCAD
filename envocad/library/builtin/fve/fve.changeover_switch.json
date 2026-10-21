@@ -1,0 +1,192 @@
+{
+  "id": "fve.changeover_switch",
+  "name": "Přepínač sítí (I-0-II)",
+  "category": "Spínání",
+  "iec_ref": "Q",
+  "function_class": [
+    "Q"
+  ],
+  "description": "Přepínač sítí I-0-II: síť (1) / záloha EPS hybridního střídače (2) → zálohované okruhy (3)",
+  "primitives": [
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": 7.5,
+      "x2": 0,
+      "y2": 5
+    },
+    {
+      "type": "line",
+      "x1": 5,
+      "y1": 7.5,
+      "x2": 5,
+      "y2": 5
+    },
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": -5,
+      "x2": 0,
+      "y2": -7.5
+    },
+    {
+      "type": "rect",
+      "x": -2.5,
+      "y": -5,
+      "w": 10,
+      "h": 10
+    },
+    {
+      "type": "text",
+      "x": 2.5,
+      "y": -1,
+      "text": "I-0-II",
+      "height": 1.8,
+      "align": "center"
+    },
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": -3.5,
+      "x2": 2.5,
+      "y2": 3.5
+    }
+  ],
+  "ports": [
+    {
+      "name": "1",
+      "x": 0,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "2",
+      "x": 5,
+      "y": 7.5,
+      "dir": "N"
+    },
+    {
+      "name": "3",
+      "x": 0,
+      "y": -7.5,
+      "dir": "S"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "manufacturer",
+      "label": "Výrobce",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "in_",
+      "label": "In [A]",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "poles",
+      "label": "Póly",
+      "default": "4",
+      "show": false
+    },
+    {
+      "key": "kind",
+      "label": "Druh (ruční / ATS)",
+      "default": "ruční",
+      "show": true
+    },
+    {
+      "key": "modules",
+      "label": "Šířka [moduly]",
+      "default": "3",
+      "show": false
+    },
+    {
+      "key": "p_loss_w",
+      "label": "Ztrátový výkon při In [W]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "t_min",
+      "label": "Teplota okolí min [°C]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "t_max",
+      "label": "Teplota okolí max [°C]",
+      "default": "",
+      "show": false
+    }
+  ],
+  "multipole": {
+    "pole": [
+      {
+        "type": "line",
+        "x1": 0,
+        "y1": 7.5,
+        "x2": 0,
+        "y2": 2.5
+      },
+      {
+        "type": "line",
+        "x1": 5,
+        "y1": 7.5,
+        "x2": 5,
+        "y2": 2.5
+      },
+      {
+        "type": "line",
+        "x1": 0,
+        "y1": -2.5,
+        "x2": 2.5,
+        "y2": 2.5
+      },
+      {
+        "type": "line",
+        "x1": 0,
+        "y1": -2.5,
+        "x2": 0,
+        "y2": -7.5
+      }
+    ],
+    "common": [
+      {
+        "type": "text",
+        "x": 2.5,
+        "y": -6,
+        "text": "I-0-II",
+        "height": 1.8,
+        "align": "center"
+      }
+    ],
+    "link": true,
+    "link_at": [
+      0,
+      2
+    ],
+    "through": [
+      "1",
+      "3"
+    ]
+  },
+  "label_pos": {
+    "x": -16,
+    "y": 2
+  }
+}

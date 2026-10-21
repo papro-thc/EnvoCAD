@@ -85,10 +85,56 @@ CASES: dict[str, dict] = {
                      "macros": {"dc_tech": {"name": "DC string v rozvaděči", "value_set": "Pojistka 15 A gPV, SPD T2",
                                             "values": {"fuse_in": 12}},
                                 "ac_feed": {"name": "AC přívod střídače", "values": {"breaker_in": 32}}}},
+    # --- F2 (docs/design/topologie_f1_f2.md, kap. 2) ---
+    # DC rozvaděč u technologie na střídač (`chain.rfve_dc.per_inverter`) – stav před F2 (výchozí je společný RFVE.DC)
+    "two_inv_per_inverter": {"name": "FVE Test", "meta": {"investor": "Test s.r.o."}, "inverters": [{"ref": "T1", **_INV, "strings": [20, 20, 18]},
+                                           {"ref": "T2", **_INV, "strings": [20, 20]}],
+                             "ac": {"breaker_in": 50, "main_in": 125}, "chain": {"rfve_dc": {"per_inverter": True}}},
+    # stávající články se zadanými In: nn s pojistkovým vývodem FVE nad 80 A a kabelem HR → RE, měření v HR,
+    # rodinný dům s nepřímým měřením a hranicí za elektroměrem
+    "nn_existing_fuse": {"inverters": [{"ref": f"T{i}", **_INV, "strings": [20, 20]} for i in (1, 2, 3, 4)],
+                         "chain": {"hr": {"main_in": 400, "fve_device": "fuse_disconnect", "fve_in": 160,
+                                          "cable": "AYKY-J 4x150", "length": 15},
+                                   "re": {"main_in": 400, "metering": "indirect"}, "hds": {"in_": 500}}},
+    "nn_hr_meter": {"topology": "nn_hr_meter", "inverters": [{"ref": "T1", **_INV, "strings": [20, 20]}],
+                    "chain": {"hr": {"main_in": 160, "boundary": "re_main"}, "hds": {"in_": 200}}},
+    "house_existing": {"building": "house", "inverters": [{"ref": "T1", **_INV, "strings": [16, 16]}],
+                       "chain": {"rd": {"main_in": 63}, "re": {"main_in": 63, "boundary": "re_meter"},
+                                 "hds": {"in_": 80}}},
+    # F2 kroky 8–10: síťová ochrana (36 kWp), RD s hybridním střídačem, baterií a EPS, skupina střídačů jinde
+    "nn_grid_protection": {"inverters": [{"ref": "T1", **_INV, "strings": [20, 20, 20, 20]}],
+                           "chain": {"hr": {"main_in": 250}, "re": {"main_in": 250}, "hds": {"in_": 315}}},
+    "house_eps": {"building": "house", "inverters": [{"ref": "T1", **_INV, "strings": [16, 16]}],
+                  "battery": {"e_kwh": 10, "p_kw": 5, "type": "BYD HVS 10.2"},
+                  "chain": {"rd": {"main_in": 80}, "re": {"main_in": 80}, "hds": {"in_": 100}}},
+    "nn_ac_groups": {"inverters": [{"ref": "T1", **_INV, "strings": [20, 20]},
+                                   {"ref": "T2", **_INV, "strings": [20], "ac_group": "hala B"}],
+                     "chain": {"hr": {"main_in": 250}, "re": {"main_in": 250}, "hds": {"in_": 315}}},
     # jednofázový střídač
     "inverter_1phase": {"inverters": [{"ref": "T1", "p_ac": 5, "phases": 1, "u_dc_max": 600, "u_mppt_min": 90,
                                        "u_mppt_max": 550, "i_mppt_max": 16, "strings": [12, 10]}]},
+    # --- rozsah generátoru (docs/NAVRH_TOPOLOGIE.md, kap. 8 bod 12): výchozí bez mustru – bloky bez listů ---
+    "scope_company": {"inverters": [{"ref": "T1", **_INV, "strings": [20, 20]}, {"ref": "T2", **_INV, "strings": [20]}],
+                      "chain": {"hr": {"main_in": 250}, "re": {"main_in": 250, "metering": "indirect"}}},
+    "scope_house_eps": {"building": "house", "inverters": [{"ref": "T1", **_INV, "strings": [16, 16]}],
+                        "battery": {"e_kwh": 10, "p_kw": 5, "type": "BYD HVS 10.2"}},
+    "scope_vn": {"inverters": [{"ref": "T1", **_INV, "strings": [20, 20, 20, 20]}], "connection": {"level": "vn"}},
 }
+# případy výchozího rozsahu (AC listy jen z mustru); ostatní vestavěným kódem AC listů (standard `ac_builtin`)
+SCOPE_CASES = frozenset(n for n in CASES if n.startswith("scope_"))
+
+
+def build_case(name: str):
+    """Projekt případu snímku: `SCOPE_CASES` ve výchozím rozsahu, ostatní s vestavěným kódem AC listů (jako před
+    rozhodnutím 12 – snímek tak dál pokrývá vestavěný kód)."""
+    from envocad.generate import build_project
+    from envocad.generator import spec as gen_spec
+    keep = gen_spec.ac_builtin_default
+    gen_spec.ac_builtin_default = (lambda: False) if name in SCOPE_CASES else (lambda: True)
+    try:
+        return build_project(CASES[name])
+    finally:
+        gen_spec.ac_builtin_default = keep
 
 _ID = re.compile(r"\b[0-9a-f]{12}\b")
 
@@ -103,8 +149,7 @@ def canon(project) -> dict:
 
 
 def snapshot_all() -> dict:
-    from envocad.generate import build_project
-    return {name: canon(build_project(spec)) for name, spec in CASES.items()}
+    return {name: canon(build_case(name)) for name in CASES}
 
 
 if __name__ == "__main__":

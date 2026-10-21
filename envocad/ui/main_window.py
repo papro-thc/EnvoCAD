@@ -1498,6 +1498,14 @@ class MainWindow(QMainWindow):
         if not ok:
             return
         s["doc_jps_page"] = keys[labels.index(v)]
+        # AC rozvaděče bez mustru (rozhodnutí 12): jen bloky / list vestavěným kódem (`standard.ac_builtin`)
+        ac_labels = ["jen bloky – AC rozvaděče z mustrů", "vestavěný kód (jako dřív)"]
+        from envocad.generator.spec import chain_flag
+        v, ok = QInputDialog.getItem(self, "Firemní standard", "AC rozvaděče (RFVE.AC, RD / HR / RE) bez mustru",
+                                     ac_labels, 1 if chain_flag(s.get("ac_builtin")) else 0, False)
+        if not ok:
+            return
+        s["ac_builtin"] = v == ac_labels[1]
         save_settings(st)
         for sh in self.project.switchboards():     # listy bez vlastní volby formátu se přestaví
             self._rebuild_sheet_views(sh)

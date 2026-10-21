@@ -37,12 +37,26 @@ envocad/
     build.py     build_project: specifikace → select_topology → pv.plan → chain.create_main_block → pv.build →
                  chain.build
     pv.py        plan (pracovní souřadnice řad) a build (střídače, stringy, DC rozvaděče, DC/AC vodiče, baterie)
-    chain.py     průchod topology.nodes přes registr BOARD_BUILDERS: 1. bloky (`block`), 2. listy (`build`);
-                 role bez builderu přeskočí; HOP, zarovnání, rozmístění JPS, vazby přívodů
-    layout.py    zarovnání bloků a lomů JPS, trasa RD, zvětšení listů rozvaděčů
-    jps.py       rozmístění JPS na list a dělení na listy střídačů
-    boards/      jeden modul na roli: base (ChainContext, ChainPorts, BoardBuilder), rfve_dc, rfve_ac, rfve (RD),
-                 grid (DS na nn), mv (přípojka VN: HR+TR+RVN+RE jako jeden builder), macro_glue (makra)
+    chain.py     průchod topology.nodes přes registr BOARD_BUILDERS: 1. bloky (`block`) a vodiče mezi články
+                 (`link` – kabel `chain.<role>.*`, stávající úsek bez údajů a HDS → DS bez kabelu, nový bez průřezu
+                 `calc.min_cross`), 2. listy (`build`); HOP, zarovnání – řetězec stávajících článků svisle (firma pod
+                 RFVE.AC `layout._chain_column`, RD vpravo `layout._house_column`) nebo v řadě; volba podle hodnocení
+                 (`_choose_chain_layout`: křížení, překryvy, formát), hranice vlastnictví, rozmístění JPS, vazby přívodů
+    layout.py    zarovnání bloků a lomů JPS, trasa RD, svislý řetězec (`_stack_column`), zvětšení listů rozvaděčů
+    jps.py       rozmístění JPS na list a dělení na listy střídačů (`close_gaps` svisle i vodorovně,
+                 `stack_components` jen se společným RFVE.DC)
+    currents.py  proudy střídačů a jištění AC strany: jistič přívodu střídače (1,25 × max. AC proud – artikl `i_ac_max_a`, jinak z P AC,
+                 řada do 250 A), vývod FVE v RD / HR i HR na vn (≥ max(Σ I, jistič střídače)), hlavní vypínač RFVE.AC
+    boards/      jeden modul na roli: base (ChainContext, ChainPorts, BoardBuilder), rfve_dc (i společný RFVE.DC),
+                 rfve_ac, rfve (rozvaděč FVE RD), house_board (stávající RD / HR: hlavní přístroj, vývod FVE, stávající
+                 rozvody), meter_board (RE na nn a funkce měření – i měření v HR), hds (`fve.hds`), grid (DS na nn),
+                 mv (přípojka VN: HR+TR+RVN+RE jako jeden builder), macro_glue (makra), eps (EPS a přepínač sítí
+                 RD), groups (skupiny střídačů `ac_group` – RFVE.AC{n}). Rozsah (rozhodnutí 12): RD / HR / RE jen
+                 bloky bez listu (porty a údaje v atributech), RFVE.AC / AC část RFVE z mustru (`rfve_ac.ac_mode`,
+                 `spec.pattern_macro`), jinak blok / kotvy; vestavěný kód volbou `chain.<role>.builtin` / standard
+                 `ac_builtin`. Zkoušení rozložení s mezipamětí značek (`project.symbol_cache`); přístroje řetězce nesou atribut `chain`
+                 (inv, rfve_main, fve_out, main, meter_main, inst_switch) pro `calc.check_selectivity_tree` (F7
+                 `checks.chain_findings`)
   ui/         PySide6 GUI (nikdy neobsahuje business logiku)
     canvas.py       QGraphicsView – mřížka, zoom, snap
     items.py        QGraphicsItem obaly nad Element/Wire
@@ -69,7 +83,9 @@ Zásada: **model nezávisí na UI.** Vše, co lze, se testuje bez spuštění Qt
   dědit). `attrs["ref"]` je jen přístrojová část („F3“). Plné označení („=AC+RDC1-F3“) skládá
   `model/designation.py` – používají ho výkazy a štítky; list rozvaděče má `+` = označení bloku. Kód je jedna
   úroveň; tečka uvnitř kódu (firemní `RFVE.AC`, `RFVE.DC1`) úrovně nedělí (`CODE_RE`, `parse_designation`). Generátor
-  označuje rozvaděče RFVE.AC / RFVE.DC(n) / RDCn / HR, u rodinného domu RFVE (`generator/boards/rfve_dc.dc_box_ref`).
+  označuje rozvaděče podle presetu topologie (`node.ref`; přepis `chain.<role>.ref`, dřívější `switchboard.ref`,
+  `connection.*_board.ref` – `generator/spec.resolve_chain_refs`): RFVE.AC, společný RFVE.DC (na střídač RFVE.DC1…n
+  s `chain.rfve_dc.per_inverter`), RDCn, HR, RD, RE, HDS, u rodinného domu RFVE (`generator/boards/rfve_dc.dc_box_ref`).
 - **Revize** – `Project.revisions` (`Revision`: označení, datum, zpracoval, otisky listů při uzavření, značky
   `RevisionMark` na listu, prvku nebo vodiči). Značky vznikají z porovnání `model/diff.py` přes `model/revision.py`;
   kreslí se v editoru, PDF a DXF (vrstva `REVIZE`) a revizi listu ukazuje popisové pole. **Uzavření revize je měkký
@@ -93,7 +109,10 @@ Zásada: **model nezávisí na UI.** Vše, co lze, se testuje bez spuštění Qt
   = A2): AC list první, listy střídačů za ním („T1–T3“), AC kabel přes pár přerušení „AC-T1“ s daty jen u bloku AC
   rozvaděče, úsek u střídače s `ref=""` (`generator/jps._split_jps` přeruší každý vodič mezi řadou a listem AC – u rodinného
   domu i DC vodiče přes RFVE; přípojka VN zůstává na listu AC); přerostlá řada jednoho střídače dostane větší formát.
-  Odvozené jednopólové schéma (`single_line._graph`) a kontrola stringů (`calc._wire_steps`) jdou přes pár přerušení. PDF dokumentace: listy JPS zmenšit na A3 / skutečný formát (`DocBuilder(jps_page=…)`, standard
+  Odvozené jednopólové schéma (`single_line._graph`, i kabel přes pár přerušení končící na bloku rozvaděče – společný
+  RFVE.DC zůstává na listu AC) a kontrola stringů (`calc._wire_steps`, blok DC rozvaděče párem portů) jdou přes pár
+  přerušení. Elektroměr v sérii (přímé měření v RE na nn – fáze na portu 1 i 2) je v JPS obyčejný uzel stromu, elektroměr
+  na MTP měřicí obvod. PDF dokumentace: listy JPS zmenšit na A3 / skutečný formát (`DocBuilder(jps_page=…)`, standard
   `doc_jps_page`).
 - **Výrobní data rozvaděče** (`model/wiring.py`) – výrobní zapojovací seznam pro dílnu: každá žíla vnitřního vodiče
   listu rozvaděče s průřezem (`wire_cross`: atribut, nejmenší In přístrojů přes `IN_TO_CROSS`, řízení, minimum),
@@ -218,7 +237,10 @@ Tři vrstvy rozšíření, od nejjednodušší:
    starými `sb.feed_in` / `sb.feed_out` se po `build` převede (`feed.normalize_legacy_objects` v `apply_template`),
    callback menu, který vkládá prvky sám, musí použít `sb.feed`.
 
-Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **14** – parametrická sběrnice `sb.busbar`
+Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **15** – blok rozvaděče bez listu
+s porty z atributů `ports_in` / `ports_out` a jištěním portů `protect` (`project.block_port_names`, `is_block_only`,
+`block_protect`; generátor tak kreslí stávající RD / HR / RE a RFVE.AC bez mustru jen jako blok), migrace v14 → v15
+nic nemění, verze zvednutá, aby program v14 soubor odmítl místo osiřelých portů „X1?“; v14 parametrická sběrnice `sb.busbar`
 (atributy `taps` / `outs` / `tap_pitch`, `model/busbar.py`), migrace v13 → v14 nic nemění, verze zvednutá jen proto, aby
 program v13 soubor odmítl místo kreslení pevné sběrnice; v13 jedna značka přívodu/vývodu
 `sb.feed` se směrem `attrs.dir` místo `sb.feed_in` / `sb.feed_out`, migrace bez přeskládání: přívod se pootočí o 180°,

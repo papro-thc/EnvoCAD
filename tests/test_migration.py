@@ -189,7 +189,7 @@ def test_v7_revisions_from_meta_skips_header_and_free_text():
 
 def test_example_migrates_to_current():
     p = Project.load(EXAMPLE)
-    assert FORMAT_VERSION == 14
+    assert FORMAT_VERSION == 15
     assert all(s.func == "" and s.loc == "" for s in p.sheets)
     assert p.structures == [] and p.revisions == [] and p.notes == []
 
@@ -309,10 +309,10 @@ def test_v13_to_v14_parametric_busbar_noop(monkeypatch):
     before = copy.deepcopy(raw)
     mig = migrate(raw, 13)
     assert raw == before                                         # vstup se nemění
-    assert mig == {**before, "format_version": 14}               # jen číslo verze
+    assert mig == {**before, "format_version": FORMAT_VERSION}   # jen číslo verze
     p = Project.from_dict(copy.deepcopy(raw))
     d = p.to_dict()
-    assert d["format_version"] == FORMAT_VERSION == 14
+    assert d["format_version"] == FORMAT_VERSION
     els = {e["id"]: e for e in d["sheets"][0]["elements"]}
     assert els["b"]["attrs"] == bus["attrs"] and els["c"]["attrs"] == {"ref": "2"}
     assert [(w["a"], w["b"]) for w in d["sheets"][0]["wires"]] == [(w["a"], w["b"]) for w in sh["wires"]]
@@ -320,5 +320,36 @@ def test_v13_to_v14_parametric_busbar_noop(monkeypatch):
     # program s formátem 13 soubor v14 odmítne
     import envocad.model.project as prj
     monkeypatch.setattr(prj, "FORMAT_VERSION", 13)
+    with pytest.raises(ValueError, match="novější"):
+        Project.from_dict(d)
+
+
+def test_v14_to_v15_block_ports_noop(monkeypatch):
+    """v15: blok rozvaděče bez listu s porty z atributů (`ports_in` / `ports_out`, `protect`) – migrace v14 → v15 nic
+    nemění (blok s listem i bez něj, vodiče); starý soubor v14 se načte se stejnými porty bloků, program v14 soubor
+    v15 odmítne (blok by kreslil se základní značkou a vodiče na „X1?“)."""
+    from envocad.model.project import migrate
+    blk = {**_el("r", "fve.switchboard", "RFVE.AC"), "x": 100, "y": 150}
+    t = _el("t", "fve.inverter", "T1")
+    sh = _sheet("s1", [blk, t], [{"id": "w1", "a": {"element_id": "t", "port": "AC"},
+                                  "b": {"element_id": "r", "port": "1"}, "conductors": ["L1"], "attrs": {}}])
+    raw = _v(14, [sh])
+    before = copy.deepcopy(raw)
+    mig = migrate(raw, 14)
+    assert raw == before and mig == {**before, "format_version": FORMAT_VERSION}
+    p = Project.from_dict(copy.deepcopy(raw))
+    lib = LibraryStore()
+    _ports_ok(p, lib)                                        # starý blok bez listu: porty 1–4 jako dřív
+    _roundtrip_stable(p)
+    # nový blok bez listu: porty z atributů, vodič na XOUT je platný
+    b = p.sheets[0].element("r")
+    b.attrs.update({"ports_in": "X1 X2", "ports_out": "XOUT, XPE", "protect": "X1=40, XOUT=63"})
+    p.sheets[0].wires[0].b.port = "X1"
+    _ports_ok(p, lib)
+    d = p.to_dict()
+    assert d["format_version"] == FORMAT_VERSION == 15
+    _roundtrip_stable(Project.from_dict(copy.deepcopy(d)))
+    import envocad.model.project as prj
+    monkeypatch.setattr(prj, "FORMAT_VERSION", 14)
     with pytest.raises(ValueError, match="novější"):
         Project.from_dict(d)

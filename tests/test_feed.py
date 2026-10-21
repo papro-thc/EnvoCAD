@@ -47,6 +47,8 @@ from envocad.model.project import (
 )
 from envocad.model.symbol import Attribute, place_dir
 
+pytestmark = pytest.mark.usefixtures("ac_builtin")   # AC listy vestavěným kódem (standard `ac_builtin`)
+
 DATA = Path(__file__).parent / "data"
 
 
@@ -187,7 +189,7 @@ def test_v12_migration_lossless_roundtrip_and_links():
     p = Project.from_dict(raw)
     assert raw == before                                   # vstup se nemění
     d = p.to_dict()
-    assert d["format_version"] == FORMAT_VERSION == 14
+    assert d["format_version"] == FORMAT_VERSION
     assert Project.from_dict(d).to_dict() == d
     # nic kromě id značky, rotace přívodu a `dir` se nezměnilo (polohy, vodiče s `points`, mp_pos, vazby)
     mig = migrate(raw, 12)

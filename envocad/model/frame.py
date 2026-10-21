@@ -273,13 +273,15 @@ def fit_placement(boxes: list, sizes=None) -> tuple[str, float, float, float, fl
 
 
 def apply_placement(sheet: Sheet, placement: tuple[str, float, float, float, float]) -> None:
-    """Nastaví listu formát z `fit_placement` a posune všechny prvky a lomy vodičů o (dx, dy)."""
+    """Nastaví listu formát z `fit_placement` a posune všechny prvky, lomy vodičů a volné texty o (dx, dy)."""
     name, w, h, dx, dy = placement
     sheet.paper, sheet.width, sheet.height = name, w, h
     for e in sheet.elements:
         e.x, e.y = e.x + dx, e.y + dy
     for wire in sheet.wires:
         wire.points = [(x + dx, y + dy) for x, y in wire.points]
+    for t in sheet.texts:          # volné texty listu (hranice vlastnictví v blokovém schématu) s obsahem
+        t.x, t.y = t.x + dx, t.y + dy
 
 
 def fit_sheet_to_content(project: Project, sheet: Sheet, lib, sizes=None) -> None:

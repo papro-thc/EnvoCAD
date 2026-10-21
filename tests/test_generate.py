@@ -1,12 +1,15 @@
 """Generování projektu ze specifikace (bez Qt)."""
 
 import pytest
+from chain_data import build_project  # F2: In stávajících článků (RD/HR, RE, HDS) zadané – F7 bez chyb
 
-from envocad.generate import DEFAULT_SPEC, build_project
+from envocad.generate import DEFAULT_SPEC
 from envocad.library.store import LibraryStore
 from envocad.model.checks import ERROR, WARNING, check_project
 from envocad.model.feed import is_feed_in
 from envocad.model.project import element_symbol
+
+pytestmark = pytest.mark.usefixtures("ac_builtin")   # AC listy vestavěným kódem (standard `ac_builtin`)
 
 
 def test_build_project_from_spec(tmp_path):
@@ -19,7 +22,9 @@ def test_build_project_from_spec(tmp_path):
             "ac": {"breaker_in": 50, "main_in": 125}}
     p = build_project(spec)
     s = p.sheets[0]
-    assert len(p.sheets) == 6 and all(sh.is_switchboard for sh in p.sheets[1:])  # 2 střídače × (po trase + u technologie) + AC
+    # 2 střídače × po trase + společný u technologie (F2) + AC; za nimi stávající články řetězce
+    assert all(sh.is_switchboard for sh in p.sheets[1:])
+    assert [sh.loc for sh in p.sheets[1:5]] == ["RDC1", "RDC2", "RFVE.DC", "RFVE.AC"]
     assert len([e for e in s.elements if e.symbol_id == "fve.pv_string"]) == 5
     assert p.meta["p_installed_kwp"] == "44.1"
     lib = LibraryStore()
@@ -278,8 +283,9 @@ def test_house_combined_switchboard(dc):
     lib = LibraryStore()
     assert p.meta["building"] == "rodinný dům"
     boards = [sh for sh in p.sheets if sh.is_switchboard]
-    assert [sh.loc for sh in boards] == (["RDC1"] if dc["route_boxes"] else []) + ["RFVE"]
-    rf = boards[-1]
+    # za RFVE stávající RD a RE (F2)
+    assert [sh.loc for sh in boards] == (["RDC1"] if dc["route_boxes"] else []) + ["RFVE", "RD", "RE"]
+    rf = next(sh for sh in boards if sh.loc == "RFVE")
     sym = {e.symbol_id for e in rf.elements}
     assert {"fve.fuse_disconnect", "fve.breaker_mcb", "sb.main_switch"} <= sym
     assert sum(1 for e in rf.elements if e.symbol_id == "fve.fuse_disconnect") == 2
@@ -307,7 +313,7 @@ def test_house_rejects_mv_and_unknown_building():
         build_project({**base, "building": "garáž"})
     p = build_project({**base, "building": "apartment"})
     assert p.meta["building"] == "bytový dům"
-    assert [sh.loc for sh in p.sheets if sh.is_switchboard] == ["RDC1", "RFVE.DC", "RFVE.AC"]
+    assert [sh.loc for sh in p.sheets if sh.is_switchboard] == ["RDC1", "RFVE.DC", "RFVE.AC", "HR", "RE"]
 
 
 def test_datasheet_solaredge_se25k_p1100_runergy():
@@ -547,26 +553,36 @@ def test_protection_without_in_is_f7_error():
 _KNOWN_RE_METER = pytest.mark.xfail(
     strict=True, reason="známé (i v main): vícepól elektroměrového rozvaděče RE – text elektroměru P přes žílu "
                         "napěťových obvodů (mp_text_overlap); rozmístění vícepólu `multipole.auto_layout`, mimo F0")
+# stávající články řetězce (F2): In stávajících přístrojů projektant zadá (průvodce je vyžaduje) – neznámé = chyba F7
+_EXIST_NN = {"hr": {"main_in": 250}, "re": {"main_in": 250}, "hds": {"in_": 315}}
+# RD: HJ před elektroměrem ≥ 1,6 × vývod FVE (2 střídače 10 kW → 32 A) – selektivita v řetězci (F7 `chain_selectivity`)
+_EXIST_RD = {"rd": {"main_in": 63}, "re": {"main_in": 63}, "hds": {"in_": 80}}
 F7_CASES = {
-    "firma": {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20, 18]}, {"ref": "T2", **_INV25, "strings": [20, 20]}]},
+    "firma": {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20, 18]}, {"ref": "T2", **_INV25, "strings": [20, 20]}],
+              "chain": _EXIST_NN},
     "rd": {"building": "house", "inverters": [{"ref": "T1", **_HOUSE_INV, "strings": [12, 12]}],
-           "battery": {"e_kwh": 10, "p_kw": 5}},
+           "battery": {"e_kwh": 10, "p_kw": 5}, "chain": _EXIST_RD},
     "rd_2inv": {"building": "house", "inverters": [{"ref": "T1", **_HOUSE_INV, "strings": [12, 12]},
-                                                   {"ref": "T2", **_HOUSE_INV, "strings": [12]}]},
-    "bytovy_dum": {"building": "apartment", "inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}]},
+                                                   {"ref": "T2", **_HOUSE_INV, "strings": [12]}], "chain": _EXIST_RD},
+    "nn_hr_meter": {"topology": "nn_hr_meter", "chain": _EXIST_NN,
+                    "inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}, {"ref": "T2", **_INV25, "strings": [20]}]},
+    "bytovy_dum": {"building": "apartment", "inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}],
+                   "chain": _EXIST_NN},
     "vn_kiosk": {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}], "connection": {"level": "vn"}},
     "vn_kobky_mereni_vn": {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}],
                            "connection": {"level": "vn", "station": "kobky", "metering": "vn"}},
     "vn_sloup_50kva": {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}],
                        "connection": {"level": "vn", "station": "sloup", "transformer": {"sn": 50}}},
     "bez_maker": {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20, 18]}, {"ref": "T2", **_INV25, "strings": [20, 20]}],
-                  "macros": _NO_MACROS},
+                  "macros": _NO_MACROS, "chain": _EXIST_NN},
     "bez_maker_svorky": {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}], "macros": _NO_MACROS,
-                         "ac": {"distribution": "terminals"}},
+                         "ac": {"distribution": "terminals"}, "chain": _EXIST_NN},
     "rd_bez_maker": {"building": "house", "inverters": [{"ref": "T1", **_HOUSE_INV, "strings": [12, 12]}],
-                     "macros": _NO_MACROS},
+                     "macros": _NO_MACROS, "chain": _EXIST_RD},
+    "nn_hranice_re_main": {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}],
+                           "chain": {**_EXIST_NN, "re": {"main_in": 250, "boundary": "re_main"}}},
     "rd_2inv_bez_maker_svorky": {"building": "house", "macros": _NO_MACROS, "ac": {"distribution": "terminals"},
-                                 "dc": {"route_boxes": 2},
+                                 "dc": {"route_boxes": 2}, "chain": _EXIST_RD,
                                  "inverters": [{"ref": "T1", **_HOUSE_INV, "strings": [12, 12, 12]},
                                                {"ref": "T2", **_HOUSE_INV, "strings": [12]}]},
 }
@@ -580,23 +596,33 @@ def test_generated_project_f7_clean(name):
     assert not fs, [(f.sheet_name, f.ref, f.text) for f in fs]
 
 
-@pytest.mark.parametrize("name", sorted(_F7_XFAIL))
+_F7_RE_INDIRECT = {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}],
+                   "chain": {**_EXIST_NN, "re": {"main_in": 250, "metering": "indirect"}}}
+
+
+@pytest.mark.parametrize("name", [*sorted(_F7_XFAIL), "nn_re_nepřímé"])
 def test_generated_vn_only_known_re_meter_warning(name):
-    """Přípojka VN: kromě známého překryvu ve vícepólu RE (viz `_KNOWN_RE_METER`) bez chyb a varování."""
-    p = build_project(F7_CASES[name])
+    """Přípojka VN a nepřímé měření v RE na nn (elektroměr na MTP): kromě známého překryvu ve vícepólu RE (viz
+    `_KNOWN_RE_METER` – elektroměr bez vícepólové podoby) bez chyb a varování."""
+    p = build_project(F7_CASES.get(name) or _F7_RE_INDIRECT)
     fs = [f for f in check_project(p, LibraryStore()) if f.severity in (ERROR, WARNING)]
-    assert [(f.code, f.sheet_name.split(" ")[0]) for f in fs] == [("mp_text_overlap", "RE")], [f.text for f in fs]
+    assert {(f.code, f.sheet_name.split(" ")[0]) for f in fs} == {("mp_text_overlap", "RE")}, [f.text for f in fs]
+    assert len(fs) == (1 if name in _F7_XFAIL else 3)
 
 
 # ---- označení rozvaděčů (docs/NAVRH_TOPOLOGIE.md, kap. 8 bod 9) -------------------------------------------------
 def test_switchboard_designations_company_two_inverters():
-    """Firma, 2 střídače: rozvaděč u technologie na střídač RFVE.DC1/RFVE.DC2 (pořadí střídačů), po trase RDC1, RDC2
-    souvisle, AC rozvaděč RFVE.AC; kódy jsou platné umístění (tečka uvnitř) a listy dědí +RFVE.DCn."""
+    """Firma, 2 střídače s `chain.rfve_dc.per_inverter`: rozvaděč u technologie na střídač RFVE.DC1/RFVE.DC2 (pořadí
+    střídačů), po trase RDC1, RDC2 souvisle, AC rozvaděč RFVE.AC; kódy jsou platné umístění (tečka uvnitř) a listy
+    dědí +RFVE.DCn. Bez volby (výchozí od F2) jeden společný RFVE.DC za rozvaděči po trase."""
     from envocad.model.designation import LOC, validate_code
     spec = {"inverters": [{"ref": "T1", **_INV25, "strings": [20]}, {"ref": "T2", **_INV25, "strings": [20]}],
             "dc": {"route_boxes": 1}}
-    p = build_project(spec)
-    assert [sh.loc for sh in p.sheets if sh.is_switchboard] == ["RDC1", "RFVE.DC1", "RDC2", "RFVE.DC2", "RFVE.AC"]
+    common = build_project(spec)
+    assert [sh.loc for sh in common.sheets if sh.is_switchboard][:4] == ["RDC1", "RDC2", "RFVE.DC", "RFVE.AC"]
+    p = build_project({**spec, "chain": {"rfve_dc": {"per_inverter": True}}})
+    assert [sh.loc for sh in p.sheets if sh.is_switchboard][:5] == ["RDC1", "RFVE.DC1", "RDC2", "RFVE.DC2",
+                                                                     "RFVE.AC"]
     assert all(not validate_code(sh.loc, LOC) for sh in p.switchboards())
     tech = {b.attrs["desc"]: b.ref for b in p.sheets[0].elements if b.ref.startswith("RFVE.DC")}
     assert tech == {"DC rozvaděč u T1": "RFVE.DC1", "DC rozvaděč u T2": "RFVE.DC2"}
@@ -622,7 +648,7 @@ def test_switchboard_designations_vn_house_and_override():
     assert next(e for e in hr.elements if e.ref == "X1").attrs["desc"] == "k RFVE.AC (FVE)"
     house = build_project({"building": "house", "inverters": [{"ref": "T1", **_HOUSE_INV, "strings": [12]}],
                            "dc": {"route_boxes": 0}})
-    assert [sh.loc for sh in house.switchboards()] == ["RFVE"]
+    assert [sh.loc for sh in house.switchboards()] == ["RFVE", "RD", "RE"]
     own = build_project({"inverters": [{"ref": "T1", **_INV25, "strings": [20]}], "switchboard": {"ref": "RH1"},
                          "connection": {"level": "vn", "main_board": {"ref": "RHN"}}})
     assert {"RH1", "RHN"} <= {sh.loc for sh in own.switchboards()}

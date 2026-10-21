@@ -66,6 +66,58 @@
       "label": "Odkaz na list",
       "default": "",
       "show": false
+    },
+    {
+      "key": "main",
+      "label": "Hlavní přístroj (blok bez listu)",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "fve_out",
+      "label": "Vývod FVE (blok bez listu)",
+      "default": "",
+      "show": true,
+      "fmt": "vývod FVE: {}"
+    },
+    {
+      "key": "metering",
+      "label": "Měření (blok bez listu)",
+      "default": "",
+      "show": true,
+      "fmt": "měření {}"
+    },
+    {
+      "key": "inv_protect",
+      "label": "Jištění střídačů (blok bez listu)",
+      "default": "",
+      "show": true,
+      "fmt": "jištění střídačů {}"
+    },
+    {
+      "key": "grid_protection",
+      "label": "Síťová ochrana – požadavek (blok bez listu)",
+      "default": "",
+      "show": true,
+      "fmt": "síťová ochrana: {}"
+    },
+    {
+      "key": "ports_in",
+      "label": "Přívody bloku bez listu (X1 X2 …)",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "ports_out",
+      "label": "Vývody bloku bez listu (XOUT …)",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "protect",
+      "label": "Jištění portů bloku bez listu (X1=63, …) [A]",
+      "default": "",
+      "show": false
     }
   ],
   "label_pos": {

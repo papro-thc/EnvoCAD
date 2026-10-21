@@ -9,7 +9,8 @@ Nic se nekreslí znovu: strom vede po vodičích blokového schématu a přes bl
 - **trafostanice** (atribut `station` bloků rozvaděčů a prvků blokového schématu) – rámeček kolem rozvaděče VN,
   transformátoru, rozvaděče nn za ním a elektroměrového rozvaděče; části mimo TS (DS, rozvaděč FVE) jsou pod ním.
 
-Vodiče jen s PE, PE lišty a uzemnění se vynechají. Měřicí obvody (vodiče z elektroměru přes přívody/vývody
+Vodiče jen s PE, PE lišty a uzemnění se vynechají. Elektroměr v sérii (přímé měření – fáze na portu 1 i 2) je
+obyčejný uzel stromu. Měřicí obvody (vodiče z elektroměru přes přívody/vývody
 a svorky až k MTP, MTN nebo přípojnici) se do stromu nepočítají: elektroměr visí čárkovaně vedle měřicího
 transformátoru – v rámečku svého rozvaděče (elektroměrový rozvaděč) vpravo od rozvaděče s měřením. Strom končí
 u střídačů (DC část má vlastní listy rozvaděčů a blokové schéma), s `dc=True` pokračuje až ke stringům.
@@ -45,7 +46,7 @@ BRANCH_SYMBOLS = {"fve.earthing_switch", "fve.spd", "fve.vt", "fve.voltage_indic
 LEAF_PREFIXES = ("fve.inverter",)      # bez `dc` strom končí u střídače
 # značky, které se neotáčí (text by byl svisle, vodič vede do portu i z boku): DS, spotřeba, elektroměr, střídač…
 NO_ROTATE_PREFIXES = ("fve.grid", "fve.load", "fve.meter", "fve.inverter", "fve.switchboard", "fve.pv_string",
-                      "fve.battery")
+                      "fve.battery", "fve.hds")
 
 GAP = 4.0           # mezera mezi značkami ve sloupci (mm)
 BUS_GAP = 7.5       # přípojnice → začátek vývodů
@@ -190,18 +191,30 @@ def _graph(project: Project):
             if hit is not None:
                 thru[(s.id, e.id)] = ((hit.sheet.id, hit.element.id), hit.port)
 
+    def block_feed(e: Element, port: str) -> tuple[Key, str] | None:
+        """Port bloku ROZVADĚČ → přívod/vývod jeho listu se stejným označením."""
+        sb = project.switchboard_sheet(e.id)
+        f = feeds.get(sb.id, {}).get(port) if sb is not None else None
+        return ((sb.id, f.id), "1") if f is not None else None
+
     def resolve(s: Sheet, end) -> tuple[Key, str] | None:
         e = s.element(end.element_id)
         if e is None or e.symbol_id in SKIP_SYMBOLS:
             return None
         if e.symbol_id == "fve.switchboard":
-            sb = project.switchboard_sheet(e.id)
-            f = feeds.get(sb.id, {}).get(end.port) if sb is not None else None
-            if f is not None:
-                return (sb.id, f.id), "1"
+            hit = block_feed(e, end.port)
+            if hit is not None:
+                return hit
         key = (s.id, e.id)
         if key in thru:
             key, port = thru[key]
+            # kabel přes dvojici přerušení končí na bloku rozvaděče (DC vodiče u společného RFVE.DC / RFVE na
+            # rozděleném blokovém schématu) – pokračuje do jeho listu
+            be = els[key][1] if key in els else None
+            if be is not None and be.symbol_id == "fve.switchboard":
+                hit = block_feed(be, port)
+                if hit is not None:
+                    return hit
             return rep.get(key, key), port
         return rep.get(key, key), end.port
 
@@ -220,7 +233,20 @@ def _graph(project: Project):
         inc.setdefault(kb, []).append(i)
     meas_edges: set[int] = set()
     meas: dict[Key, list[tuple[Key, str, Wire, str]]] = {}
-    for m in [k for k in inc if els[k][1].symbol_id in METER_SYMBOLS]:
+    def phases(i: int) -> bool:
+        from envocad.model.project import conductor_name
+        return bool({conductor_name(c) for c in mp.wire_conductors(edges[i][4])} & {"L1", "L2", "L3", "L"})
+
+    def series(m: Key) -> bool:
+        """Elektroměr v sérii (přímé měření): výkonové žíly (fáze) na portu 1 i 2 – uzel stromu, ne měřicí obvod."""
+        ports = {}
+        for i in inc[m]:
+            ka, pa, _kb, pb, _w, _s = edges[i]
+            port = pa if ka == m else pb
+            ports[port] = ports.get(port, False) or phases(i)
+        return ports.get("1", False) and ports.get("2", False)
+
+    for m in [k for k in inc if els[k][1].symbol_id in METER_SYMBOLS and not series(k)]:
         stack: list[tuple[Key, str | None]] = [(m, None)]
         seen = {m}
         while stack:

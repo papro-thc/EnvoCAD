@@ -12,17 +12,19 @@ from envocad.generator.context import (
     log,
 )
 from envocad.generator.spec import fuse_in_why
-from envocad.library.templates import build_dc_strings
+from envocad.library.templates import _place_sequential, build_dc_strings
 from envocad.model.project import Element, Project, Sheet
 from envocad.model.topology import ChainNode
 
 
-def dc_box_ref(kind: str, inv_index: int, n_tech: int, p: Project) -> str:
-    """Označení DC rozvaděče generátoru: u technologie (`kind` "tech") RFVE.DC, je-li jediný, jinak RFVE.DC1, RFVE.DC2…
-    podle pořadí střídače (`inv_index` od 0; `n_tech` = počet rozvaděčů u technologie); po trase další volné RDCn
-    (rozvaděče u technologie číslo RDC neberou, takže po trase jdou RDC1…n souvisle)."""
+def dc_box_ref(kind: str, inv_index: int, n_tech: int, p: Project, base: str = DC_TECH_BOX_REF) -> str:
+    """Označení DC rozvaděče generátoru: u technologie (`kind` "tech") `base` (z presetu, výchozí RFVE.DC), je-li
+    jediný, jinak RFVE.DC1, RFVE.DC2… podle pořadí střídače (`inv_index` od 0; `n_tech` = počet rozvaděčů u
+    technologie); po trase další volné RDCn (rozvaděče u technologie číslo RDC neberou, takže po trase jdou RDC1…n
+    souvisle)."""
     if kind == "tech":
-        return DC_TECH_BOX_REF if n_tech <= 1 else f"{DC_TECH_BOX_REF}{inv_index + 1}"
+        base = base or DC_TECH_BOX_REF
+        return base if n_tech <= 1 else f"{base}{inv_index + 1}"
     return p.next_ref(DC_ROUTE_BOX_PREFIX)
 
 
@@ -89,6 +91,9 @@ def build_dc_sheets(ctx: ChainContext) -> None:
         sheet = p.create_switchboard_sheet(b)
         sheet.layout.params.setdefault("network", "DC IT")
         sheet.layout.params.setdefault("un", "max. 1000 V DC")
+        if b is ctx.dc_common:
+            build_common_sheet(ctx, sheet, macros.get("dc_tech", ""))
+            continue
         entry = macros.get("dc_tech" if kind == "tech" else "dc_route", "")
         fin, why = fuse_of(ctx, inv_by_ref.get(inv_ref))
         dc_box = {**dc, "fuse_in": fin}
@@ -99,6 +104,34 @@ def build_dc_sheets(ctx: ChainContext) -> None:
         _apply_component(sheet, dc.get("fuse_component"), "fve.fuse_disconnect")
         if not fin:
             _mark_unresolved(sheet.elements, FUSE_SYMBOLS, why)
+
+
+def build_common_sheet(ctx: ChainContext, sheet: Sheet, entry) -> None:
+    """List společného DC rozvaděče u technologie (RFVE.DC pro 2+ střídače): stringy všech střídačů za sebou, přívody
+    X1…Xn, vývody X(n+1)…X(2n) – makro `dc_tech` po střídačích (k0, ENVO číslování i.j jako DC část RFVE), jinak
+    `build_dc_strings` s In pojistek po stringu podle jeho střídače; artikly, neurčené In."""
+    p, dc = ctx.project, ctx.spec["dc"]
+    groups = [(i + 1, t.ref, [g.ref for g in gens], fuse_of(ctx, t))
+              for i, (t, gens) in enumerate(zip(ctx.inverters, ctx.strings))]
+    n = sum(len(g[2]) for g in groups)
+    k0, done = 0, False
+    for inv_no, inv_ref, strings, (fin, _why) in groups:
+        done = _dc_box_from_macro(p, sheet, strings, entry, {**dc, "fuse_in": fin}, inv_no, inv_ref, k0=k0, n=n)
+        if not done:
+            break
+        k0 += len(strings)
+    if done:       # makro rozmístí přístroje jen svého střídače – znovu všechny za sebou
+        sheet.layout.placements.clear()
+        _place_sequential(sheet, list(sheet.elements))
+    if not done:   # makro chybí (pak pro žádný střídač): kódem, všechny stringy najednou (In po stringu podle střídače)
+        build_dc_strings(p, sheet, [g for grp in groups for g in grp[2]], "tech",
+                         [_s(grp[3][0]) for grp in groups for _g in grp[2]],
+                         _s(dc.get("disconnect_in") or 32), _s(dc.get("spd") or "T2"))
+    _apply_spd_component(sheet, dc.get("spd_component"))
+    _apply_component(sheet, dc.get("fuse_component"), "fve.fuse_disconnect")
+    whys = [why for _n, _r, _s2, (fin, why) in groups if not fin]
+    if whys:
+        _mark_unresolved(sheet.elements, FUSE_SYMBOLS, "; ".join(dict.fromkeys(whys)))
 
 
 class RfveDcBuilder:

@@ -116,6 +116,12 @@
       "label": "Teplota okolí max [°C]",
       "default": "",
       "show": false
+    },
+    {
+      "key": "trip",
+      "label": "Vypínací spoušť (vazební prvek síťové ochrany)",
+      "default": "",
+      "show": true
     }
   ],
   "multipole": {

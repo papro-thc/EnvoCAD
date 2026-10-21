@@ -261,6 +261,47 @@ SYMBOLS = [
         "label_pos": {"x": -5, "y": -8},
     },
     {
+        # hlavní domovní skříň (přípojková skříň DS) s pojistkami – článek řetězce mezi elektroměrovým rozvaděčem a DS,
+        # jisticí přístroj v selektivitě (docs/design/topologie_f1_f2.md, kap. 2 bod 3); tok zleva (odběratel) doprava
+        "id": "fve.hds", "name": "Hlavní domovní skříň (HDS)", "category": "Síť a zátěž", "iec_ref": "",
+        "description": "Hlavní domovní / přípojková skříň s pojistkami – hranice DS a odběratele (port 1 odběratel, 2 DS)",
+        "primitives": [R(-10, -7.5, 20, 15), L(-12.5, 0, -4, 0), R(-4, -1.5, 8, 3), L(-4, 0, 12.5, 0),
+                       T(0, 3, "HDS", 2)],
+        "ports": [P("1", -12.5, 0, "W"), P("2", 12.5, 0, "E")],
+        "attributes": [REF, attr("desc", "Popis", "", True), attr("in_", "In pojistek [A]", "", True, "{} A"),
+                       attr("char", "Charakteristika", "gG", True), POLES],
+        "label_pos": {"x": -10, "y": -10},   # popisek pod skříní – nad ní je místo pro text hranice vlastnictví
+    },
+    {
+        # přepínač sítí I-0-II (EPS u rodinného domu): 1 síť (z přípojnice) a 2 záloha (EPS vývod hybridního střídače)
+        # nahoře, 3 výstup k zálohovaným okruhům dole; kreslí se bez otočení (tok shora dolů). Vícepól: pól na žílu
+        # (průchozí 1–3, záloha 2 vedle sítě)
+        "id": "fve.changeover_switch", "name": "Přepínač sítí (I-0-II)", "category": "Spínání", "iec_ref": "Q",
+        "function_class": ["Q"],
+        "description": "Přepínač sítí I-0-II: síť (1) / záloha EPS hybridního střídače (2) → zálohované okruhy (3)",
+        "primitives": [L(0, 7.5, 0, 5), L(5, 7.5, 5, 5), L(0, -5, 0, -7.5), R(-2.5, -5, 10, 10),
+                       T(2.5, -1, "I-0-II", 1.8), L(0, -3.5, 2.5, 3.5)],
+        "ports": [P("1", 0, 7.5, "N"), P("2", 5, 7.5, "N"), P("3", 0, -7.5, "S")],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("poles", "Póly", "4"),
+                       attr("kind", "Druh (ruční / ATS)", "ruční", True), MOD, PLOSS, *TEMP],
+        "multipole": {**MP([L(0, 7.5, 0, 2.5), L(5, 7.5, 5, 2.5), L(0, -2.5, 2.5, 2.5), L(0, -2.5, 0, -7.5)],
+                         [T(2.5, -6, "I-0-II", 1.8)]), "through": ["1", "3"]},
+        "label_pos": {"x": -16, "y": 2},
+    },
+    {
+        # síťová ochrana (ochrana rozhraní FVE – U<, U>, f<, f>; nad 30 kWp DC) v AC rozvaděči FVE: měří napětí
+        # z přípojnice (port U nahoře), působí na vazební spínač (`acts_on` = označení hlavního vypínače);
+        # docs/design/topologie_f1_f2.md, kap. 2 bod 8
+        "id": "fve.grid_protection", "name": "Síťová ochrana", "category": "Jištění", "iec_ref": "F",
+        "function_class": ["F", "K"],
+        "description": "Síťová ochrana / ochrana rozhraní FVE (U<, U>, f<, f>) – měření z přípojnice, působí na vazební spínač",
+        "primitives": [R(-7.5, -5, 15, 10), L(0, 5, 0, 7.5), T(0, 0.5, "U<>", 2), T(0, -3.5, "f<>", 2)],
+        "ports": [P("U", 0, 7.5, "N")],
+        "attributes": [REF, TYPE, MFR, attr("acts_on", "Působí na (vazební spínač)", "", True, "→ {}"),
+                       attr("settings", "Nastavení", "U< U> f< f>"), attr("modules", "Šířka [moduly]", "4"), *TEMP],
+        "label_pos": {"x": 9, "y": 1},
+    },
+    {
         "id": "fve.load", "name": "Spotřeba objektu", "category": "Síť a zátěž", "iec_ref": "",
         "description": "Stávající rozvod / spotřeba objektu",
         "primitives": [L(-7.5, 0, -5, 0), R(-5, -5, 15, 10), T(2.5, -1, "Spotřeba", 2)],
@@ -406,7 +447,18 @@ SYMBOLS = [
         "description": "Rozvaděč jako blok (odkaz na samostatný list)",
         "primitives": [R(-15, -10, 30, 20), T(0, 11.5, "ROZVADĚČ", 2)],
         "ports": [P("1", -15, 0, "W"), P("2", 15, 0, "E"), P("3", 0, 10, "N"), P("4", 0, -10, "S")],
-        "attributes": [REF, attr("desc", "Popis", "", True), attr("sheet", "Odkaz na list")],
+        # blok bez listu (generátor: stávající RD / HR / RE, RFVE.AC bez mustru): porty z atributů a údaje článku
+        # řetězce v popisku (docs/NAVRH_TOPOLOGIE.md, kap. 8 bod 12; formát projektu v15)
+        "attributes": [REF, attr("desc", "Popis", "", True), attr("sheet", "Odkaz na list"),
+                       attr("main", "Hlavní přístroj (blok bez listu)", "", True),
+                       attr("fve_out", "Vývod FVE (blok bez listu)", "", True, "vývod FVE: {}"),
+                       attr("metering", "Měření (blok bez listu)", "", True, "měření {}"),
+                       attr("inv_protect", "Jištění střídačů (blok bez listu)", "", True, "jištění střídačů {}"),
+                       attr("grid_protection", "Síťová ochrana – požadavek (blok bez listu)", "", True,
+                            "síťová ochrana: {}"),
+                       attr("ports_in", "Přívody bloku bez listu (X1 X2 …)"),
+                       attr("ports_out", "Vývody bloku bez listu (XOUT …)"),
+                       attr("protect", "Jištění portů bloku bez listu (X1=63, …) [A]")],
         "label_pos": {"x": -15, "y": -13},
     },
     {
@@ -437,7 +489,9 @@ SYMBOLS = [
         "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0), L(-2.5, -1.5, -2.5, 1.5),
                        C(2.5, 0, 0.8), T(0, 6, "HV", 2)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
-        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS, *TEMP],
+        # vazební prvek síťové ochrany: vypínací spoušť (`trip`, kontrola F7 `grid_protection_trip`)
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS, *TEMP,
+                       attr("trip", "Vypínací spoušť (vazební prvek síťové ochrany)", "", True)],
         "multipole": MP(CONTACT + DISC_BAR, [C(2.5, 0, 0.8), T(0, 6, "HV", 2)]),
         "label_pos": {"x": -5, "y": -6},
     },

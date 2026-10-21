@@ -27,6 +27,8 @@ from envocad.library.store import LibraryStore
 from envocad.model.feed import is_feed_in, is_feed_out
 from envocad.model.project import Element, Project, Sheet
 
+pytestmark = pytest.mark.usefixtures("ac_builtin")   # AC listy vestavěným kódem (standard `ac_builtin`)
+
 
 @pytest.fixture(scope="module")
 def lib():
@@ -107,13 +109,13 @@ def test_save_macro_writes_v2_with_implicit_variables(tmp_path, monkeypatch):
 
 def test_builtin_macros_are_valid_v3():
     found = {m.name: m for m in list_macros() if m.source == "vestavěné"}
-    assert len(found) == 6
+    assert len(found) == 7                       # + „EPS přepínač sítí“ (role ac_eps, F2 krok 9)
     for m in found.values():
         data = json.loads(m.path.read_text(encoding="utf-8"))
         assert data["version"] == 3 and validate_macro(data) == [], (m.name, validate_macro(data))
     roles = {m.role: m.name for m in found.values() if m.role}
     assert roles == {"dc_tech": "DC string v rozvaděči", "dc_route": "DC string po trase",
-                     "ac_feed": "AC přívod střídače", "ac_core": "AC jádro rozvaděče"}
+                     "ac_feed": "AC přívod střídače", "ac_core": "AC jádro rozvaděče", "ac_eps": "EPS přepínač sítí"}
     dc = found["DC string v rozvaděči"]
     assert dc.repeat.count == "n" and dc.repeat.pitch == 50 and dc.value_sets
     assert all(v.label for v in dc.variables)
@@ -303,10 +305,11 @@ def test_component_from_and_apply_to_inverter_dc_inputs(lib):
 def test_generator_regression_snapshot():
     """Generátor po refaktoru (makra, balíček `envocad/generator/`) dává stejný výstup jako před ním – všechny
     případy `generate_snapshot.CASES` (snímek tests/data/generate_snapshot.json)."""
+    from generate_snapshot import build_case
     snap = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
     assert set(snap) == set(CASES)
-    for name, spec in CASES.items():
-        got = canon(build_project(spec))
+    for name in CASES:
+        got = canon(build_case(name))
         assert got == snap[name], name
 
 
@@ -497,7 +500,9 @@ def test_generator_breaker_in_is_number_and_normalized():
     """breaker_in zůstává číslo v A (dokumentace MANUAL.md); „40.0“ → „40“ (nález 8 – normalizace nic nerozbíjí)."""
     base = {"inverters": [{"ref": "T1", "p_ac": 25, "strings": [20]}]}
     p = build_project({**base, "ac": {"breaker_in": 40.0}, "dc": {"fuse_in": "15.0"}})
-    ins = {e.attrs["in_"] for s in p.sheets for e in s.elements if e.symbol_id in ("fve.breaker_mcb", "fve.fuse_disconnect")}
+    # jen rozvaděče FVE (In stávajících HR / RE zadá projektant, F2)
+    ins = {e.attrs["in_"] for s in p.sheets if s.loc.startswith(("RDC", "RFVE"))
+           for e in s.elements if e.symbol_id in ("fve.breaker_mcb", "fve.fuse_disconnect")}
     assert ins == {"40", "15"}
     with pytest.raises(ValueError, match="In jističe.*není číslo"):
         build_project({**base, "ac": {"breaker_in": "C40"}})

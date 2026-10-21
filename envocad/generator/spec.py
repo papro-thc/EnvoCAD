@@ -51,6 +51,45 @@ def _num0(v) -> float:
         return 0.0
 
 
+def grid_protection_limit() -> float:
+    """Hranice síťové ochrany [kWp DC] z firemního standardu (`standard.grid_protection_kwp`, výchozí 30)."""
+    from envocad.settings import load_settings
+    try:
+        v = float(str(load_settings()["standard"].get("grid_protection_kwp") or GRID_PROTECTION_KWP).replace(",", "."))
+    except (OSError, ValueError, KeyError, TypeError):
+        return GRID_PROTECTION_KWP
+    return v if v > 0 else GRID_PROTECTION_KWP
+
+
+GRID_PROTECTION_CHOICES = {"": "auto", "auto": "auto", "1": "1", "ano": "1", "true": "1", "yes": "1",
+                           "0": "0", "ne": "0", "false": "0", "no": "0"}
+
+
+def grid_protection_wanted(spec: Mapping, topology: Topology | None, role: str, kwp: float,
+                           limit: float | None = None) -> bool:
+    """Síťová ochrana v hlavním AC článku (`role` rfve_ac, u rodinného domu rfve): `chain.<role>.grid_protection`
+    `auto` (výchozí: instalovaný výkon DC nad hranicí `grid_protection_limit`) | `1` | `0`; jiná hodnota →
+    ValueError česky."""
+    v = chain_options(spec, topology, role).get("grid_protection")
+    t = "1" if v is True else "0" if v is False else GRID_PROTECTION_CHOICES.get(_s(v).strip().lower())
+    if t is None:
+        raise ValueError(f"chain.{role}.grid_protection: neznámá hodnota „{v}“ – zadejte auto, 1 nebo 0.")
+    if t == "auto":
+        return kwp > (limit if limit is not None else grid_protection_limit()) + 1e-9
+    return t == "1"
+
+
+def ac_groups(spec: Mapping) -> list[str]:
+    """Skupiny střídačů podle místa (`inverters[].ac_group`, krok 10): pořadí podle prvního výskytu, hlavní „“
+    první. Jediná skupina = jeden společný RFVE.AC (dnešní stav)."""
+    keys = [_s(inv.get("ac_group")).strip() for inv in spec.get("inverters") or [] if isinstance(inv, Mapping)]
+    out = [""] if "" in keys else []
+    for k in keys:
+        if k not in out:
+            out.append(k)
+    return out
+
+
 def installed_kwp(spec: Mapping) -> float:
     """Instalovaný výkon DC [kWp] = Σ modulů ve stringech × `module.p_wp` / 1000 (rozhodnutí 1). Chybí-li `p_wp`
     nebo počty modulů, počítá se 0 (specifikaci před sloučením s `DEFAULT_SPEC` doplní volající)."""
@@ -138,6 +177,119 @@ def select_topology(spec: Mapping, topologies: Mapping[str, Topology] | None = N
     if errs:
         raise ValueError(" ".join(errs))
     return topo
+
+
+# ---- volby článků řetězce (`spec["chain"][role]`) -----------------------------------------------------------
+def chain_options(spec: Mapping, topology: Topology | None, role: str) -> dict:
+    """Volby článku `role`: `spec["chain"][role]` > `node.options` presetu (docs/design/topologie_f1_f2.md, kap. 2
+    „chain.*“). Kopie – volající ji smí měnit."""
+    node = topology.node(role) if topology is not None else None
+    out: dict = dict(node.options) if node is not None else {}
+    given = (spec.get("chain") or {}).get(role) if isinstance(spec.get("chain"), Mapping) else None
+    if isinstance(given, Mapping):
+        out.update(given)
+    return out
+
+
+def chain_flag(v, default: bool = False) -> bool:
+    """Pravdivostní volba článku („1“, „true“, „ano“, True; prázdné = `default`)."""
+    t = _s(v).strip().lower()
+    if not t:
+        return default
+    return t in ("1", "true", "ano", "yes", "a", "y")
+
+
+def node_ref(spec: Mapping, topology: Topology | None, role: str, legacy: str = "", default: str = "") -> str:
+    """Označení článku: `chain.<role>.ref` > dřívější klíč specifikace (`legacy` – `switchboard.ref`,
+    `connection.main_board.ref`…, jen zadaný uživatelem) > `ref` článku presetu > `default` (konstanta generátoru)."""
+    given = (spec.get("chain") or {}).get(role) if isinstance(spec.get("chain"), Mapping) else None
+    ref = _s((given or {}).get("ref") if isinstance(given, Mapping) else "").strip()
+    node = topology.node(role) if topology is not None else None
+    return ref or _s(legacy).strip() or (node.ref if node is not None else "") or default
+
+
+def node_desc(spec: Mapping, topology: Topology | None, role: str, legacy: str = "", default: str = "") -> str:
+    """Popis článku (pořadí přednosti jako `node_ref`): `chain.<role>.desc` > zadaný dřívější klíč > `desc` článku
+    presetu > `default` (popis generátoru)."""
+    given = (spec.get("chain") or {}).get(role) if isinstance(spec.get("chain"), Mapping) else None
+    desc = _s((given or {}).get("desc") if isinstance(given, Mapping) else "").strip()
+    node = topology.node(role) if topology is not None else None
+    return desc or _s(legacy).strip() or (node.desc if node is not None else "") or default
+
+
+# ---- rozsah generátoru (docs/NAVRH_TOPOLOGIE.md, kap. 8 bod 12): blokové schéma a DC rozvaděče -------------------
+# AC rozvaděče připraví projektant z mustrů: list RFVE.AC (AC část RFVE) jen z maker rolí `ac_feed` + `ac_core`
+# (+ `ac_eps`) ve sdílené nebo vlastní knihovně; stávající RD / HR / RE jen jako bloky. Vestavěný kód (a vestavěná
+# makra) AC listů zůstává jako volba `chain.<role>.builtin` / standard `ac_builtin` – testy a nouze.
+AC_SHEET_ROLES = ("rfve_ac", "rfve", "rd", "hr", "re")
+AC_MACRO_ROLES = ("ac_feed", "ac_core", "ac_eps")
+BUILTIN_MACRO_SOURCE = "vestavěné"
+
+
+def ac_builtin_default() -> bool:
+    """Firemní standard `standard.ac_builtin` (výchozí False): AC listy vestavěným kódem, když mustr chybí."""
+    from envocad.settings import load_settings
+    try:
+        return chain_flag(load_settings()["standard"].get("ac_builtin"))
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
+def builtin_wanted(spec: Mapping, topology: Topology | None, role: str) -> bool:
+    """List článku `role` (AC rozvaděč FVE, stávající RD / HR / RE) vestavěným kódem: `chain.<role>.builtin` >
+    `builtin` v `node.options` presetu > standard `ac_builtin` > False."""
+    v = chain_options(spec, topology, role).get("builtin")
+    if v is True or v is False:
+        return v
+    if _s(v).strip():
+        return chain_flag(v)
+    return ac_builtin_default()
+
+
+def pattern_macro(spec: Mapping, raw: Mapping, topology: Topology | None, main_role: str, macro_role: str):
+    """Mustr (makro ze sdílené nebo vlastní knihovny, ne vestavěné) pro roli makra `macro_role` hlavního AC článku
+    `main_role`: název zadaný ve specifikaci (`spec.macros[role]`, jen zadaný uživatelem – `raw`) > `node.macros`
+    presetu > jakékoli makro s klíčem `role` == `macro_role` (podle názvu). Vrací položku pro `macro_glue._macro_ref`
+    (název nebo objekt se sadou hodnot), nebo None."""
+    from envocad.library.macros import find_macro, list_macros
+    raw_macros = raw.get("macros") if isinstance(raw.get("macros"), Mapping) else {}
+    node = topology.node(main_role) if topology is not None else None
+    for entry in (raw_macros.get(macro_role), node.macros.get(macro_role) if node is not None else None):
+        name = (_s(entry.get("name")) if isinstance(entry, Mapping) else _s(entry)).strip()
+        m = find_macro(name) if name else None
+        if m is not None and m.source != BUILTIN_MACRO_SOURCE:
+            return entry
+    found = [m for m in list_macros() if m.role == macro_role and m.source != BUILTIN_MACRO_SOURCE]
+    return found[0].name if found else None
+
+
+def rfve_dc_per_inverter(spec: Mapping, topology: Topology | None) -> bool:
+    """DC rozvaděč u technologie na každý střídač (RFVE.DC1, RFVE.DC2…) místo jednoho společného RFVE.DC:
+    `chain.rfve_dc.per_inverter` > `per_inverter` článku presetu > False (rozhodnutí 3 – výchozí společný)."""
+    given = (spec.get("chain") or {}).get("rfve_dc") if isinstance(spec.get("chain"), Mapping) else None
+    if isinstance(given, Mapping) and _s(given.get("per_inverter")).strip():
+        return chain_flag(given.get("per_inverter"))
+    node = topology.node("rfve_dc") if topology is not None else None
+    return bool(node.per_inverter) if node is not None else False
+
+
+def resolve_chain_refs(spec: dict, raw: Mapping, topology: Topology) -> None:
+    """Označení a popisy článků do sloučené specifikace (`spec`, na místě): hlavní AC článek (`switchboard`),
+    HR / RVN / RE přípojky VN (`connection.*_board`) – podle `node_ref` / `node_desc`. `raw` = specifikace před
+    sloučením s `DEFAULT_SPEC` (jen tam jsou dřívější klíče zadané uživatelem, ne výchozí hodnoty)."""
+    main_role = "rfve" if topology.node("rfve") is not None else "rfve_ac"
+    sb_raw = raw.get("switchboard") if isinstance(raw.get("switchboard"), Mapping) else {}
+    sb = spec["switchboard"] = dict(spec.get("switchboard") or {})
+    sb["ref"] = node_ref(spec, topology, main_role, sb_raw.get("ref"), AC_SWITCHBOARD_REF)
+    sb["desc"] = node_desc(spec, topology, main_role, sb_raw.get("desc"), _s(sb.get("desc")))
+    conn_raw = raw.get("connection") if isinstance(raw.get("connection"), Mapping) else {}
+    conn = spec["connection"] = dict(spec.get("connection") or {})
+    for key, role, default in (("main_board", "hr", MAIN_LV_BOARD_REF), ("mv_board", "rvn", "RVN"),
+                               ("meter_board", "re", "RE")):
+        given = conn_raw.get(key) if isinstance(conn_raw.get(key), Mapping) else {}
+        board = conn[key] = dict(conn.get(key) or {})
+        board["ref"] = node_ref(spec, topology, role, given.get("ref"), default)
+        board["desc"] = node_desc(spec, topology, role, given.get("desc"), _s(board.get("desc")))
 
 
 # druh objektu (`spec["building"]`) → text v projektu (meta „building“)

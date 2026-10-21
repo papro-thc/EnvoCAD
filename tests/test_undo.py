@@ -4,6 +4,8 @@ import os
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("ac_builtin")   # AC listy vestavěným kódem (standard `ac_builtin`)
+
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtGui import QUndoStack
@@ -193,7 +195,7 @@ def test_multipole_commands(app, lib):
     spec = {"name": "MP", "inverters": [{"ref": "T1", "p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200,
                                         "u_mppt_max": 1000, "i_mppt_max": 30, "strings": [20, 20]}]}
     p = build_project(spec)
-    sb = p.sheets[-1]
+    sb = next(s for s in p.switchboards() if s.loc == "RFVE.AC")
     undo = QUndoStack()
     sc = MultipoleScene(p, sb, lib, undo)
     sc.rebuild()

@@ -564,7 +564,7 @@ class ProjectWizard(QDialog):
         self.inv_mppt = QLineEdit("200")
         self.inv_mppt_max = QLineEdit("1000")
         self.inv_imax = QLineEdit("30")
-        self.strings = QLineEdit("20,20,18,18; 20,20")
+        self.strings = QLineEdit("18,18,18,18; 18,18")   # Uoc 18 × 49,5 V při −20 °C ≈ 999 V < 1100 V
         self.strings.setToolTip("Stringy po střídačích: počty modulů oddělené čárkou, střídače středníkem")
         self.inv_isc_mppt = QLineEdit()
         self.inv_spm = QLineEdit()

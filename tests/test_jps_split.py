@@ -6,6 +6,7 @@ import re
 from collections import Counter
 
 import pytest
+from chain_data import with_existing
 
 from envocad.export import reports
 from envocad.generate import JPS_AC_SHEET_NAME, build_project, ref_ranges
@@ -27,13 +28,19 @@ from envocad.model.xref import (
     through_interrupt,
 )
 
+pytestmark = pytest.mark.usefixtures("ac_builtin")   # AC listy vestavěným kódem (standard `ac_builtin`)
+
 INV = {"p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30}
 
 
 def spec(n, per=4, **kw):
-    s = {"inverters": [{"ref": f"T{i + 1}", **INV, "strings": [20] * per} for i in range(n)]}
+    """Firma, n střídačů × per stringů. DC rozvaděč u technologie na střídač (`chain.rfve_dc.per_inverter`) – testy
+    mechanismu dělení počítají s DC řetězcem celým v řadě střídače; společný RFVE.DC (výchozí od F2) na listu „AC
+    a připojení“ testuje `test_generator_f2.py`."""
+    s = {"inverters": [{"ref": f"T{i + 1}", **INV, "strings": [20] * per} for i in range(n)],
+         "chain": {"rfve_dc": {"per_inverter": True}}}
     s.update(kw)
-    return s
+    return with_existing(s)
 
 
 @pytest.fixture(scope="module")
@@ -67,7 +74,7 @@ def test_big_jps_split_ac_first_then_inverter_sheets_a2(big):
     assert big.sheets[:5] == js                             # listy JPS před listy rozvaděčů
     ac = js[0]
     assert ac.name == JPS_AC_SHEET_NAME
-    assert {e.symbol_id for e in ac.elements} == {"fve.switchboard", "fve.grid", "fve.earth", INTERRUPT_SYMBOL}
+    assert {e.symbol_id for e in ac.elements} == {"fve.switchboard", "fve.grid", "fve.hds", "fve.load", "fve.earth", INTERRUPT_SYMBOL}
     assert sorted(e.ref for e in interrupts(ac)) == sorted(f"AC-T{i}" for i in range(1, 9))
     assert [s.name for s in js[1:]] == [f"Blokové schéma – T{i}, T{i + 1}" for i in (1, 3, 5, 7)]
     for s in js:
@@ -83,8 +90,9 @@ def test_big_jps_split_ac_first_then_inverter_sheets_a2(big):
 
 
 def test_small_projects_stay_on_one_sheet():
-    for n in (1, 2):
-        p = build_project(spec(n))
+    # F2: za RFVE.AC stávající HR → RE → HDS → DS (řetězec v řadě nebo pod FV částí) – 2 střídače × 2 stringy
+    for n, per in ((1, 4), (2, 2)):
+        p = build_project(spec(n, per))
         js = jps_sheets(p)
         assert len(js) == 1 and js[0].name == "Blokové schéma" and js[0].paper in ("A3", "A2")
         assert not interrupts(js[0])
@@ -95,8 +103,8 @@ def test_small_projects_stay_on_one_sheet():
 
 def test_split_none_and_limits(big_one_sheet):
     assert len(jps_sheets(big_one_sheet)) == 1 and big_one_sheet.sheets[0].paper == "vlastní"
-    # limit ze specifikace: 4 střídače se vejdou na A1 → bez dělení
-    p = build_project(spec(4, jps={"max_paper": "A1"}))
+    # limit ze specifikace: 3 střídače se vejdou na A1 → bez dělení (F2: 4 střídače už s řetězcem HR → … → DS ne)
+    p = build_project(spec(3, jps={"max_paper": "A1"}))
     assert len(jps_sheets(p)) == 1 and p.sheets[0].paper == "A1"
     # 3 střídače přesahují A2 → dělí se (výchozí standard)
     assert len(jps_sheets(build_project(spec(3)))) == 3
@@ -193,8 +201,12 @@ def test_potential_joins_inverter_with_switchboard_block(big, lib):
 def test_checks_no_new_findings_on_split_project(big, big_one_sheet, lib):
     f_split, f_one = check_project(big, lib), check_project(big_one_sheet, lib)
     codes = {f.code for f in f_split}
-    assert not codes & {"interrupt_alone", "cable_split", "no_cable", "dup_ref", "text_overlap", "free_port",
-                        "unconnected", "potential", "calc_cable", "calc_string"}
+    # „no_cable“ (INFO) má i nerozdělený projekt: vodič HDS → DS je záměrně bez kabelu (F2) – porovná `count` níže
+    assert not codes & {"interrupt_alone", "cable_split", "dup_ref", "text_overlap", "free_port",
+                        "unconnected", "potential", "calc_string"}
+    # kabel RFVE.AC → HR pro vývod FVE 315 A (8 × 25 kW): jeden kabel nevyhoví (D, nad 240 mm²) – průřez prázdný,
+    # jen INFO „chybí průřez“ (paralelní kabely zvolí projektant), žádná chyba In > Iz
+    assert not [f for f in f_split if f.code == "calc_cable" and f.severity != "info"]
     # mimo souhrnné INFO (ty se slučují po listech – víc listů = víc souhrnných řádků) stejné nálezy jako jeden list
     def count(fs):
         return Counter((f.severity, f.code) for f in fs if f.code not in AGGREGATED_INFO)
@@ -496,8 +508,8 @@ def test_split_house_combined_switchboard(lib, route):
     js = jps_sheets(p)
     assert len(js) >= 3 and js[0].name == JPS_AC_SHEET_NAME
     ac = js[0]
-    assert [e.ref for e in ac.elements if e.symbol_id == "fve.switchboard"] == ["RFVE"]
-    assert {e.symbol_id for e in ac.elements} <= {"fve.switchboard", "fve.grid", "fve.earth", INTERRUPT_SYMBOL}
+    assert [e.ref for e in ac.elements if e.symbol_id == "fve.switchboard"] == ["RFVE", "RD", "RE"]
+    assert {e.symbol_id for e in ac.elements} <= {"fve.switchboard", "fve.grid", "fve.hds", "fve.load", "fve.earth", INTERRUPT_SYMBOL}
     rfve = next(e for e in ac.elements if e.ref == "RFVE")
     for w in ac.wires:                                   # vše u RFVE nese údaje kabelu, pokračování je u řady
         if rfve.id in (w.a.element_id, w.b.element_id):

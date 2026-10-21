@@ -66,6 +66,14 @@ def is_feed_out(e: Any) -> bool:
     return is_feed(e) and feed_dir(e) == FEED_OUT
 
 
+ANCHOR_ATTR = "anchor"   # kotva přívodu/vývodu bez zapojení v listu (AC část doplní mustr / projektant) – „1“
+
+
+def is_anchor_feed(e: Any) -> bool:
+    """Přívod/vývod označený jako kotva (`anchor="1"`): nezapojený v listu není chyba, jen informace (F7 `feed_anchor`)."""
+    return is_feed(e) and str((getattr(e, "attrs", None) or {}).get(ANCHOR_ATTR) or "").strip() == "1"
+
+
 def feed_link_key(e: Any) -> str:
     """Atribut s protějškem vazby: přívod „from“ (odkud), vývod „to“ (kam)."""
     return LINK_KEYS[feed_dir(e)]

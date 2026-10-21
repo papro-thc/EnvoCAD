@@ -6,7 +6,7 @@
   "buildings": ["house"],
   "level": "nn",
   "nodes": [
-    {"role": "rfve", "ref": "RFVE", "desc": "rozvaděč FVE", "macros": {},
+    {"role": "rfve", "ref": "RFVE", "macros": {},
      "options": {"grid_protection": "auto", "changeover_switch": "1"}},
     {"role": "inverter"},
     {"role": "rd", "ref": "RD", "desc": "domovní rozvaděč", "existing": true,
