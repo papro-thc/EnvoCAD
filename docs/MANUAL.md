@@ -9,7 +9,7 @@ všech výstupů.
 
 ## 1. Instalace a spuštění
 
-Potřebuješ Python 3.11–3.13 (Windows i Linux).
+Potřebuješ Python 3.11–3.14 (Windows i Linux).
 
 ```
 # Windows (PowerShell)
