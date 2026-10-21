@@ -421,14 +421,18 @@ def _choose_house_layout_cached(ctx: ChainContext, first: tuple, links: list, in
 
     def apply(mode: str) -> bool:
         restore()
-        if mode == "column":
-            return _house_column(p, s, blk, first, links, ctx.loads, ctx.earth, target)
+        if mode.startswith("column"):     # „column_below“: DS pod HDS (užší sloupec)
+            return _house_column(p, s, blk, first, links, ctx.loads, ctx.earth, target,
+                                 end_below=mode == "column_below")
         in_row()
+        if mode == "row_left":        # řada doleva pod vším (výkres se nerozšíří vpravo)
+            from envocad.generator.layout import _house_row_left
+            return _house_row_left(p, s, blk, first, links, ctx.loads, ctx.earth)
         return True
 
     best, best_score = "row", None
     ids = {w.id for w in wires}
-    for mode in ("row", "column"):
+    for mode in ("row", "column", "column_below", "row_left"):
         if not apply(mode):
             continue
         _boundary_text(ctx)

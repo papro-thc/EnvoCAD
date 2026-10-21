@@ -599,7 +599,7 @@ def _chain_column(p: Project, s: Sheet, blk: Element, links: list, loads: list, 
 
 
 def _house_column(p: Project, s: Sheet, blk: Element, first: tuple[Element, str, Wire], links: list, loads: list,
-                  earth: Element | None, boundary: Element | None = None) -> bool:
+                  earth: Element | None, boundary: Element | None = None, end_below: bool = False) -> bool:
     """Rodinný dům: řetězec stávajících článků (RD → RE → HDS → DS) svisle vpravo od FV části (`_stack_column`, od
     horního okraje obsahu dolů). Vodič z vývodu XOUT rozvaděče FVE vede pod vším vpravo za obsah a svisle nahoru do
     přívodu RD zleva; spotřeba visí pod RD uvnitř sloupce (vodič od svislého úseku neodbočuje). `first` = první
@@ -615,13 +615,14 @@ def _house_column(p: Project, s: Sheet, blk: Element, first: tuple[Element, str,
         return False
     x_right, y_top, y_bot = max(b[2] for b in boxes), max(b[3] for b in boxes), min(b[1] for b in boxes)
     # sloupec: přívod RD zleva; svislý úsek vodiče od XOUT vlevo od sloupce, mezi obsahem a sloupcem
-    x_lane = _snap(x_right + 10.0)
-    els, in_ports, in_wires = _stack_column(p, s, allc, loads, 0.0, y_top, -1, True, boundary, lib)
+    x_lane = _snap(x_right + 5.0)
+    els, in_ports, in_wires = _stack_column(p, s, allc, loads, 0.0, y_top, -1, True, boundary, lib,
+                                            end_below=end_below)
     # sloupec vpravo od svislého úseku: posun celého sloupce (prvky a lomy) tak, aby levý okraj byl za úsekem
     col = [*els] + [ld for _b, _pt, ld, _w in loads]
     left = min(_extent(p, s, e, lib)[0] for e in col)
     lanes = [w.points[0][0] for w in in_wires[1:] if w.points]
-    left = min([left, *lanes]) - 7.5
+    left = min([left, *lanes]) - 5.0
     dx = _snap(x_lane + COLUMN_LANE - left)
     for e in col:
         e.x += dx
@@ -634,4 +635,53 @@ def _house_column(p: Project, s: Sheet, blk: Element, first: tuple[Element, str,
     y_bot = min((b[1] for b in boxes if b[2] >= x_out - 2.5 and b[0] <= x_lane + 2.5), default=y_bot)
     y_low = _snap(min(y_bot - 10.0, out[1] - 10.0))
     w0.points = [(x_out, out[1]), (x_out, y_low), (x_lane, y_low), (x_lane, p0[1])]
+    return True
+
+
+ROW_LEFT_GAP_CABLE = 75.0    # řada řetězce RD doleva: mezi porty s kabelem (popisek kabelu)
+ROW_LEFT_GAP_PLAIN = 45.0    # … bez kabelu (stávající úsek)
+ROW_LEFT_GAP_BOARDS = 25.0   # … navíc mezi dvěma rozvaděči (odkaz vazby na oba konce)
+ROW_LEFT_GAP_SMALL = 30.0    # … HDS → DS
+
+
+def _house_row_left(p: Project, s: Sheet, blk: Element, first: tuple[Element, str, Wire], links: list, loads: list,
+                    earth: Element | None) -> bool:
+    """Rodinný dům: řetězec stávajících článků v řadě **pod vším, doleva** od svislého úseku vývodu XOUT (RD pod
+    rozvaděčem FVE, RE, HDS a DS pod stringy) – výkres se nerozšíří vpravo za FV část (na main se tam vešla jen DS).
+    Přívod každého článku vpravo (zrcadlení podle portu), vodiče vodorovně; spotřeba pod RD."""
+    from envocad.model.textlayout import sheet_content_boxes, symbol_box
+    lib = context._lib()
+    el0, port0, w0 = first
+    if not w0.points or not _has_port(p, blk, "XOUT", lib):
+        return False
+    allc = [(blk, "XOUT", el0, port0, w0), *links]
+    ids, wids = _chain_ids(allc, loads)
+    with _without(s, ids, wids):
+        boxes = sheet_content_boxes(p, s, lib)
+    if not boxes:
+        return False
+    x_lane = w0.points[0][0]
+    _set_side(p, el0, port0, 1, lib)
+    sym = element_symbol(p, el0, lib)
+    pe = _port(p, el0, port0, lib)
+    above = symbol_box(el0, sym)[3] - pe[1]
+    y = _snap(min(b[1] for b in boxes) - 10.0 - max(0.0, above))
+    el0.x += _snap(x_lane - 15.0) - pe[0]
+    el0.y += y - pe[1]
+    out = _port(p, blk, "XOUT", lib)
+    w0.points = [(x_lane, out[1]), (x_lane, y)]
+    for prev, pport, el, port, w in links:
+        _set_side(p, el, port, 1, lib)
+        pa, pe = _port(p, prev, pport, lib), _port(p, el, port, lib)
+        boards = prev.symbol_id == el.symbol_id == "fve.switchboard"
+        if len(element_symbol(p, el, lib).ports) == 1:
+            gap = ROW_LEFT_GAP_SMALL
+        else:
+            gap = (ROW_LEFT_GAP_CABLE if w.attrs.get("ref") else ROW_LEFT_GAP_PLAIN) + (
+                ROW_LEFT_GAP_BOARDS if boards else 0.0)
+        el.x += _snap(pa[0] - gap) - pe[0]
+        el.y += pa[1] - pe[1]
+        w.points = []
+    for b, pt, ld, wl in loads:
+        place_load(p, b, pt, ld, wl)
     return True

@@ -329,8 +329,7 @@ def test_rd_existing_board():
     assert f.symbol_id == "fve.breaker_mcb" and f.attrs["in_"] == "20"
     assert _el(sh, "X1").attrs["desc"] == "k RFVE (FVE)" and _el(sh, "X2").attrs["desc"] == "stávající rozvody objektu"
     s = p.sheets[0]
-    blk = _blocks(p)["RD"]
-    assert blk.mirror
+    blk = _blocks(p)["RD"]   # zrcadlený jen v řadě; ve sloupci (malý výkres → A3) ne
     load = next(e for e in s.elements if e.symbol_id == "fve.load")
     assert any(w.touches(blk.id) and w.touches(load.id) and w.attrs == {"ref": ""} for w in s.wires)
     order = [_blocks(p)["RFVE"]]
@@ -406,14 +405,14 @@ def test_vn_chain_unchanged_by_nn_builders():
 
 def test_chain_layout_compact_on_a2():
     """Řetězec stávajících článků: u firmy v řadě pod FV částí, u RD hned za RFVE – výkres 1–2 střídačů zůstane na
-    jednom listu A2."""
+    jednom listu nejvýš A2 (RD s jedním střídačem se vejde do A3 sloupcem)."""
     for spec in ({"inverters": [{"ref": "T1", **_INV, "strings": [20, 20]}], "chain": _EXIST_NN},
                  {**_HOUSE, "chain": _EXIST_RD},
                  {"inverters": [{"ref": "T1", **_INV, "strings": [20, 20]}, {"ref": "T2", **_INV, "strings": [20]}],
                   "chain": _EXIST_NN}):
         p = build_project(spec)
         jps = [s for s in p.sheets if not s.is_switchboard]
-        assert len(jps) == 1 and jps[0].paper == "A2", [s.paper for s in jps]
+        assert len(jps) == 1 and jps[0].paper in ("A2", "A3"), [s.paper for s in jps]
 
 
 # ---- krok 6: kabely mezi články, jednofázový střídač ------------------------------------------------------------
