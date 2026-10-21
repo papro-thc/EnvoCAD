@@ -9,6 +9,8 @@ from envocad.model.checks import ERROR, WARNING, check_project
 from envocad.model.feed import is_feed_in
 from envocad.model.project import element_symbol
 
+pytestmark = pytest.mark.usefixtures("ac_builtin")   # AC listy vestavěným kódem (standard `ac_builtin`)
+
 
 def test_build_project_from_spec(tmp_path):
     spec = {"name": "FVE Test", "meta": {"investor": "Test s.r.o."},

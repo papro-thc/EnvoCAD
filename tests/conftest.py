@@ -68,3 +68,17 @@ def _qt_czech():
     install_qt_translations(app)
     yield app
 
+
+
+@pytest.fixture(scope="module")
+def ac_builtin():
+    """AC listy (RFVE.AC, AC část RFVE, stávající RD / HR / RE) vestavěným kódem, když mustr chybí – jako před
+    rozhodnutím 12 (docs/NAVRH_TOPOLOGIE.md, kap. 8), tj. firemní standard `ac_builtin` = true. Testy obsahu AC listů
+    se na tuto volbu přepnou (`pytestmark = pytest.mark.usefixtures("ac_builtin")`); výchozí chování (jen bloky)
+    testuje `test_generator_scope.py`. Rozsah modulu – platí i pro projekty z fixtures modulu (`usefixtures` se
+    vytvoří před nimi); standard v `settings.json` testuje `test_generator_scope.py`."""
+    from envocad.generator import spec
+    mp = pytest.MonkeyPatch()
+    mp.setattr(spec, "ac_builtin_default", lambda: True)
+    yield
+    mp.undo()

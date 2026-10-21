@@ -126,3 +126,38 @@ def place(ctx) -> None:
         ih.rotation = 0 if sg > 0 else 180
         ih.x, ih.y = hx + sg * (GROUP_INT_GAP_HR - dx_port), hy
         g["w_h"].points = []
+
+
+GROUP_STACK_GAP = 20.0        # svislá mezera mezi skupinami na listu „AC a připojení“ po rozdělení JPS
+
+
+def stack_after_split(ctx) -> None:
+    """Rozdělené JPS: RFVE.AC{n} skupin (s uzemněním a přerušeními AC kabelů a vývodu) pod obsah s RFVE.AC1 –
+    jinak by zůstaly na výšce svých střídačů (ty jsou na listech střídačů) a list „AC a připojení“ by přerostl."""
+    from envocad.generator import context
+    from envocad.generator.jps import _components, component_boxes
+    s, lib = ctx.sheet, context._lib()
+    comps = _components(s)
+    # RFVE.AC1 s uzemněním a přerušeními AC kabelů (bez řetězce za ním – ten se pak skládá znovu)
+    chain_wires = {w.id for *_x, w in ctx.links}
+    main = {ctx.main.id} | {(w.b.element_id if w.a.element_id == ctx.main.id else w.a.element_id)
+                            for w in s.wires if w.touches(ctx.main.id) and w.id not in chain_wires}
+    boxes = component_boxes(ctx.project, s, main, lib)
+    if not boxes:
+        return
+    bottom = min(b[1] for b in boxes)
+    for g in ctx.groups[1:]:
+        comp = next((c for c in comps if g["block"].id in c), None)
+        if comp is None or ctx.main.id in comp and len(comp & main) > 1 and g["block"].id in main:
+            continue
+        own = component_boxes(ctx.project, s, comp, lib)
+        if not own:
+            continue
+        dy = round((bottom - GROUP_STACK_GAP - max(b[3] for b in own)) / 2.5) * 2.5
+        for e in s.elements:
+            if e.id in comp:
+                e.y += dy
+        for w in s.wires:
+            if w.a.element_id in comp and w.b.element_id in comp:
+                w.points = [(x, y + dy) for x, y in w.points]
+        bottom = min(b[1] for b in own) + dy

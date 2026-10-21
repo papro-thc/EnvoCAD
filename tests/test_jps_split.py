@@ -28,6 +28,8 @@ from envocad.model.xref import (
     through_interrupt,
 )
 
+pytestmark = pytest.mark.usefixtures("ac_builtin")   # AC listy vestavěným kódem (standard `ac_builtin`)
+
 INV = {"p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30}
 
 
@@ -201,7 +203,10 @@ def test_checks_no_new_findings_on_split_project(big, big_one_sheet, lib):
     codes = {f.code for f in f_split}
     # „no_cable“ (INFO) má i nerozdělený projekt: vodič HDS → DS je záměrně bez kabelu (F2) – porovná `count` níže
     assert not codes & {"interrupt_alone", "cable_split", "dup_ref", "text_overlap", "free_port",
-                        "unconnected", "potential", "calc_cable", "calc_string"}
+                        "unconnected", "potential", "calc_string"}
+    # kabel RFVE.AC → HR pro vývod FVE 315 A (8 × 25 kW): jeden kabel nevyhoví (D, nad 240 mm²) – průřez prázdný,
+    # jen INFO „chybí průřez“ (paralelní kabely zvolí projektant), žádná chyba In > Iz
+    assert not [f for f in f_split if f.code == "calc_cable" and f.severity != "info"]
     # mimo souhrnné INFO (ty se slučují po listech – víc listů = víc souhrnných řádků) stejné nálezy jako jeden list
     def count(fs):
         return Counter((f.severity, f.code) for f in fs if f.code not in AGGREGATED_INFO)

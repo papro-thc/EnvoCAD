@@ -600,6 +600,7 @@ def test_multipole_pagination(app):
         assert out.stat().st_size > 5000
 
 
+@pytest.mark.usefixtures("ac_builtin")   # list RFVE.AC vestavěným kódem
 def test_edit_in_switchboard_schematic(app):
     """Ve schématu rozvaděče (vícepól) jde vkládat prvky a kreslit žíly – i u vygenerovaného projektu."""
     from PySide6.QtCore import QPointF
@@ -643,6 +644,7 @@ def test_edit_in_switchboard_schematic(app):
     w.close()
 
 
+@pytest.mark.usefixtures("ac_builtin")   # list RFVE.AC vestavěným kódem
 def test_feed_cable_tag_edit_and_move(app):
     """Štítek kabelu u přívodu: dvojklik otevře parametry přívodu, tažení posune celý přívod."""
     from PySide6.QtCore import QPoint, Qt
@@ -1568,6 +1570,30 @@ def test_wizard_vn_connection_and_single_line_tab(app, tmp_path):
     assert sum(isinstance(w._unwrap(w.tabs.widget(i)), SingleLineView) for i in range(w.tabs.count())) == 1
     w.undo.setClean()
     w.close()
+
+
+def test_block_ports_change_refreshes_symbol(app, tmp_path):
+    """Blok rozvaděče bez listu (formát v15): změna portů v atributu `ports_out` ve Vlastnostech – položka dostane
+    novou značku s porty z atributu, vodič se překreslí; undo vrátí původní porty."""
+    from PySide6.QtGui import QUndoStack
+
+    from envocad.ui import commands
+    from envocad.ui.canvas import SchematicScene
+    p = Project()
+    s = p.sheets[0]
+    hr = Element("fve.switchboard", 100, 150, attrs={"ref": "HR", "ports_in": "XIN", "ports_out": "X1"})
+    g = Element("fve.grid", 200, 150, attrs={"ref": ""})
+    s.elements += [hr, g]
+    s.wires.append(Wire(WireEnd(hr.id, "XIN"), WireEnd(g.id, "1")))
+    lib = LibraryStore(tmp_path / "lib.db")
+    undo = QUndoStack()
+    sc = SchematicScene(p, s, lib, undo)
+    names = lambda: {q.name for q in sc.element_items[hr.id].symbol.ports}
+    assert names() == {"XIN", "X1"}
+    undo.push(commands.SetAttrCommand(sc, hr.id, False, "ports_out", "X1", "X1 X2 X3"))
+    assert names() == {"XIN", "X1", "X2", "X3"}
+    undo.undo()
+    assert names() == {"XIN", "X1"}
 
 
 def test_busbar_taps_change_refreshes_symbol(app, tmp_path):

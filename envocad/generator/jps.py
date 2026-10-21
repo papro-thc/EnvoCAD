@@ -27,7 +27,7 @@ INTERRUPT_GAP_AC = 60.0    # port přerušovacího bodu → port bloku AC rozvad
 
 
 def _place_jps(p: Project, s: Sheet, opts: dict, rows: list[list[Element]], ac_wires: list[Wire],
-               blk: Element, after_split=None) -> None:
+               blk: Element, after_split=None, movable: set[str] | None = None) -> None:
     """Rozmístí JPS na list (`frame.fit_placement`). Přesáhl by jeden list `jps.max_paper` (jinak standard
     `jps_max_paper`, výchozí A2) a `jps.split` není „none“, rozdělí se JPS na listy formátu `jps.paper` (výchozí
     = limit; jen při 2+ střídačích): první list „AC a připojení“ (blok AC rozvaděče, síť, HOP) jako přehled, za ním
@@ -57,7 +57,8 @@ def _place_jps(p: Project, s: Sheet, opts: dict, rows: list[list[Element]], ac_w
         after_split()
     for sh in sheets:                 # společný DC rozvaděč zůstal na listu AC – mezera po něm v řadě se zavře
         close_gaps(p, sh, lib)
-    stack_components(p, s, blk, lib, sizes)
+    stack_components(p, s, blk, lib, sizes, movable)
+    close_gaps(p, s, lib, axis="y")   # list AC: místo po řadách střídačů (RFVE.AC{n} skupin dál od hlavního)
     for sh in [s, *sheets]:
         bx = sheet_content_boxes(p, sh, lib)
         if bx:
@@ -70,36 +71,47 @@ def _place_jps(p: Project, s: Sheet, opts: dict, rows: list[list[Element]], ac_w
 GAP_KEEP = 30.0     # šířka svislého pruhu, na kterou se zúží prázdný pruh listu střídače (mm)
 
 
-def gap_shift(boxes: list, keep: float = GAP_KEEP):
-    """Funkce x → x po zúžení prázdných svislých pruhů mezi obálkami `boxes` na `keep` (None = žádný pruh)."""
-    boxes = sorted(boxes, key=lambda b: b[0])
+def gap_shift(boxes: list, keep: float = GAP_KEEP, axis: str = "x"):
+    """Funkce x → x po zúžení prázdných svislých pruhů mezi obálkami `boxes` na `keep` (None = žádný pruh);
+    `axis` „y“ = vodorovné pruhy, funkce y → y (obsah nad pruhem dolů)."""
+    lo, hi = (0, 2) if axis == "x" else (1, 3)
+    boxes = sorted(boxes, key=lambda b: b[lo])
     if not boxes:
         return None
-    cuts: list[tuple[float, float]] = []          # (x začátku pruhu, posun obsahu vpravo od něj)
-    right = boxes[0][2]
+    cuts: list[tuple[float, float]] = []          # (začátek pruhu, posun obsahu za ním)
+    right = boxes[0][hi]
     for b in boxes[1:]:
-        if b[0] - right > keep + 2.5:
-            cuts.append((right, round((b[0] - right - keep) / 2.5) * 2.5))
-        right = max(right, b[2])
+        if b[lo] - right > keep + 2.5:
+            cuts.append((right, round((b[lo] - right - keep) / 2.5) * 2.5))
+        right = max(right, b[hi])
     if not cuts:
         return None
     return lambda x: x - sum(d for x0, d in cuts if x > x0)
 
 
-def close_gaps(p: Project, sh: Sheet, lib, keep: float = GAP_KEEP) -> bool:
-    """Zúží prázdné svislé pruhy listu (bez značek, textů i vodičů) na `keep`: obsah vpravo od pruhu se posune vlevo.
-    Na listu střídače po rozdělení JPS zůstane místo po společném RFVE.DC (ten je na listu AC) – list by byl zbytečně
-    široký. True = něco se posunulo."""
+def close_gaps(p: Project, sh: Sheet, lib, keep: float = GAP_KEEP, axis: str = "x") -> bool:
+    """Zúží prázdné svislé pruhy listu (bez značek, textů i vodičů) na `keep`: obsah vpravo od pruhu se posune vlevo
+    (`axis` „y“: vodorovné pruhy, obsah nad pruhem se posune dolů). Na listu střídače po rozdělení JPS zůstane místo
+    po společném RFVE.DC (ten je na listu AC), na listu AC místo po řadách střídačů (RFVE.AC{n} skupin u svých
+    střídačů) – list by byl zbytečně velký. True = něco se posunulo."""
     from envocad.model.textlayout import sheet_content_boxes
-    shift = gap_shift(sheet_content_boxes(p, sh, lib), keep)
+    shift = gap_shift(sheet_content_boxes(p, sh, lib), keep, axis)
     if shift is None:
         return False
+    if axis == "x":
+        for e in sh.elements:
+            e.x = shift(e.x)
+        for w in sh.wires:
+            w.points = [(shift(x), y) for x, y in w.points]
+        for t in sh.texts:
+            t.x = shift(t.x)
+        return True
     for e in sh.elements:
-        e.x = shift(e.x)
+        e.y = shift(e.y)
     for w in sh.wires:
-        w.points = [(shift(x), y) for x, y in w.points]
+        w.points = [(x, shift(y)) for x, y in w.points]
     for t in sh.texts:
-        t.x = shift(t.x)
+        t.y = shift(t.y)
     return True
 
 
@@ -121,14 +133,28 @@ def _components(sh: Sheet) -> list[set[str]]:
     return list(groups.values())
 
 
-def stack_components(p: Project, sh: Sheet, blk: Element, lib, sizes=None) -> bool:
+def component_boxes(p: Project, sh: Sheet, ids: set[str], lib) -> list:
+    """Obálky obsahu (značky, texty, vodiče) jen prvků `ids` listu a vodičů mezi nimi (bez volných textů listu)."""
+    from envocad.model.textlayout import sheet_content_boxes
+    keep_el, keep_w, keep_t = sh.elements, sh.wires, sh.texts
+    sh.elements = [e for e in keep_el if e.id in ids]
+    sh.wires = [w for w in keep_w if w.a.element_id in ids and w.b.element_id in ids]
+    sh.texts = []
+    try:
+        return sheet_content_boxes(p, sh, lib)
+    finally:
+        sh.elements, sh.wires, sh.texts = keep_el, keep_w, keep_t
+
+
+def stack_components(p: Project, sh: Sheet, blk: Element, lib, sizes=None, movable: set[str] | None = None) -> bool:
     """List „AC a připojení“ po rozdělení JPS: samostatné skupiny bez vazby vodičem na blok AC rozvaděče (společný
     RFVE.DC s přerušeními) zkusí přesunout pod nebo nad zbytek listu, pokud tím list vyjde menší (přípojka VN v řadě
     za RFVE.AC by se společným RFVE.DC vlevo přerostla formát). True = něco se přesunulo."""
     from envocad.model.frame import PAPER_SIZES, fit_placement
     from envocad.model.textlayout import sheet_content_boxes
     comps = _components(sh)
-    others = [c for c in comps if blk.id not in c and len(c) > 1]
+    # jen skupiny s prvkem `movable` (společný RFVE.DC) – RFVE.AC{n} skupin střídačů zůstává u svých přerušení
+    others = [c for c in comps if blk.id not in c and len(c) > 1 and (movable is None or c & movable)]
     if not others:
         return False
     order = [n for n, _w, _h in PAPER_SIZES]

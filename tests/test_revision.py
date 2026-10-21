@@ -26,6 +26,8 @@ from envocad.model.revision import (
 )
 from envocad.model.symbol import GRID
 
+pytestmark = pytest.mark.usefixtures("ac_builtin")   # AC listy vestavěným kódem (standard `ac_builtin`)
+
 SPEC = {"name": "Rev", "inverters": [{"ref": "T1", "p_ac": 25, "strings": [20, 20]}],
         "dc": {"route_boxes": 0, "tech_box": False, "disconnect": True}, "ac": {"distribution": "terminals"}}
 

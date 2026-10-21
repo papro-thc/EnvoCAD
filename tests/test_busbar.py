@@ -23,6 +23,8 @@ from envocad.model.checks import ERROR, WARNING, check_project
 from envocad.model.feed import is_feed, is_feed_in
 from envocad.model.project import Element, Project, element_symbol
 
+pytestmark = pytest.mark.usefixtures("ac_builtin")   # AC listy vestavěným kódem (standard `ac_builtin`)
+
 DATA = Path(__file__).parent / "data"
 INV = {"p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30}
 HOUSE_INV = {"p_ac": 10, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30}

@@ -209,11 +209,58 @@ def node_ref(spec: Mapping, topology: Topology | None, role: str, legacy: str = 
 
 
 def node_desc(spec: Mapping, topology: Topology | None, role: str, legacy: str = "", default: str = "") -> str:
-    """Popis článku: `chain.<role>.desc` > zadaný dřívější klíč > `default` (popis generátoru) > `desc` presetu."""
+    """Popis článku (pořadí přednosti jako `node_ref`): `chain.<role>.desc` > zadaný dřívější klíč > `desc` článku
+    presetu > `default` (popis generátoru)."""
     given = (spec.get("chain") or {}).get(role) if isinstance(spec.get("chain"), Mapping) else None
     desc = _s((given or {}).get("desc") if isinstance(given, Mapping) else "").strip()
     node = topology.node(role) if topology is not None else None
-    return desc or _s(legacy).strip() or default or (node.desc if node is not None else "")
+    return desc or _s(legacy).strip() or (node.desc if node is not None else "") or default
+
+
+# ---- rozsah generátoru (docs/NAVRH_TOPOLOGIE.md, kap. 8 bod 12): blokové schéma a DC rozvaděče -------------------
+# AC rozvaděče připraví projektant z mustrů: list RFVE.AC (AC část RFVE) jen z maker rolí `ac_feed` + `ac_core`
+# (+ `ac_eps`) ve sdílené nebo vlastní knihovně; stávající RD / HR / RE jen jako bloky. Vestavěný kód (a vestavěná
+# makra) AC listů zůstává jako volba `chain.<role>.builtin` / standard `ac_builtin` – testy a nouze.
+AC_SHEET_ROLES = ("rfve_ac", "rfve", "rd", "hr", "re")
+AC_MACRO_ROLES = ("ac_feed", "ac_core", "ac_eps")
+BUILTIN_MACRO_SOURCE = "vestavěné"
+
+
+def ac_builtin_default() -> bool:
+    """Firemní standard `standard.ac_builtin` (výchozí False): AC listy vestavěným kódem, když mustr chybí."""
+    from envocad.settings import load_settings
+    try:
+        return chain_flag(load_settings()["standard"].get("ac_builtin"))
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
+def builtin_wanted(spec: Mapping, topology: Topology | None, role: str) -> bool:
+    """List článku `role` (AC rozvaděč FVE, stávající RD / HR / RE) vestavěným kódem: `chain.<role>.builtin` >
+    `builtin` v `node.options` presetu > standard `ac_builtin` > False."""
+    v = chain_options(spec, topology, role).get("builtin")
+    if v is True or v is False:
+        return v
+    if _s(v).strip():
+        return chain_flag(v)
+    return ac_builtin_default()
+
+
+def pattern_macro(spec: Mapping, raw: Mapping, topology: Topology | None, main_role: str, macro_role: str):
+    """Mustr (makro ze sdílené nebo vlastní knihovny, ne vestavěné) pro roli makra `macro_role` hlavního AC článku
+    `main_role`: název zadaný ve specifikaci (`spec.macros[role]`, jen zadaný uživatelem – `raw`) > `node.macros`
+    presetu > jakékoli makro s klíčem `role` == `macro_role` (podle názvu). Vrací položku pro `macro_glue._macro_ref`
+    (název nebo objekt se sadou hodnot), nebo None."""
+    from envocad.library.macros import find_macro, list_macros
+    raw_macros = raw.get("macros") if isinstance(raw.get("macros"), Mapping) else {}
+    node = topology.node(main_role) if topology is not None else None
+    for entry in (raw_macros.get(macro_role), node.macros.get(macro_role) if node is not None else None):
+        name = (_s(entry.get("name")) if isinstance(entry, Mapping) else _s(entry)).strip()
+        m = find_macro(name) if name else None
+        if m is not None and m.source != BUILTIN_MACRO_SOURCE:
+            return entry
+    found = [m for m in list_macros() if m.role == macro_role and m.source != BUILTIN_MACRO_SOURCE]
+    return found[0].name if found else None
 
 
 def rfve_dc_per_inverter(spec: Mapping, topology: Topology | None) -> bool:

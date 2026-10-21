@@ -39,20 +39,19 @@ def _choice(table: dict, v, default: str, where: str, what: str, allowed: str) -
 
 
 def fve_feeder_in(ctx: ChainContext, o: dict, where: str) -> str:
-    """In vývodu FVE: zadané `fve_in`, jinak nejbližší jistič ≥ Σ In střídačů (`mv.inverters_ac_current`)."""
-    from envocad.generator.boards.mv import LV_FEEDER_SIZES, _next_size, inverters_ac_current
+    """In vývodu FVE: zadané `fve_in`, jinak nejbližší velikost ≥ max(Σ proudů střídačů, největší jistič střídače)
+    (`currents.fve_out_in` – jako u vn, B3)."""
+    from envocad.generator.currents import fve_out_in
     given = _s(o.get("fve_in")).strip()
     if given:
         return given
-    i_fve = inverters_ac_current(ctx.inverters)
-    return f"{_next_size(i_fve, LV_FEEDER_SIZES):g}" if i_fve else ""
+    return fve_out_in(ctx.spec, ctx.inverters)
 
 
 def group_feeder_in(ctx: ChainContext, g: dict) -> str:
-    """In vývodu FVE pro skupinu střídačů (`ctx.groups`): nejbližší velikost ≥ Σ In střídačů skupiny."""
-    from envocad.generator.boards.mv import LV_FEEDER_SIZES, _next_size, inverters_ac_current
-    i_g = inverters_ac_current([ctx.inverters[i] for i in g["idx"]])
-    return f"{_next_size(i_g, LV_FEEDER_SIZES):g}" if i_g else ""
+    """In vývodu FVE pro skupinu střídačů (`ctx.groups`): jako `fve_feeder_in` pro střídače skupiny."""
+    from envocad.generator.currents import fve_out_in
+    return fve_out_in(ctx.spec, [ctx.inverters[i] for i in g["idx"]])
 
 
 def resolve_options(ctx: ChainContext, node: ChainNode, where: str) -> dict:
@@ -163,19 +162,53 @@ def build_house_sheet(ctx: ChainContext, sheet, o: dict, where: str, role: str, 
     _place_sequential(sheet, [*devices, qf, *extra])
 
 
+MAIN_TEXT = {"switch": "hlavní vypínač", "breaker": "hlavní jistič"}
+FVE_TEXT = {"breaker": "jistič", "fuse_disconnect": "pojistkový odpínač"}
+
+
+def block_attrs(ctx: ChainContext, el: Element, o: dict, role: str) -> None:
+    """RD / HR jen jako blok (bez listu, docs/NAVRH_TOPOLOGIE.md kap. 8 bod 12): porty (přívod XIN, vývody X1 FVE,
+    X2 stávající rozvody, X3… skupiny střídačů) a údaje `chain.<role>` v popisku bloku – hlavní přístroj, vývod FVE,
+    měření v HR; jištění vývodů `protect` (kontrola kabelu od RFVE.AC). Neznámé In se nevyplní (žádná chyba F7)."""
+    from envocad.generator.boards.meter_board import metering_text
+    main_in = _s(o.get("main_in")).strip()
+    feeds = ["X1", "X2", *(g["feed"] for g in ctx.groups[1:])]
+    ins = {"X1": o["fve_in"], **{g["feed"]: group_feeder_in(ctx, g) for g in ctx.groups[1:]}}
+    el.attrs["ports_in"] = "XIN"
+    el.attrs["ports_out"] = " ".join(feeds)
+    if o["metering"]:
+        el.attrs["main"] = "hlavní jistič před elektroměrem" + (f" {main_in} A" if main_in else "")
+        el.attrs["metering"] = metering_text(o)
+    else:
+        el.attrs["main"] = MAIN_TEXT[o["main_device"]] + (f" {main_in} A" if main_in else "")
+    kind = FVE_TEXT[o["fve_device"]]
+    shown = [f"{k} {v} A" if len(ins) > 1 else f"{v} A" for k, v in ins.items() if v]
+    el.attrs["fve_out"] = f"{kind} {', '.join(shown)}" if shown else kind
+    prot = [f"{k}={v}" for k, v in ins.items() if v]
+    if prot:
+        el.attrs["protect"] = ", ".join(prot)
+
+
 class HouseBoardBuilder:
-    """Role `rd` (domovní rozvaděč) a `hr` (hlavní rozvaděč) na nn – stávající rozvaděč, dotčená část."""
+    """Role `rd` (domovní rozvaděč) a `hr` (hlavní rozvaděč) na nn – stávající rozvaděč, dotčená část. Výchozí jen
+    blok v blokovém schématu (`block_attrs`); list vestavěným kódem s volbou `chain.<role>.builtin` / standard
+    `ac_builtin`."""
     linked = True
 
     def __init__(self, role: str):
         self.name = role
 
     def block(self, ctx: ChainContext, node: ChainNode) -> Element:
+        from envocad.generator.spec import builtin_wanted
         ref = node_ref(ctx.spec, ctx.topology, node.role, default=node.role.upper())
         o = resolve_options(ctx, node, ref)
         el = Element("fve.switchboard", ctx.next_x(board=True), 150.0, mirror=True, attrs={
             "ref": ref, "desc": node_desc(ctx.spec, ctx.topology, node.role, default=DEFAULT_DESC.get(node.role, ""))})
         ctx.sheet.elements.append(el)
+        if not builtin_wanted(ctx.spec, ctx.topology, node.role):
+            block_attrs(ctx, el, o, node.role)
+            if o["metering"]:
+                ctx.boundary = (el, boundary_mode(o.get("boundary"), el.ref))
         ctx.node_in[node.role] = o["fve_in"]
         # stávající rozvody objektu (vývod X2) – značka spotřeby pod blokem, vodič bez kabelu
         load = Element("fve.load", el.x, 110.0, attrs={"ref": "", "desc": _s(o.get("load") or LOAD_DESC)})
@@ -189,6 +222,9 @@ class HouseBoardBuilder:
         return ChainPorts(("X1",), "XIN")
 
     def build(self, ctx: ChainContext, node: ChainNode) -> None:
+        from envocad.generator.spec import builtin_wanted
+        if not builtin_wanted(ctx.spec, ctx.topology, node.role):
+            return                        # jen blok (údaje v atributech, `block_attrs`)
         blk = ctx.blocks[node.role]
         o = resolve_options(ctx, node, blk.ref)
         build_house_sheet(ctx, ctx.project.create_switchboard_sheet(blk), o, blk.ref, node.role, ctx.main.ref)

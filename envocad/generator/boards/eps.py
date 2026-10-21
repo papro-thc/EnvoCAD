@@ -26,7 +26,7 @@ EPS_DROP = 40.0               # přerušení u RFVE pod přívodem XE{i} (svisl�
 EPS_LEFT_GAP = 50.0           # RFVE za střídači: přerušení vlevo od přívodu XE{i} (místo pro popisek kabelu)
 EPS_LEFT_MIN = 25.0           # … nejméně (popisek kabelu se pak může posunout)
 EPS_LANE_GAP = 30.0           # AC vodiče dalších střídačů rodinného domu stoupají dál od značky (místo pro přerušení)
-EPS_TOP_Y = 155.0             # vodič od XE{i} nad přepínačem (port 2 v y 147,5, sběrnice 170)
+EPS_TOP_Y = 140.0             # vodič od XE{i} nad přepínačem (port 2 v y 132,5, jistič nad ním 142,5–157,5)
 
 
 def free_out(sb: Sheet, bus: Element) -> str:
@@ -39,10 +39,20 @@ def free_out(sb: Sheet, bus: Element) -> str:
 
 
 def eps_inverters(ctx) -> list[tuple[int, Element]]:
-    """(pořadí od 1, střídač) hybridních střídačů s baterií u rodinného domu (topologie s článkem `rfve`)."""
+    """(pořadí od 1, střídač) hybridních střídačů u rodinného domu (topologie s článkem `rfve`), ke kterým je
+    v blokovém schématu připojená baterie (EPS jen u střídače s baterií – D7)."""
     if not ctx.spec.get("battery") or ctx.topology is None or ctx.topology.node("rfve") is None:
         return []
-    return [(i + 1, t) for i, t in enumerate(ctx.inverters) if t.symbol_id == "fve.inverter_hybrid"]
+    by_id = {e.id: e for e in ctx.sheet.elements}
+
+    def has_battery(t: Element) -> bool:
+        for w in ctx.sheet.wires:
+            if w.touches(t.id):
+                o = by_id.get(w.b.element_id if w.a.element_id == t.id else w.a.element_id)
+                if o is not None and o.symbol_id == "fve.battery":
+                    return True
+        return False
+    return [(i + 1, t) for i, t in enumerate(ctx.inverters) if t.symbol_id == "fve.inverter_hybrid" and has_battery(t)]
 
 
 def prepare_inverter(t: Element) -> None:
@@ -56,44 +66,56 @@ def prepare_inverter(t: Element) -> None:
 
 
 def eps_in(t: Element) -> str:
-    """In přepínače: jako jistič přívodu střídače (podle P AC; 1f podle 230 V)."""
-    from envocad.generator.boards.rfve_ac import inverter_breaker_in
-    from envocad.generator.context import _num
-    from envocad.generator.pv import ac1_breaker_in
-    return ac1_breaker_in(t) if (_num(t.attrs.get("phases")) or 3) == 1 else inverter_breaker_in(t)
+    """In jističe před přepínačem i přepínače: jako jistič přívodu střídače (`currents.inverter_breaker` – artikl,
+    jinak 1,25 × P AC; 1f podle 230 V); neznámý proud → 40 A."""
+    from envocad.generator.currents import inverter_breaker
+    return inverter_breaker(t)[0] or "40"
 
 
-def build_sheet_part(ctx, sb: Sheet) -> list[Element]:
-    """EPS v listu RFVE (po AC části, před DC částí): na každý hybridní střídač přívod XE{i} → přepínač sítí →
-    vývod XB{i}; síťová strana z prvního volného vývodu sběrnice za hlavním vypínačem. Makro role `ac_eps` (`spec.macros.ac_eps`), jinak kód. Vrací
-    přepínače."""
+EPS_Q_Y = 125.0               # přepínač sítí (porty 1, 2 nahoře v y 132,5, výstup 3 dole)
+EPS_BREAKER_Y = 150.0          # jistič před přepínačem (síťová strana, port 1) nad přepínačem
+
+
+def build_sheet_part(ctx, sb: Sheet, entry="", builtin: bool = True) -> list[Element]:
+    """EPS v listu RFVE (po AC části, před DC částí): na každý hybridní střídač s baterií přívod XE{i} → přepínač
+    sítí → vývod XB{i}; síťová strana z prvního volného vývodu sběrnice za hlavním vypínačem přes jistič (D4).
+    Makro role `ac_eps` (`entry` – mustr, s `builtin` i vestavěné makro `spec.macros.ac_eps`), s `builtin` jinak
+    vestavěný kód, bez obojího jen kotvy XE{i} / XB{i} (`anchor_eps`). Vrací přepínače."""
     from envocad.generator.boards.macro_glue import _insert_macro, _macro_ref, _macro_values
     from envocad.generator.boards.rfve_ac import _ac_core_after_feeds
     from envocad.library.macros import find_macro
     p = ctx.project
     bus = next((e for e in sb.elements if e.symbol_id == "sb.busbar"), None)
     out: list[Element] = []
-    entry = _macro_ref((ctx.spec.get("macros") or {}).get("ac_eps", ""))
-    m = find_macro(entry[0]) if entry[0] else None
+    ref = _macro_ref(entry)
+    m = find_macro(ref[0]) if ref[0] else None
+    invs = eps_inverters(ctx)
+    if m is None and not builtin:
+        anchor_eps(ctx, sb, max((e.x for e in sb.elements), default=0.0))
+        return out
     x_max = max((e.x for e in sb.elements), default=0.0)
-    for j, (i, t) in enumerate(eps_inverters(ctx)):
+    for j, (i, t) in enumerate(invs):
         x = x_max + 30.0 * (j + 1)
         if m is not None:
             from envocad.generator import context
             lib = context._lib()
             base = {"eps_in": eps_in(t), "main_in": _s(ctx.spec["ac"].get("main_in") or 125)}
-            vals = _macro_values(m, entry, base, {"i": i, "inverter": t.ref}, lib.component)
+            vals = _macro_values(m, ref, base, {"i": i, "inverter": t.ref}, lib.component)
             els = _insert_macro(p, sb, m, vals, x, lib)
             out += [e for e in els if e.symbol_id == CHANGEOVER_SYMBOL]
             continue
-        q = _el(p, sb, CHANGEOVER_SYMBOL, x, 140.0, "Q", in_=eps_in(t), poles="4", modules="4", kind="ruční")
+        q = _el(p, sb, CHANGEOVER_SYMBOL, x, EPS_Q_Y, "Q", in_=eps_in(t), poles="4", modules="4", kind="ruční")
         q.attrs["desc"] = "přepínač sítí (EPS)"
+        fq = _el(p, sb, "fve.breaker_mcb", x, EPS_BREAKER_Y, "F", rot=270, in_=eps_in(t), char="B",
+                 poles="4", modules="4")
+        fq.attrs["desc"] = "jištění přepínače sítí (síťová strana)"
         fe = _feed(p, sb, "in", x + EPS_FEED_DX, 105.0, "", desc=f"EPS od {t.ref}")
         fe.attrs["ref"] = f"XE{i}"
         fb = _feed(p, sb, "out", x, 105.0, "", desc=EPS_LOAD_DESC)
         fb.attrs["ref"] = f"XB{i}"
         if bus is not None:
-            _wire(p, sb, bus, free_out(sb, bus), q, "1", AC_CONDUCTORS)
+            _wire(p, sb, bus, free_out(sb, bus), fq, "1", AC_CONDUCTORS)
+        _wire(p, sb, fq, "2", q, "1", AC_CONDUCTORS)
         # záloha shora do portu 2 (vpravo od sítě): od přívodu XE dole nahoru nad přepínač a vlevo dolů
         _wire(p, sb, fe, "1", q, "2", AC_CONDUCTORS).points = [(x + EPS_FEED_DX, EPS_TOP_Y), (x + 5.0, EPS_TOP_Y)]
         _wire(p, sb, q, "3", fb, "1", AC_CONDUCTORS)
@@ -101,6 +123,20 @@ def build_sheet_part(ctx, sb: Sheet) -> list[Element]:
     if out:
         _ac_core_after_feeds(p, sb)          # přepínač rovně pod svůj vývod sběrnice (za ochranou / vypínačem)
     return out
+
+
+def anchor_eps(ctx, sb: Sheet, x0: float) -> None:
+    """EPS bez mustru: přívod XE{i} a vývod XB{i} jako kotvy (`anchor="1"`) vpravo od `x0` – blok RFVE má porty
+    pro vodiče EPS v blokovém schématu, přepínač sítí doplní mustr / projektant (F7 jen INFO `eps_open`)."""
+    p = ctx.project
+    x = x0
+    for i, t in eps_inverters(ctx):
+        x += 30.0
+        fe = _feed(p, sb, "in", x, 105.0, "", desc=f"EPS od {t.ref}")
+        fe.attrs.update({"ref": f"XE{i}", "anchor": "1"})
+        x += 30.0
+        fb = _feed(p, sb, "out", x, 105.0, "", desc=EPS_LOAD_DESC)
+        fb.attrs.update({"ref": f"XB{i}", "anchor": "1"})
 
 
 def build_jps(ctx) -> None:

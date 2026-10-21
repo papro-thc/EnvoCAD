@@ -10,6 +10,8 @@ from envocad.model.checks import check_project
 from envocad.model.feed import feed_dir, is_feed
 from envocad.model.single_line import build_tree, single_line_geometry
 
+pytestmark = pytest.mark.usefixtures("ac_builtin")   # AC listy vestavěným kódem (standard `ac_builtin`)
+
 INVS = [{"ref": "T1", "strings": [20] * 3}, {"ref": "T2", "strings": [20] * 2}]
 VN_SYMBOLS = ("fve.switch_disconnector_vn", "fve.disconnector", "fve.breaker_vn", "fve.fuse_vn", "fve.cable_end",
               "fve.voltage_indicator", "fve.surge_arrester")

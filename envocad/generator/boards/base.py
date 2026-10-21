@@ -13,8 +13,8 @@ HOUSE_CHAIN_DX = 100.0     # RFVE → první článek řetězce u rodinného dom
 CHAIN_PITCH = 75.0   # rozestup bloků řetězce za prvním článkem k síti (RD/HR → RE → HDS → DS) – popisek kabelu
 CHAIN_BOARD_EXTRA = 25.0   # … k bloku rozvaděče s kabelem (popisek s odkazy na oba konce)
 CHAIN_BOARD_PAIR = 25.0    # … mezi dvěma bloky rozvaděčů bez kabelu („→ RD:XIN /4.A1, RE:XOUT /5.A4“)
-CHAIN_PITCH_PLAIN = 55.0
-CHAIN_PITCH_SMALL = 40.0   # … HDS → DS (malé značky, vodič bez kabelu a bez odkazu)   # … vodič bez kabelu (stávající úsek, HDS → DS) – jen mezera mezi bloky
+CHAIN_PITCH_PLAIN = 55.0   # … vodič bez kabelu (stávající úsek) – jen mezera mezi bloky
+CHAIN_PITCH_SMALL = 40.0   # … HDS → DS (malé značky, vodič bez kabelu a bez odkazu)
 
 
 @dataclass
@@ -35,6 +35,9 @@ class PvGeometry:
     x_blk: float                 # blok hlavního AC článku (RFVE.AC / RFVE)
     x_grid: float
     common_dc: bool = False      # jeden společný DC rozvaděč u technologie pro všechny střídače (F2, rozhodnutí 3)
+    lanes_in: list[int] = field(default_factory=list)    # společný RFVE.DC: dráha přívodního vodiče každého stringu
+    lanes_fan: list[int] = field(default_factory=list)   # … první dráha vějíře každého střídače
+    n_fan: int = 0                                         # … počet drah vějíře před DC vstupy střídačů
 
 
 @dataclass
@@ -47,6 +50,7 @@ class ChainContext:
     building: str
     combined: bool                # rodinný dům: DC část v rozvaděči FVE (RFVE) s AC částí
     geo: PvGeometry
+    raw: dict = field(default_factory=dict)   # specifikace před sloučením s `DEFAULT_SPEC` (jen zadané klíče)
     topology: Topology | None = None
     kwp: float = 0.0              # instalovaný výkon DC (Σ stringů) – `meta["p_installed_kwp"]`
     opt_comp: object | None = None    # artikl optimizéru (`spec.optimizer.component_id`)
@@ -73,6 +77,7 @@ class ChainContext:
     # skupiny střídačů na jiném místě (`inverters[].ac_group`, krok 10): klíč, blok RFVE.AC{n}, indexy střídačů,
     # vývod FVE v RD / HR; prázdné = jeden společný RFVE.AC
     groups: list[dict] = field(default_factory=list)
+    cache: dict = field(default_factory=dict)       # mezivýsledky sestavení (režim AC listů `rfve_ac.ac_mode`…)
     node_in: dict[str, str] = field(default_factory=dict)   # role → In přístroje, který jistí kabel od předchozího
     #                                                         článku (vývod FVE v RD/HR, HJ v RE, pojistky HDS)
 

@@ -18,13 +18,13 @@ def grid_element(ctx: ChainContext, x: float) -> Element:
 
 
 def build_grid(ctx: ChainContext) -> Element:
-    """DS za koncem řetězce (`ctx.tail`, jinak hlavní AC článek, vývod XOUT) – vlastní topologie bez článku „grid“."""
-    p, ac = ctx.project, ctx.spec["ac"]
+    """DS za koncem řetězce (`ctx.tail`, jinak hlavní AC článek, vývod XOUT) – vlastní topologie bez článku „grid“;
+    kabel jako u článku „grid“ (`chain.link_attrs`)."""
+    from envocad.generator.chain import link_attrs
     prev, port = ctx.tail or (ctx.main, "XOUT")
     grid = grid_element(ctx, ctx.next_x())
     w = Wire(WireEnd(prev.id, port), WireEnd(grid.id, "1"), conductors=list(AC_CONDUCTORS),
-             attrs={"ref": p.next_ref("W"), "cable": _s(ac.get("grid_cable")),
-                    "cross": _s(ac.get("grid_cross")), "length": _s(ac.get("grid_length")), "method": "D"})
+             attrs=link_attrs(ctx, ctx.tail_node, ChainNode(role="grid")))
     ctx.sheet.wires.append(w)
     ctx.links.append((prev, port, grid, "1", w))
     return grid

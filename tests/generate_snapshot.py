@@ -113,7 +113,28 @@ CASES: dict[str, dict] = {
     # jednofázový střídač
     "inverter_1phase": {"inverters": [{"ref": "T1", "p_ac": 5, "phases": 1, "u_dc_max": 600, "u_mppt_min": 90,
                                        "u_mppt_max": 550, "i_mppt_max": 16, "strings": [12, 10]}]},
+    # --- rozsah generátoru (docs/NAVRH_TOPOLOGIE.md, kap. 8 bod 12): výchozí bez mustru – bloky bez listů ---
+    "scope_company": {"inverters": [{"ref": "T1", **_INV, "strings": [20, 20]}, {"ref": "T2", **_INV, "strings": [20]}],
+                      "chain": {"hr": {"main_in": 250}, "re": {"main_in": 250, "metering": "indirect"}}},
+    "scope_house_eps": {"building": "house", "inverters": [{"ref": "T1", **_INV, "strings": [16, 16]}],
+                        "battery": {"e_kwh": 10, "p_kw": 5, "type": "BYD HVS 10.2"}},
+    "scope_vn": {"inverters": [{"ref": "T1", **_INV, "strings": [20, 20, 20, 20]}], "connection": {"level": "vn"}},
 }
+# případy výchozího rozsahu (AC listy jen z mustru); ostatní vestavěným kódem AC listů (standard `ac_builtin`)
+SCOPE_CASES = frozenset(n for n in CASES if n.startswith("scope_"))
+
+
+def build_case(name: str):
+    """Projekt případu snímku: `SCOPE_CASES` ve výchozím rozsahu, ostatní s vestavěným kódem AC listů (jako před
+    rozhodnutím 12 – snímek tak dál pokrývá vestavěný kód)."""
+    from envocad.generate import build_project
+    from envocad.generator import spec as gen_spec
+    keep = gen_spec.ac_builtin_default
+    gen_spec.ac_builtin_default = (lambda: False) if name in SCOPE_CASES else (lambda: True)
+    try:
+        return build_project(CASES[name])
+    finally:
+        gen_spec.ac_builtin_default = keep
 
 _ID = re.compile(r"\b[0-9a-f]{12}\b")
 
@@ -128,8 +149,7 @@ def canon(project) -> dict:
 
 
 def snapshot_all() -> dict:
-    from envocad.generate import build_project
-    return {name: canon(build_project(spec)) for name, spec in CASES.items()}
+    return {name: canon(build_case(name)) for name in CASES}
 
 
 if __name__ == "__main__":

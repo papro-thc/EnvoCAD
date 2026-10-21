@@ -22,6 +22,8 @@ from envocad.model.textlayout import (
     union_box,
 )
 
+pytestmark = pytest.mark.usefixtures("ac_builtin")   # AC listy vestavěným kódem (standard `ac_builtin`)
+
 INV = {"p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30}
 NO_MACROS = {"dc_tech": "", "dc_route": "", "ac_feed": "", "ac_core": ""}
 
@@ -443,7 +445,9 @@ def test_terminal_distribution_groups_placed(lib):
     p = build_project(spec(2, 2, ac={"distribution": "terminals"}))
     rh = _ac(p)
     groups = [e for e in rh.elements if e.symbol_id == "sb.terminal_block"]
-    assert len(groups) == 4 and all(e.modules > 0 for e in groups)
+    # 2 přívody, SPD, vývod a nad 30 kWp (2 × 2 × 9 kWp) síťová ochrana – vlastní skupina svorek
+    assert len(groups) == 5 and all(e.modules > 0 for e in groups)
+    assert any(e.attrs.get("desc") == "síťová ochrana" for e in groups)
     assert all(rh.layout.placement(e.id) is not None for e in groups)
     assert not layout_problems(rh, p)
 

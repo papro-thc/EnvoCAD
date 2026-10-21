@@ -83,20 +83,34 @@ def link_attrs(ctx: ChainContext, prev: ChainNode | None, node: ChainNode) -> di
     vals = {k: _s(o.get(k)).strip() or (_s(getattr(link_, k, "")).strip() if link_ is not None else "")
             for k in CABLE_KEYS}
     if role in MAIN_ROLES:
-        ac = ctx.spec["ac"]
-        # dřívější `ac.grid_*` jen když článek kabel nezadal (zadaný typ bez průřezu → průřez se dopočte)
+        # dřívější `ac.grid_*` jen zadané uživatelem (`ctx.raw`, ne výchozí CYKY-J 5x35 z `DEFAULT_SPEC`) a jen když
+        # článek kabel nezadal (zadaný typ bez průřezu → průřez se dopočte); délka i z výchozí specifikace
+        raw_ac = ctx.raw.get("ac") if isinstance(ctx.raw.get("ac"), dict) else {}
         given = bool(vals["cable"] or vals["cross"])
         for k in ("length",) if given else ("cable", "cross", "length"):
-            vals[k] = vals[k] or _s(ac.get(f"grid_{k}")).strip()
+            src = ctx.spec["ac"] if k == "length" else raw_ac
+            vals[k] = vals[k] or _s(src.get(f"grid_{k}")).strip()
         vals["method"] = vals["method"] or "D"
     elif prev is not None and prev.existing and not (vals["cable"] or vals["cross"]):
         return {"ref": ""}
     vals["method"] = vals["method"] or "C"
     if not vals["cross"]:
         from envocad.generator.context import _num
-        x = min_cross(_num(ctx.node_in.get(node.role)) or 0.0, vals["method"])
-        vals["cross"] = f"{x:g}" if x else ""
+        i_n = _num(ctx.node_in.get(node.role))
+        if i_n is None and role in MAIN_ROLES:        # RFVE.AC přímo do DS (vlastní topologie): podle proudu FVE
+            from envocad.generator.currents import fve_out_in
+            i_n = _num(fve_out_in(ctx.spec, ctx.inverters))
+        x = min_cross(i_n or 0.0, vals["method"])
+        vals["cross"] = f"{x:g}".replace(".", ",") if x else ""
+        if x and not vals["cable"] and role in MAIN_ROLES:     # typ jako AC kabel střídačů („CYKY-J 5x50“)
+            vals["cable"] = cable_for(ctx.spec, x)
     return {"ref": ctx.project.next_ref("W"), **vals}
+
+
+def cable_for(spec: dict, cross: float) -> str:
+    """Typ pětižilového kabelu s průřezem `cross` v řadě AC kabelu střídačů (`ac.cable`, výchozí CYKY-J)."""
+    family = (_s(spec["ac"].get("cable")).split() or ["CYKY-J"])[0]
+    return f"{family} 5x{cross:g}".replace(".", ",")
 
 
 def link(ctx: ChainContext, el: Element, port: str, node: ChainNode) -> Wire:
@@ -228,7 +242,8 @@ def _paper_index(name: str) -> int:
     return order.index(name) if name in order else len(order)
 
 
-CHAIN_LAYOUTS = ("column", "column_top", "below", "row")
+# „column_below“ = jako „column“, DS pod HDS (vedle by ležela na svislých úsecích AC vodičů střídačů)
+CHAIN_LAYOUTS = ("column", "column_below", "column_top", "column_top_below", "below", "row")
 
 
 def _chain_layout_score(ctx: ChainContext, wires: set[str]) -> tuple:
@@ -269,6 +284,15 @@ def _chain_layout_score(ctx: ChainContext, wires: set[str]) -> tuple:
     # značky řetězce přes cizí značky (např. RFVE.AC dalších skupin střídačů pod hlavním)
     owners = {w.a.element_id for w in s.wires if w.id in wires} | {w.b.element_id for w in s.wires if w.id in wires}
     sym_boxes = {e.id: symbol_box(e, element_symbol(p, e, lib)) for e in s.elements}
+    # cizí vodiče přes značky řetězce (DS / HDS uprostřed svislých úseků AC vodičů střídačů)
+    for wid, sg in segs.items():
+        if wid in wires:
+            continue
+        for eid in owners & set(sym_boxes):
+            if eid in ends.get(wid, ()):
+                continue
+            x1, y1, x2, y2 = sym_boxes[eid]
+            cross += sum(1 for a, b in sg if segment_hits_box(a, b, (x1 + 0.5, y1 + 0.5, x2 - 0.5, y2 - 0.5)))
     for a in owners & set(sym_boxes):
         ax = sym_boxes[a]
         for b, bx in sym_boxes.items():
@@ -298,7 +322,14 @@ def _segments_cross(s1, s2) -> bool:
 
 def _choose_chain_layout(ctx: ChainContext, links: list, in_row) -> str:
     """Zkusí rozložení řetězce stávajících článků (svisle pod RFVE.AC, v řadě pod FV částí, v řadě za RFVE.AC),
-    každé ohodnotí (`_chain_layout_score`) a nechá nejlepší; vrací jeho název."""
+    každé ohodnotí (`_chain_layout_score`) a nechá nejlepší; vrací jeho název. Značky prvků se při zkoušení
+    nemění (jen polohy) – počítají se jednou (`project.symbol_cache`)."""
+    from envocad.model.project import symbol_cache
+    with symbol_cache():
+        return _choose_chain_layout_cached(ctx, links, in_row)
+
+
+def _choose_chain_layout_cached(ctx: ChainContext, links: list, in_row) -> str:
     from envocad.generator.layout import _chain_column, chain_snapshot
     p, s, blk = ctx.project, ctx.sheet, ctx.main
     els = [el for _p, _q, el, _r, _w in links] + [ld for _b, _pt, ld, _w in ctx.loads]
@@ -323,18 +354,20 @@ def _choose_chain_layout(ctx: ChainContext, links: list, in_row) -> str:
     def _apply(mode: str) -> bool:
         restore()
         in_row()
-        if mode == "column_top" and not _raise_main(ctx):
+        if mode.startswith("column_top") and not _raise_main(ctx):
             return False
-        if mode in ("column", "column_top"):
+        if mode.startswith("column"):
             from envocad.generator.boards.groups import obstacles, place_sources
             place_sources(ctx)
-            return _chain_column(p, s, blk, links, ctx.loads, ctx.earth, target, obstacles(ctx))
+            return _chain_column(p, s, blk, links, ctx.loads, ctx.earth, target, obstacles(ctx),
+                                 end_below=mode.endswith("_below"))
         if mode == "below":
             return _chain_below(p, blk, links, ctx.loads, ctx.earth)
         return True
 
     best, best_score = "row", None
     ids = {w.id for w in wires}
+    floor = None                      # nejmenší formát, kam se vejde list bez řetězce (dřívější ukončení)
     for mode in CHAIN_LAYOUTS:
         if not apply(mode):
             continue
@@ -342,13 +375,42 @@ def _choose_chain_layout(ctx: ChainContext, links: list, in_row) -> str:
         sc = _chain_layout_score(ctx, ids)
         if best_score is None or sc < best_score:
             best, best_score = mode, sc
+        if sc[:2] == (0, 0):
+            # bez křížení a překryvů na formátu listu bez řetězce: jiné rozložení formát nezmenší – dál se nezkouší
+            if floor is None:
+                floor = _paper_without(ctx, {e.id for e in els}, ids)
+            if sc[2] <= floor:
+                break
     apply(best)
     return best
+
+
+def _paper_without(ctx: ChainContext, ids: set[str], wire_ids: set[str]) -> int:
+    """Index formátu (`_paper_index`), na který by se vešel list bez prvků řetězce (`ids`) a jeho vodičů."""
+    from envocad.generator import context
+    from envocad.model.frame import fit_placement
+    from envocad.model.textlayout import sheet_content_boxes
+    s = ctx.sheet
+    keep_el, keep_w, keep_t = s.elements, s.wires, s.texts
+    s.elements = [e for e in keep_el if e.id not in ids]
+    s.wires = [w for w in keep_w if w.id not in wire_ids and w.a.element_id not in ids and w.b.element_id not in ids]
+    s.texts = []
+    try:
+        boxes = sheet_content_boxes(ctx.project, s, context._lib())
+    finally:
+        s.elements, s.wires, s.texts = keep_el, keep_w, keep_t
+    return _paper_index(fit_placement(boxes)[0] if boxes else "A3")
 
 
 def _choose_house_layout(ctx: ChainContext, first: tuple, links: list, in_row) -> str:
     """Rodinný dům: řetězec za RD v řadě pod vším (`_route_house` + `_align_chain`), nebo svisle vpravo od FV části
     (`_house_column`) – nechá rozložení s lepším hodnocením (`_chain_layout_score`); vrací jeho název."""
+    from envocad.model.project import symbol_cache
+    with symbol_cache():
+        return _choose_house_layout_cached(ctx, first, links, in_row)
+
+
+def _choose_house_layout_cached(ctx: ChainContext, first: tuple, links: list, in_row) -> str:
     from envocad.generator.layout import _house_column, chain_snapshot
     p, s, blk = ctx.project, ctx.sheet, ctx.main
     el0, _port0, w0 = first
@@ -416,7 +478,21 @@ def _boundary_target(ctx: ChainContext) -> Element | None:
 
 
 def _layout(ctx: ChainContext) -> None:
-    """Zarovnání bloků a lomů JPS, rozmístění na list(y), zvětšení přetékajících listů rozvaděčů, vazby přívodů."""
+    """Zarovnání bloků a lomů JPS, rozmístění na list(y), zvětšení přetékajících listů rozvaděčů, vazby přívodů.
+    Do vazeb přívodů se atributy ani zapojení prvků nemění (jen polohy, přerušení při dělení JPS) – značky se počítají
+    jednou (`project.symbol_cache`); vazby přívodů mění texty přívodů / vývodů, proto až za mezipamětí."""
+    from envocad.model.project import symbol_cache
+    with symbol_cache():
+        dc_sheets = _layout_place(ctx)
+    p = ctx.project
+    sync_feed_links(p)
+    if _grow_switchboards(p, dc_sheets):
+        sync_feed_links(p)
+    sync_cables(p)
+
+
+def _layout_place(ctx: ChainContext) -> list:
+    """`_layout` až po první zvětšení listů rozvaděčů; vrací listy rozvaděčů ke zvětšení."""
     p, s, blk = ctx.project, ctx.sheet, ctx.main
     if ctx.combined or ctx.dc_common is not None:   # rozvaděče po trase na výšku přívodů RFVE / společného RFVE.DC
         target = blk if ctx.combined else ctx.dc_common
@@ -463,6 +539,9 @@ def _layout(ctx: ChainContext) -> None:
             place(ctx)
 
     def after_split() -> None:          # list „AC a připojení“ bez řad střídačů: řetězec znovu
+        if ctx.groups:                  # RFVE.AC{n} skupin zůstaly na výšce svých (přesunutých) střídačů
+            from envocad.generator.boards.groups import stack_after_split
+            stack_after_split(ctx)
         if choose:
             _choose_chain_layout(ctx, links, in_row)
         elif first is not None and links:
@@ -474,14 +553,12 @@ def _layout(ctx: ChainContext) -> None:
     _boundary_text(ctx)
     if ctx.mv is not None:
         _align_connection(p, blk, ctx.mv)
-    _place_jps(p, s, ctx.spec.get("jps") or {}, ctx.rows, ctx.ac_wires, blk, after_split)
+    _place_jps(p, s, ctx.spec.get("jps") or {}, ctx.rows, ctx.ac_wires, blk, after_split,
+               {ctx.dc_common.id} if ctx.dc_common is not None else set())
     # až po rozmístění na list: vazby přívodů ukládají texty s polohou v JPS („W3 T1:DC1 /1.F3“); listy DC rozvaděčů,
     # které přetékají formát (DC rozvaděč s mnoha stringy po 50 mm), se zvětší – před vazbami (sloupce listu)
     # i po nich (delší texty vazeb)
     # i AC rozvaděč / rozvaděč FVE rodinného domu (DC část „U“ po `DC_U_PITCH`, mnoho střídačů)
     dc_sheets = [sh for sh in p.sheets if sh.parent_element_id in {b.id for b, *_ in ctx.dc_boxes} | {blk.id}]
     _grow_switchboards(p, dc_sheets)
-    sync_feed_links(p)
-    if _grow_switchboards(p, dc_sheets):
-        sync_feed_links(p)
-    sync_cables(p)
+    return dc_sheets

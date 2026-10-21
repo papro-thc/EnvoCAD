@@ -234,7 +234,8 @@ def fve_feeder_in(conn: dict, ac: dict, invs) -> tuple[str, str]:
 
     `invs` = vygenerované prvky střídačů (proud FVE z jejich `p_ac` a `phases`, i z artiklu) nebo slovníky
     specifikace. Zadané `main_board.fve_in` platí beze změny (selektivitu pak hlídá F7 `calc_selectivity`). Jinak
-    In hlavního vypínače RFVE.AC (`ac.main_in`), omezené na největší jistič selektivní s hlavním jističem HR
+    nejbližší velikost ≥ max(Σ proudů střídačů, jistič střídače) (jako vývod FVE v RD / HR, B3; bez střídačů In
+    hlavního vypínače RFVE.AC `ac.main_in`), omezená na největší jistič selektivní s hlavním jističem HR
     (In·1,6 ≤ hlavní jistič, `calc.SELECTIVITY_RATIO`; hlavní jistič je ze Sn transformátoru).
 
     Vývod musí unést proud FVE (součet střídačů) a nesmí být menší než jistič střídače v RFVE.AC (`ac.breaker_in`).
@@ -248,17 +249,21 @@ def fve_feeder_in(conn: dict, ac: dict, invs) -> tuple[str, str]:
     if _s(mb.get("fve_in")).strip():
         return _s(mb["fve_in"]).strip(), ""
     main_in = float(connection_currents(conn)["main_in"])
-    want = _num_or(ac.get("main_in"), 125.0)
-    i_fve = inverters_ac_current(invs)
-    need = max(i_fve, _num_or(ac.get("breaker_in"), 0.0))
+    given = _num_or(ac.get("main_in"), 125.0)
+    from envocad.generator.currents import breaker_ins, fve_current
+    i_fve = fve_current(invs)          # proud z artiklu (i_ac_max), jinak z P AC
+    need = max([i_fve, *breaker_ins({"ac": ac}, invs)])
+    # vývod jako u RD / HR na nn (B3): nejbližší velikost ≥ max(Σ proudů, jistič střídače); bez střídačů In hlavního
+    # vypínače RFVE.AC. Zadaný hlavní vypínač RFVE.AC pod proudem FVE je chyba zadání (nedosazuje se)
+    want = _next_size(need, LV_FEEDER_SIZES) if need else given
     selective = [x for x in LV_FEEDER_SIZES if x * SELECTIVITY_RATIO <= main_in + 1e-9]
     if selective and want <= selective[-1]:
-        if want >= need - 1e-9:
-            return f"{want:g}", ""
-        why = (f"In vývodu FVE {want:g} A (ac.main_in) < proud FVE / jistič střídače {need:.0f} A – zvětšete "
-               "ac.main_in, nebo zadejte main_board.fve_in")
-        log.warning("Hlavní rozvaděč HR: %s", why)
-        return "", why
+        if not _s(ac.get("main_in_auto")) and given < need - 1e-9:
+            why = (f"In vývodu FVE: hlavní vypínač RFVE.AC {given:g} A (ac.main_in) < proud FVE / jistič střídače "
+                   f"{need:.0f} A – zvětšete ac.main_in, nebo zadejte main_board.fve_in")
+            log.warning("Hlavní rozvaděč HR: %s", why)
+            return "", why
+        return f"{want:g}", ""
     if selective and selective[-1] >= need:
         log.info("Vývod FVE v HR omezen z %g A na %g A (selektivita s hlavním jističem %g A)",
                  want, selective[-1], main_in)
@@ -450,9 +455,21 @@ def _build_meter_board(p: Project, sheet: Sheet, conn: dict) -> None:
 
 
 def build_blocks(ctx: ChainContext) -> None:
-    """Bloky přípojky VN za hlavním AC článkem (`_connection_blocks`): HR, TR, RVN / přístroje na sloupu, RE, DS."""
+    """Bloky přípojky VN za hlavním AC článkem (`_connection_blocks`): HR, TR, RVN / přístroje na sloupu, RE, DS.
+    Kabel RFVE.AC → HR: `ac.grid_*` jen zadané uživatelem, jinak nejmenší průřez pro In vývodu FVE v HR (D3)."""
     ctx.mv = _connection_blocks(ctx.project, ctx.sheet, ctx.spec, ctx.main, ctx.geo.x_blk)
     ctx.grid = ctx.mv["grids"][0]
+    raw_ac = ctx.raw.get("ac") if isinstance(ctx.raw.get("ac"), dict) else {}
+    if _s(raw_ac.get("grid_cable")).strip() or _s(raw_ac.get("grid_cross")).strip():
+        return
+    from envocad.generator.chain import cable_for
+    from envocad.model.calc import min_cross
+    hr = ctx.mv["hr"]
+    w = next((w for w in ctx.sheet.wires if w.touches(ctx.main.id) and w.touches(hr.id)), None)
+    fin, _why = fve_feeder_in(ctx.spec.get("connection") or {}, ctx.spec["ac"], ctx.inverters)
+    x = min_cross(_num(fin) or 0.0, "D")
+    if w is not None and x:
+        w.attrs.update({"cable": cable_for(ctx.spec, x), "cross": f"{x:g}".replace(".", ",")})
 
 
 def build_sheets(ctx: ChainContext) -> None:

@@ -8,6 +8,7 @@
     "switchboard_paper": "A4",                             // strany schématu rozvaděče: A4 / A4 na výšku / A3
     "jps_max_paper": "A2",                                 // největší list JPS z generátoru, větší se rozdělí na listy
     "grid_protection_kwp": 30,                             // síťová ochrana v RFVE.AC / RFVE nad tímto výkonem DC [kWp]
+    "ac_builtin": false,                                   // AC listy (RFVE.AC, AC část RFVE, RD/HR/RE) vestavěným kódem, když chybí mustr
     "doc_jps_page": "A3",                                  // listy JPS v PDF dokumentace: "A3" = zmenšit, "list" = skutečný formát
     "preferred_manufacturers": ["OEZ", "Eaton", "Weidmüller"],
     "pv_t_min": -20, "pv_t_max": 70,                       // návrhové teploty stringů [°C] pro průvodce
@@ -31,6 +32,9 @@ DEFAULTS = {
         "dc_cable": "H1Z2Z2-K 1x6", "dc_cross": 6, "ac_cable": "CYKY-J 5x16", "ac_cross": 16,
         "grid_cable": "CYKY-J 5x35", "grid_cross": 35,
         "grid_protection_kwp": 30,   # nad tento instalovaný výkon DC [kWp] generátor kreslí síťovou ochranu (F2)
+        # AC listy bez mustru vestavěným kódem (RFVE.AC, AC část RFVE, stávající RD / HR / RE); False = jen bloky
+        # v blokovém schématu, AC rozvaděče z mustrů (makra rolí ac_feed / ac_core / ac_eps ve sdílené knihovně)
+        "ac_builtin": False,
         "jps_max_paper": "A2",       # větší JPS generátor rozdělí na listy tohoto formátu (AC list + listy střídačů)
         "doc_jps_page": "A3",        # listy JPS v PDF dokumentace: „A3“ = zmenšit na A3, „list“ = skutečný formát listu
         "switchboard_paper": "A4",   # strany schématu rozvaděče a plánu svorkovnice: „A4“, „A4 na výšku“, „A3“

@@ -117,6 +117,15 @@ def build_metering(p: Project, sheet: Sheet, x: float, y0: float, opts: dict, wh
     return Metering((hj, "1"), (q, "2"), hj, meter, ct, q)
 
 
+def metering_text(opts: dict) -> str:
+    """Měření do popisku bloku bez listu: „přímé“ | „nepřímé, MTP 300/5 A“."""
+    mode = metering_mode(opts.get("metering"), "")
+    if mode == "direct":
+        return "přímé"
+    ratio = _s(opts.get("ct_ratio")).strip() or ct_ratio_for(_num(_s(opts.get("main_in")).strip()))
+    return f"nepřímé, MTP {ratio}" if ratio else "nepřímé (MTP)"
+
+
 def build_meter_sheet(p: Project, sheet: Sheet, opts: dict, where: str = "RE", role: str = "re") -> Metering:
     """List RE na nn: přívod XIN nahoře (od HDS) → funkce měření → vývod XOUT dole (k RD / HR)."""
     x, y0 = 60.0, 200.0
@@ -138,25 +147,37 @@ def build_meter_sheet(p: Project, sheet: Sheet, opts: dict, where: str = "RE", r
 
 
 class MeterBoardBuilder:
-    """Role `re` při připojení na nn – stávající elektroměrový rozvaděč (u vn obsluhuje RE builder `mv`)."""
+    """Role `re` při připojení na nn – stávající elektroměrový rozvaděč (u vn obsluhuje RE builder `mv`). Výchozí jen
+    blok (přívod XIN, vývod XOUT, v popisku HJ a měření); list vestavěným kódem s volbou `chain.re.builtin` /
+    standard `ac_builtin`."""
     name = "re"
     linked = True
 
     def block(self, ctx: ChainContext, node: ChainNode) -> Element:
+        from envocad.generator.spec import builtin_wanted
         o = chain_options(ctx.spec, ctx.topology, node.role)
         el = Element("fve.switchboard", ctx.next_x(board=True), 150.0, mirror=True, attrs={
             "ref": node_ref(ctx.spec, ctx.topology, node.role, default="RE"),
             "desc": node_desc(ctx.spec, ctx.topology, node.role, default="elektroměrový rozvaděč")})
         ctx.sheet.elements.append(el)
-        ctx.node_in[node.role] = _s(o.get("main_in")).strip()
-        boundary_mode(o.get("boundary"), el.ref)       # neplatná hranice → ValueError hned
+        main_in = _s(o.get("main_in")).strip()
+        ctx.node_in[node.role] = main_in
+        boundary = boundary_mode(o.get("boundary"), el.ref)       # neplatná hranice → ValueError hned
         metering_mode(o.get("metering"), el.ref)
+        if not builtin_wanted(ctx.spec, ctx.topology, node.role):
+            el.attrs.update({"ports_in": "XIN", "ports_out": "XOUT",
+                             "main": "hlavní jistič před elektroměrem" + (f" {main_in} A" if main_in else ""),
+                             "metering": metering_text(o)})
+            ctx.boundary = (el, boundary)
         return el
 
     def ports(self, ctx: ChainContext, node: ChainNode) -> ChainPorts:
         return ChainPorts(("XOUT",), "XIN")
 
     def build(self, ctx: ChainContext, node: ChainNode) -> None:
+        from envocad.generator.spec import builtin_wanted
+        if not builtin_wanted(ctx.spec, ctx.topology, node.role):
+            return                        # jen blok (údaje v atributech)
         blk = ctx.blocks[node.role]
         o = chain_options(ctx.spec, ctx.topology, node.role)
         build_meter_sheet(ctx.project, ctx.project.create_switchboard_sheet(blk), o, blk.ref or "RE", node.role)

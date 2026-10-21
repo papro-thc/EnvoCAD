@@ -77,10 +77,11 @@ def test_doc_export_asks_jps_page_and_standard_dialog_keys(app, tmp_path, monkey
     try:
         w.export_documentation()
         assert seen == ["A3"] and asked[-1][1] == ["Zmenšit na A3", "Skutečný formát listu"] and asked[-1][2] == 0
-        answer.update({"Největší lis": "A1", "Listy JPS v ": "Skutečný formát listu"})
+        answer.update({"Největší lis": "A1", "Listy JPS v ": "Skutečný formát listu",
+                       "AC rozvaděče": "vestavěný kód (jako dřív)"})
         w.edit_standard()
         st = load_settings()["standard"]
-        assert st["jps_max_paper"] == "A1" and st["doc_jps_page"] == "list"
+        assert st["jps_max_paper"] == "A1" and st["doc_jps_page"] == "list" and st["ac_builtin"] is True
         w.export_documentation()
         assert seen[-1] == "list" and asked[-1][2] == 1          # výchozí volba podle standardu
     finally:

@@ -49,8 +49,10 @@ def plan(spec: dict, combined: bool, per_inverter: bool = True) -> PvGeometry:
     n_max = max(len(inv.get("strings") or [1]) for inv in invs)
     n_all = sum(len(inv.get("strings") or [1]) for inv in invs)
     common_dc = not combined and bool(dc.get("tech_box")) and not per_inverter and len(invs) > 1
-    # rozvaděč FVE: lomy všech stringů do jednoho bloku a vlevo od něj svislé úseky AC vodičů od střídačů
-    n_lanes = n_all + len(invs) if combined else (n_all if common_dc else n_max)
+    lanes_in, lanes_fan = common_lanes(spec, row_h, row_extra, y_top, n_route) if common_dc else ([], [])
+    # rozvaděč FVE: lomy všech stringů do jednoho bloku a vlevo od něj svislé úseky AC vodičů od střídačů; společný
+    # RFVE.DC: vodiče shora a zdola sdílejí svislé dráhy (`common_lanes`) – jen tolik drah, kolik vodičů jde jedním směrem
+    n_lanes = n_all + len(invs) if combined else ((max(lanes_in, default=-1) + 1) if common_dc else n_max)
     dc_first = len(invs) + (1 if (spec["ac"].get("distribution") or "bus") == "bus" else 2)   # za AC přívody (a svorkami X(n+1))
     # lomy stringů až za popisky kabelů u stringů; u společného RFVE.DC za rozvaděči po trase jen stringy jedné řady
     # (do rozvaděče po trase vede řada svého střídače) – lomy všech stringů jsou až před RFVE.DC
@@ -60,17 +62,74 @@ def plan(spec: dict, combined: bool, per_inverter: bool = True) -> PvGeometry:
     if (combined or common_dc) and n_boxes > 1:
         # rozvaděč FVE za rozvaděči po trase: popisek kabelu od rozvaděče po trase (~40 mm) se musí vejít před lomy
         # všech DC vodičů do RFVE (5 mm na string a na AC vodič střídače) – jinak popisek přetéká přes svůj lom
-        x_boxes[-1] = x_boxes[-2] + max(box_pitch, 70.0 + 5.0 * n_lanes)
+        # (společný RFVE.DC se sdílenými drahami: popisek kabelu ~40 mm + 2,5 mm volno před nejlevější drahou)
+        x_boxes[-1] = x_boxes[-2] + max(box_pitch, (75.0 if common_dc else 70.0) + 5.0 * n_lanes)
     x_dc = 130.0                                                   # samostatný odpínač DC (bez rozvaděčů)
     # před střídačem: popisek kabelu za blokem rozvaděče + vějíř lomů (5 mm na string) před DC vstupy střídače
-    n_fan = n_all if common_dc else n_max          # lomy před DC vstupy střídačů (u společného RFVE.DC všechny)
+    # lomy před DC vstupy střídačů (u společného RFVE.DC sdílené dráhy střídačů nad a pod blokem)
+    n_fan = lanes_fan[1] if common_dc else n_max
     x_inv = (x_boxes[-1] + max(80.0, 15.0 + INV_LABEL_SPACE + 5.0 * n_fan + 10.0)) if n_boxes else 200.0
     x_blk, x_grid = x_inv + 110.0, x_inv + 185.0   # mezi střídačem a rozvaděčem se vejde popisek AC kabelu
     if combined:   # rozvaděč FVE na místě DC rozvaděče u technologie (před střídači), síť za střídači
         x_blk, x_grid = x_boxes[-1], x_inv + 75.0
     return PvGeometry(row_h=row_h, row_extra=row_extra, y_top=y_top, n_route=n_route, n_boxes=n_boxes, x_str=x_str,
                       n_max=n_max, n_all=n_all, dc_first=dc_first, x_boxes=x_boxes, x_dc=x_dc, x_inv=x_inv,
-                      x_blk=x_blk, x_grid=x_grid, common_dc=common_dc)
+                      x_blk=x_blk, x_grid=x_grid, common_dc=common_dc, lanes_in=lanes_in,
+                      lanes_fan=lanes_fan[0] if common_dc else [], n_fan=n_fan)
+
+
+def _ports_y(y0: float, n: int) -> list[float]:
+    """y portů bloku rozvaděče s `n` přívody (`project.switchboard_symbol`, rozteč `PORT_PITCH`) se středem v `y0`."""
+    half = max(20.0, n * PORT_PITCH + PORT_PITCH) / 2
+    return [y0 + round((half - PORT_PITCH / 2 - k * PORT_PITCH) / 2.5) * 2.5 for k in range(n)]
+
+
+def common_lanes(spec: dict, row_h: list[float], row_extra: list[float], y_top: float,
+                 n_route: int) -> tuple[list[int], tuple[list[int], int]]:
+    """Svislé dráhy vodičů společného RFVE.DC (2+ střídače, blok v y 150): (dráha každého přívodního vodiče – od stringu
+    nebo rozvaděče po trase, 0 = nejvíc vlevo; (první dráha vějíře každého střídače před jeho DC vstupy, počet drah
+    vějíře)). Vodiče shora (zdroj nad portem bloku) a zdola sdílejí dráhy – jejich svislé úseky leží v různých
+    výškách a nekříží se (pořadí uvnitř směru doladí `layout._align_bends`). Vodorovný vodič (zdroj na výšce portu)
+    dráhu nepotřebuje. Ve vějíři před střídači má střídač nejdál od bloku dráhy nejvíc vlevo (jako dřív), střídače
+    nad blokem a pod ním počítají dráhy zvlášť."""
+    invs = spec.get("inverters") or []
+    n_strs = [len(inv.get("strings") or [1]) for inv in invs]
+    n_all = sum(n_strs)
+    ports = _ports_y(150.0, n_all)
+    lanes, down_n, up_n, g = [], 0, 0, 0
+    mids, port_mid = [], []
+    y = y_top
+    for i, n_str in enumerate(n_strs):
+        y_mid = y - row_h[i] / 2
+        mids.append(y_mid)
+        src = _ports_y(y_mid, n_str) if n_route else [y - 35.0 - k * 45.0 for k in range(n_str)]
+        own = []
+        for k in range(n_str):
+            own.append(ports[g])
+            if src[k] > ports[g] + 1e-6:
+                lanes.append(("d", down_n))
+                down_n += 1
+            elif src[k] < ports[g] - 1e-6:
+                lanes.append(("u", up_n))
+                up_n += 1
+            else:
+                lanes.append(("f", 0))
+            g += 1
+        port_mid.append(sum(own) / len(own))
+        y -= row_h[i] + row_extra[i]
+    total = max(down_n, up_n, 1)
+    # dráhy shora: první vodič nejvíc vlevo, zdola: poslední nejvíc vlevo (`_align_bends` je stejně přeskládá)
+    lane_in = [n if d == "d" else (up_n - 1 - n if d == "u" else total - 1) for d, n in lanes]
+    lane_in = [x + (total - down_n if d == "d" else total - up_n if d == "u" else 0) for x, (d, _n) in zip(lane_in, lanes)]
+    # vějíř: střídač nad svými porty (vodiče nahoru) / pod nimi – zvlášť, nejvzdálenější střídač vlevo
+    lane0 = [0] * len(invs)
+    acc = {"u": 0, "d": 0}
+    order = sorted(range(len(invs)), key=lambda i: (-abs(mids[i] - port_mid[i]), i))
+    for i in order:
+        side = "u" if mids[i] > port_mid[i] else "d"
+        lane0[i] = acc[side]
+        acc[side] += n_strs[i]
+    return lane_in, (lane0, max(acc.values()))
 
 
 AC1_CONDUCTORS = ["L1", "N", "PE"]     # jednofázový střídač (ČSN EN 60445)
@@ -78,17 +137,11 @@ AC1_MIN_CROSS = 2.5                    # nejmenší průřez AC kabelu jednofáz
 AC1_MAX_DROP_PCT = 3.0                 # úbytek napětí na AC kabelu (jako kontrola `calc.check_cables`)
 
 
-AC1_BREAKER_SIZES = (10, 13, 16, 20, 25, 32, 40, 50, 63)
-
-
 def ac1_breaker_in(t: Element) -> str:
-    """In jističe přívodu jednofázového střídače: nejbližší řada ≥ P AC / 230 V; neznámý výkon → ""."""
-    from envocad.generator.context import _num
-    p_kw = _num(t.attrs.get("p_ac"))
-    if not p_kw:
-        return ""
-    i_a = p_kw * 1000 / 230.0
-    return f"{next((x for x in AC1_BREAKER_SIZES if x >= i_a - 1e-9), AC1_BREAKER_SIZES[-1]):g}"
+    """In jističe přívodu jednofázového střídače (`currents.inverter_breaker`: artikl, jinak 1,25 × P AC / 230 V);
+    neznámý výkon / nad řadou → ""."""
+    from envocad.generator.currents import inverter_breaker
+    return inverter_breaker(t)[0]
 
 
 def ac_cable_of(t: Element, ac: dict) -> tuple[list[str], str, str]:
@@ -111,22 +164,6 @@ def ac_cable_of(t: Element, ac: dict) -> tuple[list[str], str, str]:
     cross = f"{max(x, AC1_MIN_CROSS):g}".replace(".", ",") if x else _s(ac.get("cross"))
     family = (_s(ac.get("cable")).split() or ["CYKY-J"])[0]
     return list(AC1_CONDUCTORS), f"{family} 3x{cross}", cross
-
-
-def _common_lanes(geo: PvGeometry, invs: list) -> list[int]:
-    """Společný RFVE.DC: první lom (pořadí zleva) vodičů každého střídače před jeho DC vstupy. Střídač nejdál od
-    středu bloku (y 150) má lomy nejvíc vlevo, nejbližší vpravo – vodiče nahoru i dolů se pak nekříží (pořadí uvnitř
-    skupiny střídače doladí `layout._align_bends`)."""
-    y, mids = geo.y_top, []
-    for i in range(len(invs)):
-        mids.append(y - geo.row_h[i] / 2)
-        y -= geo.row_h[i] + geo.row_extra[i]
-    order = sorted(range(len(invs)), key=lambda i: (-abs(mids[i] - 150.0), i))
-    lane0, acc = [0] * len(invs), 0
-    for i in order:
-        lane0[i] = acc
-        acc += len(invs[i].get("strings") or [1])
-    return lane0
 
 
 def build(ctx: ChainContext) -> None:
@@ -155,7 +192,8 @@ def build(ctx: ChainContext) -> None:
     n_tech = len(invs) if dc.get("tech_box") and not combined and not common else 0   # DC rozvaděče u technologie na střídač
     tech_ref = node_ref(spec, ctx.topology, "rfve_dc", default=DC_TECH_BOX_REF)
     common_gens: list[Element] = []
-    lane0 = _common_lanes(geo, invs) if common else []
+    lane0 = geo.lanes_fan if common else []
+    n_in_lanes = max(geo.lanes_in, default=0) + 1
     for i, inv in enumerate(invs):
         strings = inv.get("strings") or [1]
         y_mid = y - row_h[i] / 2
@@ -255,7 +293,7 @@ def build(ctx: ChainContext) -> None:
                         pts = [(xj, prev.y if j == 0 else port_y[k]), (xj, port_y[k])]
                     elif b is ctx.dc_common:   # společný RFVE.DC: přívody X1…Xn všech stringů, vývody X(n+1)…
                         port_in, port_out = f"X{1 + k_all}", f"X{1 + n_all + k_all}"
-                        xj = b.x - 15.0 - 5.0 * (n_all - k_all)
+                        xj = b.x - 15.0 - 5.0 * (n_in_lanes - geo.lanes_in[k_all])   # sdílené dráhy (`common_lanes`)
                         pts = [(xj, prev.y if j == 0 else port_y[k]), (xj, port_y[k])]
                     s.wires.append(Wire(WireEnd(prev.id, prev_port), WireEnd(b.id, port_in), conductors=list(DC_CONDUCTORS),
                                         points=pts,
@@ -264,7 +302,7 @@ def build(ctx: ChainContext) -> None:
                     prev, prev_port = b, port_out
                 # vějíř lomů těsně před DC vstupy střídače (5 mm rozestup) – za popiskem kabelu, mimo značku střídače;
                 # pořadí lomů bez křížení doladí `_align_bends`
-                xb = t.x - 10.0 - 5.0 * ((n_all - lane0[i] - k) if common else (n_str - k))
+                xb = t.x - 10.0 - 5.0 * ((geo.n_fan - lane0[i] - k) if common else (n_str - k))
                 y_inv = t.y + (2.5 * (n_in - 1) - 5.0 * j_in if n_in > 2 else (5.0 if j_in == 0 else -5.0))
                 s.wires.append(Wire(WireEnd(prev.id, prev_port), WireEnd(t.id, port_inv), conductors=list(DC_CONDUCTORS),
                                     points=[(xb, port_y[k]), (xb, y_inv)],

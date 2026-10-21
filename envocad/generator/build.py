@@ -9,6 +9,7 @@ from __future__ import annotations
 from envocad.generator import chain, context, pv
 from envocad.generator.boards.base import ChainContext
 from envocad.generator.context import AC_MAX_INVERTERS_BUS, _merge, _s
+from envocad.generator.currents import main_switch_in
 from envocad.generator.spec import (
     BUILDINGS,
     DEFAULT_SPEC,
@@ -38,18 +39,41 @@ def build_project(spec: dict) -> Project:
         context._BUILD_LIB = None
 
 
-def main_switch_in(invs) -> str:
-    """In nezadaného hlavního vypínače AC rozvaděče FVE: nejméně 125 A a nejméně nejbližší velikost ≥ Σ In
-    střídačů (`invs` – slovníky specifikace nebo prvky)."""
-    from envocad.generator.boards.mv import LV_FEEDER_SIZES, _next_size, inverters_ac_current
-    i_fve = inverters_ac_current(invs)
-    main = float(DEFAULT_SPEC["ac"]["main_in"])
-    if i_fve:
-        main = max(main, _next_size(i_fve, LV_FEEDER_SIZES))
-    return f"{main:g}"
-
-
 def _build_project(spec: dict) -> Project:
+    """Sestavení; společný RFVE.DC (výchozí pro 2+ střídače), se kterým by list blokového schématu přerostl
+    `jps_max_paper` (list „AC a připojení“ s RFVE.DC pro desítky stringů), se nahradí RFVE.DC na střídač – jen když
+    projektant `chain.rfve_dc.per_inverter` nezadal (review F2, B1)."""
+    p, common = _build_once(spec)
+    if common is not None and _jps_over_limit(p, spec, common) and not _per_inverter_given(spec):
+        from envocad.generator.context import log
+        log.info("Společný RFVE.DC by blokové schéma zvětšil nad limit listu – RFVE.DC na střídač")
+        chain_spec = dict((spec or {}).get("chain") or {})
+        chain_spec["rfve_dc"] = {**(chain_spec.get("rfve_dc") or {}), "per_inverter": True}
+        p, _common = _build_once({**spec, "chain": chain_spec})
+    return p
+
+
+def _per_inverter_given(spec: dict) -> bool:
+    given = ((spec or {}).get("chain") or {}).get("rfve_dc") if isinstance((spec or {}).get("chain"), dict) else None
+    return isinstance(given, dict) and _s(given.get("per_inverter")).strip() != ""
+
+
+def _jps_over_limit(p: Project, spec: dict, block_id: str) -> bool:
+    """List blokového schématu se společným RFVE.DC (`block_id`) je větší než limit (`jps.max_paper`, jinak standard
+    `jps_max_paper`); přerostlý list řady jednoho střídače se nepočítá (DC řetězec se nedělí – jako dřív), při
+    `jps.split` „none“ se nehodnotí (jeden list záměrně)."""
+    from envocad.generator.jps import jps_max_paper
+    from envocad.model.frame import paper_exceeds
+    opts = (spec or {}).get("jps") or {}
+    if (_s(opts.get("split")) or "auto") == "none":
+        return False
+    limit = _s(opts.get("max_paper")) or jps_max_paper()
+    return any(paper_exceeds(s.paper, limit) for s in p.sheets
+               if not s.is_switchboard and any(e.id == block_id for e in s.elements))
+
+
+def _build_once(spec: dict) -> tuple[Project, str | None]:
+    """Jedno sestavení: (projekt, id bloku společného RFVE.DC nebo None)."""
     spec = dict(spec or {})
     if isinstance(spec.get("module"), dict) and spec["module"].get("component_id"):
         # artikl modulu doplní jen to, co specifikace nezadala – proto před doplněním výchozích hodnot
@@ -68,13 +92,15 @@ def _build_project(spec: dict) -> Project:
     if not invs:
         raise ValueError("Specifikace musí obsahovat alespoň jeden střídač (`inverters`).")
     if not _s((raw.get("ac") or {}).get("breaker_in")).strip():
-        # jistič přívodu střídače nezadaný: podle proudu střídače (`rfve_ac.size_inverter_breakers`)
+        # jistič přívodu střídače nezadaný: podle proudu střídače (`currents.inverter_breaker`, dosadí
+        # `rfve_ac.mark_chain_devices` / blok bez listu `rfve_ac.block_attrs`)
         spec["ac"] = {**spec["ac"], "breaker_in_auto": "1"}
     if not _s((raw.get("ac") or {}).get("main_in")).strip():
-        # hlavní vypínač RFVE.AC / RFVE nezadaný: nejméně výchozí 125 A a nejméně vývod FVE v RD / HR (nejbližší
-        # velikost ≥ Σ In střídačů) – jinak by odpínač ležel pod In jištění, které ho chrání (F7 `chain_selectivity`);
-        # u skupin střídačů (`ac_group`) podle střídačů skupiny (`rfve_ac.build_main_sheet`)
-        spec["ac"] = {**spec["ac"], "main_in": main_switch_in(invs), "main_in_auto": "1"}
+        # hlavní vypínač RFVE.AC / RFVE nezadaný: nejméně výchozí 125 A a nejméně vývod FVE v RD / HR
+        # (`currents.main_switch_in`) – jinak by odpínač ležel pod In jištění, které ho chrání (F7 `chain_selectivity`).
+        # Tady odhad ze specifikace; po `pv.build` znovu z prvků střídačů (proud i z artiklu bez `p_ac`), u skupin
+        # střídačů (`ac_group`) podle střídačů skupiny (`rfve_ac._build_main`)
+        spec["ac"] = {**spec["ac"], "main_in": main_switch_in(spec, invs), "main_in_auto": "1"}
     if (spec["ac"].get("distribution") or "bus") == "bus" and len(invs) > AC_MAX_INVERTERS_BUS:
         raise ValueError(f"AC rozvaděč: sběrnice má {AC_MAX_INVERTERS_BUS} přívodů – nejvýš {AC_MAX_INVERTERS_BUS} "
                          f"střídačů (zadáno {len(invs)}). Zvolte rozvod svorkami nebo rozdělte FVE na více rozvaděčů.")
@@ -110,12 +136,14 @@ def _build_project(spec: dict) -> Project:
             p.meta[meta_key] = _s(site[key])
     s = p.sheets[0]
     s.name = "Blokové schéma"
-    ctx = ChainContext(spec=spec, project=p, sheet=s, building=building, combined=combined,
+    ctx = ChainContext(spec=spec, raw=raw, project=p, sheet=s, building=building, combined=combined,
                        geo=pv.plan(spec, combined, rfve_dc_per_inverter(raw, topology)), topology=topology, opt_comp=opt_comp)
     from envocad.generator.boards.groups import feeds
     ctx.groups = [{"key": k, "feed": f, "idx": [i for i, inv in enumerate(invs) if _s(inv.get("ac_group")).strip() == k]}
                   for k, f in zip(groups, feeds(len(groups)), strict=True)] if len(groups) > 1 else []
     chain.create_main_block(ctx)
     pv.build(ctx)
+    if _s(spec["ac"].get("main_in_auto")):     # z prvků střídačů (artikl bez `p_ac` ve specifikaci)
+        spec["ac"]["main_in"] = main_switch_in(spec, ctx.inverters)
     chain.build(ctx)
-    return p
+    return p, (ctx.dc_common.id if ctx.dc_common is not None else None)

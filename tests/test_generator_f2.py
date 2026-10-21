@@ -11,6 +11,8 @@ from envocad.generator.spec import chain_flag, chain_options, node_ref
 from envocad.library.topologies import load_topologies
 from envocad.model.project import element_symbol
 
+pytestmark = pytest.mark.usefixtures("ac_builtin")   # AC listy vestavěným kódem (standard `ac_builtin`)
+
 
 @functools.cache
 def _lib():
@@ -315,7 +317,8 @@ def _fve_device(sheet):
 
 
 def test_rd_existing_board():
-    """RD: XIN → hlavní vypínač (main_in) → přípojnice → vývod FVE X1 (jistič ≥ Σ In střídačů: 10 kW → 16 A) a
+    """RD: XIN → hlavní vypínač (main_in) → přípojnice → vývod FVE X1 (jistič ≥ max(Σ proudů, jistič střídače):
+    10 kW → 14,4 A, jistič střídače 1,25 × 14,4 → 20 A → 20 A) a
     stávající rozvody X2 (v blokovém schématu spotřeba pod blokem); řetězec RFVE → RD → RE → HDS → DS."""
     p = build_project({**_HOUSE, "chain": _EXIST_RD})
     assert p.meta["topology"] == "rd"
@@ -323,7 +326,7 @@ def test_rd_existing_board():
     q = next(e for e in sh.elements if e.attrs.get("desc") == "hlavní vypínač")
     assert q.symbol_id == "sb.main_switch" and q.attrs["in_"] == "40"
     f = _fve_device(sh)
-    assert f.symbol_id == "fve.breaker_mcb" and f.attrs["in_"] == "16"
+    assert f.symbol_id == "fve.breaker_mcb" and f.attrs["in_"] == "20"
     assert _el(sh, "X1").attrs["desc"] == "k RFVE (FVE)" and _el(sh, "X2").attrs["desc"] == "stávající rozvody objektu"
     s = p.sheets[0]
     blk = _blocks(p)["RD"]
@@ -354,7 +357,7 @@ def test_hr_main_breaker_and_fve_device():
     hr = _board(build_project(spec), "HR")
     q = next(e for e in hr.elements if e.attrs.get("desc") == "hlavní jistič")
     assert q.symbol_id == "fve.breaker_mccb" and q.attrs["in_"] == "250"
-    assert _fve_device(hr).attrs["in_"] == "40"                    # 25 kW → 36 A → 40 A
+    assert _fve_device(hr).attrs["in_"] == "50"     # 25 kW → 36 A, jistič střídače 1,25 × 36 → 50 A (B3)
     hr = _board(build_project({**spec, "chain": {**_EXIST_NN, "hr": {"main_in": 100}}}), "HR")
     assert next(e for e in hr.elements if e.attrs.get("desc") == "hlavní jistič").symbol_id == "fve.breaker_mcb"
     hr = _board(build_project({**spec, "chain": {**_EXIST_NN, "hr": {"main_in": 400, "fve_device": "fuse_disconnect",
@@ -435,7 +438,8 @@ def test_chain_cables():
     base = {"inverters": [{"ref": "T1", **_INV, "strings": [20, 20]}]}
     p = build_project({**base, "chain": _EXIST_NN})
     w = _link(p, "RFVE.AC", "HR")
-    assert (w.attrs["cable"], w.attrs["cross"], w.attrs["method"]) == ("CYKY-J 5x35", "35", "D")
+    # bez zadaného `ac.grid_*` (výchozí CYKY-J 5x35 se nebere – D3): nejmenší průřez pro vývod FVE 50 A (D)
+    assert (w.attrs["cable"], w.attrs["cross"], w.attrs["method"]) == ("CYKY-J 5x10", "10", "D")
     assert _link(p, "HR", "RE").attrs == {"ref": ""} and _link(p, "RE", "HDS").attrs == {"ref": ""}
     p = build_project({**base, "chain": {**_EXIST_NN, "rfve_ac": {"cable": "CYKY-J 5x10", "cross": "", "length": 12},
                                          "hr": {"main_in": 250, "cable": "AYKY 4x120", "method": "D"}}})
@@ -447,8 +451,9 @@ def test_chain_cables():
 
 
 def test_single_phase_inverter_ac_cable():
-    """Jednofázový střídač: AC kabel 3 žíly L1 N PE s průřezem podle proudu (5 kW → 21,7 A, jistič 25 A, B1, úbytek
-    do 3 % na 30 m → 6 mm²), v RFVE.AC přívodní větev se stejnými žilami a jistič 1+N 25 A; třífázový beze změny."""
+    """Jednofázový střídač: AC kabel 3 žíly L1 N PE s průřezem podle proudu (5 kW → 21,7 A, jistič 1,25 × 21,7 →
+    32 A, B1, úbytek do 3 % na 30 m → 6 mm²), v RFVE.AC přívodní větev se stejnými žilami a jistič 1+N 32 A (podle
+    proudu i přes zadané `ac.breaker_in`); třífázový beze změny."""
     spec = {"inverters": [{"ref": "T1", "p_ac": 5, "phases": 1, **{k: v for k, v in _INV.items() if k != "p_ac"},
                            "strings": [12]},
                           {"ref": "T2", **_INV, "strings": [20]}], "chain": _EXIST_NN}
@@ -460,7 +465,7 @@ def test_single_phase_inverter_ac_cable():
     x1 = _el(ac, "X1")
     f = next(ac.element(w.b.element_id if w.a.element_id == x1.id else w.a.element_id) for w in ac.wires
              if w.touches(x1.id))
-    assert (f.attrs["in_"], f.attrs["poles"]) == ("25", "2")
+    assert (f.attrs["in_"], f.attrs["poles"]) == ("32", "2")
     assert all(w.conductors == ["L1", "N", "PE"] for w in ac.wires if w.touches(f.id))
     from envocad.library.store import LibraryStore
     from envocad.model.calc import check_cables
@@ -586,13 +591,15 @@ def test_switch_below_protection_and_main_switch_sizing():
     assert q.attrs["in_"] == "400" and "chain_selectivity" not in _codes(p)
 
 
-def test_hds_without_in_is_f7_error():
+def test_hds_without_in_is_only_info():
+    """Stávající pojistky HDS bez In (rozhodnutí 12): prázdné In bez `in_unresolved`, F7 jen INFO `hds_no_in`."""
     p = build_project({"inverters": [{"ref": "T1", **_INV, "strings": [20, 20]}],
                        "chain": {"hr": {"main_in": 250}, "re": {"main_in": 250}}})
     hds = next(e for e in p.sheets[0].elements if e.symbol_id == "fve.hds")
-    assert hds.attrs["in_"] == "" and hds.attrs["in_unresolved"]
-    f = [f for f in _codes(p)["breaker_no_in"] if f.target_id == hds.id]
-    assert f and f[0].severity == "chyba"
+    assert hds.attrs["in_"] == "" and "in_unresolved" not in hds.attrs
+    codes = _codes(p)
+    assert [f.severity for f in codes["hds_no_in"]] == ["info"]
+    assert not [f for f in codes.get("breaker_no_in", []) if f.target_id == hds.id]
 
 
 def test_fve_out_fuse_le80_finding():
@@ -657,9 +664,15 @@ def test_grid_protection_auto_threshold(p_wp, expect, macros):
         sb = _board(p, "RFVE.AC")
         q = next(e for e in sb.elements if e.attrs.get("chain") == "rfve_main")
         assert gp[0].attrs["acts_on"] == q.ref
+        assert q.attrs["trip"]                     # vazební prvek s vypínací spouští (D5)
         bus = next(e for e in sb.elements if e.symbol_id == "sb.busbar")
+        # měřicí vstup U přes jistič z vývodu 4 sběrnice (D5)
         w = next(w for w in sb.wires if w.touches(gp[0].id))
-        assert {w.a.element_id, w.b.element_id} == {bus.id, gp[0].id} and "4" in (w.a.port, w.b.port)
+        fu = sb.element(w.a.element_id if w.b.element_id == gp[0].id else w.b.element_id)
+        assert fu.symbol_id == "fve.breaker_mcb" and "U" in (w.a.port, w.b.port)
+        w = next(w for w in sb.wires if w.touches(fu.id) and w.touches(bus.id))
+        assert "4" in (w.a.port, w.b.port)
+        assert not {"grid_protection_trip", "grid_protection_u"} & set(_codes(p))
         assert "grid_protection_missing" not in _codes(p)
 
 
@@ -711,7 +724,12 @@ def test_eps_changeover_in_house(extra):
     by_id = {e.id: e for e in sb.elements}
     ends = {(w.a.port if w.a.element_id == q.id else w.b.port):
             by_id[w.b.element_id if w.a.element_id == q.id else w.a.element_id] for w in sb.wires if w.touches(q.id)}
-    assert ends["1"].symbol_id == "sb.busbar" and ends["2"].ref == "XE1" and ends["3"].ref == "XB1"
+    assert ends["1"].symbol_id == "fve.breaker_mcb" and ends["2"].ref == "XE1" and ends["3"].ref == "XB1"
+    # jistič před síťovou stranou přepínače (D4) ze sběrnice
+    fq = ends["1"]
+    assert any(w.touches(fq.id) and sb.element(w.a.element_id if w.b.element_id == fq.id else w.b.element_id)
+               .symbol_id == "sb.busbar" for w in sb.wires)
+    assert float(q.attrs["in_"]) >= float(fq.attrs["in_"])
     load = next(e for e in s.elements if e.symbol_id == "fve.load" and e.attrs.get("desc") == "zálohované okruhy")
     assert any(w.touches(load.id) and "XB1" in (w.a.port, w.b.port) for w in s.wires)
     assert len([e for e in s.elements if e.symbol_id == "fve.interrupt" and e.ref == "EPS-T1"]) == 2

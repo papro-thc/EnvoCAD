@@ -11,6 +11,8 @@ from envocad.generator.boards.base import ChainContext, PvGeometry
 from envocad.library.topologies import load_topologies
 from envocad.model.project import Project
 
+pytestmark = pytest.mark.usefixtures("ac_builtin")   # AC listy vestavěným kódem (standard `ac_builtin`)
+
 _INV = {"p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30}
 
 

@@ -334,16 +334,23 @@ def _align_bends_sheet(project: Project, s: Sheet, lib) -> None:
         x = w.points[0][0]
         w.points = [(x, ya), (x, yb)]
         groups.setdefault(w.b.element_id, []).append((w, ya, yb))
-    # svislé úseky vodičů do jednoho prvku bez křížení: vodiče shora dolů – nejvyšší nejdál, zdola nahoru – nejnižší nejdál
+    # svislé úseky vodičů do jednoho prvku bez křížení: vodiče shora dolů – nejvyšší nejblíž prvku, zdola nahoru –
+    # nejnižší nejblíž. Vodiče shora a zdola smějí sdílet dráhy (x) – jejich svislé úseky leží v různých výškách
+    # (společný RFVE.DC, `pv.common_lanes`); vodorovný vodič (bez svislého úseku) dráhu nepotřebuje
     for items in groups.values():
         if len(items) < 2:
             continue
         xs = sorted({w.points[0][0] for w, _, _ in items}, reverse=True)
-        if len(xs) != len(items):
+        down = sorted((it for it in items if it[2] < it[1] - 1e-6), key=lambda it: -it[1])
+        up = sorted((it for it in items if it[2] > it[1] + 1e-6), key=lambda it: it[1])
+        flat = [it for it in items if abs(it[2] - it[1]) <= 1e-6]
+        if len(xs) == len(items):          # každý vodič vlastní dráhu (dřívější pořadí: shora, pak zdola)
+            seq = [(it, x) for it, x in zip(sorted(down + flat, key=lambda it: -it[1]) + up, xs)]
+        elif len(xs) >= max(len(down), len(up)):
+            seq = [*zip(down, xs), *zip(up, xs)]
+        else:
             continue
-        down = sorted((it for it in items if it[2] <= it[1]), key=lambda it: -it[1])
-        up = sorted((it for it in items if it[2] > it[1]), key=lambda it: it[1])
-        for (w, ya, yb), x in zip(down + up, xs):
+        for (w, ya, yb), x in seq:
             w.points = [(x, ya), (x, yb)]
 
 
@@ -408,11 +415,14 @@ def _set_side(p: Project, e: Element, name: str, want: int, lib) -> None:
 
 
 def _stack_column(p: Project, s: Sheet, links: list, loads: list, xc: float, top: float, first_side: int,
-                  load_under: bool, boundary: Element | None, lib) -> tuple[list[Element], list[str], list[Wire]]:
+                  load_under: bool, boundary: Element | None, lib,
+                  end_below: bool = False) -> tuple[list[Element], list[str], list[Wire]]:
     """Složí články řetězce (`links` jako `ChainContext.links`) do svislého sloupce se středem `xc` od výšky `top`
     dolů („had“): první článek má přívod na straně `first_side`, každý další přívod na straně vývodu předchozího
     (zrcadlení se střídá) a vodič mezi nimi je krátké „C“ po straně sloupce. Síť (jediný port) na konci stojí vedle
-    posledního článku (rovný vodič). Spotřeba (`loads`): `load_under` = pod článkem uvnitř (vodič z vývodu kousek
+    posledního článku (rovný vodič), s `end_below` pod ním ve sloupci (vodič z vývodu kousek ven, dolů a zpět do
+    značky – síť vedle by u firmy ležela na svislých úsecích AC vodičů střídačů). Spotřeba (`loads`): `load_under` =
+    pod článkem uvnitř (vodič z vývodu kousek
     ven, dolů a zpět do značky), jinak vedle sloupce na straně vývodu. Vodič k prvnímu článku nechává volajícímu;
     vrací (články, jejich přívody, vodiče k nim)."""
     from envocad.generator.boards.meter_board import BOUNDARY_TEXT
@@ -438,6 +448,15 @@ def _stack_column(p: Project, s: Sheet, links: list, loads: list, xc: float, top
         beside = els[-1]
     for i, e in enumerate(els):
         want = first_side if i == 0 else _side(p, els[i - 1], out_ports[i - 1], lib)
+        if e is beside and end_below:
+            # pod posledním článkem: přívod sítě z vnější strany sloupce (vodič ven, dolů a dovnitř)
+            _set_side(p, e, in_ports[i], want, lib)
+            pa = _port(p, els[i - 1], out_ports[i - 1], lib)
+            pe = _port(p, e, in_ports[i], lib)
+            y_d = _snap(prev_bottom - 7.5)
+            e.x = _snap(e.x + pa[0] - want * 2.5 - pe[0])
+            e.y = _snap(e.y + y_d - pe[1])
+            continue
         if e is beside:
             _set_side(p, e, in_ports[i], -want, lib)
             pa = _port(p, els[i - 1], out_ports[i - 1], lib)
@@ -477,6 +496,11 @@ def _stack_column(p: Project, s: Sheet, links: list, loads: list, xc: float, top
         prev_bottom = bottom - COLUMN_GAP
     for i in range(1, len(els)):
         a, b = els[i - 1], els[i]
+        if b is beside and end_below:
+            pa, pb = _port(p, a, out_ports[i - 1], lib), _port(p, b, in_ports[i], lib)
+            xl = _snap(pa[0] + _side(p, a, out_ports[i - 1], lib) * COLUMN_LANE)
+            in_wires[i].points = [(xl, pa[1]), (xl, pb[1])]
+            continue
         if b is beside:
             in_wires[i].points = []
             continue
@@ -531,7 +555,7 @@ def xout_lane_x(p: Project, s: Sheet, blk: Element, earth: Element | None, links
 
 
 def _chain_column(p: Project, s: Sheet, blk: Element, links: list, loads: list, earth: Element | None,
-                  boundary: Element | None = None, avoid: list[Element] | None = None) -> bool:
+                  boundary: Element | None = None, avoid: list[Element] | None = None, end_below: bool = False) -> bool:
     """Firma / bytový dům na nn: řetězec stávajících článků (HR → RE → HDS → DS) **svisle pod RFVE.AC** (ve sloupci
     pod blokem, `_stack_column`): vodič z vývodu XOUT vede vpravo za uzemnění a jeho popisek, svisle dolů a do
     přívodu prvního článku zprava; spotřeba (X2 stávajícího rozvaděče) visí vedle sloupce. Výkres se tak
@@ -568,7 +592,7 @@ def _chain_column(p: Project, s: Sheet, blk: Element, links: list, loads: list, 
                     floor.append(b[1])
                     x_lane = max(x_lane, _snap(b[2] + 5.0))
     els, in_ports, in_wires = _stack_column(p, s, links, loads, _snap(_center_x(p, blk, lib)), min(floor) - COLUMN_GAP,
-                                            1, False, boundary, lib)
+                                            1, False, boundary, lib, end_below=end_below)
     p0 = _port(p, els[0], in_ports[0], lib)
     in_wires[0].points = [(x_lane, out[1]), (x_lane, p0[1])]
     return True

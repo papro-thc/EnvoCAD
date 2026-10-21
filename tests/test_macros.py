@@ -27,6 +27,8 @@ from envocad.library.store import LibraryStore
 from envocad.model.feed import is_feed_in, is_feed_out
 from envocad.model.project import Element, Project, Sheet
 
+pytestmark = pytest.mark.usefixtures("ac_builtin")   # AC listy vestavěným kódem (standard `ac_builtin`)
+
 
 @pytest.fixture(scope="module")
 def lib():
@@ -303,10 +305,11 @@ def test_component_from_and_apply_to_inverter_dc_inputs(lib):
 def test_generator_regression_snapshot():
     """Generátor po refaktoru (makra, balíček `envocad/generator/`) dává stejný výstup jako před ním – všechny
     případy `generate_snapshot.CASES` (snímek tests/data/generate_snapshot.json)."""
+    from generate_snapshot import build_case
     snap = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
     assert set(snap) == set(CASES)
-    for name, spec in CASES.items():
-        got = canon(build_project(spec))
+    for name in CASES:
+        got = canon(build_case(name))
         assert got == snap[name], name
 
 

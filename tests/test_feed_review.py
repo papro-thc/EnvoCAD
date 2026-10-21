@@ -23,6 +23,8 @@ from envocad.model.feed import FEED_SYMBOL, LEGACY_FEEDS, MP_LEGACY_ATTR, is_fee
 from envocad.model.project import Element, Project, Sheet, element_symbol, migrate
 from envocad.model.revision import changed_after_close
 
+pytestmark = pytest.mark.usefixtures("ac_builtin")   # AC listy vestavěným kódem (standard `ac_builtin`)
+
 DATA = Path(__file__).parent / "data"
 INV = {"p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30}
 HOUSE_INV = {"p_ac": 10, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30}
