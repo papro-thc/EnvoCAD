@@ -1276,3 +1276,83 @@ def check_selectivity(project: Project, sheet: Sheet | None = None) -> list[tupl
                 msg = "OK"
             out.append((e.ref, up.ref, i_lo, i_hi, msg))
     return out
+
+
+# ---- selektivita podél řetězce přes listy (F2, krok 7) --------------------------------------------------------------
+# role přístroje v řetězci FVE – atribut `chain` (zapisuje generátor; ruční projekt ho mít nemusí)
+CHAIN_ROLES = ("inv", "rfve_main", "fve_out", "main", "meter_main", "inst_switch", "hds")
+SWITCH_DEVICES = frozenset({"sb.main_switch"})        # odpínače: In nesmí být pod In jištění, které je chrání
+# ostatní dvojice přes list stačí In nadřazeného ≥ In přístroje (jištění střídače ≤ vývod FVE v RD/HR, hlavní
+# přístroj RD/HR ≤ HJ před elektroměrem); dvojice, kde nadřazené jištění musí být větší (vývod FVE < hlavní jistič RD/HR, HJ / hlavní přístroj < pojistky HDS);
+# dva jističe pod sebou navíc s poměrem In ≥ `SELECTIVITY_RATIO`
+CHAIN_STRICT = frozenset({("fve_out", "main"), ("fve_out", "meter_main"), ("meter_main", "hds"), ("main", "hds"),
+                          ("fve_out", "hds")})
+_BREAKERS = frozenset({"fve.breaker_mcb", "fve.breaker_mccb", "sb.rcbo"})
+
+
+@dataclass
+class ChainSelectivity:
+    """Nález selektivity v řetězci: přístroj (list, prvek), nadřazené jištění a hlášení."""
+    sheet: Sheet
+    element: Element
+    upper: Element
+    upper_sheet: Sheet
+    msg: str
+
+
+def _chain_role(e: Element) -> str:
+    if e.symbol_id == "fve.hds":
+        return "hds"
+    return str(e.attrs.get("chain") or "").strip()
+
+
+def check_selectivity_tree(project: Project, lib) -> list[ChainSelectivity]:
+    """Selektivita podél řetězce přes listy nad stromem jednopólového schématu (`single_line.build_tree`, od DS):
+    ke každému jisticímu přístroji (`SELECTIVITY_DEVICES`) nejbližší nadřazené jištění směrem ke zdroji. Hodnotí se
+    jen dvojice přes hranici listu (uvnitř listu je `check_selectivity`) – nadřazený s menším In vždy; s rolemi
+    `chain` (generátor) rovnost u `CHAIN_STRICT` (a poměr dvou jističů < `SELECTIVITY_RATIO`). Odpínač
+    (`SWITCH_DEVICES`) s In pod In nejbližšího nadřazeného jištění – i na témže listu. Přístroje bez In se
+    přeskočí (hlásí je `checks.protection_findings`); nic se nepřepisuje."""
+    from envocad.model.single_line import build_tree
+    try:
+        _root, nodes = build_tree(project, lib)
+    except (KeyError, ValueError, AttributeError):
+        return []
+    out: list[ChainSelectivity] = []
+    for n in nodes.values():
+        e = n.element
+        switch = e.symbol_id in SWITCH_DEVICES
+        if e.symbol_id not in SELECTIVITY_DEVICES and not switch:
+            continue
+        u = n.parent
+        while u is not None and u.element.symbol_id not in SELECTIVITY_DEVICES:
+            u = u.parent
+        if u is None:
+            continue
+        up = u.element
+        i_lo, i_hi = _f(e.attrs.get("in_")), _f(up.attrs.get("in_"))
+        if not (i_lo and i_hi):
+            continue
+        name, uname = e.ref or e.symbol_id, up.ref or up.symbol_id
+        where = f"{name} ({n.sheet.name}) → {uname} ({u.sheet.name})"
+        if switch:
+            if i_lo < i_hi:
+                out.append(ChainSelectivity(n.sheet, e, up, u.sheet,
+                                            f"odpínač {where}: In {i_lo:g} A je pod In jištění {i_hi:g} A, které ho "
+                                            "chrání – zvolte odpínač s In ≥ jištění"))
+            continue
+        if u.sheet.id == n.sheet.id:
+            continue
+        pair = (_chain_role(e), _chain_role(up))
+        if i_hi < i_lo:
+            out.append(ChainSelectivity(n.sheet, e, up, u.sheet,
+                                        f"{where}: nadřazené jištění má menší In ({i_hi:g} A < {i_lo:g} A)"))
+        elif pair in CHAIN_STRICT and i_hi <= i_lo:
+            out.append(ChainSelectivity(n.sheet, e, up, u.sheet,
+                                        f"{where}: stejné In {i_lo:g} A – nadřazené jištění musí být větší"))
+        elif pair in CHAIN_STRICT and e.symbol_id in _BREAKERS and up.symbol_id in _BREAKERS \
+                and i_hi / i_lo < SELECTIVITY_RATIO:
+            out.append(ChainSelectivity(n.sheet, e, up, u.sheet,
+                                        f"{where}: poměr In {i_hi:g}/{i_lo:g} = {i_hi / i_lo:.2f} < "
+                                        f"{SELECTIVITY_RATIO} – selektivita nejistá"))
+    return out

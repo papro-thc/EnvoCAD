@@ -100,6 +100,7 @@ def build_house_sheet(ctx: ChainContext, sheet, o: dict, where: str, role: str, 
         if not main_in:
             q.attrs["in_unresolved"] = (f"{where}: In stávajícího hlavního přístroje není zadané – doplňte "
                                         f"chain.{role}.main_in")
+        q.attrs["chain"] = "main"
         _wire(p, sheet, feed, "1", q, "1", AC_CONDUCTORS)
         last, last_port = q, "2"
         devices.append(q)
@@ -117,6 +118,7 @@ def build_house_sheet(ctx: ChainContext, sheet, o: dict, where: str, role: str, 
         qf = _el(p, sheet, "fve.breaker_mccb" if big else "fve.breaker_mcb", x0 + 7.5, y_bus - 35.0, "Q", rot=270,
                  in_=fve_in, poles="3", modules="6" if big else "3", **({} if big else {"char": "B"}))
     qf.attrs["desc"] = "vývod FVE"
+    qf.attrs["chain"] = "fve_out"
     if not fve_in:
         qf.attrs["in_unresolved"] = f"{where}: proud FVE neznámý (střídače bez P AC) – doplňte chain.{role}.fve_in"
     out_f = _feed(p, sheet, "out", x0 + 7.5, y_bus - 70.0, "", desc=f"k {fve_ref} (FVE)" if fve_ref else "k FVE")

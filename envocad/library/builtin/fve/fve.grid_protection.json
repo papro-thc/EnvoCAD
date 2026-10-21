@@ -1,0 +1,106 @@
+{
+  "id": "fve.grid_protection",
+  "name": "Síťová ochrana",
+  "category": "Jištění",
+  "iec_ref": "F",
+  "function_class": [
+    "F",
+    "K"
+  ],
+  "description": "Síťová ochrana / ochrana rozhraní FVE (U<, U>, f<, f>) – měření z přípojnice, působí na vazební spínač",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -7.5,
+      "y": -5,
+      "w": 15,
+      "h": 10
+    },
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": 5,
+      "x2": 0,
+      "y2": 7.5
+    },
+    {
+      "type": "text",
+      "x": 0,
+      "y": 0.5,
+      "text": "U<>",
+      "height": 2,
+      "align": "center"
+    },
+    {
+      "type": "text",
+      "x": 0,
+      "y": -3.5,
+      "text": "f<>",
+      "height": 2,
+      "align": "center"
+    }
+  ],
+  "ports": [
+    {
+      "name": "U",
+      "x": 0,
+      "y": 7.5,
+      "dir": "N"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "manufacturer",
+      "label": "Výrobce",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "acts_on",
+      "label": "Působí na (vazební spínač)",
+      "default": "",
+      "show": true,
+      "fmt": "→ {}"
+    },
+    {
+      "key": "settings",
+      "label": "Nastavení",
+      "default": "U< U> f< f>",
+      "show": false
+    },
+    {
+      "key": "modules",
+      "label": "Šířka [moduly]",
+      "default": "4",
+      "show": false
+    },
+    {
+      "key": "t_min",
+      "label": "Teplota okolí min [°C]",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "t_max",
+      "label": "Teplota okolí max [°C]",
+      "default": "",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": 9,
+    "y": 1
+  }
+}

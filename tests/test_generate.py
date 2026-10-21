@@ -553,7 +553,8 @@ _KNOWN_RE_METER = pytest.mark.xfail(
                         "napěťových obvodů (mp_text_overlap); rozmístění vícepólu `multipole.auto_layout`, mimo F0")
 # stávající články řetězce (F2): In stávajících přístrojů projektant zadá (průvodce je vyžaduje) – neznámé = chyba F7
 _EXIST_NN = {"hr": {"main_in": 250}, "re": {"main_in": 250}, "hds": {"in_": 315}}
-_EXIST_RD = {"rd": {"main_in": 40}, "re": {"main_in": 40}, "hds": {"in_": 50}}
+# RD: HJ před elektroměrem ≥ 1,6 × vývod FVE (2 střídače 10 kW → 32 A) – selektivita v řetězci (F7 `chain_selectivity`)
+_EXIST_RD = {"rd": {"main_in": 63}, "re": {"main_in": 63}, "hds": {"in_": 80}}
 F7_CASES = {
     "firma": {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20, 18]}, {"ref": "T2", **_INV25, "strings": [20, 20]}],
               "chain": _EXIST_NN},

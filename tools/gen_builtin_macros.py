@@ -127,6 +127,10 @@ def ac_core() -> dict:
     _wire(p, s, bus, "1", xpe, "1", ["PE"])             # PE sběrnice rovně dolů do XPE
     _wire(p, s, bus, "3", q, "1", AC_CONDUCTORS)
     _wire(p, s, q, "2", out, "1", AC_CONDUCTORS)
+    # síťová ochrana (nad 30 kWp DC – generátor dosadí auto proměnnou `grid_protection`): měří z vývodu 4 sběrnice
+    # za hlavním vypínačem, působí na něj (`acts_on` doplní generátor)
+    gp = _el(p, s, "fve.grid_protection", 172.5, 140, "F", modules="4", when="grid_protection")
+    _wire(p, s, bus, "4", gp, "U", AC_CONDUCTORS[:4]).attrs["when"] = "grid_protection"
     return _frag(s)
 
 
@@ -213,6 +217,7 @@ META = {
         "variables": [
             {"name": "spd", "label": "Svodič přepětí AC (typ)", "default": "T1+T2", "help": _SPD_HELP},
             _num("main_in", "In hlavního vypínače", "125", "A", required=True, min=1),
+            _auto("grid_protection", "Síťová ochrana (generátor: nad 30 kWp DC)", typ="text"),
         ],
         "value_sets": [
             {"name": "SPD T1+T2, hlavní vypínač 125 A", "values": {"spd": "T1+T2", "main_in": "125"}},
@@ -226,7 +231,7 @@ MACROS = [
     ("DC string v rozvaděči", "Generátor (u technologie): X{k} → pojistkový odpínač FU{i}.{j} {fuse_in} → X{nk}, SPD-DC{i}.{j} {spd} DC, PE → XPE; proměnné k, nk, i, j, string, inverter, fuse_in, spd", dc_string_in),
     ("DC string po trase", "Generátor (po trase): X{k} → X{nk} (průchozí svorky, bez odpínače), SPD-DC{i}.{j} {spd} DC z přívodní svorky, PE → XPE; pojistkové odpínače jen v rozvaděči u střídače; proměnné k, nk, i, j, string, inverter, spd", dc_string_route),
     ("AC přívod střídače", "Generátor: X{k} od {inverter} (zespodu) → jistič {breaker_in} → sběrnice 1 port B{k}; proměnné k, inverter, breaker_in, main_in", ac_feed),
-    ("AC jádro rozvaděče", "Generátor: sběrnice 1 → SPD {spd} → XPE (k HOP), sběrnice → hlavní vypínač {main_in} → XOUT", ac_core),
+    ("AC jádro rozvaděče", "Generátor: sběrnice 1 → SPD {spd} → XPE (k HOP), sběrnice → hlavní vypínač {main_in} → XOUT; síťová ochrana z vývodu 4 (when grid_protection)", ac_core),
     ("String → střídač", "FV string s kabelem H1Z2Z2-K na DC vstup střídače (JPS)", jps_string_chain),
 ]
 

@@ -23,6 +23,9 @@ class HdsBuilder:
             "ref": node_ref(ctx.spec, ctx.topology, node.role, default="HDS"),
             "desc": node_desc(ctx.spec, ctx.topology, node.role, default="hlavní domovní skříň"),
             "in_": in_, "char": _s(o.get("char") or o.get("fuse_type") or "gG"), "poles": _s(o.get("poles") or 3)})
+        if not in_:      # stávající pojistky HDS neznámé – prázdné + chyba F7 (nic se nedosazuje)
+            el.attrs["in_unresolved"] = (f"In stávajících pojistek {el.ref} není zadané – doplňte "
+                                         f"chain.{node.role}.in_")
         ctx.sheet.elements.append(el)
         return el
 

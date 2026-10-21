@@ -532,3 +532,155 @@ def test_close_gaps_and_stack_components():
                        "connection": {"level": "vn", "station": "kobky", "loop": False, "metering": "vn",
                                       "u_vn": "35 kV", "transformer": {"sn": 1250}}})
     assert [s.paper for s in p.sheets if not s.is_switchboard] == ["A2", "A2"]
+
+
+# ---- krok 7: selektivita v řetězci přes listy, F7 ---------------------------------------------------------------
+def _codes(p) -> dict[str, list]:
+    from envocad.model.checks import check_project
+    out: dict[str, list] = {}
+    for f in check_project(p, _lib()):
+        out.setdefault(f.code, []).append(f)
+    return out
+
+
+def _with_chain(**chain):
+    return {"inverters": [{"ref": "T1", **_INV, "strings": [20, 20]}], "chain": {**_EXIST_NN, **chain}}
+
+
+def test_chain_roles_on_devices():
+    """Generátor označí přístroje řetězce atributem `chain` (kontrola selektivity přes listy)."""
+    p = build_project(_with_chain())
+    roles = {e.attrs.get("chain") for s in p.sheets for e in s.elements if e.attrs.get("chain")}
+    assert {"inv", "rfve_main", "fve_out", "main", "meter_main", "inst_switch"} <= roles
+    hr = _board(p, "HR")
+    assert next(e for e in hr.elements if e.attrs.get("chain") == "fve_out").attrs["desc"] == "vývod FVE"
+
+
+def test_chain_selectivity_findings():
+    """Nadřazené jištění přes list menší (HR 250 A → RE 160 A), rovné u HDS (RE 250 A = HDS 250 A) → varování
+    `chain_selectivity`; hodnoty se nepřepisují."""
+    from envocad.model.calc import check_selectivity_tree
+    p = build_project(_with_chain(re={"main_in": 160}))
+    msgs = [c.msg for c in check_selectivity_tree(p, _lib())]
+    assert any("menší In (160 A < 250 A)" in m for m in msgs)
+    assert "chain_selectivity" in _codes(p)
+    assert next(e for e in _board(p, "RE").elements if e.attrs.get("chain") == "meter_main").attrs["in_"] == "160"
+    p = build_project(_with_chain(hds={"in_": 250}))
+    assert any("stejné In 250 A" in c.msg for c in check_selectivity_tree(p, _lib()))
+    # zadaná In v pořádku → bez nálezů
+    assert check_selectivity_tree(build_project(_with_chain()), _lib()) == []
+
+
+def test_switch_below_protection_and_main_switch_sizing():
+    """Hlavní vypínač RFVE.AC zadaný menší než vývod FVE, který ho chrání → varování (zadané se nepřepíše);
+    nezadaný se dimenzuje nejméně na vývod FVE (9 střídačů → 400 A)."""
+    spec = {"inverters": [{"ref": f"T{i}", **_INV, "strings": [20]} for i in range(1, 5)], "chain": dict(_EXIST_NN),
+            "ac": {"main_in": 63}}
+    p = build_project(spec)
+    q = next(e for e in _board(p, "RFVE.AC").elements if e.attrs.get("chain") == "rfve_main")
+    assert q.attrs["in_"] == "63"
+    assert any("odpínač" in f.text for f in _codes(p)["chain_selectivity"])
+    p = build_project({"inverters": [{"ref": f"T{i}", **_INV, "strings": [20]} for i in range(1, 10)],
+                       "chain": {"hr": {"main_in": 630}, "re": {"main_in": 630}, "hds": {"in_": 800}}})
+    q = next(e for e in _board(p, "RFVE.AC").elements if e.attrs.get("chain") == "rfve_main")
+    assert q.attrs["in_"] == "400" and "chain_selectivity" not in _codes(p)
+
+
+def test_hds_without_in_is_f7_error():
+    p = build_project({"inverters": [{"ref": "T1", **_INV, "strings": [20, 20]}],
+                       "chain": {"hr": {"main_in": 250}, "re": {"main_in": 250}}})
+    hds = next(e for e in p.sheets[0].elements if e.symbol_id == "fve.hds")
+    assert hds.attrs["in_"] == "" and hds.attrs["in_unresolved"]
+    f = [f for f in _codes(p)["breaker_no_in"] if f.target_id == hds.id]
+    assert f and f[0].severity == "chyba"
+
+
+def test_fve_out_fuse_le80_finding():
+    """Ručně změněný vývod FVE na pojistku do 80 A → `fve_out_fuse_le80` (generátor to nedovolí – ValueError)."""
+    p = build_project(_with_chain())
+    qf = next(e for e in _board(p, "HR").elements if e.attrs.get("chain") == "fve_out")
+    qf.symbol_id, qf.attrs["in_"] = "fve.fuse_disconnect", "63"
+    assert "fve_out_fuse_le80" in _codes(p)
+
+
+def test_eps_unconnected_finding():
+    """Hybridní střídač s baterií, EPS vývod očekávaný (`eps`), BACKUP nevede na přepínač sítí → varování."""
+    p = build_project({**_with_chain(), "battery": {"e_kwh": 10, "p_kw": 5, "type": "BYD"}})
+    t = next(e for e in p.sheets[0].elements if e.symbol_id == "fve.inverter_hybrid")
+    assert "eps_unconnected" not in _codes(p)          # firma: EPS se nekreslí ani nehlásí
+    t.attrs["eps"] = "1"
+    assert "eps_unconnected" in _codes(p)
+
+
+@pytest.mark.parametrize("spec", [
+    {"inverters": [{"ref": "T1", **_INV, "strings": [20, 20]}], "chain": _EXIST_NN},
+    {"building": "apartment", "inverters": [{"ref": f"T{i}", **_INV, "strings": [20] * 3} for i in (1, 2)],
+     "chain": _EXIST_NN},
+    {"topology": "nn_hr_meter", "inverters": [{"ref": f"T{i}", **_INV, "strings": [20] * 3} for i in (1, 2)],
+     "chain": {"hr": {"main_in": 250}, "hds": {"in_": 315}}},
+    {"building": "house", "inverters": [{"ref": "T1", **_INV, "strings": [16, 16]}],
+     "chain": {"rd": {"main_in": 80}, "re": {"main_in": 80}, "hds": {"in_": 100}}},
+    # RD se 2 střídači nad 30 kWp (síťová ochrana): vícepól RFVE – DC stringy mimo stranu se sběrnými čarami
+    {"building": "house", "inverters": [{"ref": f"T{i}", **_INV, "strings": [20, 20]} for i in (1, 2)],
+     "chain": {"rd": {"main_in": 160}, "re": {"main_in": 160}, "hds": {"in_": 200}}},
+])
+def test_chain_f7_clean(spec):
+    """Řetězec firma / BD / měření v HR / RD: F7 bez chyb a varování (vč. kódů F2), bez křížení na listech JPS."""
+    from test_feed_review import _crossings
+
+    from envocad.model.checks import ERROR, WARNING, check_project
+    p = build_project(spec)
+    lib = _lib()
+    bad = [(f.code, f.ref, f.text) for f in check_project(p, lib) if f.severity in (ERROR, WARNING)]
+    assert bad == []
+    assert [(s.name, a, b) for s in p.sheets if not s.is_switchboard for a, b in _crossings(p, s, lib)] == []
+
+
+# ---- krok 8: síťová ochrana nad 30 kWp ----------------------------------------------------------------------------
+def _gp(p):
+    return [e for s in p.sheets for e in s.elements if e.symbol_id == "fve.grid_protection"]
+
+
+@pytest.mark.parametrize("macros", [None, {"dc_tech": "", "dc_route": "", "ac_feed": "", "ac_core": ""}])
+@pytest.mark.parametrize("p_wp,expect", [(500, False), (501, True)])
+def test_grid_protection_auto_threshold(p_wp, expect, macros):
+    """30,0 kWp DC bez síťové ochrany, 30,06 kWp s ní (makra i kód); relé měří z vývodu 4 sběrnice a působí na
+    hlavní vypínač; projekt nese hranici v meta."""
+    spec = {"module": {"p_wp": p_wp}, "inverters": [{"ref": "T1", **_INV, "strings": [20, 20, 20]}],
+            "chain": dict(_EXIST_NN)}
+    if macros:
+        spec["macros"] = macros
+    p = build_project(spec)
+    gp = _gp(p)
+    assert bool(gp) is expect and p.meta["grid_protection_kwp"] == "30"
+    if expect:
+        sb = _board(p, "RFVE.AC")
+        q = next(e for e in sb.elements if e.attrs.get("chain") == "rfve_main")
+        assert gp[0].attrs["acts_on"] == q.ref
+        bus = next(e for e in sb.elements if e.symbol_id == "sb.busbar")
+        w = next(w for w in sb.wires if w.touches(gp[0].id))
+        assert {w.a.element_id, w.b.element_id} == {bus.id, gp[0].id} and "4" in (w.a.port, w.b.port)
+        assert "grid_protection_missing" not in _codes(p)
+
+
+def test_grid_protection_override_and_house():
+    base = {"inverters": [{"ref": "T1", **_INV, "strings": [20]}]}          # 9 kWp
+    assert _gp(build_project({**base, "chain": {**_EXIST_NN, "rfve_ac": {"grid_protection": "1"}}}))
+    big = {"inverters": [{"ref": "T1", **_INV, "strings": [20] * 4}]}         # 36 kWp
+    p = build_project({**big, "chain": {**_EXIST_NN, "rfve_ac": {"grid_protection": "0"}}})
+    assert not _gp(p) and "grid_protection_missing" in _codes(p)
+    with pytest.raises(ValueError, match="grid_protection"):
+        build_project({**base, "chain": {"rfve_ac": {"grid_protection": "možná"}}})
+    p = build_project({"building": "house", **big})
+    assert _gp(p) and _gp(p)[0] in _board(p, "RFVE").elements
+
+
+def test_grid_protection_limit_from_standard(tmp_path, monkeypatch):
+    import json
+
+    from envocad.settings import settings_path
+    path = settings_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"standard": {"grid_protection_kwp": 50}}), encoding="utf-8")
+    p = build_project({"inverters": [{"ref": "T1", **_INV, "strings": [20] * 4}], "chain": dict(_EXIST_NN)})
+    assert not _gp(p) and p.meta["grid_protection_kwp"] == "50" and "grid_protection_missing" not in _codes(p)

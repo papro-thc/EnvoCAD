@@ -287,6 +287,7 @@ def _build_main_lv_board(p: Project, sheet: Sheet, conn: dict, ac: dict, invs=No
     feed = _feed(p, sheet, "in", x0, y + 70, "", rot=180, desc="od transformátoru")
     feed.attrs["ref"] = "XT"
     qm = _el(p, sheet, "fve.breaker_mccb", x0, y + 10, "Q", rot=270, in_=c["main_in"], poles="3", modules="9")
+    qm.attrs["chain"] = "main"
     bus = _el(p, sheet, "sb.busbar", x0 + 75, y - 25, "", desc="přípojnice nn", in_=c["main_in"],
               conductors=" ".join(AC_CONDUCTORS))
     bus.attrs["ref"] = "2"
@@ -308,6 +309,7 @@ def _build_main_lv_board(p: Project, sheet: Sheet, conn: dict, ac: dict, invs=No
     _wire(p, sheet, qm, "2", bus, "IN", AC_CONDUCTORS)
     fve_in, why = fve_feeder_in(conn, ac, invs or [])
     qf = _el(p, sheet, "fve.breaker_mccb", x0 + 7.5, y - 60, "Q", rot=270, in_=fve_in, poles="3", modules="6")
+    qf.attrs["chain"] = "fve_out"
     if not fve_in:
         qf.attrs["in_unresolved"] = why
     out_f = _feed(p, sheet, "out", x0 + 7.5, y - 95, "", desc=f"k {fve_ref} (FVE)" if fve_ref else "k AC rozvaděči FVE")

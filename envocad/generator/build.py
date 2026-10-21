@@ -55,6 +55,17 @@ def _build_project(spec: dict) -> Project:
     invs = spec.get("inverters") or []
     if not invs:
         raise ValueError("Specifikace musí obsahovat alespoň jeden střídač (`inverters`).")
+    if not _s((raw.get("ac") or {}).get("breaker_in")).strip():
+        # jistič přívodu střídače nezadaný: podle proudu střídače (`rfve_ac.size_inverter_breakers`)
+        spec["ac"] = {**spec["ac"], "breaker_in_auto": "1"}
+    if not _s((raw.get("ac") or {}).get("main_in")).strip():
+        # hlavní vypínač RFVE.AC / RFVE nezadaný: nejméně výchozí 125 A a nejméně vývod FVE v RD / HR (nejbližší
+        # velikost ≥ Σ In střídačů) – jinak by odpínač ležel pod In jištění, které ho chrání (F7 `chain_selectivity`)
+        from envocad.generator.boards.mv import LV_FEEDER_SIZES, _next_size, inverters_ac_current
+        i_fve = inverters_ac_current(invs)
+        if i_fve:
+            main = max(float(DEFAULT_SPEC["ac"]["main_in"]), _next_size(i_fve, LV_FEEDER_SIZES))
+            spec["ac"] = {**spec["ac"], "main_in": f"{main:g}"}
     if (spec["ac"].get("distribution") or "bus") == "bus" and len(invs) > AC_MAX_INVERTERS_BUS:
         raise ValueError(f"AC rozvaděč: sběrnice má {AC_MAX_INVERTERS_BUS} přívodů – nejvýš {AC_MAX_INVERTERS_BUS} "
                          f"střídačů (zadáno {len(invs)}). Zvolte rozvod svorkami nebo rozdělte FVE na více rozvaděčů.")

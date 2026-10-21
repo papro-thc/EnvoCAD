@@ -51,6 +51,34 @@ def _num0(v) -> float:
         return 0.0
 
 
+def grid_protection_limit() -> float:
+    """Hranice síťové ochrany [kWp DC] z firemního standardu (`standard.grid_protection_kwp`, výchozí 30)."""
+    from envocad.settings import load_settings
+    try:
+        v = float(str(load_settings()["standard"].get("grid_protection_kwp") or GRID_PROTECTION_KWP).replace(",", "."))
+    except (OSError, ValueError, KeyError, TypeError):
+        return GRID_PROTECTION_KWP
+    return v if v > 0 else GRID_PROTECTION_KWP
+
+
+GRID_PROTECTION_CHOICES = {"": "auto", "auto": "auto", "1": "1", "ano": "1", "true": "1", "yes": "1",
+                           "0": "0", "ne": "0", "false": "0", "no": "0"}
+
+
+def grid_protection_wanted(spec: Mapping, topology: Topology | None, role: str, kwp: float,
+                           limit: float | None = None) -> bool:
+    """Síťová ochrana v hlavním AC článku (`role` rfve_ac, u rodinného domu rfve): `chain.<role>.grid_protection`
+    `auto` (výchozí: instalovaný výkon DC nad hranicí `grid_protection_limit`) | `1` | `0`; jiná hodnota →
+    ValueError česky."""
+    v = chain_options(spec, topology, role).get("grid_protection")
+    t = "1" if v is True else "0" if v is False else GRID_PROTECTION_CHOICES.get(_s(v).strip().lower())
+    if t is None:
+        raise ValueError(f"chain.{role}.grid_protection: neznámá hodnota „{v}“ – zadejte auto, 1 nebo 0.")
+    if t == "auto":
+        return kwp > (limit if limit is not None else grid_protection_limit()) + 1e-9
+    return t == "1"
+
+
 def installed_kwp(spec: Mapping) -> float:
     """Instalovaný výkon DC [kWp] = Σ modulů ve stringech × `module.p_wp` / 1000 (rozhodnutí 1). Chybí-li `p_wp`
     nebo počty modulů, počítá se 0 (specifikaci před sloučením s `DEFAULT_SPEC` doplní volající)."""

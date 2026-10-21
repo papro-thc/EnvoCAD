@@ -7,6 +7,7 @@
     "dc_cable": "H1Z2Z2-K 1x6", "dc_cross": 6, "ac_cable": "CYKY-J 5x16", "ac_cross": 16,
     "switchboard_paper": "A4",                             // strany schématu rozvaděče: A4 / A4 na výšku / A3
     "jps_max_paper": "A2",                                 // největší list JPS z generátoru, větší se rozdělí na listy
+    "grid_protection_kwp": 30,                             // síťová ochrana v RFVE.AC / RFVE nad tímto výkonem DC [kWp]
     "doc_jps_page": "A3",                                  // listy JPS v PDF dokumentace: "A3" = zmenšit, "list" = skutečný formát
     "preferred_manufacturers": ["OEZ", "Eaton", "Weidmüller"],
     "pv_t_min": -20, "pv_t_max": 70,                       // návrhové teploty stringů [°C] pro průvodce
@@ -29,6 +30,7 @@ DEFAULTS = {
         "author": "", "company": "ENVO s.r.o.",
         "dc_cable": "H1Z2Z2-K 1x6", "dc_cross": 6, "ac_cable": "CYKY-J 5x16", "ac_cross": 16,
         "grid_cable": "CYKY-J 5x35", "grid_cross": 35,
+        "grid_protection_kwp": 30,   # nad tento instalovaný výkon DC [kWp] generátor kreslí síťovou ochranu (F2)
         "jps_max_paper": "A2",       # větší JPS generátor rozdělí na listy tohoto formátu (AC list + listy střídačů)
         "doc_jps_page": "A3",        # listy JPS v PDF dokumentace: „A3“ = zmenšit na A3, „list“ = skutečný formát listu
         "switchboard_paper": "A4",   # strany schématu rozvaděče a plánu svorkovnice: „A4“, „A4 na výšku“, „A3“

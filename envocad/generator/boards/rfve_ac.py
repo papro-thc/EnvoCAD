@@ -107,6 +107,23 @@ def _ac_core_parametric(project: Project, sheet: Sheet, bus: Element) -> None:
                 if o is not None and o is not bus and o.y < q.y:
                     o.x += dx
         q.x += dx
+    # další vývody vpravo (4… – síťová ochrana) rovně pod svůj port za hlavním vypínačem; počet vývodů vpravo
+    # (`outs`) podle nejvyššího použitého
+    right = [int(e.port) for e, _o in ends if re.fullmatch(r"\d+", e.port) and int(e.port) >= 3]
+    if right:
+        bus.attrs[OUTS_ATTR] = str(max(int(_s(bus.attrs.get(OUTS_ATTR)) or 1), max(right) - 2))
+    lay = layout_of(bus, {e.port for e, _o in ends})
+    for end, o in ends:
+        el = by_id.get(o.element_id)
+        if el is None or el.symbol_id == "sb.main_switch" or not re.fullmatch(r"\d+", end.port) or int(end.port) < 4:
+            continue
+        dx = bus.x + lay.out_x(end.port) - el.x
+        for w in sheet.wires:
+            if w.touches(el.id):
+                o2 = by_id.get(w.b.element_id if w.a.element_id == el.id else w.a.element_id)
+                if o2 is not None and o2 is not bus and o2.y < el.y:
+                    o2.x += dx
+        el.x += dx
     _bus_drop_points(project, sheet, bus)
 
 
@@ -167,6 +184,15 @@ def _bus_drop_points(project: Project, sheet: Sheet, bus: Element) -> None:
             w.points = pts if bus_first else pts[::-1]
 
 
+GRID_PROTECTION_SYMBOL = "fve.grid_protection"
+
+
+def _grid_protection(project: Project, sheet: Sheet, x: float, y: float) -> Element:
+    """Síťová ochrana (U<, U>, f<, f>): měření z rozvodu (port U nahoře), působí na hlavní vypínač – `acts_on`
+    doplní `mark_chain_devices` (označení vypínače je známé až po vložení)."""
+    return _el(project, sheet, GRID_PROTECTION_SYMBOL, x, y, "F", modules="4")
+
+
 def _build_ac_switchboard(project: Project, sheet: Sheet, invs: list[dict], ac: dict, spec: dict) -> None:
     """AC rozvaděč FVE (bez maker): přívody od střídačů (X1…Xn) zespodu → jističe → rozvod → hlavní vypínač → vývod do
     HDS; SPD, PE (XPE nebo PE lišta). Rozvod podle `ac.distribution`: "bus" = sběrnice potenciálů (vodič, jako
@@ -224,7 +250,12 @@ def _build_ac_switchboard(project: Project, sheet: Sheet, invs: list[dict], ac: 
         _wire(project, sheet, bus, "1", xpe, "1", ["PE"])
         _wire(project, sheet, bus, "3", q, "1", AC_CONDUCTORS)
         _wire(project, sheet, q, "2", out, "1", AC_CONDUCTORS)
-        _place_sequential(sheet, [q, spd, *breakers])
+        extra = []
+        if ac.get("grid_protection"):      # síťová ochrana: měří z přípojnice (vývod 4 za hlavním vypínačem)
+            gp = _grid_protection(project, sheet, x_q + GROUP_PITCH, AC_ROW_DEVICES)
+            _wire(project, sheet, bus, "4", gp, "U", AC_CONDUCTORS[:4])
+            extra.append(gp)
+        _place_sequential(sheet, [q, *extra, spd, *breakers])
         _ac_core_after_feeds(project, sheet)
     else:
         x_spd = x0 + n * GROUP_PITCH
@@ -247,8 +278,13 @@ def _build_ac_switchboard(project: Project, sheet: Sheet, invs: list[dict], ac: 
         _wire(project, sheet, g_out, "2", q, "1", AC_CONDUCTORS)
         _wire(project, sheet, spd, "PE", pe, "2", ["PE"])
         _wire(project, sheet, q, "2", out, "1", AC_CONDUCTORS)
+        extra = []
+        if ac.get("grid_protection"):      # síťová ochrana: měří ze skupiny vývodu (rozvod svorkami)
+            gp = _grid_protection(project, sheet, x_out + 25.0, y - 60)
+            _wire(project, sheet, g_out, "2", gp, "U", AC_CONDUCTORS[:4])
+            extra.append(gp)
         # skupiny rozvodných svorek zabírají na liště počet svorek × šířka svorky (`Element.modules`)
-        _place_sequential(sheet, [q, spd, *breakers, *groups, g_spd, g_out])
+        _place_sequential(sheet, [q, *extra, spd, *breakers, *groups, g_spd, g_out])
     if ac.get("enclosure"):
         sheet.layout.params["type"] = _s(ac["enclosure"])
 
@@ -259,8 +295,15 @@ def build_main_sheet(ctx: ChainContext) -> Sheet:
     from envocad.generator.boards.macro_glue import _ac_box_from_macros
     from envocad.generator.boards.rfve_dc import build_dc_sheets
     build_dc_sheets(ctx)
+    from envocad.generator.spec import grid_protection_limit, grid_protection_wanted
     p, spec = ctx.project, ctx.spec
-    invs, ac = spec.get("inverters") or [], spec["ac"]
+    invs = spec.get("inverters") or []
+    # síťová ochrana nad hranicí kWp (u rodinného domu v RFVE) – podmíněné prvky `when: grid_protection`
+    limit = grid_protection_limit()
+    role = "rfve" if ctx.combined else "rfve_ac"
+    gp = grid_protection_wanted(spec, ctx.topology, role, ctx.kwp, limit)
+    p.meta["grid_protection_kwp"] = f"{limit:g}"
+    ac = {**spec["ac"], "grid_protection": "1" if gp else ""}
     sb = p.create_switchboard_sheet(ctx.main)
     sb.layout.params.setdefault("network", "3NPE, 50 Hz")
     sb.layout.params.setdefault("un", "230/400 V")
@@ -268,8 +311,73 @@ def build_main_sheet(ctx: ChainContext) -> Sheet:
     if not _ac_box_from_macros(p, sb, invs, ac, spec.get("macros") or {}):
         _build_ac_switchboard(p, sb, invs, ac, spec)
     single_phase_feeds(ctx, sb)
+    mark_chain_devices(ctx, sb)
     ctx.done.add("main")
     return sb
+
+
+AC3_BREAKER_SIZES = (10, 13, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125)
+
+
+def inverter_breaker_in(t: Element) -> str:
+    """In jističe přívodu třífázového střídače: nejbližší řada ≥ P AC / (√3 · 400 V); neznámý výkon → ""."""
+    import math
+
+    from envocad.generator.context import _num
+    p_kw = _num(t.attrs.get("p_ac"))
+    if not p_kw:
+        return ""
+    i_a = p_kw * 1000 / (math.sqrt(3) * 400.0)
+    return f"{next((x for x in AC3_BREAKER_SIZES if x >= i_a - 1e-9), AC3_BREAKER_SIZES[-1]):g}"
+
+
+CHAIN_DEVICE_SYMBOLS = ("fve.breaker_mcb", "fve.breaker_mccb", "sb.rcbo", "fve.fuse", "fve.fuse_disconnect",
+                        "sb.main_switch")
+
+
+def first_device(sheet: Sheet, start: Element, symbols=CHAIN_DEVICE_SYMBOLS, depth: int = 4) -> Element | None:
+    """První přístroj (`symbols`) od prvku `start` (přívod / vývod listu) po vodičích listu – přes svorky a uzly."""
+    by_id = {e.id: e for e in sheet.elements}
+    seen, frontier = {start.id}, [start]
+    for _ in range(depth):
+        nxt = []
+        for cur in frontier:
+            for w in sheet.wires:
+                if not w.touches(cur.id):
+                    continue
+                o = by_id.get(w.b.element_id if w.a.element_id == cur.id else w.a.element_id)
+                if o is None or o.id in seen:
+                    continue
+                if o.symbol_id in symbols:
+                    return o
+                if o.symbol_id.startswith(("sb.busbar", "fve.busbar")):
+                    continue                 # za rozvodem už jiná větev
+                seen.add(o.id)
+                nxt.append(o)
+        frontier = nxt
+    return None
+
+
+def mark_chain_devices(ctx: ChainContext, sb: Sheet) -> None:
+    """Role přístrojů v řetězci (atribut `chain`, kontrola selektivity přes listy `calc.check_selectivity_tree`):
+    jištění přívodu střídače `inv`, hlavní vypínač rozvaděče FVE `rfve_main` (z maker i kódem)."""
+    feeds = {e.ref: e for e in sb.elements if is_feed(e)}
+    auto = bool(_s(ctx.spec["ac"].get("breaker_in_auto")))
+    for w, t in zip(ctx.ac_wires, ctx.inverters):
+        port = w.b.port if w.b.element_id == ctx.main.id else w.a.port
+        f = feeds.get(port)
+        d = first_device(sb, f) if f is not None else None
+        if d is not None and d.symbol_id != "sb.main_switch":
+            d.attrs["chain"] = "inv"
+            if auto and _s(d.attrs.get("poles")) != "2":     # jednofázový už podle proudu (`single_phase_feeds`)
+                d.attrs["in_"] = inverter_breaker_in(t) or d.attrs.get("in_", "")
+    out = feeds.get("XOUT")
+    q = first_device(sb, out) if out is not None else None
+    if q is not None:
+        q.attrs["chain"] = "rfve_main"
+    for e in sb.elements:             # síťová ochrana působí na vazební (hlavní) vypínač
+        if e.symbol_id == GRID_PROTECTION_SYMBOL and not _s(e.attrs.get("acts_on")).strip() and q is not None:
+            e.attrs["acts_on"] = q.ref
 
 
 def single_phase_feeds(ctx: ChainContext, sb: Sheet) -> None:

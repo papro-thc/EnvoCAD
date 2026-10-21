@@ -7,7 +7,8 @@
    "building": "firma",
    "topology": "nn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
-   "p_installed_kwp": "26.1"
+   "p_installed_kwp": "26.1",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -200,6 +201,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null,
@@ -1799,7 +1801,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -1862,7 +1865,8 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
@@ -2108,7 +2112,8 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič",
-       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in"
+       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
@@ -2138,7 +2143,8 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
@@ -2353,6 +2359,7 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
@@ -2381,7 +2388,8 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
@@ -2842,7 +2850,8 @@
    "building": "firma",
    "topology": "nn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
-   "p_installed_kwp": "44.1"
+   "p_installed_kwp": "44.1",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -3111,6 +3120,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null,
@@ -5598,12 +5608,17 @@
        "element_id": "#142",
        "row": 0,
        "pos": 10.0
+      },
+      {
+       "element_id": "#143",
+       "row": 0,
+       "pos": 14.0
       }
      ]
     },
     "elements": [
      {
-      "id": "#143",
+      "id": "#144",
       "symbol_id": "sb.feed",
       "x": 105.0,
       "y": 105.0,
@@ -5629,12 +5644,13 @@
        "in_": "50",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#144",
+      "id": "#145",
       "symbol_id": "sb.busbar",
       "x": 165.0,
       "y": 175.0,
@@ -5646,13 +5662,13 @@
        "conductors": "L1 L2 L3 N PE",
        "shared": "1",
        "taps": "2",
-       "outs": "1",
+       "outs": "2",
        "tap_pitch": "30"
       },
       "component_id": null
      },
      {
-      "id": "#145",
+      "id": "#146",
       "symbol_id": "sb.feed",
       "x": 135.0,
       "y": 105.0,
@@ -5678,7 +5694,8 @@
        "in_": "50",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -5697,7 +5714,7 @@
       "component_id": null
      },
      {
-      "id": "#146",
+      "id": "#147",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 105.0,
@@ -5723,12 +5740,13 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
      {
-      "id": "#147",
+      "id": "#148",
       "symbol_id": "sb.feed",
       "x": 172.5,
       "y": 105.0,
@@ -5742,41 +5760,31 @@
        "cable": "CYKY-J 5x35 35"
       },
       "component_id": null
+     },
+     {
+      "id": "#143",
+      "symbol_id": "fve.grid_protection",
+      "x": 202.5,
+      "y": 140.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "F4",
+       "modules": "4",
+       "acts_on": "Q1"
+      },
+      "component_id": null
      }
     ],
     "wires": [
      {
-      "id": "#148",
-      "a": {
-       "element_id": "#143",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#139",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#149",
       "a": {
-       "element_id": "#139",
-       "port": "2"
+       "element_id": "#144",
+       "port": "1"
       },
       "b": {
-       "element_id": "#144",
-       "port": "B1"
+       "element_id": "#139",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -5794,12 +5802,12 @@
      {
       "id": "#150",
       "a": {
-       "element_id": "#145",
-       "port": "1"
+       "element_id": "#139",
+       "port": "2"
       },
       "b": {
-       "element_id": "#140",
-       "port": "1"
+       "element_id": "#145",
+       "port": "B1"
       },
       "points": [],
       "attrs": {
@@ -5817,12 +5825,12 @@
      {
       "id": "#151",
       "a": {
-       "element_id": "#140",
-       "port": "2"
+       "element_id": "#146",
+       "port": "1"
       },
       "b": {
-       "element_id": "#144",
-       "port": "B2"
+       "element_id": "#140",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -5840,7 +5848,30 @@
      {
       "id": "#152",
       "a": {
-       "element_id": "#144",
+       "element_id": "#140",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#145",
+       "port": "B2"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#153",
+      "a": {
+       "element_id": "#145",
        "port": "2"
       },
       "b": {
@@ -5860,13 +5891,13 @@
       "terminals": {}
      },
      {
-      "id": "#153",
+      "id": "#154",
       "a": {
        "element_id": "#141",
        "port": "PE"
       },
       "b": {
-       "element_id": "#146",
+       "element_id": "#147",
        "port": "1"
       },
       "points": [
@@ -5888,13 +5919,13 @@
       "terminals": {}
      },
      {
-      "id": "#154",
+      "id": "#155",
       "a": {
-       "element_id": "#144",
+       "element_id": "#145",
        "port": "1"
       },
       "b": {
-       "element_id": "#146",
+       "element_id": "#147",
        "port": "1"
       },
       "points": [],
@@ -5907,9 +5938,9 @@
       "terminals": {}
      },
      {
-      "id": "#155",
+      "id": "#156",
       "a": {
-       "element_id": "#144",
+       "element_id": "#145",
        "port": "3"
       },
       "b": {
@@ -5930,13 +5961,13 @@
       "terminals": {}
      },
      {
-      "id": "#156",
+      "id": "#157",
       "a": {
        "element_id": "#142",
        "port": "2"
       },
       "b": {
-       "element_id": "#147",
+       "element_id": "#148",
        "port": "1"
       },
       "points": [],
@@ -5951,6 +5982,28 @@
        "PE"
       ],
       "terminals": {}
+     },
+     {
+      "id": "#158",
+      "a": {
+       "element_id": "#145",
+       "port": "4"
+      },
+      "b": {
+       "element_id": "#143",
+       "port": "U"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N"
+      ],
+      "terminals": {}
      }
     ],
     "bridges": {},
@@ -5958,7 +6011,7 @@
     "loc": "RFVE.AC"
    },
    {
-    "id": "#157",
+    "id": "#159",
     "name": "HR – hlavní rozvaděč",
     "paper": "A3",
     "width": 420.0,
@@ -5975,12 +6028,12 @@
      },
      "placements": [
       {
-       "element_id": "#158",
+       "element_id": "#160",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#159",
+       "element_id": "#161",
        "row": 0,
        "pos": 3.0
       }
@@ -5988,7 +6041,7 @@
     },
     "elements": [
      {
-      "id": "#160",
+      "id": "#162",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 235.0,
@@ -6003,7 +6056,7 @@
       "component_id": null
      },
      {
-      "id": "#158",
+      "id": "#160",
       "symbol_id": "fve.breaker_mcb",
       "x": 60.0,
       "y": 200.0,
@@ -6015,12 +6068,13 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič",
-       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in"
+       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
      {
-      "id": "#161",
+      "id": "#163",
       "symbol_id": "sb.busbar",
       "x": 135.0,
       "y": 165.0,
@@ -6034,7 +6088,7 @@
       "component_id": null
      },
      {
-      "id": "#159",
+      "id": "#161",
       "symbol_id": "fve.breaker_mcb",
       "x": 67.5,
       "y": 130.0,
@@ -6045,12 +6099,13 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
      {
-      "id": "#162",
+      "id": "#164",
       "symbol_id": "sb.feed",
       "x": 67.5,
       "y": 95.0,
@@ -6066,7 +6121,7 @@
       "component_id": null
      },
      {
-      "id": "#163",
+      "id": "#165",
       "symbol_id": "sb.feed",
       "x": 127.5,
       "y": 95.0,
@@ -6083,59 +6138,13 @@
     ],
     "wires": [
      {
-      "id": "#164",
-      "a": {
-       "element_id": "#160",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#158",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#165",
-      "a": {
-       "element_id": "#158",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#161",
-       "port": "IN"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#166",
       "a": {
-       "element_id": "#161",
+       "element_id": "#162",
        "port": "1"
       },
       "b": {
-       "element_id": "#159",
+       "element_id": "#160",
        "port": "1"
       },
       "points": [],
@@ -6154,12 +6163,12 @@
      {
       "id": "#167",
       "a": {
-       "element_id": "#159",
+       "element_id": "#160",
        "port": "2"
       },
       "b": {
-       "element_id": "#162",
-       "port": "1"
+       "element_id": "#163",
+       "port": "IN"
       },
       "points": [],
       "attrs": {
@@ -6177,11 +6186,57 @@
      {
       "id": "#168",
       "a": {
+       "element_id": "#163",
+       "port": "1"
+      },
+      "b": {
        "element_id": "#161",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#169",
+      "a": {
+       "element_id": "#161",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#164",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#170",
+      "a": {
+       "element_id": "#163",
        "port": "5"
       },
       "b": {
-       "element_id": "#163",
+       "element_id": "#165",
        "port": "1"
       },
       "points": [],
@@ -6203,7 +6258,7 @@
     "loc": "HR"
    },
    {
-    "id": "#169",
+    "id": "#171",
     "name": "RE – elektroměrový rozvaděč",
     "paper": "A3",
     "width": 420.0,
@@ -6220,12 +6275,12 @@
      },
      "placements": [
       {
-       "element_id": "#170",
+       "element_id": "#172",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#171",
+       "element_id": "#173",
        "row": 0,
        "pos": 3.0
       }
@@ -6233,7 +6288,7 @@
     },
     "elements": [
      {
-      "id": "#172",
+      "id": "#174",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 235.0,
@@ -6248,7 +6303,7 @@
       "component_id": null
      },
      {
-      "id": "#170",
+      "id": "#172",
       "symbol_id": "fve.breaker_mcb",
       "x": 60.0,
       "y": 200.0,
@@ -6260,12 +6315,13 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
      },
      {
-      "id": "#173",
+      "id": "#175",
       "symbol_id": "fve.meter",
       "x": 60.0,
       "y": 170.0,
@@ -6278,7 +6334,7 @@
       "component_id": null
      },
      {
-      "id": "#171",
+      "id": "#173",
       "symbol_id": "sb.main_switch",
       "x": 60.0,
       "y": 140.0,
@@ -6288,12 +6344,13 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
      {
-      "id": "#174",
+      "id": "#176",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 105.0,
@@ -6310,59 +6367,13 @@
     ],
     "wires": [
      {
-      "id": "#175",
-      "a": {
-       "element_id": "#170",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#173",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#176",
-      "a": {
-       "element_id": "#173",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#171",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#177",
       "a": {
        "element_id": "#172",
-       "port": "1"
+       "port": "2"
       },
       "b": {
-       "element_id": "#170",
+       "element_id": "#175",
        "port": "1"
       },
       "points": [],
@@ -6381,11 +6392,57 @@
      {
       "id": "#178",
       "a": {
-       "element_id": "#171",
+       "element_id": "#175",
        "port": "2"
       },
       "b": {
+       "element_id": "#173",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#179",
+      "a": {
        "element_id": "#174",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#172",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#180",
+      "a": {
+       "element_id": "#173",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#176",
        "port": "1"
       },
       "points": [],
@@ -6929,7 +6986,8 @@
    "building": "firma",
    "topology": "nn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
-   "p_installed_kwp": "17.1"
+   "p_installed_kwp": "17.1",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -7114,6 +7172,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null,
@@ -8646,7 +8705,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -8687,7 +8747,8 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
@@ -8999,7 +9060,8 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič",
-       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in"
+       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
@@ -9029,7 +9091,8 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
@@ -9244,6 +9307,7 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
@@ -9272,7 +9336,8 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
@@ -9696,7 +9761,8 @@
    "building": "firma",
    "topology": "nn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
-   "p_installed_kwp": "34.2"
+   "p_installed_kwp": "34.2",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -9913,6 +9979,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null,
@@ -11881,12 +11948,17 @@
        "element_id": "#114",
        "row": 0,
        "pos": 7.0
+      },
+      {
+       "element_id": "#115",
+       "row": 0,
+       "pos": 11.0
       }
      ]
     },
     "elements": [
      {
-      "id": "#115",
+      "id": "#116",
       "symbol_id": "sb.feed",
       "x": 105.0,
       "y": 105.0,
@@ -11912,12 +11984,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#116",
+      "id": "#117",
       "symbol_id": "sb.busbar",
       "x": 165.0,
       "y": 175.0,
@@ -11929,7 +12002,7 @@
        "conductors": "L1 L2 L3 N PE",
        "shared": "1",
        "taps": "1",
-       "outs": "1",
+       "outs": "2",
        "tap_pitch": "30"
       },
       "component_id": null
@@ -11949,7 +12022,7 @@
       "component_id": null
      },
      {
-      "id": "#117",
+      "id": "#118",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 105.0,
@@ -11975,12 +12048,13 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
      {
-      "id": "#118",
+      "id": "#119",
       "symbol_id": "sb.feed",
       "x": 142.5,
       "y": 105.0,
@@ -11994,41 +12068,31 @@
        "cable": "CYKY-J 5x35 35"
       },
       "component_id": null
+     },
+     {
+      "id": "#115",
+      "symbol_id": "fve.grid_protection",
+      "x": 172.5,
+      "y": 140.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "F3",
+       "modules": "4",
+       "acts_on": "Q1"
+      },
+      "component_id": null
      }
     ],
     "wires": [
      {
-      "id": "#119",
-      "a": {
-       "element_id": "#115",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#112",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#120",
       "a": {
-       "element_id": "#112",
-       "port": "2"
+       "element_id": "#116",
+       "port": "1"
       },
       "b": {
-       "element_id": "#116",
-       "port": "B1"
+       "element_id": "#112",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -12046,7 +12110,30 @@
      {
       "id": "#121",
       "a": {
-       "element_id": "#116",
+       "element_id": "#112",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#117",
+       "port": "B1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#122",
+      "a": {
+       "element_id": "#117",
        "port": "2"
       },
       "b": {
@@ -12066,13 +12153,13 @@
       "terminals": {}
      },
      {
-      "id": "#122",
+      "id": "#123",
       "a": {
        "element_id": "#113",
        "port": "PE"
       },
       "b": {
-       "element_id": "#117",
+       "element_id": "#118",
        "port": "1"
       },
       "points": [
@@ -12094,13 +12181,13 @@
       "terminals": {}
      },
      {
-      "id": "#123",
+      "id": "#124",
       "a": {
-       "element_id": "#116",
+       "element_id": "#117",
        "port": "1"
       },
       "b": {
-       "element_id": "#117",
+       "element_id": "#118",
        "port": "1"
       },
       "points": [],
@@ -12113,9 +12200,9 @@
       "terminals": {}
      },
      {
-      "id": "#124",
+      "id": "#125",
       "a": {
-       "element_id": "#116",
+       "element_id": "#117",
        "port": "3"
       },
       "b": {
@@ -12136,13 +12223,13 @@
       "terminals": {}
      },
      {
-      "id": "#125",
+      "id": "#126",
       "a": {
        "element_id": "#114",
        "port": "2"
       },
       "b": {
-       "element_id": "#118",
+       "element_id": "#119",
        "port": "1"
       },
       "points": [],
@@ -12157,6 +12244,28 @@
        "PE"
       ],
       "terminals": {}
+     },
+     {
+      "id": "#127",
+      "a": {
+       "element_id": "#117",
+       "port": "4"
+      },
+      "b": {
+       "element_id": "#115",
+       "port": "U"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N"
+      ],
+      "terminals": {}
      }
     ],
     "bridges": {},
@@ -12164,7 +12273,7 @@
     "loc": "RFVE.AC"
    },
    {
-    "id": "#126",
+    "id": "#128",
     "name": "HR – hlavní rozvaděč",
     "paper": "A3",
     "width": 420.0,
@@ -12181,12 +12290,12 @@
      },
      "placements": [
       {
-       "element_id": "#127",
+       "element_id": "#129",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#128",
+       "element_id": "#130",
        "row": 0,
        "pos": 3.0
       }
@@ -12194,7 +12303,7 @@
     },
     "elements": [
      {
-      "id": "#129",
+      "id": "#131",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 235.0,
@@ -12209,7 +12318,7 @@
       "component_id": null
      },
      {
-      "id": "#127",
+      "id": "#129",
       "symbol_id": "fve.breaker_mcb",
       "x": 60.0,
       "y": 200.0,
@@ -12221,12 +12330,13 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič",
-       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in"
+       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
      {
-      "id": "#130",
+      "id": "#132",
       "symbol_id": "sb.busbar",
       "x": 135.0,
       "y": 165.0,
@@ -12240,7 +12350,7 @@
       "component_id": null
      },
      {
-      "id": "#128",
+      "id": "#130",
       "symbol_id": "fve.breaker_mcb",
       "x": 67.5,
       "y": 130.0,
@@ -12251,12 +12361,13 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
      {
-      "id": "#131",
+      "id": "#133",
       "symbol_id": "sb.feed",
       "x": 67.5,
       "y": 95.0,
@@ -12272,7 +12383,7 @@
       "component_id": null
      },
      {
-      "id": "#132",
+      "id": "#134",
       "symbol_id": "sb.feed",
       "x": 127.5,
       "y": 95.0,
@@ -12289,59 +12400,13 @@
     ],
     "wires": [
      {
-      "id": "#133",
-      "a": {
-       "element_id": "#129",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#127",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#134",
-      "a": {
-       "element_id": "#127",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#130",
-       "port": "IN"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#135",
       "a": {
-       "element_id": "#130",
+       "element_id": "#131",
        "port": "1"
       },
       "b": {
-       "element_id": "#128",
+       "element_id": "#129",
        "port": "1"
       },
       "points": [],
@@ -12360,12 +12425,12 @@
      {
       "id": "#136",
       "a": {
-       "element_id": "#128",
+       "element_id": "#129",
        "port": "2"
       },
       "b": {
-       "element_id": "#131",
-       "port": "1"
+       "element_id": "#132",
+       "port": "IN"
       },
       "points": [],
       "attrs": {
@@ -12383,11 +12448,57 @@
      {
       "id": "#137",
       "a": {
+       "element_id": "#132",
+       "port": "1"
+      },
+      "b": {
        "element_id": "#130",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#138",
+      "a": {
+       "element_id": "#130",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#133",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#139",
+      "a": {
+       "element_id": "#132",
        "port": "5"
       },
       "b": {
-       "element_id": "#132",
+       "element_id": "#134",
        "port": "1"
       },
       "points": [],
@@ -12409,7 +12520,7 @@
     "loc": "HR"
    },
    {
-    "id": "#138",
+    "id": "#140",
     "name": "RE – elektroměrový rozvaděč",
     "paper": "A3",
     "width": 420.0,
@@ -12426,12 +12537,12 @@
      },
      "placements": [
       {
-       "element_id": "#139",
+       "element_id": "#141",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#140",
+       "element_id": "#142",
        "row": 0,
        "pos": 3.0
       }
@@ -12439,7 +12550,7 @@
     },
     "elements": [
      {
-      "id": "#141",
+      "id": "#143",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 235.0,
@@ -12454,7 +12565,7 @@
       "component_id": null
      },
      {
-      "id": "#139",
+      "id": "#141",
       "symbol_id": "fve.breaker_mcb",
       "x": 60.0,
       "y": 200.0,
@@ -12466,12 +12577,13 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
      },
      {
-      "id": "#142",
+      "id": "#144",
       "symbol_id": "fve.meter",
       "x": 60.0,
       "y": 170.0,
@@ -12484,7 +12596,7 @@
       "component_id": null
      },
      {
-      "id": "#140",
+      "id": "#142",
       "symbol_id": "sb.main_switch",
       "x": 60.0,
       "y": 140.0,
@@ -12494,12 +12606,13 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
      {
-      "id": "#143",
+      "id": "#145",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 105.0,
@@ -12516,59 +12629,13 @@
     ],
     "wires": [
      {
-      "id": "#144",
-      "a": {
-       "element_id": "#139",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#142",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#145",
-      "a": {
-       "element_id": "#142",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#140",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#146",
       "a": {
        "element_id": "#141",
-       "port": "1"
+       "port": "2"
       },
       "b": {
-       "element_id": "#139",
+       "element_id": "#144",
        "port": "1"
       },
       "points": [],
@@ -12587,11 +12654,57 @@
      {
       "id": "#147",
       "a": {
-       "element_id": "#140",
+       "element_id": "#144",
        "port": "2"
       },
       "b": {
+       "element_id": "#142",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#148",
+      "a": {
        "element_id": "#143",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#141",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#149",
+      "a": {
+       "element_id": "#142",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#145",
        "port": "1"
       },
       "points": [],
@@ -13023,7 +13136,8 @@
    "building": "firma",
    "topology": "nn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
-   "p_installed_kwp": "153.9"
+   "p_installed_kwp": "153.9",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -13803,6 +13917,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null,
@@ -22069,7 +22184,7 @@
      "params": {
       "network": "3NPE, 50 Hz",
       "un": "230/400 V",
-      "in_": "125"
+      "in_": "400"
      },
      "placements": [
       {
@@ -22126,12 +22241,17 @@
        "element_id": "#464",
        "row": 1,
        "pos": 7.0
+      },
+      {
+       "element_id": "#465",
+       "row": 1,
+       "pos": 11.0
       }
      ]
     },
     "elements": [
      {
-      "id": "#465",
+      "id": "#466",
       "symbol_id": "sb.feed",
       "x": 105.0,
       "y": 105.0,
@@ -22157,12 +22277,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#466",
+      "id": "#467",
       "symbol_id": "sb.busbar",
       "x": 165.0,
       "y": 175.0,
@@ -22170,17 +22291,17 @@
       "attrs": {
        "ref": "1",
        "desc": "rozvod AC",
-       "in_": "125",
+       "in_": "400",
        "conductors": "L1 L2 L3 N PE",
        "shared": "1",
        "taps": "9",
-       "outs": "1",
+       "outs": "2",
        "tap_pitch": "30"
       },
       "component_id": null
      },
      {
-      "id": "#467",
+      "id": "#468",
       "symbol_id": "sb.feed",
       "x": 135.0,
       "y": 105.0,
@@ -22206,12 +22327,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#468",
+      "id": "#469",
       "symbol_id": "sb.feed",
       "x": 165.0,
       "y": 105.0,
@@ -22237,12 +22359,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#469",
+      "id": "#470",
       "symbol_id": "sb.feed",
       "x": 195.0,
       "y": 105.0,
@@ -22268,12 +22391,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#470",
+      "id": "#471",
       "symbol_id": "sb.feed",
       "x": 225.0,
       "y": 105.0,
@@ -22299,12 +22423,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#471",
+      "id": "#472",
       "symbol_id": "sb.feed",
       "x": 255.0,
       "y": 105.0,
@@ -22330,12 +22455,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#472",
+      "id": "#473",
       "symbol_id": "sb.feed",
       "x": 285.0,
       "y": 105.0,
@@ -22361,12 +22487,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#473",
+      "id": "#474",
       "symbol_id": "sb.feed",
       "x": 315.0,
       "y": 105.0,
@@ -22392,12 +22519,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#474",
+      "id": "#475",
       "symbol_id": "sb.feed",
       "x": 345.0,
       "y": 105.0,
@@ -22423,7 +22551,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -22442,7 +22571,7 @@
       "component_id": null
      },
      {
-      "id": "#475",
+      "id": "#476",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 105.0,
@@ -22466,14 +22595,15 @@
       "rotation": 270,
       "attrs": {
        "ref": "Q1",
-       "in_": "125",
+       "in_": "400",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
      {
-      "id": "#476",
+      "id": "#477",
       "symbol_id": "sb.feed",
       "x": 382.5,
       "y": 105.0,
@@ -22487,41 +22617,31 @@
        "cable": "CYKY-J 5x35 35"
       },
       "component_id": null
+     },
+     {
+      "id": "#465",
+      "symbol_id": "fve.grid_protection",
+      "x": 412.5,
+      "y": 140.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "F11",
+       "modules": "4",
+       "acts_on": "Q1"
+      },
+      "component_id": null
      }
     ],
     "wires": [
      {
-      "id": "#477",
-      "a": {
-       "element_id": "#465",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#454",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#478",
       "a": {
-       "element_id": "#454",
-       "port": "2"
+       "element_id": "#466",
+       "port": "1"
       },
       "b": {
-       "element_id": "#466",
-       "port": "B1"
+       "element_id": "#454",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -22539,12 +22659,12 @@
      {
       "id": "#479",
       "a": {
-       "element_id": "#467",
-       "port": "1"
+       "element_id": "#454",
+       "port": "2"
       },
       "b": {
-       "element_id": "#455",
-       "port": "1"
+       "element_id": "#467",
+       "port": "B1"
       },
       "points": [],
       "attrs": {
@@ -22562,12 +22682,12 @@
      {
       "id": "#480",
       "a": {
-       "element_id": "#455",
-       "port": "2"
+       "element_id": "#468",
+       "port": "1"
       },
       "b": {
-       "element_id": "#466",
-       "port": "B2"
+       "element_id": "#455",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -22585,12 +22705,12 @@
      {
       "id": "#481",
       "a": {
-       "element_id": "#468",
-       "port": "1"
+       "element_id": "#455",
+       "port": "2"
       },
       "b": {
-       "element_id": "#456",
-       "port": "1"
+       "element_id": "#467",
+       "port": "B2"
       },
       "points": [],
       "attrs": {
@@ -22608,12 +22728,12 @@
      {
       "id": "#482",
       "a": {
-       "element_id": "#456",
-       "port": "2"
+       "element_id": "#469",
+       "port": "1"
       },
       "b": {
-       "element_id": "#466",
-       "port": "B3"
+       "element_id": "#456",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -22631,12 +22751,12 @@
      {
       "id": "#483",
       "a": {
-       "element_id": "#469",
-       "port": "1"
+       "element_id": "#456",
+       "port": "2"
       },
       "b": {
-       "element_id": "#457",
-       "port": "1"
+       "element_id": "#467",
+       "port": "B3"
       },
       "points": [],
       "attrs": {
@@ -22654,12 +22774,12 @@
      {
       "id": "#484",
       "a": {
-       "element_id": "#457",
-       "port": "2"
+       "element_id": "#470",
+       "port": "1"
       },
       "b": {
-       "element_id": "#466",
-       "port": "B4"
+       "element_id": "#457",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -22677,12 +22797,12 @@
      {
       "id": "#485",
       "a": {
-       "element_id": "#470",
-       "port": "1"
+       "element_id": "#457",
+       "port": "2"
       },
       "b": {
-       "element_id": "#458",
-       "port": "1"
+       "element_id": "#467",
+       "port": "B4"
       },
       "points": [],
       "attrs": {
@@ -22700,12 +22820,12 @@
      {
       "id": "#486",
       "a": {
-       "element_id": "#458",
-       "port": "2"
+       "element_id": "#471",
+       "port": "1"
       },
       "b": {
-       "element_id": "#466",
-       "port": "B5"
+       "element_id": "#458",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -22723,12 +22843,12 @@
      {
       "id": "#487",
       "a": {
-       "element_id": "#471",
-       "port": "1"
+       "element_id": "#458",
+       "port": "2"
       },
       "b": {
-       "element_id": "#459",
-       "port": "1"
+       "element_id": "#467",
+       "port": "B5"
       },
       "points": [],
       "attrs": {
@@ -22746,12 +22866,12 @@
      {
       "id": "#488",
       "a": {
-       "element_id": "#459",
-       "port": "2"
+       "element_id": "#472",
+       "port": "1"
       },
       "b": {
-       "element_id": "#466",
-       "port": "B6"
+       "element_id": "#459",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -22769,12 +22889,12 @@
      {
       "id": "#489",
       "a": {
-       "element_id": "#472",
-       "port": "1"
+       "element_id": "#459",
+       "port": "2"
       },
       "b": {
-       "element_id": "#460",
-       "port": "1"
+       "element_id": "#467",
+       "port": "B6"
       },
       "points": [],
       "attrs": {
@@ -22792,12 +22912,12 @@
      {
       "id": "#490",
       "a": {
-       "element_id": "#460",
-       "port": "2"
+       "element_id": "#473",
+       "port": "1"
       },
       "b": {
-       "element_id": "#466",
-       "port": "B7"
+       "element_id": "#460",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -22815,12 +22935,12 @@
      {
       "id": "#491",
       "a": {
-       "element_id": "#473",
-       "port": "1"
+       "element_id": "#460",
+       "port": "2"
       },
       "b": {
-       "element_id": "#461",
-       "port": "1"
+       "element_id": "#467",
+       "port": "B7"
       },
       "points": [],
       "attrs": {
@@ -22838,12 +22958,12 @@
      {
       "id": "#492",
       "a": {
-       "element_id": "#461",
-       "port": "2"
+       "element_id": "#474",
+       "port": "1"
       },
       "b": {
-       "element_id": "#466",
-       "port": "B8"
+       "element_id": "#461",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -22861,12 +22981,12 @@
      {
       "id": "#493",
       "a": {
-       "element_id": "#474",
-       "port": "1"
+       "element_id": "#461",
+       "port": "2"
       },
       "b": {
-       "element_id": "#462",
-       "port": "1"
+       "element_id": "#467",
+       "port": "B8"
       },
       "points": [],
       "attrs": {
@@ -22884,12 +23004,12 @@
      {
       "id": "#494",
       "a": {
-       "element_id": "#462",
-       "port": "2"
+       "element_id": "#475",
+       "port": "1"
       },
       "b": {
-       "element_id": "#466",
-       "port": "B9"
+       "element_id": "#462",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -22907,7 +23027,30 @@
      {
       "id": "#495",
       "a": {
-       "element_id": "#466",
+       "element_id": "#462",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#467",
+       "port": "B9"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#496",
+      "a": {
+       "element_id": "#467",
        "port": "2"
       },
       "b": {
@@ -22927,13 +23070,13 @@
       "terminals": {}
      },
      {
-      "id": "#496",
+      "id": "#497",
       "a": {
        "element_id": "#463",
        "port": "PE"
       },
       "b": {
-       "element_id": "#475",
+       "element_id": "#476",
        "port": "1"
       },
       "points": [
@@ -22955,13 +23098,13 @@
       "terminals": {}
      },
      {
-      "id": "#497",
+      "id": "#498",
       "a": {
-       "element_id": "#466",
+       "element_id": "#467",
        "port": "1"
       },
       "b": {
-       "element_id": "#475",
+       "element_id": "#476",
        "port": "1"
       },
       "points": [],
@@ -22974,9 +23117,9 @@
       "terminals": {}
      },
      {
-      "id": "#498",
+      "id": "#499",
       "a": {
-       "element_id": "#466",
+       "element_id": "#467",
        "port": "3"
       },
       "b": {
@@ -22997,13 +23140,13 @@
       "terminals": {}
      },
      {
-      "id": "#499",
+      "id": "#500",
       "a": {
        "element_id": "#464",
        "port": "2"
       },
       "b": {
-       "element_id": "#476",
+       "element_id": "#477",
        "port": "1"
       },
       "points": [],
@@ -23018,6 +23161,28 @@
        "PE"
       ],
       "terminals": {}
+     },
+     {
+      "id": "#501",
+      "a": {
+       "element_id": "#467",
+       "port": "4"
+      },
+      "b": {
+       "element_id": "#465",
+       "port": "U"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N"
+      ],
+      "terminals": {}
      }
     ],
     "bridges": {},
@@ -23026,7 +23191,7 @@
     "mp_paper": "A4"
    },
    {
-    "id": "#500",
+    "id": "#502",
     "name": "HR – hlavní rozvaděč",
     "paper": "A3",
     "width": 420.0,
@@ -23043,12 +23208,12 @@
      },
      "placements": [
       {
-       "element_id": "#501",
+       "element_id": "#503",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#502",
+       "element_id": "#504",
        "row": 0,
        "pos": 3.0
       }
@@ -23056,7 +23221,7 @@
     },
     "elements": [
      {
-      "id": "#503",
+      "id": "#505",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 235.0,
@@ -23071,7 +23236,7 @@
       "component_id": null
      },
      {
-      "id": "#501",
+      "id": "#503",
       "symbol_id": "fve.breaker_mcb",
       "x": 60.0,
       "y": 200.0,
@@ -23083,12 +23248,13 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič",
-       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in"
+       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
      {
-      "id": "#504",
+      "id": "#506",
       "symbol_id": "sb.busbar",
       "x": 135.0,
       "y": 165.0,
@@ -23102,7 +23268,7 @@
       "component_id": null
      },
      {
-      "id": "#502",
+      "id": "#504",
       "symbol_id": "fve.breaker_mccb",
       "x": 67.5,
       "y": 130.0,
@@ -23112,12 +23278,13 @@
        "in_": "400",
        "poles": "3",
        "modules": "6",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
      {
-      "id": "#505",
+      "id": "#507",
       "symbol_id": "sb.feed",
       "x": 67.5,
       "y": 95.0,
@@ -23133,7 +23300,7 @@
       "component_id": null
      },
      {
-      "id": "#506",
+      "id": "#508",
       "symbol_id": "sb.feed",
       "x": 127.5,
       "y": 95.0,
@@ -23150,59 +23317,13 @@
     ],
     "wires": [
      {
-      "id": "#507",
-      "a": {
-       "element_id": "#503",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#501",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#508",
-      "a": {
-       "element_id": "#501",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#504",
-       "port": "IN"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#509",
       "a": {
-       "element_id": "#504",
+       "element_id": "#505",
        "port": "1"
       },
       "b": {
-       "element_id": "#502",
+       "element_id": "#503",
        "port": "1"
       },
       "points": [],
@@ -23221,12 +23342,12 @@
      {
       "id": "#510",
       "a": {
-       "element_id": "#502",
+       "element_id": "#503",
        "port": "2"
       },
       "b": {
-       "element_id": "#505",
-       "port": "1"
+       "element_id": "#506",
+       "port": "IN"
       },
       "points": [],
       "attrs": {
@@ -23244,11 +23365,57 @@
      {
       "id": "#511",
       "a": {
+       "element_id": "#506",
+       "port": "1"
+      },
+      "b": {
        "element_id": "#504",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#512",
+      "a": {
+       "element_id": "#504",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#507",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#513",
+      "a": {
+       "element_id": "#506",
        "port": "5"
       },
       "b": {
-       "element_id": "#506",
+       "element_id": "#508",
        "port": "1"
       },
       "points": [],
@@ -23270,7 +23437,7 @@
     "loc": "HR"
    },
    {
-    "id": "#512",
+    "id": "#514",
     "name": "RE – elektroměrový rozvaděč",
     "paper": "A3",
     "width": 420.0,
@@ -23287,12 +23454,12 @@
      },
      "placements": [
       {
-       "element_id": "#513",
+       "element_id": "#515",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#514",
+       "element_id": "#516",
        "row": 0,
        "pos": 3.0
       }
@@ -23300,7 +23467,7 @@
     },
     "elements": [
      {
-      "id": "#515",
+      "id": "#517",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 235.0,
@@ -23315,7 +23482,7 @@
       "component_id": null
      },
      {
-      "id": "#513",
+      "id": "#515",
       "symbol_id": "fve.breaker_mcb",
       "x": 60.0,
       "y": 200.0,
@@ -23327,12 +23494,13 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
      },
      {
-      "id": "#516",
+      "id": "#518",
       "symbol_id": "fve.meter",
       "x": 60.0,
       "y": 170.0,
@@ -23345,7 +23513,7 @@
       "component_id": null
      },
      {
-      "id": "#514",
+      "id": "#516",
       "symbol_id": "sb.main_switch",
       "x": 60.0,
       "y": 140.0,
@@ -23355,12 +23523,13 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
      {
-      "id": "#517",
+      "id": "#519",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 105.0,
@@ -23377,59 +23546,13 @@
     ],
     "wires": [
      {
-      "id": "#518",
-      "a": {
-       "element_id": "#513",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#516",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#519",
-      "a": {
-       "element_id": "#516",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#514",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#520",
       "a": {
        "element_id": "#515",
-       "port": "1"
+       "port": "2"
       },
       "b": {
-       "element_id": "#513",
+       "element_id": "#518",
        "port": "1"
       },
       "points": [],
@@ -23448,11 +23571,57 @@
      {
       "id": "#521",
       "a": {
-       "element_id": "#514",
+       "element_id": "#518",
        "port": "2"
       },
       "b": {
+       "element_id": "#516",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#522",
+      "a": {
        "element_id": "#517",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#515",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#523",
+      "a": {
+       "element_id": "#516",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#519",
        "port": "1"
       },
       "points": [],
@@ -25194,7 +25363,8 @@
    "building": "firma",
    "topology": "nn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
-   "p_installed_kwp": "153.9"
+   "p_installed_kwp": "153.9",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -25974,6 +26144,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null,
@@ -33914,7 +34085,7 @@
      "params": {
       "network": "3NPE, 50 Hz",
       "un": "230/400 V",
-      "in_": "125"
+      "in_": "400"
      },
      "placements": [
       {
@@ -33935,22 +34106,22 @@
       {
        "element_id": "#457",
        "row": 0,
-       "pos": 11.0
+       "pos": 12.0
       },
       {
        "element_id": "#458",
        "row": 0,
-       "pos": 14.0
+       "pos": 15.0
       },
       {
        "element_id": "#459",
        "row": 0,
-       "pos": 17.0
+       "pos": 18.0
       },
       {
        "element_id": "#460",
        "row": 0,
-       "pos": 20.0
+       "pos": 21.0
       },
       {
        "element_id": "#461",
@@ -33971,12 +34142,17 @@
        "element_id": "#464",
        "row": 1,
        "pos": 9.0
+      },
+      {
+       "element_id": "#465",
+       "row": 1,
+       "pos": 12.0
       }
      ]
     },
     "elements": [
      {
-      "id": "#465",
+      "id": "#466",
       "symbol_id": "sb.busbar",
       "x": 165.0,
       "y": 175.0,
@@ -33984,16 +34160,16 @@
       "attrs": {
        "ref": "1",
        "desc": "rozvod AC",
-       "in_": "125",
+       "in_": "400",
        "conductors": "L1 L2 L3 N PE",
        "taps": "9",
-       "outs": "1",
+       "outs": "2",
        "tap_pitch": "30"
       },
       "component_id": null
      },
      {
-      "id": "#466",
+      "id": "#467",
       "symbol_id": "sb.feed",
       "x": 105.0,
       "y": 105.0,
@@ -34009,7 +34185,7 @@
       "component_id": null
      },
      {
-      "id": "#456",
+      "id": "#457",
       "symbol_id": "fve.breaker_mcb",
       "x": 105.0,
       "y": 140.0,
@@ -34019,12 +34195,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#467",
+      "id": "#468",
       "symbol_id": "sb.feed",
       "x": 135.0,
       "y": 105.0,
@@ -34040,7 +34217,7 @@
       "component_id": null
      },
      {
-      "id": "#457",
+      "id": "#458",
       "symbol_id": "fve.breaker_mcb",
       "x": 135.0,
       "y": 140.0,
@@ -34050,12 +34227,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#468",
+      "id": "#469",
       "symbol_id": "sb.feed",
       "x": 165.0,
       "y": 105.0,
@@ -34071,7 +34249,7 @@
       "component_id": null
      },
      {
-      "id": "#458",
+      "id": "#459",
       "symbol_id": "fve.breaker_mcb",
       "x": 165.0,
       "y": 140.0,
@@ -34081,12 +34259,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#469",
+      "id": "#470",
       "symbol_id": "sb.feed",
       "x": 195.0,
       "y": 105.0,
@@ -34102,7 +34281,7 @@
       "component_id": null
      },
      {
-      "id": "#459",
+      "id": "#460",
       "symbol_id": "fve.breaker_mcb",
       "x": 195.0,
       "y": 140.0,
@@ -34112,12 +34291,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#470",
+      "id": "#471",
       "symbol_id": "sb.feed",
       "x": 225.0,
       "y": 105.0,
@@ -34133,7 +34313,7 @@
       "component_id": null
      },
      {
-      "id": "#460",
+      "id": "#461",
       "symbol_id": "fve.breaker_mcb",
       "x": 225.0,
       "y": 140.0,
@@ -34143,12 +34323,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#471",
+      "id": "#472",
       "symbol_id": "sb.feed",
       "x": 255.0,
       "y": 105.0,
@@ -34164,7 +34345,7 @@
       "component_id": null
      },
      {
-      "id": "#461",
+      "id": "#462",
       "symbol_id": "fve.breaker_mcb",
       "x": 255.0,
       "y": 140.0,
@@ -34174,12 +34355,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#472",
+      "id": "#473",
       "symbol_id": "sb.feed",
       "x": 285.0,
       "y": 105.0,
@@ -34195,7 +34377,7 @@
       "component_id": null
      },
      {
-      "id": "#462",
+      "id": "#463",
       "symbol_id": "fve.breaker_mcb",
       "x": 285.0,
       "y": 140.0,
@@ -34205,12 +34387,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#473",
+      "id": "#474",
       "symbol_id": "sb.feed",
       "x": 315.0,
       "y": 105.0,
@@ -34226,7 +34409,7 @@
       "component_id": null
      },
      {
-      "id": "#463",
+      "id": "#464",
       "symbol_id": "fve.breaker_mcb",
       "x": 315.0,
       "y": 140.0,
@@ -34236,12 +34419,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#474",
+      "id": "#475",
       "symbol_id": "sb.feed",
       "x": 345.0,
       "y": 105.0,
@@ -34257,7 +34441,7 @@
       "component_id": null
      },
      {
-      "id": "#464",
+      "id": "#465",
       "symbol_id": "fve.breaker_mcb",
       "x": 345.0,
       "y": 140.0,
@@ -34267,12 +34451,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#455",
+      "id": "#456",
       "symbol_id": "fve.spd",
       "x": 82.5,
       "y": 140.0,
@@ -34286,7 +34471,7 @@
       "component_id": null
      },
      {
-      "id": "#475",
+      "id": "#476",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 105.0,
@@ -34309,14 +34494,15 @@
       "rotation": 270,
       "attrs": {
        "ref": "Q1",
-       "in_": "125",
+       "in_": "400",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
      {
-      "id": "#476",
+      "id": "#477",
       "symbol_id": "sb.feed",
       "x": 382.5,
       "y": 105.0,
@@ -34330,57 +34516,24 @@
        "cable": "CYKY-J 5x35 35"
       },
       "component_id": null
+     },
+     {
+      "id": "#455",
+      "symbol_id": "fve.grid_protection",
+      "x": 412.5,
+      "y": 140.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "F65",
+       "modules": "4",
+       "acts_on": "Q1"
+      },
+      "component_id": null
      }
     ],
     "wires": [
      {
-      "id": "#477",
-      "a": {
-       "element_id": "#466",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#456",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#478",
-      "a": {
-       "element_id": "#456",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#465",
-       "port": "B1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#479",
       "a": {
        "element_id": "#467",
        "port": "1"
@@ -34403,14 +34556,14 @@
       "terminals": {}
      },
      {
-      "id": "#480",
+      "id": "#479",
       "a": {
        "element_id": "#457",
        "port": "2"
       },
       "b": {
-       "element_id": "#465",
-       "port": "B2"
+       "element_id": "#466",
+       "port": "B1"
       },
       "points": [],
       "attrs": {
@@ -34426,7 +34579,7 @@
       "terminals": {}
      },
      {
-      "id": "#481",
+      "id": "#480",
       "a": {
        "element_id": "#468",
        "port": "1"
@@ -34449,14 +34602,14 @@
       "terminals": {}
      },
      {
-      "id": "#482",
+      "id": "#481",
       "a": {
        "element_id": "#458",
        "port": "2"
       },
       "b": {
-       "element_id": "#465",
-       "port": "B3"
+       "element_id": "#466",
+       "port": "B2"
       },
       "points": [],
       "attrs": {
@@ -34472,7 +34625,7 @@
       "terminals": {}
      },
      {
-      "id": "#483",
+      "id": "#482",
       "a": {
        "element_id": "#469",
        "port": "1"
@@ -34495,14 +34648,14 @@
       "terminals": {}
      },
      {
-      "id": "#484",
+      "id": "#483",
       "a": {
        "element_id": "#459",
        "port": "2"
       },
       "b": {
-       "element_id": "#465",
-       "port": "B4"
+       "element_id": "#466",
+       "port": "B3"
       },
       "points": [],
       "attrs": {
@@ -34518,7 +34671,7 @@
       "terminals": {}
      },
      {
-      "id": "#485",
+      "id": "#484",
       "a": {
        "element_id": "#470",
        "port": "1"
@@ -34541,14 +34694,14 @@
       "terminals": {}
      },
      {
-      "id": "#486",
+      "id": "#485",
       "a": {
        "element_id": "#460",
        "port": "2"
       },
       "b": {
-       "element_id": "#465",
-       "port": "B5"
+       "element_id": "#466",
+       "port": "B4"
       },
       "points": [],
       "attrs": {
@@ -34564,7 +34717,7 @@
       "terminals": {}
      },
      {
-      "id": "#487",
+      "id": "#486",
       "a": {
        "element_id": "#471",
        "port": "1"
@@ -34587,14 +34740,14 @@
       "terminals": {}
      },
      {
-      "id": "#488",
+      "id": "#487",
       "a": {
        "element_id": "#461",
        "port": "2"
       },
       "b": {
-       "element_id": "#465",
-       "port": "B6"
+       "element_id": "#466",
+       "port": "B5"
       },
       "points": [],
       "attrs": {
@@ -34610,7 +34763,7 @@
       "terminals": {}
      },
      {
-      "id": "#489",
+      "id": "#488",
       "a": {
        "element_id": "#472",
        "port": "1"
@@ -34633,14 +34786,14 @@
       "terminals": {}
      },
      {
-      "id": "#490",
+      "id": "#489",
       "a": {
        "element_id": "#462",
        "port": "2"
       },
       "b": {
-       "element_id": "#465",
-       "port": "B7"
+       "element_id": "#466",
+       "port": "B6"
       },
       "points": [],
       "attrs": {
@@ -34656,7 +34809,7 @@
       "terminals": {}
      },
      {
-      "id": "#491",
+      "id": "#490",
       "a": {
        "element_id": "#473",
        "port": "1"
@@ -34679,14 +34832,14 @@
       "terminals": {}
      },
      {
-      "id": "#492",
+      "id": "#491",
       "a": {
        "element_id": "#463",
        "port": "2"
       },
       "b": {
-       "element_id": "#465",
-       "port": "B8"
+       "element_id": "#466",
+       "port": "B7"
       },
       "points": [],
       "attrs": {
@@ -34702,7 +34855,7 @@
       "terminals": {}
      },
      {
-      "id": "#493",
+      "id": "#492",
       "a": {
        "element_id": "#474",
        "port": "1"
@@ -34725,14 +34878,37 @@
       "terminals": {}
      },
      {
-      "id": "#494",
+      "id": "#493",
       "a": {
        "element_id": "#464",
        "port": "2"
       },
       "b": {
+       "element_id": "#466",
+       "port": "B8"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#494",
+      "a": {
+       "element_id": "#475",
+       "port": "1"
+      },
+      "b": {
        "element_id": "#465",
-       "port": "B9"
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -34754,7 +34930,30 @@
        "port": "2"
       },
       "b": {
-       "element_id": "#455",
+       "element_id": "#466",
+       "port": "B9"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#496",
+      "a": {
+       "element_id": "#466",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#456",
        "port": "L"
       },
       "points": [],
@@ -34770,13 +34969,13 @@
       "terminals": {}
      },
      {
-      "id": "#496",
+      "id": "#497",
       "a": {
-       "element_id": "#455",
+       "element_id": "#456",
        "port": "PE"
       },
       "b": {
-       "element_id": "#475",
+       "element_id": "#476",
        "port": "1"
       },
       "points": [
@@ -34798,13 +34997,13 @@
       "terminals": {}
      },
      {
-      "id": "#497",
+      "id": "#498",
       "a": {
-       "element_id": "#465",
+       "element_id": "#466",
        "port": "1"
       },
       "b": {
-       "element_id": "#475",
+       "element_id": "#476",
        "port": "1"
       },
       "points": [],
@@ -34817,9 +35016,9 @@
       "terminals": {}
      },
      {
-      "id": "#498",
+      "id": "#499",
       "a": {
-       "element_id": "#465",
+       "element_id": "#466",
        "port": "3"
       },
       "b": {
@@ -34840,13 +35039,13 @@
       "terminals": {}
      },
      {
-      "id": "#499",
+      "id": "#500",
       "a": {
        "element_id": "#454",
        "port": "2"
       },
       "b": {
-       "element_id": "#476",
+       "element_id": "#477",
        "port": "1"
       },
       "points": [],
@@ -34861,6 +35060,28 @@
        "PE"
       ],
       "terminals": {}
+     },
+     {
+      "id": "#501",
+      "a": {
+       "element_id": "#466",
+       "port": "4"
+      },
+      "b": {
+       "element_id": "#455",
+       "port": "U"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N"
+      ],
+      "terminals": {}
      }
     ],
     "bridges": {},
@@ -34869,7 +35090,7 @@
     "mp_paper": "A4"
    },
    {
-    "id": "#500",
+    "id": "#502",
     "name": "HR – hlavní rozvaděč",
     "paper": "A3",
     "width": 420.0,
@@ -34886,12 +35107,12 @@
      },
      "placements": [
       {
-       "element_id": "#501",
+       "element_id": "#503",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#502",
+       "element_id": "#504",
        "row": 0,
        "pos": 3.0
       }
@@ -34899,7 +35120,7 @@
     },
     "elements": [
      {
-      "id": "#503",
+      "id": "#505",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 235.0,
@@ -34914,7 +35135,7 @@
       "component_id": null
      },
      {
-      "id": "#501",
+      "id": "#503",
       "symbol_id": "fve.breaker_mcb",
       "x": 60.0,
       "y": 200.0,
@@ -34926,12 +35147,13 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič",
-       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in"
+       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
      {
-      "id": "#504",
+      "id": "#506",
       "symbol_id": "sb.busbar",
       "x": 135.0,
       "y": 165.0,
@@ -34945,7 +35167,7 @@
       "component_id": null
      },
      {
-      "id": "#502",
+      "id": "#504",
       "symbol_id": "fve.breaker_mccb",
       "x": 67.5,
       "y": 130.0,
@@ -34955,12 +35177,13 @@
        "in_": "400",
        "poles": "3",
        "modules": "6",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
      {
-      "id": "#505",
+      "id": "#507",
       "symbol_id": "sb.feed",
       "x": 67.5,
       "y": 95.0,
@@ -34976,7 +35199,7 @@
       "component_id": null
      },
      {
-      "id": "#506",
+      "id": "#508",
       "symbol_id": "sb.feed",
       "x": 127.5,
       "y": 95.0,
@@ -34993,59 +35216,13 @@
     ],
     "wires": [
      {
-      "id": "#507",
-      "a": {
-       "element_id": "#503",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#501",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#508",
-      "a": {
-       "element_id": "#501",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#504",
-       "port": "IN"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#509",
       "a": {
-       "element_id": "#504",
+       "element_id": "#505",
        "port": "1"
       },
       "b": {
-       "element_id": "#502",
+       "element_id": "#503",
        "port": "1"
       },
       "points": [],
@@ -35064,12 +35241,12 @@
      {
       "id": "#510",
       "a": {
-       "element_id": "#502",
+       "element_id": "#503",
        "port": "2"
       },
       "b": {
-       "element_id": "#505",
-       "port": "1"
+       "element_id": "#506",
+       "port": "IN"
       },
       "points": [],
       "attrs": {
@@ -35087,11 +35264,57 @@
      {
       "id": "#511",
       "a": {
+       "element_id": "#506",
+       "port": "1"
+      },
+      "b": {
        "element_id": "#504",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#512",
+      "a": {
+       "element_id": "#504",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#507",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#513",
+      "a": {
+       "element_id": "#506",
        "port": "5"
       },
       "b": {
-       "element_id": "#506",
+       "element_id": "#508",
        "port": "1"
       },
       "points": [],
@@ -35113,7 +35336,7 @@
     "loc": "HR"
    },
    {
-    "id": "#512",
+    "id": "#514",
     "name": "RE – elektroměrový rozvaděč",
     "paper": "A3",
     "width": 420.0,
@@ -35130,12 +35353,12 @@
      },
      "placements": [
       {
-       "element_id": "#513",
+       "element_id": "#515",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#514",
+       "element_id": "#516",
        "row": 0,
        "pos": 3.0
       }
@@ -35143,7 +35366,7 @@
     },
     "elements": [
      {
-      "id": "#515",
+      "id": "#517",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 235.0,
@@ -35158,7 +35381,7 @@
       "component_id": null
      },
      {
-      "id": "#513",
+      "id": "#515",
       "symbol_id": "fve.breaker_mcb",
       "x": 60.0,
       "y": 200.0,
@@ -35170,12 +35393,13 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
      },
      {
-      "id": "#516",
+      "id": "#518",
       "symbol_id": "fve.meter",
       "x": 60.0,
       "y": 170.0,
@@ -35188,7 +35412,7 @@
       "component_id": null
      },
      {
-      "id": "#514",
+      "id": "#516",
       "symbol_id": "sb.main_switch",
       "x": 60.0,
       "y": 140.0,
@@ -35198,12 +35422,13 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
      {
-      "id": "#517",
+      "id": "#519",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 105.0,
@@ -35220,59 +35445,13 @@
     ],
     "wires": [
      {
-      "id": "#518",
-      "a": {
-       "element_id": "#513",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#516",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#519",
-      "a": {
-       "element_id": "#516",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#514",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#520",
       "a": {
        "element_id": "#515",
-       "port": "1"
+       "port": "2"
       },
       "b": {
-       "element_id": "#513",
+       "element_id": "#518",
        "port": "1"
       },
       "points": [],
@@ -35291,11 +35470,57 @@
      {
       "id": "#521",
       "a": {
-       "element_id": "#514",
+       "element_id": "#518",
        "port": "2"
       },
       "b": {
+       "element_id": "#516",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#522",
+      "a": {
        "element_id": "#517",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#515",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#523",
+      "a": {
+       "element_id": "#516",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#519",
        "port": "1"
       },
       "points": [],
@@ -37037,7 +37262,8 @@
    "building": "rodinný dům",
    "topology": "rd",
    "topology_chain": "stringy → RFVE → T → RD → RE → HDS → DS",
-   "p_installed_kwp": "14.4"
+   "p_installed_kwp": "14.4",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -37210,6 +37436,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null
@@ -38077,7 +38304,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -38121,7 +38349,8 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
@@ -38742,7 +38971,8 @@
        "poles": "4",
        "modules": "4",
        "desc": "hlavní vypínač",
-       "in_unresolved": "RD: In stávajícího hlavního přístroje není zadané – doplňte chain.rd.main_in"
+       "in_unresolved": "RD: In stávajícího hlavního přístroje není zadané – doplňte chain.rd.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
@@ -38772,7 +39002,8 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
@@ -38987,6 +39218,7 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
@@ -39015,7 +39247,8 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
@@ -39424,7 +39657,8 @@
    "building": "rodinný dům",
    "topology": "rd",
    "topology_chain": "stringy → RFVE → T → RD → RE → HDS → DS",
-   "p_installed_kwp": "20.7"
+   "p_installed_kwp": "20.7",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -39638,6 +39872,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null
@@ -40844,7 +41079,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -40893,7 +41129,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -40938,7 +41175,8 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
@@ -41794,7 +42032,8 @@
        "poles": "4",
        "modules": "4",
        "desc": "hlavní vypínač",
-       "in_unresolved": "RD: In stávajícího hlavního přístroje není zadané – doplňte chain.rd.main_in"
+       "in_unresolved": "RD: In stávajícího hlavního přístroje není zadané – doplňte chain.rd.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
@@ -41824,7 +42063,8 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
@@ -42039,6 +42279,7 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
@@ -42067,7 +42308,8 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
@@ -42565,7 +42807,8 @@
    "building": "rodinný dům",
    "topology": "rd",
    "topology_chain": "stringy → RFVE → T → RD → RE → HDS → DS",
-   "p_installed_kwp": "32.4"
+   "p_installed_kwp": "32.4",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -42876,6 +43119,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null
@@ -44871,12 +45115,17 @@
        "element_id": "#131",
        "row": 2,
        "pos": 0.0
+      },
+      {
+       "element_id": "#132",
+       "row": 2,
+       "pos": 4.0
       }
      ]
     },
     "elements": [
      {
-      "id": "#132",
+      "id": "#133",
       "symbol_id": "sb.feed",
       "x": 105.0,
       "y": 105.0,
@@ -44902,12 +45151,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#133",
+      "id": "#134",
       "symbol_id": "sb.busbar",
       "x": 165.0,
       "y": 175.0,
@@ -44919,13 +45169,13 @@
        "conductors": "L1 L2 L3 N PE",
        "shared": "1",
        "taps": "3",
-       "outs": "1",
+       "outs": "2",
        "tap_pitch": "30"
       },
       "component_id": null
      },
      {
-      "id": "#134",
+      "id": "#135",
       "symbol_id": "sb.feed",
       "x": 135.0,
       "y": 105.0,
@@ -44951,12 +45201,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#135",
+      "id": "#136",
       "symbol_id": "sb.feed",
       "x": 165.0,
       "y": 105.0,
@@ -44982,7 +45233,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -45001,7 +45253,7 @@
       "component_id": null
      },
      {
-      "id": "#136",
+      "id": "#137",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 105.0,
@@ -45027,12 +45279,13 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
      {
-      "id": "#137",
+      "id": "#138",
       "symbol_id": "sb.feed",
       "x": 202.5,
       "y": 105.0,
@@ -45048,9 +45301,22 @@
       "component_id": null
      },
      {
-      "id": "#138",
+      "id": "#132",
+      "symbol_id": "fve.grid_protection",
+      "x": 232.5,
+      "y": 140.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "F5",
+       "modules": "4",
+       "acts_on": "Q1"
+      },
+      "component_id": null
+     },
+     {
+      "id": "#139",
       "symbol_id": "sb.feed",
-      "x": 245.0,
+      "x": 275.0,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
@@ -45066,7 +45332,7 @@
      {
       "id": "#115",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 245.0,
+      "x": 275.0,
       "y": 140.0,
       "rotation": 90,
       "attrs": {
@@ -45084,9 +45350,9 @@
       "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#139",
+      "id": "#140",
       "symbol_id": "sb.feed",
-      "x": 280.0,
+      "x": 310.0,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
@@ -45102,7 +45368,7 @@
      {
       "id": "#116",
       "symbol_id": "fve.spd",
-      "x": 292.5,
+      "x": 322.5,
       "y": 170.0,
       "rotation": 180,
       "attrs": {
@@ -45122,9 +45388,9 @@
       "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#140",
+      "id": "#141",
       "symbol_id": "sb.feed",
-      "x": 315.0,
+      "x": 345.0,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
@@ -45140,7 +45406,7 @@
      {
       "id": "#117",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 315.0,
+      "x": 345.0,
       "y": 140.0,
       "rotation": 90,
       "attrs": {
@@ -45158,9 +45424,9 @@
       "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#141",
+      "id": "#142",
       "symbol_id": "sb.feed",
-      "x": 350.0,
+      "x": 380.0,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
@@ -45176,7 +45442,7 @@
      {
       "id": "#118",
       "symbol_id": "fve.spd",
-      "x": 362.5,
+      "x": 392.5,
       "y": 170.0,
       "rotation": 180,
       "attrs": {
@@ -45196,9 +45462,9 @@
       "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#142",
+      "id": "#143",
       "symbol_id": "sb.feed",
-      "x": 385.0,
+      "x": 415.0,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
@@ -45214,7 +45480,7 @@
      {
       "id": "#119",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 385.0,
+      "x": 415.0,
       "y": 140.0,
       "rotation": 90,
       "attrs": {
@@ -45232,9 +45498,9 @@
       "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#143",
+      "id": "#144",
       "symbol_id": "sb.feed",
-      "x": 420.0,
+      "x": 450.0,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
@@ -45250,7 +45516,7 @@
      {
       "id": "#120",
       "symbol_id": "fve.spd",
-      "x": 432.5,
+      "x": 462.5,
       "y": 170.0,
       "rotation": 180,
       "attrs": {
@@ -45270,9 +45536,9 @@
       "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#144",
+      "id": "#145",
       "symbol_id": "sb.feed",
-      "x": 455.0,
+      "x": 485.0,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
@@ -45288,7 +45554,7 @@
      {
       "id": "#121",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 455.0,
+      "x": 485.0,
       "y": 140.0,
       "rotation": 90,
       "attrs": {
@@ -45306,9 +45572,9 @@
       "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#145",
+      "id": "#146",
       "symbol_id": "sb.feed",
-      "x": 490.0,
+      "x": 520.0,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
@@ -45324,7 +45590,7 @@
      {
       "id": "#122",
       "symbol_id": "fve.spd",
-      "x": 502.5,
+      "x": 532.5,
       "y": 170.0,
       "rotation": 180,
       "attrs": {
@@ -45344,9 +45610,9 @@
       "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#146",
+      "id": "#147",
       "symbol_id": "sb.feed",
-      "x": 525.0,
+      "x": 555.0,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
@@ -45362,7 +45628,7 @@
      {
       "id": "#123",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 525.0,
+      "x": 555.0,
       "y": 140.0,
       "rotation": 90,
       "attrs": {
@@ -45380,9 +45646,9 @@
       "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#147",
+      "id": "#148",
       "symbol_id": "sb.feed",
-      "x": 560.0,
+      "x": 590.0,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
@@ -45398,7 +45664,7 @@
      {
       "id": "#124",
       "symbol_id": "fve.spd",
-      "x": 572.5,
+      "x": 602.5,
       "y": 170.0,
       "rotation": 180,
       "attrs": {
@@ -45418,9 +45684,9 @@
       "component_id": "weidmuller-vpu-pv-i-ii-3-1000"
      },
      {
-      "id": "#148",
+      "id": "#149",
       "symbol_id": "sb.feed",
-      "x": 595.0,
+      "x": 625.0,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
@@ -45436,7 +45702,7 @@
      {
       "id": "#125",
       "symbol_id": "fve.fuse_disconnect",
-      "x": 595.0,
+      "x": 625.0,
       "y": 140.0,
       "rotation": 90,
       "attrs": {
@@ -45454,9 +45720,9 @@
       "component_id": "eti-efh-10-dc-2p"
      },
      {
-      "id": "#149",
+      "id": "#150",
       "symbol_id": "sb.feed",
-      "x": 630.0,
+      "x": 660.0,
       "y": 105.0,
       "rotation": 0,
       "attrs": {
@@ -45472,7 +45738,7 @@
      {
       "id": "#126",
       "symbol_id": "fve.spd",
-      "x": 642.5,
+      "x": 672.5,
       "y": 170.0,
       "rotation": 180,
       "attrs": {
@@ -45494,37 +45760,14 @@
     ],
     "wires": [
      {
-      "id": "#150",
-      "a": {
-       "element_id": "#132",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#127",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#151",
       "a": {
-       "element_id": "#127",
-       "port": "2"
+       "element_id": "#133",
+       "port": "1"
       },
       "b": {
-       "element_id": "#133",
-       "port": "B1"
+       "element_id": "#127",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -45542,12 +45785,12 @@
      {
       "id": "#152",
       "a": {
-       "element_id": "#134",
-       "port": "1"
+       "element_id": "#127",
+       "port": "2"
       },
       "b": {
-       "element_id": "#128",
-       "port": "1"
+       "element_id": "#134",
+       "port": "B1"
       },
       "points": [],
       "attrs": {
@@ -45565,12 +45808,12 @@
      {
       "id": "#153",
       "a": {
-       "element_id": "#128",
-       "port": "2"
+       "element_id": "#135",
+       "port": "1"
       },
       "b": {
-       "element_id": "#133",
-       "port": "B2"
+       "element_id": "#128",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -45588,12 +45831,12 @@
      {
       "id": "#154",
       "a": {
-       "element_id": "#135",
-       "port": "1"
+       "element_id": "#128",
+       "port": "2"
       },
       "b": {
-       "element_id": "#129",
-       "port": "1"
+       "element_id": "#134",
+       "port": "B2"
       },
       "points": [],
       "attrs": {
@@ -45611,12 +45854,12 @@
      {
       "id": "#155",
       "a": {
-       "element_id": "#129",
-       "port": "2"
+       "element_id": "#136",
+       "port": "1"
       },
       "b": {
-       "element_id": "#133",
-       "port": "B3"
+       "element_id": "#129",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -45634,7 +45877,30 @@
      {
       "id": "#156",
       "a": {
-       "element_id": "#133",
+       "element_id": "#129",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#134",
+       "port": "B3"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#157",
+      "a": {
+       "element_id": "#134",
        "port": "2"
       },
       "b": {
@@ -45654,13 +45920,13 @@
       "terminals": {}
      },
      {
-      "id": "#157",
+      "id": "#158",
       "a": {
        "element_id": "#130",
        "port": "PE"
       },
       "b": {
-       "element_id": "#136",
+       "element_id": "#137",
        "port": "1"
       },
       "points": [
@@ -45682,13 +45948,13 @@
       "terminals": {}
      },
      {
-      "id": "#158",
+      "id": "#159",
       "a": {
-       "element_id": "#133",
+       "element_id": "#134",
        "port": "1"
       },
       "b": {
-       "element_id": "#136",
+       "element_id": "#137",
        "port": "1"
       },
       "points": [],
@@ -45701,9 +45967,9 @@
       "terminals": {}
      },
      {
-      "id": "#159",
+      "id": "#160",
       "a": {
-       "element_id": "#133",
+       "element_id": "#134",
        "port": "3"
       },
       "b": {
@@ -45724,13 +45990,13 @@
       "terminals": {}
      },
      {
-      "id": "#160",
+      "id": "#161",
       "a": {
        "element_id": "#131",
        "port": "2"
       },
       "b": {
-       "element_id": "#137",
+       "element_id": "#138",
        "port": "1"
       },
       "points": [],
@@ -45747,9 +46013,31 @@
       "terminals": {}
      },
      {
-      "id": "#161",
+      "id": "#162",
       "a": {
-       "element_id": "#138",
+       "element_id": "#134",
+       "port": "4"
+      },
+      "b": {
+       "element_id": "#132",
+       "port": "U"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#163",
+      "a": {
+       "element_id": "#139",
        "port": "1"
       },
       "b": {
@@ -45757,64 +46045,6 @@
        "port": "1"
       },
       "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L+",
-       "L-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#162",
-      "a": {
-       "element_id": "#115",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#139",
-       "port": "1"
-      },
-      "points": [
-       [
-        245.0,
-        155.0
-       ],
-       [
-        280.0,
-        155.0
-       ]
-      ],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L+",
-       "L-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#163",
-      "a": {
-       "element_id": "#115",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#116",
-       "port": "L"
-      },
-      "points": [
-       [
-        245.0,
-        155.0
-       ],
-       [
-        292.5,
-        155.0
-       ]
-      ],
       "attrs": {
        "ref": ""
       },
@@ -45827,50 +46057,52 @@
      {
       "id": "#164",
       "a": {
-       "element_id": "#116",
-       "port": "PE"
+       "element_id": "#115",
+       "port": "2"
       },
       "b": {
-       "element_id": "#136",
+       "element_id": "#140",
        "port": "1"
       },
       "points": [
        [
-        292.5,
-        192.5
+        275.0,
+        155.0
        ],
        [
-        45.0,
-        192.5
-       ],
-       [
-        45.0,
-        125.0
-       ],
-       [
-        60.0,
-        125.0
+        310.0,
+        155.0
        ]
       ],
       "attrs": {
        "ref": ""
       },
       "conductors": [
-       "PE"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
       "id": "#165",
       "a": {
-       "element_id": "#140",
-       "port": "1"
+       "element_id": "#115",
+       "port": "2"
       },
       "b": {
-       "element_id": "#117",
-       "port": "1"
+       "element_id": "#116",
+       "port": "L"
       },
-      "points": [],
+      "points": [
+       [
+        275.0,
+        155.0
+       ],
+       [
+        322.5,
+        155.0
+       ]
+      ],
       "attrs": {
        "ref": ""
       },
@@ -45883,52 +46115,50 @@
      {
       "id": "#166",
       "a": {
-       "element_id": "#117",
-       "port": "2"
+       "element_id": "#116",
+       "port": "PE"
       },
       "b": {
-       "element_id": "#141",
+       "element_id": "#137",
        "port": "1"
       },
       "points": [
        [
-        315.0,
-        155.0
+        322.5,
+        192.5
        ],
        [
-        350.0,
-        155.0
+        45.0,
+        192.5
+       ],
+       [
+        45.0,
+        125.0
+       ],
+       [
+        60.0,
+        125.0
        ]
       ],
       "attrs": {
        "ref": ""
       },
       "conductors": [
-       "L+",
-       "L-"
+       "PE"
       ],
       "terminals": {}
      },
      {
       "id": "#167",
       "a": {
-       "element_id": "#117",
-       "port": "2"
+       "element_id": "#141",
+       "port": "1"
       },
       "b": {
-       "element_id": "#118",
-       "port": "L"
+       "element_id": "#117",
+       "port": "1"
       },
-      "points": [
-       [
-        315.0,
-        155.0
-       ],
-       [
-        362.5,
-        155.0
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -45941,50 +46171,52 @@
      {
       "id": "#168",
       "a": {
-       "element_id": "#118",
-       "port": "PE"
+       "element_id": "#117",
+       "port": "2"
       },
       "b": {
-       "element_id": "#136",
+       "element_id": "#142",
        "port": "1"
       },
       "points": [
        [
-        362.5,
-        192.5
+        345.0,
+        155.0
        ],
        [
-        45.0,
-        192.5
-       ],
-       [
-        45.0,
-        125.0
-       ],
-       [
-        60.0,
-        125.0
+        380.0,
+        155.0
        ]
       ],
       "attrs": {
        "ref": ""
       },
       "conductors": [
-       "PE"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
       "id": "#169",
       "a": {
-       "element_id": "#142",
-       "port": "1"
+       "element_id": "#117",
+       "port": "2"
       },
       "b": {
-       "element_id": "#119",
-       "port": "1"
+       "element_id": "#118",
+       "port": "L"
       },
-      "points": [],
+      "points": [
+       [
+        345.0,
+        155.0
+       ],
+       [
+        392.5,
+        155.0
+       ]
+      ],
       "attrs": {
        "ref": ""
       },
@@ -45997,52 +46229,50 @@
      {
       "id": "#170",
       "a": {
-       "element_id": "#119",
-       "port": "2"
+       "element_id": "#118",
+       "port": "PE"
       },
       "b": {
-       "element_id": "#143",
+       "element_id": "#137",
        "port": "1"
       },
       "points": [
        [
-        385.0,
-        155.0
+        392.5,
+        192.5
        ],
        [
-        420.0,
-        155.0
+        45.0,
+        192.5
+       ],
+       [
+        45.0,
+        125.0
+       ],
+       [
+        60.0,
+        125.0
        ]
       ],
       "attrs": {
        "ref": ""
       },
       "conductors": [
-       "L+",
-       "L-"
+       "PE"
       ],
       "terminals": {}
      },
      {
       "id": "#171",
       "a": {
-       "element_id": "#119",
-       "port": "2"
+       "element_id": "#143",
+       "port": "1"
       },
       "b": {
-       "element_id": "#120",
-       "port": "L"
+       "element_id": "#119",
+       "port": "1"
       },
-      "points": [
-       [
-        385.0,
-        155.0
-       ],
-       [
-        432.5,
-        155.0
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -46055,50 +46285,52 @@
      {
       "id": "#172",
       "a": {
-       "element_id": "#120",
-       "port": "PE"
+       "element_id": "#119",
+       "port": "2"
       },
       "b": {
-       "element_id": "#136",
+       "element_id": "#144",
        "port": "1"
       },
       "points": [
        [
-        432.5,
-        192.5
+        415.0,
+        155.0
        ],
        [
-        45.0,
-        192.5
-       ],
-       [
-        45.0,
-        125.0
-       ],
-       [
-        60.0,
-        125.0
+        450.0,
+        155.0
        ]
       ],
       "attrs": {
        "ref": ""
       },
       "conductors": [
-       "PE"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
       "id": "#173",
       "a": {
-       "element_id": "#144",
-       "port": "1"
+       "element_id": "#119",
+       "port": "2"
       },
       "b": {
-       "element_id": "#121",
-       "port": "1"
+       "element_id": "#120",
+       "port": "L"
       },
-      "points": [],
+      "points": [
+       [
+        415.0,
+        155.0
+       ],
+       [
+        462.5,
+        155.0
+       ]
+      ],
       "attrs": {
        "ref": ""
       },
@@ -46111,52 +46343,50 @@
      {
       "id": "#174",
       "a": {
-       "element_id": "#121",
-       "port": "2"
+       "element_id": "#120",
+       "port": "PE"
       },
       "b": {
-       "element_id": "#145",
+       "element_id": "#137",
        "port": "1"
       },
       "points": [
        [
-        455.0,
-        155.0
+        462.5,
+        192.5
        ],
        [
-        490.0,
-        155.0
+        45.0,
+        192.5
+       ],
+       [
+        45.0,
+        125.0
+       ],
+       [
+        60.0,
+        125.0
        ]
       ],
       "attrs": {
        "ref": ""
       },
       "conductors": [
-       "L+",
-       "L-"
+       "PE"
       ],
       "terminals": {}
      },
      {
       "id": "#175",
       "a": {
-       "element_id": "#121",
-       "port": "2"
+       "element_id": "#145",
+       "port": "1"
       },
       "b": {
-       "element_id": "#122",
-       "port": "L"
+       "element_id": "#121",
+       "port": "1"
       },
-      "points": [
-       [
-        455.0,
-        155.0
-       ],
-       [
-        502.5,
-        155.0
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -46169,50 +46399,52 @@
      {
       "id": "#176",
       "a": {
-       "element_id": "#122",
-       "port": "PE"
+       "element_id": "#121",
+       "port": "2"
       },
       "b": {
-       "element_id": "#136",
+       "element_id": "#146",
        "port": "1"
       },
       "points": [
        [
-        502.5,
-        192.5
+        485.0,
+        155.0
        ],
        [
-        45.0,
-        192.5
-       ],
-       [
-        45.0,
-        125.0
-       ],
-       [
-        60.0,
-        125.0
+        520.0,
+        155.0
        ]
       ],
       "attrs": {
        "ref": ""
       },
       "conductors": [
-       "PE"
+       "L+",
+       "L-"
       ],
       "terminals": {}
      },
      {
       "id": "#177",
       "a": {
-       "element_id": "#146",
-       "port": "1"
+       "element_id": "#121",
+       "port": "2"
       },
       "b": {
-       "element_id": "#123",
-       "port": "1"
+       "element_id": "#122",
+       "port": "L"
       },
-      "points": [],
+      "points": [
+       [
+        485.0,
+        155.0
+       ],
+       [
+        532.5,
+        155.0
+       ]
+      ],
       "attrs": {
        "ref": ""
       },
@@ -46225,74 +46457,16 @@
      {
       "id": "#178",
       "a": {
-       "element_id": "#123",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#147",
-       "port": "1"
-      },
-      "points": [
-       [
-        525.0,
-        155.0
-       ],
-       [
-        560.0,
-        155.0
-       ]
-      ],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L+",
-       "L-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#179",
-      "a": {
-       "element_id": "#123",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#124",
-       "port": "L"
-      },
-      "points": [
-       [
-        525.0,
-        155.0
-       ],
-       [
-        572.5,
-        155.0
-       ]
-      ],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L+",
-       "L-"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#180",
-      "a": {
-       "element_id": "#124",
+       "element_id": "#122",
        "port": "PE"
       },
       "b": {
-       "element_id": "#136",
+       "element_id": "#137",
        "port": "1"
       },
       "points": [
        [
-        572.5,
+        532.5,
         192.5
        ],
        [
@@ -46317,9 +46491,123 @@
       "terminals": {}
      },
      {
+      "id": "#179",
+      "a": {
+       "element_id": "#147",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#123",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#180",
+      "a": {
+       "element_id": "#123",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#148",
+       "port": "1"
+      },
+      "points": [
+       [
+        555.0,
+        155.0
+       ],
+       [
+        590.0,
+        155.0
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
       "id": "#181",
       "a": {
-       "element_id": "#148",
+       "element_id": "#123",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#124",
+       "port": "L"
+      },
+      "points": [
+       [
+        555.0,
+        155.0
+       ],
+       [
+        602.5,
+        155.0
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L+",
+       "L-"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#182",
+      "a": {
+       "element_id": "#124",
+       "port": "PE"
+      },
+      "b": {
+       "element_id": "#137",
+       "port": "1"
+      },
+      "points": [
+       [
+        602.5,
+        192.5
+       ],
+       [
+        45.0,
+        192.5
+       ],
+       [
+        45.0,
+        125.0
+       ],
+       [
+        60.0,
+        125.0
+       ]
+      ],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#183",
+      "a": {
+       "element_id": "#149",
        "port": "1"
       },
       "b": {
@@ -46337,22 +46625,22 @@
       "terminals": {}
      },
      {
-      "id": "#182",
+      "id": "#184",
       "a": {
        "element_id": "#125",
        "port": "2"
       },
       "b": {
-       "element_id": "#149",
+       "element_id": "#150",
        "port": "1"
       },
       "points": [
        [
-        595.0,
+        625.0,
         155.0
        ],
        [
-        630.0,
+        660.0,
         155.0
        ]
       ],
@@ -46366,7 +46654,7 @@
       "terminals": {}
      },
      {
-      "id": "#183",
+      "id": "#185",
       "a": {
        "element_id": "#125",
        "port": "2"
@@ -46377,11 +46665,11 @@
       },
       "points": [
        [
-        595.0,
+        625.0,
         155.0
        ],
        [
-        642.5,
+        672.5,
         155.0
        ]
       ],
@@ -46395,18 +46683,18 @@
       "terminals": {}
      },
      {
-      "id": "#184",
+      "id": "#186",
       "a": {
        "element_id": "#126",
        "port": "PE"
       },
       "b": {
-       "element_id": "#136",
+       "element_id": "#137",
        "port": "1"
       },
       "points": [
        [
-        642.5,
+        672.5,
         192.5
        ],
        [
@@ -46437,7 +46725,7 @@
     "mp_paper": "A4"
    },
    {
-    "id": "#185",
+    "id": "#187",
     "name": "RD – domovní rozvaděč",
     "paper": "A3",
     "width": 420.0,
@@ -46454,12 +46742,12 @@
      },
      "placements": [
       {
-       "element_id": "#186",
+       "element_id": "#188",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#187",
+       "element_id": "#189",
        "row": 0,
        "pos": 4.0
       }
@@ -46467,7 +46755,7 @@
     },
     "elements": [
      {
-      "id": "#188",
+      "id": "#190",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 235.0,
@@ -46482,7 +46770,7 @@
       "component_id": null
      },
      {
-      "id": "#186",
+      "id": "#188",
       "symbol_id": "sb.main_switch",
       "x": 60.0,
       "y": 200.0,
@@ -46493,12 +46781,13 @@
        "poles": "4",
        "modules": "4",
        "desc": "hlavní vypínač",
-       "in_unresolved": "RD: In stávajícího hlavního přístroje není zadané – doplňte chain.rd.main_in"
+       "in_unresolved": "RD: In stávajícího hlavního přístroje není zadané – doplňte chain.rd.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
      {
-      "id": "#189",
+      "id": "#191",
       "symbol_id": "sb.busbar",
       "x": 135.0,
       "y": 165.0,
@@ -46512,7 +46801,7 @@
       "component_id": null
      },
      {
-      "id": "#187",
+      "id": "#189",
       "symbol_id": "fve.breaker_mcb",
       "x": 67.5,
       "y": 130.0,
@@ -46523,12 +46812,13 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
      {
-      "id": "#190",
+      "id": "#192",
       "symbol_id": "sb.feed",
       "x": 67.5,
       "y": 95.0,
@@ -46544,7 +46834,7 @@
       "component_id": null
      },
      {
-      "id": "#191",
+      "id": "#193",
       "symbol_id": "sb.feed",
       "x": 127.5,
       "y": 95.0,
@@ -46561,59 +46851,13 @@
     ],
     "wires": [
      {
-      "id": "#192",
-      "a": {
-       "element_id": "#188",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#186",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#193",
-      "a": {
-       "element_id": "#186",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#189",
-       "port": "IN"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#194",
       "a": {
-       "element_id": "#189",
+       "element_id": "#190",
        "port": "1"
       },
       "b": {
-       "element_id": "#187",
+       "element_id": "#188",
        "port": "1"
       },
       "points": [],
@@ -46632,12 +46876,12 @@
      {
       "id": "#195",
       "a": {
-       "element_id": "#187",
+       "element_id": "#188",
        "port": "2"
       },
       "b": {
-       "element_id": "#190",
-       "port": "1"
+       "element_id": "#191",
+       "port": "IN"
       },
       "points": [],
       "attrs": {
@@ -46655,11 +46899,57 @@
      {
       "id": "#196",
       "a": {
+       "element_id": "#191",
+       "port": "1"
+      },
+      "b": {
        "element_id": "#189",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#197",
+      "a": {
+       "element_id": "#189",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#192",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#198",
+      "a": {
+       "element_id": "#191",
        "port": "5"
       },
       "b": {
-       "element_id": "#191",
+       "element_id": "#193",
        "port": "1"
       },
       "points": [],
@@ -46681,7 +46971,7 @@
     "loc": "RD"
    },
    {
-    "id": "#197",
+    "id": "#199",
     "name": "RE – elektroměrový rozvaděč",
     "paper": "A3",
     "width": 420.0,
@@ -46698,12 +46988,12 @@
      },
      "placements": [
       {
-       "element_id": "#198",
+       "element_id": "#200",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#199",
+       "element_id": "#201",
        "row": 0,
        "pos": 3.0
       }
@@ -46711,7 +47001,7 @@
     },
     "elements": [
      {
-      "id": "#200",
+      "id": "#202",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 235.0,
@@ -46726,7 +47016,7 @@
       "component_id": null
      },
      {
-      "id": "#198",
+      "id": "#200",
       "symbol_id": "fve.breaker_mcb",
       "x": 60.0,
       "y": 200.0,
@@ -46738,12 +47028,13 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
      },
      {
-      "id": "#201",
+      "id": "#203",
       "symbol_id": "fve.meter",
       "x": 60.0,
       "y": 170.0,
@@ -46756,7 +47047,7 @@
       "component_id": null
      },
      {
-      "id": "#199",
+      "id": "#201",
       "symbol_id": "sb.main_switch",
       "x": 60.0,
       "y": 140.0,
@@ -46766,12 +47057,13 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
      {
-      "id": "#202",
+      "id": "#204",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 105.0,
@@ -46788,59 +47080,13 @@
     ],
     "wires": [
      {
-      "id": "#203",
-      "a": {
-       "element_id": "#198",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#201",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#204",
-      "a": {
-       "element_id": "#201",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#199",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#205",
       "a": {
        "element_id": "#200",
-       "port": "1"
+       "port": "2"
       },
       "b": {
-       "element_id": "#198",
+       "element_id": "#203",
        "port": "1"
       },
       "points": [],
@@ -46859,11 +47105,57 @@
      {
       "id": "#206",
       "a": {
-       "element_id": "#199",
+       "element_id": "#203",
        "port": "2"
       },
       "b": {
+       "element_id": "#201",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#207",
+      "a": {
        "element_id": "#202",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#200",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#208",
+      "a": {
+       "element_id": "#201",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#204",
        "port": "1"
       },
       "points": [],
@@ -47514,7 +47806,8 @@
    "building": "bytový dům",
    "topology": "nn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
-   "p_installed_kwp": "26.1"
+   "p_installed_kwp": "26.1",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -47779,6 +48072,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null,
@@ -49479,7 +49773,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -49528,7 +49823,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -49573,7 +49869,8 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
@@ -49865,7 +50162,8 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič",
-       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in"
+       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
@@ -49895,7 +50193,8 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
@@ -50110,6 +50409,7 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
@@ -50138,7 +50438,8 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
@@ -50641,7 +50942,8 @@
    "building": "firma",
    "topology": "vn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → TR → RVN → DS (+ RE)",
-   "p_installed_kwp": "18"
+   "p_installed_kwp": "18",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -52122,7 +52424,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -52185,7 +52488,8 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
@@ -52440,7 +52744,8 @@
        "ref": "Q2",
        "in_": "1000",
        "poles": "3",
-       "modules": "9"
+       "modules": "9",
+       "chain": "main"
       },
       "component_id": null
      },
@@ -52516,7 +52821,8 @@
        "ref": "Q3",
        "in_": "125",
        "poles": "3",
-       "modules": "6"
+       "modules": "6",
+       "chain": "fve_out"
       },
       "component_id": null
      },
@@ -54030,7 +54336,8 @@
    "building": "firma",
    "topology": "vn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → TR → RVN → DS (+ RE)",
-   "p_installed_kwp": "27"
+   "p_installed_kwp": "27",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -56343,7 +56650,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -56392,7 +56700,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -56437,7 +56746,8 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
@@ -56738,7 +57048,8 @@
        "ref": "Q2",
        "in_": "2000",
        "poles": "3",
-       "modules": "9"
+       "modules": "9",
+       "chain": "main"
       },
       "component_id": null
      },
@@ -56766,7 +57077,8 @@
        "ref": "Q3",
        "in_": "125",
        "poles": "3",
-       "modules": "6"
+       "modules": "6",
+       "chain": "fve_out"
       },
       "component_id": null
      },
@@ -58297,7 +58609,8 @@
    "building": "firma",
    "topology": "vn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → TR → RVN → DS (+ RE)",
-   "p_installed_kwp": "9"
+   "p_installed_kwp": "9",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -59376,7 +59689,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -59439,7 +59753,8 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
@@ -59694,7 +60009,8 @@
        "ref": "Q2",
        "in_": "400",
        "poles": "3",
-       "modules": "9"
+       "modules": "9",
+       "chain": "main"
       },
       "component_id": null
      },
@@ -59770,7 +60086,8 @@
        "ref": "Q3",
        "in_": "125",
        "poles": "3",
-       "modules": "6"
+       "modules": "6",
+       "chain": "fve_out"
       },
       "component_id": null
      },
@@ -60530,7 +60847,8 @@
    "building": "firma",
    "topology": "nn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
-   "p_installed_kwp": "288"
+   "p_installed_kwp": "288",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -60626,6 +60944,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null,
@@ -77725,7 +78044,7 @@
      "params": {
       "network": "3NPE, 50 Hz",
       "un": "230/400 V",
-      "in_": "125"
+      "in_": "160"
      },
      "placements": [
       {
@@ -77757,12 +78076,17 @@
        "element_id": "#931",
        "row": 0,
        "pos": 16.0
+      },
+      {
+       "element_id": "#932",
+       "row": 0,
+       "pos": 20.0
       }
      ]
     },
     "elements": [
      {
-      "id": "#932",
+      "id": "#933",
       "symbol_id": "sb.feed",
       "x": 105.0,
       "y": 105.0,
@@ -77788,12 +78112,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#933",
+      "id": "#934",
       "symbol_id": "sb.busbar",
       "x": 165.0,
       "y": 175.0,
@@ -77801,17 +78126,17 @@
       "attrs": {
        "ref": "1",
        "desc": "rozvod AC",
-       "in_": "125",
+       "in_": "160",
        "conductors": "L1 L2 L3 N PE",
        "shared": "1",
        "taps": "4",
-       "outs": "1",
+       "outs": "2",
        "tap_pitch": "30"
       },
       "component_id": null
      },
      {
-      "id": "#934",
+      "id": "#935",
       "symbol_id": "sb.feed",
       "x": 135.0,
       "y": 105.0,
@@ -77837,12 +78162,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#935",
+      "id": "#936",
       "symbol_id": "sb.feed",
       "x": 165.0,
       "y": 105.0,
@@ -77868,12 +78194,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#936",
+      "id": "#937",
       "symbol_id": "sb.feed",
       "x": 195.0,
       "y": 105.0,
@@ -77899,7 +78226,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -77918,7 +78246,7 @@
       "component_id": null
      },
      {
-      "id": "#937",
+      "id": "#938",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 105.0,
@@ -77942,14 +78270,15 @@
       "rotation": 270,
       "attrs": {
        "ref": "Q1",
-       "in_": "125",
+       "in_": "160",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
      {
-      "id": "#938",
+      "id": "#939",
       "symbol_id": "sb.feed",
       "x": 232.5,
       "y": 105.0,
@@ -77963,41 +78292,31 @@
        "cable": "CYKY-J 5x35 35"
       },
       "component_id": null
+     },
+     {
+      "id": "#932",
+      "symbol_id": "fve.grid_protection",
+      "x": 262.5,
+      "y": 140.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "F6",
+       "modules": "4",
+       "acts_on": "Q1"
+      },
+      "component_id": null
      }
     ],
     "wires": [
      {
-      "id": "#939",
-      "a": {
-       "element_id": "#932",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#926",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#940",
       "a": {
-       "element_id": "#926",
-       "port": "2"
+       "element_id": "#933",
+       "port": "1"
       },
       "b": {
-       "element_id": "#933",
-       "port": "B1"
+       "element_id": "#926",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -78015,12 +78334,12 @@
      {
       "id": "#941",
       "a": {
-       "element_id": "#934",
-       "port": "1"
+       "element_id": "#926",
+       "port": "2"
       },
       "b": {
-       "element_id": "#927",
-       "port": "1"
+       "element_id": "#934",
+       "port": "B1"
       },
       "points": [],
       "attrs": {
@@ -78038,12 +78357,12 @@
      {
       "id": "#942",
       "a": {
-       "element_id": "#927",
-       "port": "2"
+       "element_id": "#935",
+       "port": "1"
       },
       "b": {
-       "element_id": "#933",
-       "port": "B2"
+       "element_id": "#927",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -78061,12 +78380,12 @@
      {
       "id": "#943",
       "a": {
-       "element_id": "#935",
-       "port": "1"
+       "element_id": "#927",
+       "port": "2"
       },
       "b": {
-       "element_id": "#928",
-       "port": "1"
+       "element_id": "#934",
+       "port": "B2"
       },
       "points": [],
       "attrs": {
@@ -78084,12 +78403,12 @@
      {
       "id": "#944",
       "a": {
-       "element_id": "#928",
-       "port": "2"
+       "element_id": "#936",
+       "port": "1"
       },
       "b": {
-       "element_id": "#933",
-       "port": "B3"
+       "element_id": "#928",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -78107,12 +78426,12 @@
      {
       "id": "#945",
       "a": {
-       "element_id": "#936",
-       "port": "1"
+       "element_id": "#928",
+       "port": "2"
       },
       "b": {
-       "element_id": "#929",
-       "port": "1"
+       "element_id": "#934",
+       "port": "B3"
       },
       "points": [],
       "attrs": {
@@ -78130,12 +78449,12 @@
      {
       "id": "#946",
       "a": {
-       "element_id": "#929",
-       "port": "2"
+       "element_id": "#937",
+       "port": "1"
       },
       "b": {
-       "element_id": "#933",
-       "port": "B4"
+       "element_id": "#929",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -78153,7 +78472,30 @@
      {
       "id": "#947",
       "a": {
-       "element_id": "#933",
+       "element_id": "#929",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#934",
+       "port": "B4"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#948",
+      "a": {
+       "element_id": "#934",
        "port": "2"
       },
       "b": {
@@ -78173,13 +78515,13 @@
       "terminals": {}
      },
      {
-      "id": "#948",
+      "id": "#949",
       "a": {
        "element_id": "#930",
        "port": "PE"
       },
       "b": {
-       "element_id": "#937",
+       "element_id": "#938",
        "port": "1"
       },
       "points": [
@@ -78201,13 +78543,13 @@
       "terminals": {}
      },
      {
-      "id": "#949",
+      "id": "#950",
       "a": {
-       "element_id": "#933",
+       "element_id": "#934",
        "port": "1"
       },
       "b": {
-       "element_id": "#937",
+       "element_id": "#938",
        "port": "1"
       },
       "points": [],
@@ -78220,9 +78562,9 @@
       "terminals": {}
      },
      {
-      "id": "#950",
+      "id": "#951",
       "a": {
-       "element_id": "#933",
+       "element_id": "#934",
        "port": "3"
       },
       "b": {
@@ -78243,13 +78585,13 @@
       "terminals": {}
      },
      {
-      "id": "#951",
+      "id": "#952",
       "a": {
        "element_id": "#931",
        "port": "2"
       },
       "b": {
-       "element_id": "#938",
+       "element_id": "#939",
        "port": "1"
       },
       "points": [],
@@ -78264,6 +78606,28 @@
        "PE"
       ],
       "terminals": {}
+     },
+     {
+      "id": "#953",
+      "a": {
+       "element_id": "#934",
+       "port": "4"
+      },
+      "b": {
+       "element_id": "#932",
+       "port": "U"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N"
+      ],
+      "terminals": {}
      }
     ],
     "bridges": {},
@@ -78271,7 +78635,7 @@
     "loc": "RFVE.AC"
    },
    {
-    "id": "#952",
+    "id": "#954",
     "name": "HR – hlavní rozvaděč",
     "paper": "A3",
     "width": 420.0,
@@ -78288,12 +78652,12 @@
      },
      "placements": [
       {
-       "element_id": "#953",
+       "element_id": "#955",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#954",
+       "element_id": "#956",
        "row": 0,
        "pos": 3.0
       }
@@ -78301,7 +78665,7 @@
     },
     "elements": [
      {
-      "id": "#955",
+      "id": "#957",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 235.0,
@@ -78316,7 +78680,7 @@
       "component_id": null
      },
      {
-      "id": "#953",
+      "id": "#955",
       "symbol_id": "fve.breaker_mcb",
       "x": 60.0,
       "y": 200.0,
@@ -78328,12 +78692,13 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič",
-       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in"
+       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
      {
-      "id": "#956",
+      "id": "#958",
       "symbol_id": "sb.busbar",
       "x": 135.0,
       "y": 165.0,
@@ -78347,7 +78712,7 @@
       "component_id": null
      },
      {
-      "id": "#954",
+      "id": "#956",
       "symbol_id": "fve.breaker_mccb",
       "x": 67.5,
       "y": 130.0,
@@ -78357,12 +78722,13 @@
        "in_": "160",
        "poles": "3",
        "modules": "6",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
      {
-      "id": "#957",
+      "id": "#959",
       "symbol_id": "sb.feed",
       "x": 67.5,
       "y": 95.0,
@@ -78378,7 +78744,7 @@
       "component_id": null
      },
      {
-      "id": "#958",
+      "id": "#960",
       "symbol_id": "sb.feed",
       "x": 127.5,
       "y": 95.0,
@@ -78395,59 +78761,13 @@
     ],
     "wires": [
      {
-      "id": "#959",
-      "a": {
-       "element_id": "#955",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#953",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#960",
-      "a": {
-       "element_id": "#953",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#956",
-       "port": "IN"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#961",
       "a": {
-       "element_id": "#956",
+       "element_id": "#957",
        "port": "1"
       },
       "b": {
-       "element_id": "#954",
+       "element_id": "#955",
        "port": "1"
       },
       "points": [],
@@ -78466,12 +78786,12 @@
      {
       "id": "#962",
       "a": {
-       "element_id": "#954",
+       "element_id": "#955",
        "port": "2"
       },
       "b": {
-       "element_id": "#957",
-       "port": "1"
+       "element_id": "#958",
+       "port": "IN"
       },
       "points": [],
       "attrs": {
@@ -78489,11 +78809,57 @@
      {
       "id": "#963",
       "a": {
+       "element_id": "#958",
+       "port": "1"
+      },
+      "b": {
        "element_id": "#956",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#964",
+      "a": {
+       "element_id": "#956",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#959",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#965",
+      "a": {
+       "element_id": "#958",
        "port": "5"
       },
       "b": {
-       "element_id": "#958",
+       "element_id": "#960",
        "port": "1"
       },
       "points": [],
@@ -78515,7 +78881,7 @@
     "loc": "HR"
    },
    {
-    "id": "#964",
+    "id": "#966",
     "name": "RE – elektroměrový rozvaděč",
     "paper": "A3",
     "width": 420.0,
@@ -78532,12 +78898,12 @@
      },
      "placements": [
       {
-       "element_id": "#965",
+       "element_id": "#967",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#966",
+       "element_id": "#968",
        "row": 0,
        "pos": 3.0
       }
@@ -78545,7 +78911,7 @@
     },
     "elements": [
      {
-      "id": "#967",
+      "id": "#969",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 235.0,
@@ -78560,7 +78926,7 @@
       "component_id": null
      },
      {
-      "id": "#965",
+      "id": "#967",
       "symbol_id": "fve.breaker_mcb",
       "x": 60.0,
       "y": 200.0,
@@ -78572,12 +78938,13 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
      },
      {
-      "id": "#968",
+      "id": "#970",
       "symbol_id": "fve.meter",
       "x": 60.0,
       "y": 170.0,
@@ -78590,7 +78957,7 @@
       "component_id": null
      },
      {
-      "id": "#966",
+      "id": "#968",
       "symbol_id": "sb.main_switch",
       "x": 60.0,
       "y": 140.0,
@@ -78600,12 +78967,13 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
      {
-      "id": "#969",
+      "id": "#971",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 105.0,
@@ -78622,59 +78990,13 @@
     ],
     "wires": [
      {
-      "id": "#970",
-      "a": {
-       "element_id": "#965",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#968",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#971",
-      "a": {
-       "element_id": "#968",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#966",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#972",
       "a": {
        "element_id": "#967",
-       "port": "1"
+       "port": "2"
       },
       "b": {
-       "element_id": "#965",
+       "element_id": "#970",
        "port": "1"
       },
       "points": [],
@@ -78693,11 +79015,57 @@
      {
       "id": "#973",
       "a": {
-       "element_id": "#966",
+       "element_id": "#970",
        "port": "2"
       },
       "b": {
+       "element_id": "#968",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#974",
+      "a": {
        "element_id": "#969",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#967",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#975",
+      "a": {
+       "element_id": "#968",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#971",
        "port": "1"
       },
       "points": [],
@@ -81190,7 +81558,8 @@
    "building": "firma",
    "topology": "nn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
-   "p_installed_kwp": "17.1"
+   "p_installed_kwp": "17.1",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -81364,6 +81733,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null,
@@ -81771,7 +82141,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -81834,7 +82205,8 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
@@ -82080,7 +82452,8 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič",
-       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in"
+       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
@@ -82110,7 +82483,8 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
@@ -82325,6 +82699,7 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
@@ -82353,7 +82728,8 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
@@ -82642,7 +83018,8 @@
    "building": "rodinný dům",
    "topology": "rd",
    "topology_chain": "stringy → RFVE → T → RD → RE → HDS → DS",
-   "p_installed_kwp": "14.4"
+   "p_installed_kwp": "14.4",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -82801,6 +83178,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null,
@@ -83557,7 +83935,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -83620,7 +83999,8 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
@@ -83865,7 +84245,8 @@
        "poles": "4",
        "modules": "4",
        "desc": "hlavní vypínač",
-       "in_unresolved": "RD: In stávajícího hlavního přístroje není zadané – doplňte chain.rd.main_in"
+       "in_unresolved": "RD: In stávajícího hlavního přístroje není zadané – doplňte chain.rd.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
@@ -83895,7 +84276,8 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
@@ -84110,6 +84492,7 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
@@ -84138,7 +84521,8 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
@@ -84478,7 +84862,8 @@
    "building": "rodinný dům",
    "topology": "rd",
    "topology_chain": "stringy → RFVE → T → RD → RE → HDS → DS",
-   "p_installed_kwp": "13.5"
+   "p_installed_kwp": "13.5",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -84637,6 +85022,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null
@@ -85506,7 +85892,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -85547,7 +85934,8 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
@@ -86236,7 +86624,8 @@
        "poles": "4",
        "modules": "4",
        "desc": "hlavní vypínač",
-       "in_unresolved": "RD: In stávajícího hlavního přístroje není zadané – doplňte chain.rd.main_in"
+       "in_unresolved": "RD: In stávajícího hlavního přístroje není zadané – doplňte chain.rd.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
@@ -86266,7 +86655,8 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
@@ -86481,6 +86871,7 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
@@ -86509,7 +86900,8 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
@@ -86895,7 +87287,8 @@
    "building": "firma",
    "topology": "nn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
-   "p_installed_kwp": "18"
+   "p_installed_kwp": "18",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -87081,6 +87474,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null,
@@ -88304,7 +88698,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -88367,7 +88762,8 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
@@ -88613,7 +89009,8 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič",
-       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in"
+       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
@@ -88643,7 +89040,8 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
@@ -88858,6 +89256,7 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
@@ -88886,7 +89285,8 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
@@ -89300,7 +89700,8 @@
    "building": "firma",
    "topology": "nn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
-   "p_installed_kwp": "17.1"
+   "p_installed_kwp": "17.1",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -89498,6 +89899,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null,
@@ -91403,7 +91805,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -91466,7 +91869,8 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
@@ -91712,7 +92116,8 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič",
-       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in"
+       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
@@ -91742,7 +92147,8 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
@@ -91957,6 +92363,7 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
@@ -91985,7 +92392,8 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
@@ -92478,7 +92886,8 @@
    "building": "firma",
    "topology": "nn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
-   "p_installed_kwp": "18"
+   "p_installed_kwp": "18",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -92650,6 +93059,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null,
@@ -93851,7 +94261,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -93914,7 +94325,8 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
@@ -94160,7 +94572,8 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič",
-       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in"
+       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
@@ -94190,7 +94603,8 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
@@ -94405,6 +94819,7 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
@@ -94433,7 +94848,8 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
@@ -94824,7 +95240,8 @@
    "building": "firma",
    "topology": "nn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
-   "p_installed_kwp": "26.1"
+   "p_installed_kwp": "26.1",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -95051,6 +95468,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null,
@@ -96730,10 +97148,11 @@
       "rotation": 90,
       "attrs": {
        "ref": "F1",
-       "in_": "32",
+       "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -96779,10 +97198,11 @@
       "rotation": 90,
       "attrs": {
        "ref": "F2",
-       "in_": "32",
+       "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -96827,7 +97247,8 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
@@ -97119,7 +97540,8 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič",
-       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in"
+       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
@@ -97149,7 +97571,8 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
@@ -97364,6 +97787,7 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
@@ -97392,7 +97816,8 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
@@ -97896,7 +98321,8 @@
    "building": "firma",
    "topology": "nn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
-   "p_installed_kwp": "44.1"
+   "p_installed_kwp": "44.1",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -98178,6 +98604,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null,
@@ -100661,12 +101088,17 @@
        "element_id": "#145",
        "row": 0,
        "pos": 10.0
+      },
+      {
+       "element_id": "#146",
+       "row": 0,
+       "pos": 14.0
       }
      ]
     },
     "elements": [
      {
-      "id": "#146",
+      "id": "#147",
       "symbol_id": "sb.feed",
       "x": 105.0,
       "y": 105.0,
@@ -100692,12 +101124,13 @@
        "in_": "50",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#147",
+      "id": "#148",
       "symbol_id": "sb.busbar",
       "x": 165.0,
       "y": 175.0,
@@ -100709,13 +101142,13 @@
        "conductors": "L1 L2 L3 N PE",
        "shared": "1",
        "taps": "2",
-       "outs": "1",
+       "outs": "2",
        "tap_pitch": "30"
       },
       "component_id": null
      },
      {
-      "id": "#148",
+      "id": "#149",
       "symbol_id": "sb.feed",
       "x": 135.0,
       "y": 105.0,
@@ -100741,7 +101174,8 @@
        "in_": "50",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -100760,7 +101194,7 @@
       "component_id": null
      },
      {
-      "id": "#149",
+      "id": "#150",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 105.0,
@@ -100786,12 +101220,13 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
      {
-      "id": "#150",
+      "id": "#151",
       "symbol_id": "sb.feed",
       "x": 172.5,
       "y": 105.0,
@@ -100805,41 +101240,31 @@
        "cable": "CYKY-J 5x35 35"
       },
       "component_id": null
+     },
+     {
+      "id": "#146",
+      "symbol_id": "fve.grid_protection",
+      "x": 202.5,
+      "y": 140.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "F4",
+       "modules": "4",
+       "acts_on": "Q1"
+      },
+      "component_id": null
      }
     ],
     "wires": [
      {
-      "id": "#151",
-      "a": {
-       "element_id": "#146",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#142",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#152",
       "a": {
-       "element_id": "#142",
-       "port": "2"
+       "element_id": "#147",
+       "port": "1"
       },
       "b": {
-       "element_id": "#147",
-       "port": "B1"
+       "element_id": "#142",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -100857,12 +101282,12 @@
      {
       "id": "#153",
       "a": {
-       "element_id": "#148",
-       "port": "1"
+       "element_id": "#142",
+       "port": "2"
       },
       "b": {
-       "element_id": "#143",
-       "port": "1"
+       "element_id": "#148",
+       "port": "B1"
       },
       "points": [],
       "attrs": {
@@ -100880,12 +101305,12 @@
      {
       "id": "#154",
       "a": {
-       "element_id": "#143",
-       "port": "2"
+       "element_id": "#149",
+       "port": "1"
       },
       "b": {
-       "element_id": "#147",
-       "port": "B2"
+       "element_id": "#143",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -100903,7 +101328,30 @@
      {
       "id": "#155",
       "a": {
-       "element_id": "#147",
+       "element_id": "#143",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#148",
+       "port": "B2"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#156",
+      "a": {
+       "element_id": "#148",
        "port": "2"
       },
       "b": {
@@ -100923,13 +101371,13 @@
       "terminals": {}
      },
      {
-      "id": "#156",
+      "id": "#157",
       "a": {
        "element_id": "#144",
        "port": "PE"
       },
       "b": {
-       "element_id": "#149",
+       "element_id": "#150",
        "port": "1"
       },
       "points": [
@@ -100951,13 +101399,13 @@
       "terminals": {}
      },
      {
-      "id": "#157",
+      "id": "#158",
       "a": {
-       "element_id": "#147",
+       "element_id": "#148",
        "port": "1"
       },
       "b": {
-       "element_id": "#149",
+       "element_id": "#150",
        "port": "1"
       },
       "points": [],
@@ -100970,9 +101418,9 @@
       "terminals": {}
      },
      {
-      "id": "#158",
+      "id": "#159",
       "a": {
-       "element_id": "#147",
+       "element_id": "#148",
        "port": "3"
       },
       "b": {
@@ -100993,13 +101441,13 @@
       "terminals": {}
      },
      {
-      "id": "#159",
+      "id": "#160",
       "a": {
        "element_id": "#145",
        "port": "2"
       },
       "b": {
-       "element_id": "#150",
+       "element_id": "#151",
        "port": "1"
       },
       "points": [],
@@ -101014,6 +101462,28 @@
        "PE"
       ],
       "terminals": {}
+     },
+     {
+      "id": "#161",
+      "a": {
+       "element_id": "#148",
+       "port": "4"
+      },
+      "b": {
+       "element_id": "#146",
+       "port": "U"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N"
+      ],
+      "terminals": {}
      }
     ],
     "bridges": {},
@@ -101021,7 +101491,7 @@
     "loc": "RFVE.AC"
    },
    {
-    "id": "#160",
+    "id": "#162",
     "name": "HR – hlavní rozvaděč",
     "paper": "A3",
     "width": 420.0,
@@ -101038,12 +101508,12 @@
      },
      "placements": [
       {
-       "element_id": "#161",
+       "element_id": "#163",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#162",
+       "element_id": "#164",
        "row": 0,
        "pos": 3.0
       }
@@ -101051,7 +101521,7 @@
     },
     "elements": [
      {
-      "id": "#163",
+      "id": "#165",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 235.0,
@@ -101066,7 +101536,7 @@
       "component_id": null
      },
      {
-      "id": "#161",
+      "id": "#163",
       "symbol_id": "fve.breaker_mcb",
       "x": 60.0,
       "y": 200.0,
@@ -101078,12 +101548,13 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič",
-       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in"
+       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
      {
-      "id": "#164",
+      "id": "#166",
       "symbol_id": "sb.busbar",
       "x": 135.0,
       "y": 165.0,
@@ -101097,7 +101568,7 @@
       "component_id": null
      },
      {
-      "id": "#162",
+      "id": "#164",
       "symbol_id": "fve.breaker_mcb",
       "x": 67.5,
       "y": 130.0,
@@ -101108,12 +101579,13 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
      {
-      "id": "#165",
+      "id": "#167",
       "symbol_id": "sb.feed",
       "x": 67.5,
       "y": 95.0,
@@ -101129,7 +101601,7 @@
       "component_id": null
      },
      {
-      "id": "#166",
+      "id": "#168",
       "symbol_id": "sb.feed",
       "x": 127.5,
       "y": 95.0,
@@ -101146,59 +101618,13 @@
     ],
     "wires": [
      {
-      "id": "#167",
-      "a": {
-       "element_id": "#163",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#161",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#168",
-      "a": {
-       "element_id": "#161",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#164",
-       "port": "IN"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#169",
       "a": {
-       "element_id": "#164",
+       "element_id": "#165",
        "port": "1"
       },
       "b": {
-       "element_id": "#162",
+       "element_id": "#163",
        "port": "1"
       },
       "points": [],
@@ -101217,12 +101643,12 @@
      {
       "id": "#170",
       "a": {
-       "element_id": "#162",
+       "element_id": "#163",
        "port": "2"
       },
       "b": {
-       "element_id": "#165",
-       "port": "1"
+       "element_id": "#166",
+       "port": "IN"
       },
       "points": [],
       "attrs": {
@@ -101240,11 +101666,57 @@
      {
       "id": "#171",
       "a": {
+       "element_id": "#166",
+       "port": "1"
+      },
+      "b": {
        "element_id": "#164",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#172",
+      "a": {
+       "element_id": "#164",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#167",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#173",
+      "a": {
+       "element_id": "#166",
        "port": "5"
       },
       "b": {
-       "element_id": "#166",
+       "element_id": "#168",
        "port": "1"
       },
       "points": [],
@@ -101266,7 +101738,7 @@
     "loc": "HR"
    },
    {
-    "id": "#172",
+    "id": "#174",
     "name": "RE – elektroměrový rozvaděč",
     "paper": "A3",
     "width": 420.0,
@@ -101283,12 +101755,12 @@
      },
      "placements": [
       {
-       "element_id": "#173",
+       "element_id": "#175",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#174",
+       "element_id": "#176",
        "row": 0,
        "pos": 3.0
       }
@@ -101296,7 +101768,7 @@
     },
     "elements": [
      {
-      "id": "#175",
+      "id": "#177",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 235.0,
@@ -101311,7 +101783,7 @@
       "component_id": null
      },
      {
-      "id": "#173",
+      "id": "#175",
       "symbol_id": "fve.breaker_mcb",
       "x": 60.0,
       "y": 200.0,
@@ -101323,12 +101795,13 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
      },
      {
-      "id": "#176",
+      "id": "#178",
       "symbol_id": "fve.meter",
       "x": 60.0,
       "y": 170.0,
@@ -101341,7 +101814,7 @@
       "component_id": null
      },
      {
-      "id": "#174",
+      "id": "#176",
       "symbol_id": "sb.main_switch",
       "x": 60.0,
       "y": 140.0,
@@ -101351,12 +101824,13 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
      {
-      "id": "#177",
+      "id": "#179",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 105.0,
@@ -101373,59 +101847,13 @@
     ],
     "wires": [
      {
-      "id": "#178",
-      "a": {
-       "element_id": "#173",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#176",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#179",
-      "a": {
-       "element_id": "#176",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#174",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#180",
       "a": {
        "element_id": "#175",
-       "port": "1"
+       "port": "2"
       },
       "b": {
-       "element_id": "#173",
+       "element_id": "#178",
        "port": "1"
       },
       "points": [],
@@ -101444,11 +101872,57 @@
      {
       "id": "#181",
       "a": {
-       "element_id": "#174",
+       "element_id": "#178",
        "port": "2"
       },
       "b": {
+       "element_id": "#176",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#182",
+      "a": {
        "element_id": "#177",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#175",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#183",
+      "a": {
+       "element_id": "#176",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#179",
        "port": "1"
       },
       "points": [],
@@ -101997,7 +102471,8 @@
    "building": "firma",
    "topology": "nn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
-   "p_installed_kwp": "72"
+   "p_installed_kwp": "72",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -107028,7 +107503,7 @@
      "params": {
       "network": "3NPE, 50 Hz",
       "un": "230/400 V",
-      "in_": "125"
+      "in_": "160"
      },
      "placements": [
       {
@@ -107060,12 +107535,17 @@
        "element_id": "#281",
        "row": 0,
        "pos": 16.0
+      },
+      {
+       "element_id": "#282",
+       "row": 0,
+       "pos": 20.0
       }
      ]
     },
     "elements": [
      {
-      "id": "#282",
+      "id": "#283",
       "symbol_id": "sb.feed",
       "x": 105.0,
       "y": 105.0,
@@ -107091,12 +107571,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#283",
+      "id": "#284",
       "symbol_id": "sb.busbar",
       "x": 165.0,
       "y": 175.0,
@@ -107104,17 +107585,17 @@
       "attrs": {
        "ref": "1",
        "desc": "rozvod AC",
-       "in_": "125",
+       "in_": "160",
        "conductors": "L1 L2 L3 N PE",
        "shared": "1",
        "taps": "4",
-       "outs": "1",
+       "outs": "2",
        "tap_pitch": "30"
       },
       "component_id": null
      },
      {
-      "id": "#284",
+      "id": "#285",
       "symbol_id": "sb.feed",
       "x": 135.0,
       "y": 105.0,
@@ -107140,12 +107621,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#285",
+      "id": "#286",
       "symbol_id": "sb.feed",
       "x": 165.0,
       "y": 105.0,
@@ -107171,12 +107653,13 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
      {
-      "id": "#286",
+      "id": "#287",
       "symbol_id": "sb.feed",
       "x": 195.0,
       "y": 105.0,
@@ -107202,7 +107685,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -107221,7 +107705,7 @@
       "component_id": null
      },
      {
-      "id": "#287",
+      "id": "#288",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 105.0,
@@ -107245,14 +107729,15 @@
       "rotation": 270,
       "attrs": {
        "ref": "Q1",
-       "in_": "125",
+       "in_": "160",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
      {
-      "id": "#288",
+      "id": "#289",
       "symbol_id": "sb.feed",
       "x": 232.5,
       "y": 105.0,
@@ -107266,41 +107751,31 @@
        "cable": "CYKY-J 5x35 35"
       },
       "component_id": null
+     },
+     {
+      "id": "#282",
+      "symbol_id": "fve.grid_protection",
+      "x": 262.5,
+      "y": 140.0,
+      "rotation": 0,
+      "attrs": {
+       "ref": "F6",
+       "modules": "4",
+       "acts_on": "Q1"
+      },
+      "component_id": null
      }
     ],
     "wires": [
      {
-      "id": "#289",
-      "a": {
-       "element_id": "#282",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#276",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#290",
       "a": {
-       "element_id": "#276",
-       "port": "2"
+       "element_id": "#283",
+       "port": "1"
       },
       "b": {
-       "element_id": "#283",
-       "port": "B1"
+       "element_id": "#276",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -107318,12 +107793,12 @@
      {
       "id": "#291",
       "a": {
-       "element_id": "#284",
-       "port": "1"
+       "element_id": "#276",
+       "port": "2"
       },
       "b": {
-       "element_id": "#277",
-       "port": "1"
+       "element_id": "#284",
+       "port": "B1"
       },
       "points": [],
       "attrs": {
@@ -107341,12 +107816,12 @@
      {
       "id": "#292",
       "a": {
-       "element_id": "#277",
-       "port": "2"
+       "element_id": "#285",
+       "port": "1"
       },
       "b": {
-       "element_id": "#283",
-       "port": "B2"
+       "element_id": "#277",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -107364,12 +107839,12 @@
      {
       "id": "#293",
       "a": {
-       "element_id": "#285",
-       "port": "1"
+       "element_id": "#277",
+       "port": "2"
       },
       "b": {
-       "element_id": "#278",
-       "port": "1"
+       "element_id": "#284",
+       "port": "B2"
       },
       "points": [],
       "attrs": {
@@ -107387,12 +107862,12 @@
      {
       "id": "#294",
       "a": {
-       "element_id": "#278",
-       "port": "2"
+       "element_id": "#286",
+       "port": "1"
       },
       "b": {
-       "element_id": "#283",
-       "port": "B3"
+       "element_id": "#278",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -107410,12 +107885,12 @@
      {
       "id": "#295",
       "a": {
-       "element_id": "#286",
-       "port": "1"
+       "element_id": "#278",
+       "port": "2"
       },
       "b": {
-       "element_id": "#279",
-       "port": "1"
+       "element_id": "#284",
+       "port": "B3"
       },
       "points": [],
       "attrs": {
@@ -107433,12 +107908,12 @@
      {
       "id": "#296",
       "a": {
-       "element_id": "#279",
-       "port": "2"
+       "element_id": "#287",
+       "port": "1"
       },
       "b": {
-       "element_id": "#283",
-       "port": "B4"
+       "element_id": "#279",
+       "port": "1"
       },
       "points": [],
       "attrs": {
@@ -107456,7 +107931,30 @@
      {
       "id": "#297",
       "a": {
-       "element_id": "#283",
+       "element_id": "#279",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#284",
+       "port": "B4"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#298",
+      "a": {
+       "element_id": "#284",
        "port": "2"
       },
       "b": {
@@ -107476,13 +107974,13 @@
       "terminals": {}
      },
      {
-      "id": "#298",
+      "id": "#299",
       "a": {
        "element_id": "#280",
        "port": "PE"
       },
       "b": {
-       "element_id": "#287",
+       "element_id": "#288",
        "port": "1"
       },
       "points": [
@@ -107504,13 +108002,13 @@
       "terminals": {}
      },
      {
-      "id": "#299",
+      "id": "#300",
       "a": {
-       "element_id": "#283",
+       "element_id": "#284",
        "port": "1"
       },
       "b": {
-       "element_id": "#287",
+       "element_id": "#288",
        "port": "1"
       },
       "points": [],
@@ -107523,9 +108021,9 @@
       "terminals": {}
      },
      {
-      "id": "#300",
+      "id": "#301",
       "a": {
-       "element_id": "#283",
+       "element_id": "#284",
        "port": "3"
       },
       "b": {
@@ -107546,13 +108044,13 @@
       "terminals": {}
      },
      {
-      "id": "#301",
+      "id": "#302",
       "a": {
        "element_id": "#281",
        "port": "2"
       },
       "b": {
-       "element_id": "#288",
+       "element_id": "#289",
        "port": "1"
       },
       "points": [],
@@ -107567,6 +108065,28 @@
        "PE"
       ],
       "terminals": {}
+     },
+     {
+      "id": "#303",
+      "a": {
+       "element_id": "#284",
+       "port": "4"
+      },
+      "b": {
+       "element_id": "#282",
+       "port": "U"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N"
+      ],
+      "terminals": {}
      }
     ],
     "bridges": {},
@@ -107574,7 +108094,7 @@
     "loc": "RFVE.AC"
    },
    {
-    "id": "#302",
+    "id": "#304",
     "name": "HR – hlavní rozvaděč",
     "paper": "A3",
     "width": 420.0,
@@ -107592,12 +108112,12 @@
      },
      "placements": [
       {
-       "element_id": "#303",
+       "element_id": "#305",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#304",
+       "element_id": "#306",
        "row": 0,
        "pos": 6.0
       }
@@ -107605,7 +108125,7 @@
     },
     "elements": [
      {
-      "id": "#305",
+      "id": "#307",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 235.0,
@@ -107621,7 +108141,7 @@
       "component_id": null
      },
      {
-      "id": "#303",
+      "id": "#305",
       "symbol_id": "fve.breaker_mccb",
       "x": 60.0,
       "y": 200.0,
@@ -107631,12 +108151,13 @@
        "in_": "400",
        "poles": "3",
        "modules": "6",
-       "desc": "hlavní jistič"
+       "desc": "hlavní jistič",
+       "chain": "main"
       },
       "component_id": null
      },
      {
-      "id": "#306",
+      "id": "#308",
       "symbol_id": "sb.busbar",
       "x": 135.0,
       "y": 165.0,
@@ -107650,24 +108171,25 @@
       "component_id": null
      },
      {
-      "id": "#304",
+      "id": "#306",
       "symbol_id": "fve.fuse_disconnect",
       "x": 67.5,
       "y": 130.0,
       "rotation": 270,
       "attrs": {
-       "ref": "F6",
+       "ref": "F7",
        "in_": "160",
        "char": "gG",
        "un": "400",
        "poles": "3",
        "modules": "6",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
      {
-      "id": "#307",
+      "id": "#309",
       "symbol_id": "sb.feed",
       "x": 67.5,
       "y": 95.0,
@@ -107683,7 +108205,7 @@
       "component_id": null
      },
      {
-      "id": "#308",
+      "id": "#310",
       "symbol_id": "sb.feed",
       "x": 127.5,
       "y": 95.0,
@@ -107700,59 +108222,13 @@
     ],
     "wires": [
      {
-      "id": "#309",
-      "a": {
-       "element_id": "#305",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#303",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#310",
-      "a": {
-       "element_id": "#303",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#306",
-       "port": "IN"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
       "id": "#311",
       "a": {
-       "element_id": "#306",
+       "element_id": "#307",
        "port": "1"
       },
       "b": {
-       "element_id": "#304",
+       "element_id": "#305",
        "port": "1"
       },
       "points": [],
@@ -107771,12 +108247,12 @@
      {
       "id": "#312",
       "a": {
-       "element_id": "#304",
+       "element_id": "#305",
        "port": "2"
       },
       "b": {
-       "element_id": "#307",
-       "port": "1"
+       "element_id": "#308",
+       "port": "IN"
       },
       "points": [],
       "attrs": {
@@ -107794,11 +108270,57 @@
      {
       "id": "#313",
       "a": {
+       "element_id": "#308",
+       "port": "1"
+      },
+      "b": {
        "element_id": "#306",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#314",
+      "a": {
+       "element_id": "#306",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#309",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#315",
+      "a": {
+       "element_id": "#308",
        "port": "5"
       },
       "b": {
-       "element_id": "#308",
+       "element_id": "#310",
        "port": "1"
       },
       "points": [],
@@ -107820,7 +108342,7 @@
     "loc": "HR"
    },
    {
-    "id": "#314",
+    "id": "#316",
     "name": "RE – elektroměrový rozvaděč",
     "paper": "A3",
     "width": 420.0,
@@ -107838,12 +108360,12 @@
      },
      "placements": [
       {
-       "element_id": "#315",
+       "element_id": "#317",
        "row": 0,
        "pos": 0.0
       },
       {
-       "element_id": "#316",
+       "element_id": "#318",
        "row": 0,
        "pos": 6.0
       }
@@ -107851,7 +108373,7 @@
     },
     "elements": [
      {
-      "id": "#317",
+      "id": "#319",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 235.0,
@@ -107866,7 +108388,7 @@
       "component_id": null
      },
      {
-      "id": "#315",
+      "id": "#317",
       "symbol_id": "fve.breaker_mccb",
       "x": 60.0,
       "y": 200.0,
@@ -107876,12 +108398,13 @@
        "in_": "400",
        "poles": "3",
        "modules": "6",
-       "desc": "hlavní jistič před elektroměrem"
+       "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main"
       },
       "component_id": null
      },
      {
-      "id": "#318",
+      "id": "#320",
       "symbol_id": "fve.ct",
       "x": 60.0,
       "y": 170.0,
@@ -107897,7 +108420,7 @@
       "component_id": null
      },
      {
-      "id": "#319",
+      "id": "#321",
       "symbol_id": "fve.meter",
       "x": 95.0,
       "y": 145.0,
@@ -107910,7 +108433,7 @@
       "component_id": null
      },
      {
-      "id": "#316",
+      "id": "#318",
       "symbol_id": "sb.main_switch",
       "x": 60.0,
       "y": 120.0,
@@ -107920,12 +108443,13 @@
        "in_": "400",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
      {
-      "id": "#320",
+      "id": "#322",
       "symbol_id": "sb.feed",
       "x": 60.0,
       "y": 85.0,
@@ -107943,13 +108467,13 @@
     ],
     "wires": [
      {
-      "id": "#321",
+      "id": "#323",
       "a": {
-       "element_id": "#315",
+       "element_id": "#317",
        "port": "2"
       },
       "b": {
-       "element_id": "#318",
+       "element_id": "#320",
        "port": "1"
       },
       "points": [],
@@ -107966,13 +108490,13 @@
       "terminals": {}
      },
      {
-      "id": "#322",
+      "id": "#324",
       "a": {
-       "element_id": "#318",
+       "element_id": "#320",
        "port": "S"
       },
       "b": {
-       "element_id": "#319",
+       "element_id": "#321",
        "port": "1"
       },
       "points": [
@@ -107991,13 +108515,13 @@
       "terminals": {}
      },
      {
-      "id": "#323",
+      "id": "#325",
       "a": {
-       "element_id": "#318",
+       "element_id": "#320",
        "port": "2"
       },
       "b": {
-       "element_id": "#319",
+       "element_id": "#321",
        "port": "2"
       },
       "points": [
@@ -108026,59 +108550,59 @@
       "terminals": {}
      },
      {
-      "id": "#324",
+      "id": "#326",
+      "a": {
+       "element_id": "#320",
+       "port": "2"
+      },
+      "b": {
+       "element_id": "#318",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#327",
+      "a": {
+       "element_id": "#319",
+       "port": "1"
+      },
+      "b": {
+       "element_id": "#317",
+       "port": "1"
+      },
+      "points": [],
+      "attrs": {
+       "ref": ""
+      },
+      "conductors": [
+       "L1",
+       "L2",
+       "L3",
+       "N",
+       "PE"
+      ],
+      "terminals": {}
+     },
+     {
+      "id": "#328",
       "a": {
        "element_id": "#318",
        "port": "2"
       },
       "b": {
-       "element_id": "#316",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#325",
-      "a": {
-       "element_id": "#317",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#315",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#326",
-      "a": {
-       "element_id": "#316",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#320",
+       "element_id": "#322",
        "port": "1"
       },
       "points": [],
@@ -108953,7 +109477,8 @@
    "building": "firma",
    "topology": "nn_hr_meter",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → HDS → DS",
-   "p_installed_kwp": "18"
+   "p_installed_kwp": "18",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -110275,7 +110800,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -110338,7 +110864,8 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
@@ -110589,6 +111116,7 @@
        "poles": "3",
        "modules": "6",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "boundary": "1"
       },
       "component_id": null
@@ -110617,7 +111145,8 @@
        "in_": "160",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
@@ -110647,7 +111176,8 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
@@ -111118,7 +111648,8 @@
    "building": "rodinný dům",
    "topology": "rd",
    "topology_chain": "stringy → RFVE → T → RD → RE → HDS → DS",
-   "p_installed_kwp": "14.4"
+   "p_installed_kwp": "14.4",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -112130,7 +112661,8 @@
        "in_": "40",
        "char": "B",
        "poles": "3",
-       "modules": "3"
+       "modules": "3",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -112193,7 +112725,8 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
@@ -112814,7 +113347,8 @@
        "in_": "63",
        "poles": "4",
        "modules": "4",
-       "desc": "hlavní vypínač"
+       "desc": "hlavní vypínač",
+       "chain": "main"
       },
       "component_id": null
      },
@@ -112844,7 +113378,8 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
@@ -113059,7 +113594,8 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "hlavní jistič před elektroměrem"
+       "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main"
       },
       "component_id": null
      },
@@ -113088,7 +113624,8 @@
        "in_": "63",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },
@@ -113474,7 +114011,8 @@
    "building": "firma",
    "topology": "nn",
    "topology_chain": "stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS",
-   "p_installed_kwp": "9.9"
+   "p_installed_kwp": "9.9",
+   "grid_protection_kwp": "30"
   },
   "sheets": [
    {
@@ -113646,6 +114184,7 @@
        "in_": "",
        "char": "gG",
        "poles": "3",
+       "in_unresolved": "In stávajících pojistek HDS není zadané – doplňte chain.hds.in_",
        "boundary": "1"
       },
       "component_id": null,
@@ -114843,7 +115382,8 @@
        "in_": "25",
        "char": "B",
        "poles": "2",
-       "modules": "2"
+       "modules": "2",
+       "chain": "inv"
       },
       "component_id": null
      },
@@ -114906,7 +115446,8 @@
        "ref": "Q1",
        "in_": "125",
        "poles": "4",
-       "modules": "4"
+       "modules": "4",
+       "chain": "rfve_main"
       },
       "component_id": null
      },
@@ -115148,7 +115689,8 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič",
-       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in"
+       "in_unresolved": "HR: In stávajícího hlavního přístroje není zadané – doplňte chain.hr.main_in",
+       "chain": "main"
       },
       "component_id": null
      },
@@ -115178,7 +115720,8 @@
        "poles": "3",
        "modules": "3",
        "char": "B",
-       "desc": "vývod FVE"
+       "desc": "vývod FVE",
+       "chain": "fve_out"
       },
       "component_id": null
      },
@@ -115393,6 +115936,7 @@
        "modules": "3",
        "char": "B",
        "desc": "hlavní jistič před elektroměrem",
+       "chain": "meter_main",
        "in_unresolved": "RE: In stávajícího hlavního jističe před elektroměrem není zadané – doplňte chain.re.main_in"
       },
       "component_id": null
@@ -115421,7 +115965,8 @@
        "in_": "",
        "poles": "4",
        "modules": "4",
-       "desc": "vypínač instalace"
+       "desc": "vypínač instalace",
+       "chain": "inst_switch"
       },
       "component_id": null
      },

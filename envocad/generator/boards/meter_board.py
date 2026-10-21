@@ -84,6 +84,7 @@ def build_metering(p: Project, sheet: Sheet, x: float, y0: float, opts: dict, wh
         hj_attrs["char"] = _s(opts.get("char") or "B")
     hj = _el(p, sheet, "fve.breaker_mccb" if big else "fve.breaker_mcb", x, y0, "Q", rot=270, **hj_attrs)
     hj.attrs["desc"] = "hlavní jistič před elektroměrem"
+    hj.attrs["chain"] = "meter_main"
     if not main_in:
         hj.attrs["in_unresolved"] = (f"{where}: In stávajícího hlavního jističe před elektroměrem není zadané – "
                                      f"doplňte chain.{role}.main_in")
@@ -107,6 +108,7 @@ def build_metering(p: Project, sheet: Sheet, x: float, y0: float, opts: dict, wh
     switch_in = _s(opts.get("switch_in")).strip() or main_in
     q = _el(p, sheet, "sb.main_switch", x, y_q, "Q", rot=270, in_=switch_in, poles="4", modules="4")
     q.attrs["desc"] = "vypínač instalace"
+    q.attrs["chain"] = "inst_switch"
     _wire(p, sheet, last, "2", q, "1", AC_CONDUCTORS)
     if boundary == "re_main":
         hj.attrs["boundary"] = "1"

@@ -219,6 +219,7 @@ def check_project(project: Project, lib) -> list[Finding]:
     out += interrupt_findings(project, idx)
     out += spd_findings(project)
     out += protection_findings(project, lib)
+    out += chain_findings(project, lib)
     out += designation_findings(project, lib, idx)
     out += revision_findings(full)
     out += note_findings(full)
@@ -564,6 +565,12 @@ def protection_findings(project: Project, lib=None) -> list[Finding]:
     out: list[Finding] = []
     for s in project.sheets:
         if not s.is_switchboard:
+            # blokové schéma: pojistky HDS (stávající přípojková skříň) bez In – jako stávající přístroj
+            for e in s.elements:
+                if e.symbol_id == "fve.hds" and not str(e.attrs.get("in_") or "").strip():
+                    why = str(e.attrs.get(IN_UNRESOLVED) or "").strip()
+                    out.append(Finding(ERROR if why else WARNING, s.id, s.name, e.id, False, e.ref,
+                                       f"Pojistky HDS bez In – {why or 'doplňte'}", "breaker_no_in"))
             continue
         for e in s.elements:
             if e.symbol_id not in PROTECTION_SYMBOLS:
@@ -599,6 +606,88 @@ def protection_findings(project: Project, lib=None) -> list[Finding]:
                     out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref,
                                        f"In vložky {in_} A > max. In držáku {max_in:g} A ({comp.part_number}) – "
                                        "zvolte menší vložku nebo větší držák", "fuse_over_holder"))
+    return out
+
+
+GRID_PROTECTION_KWP = 30.0      # výchozí hranice síťové ochrany (instalovaný výkon DC, kWp)
+GRID_PROTECTION_SYMBOL = "fve.grid_protection"
+CHANGEOVER_SYMBOL = "fve.changeover_switch"
+FVE_FUSE_MAX_BREAKER_IN = 80.0  # vývod FVE do 80 A včetně vždy jistič
+
+
+def chain_findings(project: Project, lib) -> list[Finding]:
+    """Řetězec FVE (F2): selektivita přes listy (`calc.check_selectivity_tree`, `chain_selectivity`), pojistkový
+    vývod FVE do 80 A (`fve_out_fuse_le80`), chybějící síťová ochrana nad hranicí kWp (`grid_protection_missing` –
+    `meta["p_installed_kwp"]` nad `meta["grid_protection_kwp"]`, výchozí 30) a EPS vývod hybridního střídače, který
+    nevede na přepínač sítí (`eps_unconnected`). Vše varování; hodnoty se nepřepisují."""
+    from envocad.model import calc
+    out: list[Finding] = []
+    for c in calc.check_selectivity_tree(project, lib):
+        out.append(Finding(WARNING, c.sheet.id, c.sheet.name, c.element.id, False, c.element.ref,
+                           f"Selektivita v řetězci: {c.msg}", "chain_selectivity"))
+    for s in project.sheets:
+        for e in s.elements:
+            if str(e.attrs.get("chain") or "") == "fve_out" and e.symbol_id in FUSE_SYMBOLS:
+                v = _num_attr(e.attrs.get("in_"))
+                if v is not None and v <= FVE_FUSE_MAX_BREAKER_IN:
+                    out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
+                                       f"Vývod FVE {v:g} A pojistkou – do {FVE_FUSE_MAX_BREAKER_IN:g} A vždy jistič",
+                                       "fve_out_fuse_le80"))
+    kwp = _num_attr(project.meta.get("p_installed_kwp"))
+    limit = _num_attr(project.meta.get("grid_protection_kwp")) or GRID_PROTECTION_KWP
+    if kwp is not None and kwp > limit + 1e-9 and not any(
+            e.symbol_id == GRID_PROTECTION_SYMBOL for s in project.sheets for e in s.elements):
+        out.append(Finding(WARNING, "", "", "", False, "",
+                           f"Instalovaný výkon {kwp:g} kWp > {limit:g} kWp a v projektu chybí síťová ochrana "
+                           f"({GRID_PROTECTION_SYMBOL})", "grid_protection_missing"))
+    out += _eps_findings(project)
+    return out
+
+
+def _eps_findings(project: Project) -> list[Finding]:
+    """Hybridní střídač s baterií a EPS vývodem (port BACKUP; generátor u rodinného domu značí `eps="1"`): vodič
+    z BACKUP musí vést (přes přívod / vývod rozvaděče a svorky) na přepínač sítí."""
+    out: list[Finding] = []
+    by_id = {e.id: (s, e) for s in project.sheets for e in s.elements}
+
+    def reaches_changeover(start: tuple[str, str]) -> bool:
+        seen = {start, (start[0], "*")}          # zpět přes střídač (AC strana) se nehledá
+        todo = [start]
+        while todo:
+            eid, port = todo.pop()
+            s, e = by_id[eid]
+            if e.symbol_id == CHANGEOVER_SYMBOL:
+                return True
+            nxt: list[tuple[str, str]] = []
+            for w in s.wires:
+                for a, b in ((w.a, w.b), (w.b, w.a)):
+                    if a.element_id == eid and (port == "*" or a.port == port) and b.element_id in by_id:
+                        nxt.append((b.element_id, "*"))
+            if e.symbol_id == "fve.switchboard":       # blok: port bloku → přívod / vývod listu rozvaděče
+                sb = project.switchboard_sheet(e.id)
+                for f in (sb.elements if sb is not None else []):
+                    if f.ref == port:
+                        nxt.append((f.id, "*"))
+            for k in nxt:
+                if k not in seen and len(seen) < 200:
+                    seen.add(k)
+                    todo.append(k)
+        return False
+
+    for s in project.sheets:
+        for e in s.elements:
+            if e.symbol_id != "fve.inverter_hybrid":
+                continue
+            battery = any(w.touches(e.id) and any(by_id.get(x, (None, None))[1] is not None
+                                                  and by_id[x][1].symbol_id == "fve.battery"
+                                                  for x in (w.a.element_id, w.b.element_id)) for w in s.wires)
+            wired = [w for w in s.wires if any(end.element_id == e.id and end.port == "BACKUP" for end in (w.a, w.b))]
+            if not battery or not (wired or str(e.attrs.get("eps") or "") == "1"):
+                continue
+            if not wired or not reaches_changeover((e.id, "BACKUP")):
+                out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
+                                   f"EPS vývod (BACKUP) hybridního střídače {e.ref} s baterií nevede na přepínač sítí",
+                                   "eps_unconnected"))
     return out
 
 

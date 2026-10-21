@@ -273,6 +273,19 @@ SYMBOLS = [
         "label_pos": {"x": -10, "y": -10},   # popisek pod skříní – nad ní je místo pro text hranice vlastnictví
     },
     {
+        # síťová ochrana (ochrana rozhraní FVE – U<, U>, f<, f>; nad 30 kWp DC) v AC rozvaděči FVE: měří napětí
+        # z přípojnice (port U nahoře), působí na vazební spínač (`acts_on` = označení hlavního vypínače);
+        # docs/design/topologie_f1_f2.md, kap. 2 bod 8
+        "id": "fve.grid_protection", "name": "Síťová ochrana", "category": "Jištění", "iec_ref": "F",
+        "function_class": ["F", "K"],
+        "description": "Síťová ochrana / ochrana rozhraní FVE (U<, U>, f<, f>) – měření z přípojnice, působí na vazební spínač",
+        "primitives": [R(-7.5, -5, 15, 10), L(0, 5, 0, 7.5), T(0, 0.5, "U<>", 2), T(0, -3.5, "f<>", 2)],
+        "ports": [P("U", 0, 7.5, "N")],
+        "attributes": [REF, TYPE, MFR, attr("acts_on", "Působí na (vazební spínač)", "", True, "→ {}"),
+                       attr("settings", "Nastavení", "U< U> f< f>"), attr("modules", "Šířka [moduly]", "4"), *TEMP],
+        "label_pos": {"x": 9, "y": 1},
+    },
+    {
         "id": "fve.load", "name": "Spotřeba objektu", "category": "Síť a zátěž", "iec_ref": "",
         "description": "Stávající rozvod / spotřeba objektu",
         "primitives": [L(-7.5, 0, -5, 0), R(-5, -5, 15, 10), T(2.5, -1, "Spotřeba", 2)],

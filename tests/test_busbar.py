@@ -197,7 +197,10 @@ def test_rfve_ac_branches_straight(lib, n, use_macros):
     p = build_project(spec)
     s = next(s for s in p.sheets if s.loc == "RFVE.AC")
     bus = _bus(s)
-    assert layout_of(bus) == BusLayout(n, 1, 30.0)
+    # síťová ochrana nad 30 kWp (F2, krok 8): vývod 4 za hlavním vypínačem (n × 9 kWp)
+    gp = next((e for e in s.elements if e.symbol_id == "fve.grid_protection"), None)
+    assert (gp is not None) == (n * 9 > 30)
+    assert layout_of(bus) == BusLayout(n, 2 if gp else 1, 30.0)
     wires = _branch_wires(s)
     assert len(wires) >= 2 * n + 4
     assert _bent(p, s, lib, wires) == []
@@ -207,7 +210,10 @@ def test_rfve_ac_branches_straight(lib, n, use_macros):
     sym = element_symbol(p, bus, lib)
     q = next(e for e in s.elements if e.symbol_id == "sb.main_switch")
     assert q.x == bus.x + sym.port("3").x
-    assert line_end(sym) + bus.x == q.x + 7.5                                   # sběrnice končí za hlavním vypínačem
+    last = gp if gp is not None else q
+    if gp is not None:
+        assert gp.x == bus.x + sym.port("4").x
+    assert line_end(sym) + bus.x == last.x + 7.5           # sběrnice končí za posledním vývodem (vypínač / ochrana)
     bad = [(f.code, f.text) for f in check_project(p, lib) if f.severity in (ERROR, WARNING)]
     assert bad == []
 

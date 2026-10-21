@@ -21,7 +21,8 @@ def _macro_vars(dc: dict, ac: dict) -> dict:
     # prázdné / „auto“ `fuse_in` (podle stringu) doplní `_fuse_in` před voláním; zůstane-li prázdné (žádná pojistka
     # nevyhoví), dosadí se zástupná hodnota a po rozvinutí makra se z prvků zase vymaže (`_blank_unresolved`)
     return {"fuse_in": _s(dc.get("fuse_in")).strip() or UNRESOLVED_IN, "disc_in": _s(dc.get("disconnect_in") or 32), "spd": _s(dc.get("spd") or "T2"),
-            "breaker_in": _s(ac.get("breaker_in") or 40), "main_in": _s(ac.get("main_in") or 125), "ac_spd": _s(ac.get("spd") or "T1+T2")}
+            "breaker_in": _s(ac.get("breaker_in") or 40), "main_in": _s(ac.get("main_in") or 125), "ac_spd": _s(ac.get("spd") or "T1+T2"),
+            "grid_protection": _s(ac.get("grid_protection"))}
 
 
 FUSE_SYMBOLS = ("fve.fuse_disconnect", "fve.fuse")
