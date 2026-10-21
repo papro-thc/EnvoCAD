@@ -1,6 +1,54 @@
 # Changelog
 
 ## Nevydáno
+- **Rozsah generátoru: blokové schéma a DC rozvaděče, AC rozvaděče z mustrů** (rozhodnutí 12,
+  `docs/NAVRH_TOPOLOGIE.md`, kap. 8). **Formát projektu v15** – blok rozvaděče bez listu s porty z atributů
+  `ports_in` / `ports_out` a jištěním portů `protect` (`project.block_port_names`, `is_block_only`); migrace v14 → v15
+  nic nemění (verze vyšší, aby program v14 soubor odmítl místo osiřelých portů „X1?“), test
+  `test_v14_to_v15_block_ports_noop`. Nové atributy značek: `fve.switchboard` (`main`, `fve_out`, `metering`,
+  `inv_protect`, `grid_protection`, `ports_in`, `ports_out`, `protect`), `sb.main_switch` (`trip` – vypínací spoušť);
+  přívod / vývod s `anchor="1"` = kotva bez zapojení. Klíč standardu `ac_builtin`.
+  - **Stávající RD / HR / RE (a HDS) jen bloky bez listů**: údaje `chain.*` v popisku bloku (hlavní přístroj s In,
+    vývod FVE, měření, hranice vlastnictví textem); neznámé In stávajících přístrojů už není chyba F7, HDS bez In jen
+    INFO `hds_no_in`. **RFVE.AC** má list jen z **mustru** (makra rolí `ac_feed` + `ac_core` ve sdílené / vlastní
+    knihovně, `spec.pattern_macro`), jinak blok s porty X1…Xn, XOUT, XPE a údaji (hlavní vypínač, jištění střídačů,
+    požadavek síťové ochrany). **RFVE u RD**: list vždy s DC částí, AC část (přívody, jádro, EPS) z mustru, jinak kotvy
+    X1…, XOUT, XPE, XE{i} / XB{i}. Přípojka VN: listy HR / RVN / RE dál.
+  - **Vestavěný kód AC listů** volbou `chain.<role>.builtin` (role `rfve_ac`, `rfve`, `rd`, `hr`, `re`) nebo standardem
+    `ac_builtin`; stávající testy AC listů na ni přepnuté (fixture `ac_builtin`), snímek generátoru: dřívější případy
+    vestavěně, nové `scope_company`, `scope_house_eps`, `scope_vn` ve výchozím rozsahu.
+  - **F7 jen nad přístroji, které jsou**: selektivita přes blok bez listu se nehodnotí; `no_sheet` → INFO `block_only`
+    u bloku s porty z atributů; `grid_protection_missing` uzná požadavek na bloku bez AC části (pozor: kód se týká
+    i ručních projektů s `meta.p_installed_kwp` nad `grid_protection_kwp` – varování, když v projektu chybí
+    `fve.grid_protection`); `eps_unconnected` varování jen u `eps="1"` (generátor), v ručním projektu INFO, do RFVE
+    bez AC části INFO `eps_open`; nové `grid_protection_trip` (vazební prvek bez vypínací spouště `trip`),
+    `grid_protection_u` (nejištěný měřicí vstup U), INFO `feed_anchor`.
+- **Review F2** (nálezy B1–B3, D1–D9):
+  - **B1** formát blokového schématu jako na main: společný RFVE.DC – vodiče shora a zdola sdílejí svislé dráhy
+    (`pv.common_lanes`, `layout._align_bends`), popisek kabelu před drahami; když by list „AC a připojení“ přerostl
+    `jps_max_paper`, generátor vezme RFVE.DC na střídač (jen bez zadaného `chain.rfve_dc.per_inverter`);
+    `close_gaps` i vodorovně, `stack_components` jen se společným RFVE.DC, RFVE.AC{n} skupin po rozdělení pod RFVE.AC1
+    (`groups.stack_after_split`); DS pod HDS jako varianta svislého řetězce (`column_below`, `column_top_below`),
+    hodnocení rozložení počítá i cizí vodič přes značku řetězce. Firma 4×2, 5×2, 3×3, 2×3×2, 6×1 opět jeden A2,
+    5×8 / 6×6 / 6×8 bez listu nad A2 (`test_generator_scope.py`). Zrychlení: mezipaměť značek při zkoušení rozložení
+    (`project.symbol_cache`), dřívější ukončení volby rozložení (formát listu bez řetězce).
+  - **B2** `calc._block_exit`: string přes blok rozvaděče párem přes list rozvaděče (`_sheet_exit`), jinak jen DC
+    porty – u RFVE se 2+ střídači string už nepatří cizímu střídači.
+  - **B3 / D1 / D2** pravidla jištění v `generator/currents.py`: jistič přívodu střídače ≥ 1,25 × proud z P AC, nebo
+    ≥ `i_ac_max_a` artiklu, řada do 250 A, nad ní prázdné + `in_unresolved`; vývod FVE v RD / HR i v HR na vn ≥
+    max(Σ proudů, největší jistič střídače); hlavní vypínač RFVE.AC z prvků střídačů (artikl bez `p_ac`).
+    **Vědomá změna hodnot**: 25 kW → jistič 50 A (dřív 40 A), 10 kW → 20 A, 1f 5 kW → 32 A.
+  - **D3** kabel RFVE.AC → HR / RD (i na vn): `ac.grid_*` jen zadané ve specifikaci, jinak nejmenší průřez pro In
+    vývodu FVE (typ v řadě AC kabelu, „CYKY-J 5x10“); kontrola kabelů porovná In jištění vývodu s Iz i přes vazbu
+    přívodu, u bloku bez listu podle `protect`.
+  - **D4** EPS (vestavěný kód i makro „EPS přepínač sítí“): jistič před síťovou stranou přepínače; přepínač sítí mezi
+    odpínači (`calc.SWITCH_DEVICES`). **D5** síťová ochrana (kód i makro jádra): jistič měřicího vstupu U, vazební
+    vypínač s `trip`; při rozvodu svorkami vlastní skupina svorek. Obojí jako požadavek na mustr v
+    `docs/design/topologie_f1_f2.md`, kap. 3. **D6** viz F7. **D7** EPS jen u střídače s připojenou baterií.
+    **D9** MANUAL: jistič 1f střídače vždy podle proudu (i přes zadané `ac.breaker_in`).
+  - Drobné: `node_desc` se stejným pořadím přednosti jako `node_ref` (preset RD bez popisu RFVE, aby zůstal popis
+    „rozvaděč FVE (DC + AC)“ / „(AC)“), komentáře `build.py`, `base.py`, DS u vlastní topologie bez článku „grid“
+    kabelem jako článek „grid“.
 - **Topologie F2 – kroky 7–10 a svislý řetězec** (`docs/design/topologie_f1_f2.md`, kap. 2). Formát projektu beze
   změny (v14) – nové jsou značky `fve.grid_protection`, `fve.changeover_switch`, vestavěné makro „EPS přepínač sítí“
   (role `ac_eps`), nepovinné atributy prvků (`chain`, `eps`, `acts_on`) a klíč standardu `grid_protection_kwp`.

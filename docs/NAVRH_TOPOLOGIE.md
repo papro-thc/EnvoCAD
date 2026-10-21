@@ -262,3 +262,10 @@ připravené (F4 po dodání mustrů).
     stávajících přístrojů); list RFVE.AC (a AC část RFVE u RD) jen když existuje mustr (makra rolí `ac_feed`/`ac_core`/
     `ac_eps` ve sdílené / vlastní knihovně), jinak blok bez listu (u RD list RFVE jen s DC částí + přívody/vývody).
     Vestavěný kód AC listů zůstává jako volba (`chain.<role>.builtin: true` / standard) pro testy a nouzi.
+    **Hotovo** (2026-10-21): bloky bez listu nesou porty v atributech `ports_in` / `ports_out` (formát projektu v15,
+    migrace v14 → v15 bez změny dat) a údaje článku v popisku (`main`, `fve_out`, `metering`, `inv_protect`,
+    `grid_protection`, jištění portů `protect` pro kontrolu kabelů); mustr = makra rolí `ac_feed` + `ac_core` ve
+    sdílené / vlastní knihovně (`generator/spec.pattern_macro`); RD: list RFVE s DC částí a kotvami AC části
+    (`anchor="1"`); standard `ac_builtin`. F7 jen nad nakreslenými přístroji (selektivita přes blok bez listu se
+    nehodnotí, HDS bez In jen INFO, síťová ochrana jako požadavek bloku, EPS do RFVE bez AC části INFO). Přípojka VN:
+    listy HR / RVN / RE trafostanice zůstávají (otevřená otázka).

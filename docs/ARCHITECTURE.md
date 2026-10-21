@@ -43,12 +43,18 @@ envocad/
                  RFVE.AC `layout._chain_column`, RD vpravo `layout._house_column`) nebo v řadě; volba podle hodnocení
                  (`_choose_chain_layout`: křížení, překryvy, formát), hranice vlastnictví, rozmístění JPS, vazby přívodů
     layout.py    zarovnání bloků a lomů JPS, trasa RD, svislý řetězec (`_stack_column`), zvětšení listů rozvaděčů
-    jps.py       rozmístění JPS na list a dělení na listy střídačů (`close_gaps`, `stack_components`)
+    jps.py       rozmístění JPS na list a dělení na listy střídačů (`close_gaps` svisle i vodorovně,
+                 `stack_components` jen se společným RFVE.DC)
+    currents.py  proudy střídačů a jištění AC strany: jistič přívodu střídače (1,25 × I z P AC, artikl `i_ac_max_a`,
+                 řada do 250 A), vývod FVE v RD / HR i HR na vn (≥ max(Σ I, jistič střídače)), hlavní vypínač RFVE.AC
     boards/      jeden modul na roli: base (ChainContext, ChainPorts, BoardBuilder), rfve_dc (i společný RFVE.DC),
                  rfve_ac, rfve (rozvaděč FVE RD), house_board (stávající RD / HR: hlavní přístroj, vývod FVE, stávající
                  rozvody), meter_board (RE na nn a funkce měření – i měření v HR), hds (`fve.hds`), grid (DS na nn),
                  mv (přípojka VN: HR+TR+RVN+RE jako jeden builder), macro_glue (makra), eps (EPS a přepínač sítí
-                 RD), groups (skupiny střídačů `ac_group` – RFVE.AC{n}); přístroje řetězce nesou atribut `chain`
+                 RD), groups (skupiny střídačů `ac_group` – RFVE.AC{n}). Rozsah (rozhodnutí 12): RD / HR / RE jen
+                 bloky bez listu (porty a údaje v atributech), RFVE.AC / AC část RFVE z mustru (`rfve_ac.ac_mode`,
+                 `spec.pattern_macro`), jinak blok / kotvy; vestavěný kód volbou `chain.<role>.builtin` / standard
+                 `ac_builtin`. Zkoušení rozložení s mezipamětí značek (`project.symbol_cache`); přístroje řetězce nesou atribut `chain`
                  (inv, rfve_main, fve_out, main, meter_main, inst_switch) pro `calc.check_selectivity_tree` (F7
                  `checks.chain_findings`)
   ui/         PySide6 GUI (nikdy neobsahuje business logiku)
@@ -231,7 +237,10 @@ Tři vrstvy rozšíření, od nejjednodušší:
    starými `sb.feed_in` / `sb.feed_out` se po `build` převede (`feed.normalize_legacy_objects` v `apply_template`),
    callback menu, který vkládá prvky sám, musí použít `sb.feed`.
 
-Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **14** – parametrická sběrnice `sb.busbar`
+Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **15** – blok rozvaděče bez listu
+s porty z atributů `ports_in` / `ports_out` a jištěním portů `protect` (`project.block_port_names`, `is_block_only`,
+`block_protect`; generátor tak kreslí stávající RD / HR / RE a RFVE.AC bez mustru jen jako blok), migrace v14 → v15
+nic nemění, verze zvednutá, aby program v14 soubor odmítl místo osiřelých portů „X1?“; v14 parametrická sběrnice `sb.busbar`
 (atributy `taps` / `outs` / `tap_pitch`, `model/busbar.py`), migrace v13 → v14 nic nemění, verze zvednutá jen proto, aby
 program v13 soubor odmítl místo kreslení pevné sběrnice; v13 jedna značka přívodu/vývodu
 `sb.feed` se směrem `attrs.dir` místo `sb.feed_in` / `sb.feed_out`, migrace bez přeskládání: přívod se pootočí o 180°,

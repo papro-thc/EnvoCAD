@@ -105,7 +105,13 @@ testy, `ui/main_window.py`, `ui/dialogs.py`). **Upravit testy**: `test_wizard_ca
 `envocad.generator.context._BUILD_LIB`.
 
 ## 2. F2 – nové články (pořadí = pořadí implementace)
-**Stav (2026-10-21): kroky 1–6 hotové** (větev `feature/topologie-f2`, CHANGELOG). Odchylky: In stávajících HJ (RE)
+**Stav (2026-10-21): kroky 1–10 hotové, rozsah podle rozhodnutí 12** (větev `feature/topologie-f2`, CHANGELOG):
+generátor kreslí blokové schéma a DC rozvaděče; RD / HR / RE / HDS jen bloky (údaje `chain.*` v atributech bloků,
+porty bloku bez listu `ports_in` / `ports_out` – formát projektu v15), RFVE.AC a AC část RFVE z mustru, jinak blok bez
+listu / kotvy; vestavěný kód AC listů volbou `chain.<role>.builtin` / standard `ac_builtin`. Pravidla jištění
+v `generator/currents.py` (jistič střídače 1,25 × I z P AC, z artiklu `i_ac_max_a`; řada do 250 A; vývod FVE ≥
+max(Σ I, jistič střídače); hlavní vypínač z prvků střídačů).
+**Dřívější stav kroků 1–6:** Odchylky: In stávajících HJ (RE)
 i hlavního přístroje RD/HR bez zadání → `in_unresolved` (chyba F7), u vypínače RD také (`protection_findings` hlásí
 `in_unresolved` u jakéhokoli přístroje). Nepřímé měření: elektroměr v RE přímo na sekundáru MTP (bez svorek XMI/XMU).
 Kroky 7–10 hotové (2026-10-21, CHANGELOG). Řetězec stávajících článků **svisle** (rozhodnutí uživatele):
@@ -190,7 +196,21 @@ sběrnice dolů; vlevo XPE (x 60) a SPD (x 82,5). DC rozvaděče (RFVE.DC, RDCn)
 makro `dc_tech` kreslí jakkoli. Staré mustry se `sb.feed_in` / `sb.feed_out` fungují (převod při načtení makra).
 
 RFVE (RD) = `dc_tech` + `ac_feed` + `ac_core` (+ `ac_eps`) s vlastními názvy („RFVE – DC string“…), RFVE.AC =
-`ac_feed` + `ac_core`, RFVE.DC = `dc_tech`. V RFVE platí číslování: AC přívody X1…Xn, DC přívody od X{k0+1}
+`ac_feed` + `ac_core`, RFVE.DC = `dc_tech`.
+
+**Mustr AC části rozhoduje o listu** (rozhodnutí 12, 2026-10-21): list RFVE.AC (AC část RFVE) vznikne jen z maker
+rolí `ac_feed` + `ac_core` ve sdílené / vlastní knihovně (vestavěná makra jsou jen pro volbu `builtin` / standard
+`ac_builtin`); bez mustru je RFVE.AC blok bez listu (porty a údaje v atributech, formát projektu v15) a RFVE u RD má
+list s DC částí a kotvami AC části. Stávající RD / HR / RE jsou jen bloky.
+
+**Požadavky na mustr (review F2, D4 a D5)** – kontrola projektu (F7) je hlídá i v mustru:
+- **EPS (`ac_eps`)**: síťová strana přepínače sítí (port 1 `fve.changeover_switch`) **přes jistič** z vývodu sběrnice
+  (vestavěné makro: sběrnice 1 vývod 5 → `fve.breaker_mcb` `{eps_in}` → přepínač); přepínač má In ≥ jistič (přepínač
+  je mezi odpínači `calc.SWITCH_DEVICES` – In pod jištěním, které ho chrání = `chain_selectivity`).
+- **Síťová ochrana (`ac_core`, `when: grid_protection`)**: vazební prvek (hlavní vypínač, na který ochrana působí
+  `acts_on`) **s vypínací spouští** – atribut `trip` (např. „vypínací spoušť“; bez něj F7 `grid_protection_trip`);
+  **měřicí vstup U jištěný** (jistič / pojistka mezi rozvodem a portem U; jinak F7 `grid_protection_u`; vestavěné:
+  `fve.breaker_mcb` 4p B6). Nemá-li ochrana v mustru `acts_on`, generátor ho doplní (hlavní vypínač XOUT) i se `trip`. V RFVE platí číslování: AC přívody X1…Xn, DC přívody od X{k0+1}
 (k0 = za AC částí), vývody X{nk}. Porty na mřížce 2,5 mm, `ref` u všech přístrojů, In jako čísla.
 
 ## 4. Testy, rizika, YAGNI

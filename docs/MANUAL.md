@@ -593,12 +593,12 @@ trafostanice“) a přístroje rozvaděče VN atribut **Pole / kobka** („P1 ka
 vlastností a určují rámečky v jednopólovém schématu. Ze Sn transformátoru se dopočte hlavní jistič (In nn → nejbližší
 vyšší řada), převod MTP (x/5 A), pojistky VN (≈ 1,8 × In VN – ověř podle tabulky výrobce) a jistič spotřeby (≤ hlavní
 / 1,6 kvůli selektivitě); ve specifikaci je mění `connection.main_board.main_in`, `ct_ratio`, `fuse_vn`,
-`main_board.load_in`, označení TS `connection.ts.ref`/`desc`. **Vývod FVE v HR** má In hlavního vypínače RFVE.AC
-(`ac.main_in`), nejvýš největší jistič selektivní s hlavním jističem (poměr 1,6); musí unést **proud FVE** (součet
-jmenovitých AC proudů střídačů z jejich P AC a počtu fází – i z artiklu střídače) a nesmí být menší než jistič
-střídače v RFVE.AC. Rozhodnutí: vývod FVE ≥ jistič střídače, **ne 1,6 × jistič střídače** – selektivitu vůči
-jističům střídačů drží hlavní vypínač RFVE.AC a 1,6× by u malých trafostanic vývod zbytečně vyhnalo nad selektivní
-mez s hlavním jističem HR. Když takový jistič není (nebo je zadané `ac.main_in` pod proudem FVE), In zůstane prázdné
+`main_board.load_in`, označení TS `connection.ts.ref`/`desc`. **Vývod FVE v HR** je nejbližší velikost ≥ max(**proud
+FVE**, největší jistič střídače) – proud FVE = součet AC proudů střídačů (z artiklu `i_ac_max_a`, jinak z P AC a počtu
+fází) –, nejvýš největší jistič selektivní s hlavním jističem (poměr 1,6); bez střídačů In hlavního vypínače RFVE.AC.
+Rozhodnutí: vývod FVE ≥ jistič střídače, **ne 1,6 × jistič střídače** – selektivitu vůči jističům střídačů drží
+hlavní vypínač RFVE.AC a 1,6× by u malých trafostanic vývod zbytečně vyhnalo nad selektivní mez s hlavním jističem HR.
+Když takový jistič není (nebo je zadaný hlavní vypínač `ac.main_in` pod proudem FVE), In zůstane prázdné
 a F7 hlásí chybu s důvodem; `connection.main_board.fve_in` platí vždy beze změny. **Napětí vn** (`u_vn`) se čte
 z čísla na začátku textu („22 kV“, „35 kV, 50 Hz“, „22 000 V“, „22.000 V“); nečitelné nebo mimo 1–52 kV je chyba
 zadání, nezadané se počítá jako 22 kV, ale do výkresu se nepíše. Rozvaděč VN nemá vícepól ani plán svorkovnice
@@ -671,48 +671,85 @@ vygeneruje projekt, ty ho upravíš.
 **Topologie připojení**: generátor vybere preset řetězce (rodinný dům → `rd`, připojení na vn → `vn`, jinak `nn`;
 `nn_hr_meter` s měřením v HR jen volbou `"topology": "nn_hr_meter"` ve specifikaci). Do vlastností projektu zapíše
 `topology` (id presetu) a `topology_chain` (náhled řetězce, např. „stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS →
-DS“). Generátor řetězec kreslí celý (F2): za RFVE.AC / RFVE následují **stávající rozvaděče** (jen dotčená část) a
-HDS s DS:
+DS“).
 
-- **RD / HR** (stávající domovní / hlavní rozvaděč): přívod XIN → hlavní přístroj (RD vypínač, HR jistič; In
-  `main_in`) → přípojnice → **vývod FVE X1** (jistič, nebo pojistkový odpínač – volba `fve_device`; **do 80 A vždy
-  jistič**, pojistka do 80 A = chyba zadání) a vývod „stávající rozvody objektu“ X2 (v blokovém schématu značka
-  Spotřeba). In vývodu FVE bez zadání = nejbližší jistič ≥ součet proudů střídačů. **In stávajícího hlavního
-  přístroje musí projektant zadat** (`main_in`) – jinak zůstane prázdné a kontrola projektu hlásí chybu.
-- **RE** (elektroměrový rozvaděč): přívod XIN → **hlavní jistič před elektroměrem vždy** → elektroměr přímý (v sérii)
-  nebo nepřímý (MTP, převod z In nebo `ct_ratio`) → **vypínač instalace vždy** → vývod XOUT. U topologie
-  `nn_hr_meter` je stejné měření v HR (bez RE).
+**Co generátor kreslí (rozsah):** hlavně **blokové schéma** (celý řetězec od stringů po DS) a **DC rozvaděče**
+(RFVE.DC, RDCn, DC část RFVE). **AC rozvaděče připraví projektant z mustrů** (firemní makra):
+
+- **RFVE.AC** má list jen tehdy, když v knihovně je **mustr** – makra rolí `ac_feed` (přívod střídače) a `ac_core`
+  (jádro) ve **sdílené nebo vlastní** knihovně (vestavěná makra se nepočítají; název lze vybrat i ve specifikaci
+  `"macros": {"ac_feed": "…", "ac_core": "…"}`, jinak se vezme makro s danou rolí). Jinak je RFVE.AC **blok bez
+  listu**: porty X1…Xn (přívody od střídačů), XOUT, XPE a v popisku hlavní vypínač, jištění střídačů a požadavek
+  síťové ochrany.
+- **RFVE (rodinný dům)** má list vždy s **DC částí**; AC část (přívody, jádro, EPS – makro `ac_eps`) jen z mustru,
+  jinak jen **kotvy** přívodů a vývodů (X1…, XOUT, XPE, XE1/XB1) bez přístrojů – blok má porty, vazby fungují a AC
+  část doplní projektant nebo mustr (kontrola: INFO „kotva“).
+- **Stávající RD / HR / RE a HDS** jsou jen **bloky v blokovém schématu** bez listů. Údaje z `chain.*` se propíší do
+  popisku bloku: hlavní přístroj s In (`main_in`), vývod FVE (`fve_device`, `fve_in`), měření (přímé / nepřímé s MTP);
+  hranice vlastnictví zůstává textem v blokovém schématu. Neznámé In stávajících přístrojů není chyba (HDS bez In jen
+  INFO). Porty bloku bez listu jsou v jeho atributech (`ports_in`, `ports_out`, formát projektu 15).
+- Na přípojce VN (`vn`) zůstávají listy HR, RVN a RE (trafostanice); RFVE.AC bez mustru je blok.
+- **Vestavěný kód AC listů** (jako před tímto rozhodnutím – RFVE.AC, AC část RFVE včetně EPS, listy RD / HR / RE)
+  zapne volba `"chain": {"<role>": {"builtin": true}}` (role `rfve_ac`, `rfve`, `rd`, `hr`, `re`) nebo firemní
+  standard **`ac_builtin`** (Knihovna → Firemní standard; `settings.json`). Pak platí i vestavěná makra
+  (`spec.macros`, prázdný název = kód). Volba článku má přednost před standardem.
+
+Údaje stávajících článků (`"chain": {…}`, ve vestavěném kódu i v popisku bloku):
+
+- **RD / HR**: přívod XIN → hlavní přístroj (RD vypínač, HR jistič; In `main_in`) → **vývod FVE X1** (jistič, nebo
+  pojistkový odpínač – volba `fve_device`; **do 80 A vždy jistič**, pojistka do 80 A = chyba zadání) a vývod
+  „stávající rozvody objektu“ X2 (v blokovém schématu značka Spotřeba). In vývodu FVE bez zadání = nejbližší velikost
+  ≥ max(součet proudů střídačů, největší jistič střídače) – stejně jako vývod FVE v HR na vn.
+- **RE**: hlavní jistič před elektroměrem → elektroměr přímý (v sérii) nebo nepřímý (MTP, převod z In nebo `ct_ratio`)
+  → vypínač instalace. U topologie `nn_hr_meter` je stejné měření v HR (bez RE).
 - **HDS**: blok s pojistkami (`in_`, charakteristika gG), vodič HDS → DS bez kabelu.
 - **Hranice vlastnictví** DS / odběratel (`boundary`): `hds` (výchozí), `re_main` (svorky hlavního jističe), `re_meter`
-  (za elektroměrem) – atribut `boundary` na přístroji a text „hranice vlastnictví DS / odběratel“ v blokovém schématu.
-- **Kabely mezi články**: kabel článku směrem k síti `chain.<role>.cable / cross / length / method` (RFVE.AC → HR /
-  RD bez zadání = dřívější `ac.grid_*`). Nový úsek bez průřezu dostane nejmenší průřez pro In přístroje, který ho jistí
-  (vývod FVE, tabulka Iz); stávající úsek bez údajů je vodič bez označení a kabelu.
+  (za elektroměrem) – text „hranice vlastnictví DS / odběratel“ v blokovém schématu (ve vestavěném listu i atribut
+  `boundary` na přístroji).
+- **Kabely mezi články**: kabel článku směrem k síti `chain.<role>.cable / cross / length / method`. RFVE.AC → HR / RD:
+  zadané `ac.grid_*` (jen když je zadáš – výchozí hodnota se nebere), jinak nejmenší průřez pro In vývodu FVE (tabulka
+  Iz, uložení D, typ v řadě AC kabelu střídačů – „CYKY-J 5x10“); nad 240 mm² zůstane průřez prázdný (paralelní kabely
+  zvolí projektant). Stávající úsek bez údajů je vodič bez označení a kabelu. Kontrola kabelů porovná In jištění
+  vývodu s Iz kabelu i přes vazbu přívodu – u bloku bez listu podle atributu `protect` („X1=63“, vývod FVE v HR / RD,
+  jištění střídačů u RFVE.AC).
+
+**Jištění střídačů a hlavní vypínač:** nezadaný jistič přívodu střídače = nejbližší velikost řady (10…125, 160, 200,
+250 A) ≥ 1,25 × proud z P AC, nebo ≥ max. AC proud z artiklu (`i_ac_max_a`); nad řadou zůstane In prázdné a F7 hlásí
+chybu s důvodem. **Jednofázový střídač** má jistič vždy podle proudu (1,25 × P / 230 V, řada do 63 A) – i když je
+zadané `ac.breaker_in` (to platí pro třífázové). Nezadaný hlavní vypínač AC rozvaděče je nejméně 125 A a nejméně
+vývod FVE, počítá se z prvků střídačů (i z artiklu bez `p_ac` ve specifikaci).
 
 Stávající články se skládají **svisle** („had“, každý další pod předchozím): u firmy pod RFVE.AC (vývod XOUT vede
-krátce vpravo za uzemnění a dolů do HR), u rodinného domu ve sloupci vpravo od FV části (vývod RFVE pod střídači a
-nahoru do RD); DS stojí vedle HDS. Generátor zkusí i řadu pod FV částí / za RFVE.AC a nechá rozložení s nejmenším
-výkresem bez křížení a překryvů textů – projekty, které se vešly na jeden list A2 před F2, se vejdou i teď.
+krátce vpravo za uzemnění a dolů do HR; DS pod HDS), u rodinného domu ve sloupci vpravo od FV části (vývod RFVE pod
+střídači a nahoru do RD; DS vedle HDS). Generátor zkusí i řadu pod FV částí / za RFVE.AC a nechá rozložení s nejmenším
+výkresem bez křížení a překryvů textů (i bez cizího vodiče přes značku řetězce). Společný RFVE.DC sdílí svislé dráhy
+vodičů shora a zdola; kdyby list „AC a připojení“ s ním přerostl limit listu, vezme se RFVE.DC na střídač (jen když
+`chain.rfve_dc.per_inverter` nezadáš).
 
-**Kontrola řetězce (F7)**: selektivita přes listy (vývod FVE v RD / HR < hlavní jistič před elektroměrem < pojistky
-HDS, jistič střídače ≤ vývod FVE, odpínač nesmí mít In pod jištěním, které ho chrání) – `chain_selectivity`; pojistkový
-vývod FVE do 80 A (`fve_out_fuse_le80`), chybějící síťová ochrana nad hranicí (`grid_protection_missing`), EPS vývod,
-který nevede na přepínač sítí (`eps_unconnected`), HDS bez In (`breaker_no_in`). Zadané hodnoty generátor
-nepřepisuje – nevyhovující nahlásí. Nezadaný hlavní vypínač AC rozvaděče je nejméně 125 A a nejméně vývod FVE,
-nezadaný jistič přívodu střídače podle proudu střídače.
+**Kontrola řetězce (F7)** – běží jen nad přístroji, které v projektu jsou (blok bez listu nic nehlásí): selektivita
+přes listy (vývod FVE v RD / HR < hlavní jistič před elektroměrem < pojistky HDS, jistič střídače ≤ vývod FVE,
+odpínač i přepínač sítí nesmí mít In pod jištěním, které ho chrání) – `chain_selectivity`; pojistkový vývod FVE do
+80 A (`fve_out_fuse_le80`); chybějící síťová ochrana nad hranicí (`grid_protection_missing` – požadavek v atributu
+bloku RFVE.AC / RFVE bez AC části stačí); vazební prvek síťové ochrany bez vypínací spouště (`grid_protection_trip`,
+atribut `trip` hlavního vypínače) a nejištěný měřicí vstup U (`grid_protection_u`); EPS vývod, který nevede na
+přepínač sítí (`eps_unconnected` – varování jen u střídače, kde ho generátor čeká, `eps="1"`; v ručním projektu INFO;
+vede-li do RFVE bez AC části, INFO `eps_open`); HDS bez In (INFO `hds_no_in`); rozvaděč jen jako blok (INFO
+`block_only`). Zadané hodnoty generátor nepřepisuje – nevyhovující nahlásí.
 
 **Síťová ochrana** nad 30 kWp instalovaného výkonu DC (hranice ve firemním standardu `grid_protection_kwp`): relé
-U<> f<> v RFVE.AC (u rodinného domu v RFVE) měří z přípojnice za hlavním vypínačem a působí na něj; přepis
-`"chain": {"rfve_ac": {"grid_protection": "1" | "0" | "auto"}}` (u RD `rfve`).
+U<> f<> v RFVE.AC (u rodinného domu v RFVE) měří přes **jistič měřicího vstupu** z přípojnice za hlavním vypínačem
+a působí na hlavní (vazební) vypínač s **vypínací spouští**; přepis `"chain": {"rfve_ac": {"grid_protection": "1" |
+"0" | "auto"}}` (u RD `rfve`). Bez AC listu je ochrana požadavkem v popisku bloku.
 
-**EPS a přepínač sítí** jen u rodinného domu s hybridním střídačem a baterií: EPS vývod (BACKUP) střídače vede přes
-pár přerušení „EPS-T1“ na přívod XE1 RFVE → přepínač sítí I-0-II (síť z přípojnice) → vývod XB1 „zálohované
-okruhy“. U firmy a bytového domu se nekreslí.
+**EPS a přepínač sítí** jen u rodinného domu, u střídače s připojenou baterií: EPS vývod (BACKUP) vede přes pár
+přerušení „EPS-T1“ na přívod XE1 RFVE → přepínač sítí I-0-II (síť z přípojnice **přes jistič**) → vývod XB1
+„zálohované okruhy“. U firmy a bytového domu se nekreslí.
 
 **Střídače na jiném místě**: `"inverters": [{…, "ac_group": "hala B"}]` – skupina má vlastní RFVE.AC2 (hlavní
-RFVE.AC1) a vlastní vývod FVE v HR (X3…; kabel přes pár přerušení „AC2-HR“). Jen nn s HR (firma, bytový dům). Volby se zadávají ve specifikaci, např.
-`"chain": {"hr": {"main_in": 250}, "re": {"main_in": 250, "metering": "indirect", "boundary": "re_main"},
-"hds": {"in_": 315}}` (přehled v `docs/LIBRARY_FORMAT.md`, „Volby článků“). Průvodce je zatím nenabízí (F5).
+RFVE.AC1) a vlastní vývod FVE v HR (X3…; kabel přes pár přerušení „AC2-HR“). Jen nn s HR (firma, bytový dům). Volby se
+zadávají ve specifikaci, např. `"chain": {"hr": {"main_in": 250}, "re": {"main_in": 250, "metering": "indirect",
+"boundary": "re_main"}, "hds": {"in_": 315}}` (přehled v `docs/LIBRARY_FORMAT.md`, „Volby článků“). Průvodce je zatím
+nenabízí (F5).
 Jednofázový střídač (`phases` 1) má AC kabel třížilový (L N PE) s průřezem podle proudu. Vlastní nebo firemní presety
 (`~/.envocad/topologies/`, sdílená knihovna `topologies/`) s neznámou rolí se nenačtou (záznam v logu) a platí
 vestavěný preset; preset pro rodinný dům musí mít rozvaděč FVE `rfve`, preset na vn aspoň jeden článek přípojky VN.
