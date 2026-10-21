@@ -266,8 +266,12 @@ def _chain_layout_score(ctx: ChainContext, wires: set[str]) -> tuple:
     boxes = sheet_content_boxes(p, s, lib, lay)
     segs = {wid: [(a, b) for a, b in pairwise(pts) if a != b] for wid, pts in lay.routes.items()}
     ends = {w.id: {w.a.element_id, w.b.element_id} for w in s.wires}
+    # obálky značek jednou (dřív pro každý úsek vodiče řetězce znovu); `sym_boxes` podle id (poslední prvek s id)
+    el_boxes = [(e.id, symbol_box(e, element_symbol(p, e, lib))) for e in s.elements]
+    sym_boxes = dict(el_boxes)
     cross = 0
     for wid in wires & set(segs):
+        own = ends.get(wid, ())
         for a, b in segs[wid]:
             for oid, other in segs.items():
                 if oid == wid:
@@ -275,15 +279,16 @@ def _chain_layout_score(ctx: ChainContext, wires: set[str]) -> tuple:
                 for c, d in other:
                     if _segments_cross((a, b), (c, d)):
                         cross += 1
-            for e in s.elements:
-                if e.id in ends.get(wid, ()):
+            sx0, sx1 = (a[0], b[0]) if a[0] <= b[0] else (b[0], a[0])
+            sy0, sy1 = (a[1], b[1]) if a[1] <= b[1] else (b[1], a[1])
+            for eid, (x1, y1, x2, y2) in el_boxes:
+                # úsek celý mimo značku (zmenšenou o 0,5 a toleranci 0,2 `segment_hits_box`) – nekříží
+                if sx1 < x1 + 0.7 or sx0 > x2 - 0.7 or sy1 < y1 + 0.7 or sy0 > y2 - 0.7 or eid in own:
                     continue
-                x1, y1, x2, y2 = symbol_box(e, element_symbol(p, e, lib))
                 if segment_hits_box(a, b, (x1 + 0.5, y1 + 0.5, x2 - 0.5, y2 - 0.5)):
                     cross += 1
     # značky řetězce přes cizí značky (např. RFVE.AC dalších skupin střídačů pod hlavním)
     owners = {w.a.element_id for w in s.wires if w.id in wires} | {w.b.element_id for w in s.wires if w.id in wires}
-    sym_boxes = {e.id: symbol_box(e, element_symbol(p, e, lib)) for e in s.elements}
     # cizí vodiče přes značky řetězce (DS / HDS uprostřed svislých úseků AC vodičů střídačů)
     for wid, sg in segs.items():
         if wid in wires:
@@ -484,9 +489,12 @@ def _boundary_target(ctx: ChainContext) -> Element | None:
 def _layout(ctx: ChainContext) -> None:
     """Zarovnání bloků a lomů JPS, rozmístění na list(y), zvětšení přetékajících listů rozvaděčů, vazby přívodů.
     Do vazeb přívodů se atributy ani zapojení prvků nemění (jen polohy, přerušení při dělení JPS) – značky se počítají
-    jednou (`project.symbol_cache`); vazby přívodů mění texty přívodů / vývodů, proto až za mezipamětí."""
+    jednou (`project.symbol_cache`); vazby přívodů mění texty přívodů / vývodů, proto až za mezipamětí. Rozložení
+    textů téhož stavu projektu (zkoušení rozložení řetězce, rozmístění na listy) se počítá jednou
+    (`textlayout.layout_cache`, klíč = úplný stav listů)."""
     from envocad.model.project import symbol_cache
-    with symbol_cache():
+    from envocad.model.textlayout import layout_cache
+    with symbol_cache(), layout_cache():
         dc_sheets = _layout_place(ctx)
     p = ctx.project
     sync_feed_links(p)

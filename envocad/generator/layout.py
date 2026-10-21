@@ -14,10 +14,13 @@ def _grow_switchboards(p: Project, sheets: list[Sheet]) -> bool:
     a se střídači): přednostně prodloužený formát na šířku se stejnou výškou (`frame.grow_sheet_long` – RFVE
     s 9 stringy je A4×5, ne A0), jinak `frame.grow_sheet_to_content`. True = některý list se změnil."""
     from envocad.model.frame import grow_sheet_long, grow_sheet_to_content
+    from envocad.model.textlayout import sheet_content_boxes
     lib = context._lib()
     changed = False
     for sh in sheets:
-        changed = (grow_sheet_long(p, sh, lib) or grow_sheet_to_content(p, sh, lib)) or changed
+        # obálky obsahu jednou pro obě funkce (`grow_sheet_long`, který vrátí False, list nezměnil)
+        boxes = sheet_content_boxes(p, sh, lib)
+        changed = (grow_sheet_long(p, sh, lib, boxes) or grow_sheet_to_content(p, sh, lib, boxes)) or changed
     return changed
 
 
