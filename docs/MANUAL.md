@@ -688,9 +688,11 @@ DS“).
   popisku bloku: hlavní přístroj s In (`main_in`), vývod FVE (`fve_device`, `fve_in`), měření (přímé / nepřímé s MTP);
   hranice vlastnictví zůstává textem v blokovém schématu. Neznámé In stávajících přístrojů není chyba (HDS bez In jen
   INFO). Porty bloku bez listu jsou v jeho atributech (`ports_in`, `ports_out`, formát projektu 15).
-- Na přípojce VN (`vn`) zůstávají listy HR, RVN a RE (trafostanice); RFVE.AC bez mustru je blok.
+- Na přípojce VN (`vn`) jsou i **HR, RVN a RE trafostanice jen bloky** (porty z přívodů / vývodů vestavěného listu,
+  v popisku hlavní jistič, vývod FVE, měření, pojistky / vypínač VN); listy TS s volbou `builtin` (role `hr`, `rvn`,
+  `re`) nebo standardem `ac_builtin`. RFVE.AC bez mustru je blok.
 - **Vestavěný kód AC listů** (jako před tímto rozhodnutím – RFVE.AC, AC část RFVE včetně EPS, listy RD / HR / RE)
-  zapne volba `"chain": {"<role>": {"builtin": true}}` (role `rfve_ac`, `rfve`, `rd`, `hr`, `re`) nebo firemní
+  zapne volba `"chain": {"<role>": {"builtin": true}}` (role `rfve_ac`, `rfve`, `rd`, `hr`, `re`, na vn i `rvn`) nebo firemní
   standard **`ac_builtin`** (Knihovna → Firemní standard; `settings.json`). Pak platí i vestavěná makra
   (`spec.macros`, prázdný název = kód). Volba článku má přednost před standardem.
 
@@ -714,14 +716,14 @@ DS“).
   jištění střídačů u RFVE.AC).
 
 **Jištění střídačů a hlavní vypínač:** nezadaný jistič přívodu střídače = nejbližší velikost řady (10…125, 160, 200,
-250 A) ≥ 1,25 × proud z P AC, nebo ≥ max. AC proud z artiklu (`i_ac_max_a`); nad řadou zůstane In prázdné a F7 hlásí
+250 A) ≥ 1,25 × max. AC proud střídače (z artiklu `i_ac_max_a`, jinak z P AC); nad řadou zůstane In prázdné a F7 hlásí
 chybu s důvodem. **Jednofázový střídač** má jistič vždy podle proudu (1,25 × P / 230 V, řada do 63 A) – i když je
 zadané `ac.breaker_in` (to platí pro třífázové). Nezadaný hlavní vypínač AC rozvaděče je nejméně 125 A a nejméně
 vývod FVE, počítá se z prvků střídačů (i z artiklu bez `p_ac` ve specifikaci).
 
 Stávající články se skládají **svisle** („had“, každý další pod předchozím): u firmy pod RFVE.AC (vývod XOUT vede
 krátce vpravo za uzemnění a dolů do HR; DS pod HDS), u rodinného domu ve sloupci vpravo od FV části (vývod RFVE pod
-střídači a nahoru do RD; DS vedle HDS). Generátor zkusí i řadu pod FV částí / za RFVE.AC a nechá rozložení s nejmenším
+střídači a nahoru do RD; DS vedle nebo pod HDS) nebo v řadě pod vším doleva (RD pod RFVE, RE, HDS a DS pod stringy). Generátor zkusí i řadu pod FV částí / za RFVE.AC a nechá rozložení s nejmenším
 výkresem bez křížení a překryvů textů (i bez cizího vodiče přes značku řetězce). Společný RFVE.DC sdílí svislé dráhy
 vodičů shora a zdola; kdyby list „AC a připojení“ s ním přerostl limit listu, vezme se RFVE.DC na střídač (jen když
 `chain.rfve_dc.per_inverter` nezadáš).

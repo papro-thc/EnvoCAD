@@ -109,7 +109,7 @@ testy, `ui/main_window.py`, `ui/dialogs.py`). **Upravit testy**: `test_wizard_ca
 generátor kreslí blokové schéma a DC rozvaděče; RD / HR / RE / HDS jen bloky (údaje `chain.*` v atributech bloků,
 porty bloku bez listu `ports_in` / `ports_out` – formát projektu v15), RFVE.AC a AC část RFVE z mustru, jinak blok bez
 listu / kotvy; vestavěný kód AC listů volbou `chain.<role>.builtin` / standard `ac_builtin`. Pravidla jištění
-v `generator/currents.py` (jistič střídače 1,25 × I z P AC, z artiklu `i_ac_max_a`; řada do 250 A; vývod FVE ≥
+v `generator/currents.py` (jistič střídače 1,25 × max. AC proud – z artiklu `i_ac_max_a`, jinak z P AC; řada do 250 A; vývod FVE ≥
 max(Σ I, jistič střídače); hlavní vypínač z prvků střídačů).
 **Dřívější stav kroků 1–6:** Odchylky: In stávajících HJ (RE)
 i hlavního přístroje RD/HR bez zadání → `in_unresolved` (chyba F7), u vypínače RD také (`protection_findings` hlásí

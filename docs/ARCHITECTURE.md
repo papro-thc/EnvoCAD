@@ -45,7 +45,7 @@ envocad/
     layout.py    zarovnání bloků a lomů JPS, trasa RD, svislý řetězec (`_stack_column`), zvětšení listů rozvaděčů
     jps.py       rozmístění JPS na list a dělení na listy střídačů (`close_gaps` svisle i vodorovně,
                  `stack_components` jen se společným RFVE.DC)
-    currents.py  proudy střídačů a jištění AC strany: jistič přívodu střídače (1,25 × I z P AC, artikl `i_ac_max_a`,
+    currents.py  proudy střídačů a jištění AC strany: jistič přívodu střídače (1,25 × max. AC proud – artikl `i_ac_max_a`, jinak z P AC,
                  řada do 250 A), vývod FVE v RD / HR i HR na vn (≥ max(Σ I, jistič střídače)), hlavní vypínač RFVE.AC
     boards/      jeden modul na roli: base (ChainContext, ChainPorts, BoardBuilder), rfve_dc (i společný RFVE.DC),
                  rfve_ac, rfve (rozvaděč FVE RD), house_board (stávající RD / HR: hlavní přístroj, vývod FVE, stávající

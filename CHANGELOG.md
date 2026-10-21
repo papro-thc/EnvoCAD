@@ -1,6 +1,20 @@
 # Changelog
 
 ## Nevydáno
+- **Rozhodnutí uživatele k otevřeným otázkám F2:**
+  - **Přípojka VN jen bloky**: HR, RVN a RE trafostanice bez listů – porty bloku z přívodů / vývodů vestavěného listu
+    (sestaví se naslepo, `mv.block_attrs`), v popisku hlavní jistič, vývod FVE (`protect`), měření, pojistky / vypínač
+    VN; listy TS volbou `chain.hr|rvn|re.builtin` / standardem `ac_builtin` (testy TS na ni přepnuté). Výchozí
+    projekt na vn tak nemá ani známý překryv vícepólu RE (P3).
+  - **Jistič přívodu střídače ≥ 1,25 × max. AC proud i z artiklu** (`i_ac_max_a`; Huawei 100 kW 160,4 A → 250 A).
+  - **Formát RD jako na main**: řetězec RD → RE → HDS → DS i v řadě pod vším doleva (`layout._house_row_left`, RD
+    pod RFVE) a ve sloupci s DS pod HDS (`column_below`), užší mezery sloupce. Sweep 1–4 střídače × 1–8 stringů × 0–2
+    rozvaděče po trase: žádný projekt nemá víc listů ani větší list než na main (`test_house_sheets_like_main`);
+    dřívější regrese 2×4×2, 2×5×0, 2×6×0, 3×2×2, 4×1×2, 4×2×0 opraveny.
+  - **Průvodce**: výchozí stringy „18,18,18,18; 18,18“ (dřív „20,20,18,18; 20,20“ – Uoc při −20 °C 1110 V > 1100 V);
+    výchozí projekt firma, RD, BD i vn projde F7 bez chyb a varování (`test_wizard_defaults_f7_clean`).
+  - Snímek generátoru přegenerován: `with_component` (jistič z artiklu × 1,25), případy RD (nové rozložení řetězce),
+    `scope_vn` (TS bez listů).
 - **Rozsah generátoru: blokové schéma a DC rozvaděče, AC rozvaděče z mustrů** (rozhodnutí 12,
   `docs/NAVRH_TOPOLOGIE.md`, kap. 8). **Formát projektu v15** – blok rozvaděče bez listu s porty z atributů
   `ports_in` / `ports_out` a jištěním portů `protect` (`project.block_port_names`, `is_block_only`); migrace v14 → v15
@@ -34,8 +48,8 @@
     (`project.symbol_cache`), dřívější ukončení volby rozložení (formát listu bez řetězce).
   - **B2** `calc._block_exit`: string přes blok rozvaděče párem přes list rozvaděče (`_sheet_exit`), jinak jen DC
     porty – u RFVE se 2+ střídači string už nepatří cizímu střídači.
-  - **B3 / D1 / D2** pravidla jištění v `generator/currents.py`: jistič přívodu střídače ≥ 1,25 × proud z P AC, nebo
-    ≥ `i_ac_max_a` artiklu, řada do 250 A, nad ní prázdné + `in_unresolved`; vývod FVE v RD / HR i v HR na vn ≥
+  - **B3 / D1 / D2** pravidla jištění v `generator/currents.py`: jistič přívodu střídače ≥ 1,25 × max. AC proud (z P AC,
+    z artiklu `i_ac_max_a`), řada do 250 A, nad ní prázdné + `in_unresolved`; vývod FVE v RD / HR i v HR na vn ≥
     max(Σ proudů, největší jistič střídače); hlavní vypínač RFVE.AC z prvků střídačů (artikl bez `p_ac`).
     **Vědomá změna hodnot**: 25 kW → jistič 50 A (dřív 40 A), 10 kW → 20 A, 1f 5 kW → 32 A.
   - **D3** kabel RFVE.AC → HR / RD (i na vn): `ac.grid_*` jen zadané ve specifikaci, jinak nejmenší průřez pro In

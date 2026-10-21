@@ -382,7 +382,7 @@ pro In vývodu FVE). Logika `envocad/generator/boards/`, pravidla jištění `en
 |---|---|---|---|
 | všechny | `ref`, `desc` | z presetu | označení a popis bloku (přepis; dřívější `switchboard.ref`, `connection.*_board.ref` také) |
 | všechny | `cable`, `cross`, `length`, `method` | `""` | kabel od článku k dalšímu směrem k síti; nový úsek bez `cross` → `calc.min_cross(In, method)`; stávající (`existing`) bez `cable`/`cross` = vodič bez označení; od `hds` k DS vždy bez kabelu |
-| `rfve_ac`, `rfve`, `rd`, `hr`, `re` | `builtin` | standard `ac_builtin` (`false`) | list článku vestavěným kódem (jako před rozhodnutím 12); `false` = RFVE.AC / AC část RFVE z mustru (jinak blok bez listu / kotvy), RD / HR / RE jen blok bez listu s údaji v atributech |
+| `rfve_ac`, `rfve`, `rd`, `hr`, `re`, `rvn` | `builtin` | standard `ac_builtin` (`false`) | list článku vestavěným kódem (jako před rozhodnutím 12); `false` = RFVE.AC / AC část RFVE z mustru (jinak blok bez listu / kotvy), RD / HR / RE (i HR, RVN, RE trafostanice na vn) jen blok bez listu s údaji v atributech |
 | `rfve_dc` | `per_inverter` | `false` | DC rozvaděč u technologie na střídač (RFVE.DC1…n, stav před F2); jinak jeden společný RFVE.DC (přerostl-li by s ním list „AC a připojení“ limit, generátor vezme RFVE.DC na střídač, když klíč nezadáš) |
 | `rd`, `hr` | `main_device` | `switch` (RD), `breaker` (HR) | hlavní přístroj stávajícího rozvaděče |
 | `rd`, `hr` | `main_in` | `""` | In stávajícího hlavního přístroje; v listu (`builtin`) prázdné → `in_unresolved`, chyba F7 `breaker_no_in`; v bloku bez listu jen údaj v popisku |

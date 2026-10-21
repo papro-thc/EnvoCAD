@@ -267,5 +267,6 @@ připravené (F4 po dodání mustrů).
     `grid_protection`, jištění portů `protect` pro kontrolu kabelů); mustr = makra rolí `ac_feed` + `ac_core` ve
     sdílené / vlastní knihovně (`generator/spec.pattern_macro`); RD: list RFVE s DC částí a kotvami AC části
     (`anchor="1"`); standard `ac_builtin`. F7 jen nad nakreslenými přístroji (selektivita přes blok bez listu se
-    nehodnotí, HDS bez In jen INFO, síťová ochrana jako požadavek bloku, EPS do RFVE bez AC části INFO). Přípojka VN:
-    listy HR / RVN / RE trafostanice zůstávají (otevřená otázka).
+    nehodnotí, HDS bez In jen INFO, síťová ochrana jako požadavek bloku, EPS do RFVE bez AC části INFO). Přípojka VN
+    (rozhodnutí uživatele 2026-10-21): i HR, RVN, RE trafostanice jen bloky (porty z přívodů / vývodů vestavěného
+    listu), listy TS jen s `builtin`. Jistič přívodu střídače ≥ 1,25 × max. AC proud i z artiklu (`i_ac_max_a`).

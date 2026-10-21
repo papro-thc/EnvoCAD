@@ -12026,7 +12026,7 @@
       "rotation": 90,
       "attrs": {
        "ref": "F1",
-       "in_": "40",
+       "in_": "50",
        "char": "B",
        "poles": "3",
        "modules": "3",
@@ -12441,7 +12441,7 @@
       "rotation": 270,
       "attrs": {
        "ref": "Q3",
-       "in_": "40",
+       "in_": "50",
        "poles": "3",
        "modules": "3",
        "char": "B",
@@ -37451,9 +37451,9 @@
    {
     "id": "#1",
     "name": "Blokové schéma",
-    "paper": "A2",
-    "width": 594.0,
-    "height": 420.0,
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
     "kind": "schematic",
     "parent_element_id": null,
     "layout": {
@@ -37467,8 +37467,8 @@
      {
       "id": "#2",
       "symbol_id": "fve.switchboard",
-      "x": 282.5,
-      "y": 220.0,
+      "x": 262.5,
+      "y": 195.0,
       "rotation": 0,
       "attrs": {
        "ref": "RFVE",
@@ -37480,8 +37480,8 @@
      {
       "id": "#3",
       "symbol_id": "fve.inverter_hybrid",
-      "x": 362.5,
-      "y": 240.0,
+      "x": 342.5,
+      "y": 215.0,
       "rotation": 0,
       "attrs": {
        "ref": "T1",
@@ -37503,8 +37503,8 @@
      {
       "id": "#4",
       "symbol_id": "fve.pv_string",
-      "x": 122.5,
-      "y": 257.5,
+      "x": 102.5,
+      "y": 232.5,
       "rotation": 0,
       "attrs": {
        "ref": "G1",
@@ -37524,8 +37524,8 @@
      {
       "id": "#5",
       "symbol_id": "fve.pv_string",
-      "x": 122.5,
-      "y": 212.5,
+      "x": 102.5,
+      "y": 187.5,
       "rotation": 0,
       "attrs": {
        "ref": "G2",
@@ -37545,8 +37545,8 @@
      {
       "id": "#6",
       "symbol_id": "fve.switchboard",
-      "x": 197.5,
-      "y": 225.0,
+      "x": 177.5,
+      "y": 200.0,
       "rotation": 0,
       "attrs": {
        "ref": "RDC1",
@@ -37558,8 +37558,8 @@
      {
       "id": "#7",
       "symbol_id": "fve.battery",
-      "x": 362.5,
-      "y": 200.0,
+      "x": 342.5,
+      "y": 175.0,
       "rotation": 0,
       "attrs": {
        "ref": "G3",
@@ -37572,22 +37572,21 @@
      {
       "id": "#8",
       "symbol_id": "fve.switchboard",
-      "x": 447.5,
-      "y": 270.0,
+      "x": 282.5,
+      "y": 90.0,
       "rotation": 0,
       "attrs": {
        "ref": "RD",
        "desc": "domovní rozvaděč",
        "sheet": "RD – domovní rozvaděč"
       },
-      "component_id": null,
-      "mirror": true
+      "component_id": null
      },
      {
       "id": "#9",
       "symbol_id": "fve.load",
-      "x": 460.0,
-      "y": 235.0,
+      "x": 312.5,
+      "y": 55.0,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -37598,8 +37597,8 @@
      {
       "id": "#10",
       "symbol_id": "fve.switchboard",
-      "x": 447.5,
-      "y": 210.0,
+      "x": 182.5,
+      "y": 95.0,
       "rotation": 0,
       "attrs": {
        "ref": "RE",
@@ -37611,8 +37610,8 @@
      {
       "id": "#11",
       "symbol_id": "fve.hds",
-      "x": 447.5,
-      "y": 167.5,
+      "x": 110.0,
+      "y": 100.0,
       "rotation": 0,
       "attrs": {
        "ref": "HDS",
@@ -37622,26 +37621,28 @@
        "poles": "3",
        "boundary": "1"
       },
-      "component_id": null
+      "component_id": null,
+      "mirror": true
      },
      {
       "id": "#12",
       "symbol_id": "fve.grid",
-      "x": 487.5,
-      "y": 167.5,
+      "x": 60.0,
+      "y": 100.0,
       "rotation": 0,
       "attrs": {
        "ref": "",
        "voltage": "3×400 V",
        "dso": ""
       },
-      "component_id": null
+      "component_id": null,
+      "mirror": true
      },
      {
       "id": "#13",
       "symbol_id": "fve.earth",
-      "x": 305.0,
-      "y": 190.0,
+      "x": 285.0,
+      "y": 165.0,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -37652,8 +37653,8 @@
      {
       "id": "#14",
       "symbol_id": "fve.load",
-      "x": 360.0,
-      "y": 147.5,
+      "x": 340.0,
+      "y": 122.5,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -37664,8 +37665,8 @@
      {
       "id": "#15",
       "symbol_id": "fve.interrupt",
-      "x": 385.0,
-      "y": 227.5,
+      "x": 365.0,
+      "y": 202.5,
       "rotation": 0,
       "attrs": {
        "ref": "EPS-T1"
@@ -37675,8 +37676,8 @@
      {
       "id": "#16",
       "symbol_id": "fve.interrupt",
-      "x": 262.5,
-      "y": 167.5,
+      "x": 242.5,
+      "y": 142.5,
       "rotation": 270,
       "attrs": {
        "ref": "EPS-T1"
@@ -37697,12 +37698,12 @@
       },
       "points": [
        [
-        177.5,
-        257.5
+        157.5,
+        232.5
        ],
        [
-        177.5,
-        235.0
+        157.5,
+        210.0
        ]
       ],
       "attrs": {
@@ -37756,12 +37757,12 @@
       },
       "points": [
        [
-        347.5,
-        245.0
+        327.5,
+        220.0
        ],
        [
-        347.5,
-        245.0
+        327.5,
+        220.0
        ]
       ],
       "attrs": {
@@ -37790,12 +37791,12 @@
       },
       "points": [
        [
-        172.5,
-        212.5
+        152.5,
+        187.5
        ],
        [
-        172.5,
-        225.0
+        152.5,
+        200.0
        ]
       ],
       "attrs": {
@@ -37849,12 +37850,12 @@
       },
       "points": [
        [
-        342.5,
-        235.0
+        322.5,
+        210.0
        ],
        [
-        342.5,
-        235.0
+        322.5,
+        210.0
        ]
       ],
       "attrs": {
@@ -37883,20 +37884,20 @@
       },
       "points": [
        [
-        382.5,
-        240.0
+        362.5,
+        215.0
        ],
        [
-        382.5,
-        270.0
-       ],
-       [
-        262.5,
-        270.0
-       ],
-       [
-        262.5,
+        362.5,
         245.0
+       ],
+       [
+        242.5,
+        245.0
+       ],
+       [
+        242.5,
+        220.0
        ]
       ],
       "attrs": {
@@ -37952,12 +37953,12 @@
       },
       "points": [
        [
-        425.0,
-        270.0
+        317.5,
+        90.0
        ],
        [
-        425.0,
-        235.0
+        317.5,
+        55.0
        ]
       ],
       "attrs": {
@@ -37984,20 +37985,12 @@
       },
       "points": [
        [
-        332.5,
-        215.0
+        312.5,
+        190.0
        ],
        [
-        332.5,
-        132.5
-       ],
-       [
-        410.0,
-        132.5
-       ],
-       [
-        410.0,
-        280.0
+        312.5,
+        100.0
        ]
       ],
       "attrs": {
@@ -38027,16 +38020,7 @@
        "element_id": "#10",
        "port": "XOUT"
       },
-      "points": [
-       [
-        472.5,
-        280.0
-       ],
-       [
-        472.5,
-        215.0
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -38059,16 +38043,7 @@
        "element_id": "#11",
        "port": "1"
       },
-      "points": [
-       [
-        425.0,
-        215.0
-       ],
-       [
-        425.0,
-        167.5
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -38116,8 +38091,8 @@
       },
       "points": [
        [
-        305.0,
-        205.0
+        285.0,
+        180.0
        ]
       ],
       "attrs": {
@@ -38167,8 +38142,8 @@
       },
       "points": [
        [
-        262.5,
-        215.0
+        242.5,
+        190.0
        ]
       ],
       "attrs": {
@@ -38200,12 +38175,12 @@
       },
       "points": [
        [
-        342.5,
-        225.0
+        322.5,
+        200.0
        ],
        [
-        342.5,
-        147.5
+        322.5,
+        122.5
        ]
       ],
       "attrs": {
@@ -38227,8 +38202,8 @@
     "texts": [
      {
       "id": "#45",
-      "x": 435.0,
-      "y": 182.5,
+      "x": 97.5,
+      "y": 115.0,
       "text": "hranice vlastnictví DS / odběratel",
       "height": 2.0
      }
@@ -38287,7 +38262,7 @@
        "dir": "in",
        "desc": "od G1",
        "wire_id": "#17",
-       "from": "W1 G1:DC /1.B3",
+       "from": "W1 G1:DC /1.B2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -38303,7 +38278,7 @@
        "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#19",
-       "to": "W2 RFVE:X2 /1.D3",
+       "to": "W2 RFVE:X2 /1.E2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -38357,7 +38332,7 @@
        "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#25",
-       "to": "W5 RFVE:X3 /1.D3",
+       "to": "W5 RFVE:X3 /1.E2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -38593,7 +38568,7 @@
        "dir": "in",
        "desc": "od T1",
        "wire_id": "#29",
-       "from": "W7 T1:AC /1.E3",
+       "from": "W7 T1:AC /1.G2",
        "cable": "CYKY-J 5x16 16"
       },
       "component_id": null
@@ -38639,7 +38614,7 @@
        "dir": "out",
        "desc": "k HOP",
        "wire_id": "#39",
-       "to": "W10 HOP:PE /1.E4",
+       "to": "W10 HOP:PE /1.F3",
        "cable": "CYA 16 16"
       },
       "component_id": null
@@ -38670,7 +38645,7 @@
        "dir": "out",
        "desc": "do HDS / DS",
        "wire_id": "#34",
-       "to": "W9 RD:X1 /1.G3",
+       "to": "W9 RD:X1 /1.F5",
        "cable": "CYKY-J 5x10 10"
       },
       "component_id": null
@@ -38718,7 +38693,7 @@
        "dir": "in",
        "desc": "EPS od T1",
        "wire_id": "#42",
-       "from": "W11 T1:BACKUP /1.E3",
+       "from": "W11 T1:BACKUP /1.G2",
        "cable": "CYKY-J 5x16 16"
       },
       "component_id": null
@@ -38734,7 +38709,7 @@
        "dir": "out",
        "desc": "zálohované okruhy",
        "wire_id": "#44",
-       "to": "spotřebič:1 /1.E4"
+       "to": "spotřebič:1 /1.G4"
       },
       "component_id": null
      },
@@ -38749,7 +38724,7 @@
        "dir": "in",
        "desc": "od G1",
        "wire_id": "#19",
-       "from": "W2 RDC1:X3 /1.C3",
+       "from": "W2 RDC1:X3 /1.D2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -38765,7 +38740,7 @@
        "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#21",
-       "to": "W3 T1:DC1 /1.E3",
+       "to": "W3 T1:DC1 /1.G2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -38823,7 +38798,7 @@
        "dir": "in",
        "desc": "od G2",
        "wire_id": "#25",
-       "from": "W5 RDC1:X4 /1.C3",
+       "from": "W5 RDC1:X4 /1.D2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -38839,7 +38814,7 @@
        "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#27",
-       "to": "W6 T1:DC2 /1.E3",
+       "to": "W6 T1:DC2 /1.G2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -39424,7 +39399,7 @@
        "dir": "in",
        "desc": "od RE / HDS",
        "wire_id": "#36",
-       "from": "RE:XOUT /1.G4"
+       "from": "RE:XOUT /1.D5"
       },
       "component_id": null
      },
@@ -39487,7 +39462,7 @@
        "dir": "out",
        "desc": "k RFVE (FVE)",
        "wire_id": "#34",
-       "to": "W9 RFVE:XOUT /1.D3",
+       "to": "W9 RFVE:XOUT /1.E2",
        "cable": "CYKY-J 5x10 10"
       },
       "component_id": null
@@ -39503,7 +39478,7 @@
        "dir": "out",
        "desc": "stávající rozvody objektu",
        "wire_id": "#33",
-       "to": "spotřebič:1 /1.G3"
+       "to": "spotřebič:1 /1.G6"
       },
       "component_id": null
      }
@@ -39670,7 +39645,7 @@
        "dir": "in",
        "desc": "od HDS",
        "wire_id": "#37",
-       "from": "HDS:1 /1.G4"
+       "from": "HDS:1 /1.B5"
       },
       "component_id": null
      },
@@ -39732,7 +39707,7 @@
        "dir": "out",
        "desc": "do objektu",
        "wire_id": "#36",
-       "to": "RD:XIN /1.G3"
+       "to": "RD:XIN /1.F5"
       },
       "component_id": null
      }
@@ -40171,9 +40146,9 @@
    {
     "id": "#1",
     "name": "Blokové schéma",
-    "paper": "A2",
-    "width": 594.0,
-    "height": 420.0,
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
     "kind": "schematic",
     "parent_element_id": null,
     "layout": {
@@ -40187,8 +40162,8 @@
      {
       "id": "#2",
       "symbol_id": "fve.switchboard",
-      "x": 297.5,
-      "y": 207.5,
+      "x": 267.5,
+      "y": 190.0,
       "rotation": 0,
       "attrs": {
        "ref": "RFVE",
@@ -40200,8 +40175,8 @@
      {
       "id": "#3",
       "symbol_id": "fve.inverter",
-      "x": 377.5,
-      "y": 237.5,
+      "x": 347.5,
+      "y": 220.0,
       "rotation": 0,
       "attrs": {
        "ref": "T1",
@@ -40221,8 +40196,8 @@
      {
       "id": "#4",
       "symbol_id": "fve.pv_string",
-      "x": 117.5,
-      "y": 255.0,
+      "x": 87.5,
+      "y": 237.5,
       "rotation": 0,
       "attrs": {
        "ref": "G1",
@@ -40242,8 +40217,8 @@
      {
       "id": "#5",
       "symbol_id": "fve.pv_string",
-      "x": 117.5,
-      "y": 210.0,
+      "x": 87.5,
+      "y": 192.5,
       "rotation": 0,
       "attrs": {
        "ref": "G2",
@@ -40263,8 +40238,8 @@
      {
       "id": "#6",
       "symbol_id": "fve.switchboard",
-      "x": 202.5,
-      "y": 237.5,
+      "x": 172.5,
+      "y": 220.0,
       "rotation": 0,
       "attrs": {
        "ref": "RDC1",
@@ -40276,8 +40251,8 @@
      {
       "id": "#7",
       "symbol_id": "fve.inverter",
-      "x": 377.5,
-      "y": 155.0,
+      "x": 347.5,
+      "y": 137.5,
       "rotation": 0,
       "attrs": {
        "ref": "T2",
@@ -40297,8 +40272,8 @@
      {
       "id": "#8",
       "symbol_id": "fve.pv_string",
-      "x": 117.5,
-      "y": 150.0,
+      "x": 87.5,
+      "y": 132.5,
       "rotation": 0,
       "attrs": {
        "ref": "G3",
@@ -40318,8 +40293,8 @@
      {
       "id": "#9",
       "symbol_id": "fve.switchboard",
-      "x": 202.5,
-      "y": 155.0,
+      "x": 172.5,
+      "y": 137.5,
       "rotation": 0,
       "attrs": {
        "ref": "RDC2",
@@ -40331,22 +40306,21 @@
      {
       "id": "#10",
       "symbol_id": "fve.switchboard",
-      "x": 450.0,
-      "y": 267.5,
+      "x": 287.5,
+      "y": 90.0,
       "rotation": 0,
       "attrs": {
        "ref": "RD",
        "desc": "domovní rozvaděč",
        "sheet": "RD – domovní rozvaděč"
       },
-      "component_id": null,
-      "mirror": true
+      "component_id": null
      },
      {
       "id": "#11",
       "symbol_id": "fve.load",
-      "x": 462.5,
-      "y": 232.5,
+      "x": 317.5,
+      "y": 55.0,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -40357,8 +40331,8 @@
      {
       "id": "#12",
       "symbol_id": "fve.switchboard",
-      "x": 450.0,
-      "y": 207.5,
+      "x": 187.5,
+      "y": 95.0,
       "rotation": 0,
       "attrs": {
        "ref": "RE",
@@ -40370,8 +40344,8 @@
      {
       "id": "#13",
       "symbol_id": "fve.hds",
-      "x": 450.0,
-      "y": 165.0,
+      "x": 115.0,
+      "y": 100.0,
       "rotation": 0,
       "attrs": {
        "ref": "HDS",
@@ -40381,26 +40355,28 @@
        "poles": "3",
        "boundary": "1"
       },
-      "component_id": null
+      "component_id": null,
+      "mirror": true
      },
      {
       "id": "#14",
       "symbol_id": "fve.grid",
-      "x": 490.0,
-      "y": 165.0,
+      "x": 65.0,
+      "y": 100.0,
       "rotation": 0,
       "attrs": {
        "ref": "",
        "voltage": "3×400 V",
        "dso": ""
       },
-      "component_id": null
+      "component_id": null,
+      "mirror": true
      },
      {
       "id": "#15",
       "symbol_id": "fve.earth",
-      "x": 320.0,
-      "y": 177.5,
+      "x": 290.0,
+      "y": 160.0,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -40422,12 +40398,12 @@
       },
       "points": [
        [
-        182.5,
-        255.0
+        152.5,
+        237.5
        ],
        [
-        182.5,
-        252.5
+        152.5,
+        235.0
        ]
       ],
       "attrs": {
@@ -40456,12 +40432,12 @@
       },
       "points": [
        [
-        267.5,
-        252.5
+        237.5,
+        235.0
        ],
        [
-        267.5,
-        212.5
+        237.5,
+        195.0
        ]
       ],
       "attrs": {
@@ -40490,12 +40466,12 @@
       },
       "points": [
        [
-        357.5,
-        232.5
+        327.5,
+        215.0
        ],
        [
-        357.5,
-        242.5
+        327.5,
+        225.0
        ]
       ],
       "attrs": {
@@ -40524,12 +40500,12 @@
       },
       "points": [
        [
-        177.5,
-        210.0
+        147.5,
+        192.5
        ],
        [
-        177.5,
-        242.5
+        147.5,
+        225.0
        ]
       ],
       "attrs": {
@@ -40558,12 +40534,12 @@
       },
       "points": [
        [
-        262.5,
-        242.5
+        232.5,
+        225.0
        ],
        [
-        262.5,
-        202.5
+        232.5,
+        185.0
        ]
       ],
       "attrs": {
@@ -40592,12 +40568,12 @@
       },
       "points": [
        [
-        362.5,
-        222.5
+        332.5,
+        205.0
        ],
        [
-        362.5,
-        232.5
+        332.5,
+        215.0
        ]
       ],
       "attrs": {
@@ -40626,20 +40602,20 @@
       },
       "points": [
        [
-        397.5,
-        237.5
+        367.5,
+        220.0
        ],
        [
-        397.5,
-        267.5
+        367.5,
+        250.0
        ],
        [
-        277.5,
-        267.5
+        247.5,
+        250.0
        ],
        [
-        277.5,
-        232.5
+        247.5,
+        215.0
        ]
       ],
       "attrs": {
@@ -40671,12 +40647,12 @@
       },
       "points": [
        [
-        182.5,
-        150.0
+        152.5,
+        132.5
        ],
        [
-        182.5,
-        165.0
+        152.5,
+        147.5
        ]
       ],
       "attrs": {
@@ -40705,12 +40681,12 @@
       },
       "points": [
        [
-        257.5,
-        165.0
+        227.5,
+        147.5
        ],
        [
-        257.5,
-        192.5
+        227.5,
+        175.0
        ]
       ],
       "attrs": {
@@ -40739,12 +40715,12 @@
       },
       "points": [
        [
-        362.5,
-        212.5
+        332.5,
+        195.0
        ],
        [
-        362.5,
-        160.0
+        332.5,
+        142.5
        ]
       ],
       "attrs": {
@@ -40773,20 +40749,20 @@
       },
       "points": [
        [
-        402.5,
-        155.0
+        372.5,
+        137.5
        ],
        [
-        402.5,
-        272.5
+        372.5,
+        255.0
        ],
        [
-        272.5,
-        272.5
+        242.5,
+        255.0
        ],
        [
-        272.5,
-        222.5
+        242.5,
+        205.0
        ]
       ],
       "attrs": {
@@ -40818,12 +40794,12 @@
       },
       "points": [
        [
-        427.5,
-        267.5
+        322.5,
+        90.0
        ],
        [
-        427.5,
-        232.5
+        322.5,
+        55.0
        ]
       ],
       "attrs": {
@@ -40850,20 +40826,12 @@
       },
       "points": [
        [
-        347.5,
-        202.5
+        317.5,
+        185.0
        ],
        [
-        347.5,
-        135.0
-       ],
-       [
-        412.5,
-        135.0
-       ],
-       [
-        412.5,
-        277.5
+        317.5,
+        100.0
        ]
       ],
       "attrs": {
@@ -40893,16 +40861,7 @@
        "element_id": "#12",
        "port": "XOUT"
       },
-      "points": [
-       [
-        475.0,
-        277.5
-       ],
-       [
-        475.0,
-        212.5
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -40925,16 +40884,7 @@
        "element_id": "#13",
        "port": "1"
       },
-      "points": [
-       [
-        427.5,
-        212.5
-       ],
-       [
-        427.5,
-        165.0
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -40982,8 +40932,8 @@
       },
       "points": [
        [
-        320.0,
-        192.5
+        290.0,
+        175.0
        ]
       ],
       "attrs": {
@@ -41005,8 +40955,8 @@
     "texts": [
      {
       "id": "#46",
-      "x": 437.5,
-      "y": 180.0,
+      "x": 102.5,
+      "y": 115.0,
       "text": "hranice vlastnictví DS / odběratel",
       "height": 2.0
      }
@@ -41053,7 +41003,7 @@
        "dir": "in",
        "desc": "od G1",
        "wire_id": "#16",
-       "from": "W1 G1:DC /1.B3",
+       "from": "W1 G1:DC /1.B2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -41069,7 +41019,7 @@
        "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#18",
-       "to": "W2 RFVE:X3 /1.D4",
+       "to": "W2 RFVE:X3 /1.F3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -41121,7 +41071,7 @@
        "dir": "in",
        "desc": "od G2",
        "wire_id": "#22",
-       "from": "W4 G2:DC /1.B4",
+       "from": "W4 G2:DC /1.B3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -41137,7 +41087,7 @@
        "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#24",
-       "to": "W5 RFVE:X4 /1.D4",
+       "to": "W5 RFVE:X4 /1.F3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -41367,7 +41317,7 @@
        "dir": "out",
        "desc": "G3 dál",
        "wire_id": "#32",
-       "to": "W9 RFVE:X5 /1.D4",
+       "to": "W9 RFVE:X5 /1.F3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -41569,7 +41519,7 @@
        "dir": "in",
        "desc": "od T1",
        "wire_id": "#28",
-       "from": "W7 T1:AC /1.F3",
+       "from": "W7 T1:AC /1.G2",
        "cable": "CYKY-J 5x16 16"
       },
       "component_id": null
@@ -41619,7 +41569,7 @@
        "dir": "in",
        "desc": "od T2",
        "wire_id": "#36",
-       "from": "W11 T2:AC /1.F4",
+       "from": "W11 T2:AC /1.G4",
        "cable": "CYKY-J 5x16 16"
       },
       "component_id": null
@@ -41666,7 +41616,7 @@
        "desc": "k HOP",
        "shared": "1",
        "wire_id": "#44",
-       "to": "W13 HOP:PE /1.E4",
+       "to": "W13 HOP:PE /1.F3",
        "cable": "CYA 16 16"
       },
       "component_id": null
@@ -41697,7 +41647,7 @@
        "dir": "out",
        "desc": "do HDS / DS",
        "wire_id": "#39",
-       "to": "W12 RD:X1 /1.G3",
+       "to": "W12 RD:X1 /1.F5",
        "cable": "CYKY-J 5x25 25"
       },
       "component_id": null
@@ -41713,7 +41663,7 @@
        "dir": "in",
        "desc": "od G1",
        "wire_id": "#18",
-       "from": "W2 RDC1:X3 /1.C3",
+       "from": "W2 RDC1:X3 /1.D2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -41749,7 +41699,7 @@
        "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#20",
-       "to": "W3 T1:DC1 /1.F3",
+       "to": "W3 T1:DC1 /1.G2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -41787,7 +41737,7 @@
        "dir": "in",
        "desc": "od G2",
        "wire_id": "#24",
-       "from": "W5 RDC1:X4 /1.C3",
+       "from": "W5 RDC1:X4 /1.D2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -41823,7 +41773,7 @@
        "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#26",
-       "to": "W6 T1:DC2 /1.F3",
+       "to": "W6 T1:DC2 /1.G2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -41861,7 +41811,7 @@
        "dir": "in",
        "desc": "od G3",
        "wire_id": "#32",
-       "from": "W9 RDC2:X2 /1.C4",
+       "from": "W9 RDC2:X2 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -41897,7 +41847,7 @@
        "dir": "out",
        "desc": "G3 dál",
        "wire_id": "#34",
-       "to": "W10 T2:DC1 /1.F4",
+       "to": "W10 T2:DC1 /1.G4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -42522,7 +42472,7 @@
        "dir": "in",
        "desc": "od RE / HDS",
        "wire_id": "#41",
-       "from": "RE:XOUT /1.G4"
+       "from": "RE:XOUT /1.D5"
       },
       "component_id": null
      },
@@ -42585,7 +42535,7 @@
        "dir": "out",
        "desc": "k RFVE (FVE)",
        "wire_id": "#39",
-       "to": "W12 RFVE:XOUT /1.D4",
+       "to": "W12 RFVE:XOUT /1.F3",
        "cable": "CYKY-J 5x25 25"
       },
       "component_id": null
@@ -42601,7 +42551,7 @@
        "dir": "out",
        "desc": "stávající rozvody objektu",
        "wire_id": "#38",
-       "to": "spotřebič:1 /1.G3"
+       "to": "spotřebič:1 /1.G6"
       },
       "component_id": null
      }
@@ -42768,7 +42718,7 @@
        "dir": "in",
        "desc": "od HDS",
        "wire_id": "#42",
-       "from": "HDS:1 /1.G4"
+       "from": "HDS:1 /1.B5"
       },
       "component_id": null
      },
@@ -42830,7 +42780,7 @@
        "dir": "out",
        "desc": "do objektu",
        "wire_id": "#41",
-       "to": "RD:XIN /1.G3"
+       "to": "RD:XIN /1.F5"
       },
       "component_id": null
      }
@@ -43336,7 +43286,7 @@
      {
       "id": "#2",
       "symbol_id": "fve.switchboard",
-      "x": 300.0,
+      "x": 305.0,
       "y": 205.0,
       "rotation": 0,
       "attrs": {
@@ -43349,7 +43299,7 @@
      {
       "id": "#3",
       "symbol_id": "fve.inverter",
-      "x": 380.0,
+      "x": 385.0,
       "y": 310.0,
       "rotation": 0,
       "attrs": {
@@ -43370,7 +43320,7 @@
      {
       "id": "#4",
       "symbol_id": "fve.pv_string",
-      "x": 80.0,
+      "x": 85.0,
       "y": 327.5,
       "rotation": 0,
       "attrs": {
@@ -43391,7 +43341,7 @@
      {
       "id": "#5",
       "symbol_id": "fve.pv_string",
-      "x": 80.0,
+      "x": 85.0,
       "y": 282.5,
       "rotation": 0,
       "attrs": {
@@ -43412,7 +43362,7 @@
      {
       "id": "#6",
       "symbol_id": "fve.switchboard",
-      "x": 185.0,
+      "x": 190.0,
       "y": 310.0,
       "rotation": 0,
       "attrs": {
@@ -43425,7 +43375,7 @@
      {
       "id": "#7",
       "symbol_id": "fve.inverter",
-      "x": 380.0,
+      "x": 385.0,
       "y": 205.0,
       "rotation": 0,
       "attrs": {
@@ -43446,7 +43396,7 @@
      {
       "id": "#8",
       "symbol_id": "fve.pv_string",
-      "x": 80.0,
+      "x": 85.0,
       "y": 222.5,
       "rotation": 0,
       "attrs": {
@@ -43467,7 +43417,7 @@
      {
       "id": "#9",
       "symbol_id": "fve.pv_string",
-      "x": 80.0,
+      "x": 85.0,
       "y": 177.5,
       "rotation": 0,
       "attrs": {
@@ -43488,7 +43438,7 @@
      {
       "id": "#10",
       "symbol_id": "fve.switchboard",
-      "x": 185.0,
+      "x": 190.0,
       "y": 205.0,
       "rotation": 0,
       "attrs": {
@@ -43501,7 +43451,7 @@
      {
       "id": "#11",
       "symbol_id": "fve.inverter",
-      "x": 380.0,
+      "x": 385.0,
       "y": 100.0,
       "rotation": 0,
       "attrs": {
@@ -43522,7 +43472,7 @@
      {
       "id": "#12",
       "symbol_id": "fve.pv_string",
-      "x": 80.0,
+      "x": 85.0,
       "y": 117.5,
       "rotation": 0,
       "attrs": {
@@ -43543,7 +43493,7 @@
      {
       "id": "#13",
       "symbol_id": "fve.pv_string",
-      "x": 80.0,
+      "x": 85.0,
       "y": 72.5,
       "rotation": 0,
       "attrs": {
@@ -43564,7 +43514,7 @@
      {
       "id": "#14",
       "symbol_id": "fve.switchboard",
-      "x": 185.0,
+      "x": 190.0,
       "y": 100.0,
       "rotation": 0,
       "attrs": {
@@ -43577,7 +43527,7 @@
      {
       "id": "#15",
       "symbol_id": "fve.switchboard",
-      "x": 487.5,
+      "x": 485.0,
       "y": 340.0,
       "rotation": 0,
       "attrs": {
@@ -43591,7 +43541,7 @@
      {
       "id": "#16",
       "symbol_id": "fve.load",
-      "x": 500.0,
+      "x": 497.5,
       "y": 305.0,
       "rotation": 0,
       "attrs": {
@@ -43603,7 +43553,7 @@
      {
       "id": "#17",
       "symbol_id": "fve.switchboard",
-      "x": 487.5,
+      "x": 485.0,
       "y": 280.0,
       "rotation": 0,
       "attrs": {
@@ -43616,7 +43566,7 @@
      {
       "id": "#18",
       "symbol_id": "fve.hds",
-      "x": 487.5,
+      "x": 485.0,
       "y": 237.5,
       "rotation": 0,
       "attrs": {
@@ -43632,7 +43582,7 @@
      {
       "id": "#19",
       "symbol_id": "fve.grid",
-      "x": 527.5,
+      "x": 525.0,
       "y": 237.5,
       "rotation": 0,
       "attrs": {
@@ -43645,7 +43595,7 @@
      {
       "id": "#20",
       "symbol_id": "fve.earth",
-      "x": 322.5,
+      "x": 327.5,
       "y": 165.0,
       "rotation": 0,
       "attrs": {
@@ -43668,11 +43618,11 @@
       },
       "points": [
        [
-        165.0,
+        170.0,
         327.5
        ],
        [
-        165.0,
+        170.0,
         325.0
        ]
       ],
@@ -43702,11 +43652,11 @@
       },
       "points": [
        [
-        265.0,
+        270.0,
         325.0
        ],
        [
-        265.0,
+        270.0,
         220.0
        ]
       ],
@@ -43736,11 +43686,11 @@
       },
       "points": [
        [
-        360.0,
+        365.0,
         250.0
        ],
        [
-        360.0,
+        365.0,
         315.0
        ]
       ],
@@ -43770,11 +43720,11 @@
       },
       "points": [
        [
-        160.0,
+        165.0,
         282.5
        ],
        [
-        160.0,
+        165.0,
         315.0
        ]
       ],
@@ -43804,11 +43754,11 @@
       },
       "points": [
        [
-        260.0,
+        265.0,
         315.0
        ],
        [
-        260.0,
+        265.0,
         210.0
        ]
       ],
@@ -43838,11 +43788,11 @@
       },
       "points": [
        [
-        365.0,
+        370.0,
         240.0
        ],
        [
-        365.0,
+        370.0,
         305.0
        ]
       ],
@@ -43872,19 +43822,19 @@
       },
       "points": [
        [
-        400.0,
+        405.0,
         310.0
        ],
        [
-        400.0,
+        405.0,
         340.0
        ],
        [
-        280.0,
+        285.0,
         340.0
        ],
        [
-        280.0,
+        285.0,
         250.0
        ]
       ],
@@ -43917,11 +43867,11 @@
       },
       "points": [
        [
-        165.0,
+        170.0,
         222.5
        ],
        [
-        165.0,
+        170.0,
         220.0
        ]
       ],
@@ -43951,11 +43901,11 @@
       },
       "points": [
        [
-        255.0,
+        260.0,
         220.0
        ],
        [
-        255.0,
+        260.0,
         200.0
        ]
       ],
@@ -43985,11 +43935,11 @@
       },
       "points": [
        [
-        365.0,
+        370.0,
         230.0
        ],
        [
-        365.0,
+        370.0,
         210.0
        ]
       ],
@@ -44019,11 +43969,11 @@
       },
       "points": [
        [
-        160.0,
+        165.0,
         177.5
        ],
        [
-        160.0,
+        165.0,
         210.0
        ]
       ],
@@ -44053,11 +44003,11 @@
       },
       "points": [
        [
-        250.0,
+        255.0,
         210.0
        ],
        [
-        250.0,
+        255.0,
         190.0
        ]
       ],
@@ -44087,11 +44037,11 @@
       },
       "points": [
        [
-        360.0,
+        365.0,
         220.0
        ],
        [
-        360.0,
+        365.0,
         200.0
        ]
       ],
@@ -44121,19 +44071,19 @@
       },
       "points": [
        [
-        405.0,
+        410.0,
         205.0
        ],
        [
-        405.0,
+        410.0,
         345.0
        ],
        [
-        275.0,
+        280.0,
         345.0
        ],
        [
-        275.0,
+        280.0,
         240.0
        ]
       ],
@@ -44166,11 +44116,11 @@
       },
       "points": [
        [
-        165.0,
+        170.0,
         117.5
        ],
        [
-        165.0,
+        170.0,
         115.0
        ]
       ],
@@ -44200,11 +44150,11 @@
       },
       "points": [
        [
-        240.0,
+        245.0,
         115.0
        ],
        [
-        240.0,
+        245.0,
         180.0
        ]
       ],
@@ -44234,11 +44184,11 @@
       },
       "points": [
        [
-        365.0,
+        370.0,
         210.0
        ],
        [
-        365.0,
+        370.0,
         105.0
        ]
       ],
@@ -44268,11 +44218,11 @@
       },
       "points": [
        [
-        160.0,
+        165.0,
         72.5
        ],
        [
-        160.0,
+        165.0,
         105.0
        ]
       ],
@@ -44302,11 +44252,11 @@
       },
       "points": [
        [
-        245.0,
+        250.0,
         105.0
        ],
        [
-        245.0,
+        250.0,
         170.0
        ]
       ],
@@ -44336,11 +44286,11 @@
       },
       "points": [
        [
-        360.0,
+        365.0,
         200.0
        ],
        [
-        360.0,
+        365.0,
         95.0
        ]
       ],
@@ -44370,19 +44320,19 @@
       },
       "points": [
        [
-        410.0,
+        415.0,
         100.0
        ],
        [
-        410.0,
+        415.0,
         350.0
        ],
        [
-        270.0,
+        275.0,
         350.0
        ],
        [
-        270.0,
+        275.0,
         230.0
        ]
       ],
@@ -44415,11 +44365,11 @@
       },
       "points": [
        [
-        465.0,
+        462.5,
         340.0
        ],
        [
-        465.0,
+        462.5,
         305.0
        ]
       ],
@@ -44447,11 +44397,11 @@
       },
       "points": [
        [
-        350.0,
+        355.0,
         190.0
        ],
        [
-        350.0,
+        355.0,
         80.0
        ],
        [
@@ -44492,11 +44442,11 @@
       },
       "points": [
        [
-        512.5,
+        510.0,
         350.0
        ],
        [
-        512.5,
+        510.0,
         285.0
        ]
       ],
@@ -44524,11 +44474,11 @@
       },
       "points": [
        [
-        465.0,
+        462.5,
         285.0
        ],
        [
-        465.0,
+        462.5,
         237.5
        ]
       ],
@@ -44579,7 +44529,7 @@
       },
       "points": [
        [
-        322.5,
+        327.5,
         180.0
        ]
       ],
@@ -44602,7 +44552,7 @@
     "texts": [
      {
       "id": "#71",
-      "x": 475.0,
+      "x": 472.5,
       "y": 252.5,
       "text": "hranice vlastnictví DS / odběratel",
       "height": 2.0
@@ -44666,7 +44616,7 @@
        "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#23",
-       "to": "W2 RFVE:X4 /1.D4",
+       "to": "W2 RFVE:X4 /1.E4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -44734,7 +44684,7 @@
        "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#29",
-       "to": "W5 RFVE:X5 /1.D4",
+       "to": "W5 RFVE:X5 /1.E4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -44969,7 +44919,7 @@
        "dir": "out",
        "desc": "G3 dál",
        "wire_id": "#37",
-       "to": "W9 RFVE:X6 /1.D4",
+       "to": "W9 RFVE:X6 /1.E4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -45037,7 +44987,7 @@
        "dir": "out",
        "desc": "G4 dál",
        "wire_id": "#43",
-       "to": "W12 RFVE:X7 /1.D4",
+       "to": "W12 RFVE:X7 /1.E4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -45272,7 +45222,7 @@
        "dir": "out",
        "desc": "G5 dál",
        "wire_id": "#51",
-       "to": "W16 RFVE:X8 /1.D4",
+       "to": "W16 RFVE:X8 /1.E4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -45340,7 +45290,7 @@
        "dir": "out",
        "desc": "G6 dál",
        "wire_id": "#57",
-       "to": "W19 RFVE:X9 /1.D4",
+       "to": "W19 RFVE:X9 /1.E4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -47377,7 +47327,7 @@
        "dir": "out",
        "desc": "k RFVE (FVE)",
        "wire_id": "#64",
-       "to": "W22 RFVE:XOUT /1.D4",
+       "to": "W22 RFVE:XOUT /1.E4",
        "cable": "CYKY-J 5x70 70"
       },
       "component_id": null
@@ -85458,9 +85408,9 @@
    {
     "id": "#1",
     "name": "Blokové schéma",
-    "paper": "A2",
-    "width": 594.0,
-    "height": 420.0,
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
     "kind": "schematic",
     "parent_element_id": null,
     "layout": {
@@ -85474,8 +85424,8 @@
      {
       "id": "#2",
       "symbol_id": "fve.switchboard",
-      "x": 290.0,
-      "y": 230.0,
+      "x": 270.0,
+      "y": 177.5,
       "rotation": 0,
       "attrs": {
        "ref": "RFVE",
@@ -85487,8 +85437,8 @@
      {
       "id": "#3",
       "symbol_id": "fve.inverter",
-      "x": 370.0,
-      "y": 230.0,
+      "x": 350.0,
+      "y": 177.5,
       "rotation": 0,
       "attrs": {
        "ref": "T1",
@@ -85508,8 +85458,8 @@
      {
       "id": "#4",
       "symbol_id": "fve.pv_string",
-      "x": 130.0,
-      "y": 247.5,
+      "x": 110.0,
+      "y": 195.0,
       "rotation": 0,
       "attrs": {
        "ref": "G1",
@@ -85529,8 +85479,8 @@
      {
       "id": "#5",
       "symbol_id": "fve.pv_string",
-      "x": 130.0,
-      "y": 202.5,
+      "x": 110.0,
+      "y": 150.0,
       "rotation": 0,
       "attrs": {
        "ref": "G2",
@@ -85550,8 +85500,8 @@
      {
       "id": "#6",
       "symbol_id": "fve.switchboard",
-      "x": 205.0,
-      "y": 225.0,
+      "x": 185.0,
+      "y": 172.5,
       "rotation": 0,
       "attrs": {
        "ref": "RDC1",
@@ -85563,22 +85513,21 @@
      {
       "id": "#7",
       "symbol_id": "fve.switchboard",
-      "x": 437.5,
-      "y": 260.0,
+      "x": 290.0,
+      "y": 112.5,
       "rotation": 0,
       "attrs": {
        "ref": "RD",
        "desc": "domovní rozvaděč",
        "sheet": "RD – domovní rozvaděč"
       },
-      "component_id": null,
-      "mirror": true
+      "component_id": null
      },
      {
       "id": "#8",
       "symbol_id": "fve.load",
-      "x": 450.0,
-      "y": 225.0,
+      "x": 320.0,
+      "y": 77.5,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -85589,8 +85538,8 @@
      {
       "id": "#9",
       "symbol_id": "fve.switchboard",
-      "x": 437.5,
-      "y": 200.0,
+      "x": 190.0,
+      "y": 117.5,
       "rotation": 0,
       "attrs": {
        "ref": "RE",
@@ -85602,8 +85551,8 @@
      {
       "id": "#10",
       "symbol_id": "fve.hds",
-      "x": 437.5,
-      "y": 157.5,
+      "x": 117.5,
+      "y": 122.5,
       "rotation": 0,
       "attrs": {
        "ref": "HDS",
@@ -85613,26 +85562,28 @@
        "poles": "3",
        "boundary": "1"
       },
-      "component_id": null
+      "component_id": null,
+      "mirror": true
      },
      {
       "id": "#11",
       "symbol_id": "fve.grid",
-      "x": 477.5,
-      "y": 157.5,
+      "x": 67.5,
+      "y": 122.5,
       "rotation": 0,
       "attrs": {
        "ref": "",
        "voltage": "3×400 V",
        "dso": ""
       },
-      "component_id": null
+      "component_id": null,
+      "mirror": true
      },
      {
       "id": "#12",
       "symbol_id": "fve.earth",
-      "x": 312.5,
-      "y": 205.0,
+      "x": 292.5,
+      "y": 152.5,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -85654,12 +85605,12 @@
       },
       "points": [
        [
-        185.0,
-        247.5
+        165.0,
+        195.0
        ],
        [
-        185.0,
-        240.0
+        165.0,
+        187.5
        ]
       ],
       "attrs": {
@@ -85713,12 +85664,12 @@
       },
       "points": [
        [
-        355.0,
-        250.0
+        335.0,
+        197.5
        ],
        [
-        355.0,
-        235.0
+        335.0,
+        182.5
        ]
       ],
       "attrs": {
@@ -85747,12 +85698,12 @@
       },
       "points": [
        [
-        180.0,
-        202.5
+        160.0,
+        150.0
        ],
        [
-        180.0,
-        230.0
+        160.0,
+        177.5
        ]
       ],
       "attrs": {
@@ -85806,12 +85757,12 @@
       },
       "points": [
        [
-        350.0,
-        240.0
+        330.0,
+        187.5
        ],
        [
-        350.0,
-        225.0
+        330.0,
+        172.5
        ]
       ],
       "attrs": {
@@ -85840,20 +85791,20 @@
       },
       "points": [
        [
-        390.0,
-        230.0
+        370.0,
+        177.5
        ],
        [
-        390.0,
-        265.0
+        370.0,
+        212.5
        ],
        [
-        270.0,
-        265.0
+        250.0,
+        212.5
        ],
        [
-        270.0,
-        250.0
+        250.0,
+        197.5
        ]
       ],
       "attrs": {
@@ -85885,12 +85836,12 @@
       },
       "points": [
        [
-        415.0,
-        260.0
+        325.0,
+        112.5
        ],
        [
-        415.0,
-        225.0
+        325.0,
+        77.5
        ]
       ],
       "attrs": {
@@ -85917,20 +85868,12 @@
       },
       "points": [
        [
-        340.0,
-        230.0
+        320.0,
+        177.5
        ],
        [
-        340.0,
-        210.0
-       ],
-       [
-        400.0,
-        210.0
-       ],
-       [
-        400.0,
-        270.0
+        320.0,
+        122.5
        ]
       ],
       "attrs": {
@@ -85960,16 +85903,7 @@
        "element_id": "#9",
        "port": "XOUT"
       },
-      "points": [
-       [
-        462.5,
-        270.0
-       ],
-       [
-        462.5,
-        205.0
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -85992,16 +85926,7 @@
        "element_id": "#10",
        "port": "1"
       },
-      "points": [
-       [
-        415.0,
-        205.0
-       ],
-       [
-        415.0,
-        157.5
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -86049,8 +85974,8 @@
       },
       "points": [
        [
-        312.5,
-        220.0
+        292.5,
+        167.5
        ]
       ],
       "attrs": {
@@ -86072,8 +85997,8 @@
     "texts": [
      {
       "id": "#35",
-      "x": 425.0,
-      "y": 172.5,
+      "x": 105.0,
+      "y": 137.5,
       "text": "hranice vlastnictví DS / odběratel",
       "height": 2.0
      }
@@ -86120,7 +86045,7 @@
        "dir": "in",
        "desc": "od G1",
        "wire_id": "#13",
-       "from": "W1 G1:DC /1.B3",
+       "from": "W1 G1:DC /1.B2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -86136,7 +86061,7 @@
        "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#15",
-       "to": "W2 RFVE:X6 /1.D3",
+       "to": "W2 RFVE:X6 /1.F3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -86188,7 +86113,7 @@
        "dir": "in",
        "desc": "od G2",
        "wire_id": "#19",
-       "from": "W4 G2:DC /1.B4",
+       "from": "W4 G2:DC /1.B3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -86204,7 +86129,7 @@
        "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#21",
-       "to": "W5 RFVE:X7 /1.D3",
+       "to": "W5 RFVE:X7 /1.F3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -86464,7 +86389,7 @@
        "dir": "in",
        "desc": "od T1",
        "wire_id": "#25",
-       "from": "W7 T1:AC /1.E3",
+       "from": "W7 T1:AC /1.G3",
        "cable": "CYKY-J 5x16 16"
       },
       "component_id": null
@@ -86538,7 +86463,7 @@
        "dir": "out",
        "desc": "do HDS / DS",
        "wire_id": "#28",
-       "to": "W8 RD:X1 /1.F3",
+       "to": "W8 RD:X1 /1.F4",
        "cable": "CYKY-J 5x10 10"
       },
       "component_id": null
@@ -86592,7 +86517,7 @@
        "dir": "in",
        "desc": "od G1",
        "wire_id": "#15",
-       "from": "W2 RDC1:X3 /1.C3",
+       "from": "W2 RDC1:X3 /1.D3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -86628,7 +86553,7 @@
        "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#17",
-       "to": "W3 T1:DC1 /1.E3",
+       "to": "W3 T1:DC1 /1.G3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -86667,7 +86592,7 @@
        "desc": "k HOP",
        "shared": "1",
        "wire_id": "#33",
-       "to": "W9 HOP:PE /1.E4",
+       "to": "W9 HOP:PE /1.F3",
        "cable": "CYA 16 16"
       },
       "component_id": null
@@ -86683,7 +86608,7 @@
        "dir": "in",
        "desc": "od G2",
        "wire_id": "#21",
-       "from": "W5 RDC1:X4 /1.C3",
+       "from": "W5 RDC1:X4 /1.D3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -86719,7 +86644,7 @@
        "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#23",
-       "to": "W6 T1:DC2 /1.E3",
+       "to": "W6 T1:DC2 /1.G3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -87196,7 +87121,7 @@
        "dir": "in",
        "desc": "od RE / HDS",
        "wire_id": "#30",
-       "from": "RE:XOUT /1.F4"
+       "from": "RE:XOUT /1.D4"
       },
       "component_id": null
      },
@@ -87259,7 +87184,7 @@
        "dir": "out",
        "desc": "k RFVE (FVE)",
        "wire_id": "#28",
-       "to": "W8 RFVE:XOUT /1.D3",
+       "to": "W8 RFVE:XOUT /1.F3",
        "cable": "CYKY-J 5x10 10"
       },
       "component_id": null
@@ -87275,7 +87200,7 @@
        "dir": "out",
        "desc": "stávající rozvody objektu",
        "wire_id": "#27",
-       "to": "spotřebič:1 /1.G3"
+       "to": "spotřebič:1 /1.G5"
       },
       "component_id": null
      }
@@ -87442,7 +87367,7 @@
        "dir": "in",
        "desc": "od HDS",
        "wire_id": "#31",
-       "from": "HDS:1 /1.F4"
+       "from": "HDS:1 /1.C4"
       },
       "component_id": null
      },
@@ -87504,7 +87429,7 @@
        "dir": "out",
        "desc": "do objektu",
        "wire_id": "#30",
-       "to": "RD:XIN /1.F3"
+       "to": "RD:XIN /1.F4"
       },
       "component_id": null
      }
@@ -112326,9 +112251,9 @@
    {
     "id": "#1",
     "name": "Blokové schéma",
-    "paper": "A2",
-    "width": 594.0,
-    "height": 420.0,
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
     "kind": "schematic",
     "parent_element_id": null,
     "layout": {
@@ -112342,8 +112267,8 @@
      {
       "id": "#2",
       "symbol_id": "fve.switchboard",
-      "x": 290.0,
-      "y": 232.5,
+      "x": 270.0,
+      "y": 177.5,
       "rotation": 0,
       "attrs": {
        "ref": "RFVE",
@@ -112355,8 +112280,8 @@
      {
       "id": "#3",
       "symbol_id": "fve.inverter",
-      "x": 370.0,
-      "y": 232.5,
+      "x": 350.0,
+      "y": 177.5,
       "rotation": 0,
       "attrs": {
        "ref": "T1",
@@ -112376,8 +112301,8 @@
      {
       "id": "#4",
       "symbol_id": "fve.pv_string",
-      "x": 130.0,
-      "y": 250.0,
+      "x": 110.0,
+      "y": 195.0,
       "rotation": 0,
       "attrs": {
        "ref": "G1",
@@ -112397,8 +112322,8 @@
      {
       "id": "#5",
       "symbol_id": "fve.pv_string",
-      "x": 130.0,
-      "y": 205.0,
+      "x": 110.0,
+      "y": 150.0,
       "rotation": 0,
       "attrs": {
        "ref": "G2",
@@ -112418,8 +112343,8 @@
      {
       "id": "#6",
       "symbol_id": "fve.switchboard",
-      "x": 205.0,
-      "y": 227.5,
+      "x": 185.0,
+      "y": 172.5,
       "rotation": 0,
       "attrs": {
        "ref": "RDC1",
@@ -112431,22 +112356,21 @@
      {
       "id": "#7",
       "symbol_id": "fve.switchboard",
-      "x": 437.5,
-      "y": 262.5,
+      "x": 290.0,
+      "y": 112.5,
       "rotation": 0,
       "attrs": {
        "ref": "RD",
        "desc": "domovní rozvaděč",
        "sheet": "RD – domovní rozvaděč"
       },
-      "component_id": null,
-      "mirror": true
+      "component_id": null
      },
      {
       "id": "#8",
       "symbol_id": "fve.load",
-      "x": 450.0,
-      "y": 227.5,
+      "x": 320.0,
+      "y": 77.5,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -112457,8 +112381,8 @@
      {
       "id": "#9",
       "symbol_id": "fve.switchboard",
-      "x": 437.5,
-      "y": 192.5,
+      "x": 190.0,
+      "y": 117.5,
       "rotation": 0,
       "attrs": {
        "ref": "RE",
@@ -112470,8 +112394,8 @@
      {
       "id": "#10",
       "symbol_id": "fve.hds",
-      "x": 437.5,
-      "y": 160.0,
+      "x": 117.5,
+      "y": 122.5,
       "rotation": 0,
       "attrs": {
        "ref": "HDS",
@@ -112480,26 +112404,28 @@
        "char": "gG",
        "poles": "3"
       },
-      "component_id": null
+      "component_id": null,
+      "mirror": true
      },
      {
       "id": "#11",
       "symbol_id": "fve.grid",
-      "x": 477.5,
-      "y": 160.0,
+      "x": 67.5,
+      "y": 122.5,
       "rotation": 0,
       "attrs": {
        "ref": "",
        "voltage": "3×400 V",
        "dso": ""
       },
-      "component_id": null
+      "component_id": null,
+      "mirror": true
      },
      {
       "id": "#12",
       "symbol_id": "fve.earth",
-      "x": 312.5,
-      "y": 207.5,
+      "x": 292.5,
+      "y": 152.5,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -112521,12 +112447,12 @@
       },
       "points": [
        [
-        185.0,
-        250.0
+        165.0,
+        195.0
        ],
        [
-        185.0,
-        242.5
+        165.0,
+        187.5
        ]
       ],
       "attrs": {
@@ -112580,12 +112506,12 @@
       },
       "points": [
        [
-        355.0,
-        252.5
+        335.0,
+        197.5
        ],
        [
-        355.0,
-        237.5
+        335.0,
+        182.5
        ]
       ],
       "attrs": {
@@ -112614,12 +112540,12 @@
       },
       "points": [
        [
-        180.0,
-        205.0
+        160.0,
+        150.0
        ],
        [
-        180.0,
-        232.5
+        160.0,
+        177.5
        ]
       ],
       "attrs": {
@@ -112673,12 +112599,12 @@
       },
       "points": [
        [
-        350.0,
-        242.5
+        330.0,
+        187.5
        ],
        [
-        350.0,
-        227.5
+        330.0,
+        172.5
        ]
       ],
       "attrs": {
@@ -112707,20 +112633,20 @@
       },
       "points": [
        [
-        390.0,
-        232.5
+        370.0,
+        177.5
        ],
        [
-        390.0,
-        267.5
+        370.0,
+        212.5
        ],
        [
-        270.0,
-        267.5
+        250.0,
+        212.5
        ],
        [
-        270.0,
-        252.5
+        250.0,
+        197.5
        ]
       ],
       "attrs": {
@@ -112752,12 +112678,12 @@
       },
       "points": [
        [
-        415.0,
-        262.5
+        325.0,
+        112.5
        ],
        [
-        415.0,
-        227.5
+        325.0,
+        77.5
        ]
       ],
       "attrs": {
@@ -112784,20 +112710,12 @@
       },
       "points": [
        [
-        340.0,
-        232.5
+        320.0,
+        177.5
        ],
        [
-        340.0,
-        212.5
-       ],
-       [
-        400.0,
-        212.5
-       ],
-       [
-        400.0,
-        272.5
+        320.0,
+        122.5
        ]
       ],
       "attrs": {
@@ -112827,16 +112745,7 @@
        "element_id": "#9",
        "port": "XOUT"
       },
-      "points": [
-       [
-        480.0,
-        272.5
-       ],
-       [
-        480.0,
-        197.5
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -112859,16 +112768,7 @@
        "element_id": "#10",
        "port": "1"
       },
-      "points": [
-       [
-        415.0,
-        197.5
-       ],
-       [
-        415.0,
-        160.0
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -112916,8 +112816,8 @@
       },
       "points": [
        [
-        312.5,
-        222.5
+        292.5,
+        167.5
        ]
       ],
       "attrs": {
@@ -112939,8 +112839,8 @@
     "texts": [
      {
       "id": "#35",
-      "x": 422.5,
-      "y": 212.5,
+      "x": 175.0,
+      "y": 137.5,
       "text": "hranice vlastnictví DS / odběratel",
       "height": 2.0
      }
@@ -112987,7 +112887,7 @@
        "dir": "in",
        "desc": "od G1",
        "wire_id": "#13",
-       "from": "W1 G1:DC /1.B3",
+       "from": "W1 G1:DC /1.B2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -113003,7 +112903,7 @@
        "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#15",
-       "to": "W2 RFVE:X2 /1.D3",
+       "to": "W2 RFVE:X2 /1.F3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -113055,7 +112955,7 @@
        "dir": "in",
        "desc": "od G2",
        "wire_id": "#19",
-       "from": "W4 G2:DC /1.B4",
+       "from": "W4 G2:DC /1.B3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -113071,7 +112971,7 @@
        "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#21",
-       "to": "W5 RFVE:X3 /1.D3",
+       "to": "W5 RFVE:X3 /1.F3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -113316,7 +113216,7 @@
        "dir": "in",
        "desc": "od T1",
        "wire_id": "#25",
-       "from": "W7 T1:AC /1.E3",
+       "from": "W7 T1:AC /1.G3",
        "cable": "CYKY-J 5x16 16"
       },
       "component_id": null
@@ -113381,7 +113281,7 @@
        "desc": "k HOP",
        "shared": "1",
        "wire_id": "#33",
-       "to": "W9 HOP:PE /1.E4",
+       "to": "W9 HOP:PE /1.F3",
        "cable": "CYA 16 16"
       },
       "component_id": null
@@ -113412,7 +113312,7 @@
        "dir": "out",
        "desc": "do HDS / DS",
        "wire_id": "#28",
-       "to": "W8 RD:X1 /1.F3",
+       "to": "W8 RD:X1 /1.F4",
        "cable": "CYKY-J 5x10 10"
       },
       "component_id": null
@@ -113428,7 +113328,7 @@
        "dir": "in",
        "desc": "od G1",
        "wire_id": "#15",
-       "from": "W2 RDC1:X3 /1.C3",
+       "from": "W2 RDC1:X3 /1.D3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -113464,7 +113364,7 @@
        "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#17",
-       "to": "W3 T1:DC1 /1.E3",
+       "to": "W3 T1:DC1 /1.G3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -113502,7 +113402,7 @@
        "dir": "in",
        "desc": "od G2",
        "wire_id": "#21",
-       "from": "W5 RDC1:X4 /1.C3",
+       "from": "W5 RDC1:X4 /1.D3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -113538,7 +113438,7 @@
        "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#23",
-       "to": "W6 T1:DC2 /1.E3",
+       "to": "W6 T1:DC2 /1.G3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -114003,7 +113903,7 @@
        "dir": "in",
        "desc": "od RE / HDS",
        "wire_id": "#30",
-       "from": "RE:XOUT /1.F4"
+       "from": "RE:XOUT /1.D4"
       },
       "component_id": null
      },
@@ -114065,7 +113965,7 @@
        "dir": "out",
        "desc": "k RFVE (FVE)",
        "wire_id": "#28",
-       "to": "W8 RFVE:XOUT /1.D3",
+       "to": "W8 RFVE:XOUT /1.F3",
        "cable": "CYKY-J 5x10 10"
       },
       "component_id": null
@@ -114081,7 +113981,7 @@
        "dir": "out",
        "desc": "stávající rozvody objektu",
        "wire_id": "#27",
-       "to": "spotřebič:1 /1.G3"
+       "to": "spotřebič:1 /1.G5"
       },
       "component_id": null
      }
@@ -114249,7 +114149,7 @@
        "dir": "in",
        "desc": "od HDS",
        "wire_id": "#31",
-       "from": "HDS:1 /1.F4"
+       "from": "HDS:1 /1.C4"
       },
       "component_id": null
      },
@@ -114311,7 +114211,7 @@
        "dir": "out",
        "desc": "do objektu",
        "wire_id": "#30",
-       "to": "RD:XIN /1.F3"
+       "to": "RD:XIN /1.F4"
       },
       "component_id": null
      }
@@ -118102,9 +118002,9 @@
    {
     "id": "#1",
     "name": "Blokové schéma",
-    "paper": "A2",
-    "width": 594.0,
-    "height": 420.0,
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
     "kind": "schematic",
     "parent_element_id": null,
     "layout": {
@@ -118118,8 +118018,8 @@
      {
       "id": "#2",
       "symbol_id": "fve.switchboard",
-      "x": 282.5,
-      "y": 220.0,
+      "x": 262.5,
+      "y": 195.0,
       "rotation": 0,
       "attrs": {
        "ref": "RFVE",
@@ -118131,8 +118031,8 @@
      {
       "id": "#3",
       "symbol_id": "fve.inverter_hybrid",
-      "x": 362.5,
-      "y": 240.0,
+      "x": 342.5,
+      "y": 215.0,
       "rotation": 0,
       "attrs": {
        "ref": "T1",
@@ -118154,8 +118054,8 @@
      {
       "id": "#4",
       "symbol_id": "fve.pv_string",
-      "x": 122.5,
-      "y": 257.5,
+      "x": 102.5,
+      "y": 232.5,
       "rotation": 0,
       "attrs": {
        "ref": "G1",
@@ -118175,8 +118075,8 @@
      {
       "id": "#5",
       "symbol_id": "fve.pv_string",
-      "x": 122.5,
-      "y": 212.5,
+      "x": 102.5,
+      "y": 187.5,
       "rotation": 0,
       "attrs": {
        "ref": "G2",
@@ -118196,8 +118096,8 @@
      {
       "id": "#6",
       "symbol_id": "fve.switchboard",
-      "x": 197.5,
-      "y": 220.0,
+      "x": 177.5,
+      "y": 195.0,
       "rotation": 0,
       "attrs": {
        "ref": "RDC1",
@@ -118209,8 +118109,8 @@
      {
       "id": "#7",
       "symbol_id": "fve.battery",
-      "x": 362.5,
-      "y": 200.0,
+      "x": 342.5,
+      "y": 175.0,
       "rotation": 0,
       "attrs": {
        "ref": "G3",
@@ -118223,22 +118123,21 @@
      {
       "id": "#8",
       "symbol_id": "fve.switchboard",
-      "x": 447.5,
-      "y": 270.0,
+      "x": 282.5,
+      "y": 90.0,
       "rotation": 0,
       "attrs": {
        "ref": "RD",
        "desc": "domovní rozvaděč",
        "sheet": "RD – domovní rozvaděč"
       },
-      "component_id": null,
-      "mirror": true
+      "component_id": null
      },
      {
       "id": "#9",
       "symbol_id": "fve.load",
-      "x": 460.0,
-      "y": 235.0,
+      "x": 312.5,
+      "y": 55.0,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -118249,8 +118148,8 @@
      {
       "id": "#10",
       "symbol_id": "fve.switchboard",
-      "x": 447.5,
-      "y": 210.0,
+      "x": 182.5,
+      "y": 95.0,
       "rotation": 0,
       "attrs": {
        "ref": "RE",
@@ -118262,8 +118161,8 @@
      {
       "id": "#11",
       "symbol_id": "fve.hds",
-      "x": 447.5,
-      "y": 167.5,
+      "x": 110.0,
+      "y": 100.0,
       "rotation": 0,
       "attrs": {
        "ref": "HDS",
@@ -118273,26 +118172,28 @@
        "poles": "3",
        "boundary": "1"
       },
-      "component_id": null
+      "component_id": null,
+      "mirror": true
      },
      {
       "id": "#12",
       "symbol_id": "fve.grid",
-      "x": 487.5,
-      "y": 167.5,
+      "x": 60.0,
+      "y": 100.0,
       "rotation": 0,
       "attrs": {
        "ref": "",
        "voltage": "3×400 V",
        "dso": ""
       },
-      "component_id": null
+      "component_id": null,
+      "mirror": true
      },
      {
       "id": "#13",
       "symbol_id": "fve.earth",
-      "x": 305.0,
-      "y": 190.0,
+      "x": 285.0,
+      "y": 165.0,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -118303,8 +118204,8 @@
      {
       "id": "#14",
       "symbol_id": "fve.load",
-      "x": 360.0,
-      "y": 147.5,
+      "x": 340.0,
+      "y": 122.5,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -118315,8 +118216,8 @@
      {
       "id": "#15",
       "symbol_id": "fve.interrupt",
-      "x": 385.0,
-      "y": 227.5,
+      "x": 365.0,
+      "y": 202.5,
       "rotation": 0,
       "attrs": {
        "ref": "EPS-T1"
@@ -118326,8 +118227,8 @@
      {
       "id": "#16",
       "symbol_id": "fve.interrupt",
-      "x": 262.5,
-      "y": 167.5,
+      "x": 242.5,
+      "y": 142.5,
       "rotation": 270,
       "attrs": {
        "ref": "EPS-T1"
@@ -118348,12 +118249,12 @@
       },
       "points": [
        [
-        177.5,
-        257.5
+        157.5,
+        232.5
        ],
        [
-        177.5,
-        235.0
+        157.5,
+        210.0
        ]
       ],
       "attrs": {
@@ -118407,12 +118308,12 @@
       },
       "points": [
        [
-        347.5,
-        245.0
+        327.5,
+        220.0
        ],
        [
-        347.5,
-        245.0
+        327.5,
+        220.0
        ]
       ],
       "attrs": {
@@ -118441,12 +118342,12 @@
       },
       "points": [
        [
-        172.5,
-        212.5
+        152.5,
+        187.5
        ],
        [
-        172.5,
-        225.0
+        152.5,
+        200.0
        ]
       ],
       "attrs": {
@@ -118500,12 +118401,12 @@
       },
       "points": [
        [
-        342.5,
-        235.0
+        322.5,
+        210.0
        ],
        [
-        342.5,
-        235.0
+        322.5,
+        210.0
        ]
       ],
       "attrs": {
@@ -118534,20 +118435,20 @@
       },
       "points": [
        [
-        382.5,
-        240.0
+        362.5,
+        215.0
        ],
        [
-        382.5,
-        270.0
-       ],
-       [
-        262.5,
-        270.0
-       ],
-       [
-        262.5,
+        362.5,
         245.0
+       ],
+       [
+        242.5,
+        245.0
+       ],
+       [
+        242.5,
+        220.0
        ]
       ],
       "attrs": {
@@ -118603,12 +118504,12 @@
       },
       "points": [
        [
-        425.0,
-        270.0
+        317.5,
+        90.0
        ],
        [
-        425.0,
-        235.0
+        317.5,
+        55.0
        ]
       ],
       "attrs": {
@@ -118635,20 +118536,12 @@
       },
       "points": [
        [
-        332.5,
-        215.0
+        312.5,
+        190.0
        ],
        [
-        332.5,
-        132.5
-       ],
-       [
-        410.0,
-        132.5
-       ],
-       [
-        410.0,
-        280.0
+        312.5,
+        100.0
        ]
       ],
       "attrs": {
@@ -118678,16 +118571,7 @@
        "element_id": "#10",
        "port": "XOUT"
       },
-      "points": [
-       [
-        472.5,
-        280.0
-       ],
-       [
-        472.5,
-        215.0
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -118710,16 +118594,7 @@
        "element_id": "#11",
        "port": "1"
       },
-      "points": [
-       [
-        425.0,
-        215.0
-       ],
-       [
-        425.0,
-        167.5
-       ]
-      ],
+      "points": [],
       "attrs": {
        "ref": ""
       },
@@ -118767,8 +118642,8 @@
       },
       "points": [
        [
-        305.0,
-        205.0
+        285.0,
+        180.0
        ]
       ],
       "attrs": {
@@ -118818,8 +118693,8 @@
       },
       "points": [
        [
-        262.5,
-        215.0
+        242.5,
+        190.0
        ]
       ],
       "attrs": {
@@ -118851,12 +118726,12 @@
       },
       "points": [
        [
-        342.5,
-        225.0
+        322.5,
+        200.0
        ],
        [
-        342.5,
-        147.5
+        322.5,
+        122.5
        ]
       ],
       "attrs": {
@@ -118878,8 +118753,8 @@
     "texts": [
      {
       "id": "#45",
-      "x": 435.0,
-      "y": 182.5,
+      "x": 97.5,
+      "y": 115.0,
       "text": "hranice vlastnictví DS / odběratel",
       "height": 2.0
      }
@@ -118926,7 +118801,7 @@
        "dir": "in",
        "desc": "od G1",
        "wire_id": "#17",
-       "from": "W1 G1:DC /1.B3",
+       "from": "W1 G1:DC /1.B2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -118942,7 +118817,7 @@
        "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#19",
-       "to": "W2 RFVE:X2 /1.D3",
+       "to": "W2 RFVE:X2 /1.E2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -119010,7 +118885,7 @@
        "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#25",
-       "to": "W5 RFVE:X3 /1.D3",
+       "to": "W5 RFVE:X3 /1.E2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -119255,7 +119130,7 @@
        "dir": "in",
        "desc": "od T1",
        "wire_id": "#29",
-       "from": "W7 T1:AC /1.E3",
+       "from": "W7 T1:AC /1.G2",
        "cable": "CYKY-J 5x16 16"
       },
       "component_id": null
@@ -119320,7 +119195,7 @@
        "desc": "k HOP",
        "shared": "1",
        "wire_id": "#39",
-       "to": "W10 HOP:PE /1.E4",
+       "to": "W10 HOP:PE /1.F3",
        "cable": "CYA 16 16"
       },
       "component_id": null
@@ -119351,7 +119226,7 @@
        "dir": "out",
        "desc": "do HDS / DS",
        "wire_id": "#34",
-       "to": "W9 RD:X1 /1.G3",
+       "to": "W9 RD:X1 /1.F5",
        "cable": "CYKY-J 5x10 10"
       },
       "component_id": null
@@ -119399,7 +119274,7 @@
        "dir": "in",
        "desc": "EPS od T1",
        "wire_id": "#42",
-       "from": "W11 T1:BACKUP /1.E3",
+       "from": "W11 T1:BACKUP /1.G2",
        "cable": "CYKY-J 5x16 16"
       },
       "component_id": null
@@ -119415,7 +119290,7 @@
        "dir": "out",
        "desc": "zálohované okruhy",
        "wire_id": "#44",
-       "to": "spotřebič:1 /1.E4"
+       "to": "spotřebič:1 /1.G4"
       },
       "component_id": null
      },
@@ -119430,7 +119305,7 @@
        "dir": "in",
        "desc": "od G1",
        "wire_id": "#19",
-       "from": "W2 RDC1:X3 /1.C3",
+       "from": "W2 RDC1:X3 /1.D2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -119466,7 +119341,7 @@
        "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#21",
-       "to": "W3 T1:DC1 /1.E3",
+       "to": "W3 T1:DC1 /1.G2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -119504,7 +119379,7 @@
        "dir": "in",
        "desc": "od G2",
        "wire_id": "#25",
-       "from": "W5 RDC1:X4 /1.C3",
+       "from": "W5 RDC1:X4 /1.D2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -119540,7 +119415,7 @@
        "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#27",
-       "to": "W6 T1:DC2 /1.E3",
+       "to": "W6 T1:DC2 /1.G2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -120106,7 +119981,7 @@
        "dir": "in",
        "desc": "od RE / HDS",
        "wire_id": "#36",
-       "from": "RE:XOUT /1.G4"
+       "from": "RE:XOUT /1.D5"
       },
       "component_id": null
      },
@@ -120168,7 +120043,7 @@
        "dir": "out",
        "desc": "k RFVE (FVE)",
        "wire_id": "#34",
-       "to": "W9 RFVE:XOUT /1.D3",
+       "to": "W9 RFVE:XOUT /1.E2",
        "cable": "CYKY-J 5x10 10"
       },
       "component_id": null
@@ -120184,7 +120059,7 @@
        "dir": "out",
        "desc": "stávající rozvody objektu",
        "wire_id": "#33",
-       "to": "spotřebič:1 /1.G3"
+       "to": "spotřebič:1 /1.G6"
       },
       "component_id": null
      }
@@ -120352,7 +120227,7 @@
        "dir": "in",
        "desc": "od HDS",
        "wire_id": "#37",
-       "from": "HDS:1 /1.G4"
+       "from": "HDS:1 /1.B5"
       },
       "component_id": null
      },
@@ -120413,7 +120288,7 @@
        "dir": "out",
        "desc": "do objektu",
        "wire_id": "#36",
-       "to": "RD:XIN /1.G3"
+       "to": "RD:XIN /1.F5"
       },
       "component_id": null
      }
@@ -129021,9 +128896,9 @@
    {
     "id": "#1",
     "name": "Blokové schéma",
-    "paper": "A2",
-    "width": 594.0,
-    "height": 420.0,
+    "paper": "A3",
+    "width": 420.0,
+    "height": 297.0,
     "kind": "schematic",
     "parent_element_id": null,
     "layout": {
@@ -129037,8 +128912,8 @@
      {
       "id": "#2",
       "symbol_id": "fve.switchboard",
-      "x": 285.0,
-      "y": 217.5,
+      "x": 207.5,
+      "y": 165.0,
       "rotation": 0,
       "attrs": {
        "ref": "RFVE",
@@ -129052,8 +128927,8 @@
      {
       "id": "#3",
       "symbol_id": "fve.inverter_hybrid",
-      "x": 365.0,
-      "y": 237.5,
+      "x": 287.5,
+      "y": 185.0,
       "rotation": 0,
       "attrs": {
        "ref": "T1",
@@ -129075,8 +128950,8 @@
      {
       "id": "#4",
       "symbol_id": "fve.pv_string",
-      "x": 125.0,
-      "y": 255.0,
+      "x": 47.5,
+      "y": 202.5,
       "rotation": 0,
       "attrs": {
        "ref": "G1",
@@ -129096,8 +128971,8 @@
      {
       "id": "#5",
       "symbol_id": "fve.pv_string",
-      "x": 125.0,
-      "y": 210.0,
+      "x": 47.5,
+      "y": 157.5,
       "rotation": 0,
       "attrs": {
        "ref": "G2",
@@ -129117,8 +128992,8 @@
      {
       "id": "#6",
       "symbol_id": "fve.switchboard",
-      "x": 200.0,
-      "y": 217.5,
+      "x": 122.5,
+      "y": 165.0,
       "rotation": 0,
       "attrs": {
        "ref": "RDC1",
@@ -129130,8 +129005,8 @@
      {
       "id": "#7",
       "symbol_id": "fve.battery",
-      "x": 365.0,
-      "y": 197.5,
+      "x": 287.5,
+      "y": 145.0,
       "rotation": 0,
       "attrs": {
        "ref": "G3",
@@ -129144,8 +129019,8 @@
      {
       "id": "#8",
       "symbol_id": "fve.switchboard",
-      "x": 450.0,
-      "y": 267.5,
+      "x": 365.0,
+      "y": 215.0,
       "rotation": 0,
       "attrs": {
        "ref": "RD",
@@ -129162,8 +129037,8 @@
      {
       "id": "#9",
       "symbol_id": "fve.load",
-      "x": 462.5,
-      "y": 227.5,
+      "x": 377.5,
+      "y": 175.0,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -129174,8 +129049,8 @@
      {
       "id": "#10",
       "symbol_id": "fve.switchboard",
-      "x": 450.0,
-      "y": 202.5,
+      "x": 365.0,
+      "y": 150.0,
       "rotation": 0,
       "attrs": {
        "ref": "RE",
@@ -129190,8 +129065,8 @@
      {
       "id": "#11",
       "symbol_id": "fve.hds",
-      "x": 450.0,
-      "y": 155.0,
+      "x": 365.0,
+      "y": 102.5,
       "rotation": 0,
       "attrs": {
        "ref": "HDS",
@@ -129206,21 +129081,22 @@
      {
       "id": "#12",
       "symbol_id": "fve.grid",
-      "x": 490.0,
-      "y": 155.0,
+      "x": 367.5,
+      "y": 70.0,
       "rotation": 0,
       "attrs": {
        "ref": "",
        "voltage": "3×400 V",
        "dso": ""
       },
-      "component_id": null
+      "component_id": null,
+      "mirror": true
      },
      {
       "id": "#13",
       "symbol_id": "fve.earth",
-      "x": 307.5,
-      "y": 187.5,
+      "x": 230.0,
+      "y": 135.0,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -129231,8 +129107,8 @@
      {
       "id": "#14",
       "symbol_id": "fve.load",
-      "x": 362.5,
-      "y": 147.5,
+      "x": 285.0,
+      "y": 95.0,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -129243,8 +129119,8 @@
      {
       "id": "#15",
       "symbol_id": "fve.interrupt",
-      "x": 387.5,
-      "y": 225.0,
+      "x": 310.0,
+      "y": 172.5,
       "rotation": 0,
       "attrs": {
        "ref": "EPS-T1"
@@ -129254,8 +129130,8 @@
      {
       "id": "#16",
       "symbol_id": "fve.interrupt",
-      "x": 265.0,
-      "y": 165.0,
+      "x": 187.5,
+      "y": 112.5,
       "rotation": 270,
       "attrs": {
        "ref": "EPS-T1"
@@ -129276,12 +129152,12 @@
       },
       "points": [
        [
-        180.0,
-        255.0
+        102.5,
+        202.5
        ],
        [
-        180.0,
-        232.5
+        102.5,
+        180.0
        ]
       ],
       "attrs": {
@@ -129335,12 +129211,12 @@
       },
       "points": [
        [
-        350.0,
-        242.5
+        272.5,
+        190.0
        ],
        [
-        350.0,
-        242.5
+        272.5,
+        190.0
        ]
       ],
       "attrs": {
@@ -129369,12 +129245,12 @@
       },
       "points": [
        [
-        175.0,
-        210.0
+        97.5,
+        157.5
        ],
        [
-        175.0,
-        222.5
+        97.5,
+        170.0
        ]
       ],
       "attrs": {
@@ -129428,12 +129304,12 @@
       },
       "points": [
        [
-        345.0,
-        232.5
+        267.5,
+        180.0
        ],
        [
-        345.0,
-        232.5
+        267.5,
+        180.0
        ]
       ],
       "attrs": {
@@ -129462,20 +129338,20 @@
       },
       "points": [
        [
-        385.0,
-        237.5
+        307.5,
+        185.0
        ],
        [
-        385.0,
-        267.5
+        307.5,
+        215.0
        ],
        [
-        265.0,
-        267.5
+        187.5,
+        215.0
        ],
        [
-        265.0,
-        242.5
+        187.5,
+        190.0
        ]
       ],
       "attrs": {
@@ -129531,12 +129407,12 @@
       },
       "points": [
        [
-        427.5,
-        267.5
+        342.5,
+        215.0
        ],
        [
-        427.5,
-        227.5
+        342.5,
+        175.0
        ]
       ],
       "attrs": {
@@ -129563,20 +129439,20 @@
       },
       "points": [
        [
-        335.0,
-        212.5
+        257.5,
+        160.0
        ],
        [
-        335.0,
-        132.5
+        257.5,
+        80.0
        ],
        [
-        412.5,
-        132.5
+        330.0,
+        80.0
        ],
        [
-        412.5,
-        277.5
+        330.0,
+        225.0
        ]
       ],
       "attrs": {
@@ -129608,12 +129484,12 @@
       },
       "points": [
        [
-        487.5,
-        277.5
+        402.5,
+        225.0
        ],
        [
-        487.5,
-        207.5
+        402.5,
+        155.0
        ]
       ],
       "attrs": {
@@ -129640,12 +129516,12 @@
       },
       "points": [
        [
-        427.5,
-        207.5
+        342.5,
+        155.0
        ],
        [
-        427.5,
-        155.0
+        342.5,
+        102.5
        ]
       ],
       "attrs": {
@@ -129670,7 +129546,16 @@
        "element_id": "#12",
        "port": "1"
       },
-      "points": [],
+      "points": [
+       [
+        385.0,
+        102.5
+       ],
+       [
+        385.0,
+        70.0
+       ]
+      ],
       "attrs": {
        "ref": ""
       },
@@ -129695,8 +129580,8 @@
       },
       "points": [
        [
-        307.5,
-        202.5
+        230.0,
+        150.0
        ]
       ],
       "attrs": {
@@ -129746,8 +129631,8 @@
       },
       "points": [
        [
-        265.0,
-        212.5
+        187.5,
+        160.0
        ]
       ],
       "attrs": {
@@ -129779,12 +129664,12 @@
       },
       "points": [
        [
-        345.0,
-        222.5
+        267.5,
+        170.0
        ],
        [
-        345.0,
-        147.5
+        267.5,
+        95.0
        ]
       ],
       "attrs": {
@@ -129806,8 +129691,8 @@
     "texts": [
      {
       "id": "#45",
-      "x": 437.5,
-      "y": 170.0,
+      "x": 352.5,
+      "y": 117.5,
       "text": "hranice vlastnictví DS / odběratel",
       "height": 2.0
      }
@@ -129854,7 +129739,7 @@
        "dir": "in",
        "desc": "od G1",
        "wire_id": "#17",
-       "from": "W1 G1:DC /1.B3",
+       "from": "W1 G1:DC /1.A2",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -129922,7 +129807,7 @@
        "dir": "in",
        "desc": "od G2",
        "wire_id": "#23",
-       "from": "W4 G2:DC /1.B4",
+       "from": "W4 G2:DC /1.A3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -130169,7 +130054,7 @@
        "desc": "od T1",
        "anchor": "1",
        "wire_id": "#29",
-       "from": "W7 T1:AC /1.E3",
+       "from": "W7 T1:AC /1.F3",
        "cable": "CYKY-J 5x16 16"
       },
       "component_id": null
@@ -130203,7 +130088,7 @@
        "desc": "do RD",
        "anchor": "1",
        "wire_id": "#34",
-       "to": "W9 RD:X1 /1.G3",
+       "to": "W9 RD:X1 /1.H2",
        "cable": "CYKY-J 5x10 10"
       },
       "component_id": null
@@ -130220,7 +130105,7 @@
        "desc": "EPS od T1",
        "anchor": "1",
        "wire_id": "#42",
-       "from": "W11 T1:BACKUP /1.E3",
+       "from": "W11 T1:BACKUP /1.F3",
        "cable": "CYKY-J 5x16 16"
       },
       "component_id": null
@@ -130237,7 +130122,7 @@
        "desc": "zálohované okruhy",
        "anchor": "1",
        "wire_id": "#44",
-       "to": "spotřebič:1 /1.E4"
+       "to": "spotřebič:1 /1.F5"
       },
       "component_id": null
      },
@@ -130288,7 +130173,7 @@
        "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#21",
-       "to": "W3 T1:DC1 /1.E3",
+       "to": "W3 T1:DC1 /1.F3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -130362,7 +130247,7 @@
        "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#27",
-       "to": "W6 T1:DC2 /1.E3",
+       "to": "W6 T1:DC2 /1.F3",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -130951,7 +130836,7 @@
       "id": "#2",
       "symbol_id": "fve.switchboard",
       "x": 455.0,
-      "y": 305.0,
+      "y": 295.0,
       "rotation": 0,
       "attrs": {
        "ref": "RFVE.AC",
@@ -130969,7 +130854,7 @@
       "id": "#3",
       "symbol_id": "fve.inverter",
       "x": 345.0,
-      "y": 305.0,
+      "y": 295.0,
       "rotation": 0,
       "attrs": {
        "ref": "T1",
@@ -130990,7 +130875,7 @@
       "id": "#4",
       "symbol_id": "fve.pv_string",
       "x": 95.0,
-      "y": 367.5,
+      "y": 357.5,
       "rotation": 0,
       "attrs": {
        "ref": "G1",
@@ -131011,7 +130896,7 @@
       "id": "#5",
       "symbol_id": "fve.pv_string",
       "x": 95.0,
-      "y": 322.5,
+      "y": 312.5,
       "rotation": 0,
       "attrs": {
        "ref": "G2",
@@ -131032,7 +130917,7 @@
       "id": "#6",
       "symbol_id": "fve.pv_string",
       "x": 95.0,
-      "y": 277.5,
+      "y": 267.5,
       "rotation": 0,
       "attrs": {
        "ref": "G3",
@@ -131053,7 +130938,7 @@
       "id": "#7",
       "symbol_id": "fve.pv_string",
       "x": 95.0,
-      "y": 232.5,
+      "y": 222.5,
       "rotation": 0,
       "attrs": {
        "ref": "G4",
@@ -131074,7 +130959,7 @@
       "id": "#8",
       "symbol_id": "fve.switchboard",
       "x": 175.0,
-      "y": 305.0,
+      "y": 295.0,
       "rotation": 0,
       "attrs": {
        "ref": "RDC1",
@@ -131087,7 +130972,7 @@
       "id": "#9",
       "symbol_id": "fve.switchboard",
       "x": 260.0,
-      "y": 305.0,
+      "y": 295.0,
       "rotation": 0,
       "attrs": {
        "ref": "RFVE.DC",
@@ -131100,13 +130985,18 @@
       "id": "#10",
       "symbol_id": "fve.switchboard",
       "x": 540.0,
-      "y": 295.0,
+      "y": 305.0,
       "rotation": 0,
       "attrs": {
        "ref": "HR",
        "desc": "hlavní rozvaděč nn",
        "station": "TS1 kiosková trafostanice",
-       "sheet": "HR – hlavní rozvaděč nn"
+       "ports_in": "XT",
+       "ports_out": "XMI XMU X1 X2",
+       "main": "hlavní jistič 1000 A",
+       "fve_out": "jistič 50 A",
+       "protect": "X1=50",
+       "metering": "na nn, MTP 1000/5 A"
       },
       "component_id": null,
       "mirror": true
@@ -131115,7 +131005,7 @@
       "id": "#11",
       "symbol_id": "fve.transformer",
       "x": 615.0,
-      "y": 315.0,
+      "y": 325.0,
       "rotation": 0,
       "attrs": {
        "ref": "TR1",
@@ -131133,13 +131023,15 @@
       "id": "#12",
       "symbol_id": "fve.switchboard",
       "x": 690.0,
-      "y": 305.0,
+      "y": 315.0,
       "rotation": 0,
       "attrs": {
        "ref": "RVN",
        "desc": "rozvaděč VN",
        "station": "TS1 kiosková trafostanice",
-       "sheet": "RVN – rozvaděč VN"
+       "ports_in": "XDS1 XDS2",
+       "ports_out": "X1",
+       "main": "pojistky VN 31,5 A"
       },
       "component_id": null,
       "mirror": true
@@ -131147,14 +131039,16 @@
      {
       "id": "#13",
       "symbol_id": "fve.switchboard",
-      "x": 617.0,
-      "y": 220.0,
+      "x": 637.0,
+      "y": 230.0,
       "rotation": 0,
       "attrs": {
        "ref": "RE",
        "desc": "elektroměrový rozvaděč",
        "station": "TS1 kiosková trafostanice",
-       "sheet": "RE – elektroměrový rozvaděč"
+       "ports_in": "XMI XMU",
+       "ports_out": "",
+       "metering": "fakturační elektroměr"
       },
       "component_id": null
      },
@@ -131162,7 +131056,7 @@
       "id": "#14",
       "symbol_id": "fve.grid",
       "x": 760.0,
-      "y": 315.0,
+      "y": 325.0,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -131175,7 +131069,7 @@
       "id": "#15",
       "symbol_id": "fve.grid",
       "x": 760.0,
-      "y": 290.0,
+      "y": 300.0,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -131188,7 +131082,7 @@
       "id": "#16",
       "symbol_id": "fve.load",
       "x": 540.0,
-      "y": 250.0,
+      "y": 260.0,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -131200,7 +131094,7 @@
       "id": "#17",
       "symbol_id": "fve.earth",
       "x": 497.5,
-      "y": 285.0,
+      "y": 275.0,
       "rotation": 0,
       "attrs": {
        "ref": "",
@@ -131223,11 +131117,11 @@
       "points": [
        [
         155.0,
-        367.5
+        357.5
        ],
        [
         155.0,
-        330.0
+        320.0
        ]
       ],
       "attrs": {
@@ -131282,11 +131176,11 @@
       "points": [
        [
         330.0,
-        330.0
+        320.0
        ],
        [
         330.0,
-        312.5
+        302.5
        ]
       ],
       "attrs": {
@@ -131316,11 +131210,11 @@
       "points": [
        [
         150.0,
-        322.5
+        312.5
        ],
        [
         150.0,
-        320.0
+        310.0
        ]
       ],
       "attrs": {
@@ -131375,11 +131269,11 @@
       "points": [
        [
         325.0,
-        320.0
+        310.0
        ],
        [
         325.0,
-        307.5
+        297.5
        ]
       ],
       "attrs": {
@@ -131409,11 +131303,11 @@
       "points": [
        [
         140.0,
-        277.5
+        267.5
        ],
        [
         140.0,
-        310.0
+        300.0
        ]
       ],
       "attrs": {
@@ -131468,11 +131362,11 @@
       "points": [
        [
         320.0,
-        310.0
+        300.0
        ],
        [
         320.0,
-        302.5
+        292.5
        ]
       ],
       "attrs": {
@@ -131502,11 +131396,11 @@
       "points": [
        [
         145.0,
-        232.5
+        222.5
        ],
        [
         145.0,
-        300.0
+        290.0
        ]
       ],
       "attrs": {
@@ -131561,11 +131455,11 @@
       "points": [
        [
         315.0,
-        300.0
+        290.0
        ],
        [
         315.0,
-        297.5
+        287.5
        ]
       ],
       "attrs": {
@@ -131731,11 +131625,11 @@
       "points": [
        [
         732.5,
-        305.0
+        315.0
        ],
        [
         732.5,
-        290.0
+        300.0
        ]
       ],
       "attrs": {
@@ -131766,11 +131660,11 @@
       "points": [
        [
         522.0,
-        295.0
+        325.0
        ],
        [
         522.0,
-        230.0
+        240.0
        ]
       ],
       "attrs": {
@@ -131800,11 +131694,11 @@
       "points": [
        [
         517.0,
-        285.0
+        315.0
        ],
        [
         517.0,
-        220.0
+        230.0
        ]
       ],
       "attrs": {
@@ -131836,11 +131730,11 @@
       "points": [
        [
         505.0,
-        305.0
+        295.0
        ],
        [
         505.0,
-        250.0
+        260.0
        ]
       ],
       "attrs": {
@@ -131950,7 +131844,7 @@
        "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#20",
-       "to": "W2 RFVE.DC:X1 /1.C3",
+       "to": "W2 RFVE.DC:X1 /1.C4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -132018,7 +131912,7 @@
        "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#26",
-       "to": "W5 RFVE.DC:X2 /1.C3",
+       "to": "W5 RFVE.DC:X2 /1.C4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -132072,7 +131966,7 @@
        "dir": "out",
        "desc": "G3 dál",
        "wire_id": "#32",
-       "to": "W8 RFVE.DC:X3 /1.C3",
+       "to": "W8 RFVE.DC:X3 /1.C4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -132126,7 +132020,7 @@
        "dir": "out",
        "desc": "G4 dál",
        "wire_id": "#38",
-       "to": "W11 RFVE.DC:X4 /1.C3",
+       "to": "W11 RFVE.DC:X4 /1.C4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -132519,7 +132413,7 @@
        "dir": "in",
        "desc": "od G1",
        "wire_id": "#20",
-       "from": "W2 RDC1:X5 /1.B3",
+       "from": "W2 RDC1:X5 /1.B4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -132555,7 +132449,7 @@
        "dir": "out",
        "desc": "G1 dál",
        "wire_id": "#22",
-       "to": "W3 T1:DC1 /1.D3",
+       "to": "W3 T1:DC1 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -132607,7 +132501,7 @@
        "dir": "in",
        "desc": "od G2",
        "wire_id": "#26",
-       "from": "W5 RDC1:X6 /1.B3",
+       "from": "W5 RDC1:X6 /1.B4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -132643,7 +132537,7 @@
        "dir": "out",
        "desc": "G2 dál",
        "wire_id": "#28",
-       "to": "W6 T1:DC2 /1.D3",
+       "to": "W6 T1:DC2 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -132681,7 +132575,7 @@
        "dir": "in",
        "desc": "od G3",
        "wire_id": "#32",
-       "from": "W8 RDC1:X7 /1.B3",
+       "from": "W8 RDC1:X7 /1.B4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -132717,7 +132611,7 @@
        "dir": "out",
        "desc": "G3 dál",
        "wire_id": "#34",
-       "to": "W9 T1:DC3 /1.D3",
+       "to": "W9 T1:DC3 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -132755,7 +132649,7 @@
        "dir": "in",
        "desc": "od G4",
        "wire_id": "#38",
-       "from": "W11 RDC1:X8 /1.B3",
+       "from": "W11 RDC1:X8 /1.B4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -132791,7 +132685,7 @@
        "dir": "out",
        "desc": "G4 dál",
        "wire_id": "#40",
-       "to": "W12 T1:DC4 /1.D3",
+       "to": "W12 T1:DC4 /1.D4",
        "cable": "H1Z2Z2-K 1x6 6"
       },
       "component_id": null
@@ -133192,1209 +133086,6 @@
     "bridges": {},
     "func": "",
     "loc": "RFVE.DC"
-   },
-   {
-    "id": "#121",
-    "name": "HR – hlavní rozvaděč nn",
-    "paper": "A3",
-    "width": 420.0,
-    "height": 297.0,
-    "kind": "switchboard",
-    "parent_element_id": "#10",
-    "layout": {
-     "rows": 3,
-     "modules_per_row": 24,
-     "enclosure": "",
-     "params": {
-      "network": "3NPE, 50 Hz",
-      "un": "230/400 V",
-      "in_": "1000"
-     },
-     "placements": [
-      {
-       "element_id": "#122",
-       "row": 0,
-       "pos": 0.0
-      },
-      {
-       "element_id": "#123",
-       "row": 0,
-       "pos": 9.0
-      },
-      {
-       "element_id": "#124",
-       "row": 0,
-       "pos": 15.0
-      },
-      {
-       "element_id": "#125",
-       "row": 1,
-       "pos": 0.0
-      }
-     ]
-    },
-    "elements": [
-     {
-      "id": "#126",
-      "symbol_id": "sb.feed",
-      "x": 60.0,
-      "y": 235.0,
-      "rotation": 180,
-      "attrs": {
-       "ref": "XT",
-       "dir": "in",
-       "desc": "od transformátoru",
-       "wire_id": "#46",
-       "from": "W15 TR1:2 /1.F3",
-       "cable": "4× 1-AYKY 3×240+120 240"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#122",
-      "symbol_id": "fve.breaker_mccb",
-      "x": 60.0,
-      "y": 175.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "Q1",
-       "in_": "1000",
-       "poles": "3",
-       "modules": "9",
-       "chain": "main"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#127",
-      "symbol_id": "sb.busbar",
-      "x": 135.0,
-      "y": 140.0,
-      "rotation": 0,
-      "attrs": {
-       "ref": "2",
-       "desc": "přípojnice nn",
-       "in_": "1000",
-       "conductors": "L1 L2 L3 N PE"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#128",
-      "symbol_id": "fve.ct",
-      "x": 60.0,
-      "y": 205.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "TA1",
-       "ratio": "1000/5 A",
-       "cls": "0,5S",
-       "burden": "5",
-       "n": "3",
-       "poles": "3"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#129",
-      "symbol_id": "sb.feed",
-      "x": 165.0,
-      "y": 215.0,
-      "rotation": 180,
-      "attrs": {
-       "ref": "XMI",
-       "dir": "out",
-       "desc": "proudové obvody k RE",
-       "wire_id": "#54",
-       "to": "W19 RE:XMI /1.F4",
-       "cable": "CYKY-O 7×4 4"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#130",
-      "symbol_id": "sb.feed",
-      "x": 180.0,
-      "y": 215.0,
-      "rotation": 180,
-      "attrs": {
-       "ref": "XMU",
-       "dir": "out",
-       "desc": "napěťové obvody k RE",
-       "wire_id": "#56",
-       "to": "W20 RE:XMU /1.F4",
-       "cable": "CYKY-J 5×2,5 2,5"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#123",
-      "symbol_id": "fve.breaker_mccb",
-      "x": 67.5,
-      "y": 105.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "Q2",
-       "in_": "50",
-       "poles": "3",
-       "modules": "6",
-       "chain": "fve_out"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#131",
-      "symbol_id": "sb.feed",
-      "x": 67.5,
-      "y": 70.0,
-      "rotation": 0,
-      "attrs": {
-       "ref": "X1",
-       "dir": "out",
-       "desc": "k RFVE.AC (FVE)",
-       "wire_id": "#44",
-       "to": "W14 RFVE.AC:XOUT /1.E3",
-       "cable": "CYKY-J 5x10 10"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#125",
-      "symbol_id": "fve.spd",
-      "x": 97.5,
-      "y": 105.0,
-      "rotation": 0,
-      "attrs": {
-       "ref": "F1",
-       "spd_type": "T1",
-       "poles": "4",
-       "modules": "4"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#132",
-      "symbol_id": "sb.pe_bar",
-      "x": 97.5,
-      "y": 75.0,
-      "rotation": 0,
-      "attrs": {
-       "ref": "X9",
-       "kind": "PE"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#124",
-      "symbol_id": "fve.breaker_mccb",
-      "x": 127.5,
-      "y": 105.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "Q3",
-       "in_": "500",
-       "poles": "3",
-       "modules": "6"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#133",
-      "symbol_id": "sb.feed",
-      "x": 127.5,
-      "y": 70.0,
-      "rotation": 0,
-      "attrs": {
-       "ref": "X2",
-       "dir": "out",
-       "desc": "spotřeba objektu",
-       "wire_id": "#58",
-       "to": "spotřebič:1 /1.F4"
-      },
-      "component_id": null
-     }
-    ],
-    "wires": [
-     {
-      "id": "#134",
-      "a": {
-       "element_id": "#126",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#128",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#135",
-      "a": {
-       "element_id": "#128",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#122",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#136",
-      "a": {
-       "element_id": "#128",
-       "port": "S"
-      },
-      "b": {
-       "element_id": "#129",
-       "port": "1"
-      },
-      "points": [
-       [
-        165.0,
-        205.0
-       ]
-      ],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "S1",
-       "S2"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#137",
-      "a": {
-       "element_id": "#127",
-       "port": "T8"
-      },
-      "b": {
-       "element_id": "#130",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#138",
-      "a": {
-       "element_id": "#122",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#127",
-       "port": "IN"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#139",
-      "a": {
-       "element_id": "#127",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#123",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#140",
-      "a": {
-       "element_id": "#123",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#131",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#141",
-      "a": {
-       "element_id": "#127",
-       "port": "3"
-      },
-      "b": {
-       "element_id": "#125",
-       "port": "L"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#142",
-      "a": {
-       "element_id": "#125",
-       "port": "PE"
-      },
-      "b": {
-       "element_id": "#132",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#143",
-      "a": {
-       "element_id": "#127",
-       "port": "5"
-      },
-      "b": {
-       "element_id": "#124",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#144",
-      "a": {
-       "element_id": "#124",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#133",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N",
-       "PE"
-      ],
-      "terminals": {}
-     }
-    ],
-    "bridges": {},
-    "func": "",
-    "loc": "HR"
-   },
-   {
-    "id": "#145",
-    "name": "RVN – rozvaděč VN",
-    "paper": "A3",
-    "width": 420.0,
-    "height": 297.0,
-    "kind": "switchboard",
-    "parent_element_id": "#12",
-    "layout": {
-     "rows": 3,
-     "modules_per_row": 24,
-     "enclosure": "",
-     "params": {
-      "network": "3~ 50 Hz",
-      "un": "22 kV",
-      "voltage_level": "vn"
-     },
-     "placements": []
-    },
-    "elements": [
-     {
-      "id": "#146",
-      "symbol_id": "sb.busbar",
-      "x": 135.0,
-      "y": 210.0,
-      "rotation": 0,
-      "attrs": {
-       "ref": "1",
-       "desc": "přípojnice VN",
-       "conductors": "L1 L2 L3"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#147",
-      "symbol_id": "fve.switch_disconnector_vn",
-      "x": 67.5,
-      "y": 187.5,
-      "rotation": 270,
-      "attrs": {
-       "ref": "Q4",
-       "type": "odpínač VN",
-       "poles": "3",
-       "modules": "0",
-       "cell": "P1 kabelové pole"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#148",
-      "symbol_id": "fve.cable_end",
-      "x": 67.5,
-      "y": 142.5,
-      "rotation": 270,
-      "attrs": {
-       "ref": "XK1",
-       "poles": "3",
-       "modules": "0",
-       "cell": "P1 kabelové pole"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#149",
-      "symbol_id": "fve.earthing_switch",
-      "x": 80.0,
-      "y": 165.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "Q5",
-       "cell": "P1 kabelové pole"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#150",
-      "symbol_id": "fve.voltage_indicator",
-      "x": 55.0,
-      "y": 165.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "P1",
-       "type": "VDS",
-       "cell": "P1 kabelové pole"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#151",
-      "symbol_id": "sb.feed",
-      "x": 67.5,
-      "y": 112.5,
-      "rotation": 0,
-      "attrs": {
-       "ref": "XDS1",
-       "dir": "in",
-       "desc": "z DS",
-       "cell": "P1 kabelové pole",
-       "wire_id": "#50",
-       "from": "W17 DS:1 /1.H3",
-       "cable": "22-AXEKVCEY 3×1×70 70"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#152",
-      "symbol_id": "fve.switch_disconnector_vn",
-      "x": 112.5,
-      "y": 187.5,
-      "rotation": 270,
-      "attrs": {
-       "ref": "Q6",
-       "type": "odpínač VN",
-       "poles": "3",
-       "modules": "0",
-       "cell": "P2 kabelové pole"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#153",
-      "symbol_id": "fve.cable_end",
-      "x": 112.5,
-      "y": 142.5,
-      "rotation": 270,
-      "attrs": {
-       "ref": "XK2",
-       "poles": "3",
-       "modules": "0",
-       "cell": "P2 kabelové pole"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#154",
-      "symbol_id": "fve.earthing_switch",
-      "x": 125.0,
-      "y": 165.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "Q7",
-       "cell": "P2 kabelové pole"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#155",
-      "symbol_id": "fve.voltage_indicator",
-      "x": 100.0,
-      "y": 165.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "P2",
-       "type": "VDS",
-       "cell": "P2 kabelové pole"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#156",
-      "symbol_id": "sb.feed",
-      "x": 112.5,
-      "y": 112.5,
-      "rotation": 0,
-      "attrs": {
-       "ref": "XDS2",
-       "dir": "in",
-       "desc": "z DS",
-       "cell": "P2 kabelové pole",
-       "wire_id": "#52",
-       "from": "W18 DS:1 /1.H4",
-       "cable": "22-AXEKVCEY 3×1×70 70"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#157",
-      "symbol_id": "fve.switch_disconnector_vn",
-      "x": 157.5,
-      "y": 187.5,
-      "rotation": 270,
-      "attrs": {
-       "ref": "Q8",
-       "type": "odpínač VN",
-       "poles": "3",
-       "modules": "0",
-       "cell": "P3 transformátorové pole"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#158",
-      "symbol_id": "fve.fuse_vn",
-      "x": 157.5,
-      "y": 165.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "F2",
-       "in_": "31,5",
-       "poles": "3",
-       "modules": "0",
-       "type": "pojistka VN",
-       "cell": "P3 transformátorové pole"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#159",
-      "symbol_id": "fve.cable_end",
-      "x": 157.5,
-      "y": 125.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "XK3",
-       "poles": "3",
-       "modules": "0",
-       "cell": "P3 transformátorové pole"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#160",
-      "symbol_id": "fve.earthing_switch",
-      "x": 170.0,
-      "y": 142.5,
-      "rotation": 270,
-      "attrs": {
-       "ref": "Q9",
-       "cell": "P3 transformátorové pole"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#161",
-      "symbol_id": "sb.feed",
-      "x": 157.5,
-      "y": 100.0,
-      "rotation": 0,
-      "attrs": {
-       "ref": "X1",
-       "dir": "out",
-       "desc": "k transformátoru",
-       "cell": "P3 transformátorové pole",
-       "wire_id": "#48",
-       "to": "W16 TR1:1 /1.F3",
-       "cable": "22-AXEKVCEY 3×1×70 70"
-      },
-      "component_id": null
-     }
-    ],
-    "wires": [
-     {
-      "id": "#162",
-      "a": {
-       "element_id": "#151",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#148",
-       "port": "2"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#163",
-      "a": {
-       "element_id": "#148",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#147",
-       "port": "2"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#164",
-      "a": {
-       "element_id": "#147",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#149",
-       "port": "1"
-      },
-      "points": [
-       [
-        80.0,
-        180.0
-       ]
-      ],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#165",
-      "a": {
-       "element_id": "#147",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#150",
-       "port": "1"
-      },
-      "points": [
-       [
-        55.0,
-        180.0
-       ]
-      ],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#166",
-      "a": {
-       "element_id": "#146",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#147",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#167",
-      "a": {
-       "element_id": "#156",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#153",
-       "port": "2"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#168",
-      "a": {
-       "element_id": "#153",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#152",
-       "port": "2"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#169",
-      "a": {
-       "element_id": "#152",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#154",
-       "port": "1"
-      },
-      "points": [
-       [
-        125.0,
-        180.0
-       ]
-      ],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#170",
-      "a": {
-       "element_id": "#152",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#155",
-       "port": "1"
-      },
-      "points": [
-       [
-        100.0,
-        180.0
-       ]
-      ],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#171",
-      "a": {
-       "element_id": "#146",
-       "port": "4"
-      },
-      "b": {
-       "element_id": "#152",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#172",
-      "a": {
-       "element_id": "#146",
-       "port": "7"
-      },
-      "b": {
-       "element_id": "#157",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#173",
-      "a": {
-       "element_id": "#157",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#158",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#174",
-      "a": {
-       "element_id": "#158",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#159",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#175",
-      "a": {
-       "element_id": "#158",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#160",
-       "port": "1"
-      },
-      "points": [
-       [
-        170.0,
-        155.0
-       ]
-      ],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#176",
-      "a": {
-       "element_id": "#159",
-       "port": "2"
-      },
-      "b": {
-       "element_id": "#161",
-       "port": "1"
-      },
-      "points": [],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3"
-      ],
-      "terminals": {}
-     }
-    ],
-    "bridges": {},
-    "func": "",
-    "loc": "RVN"
-   },
-   {
-    "id": "#177",
-    "name": "RE – elektroměrový rozvaděč",
-    "paper": "A3",
-    "width": 420.0,
-    "height": 297.0,
-    "kind": "switchboard",
-    "parent_element_id": "#13",
-    "layout": {
-     "rows": 3,
-     "modules_per_row": 24,
-     "enclosure": "",
-     "params": {
-      "network": "měřicí obvody",
-      "un": "3×230/400 V, 5 A"
-     },
-     "placements": []
-    },
-    "elements": [
-     {
-      "id": "#178",
-      "symbol_id": "sb.feed",
-      "x": 45.0,
-      "y": 205.0,
-      "rotation": 180,
-      "attrs": {
-       "ref": "XMI",
-       "dir": "in",
-       "desc": "proudové obvody z MTP",
-       "wire_id": "#54",
-       "from": "W19 HR:XMI /1.F4",
-       "cable": "CYKY-O 7×4 4"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#179",
-      "symbol_id": "sb.feed",
-      "x": 105.0,
-      "y": 205.0,
-      "rotation": 180,
-      "attrs": {
-       "ref": "XMU",
-       "dir": "in",
-       "desc": "napěťové obvody",
-       "wire_id": "#56",
-       "from": "W20 HR:XMU /1.F4",
-       "cable": "CYKY-J 5×2,5 2,5"
-      },
-      "component_id": null
-     },
-     {
-      "id": "#180",
-      "symbol_id": "fve.meter",
-      "x": 75.0,
-      "y": 165.0,
-      "rotation": 270,
-      "attrs": {
-       "ref": "P3",
-       "kind": "fakturační (DS)",
-       "modules": "0"
-      },
-      "component_id": null
-     }
-    ],
-    "wires": [
-     {
-      "id": "#181",
-      "a": {
-       "element_id": "#178",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#180",
-       "port": "1"
-      },
-      "points": [
-       [
-        45.0,
-        185.0
-       ],
-       [
-        75.0,
-        185.0
-       ]
-      ],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "S1",
-       "S2"
-      ],
-      "terminals": {}
-     },
-     {
-      "id": "#182",
-      "a": {
-       "element_id": "#179",
-       "port": "1"
-      },
-      "b": {
-       "element_id": "#180",
-       "port": "2"
-      },
-      "points": [
-       [
-        105.0,
-        145.0
-       ],
-       [
-        75.0,
-        145.0
-       ]
-      ],
-      "attrs": {
-       "ref": ""
-      },
-      "conductors": [
-       "L1",
-       "L2",
-       "L3",
-       "N"
-      ],
-      "terminals": {}
-     }
-    ],
-    "bridges": {},
-    "func": "",
-    "loc": "RE"
    }
   ],
   "cables": [
@@ -134957,21 +133648,6 @@
     "aspect": "+",
     "code": "RFVE.DC",
     "description": "DC rozvaděč u T1"
-   },
-   {
-    "aspect": "+",
-    "code": "HR",
-    "description": "hlavní rozvaděč nn"
-   },
-   {
-    "aspect": "+",
-    "code": "RVN",
-    "description": "rozvaděč VN"
-   },
-   {
-    "aspect": "+",
-    "code": "RE",
-    "description": "elektroměrový rozvaděč"
    }
   ],
   "revisions": [],
