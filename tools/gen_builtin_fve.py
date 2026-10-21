@@ -273,6 +273,22 @@ SYMBOLS = [
         "label_pos": {"x": -10, "y": -10},   # popisek pod skříní – nad ní je místo pro text hranice vlastnictví
     },
     {
+        # přepínač sítí I-0-II (EPS u rodinného domu): 1 síť (z přípojnice) a 2 záloha (EPS vývod hybridního střídače)
+        # nahoře, 3 výstup k zálohovaným okruhům dole; kreslí se bez otočení (tok shora dolů). Vícepól: pól na žílu
+        # (průchozí 1–3, záloha 2 vedle sítě)
+        "id": "fve.changeover_switch", "name": "Přepínač sítí (I-0-II)", "category": "Spínání", "iec_ref": "Q",
+        "function_class": ["Q"],
+        "description": "Přepínač sítí I-0-II: síť (1) / záloha EPS hybridního střídače (2) → zálohované okruhy (3)",
+        "primitives": [L(0, 7.5, 0, 5), L(5, 7.5, 5, 5), L(0, -5, 0, -7.5), R(-2.5, -5, 10, 10),
+                       T(2.5, -1, "I-0-II", 1.8), L(0, -3.5, 2.5, 3.5)],
+        "ports": [P("1", 0, 7.5, "N"), P("2", 5, 7.5, "N"), P("3", 0, -7.5, "S")],
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), attr("poles", "Póly", "4"),
+                       attr("kind", "Druh (ruční / ATS)", "ruční", True), MOD, PLOSS, *TEMP],
+        "multipole": {**MP([L(0, 7.5, 0, 2.5), L(5, 7.5, 5, 2.5), L(0, -2.5, 2.5, 2.5), L(0, -2.5, 0, -7.5)],
+                         [T(2.5, -6, "I-0-II", 1.8)]), "through": ["1", "3"]},
+        "label_pos": {"x": -16, "y": 2},
+    },
+    {
         # síťová ochrana (ochrana rozhraní FVE – U<, U>, f<, f>; nad 30 kWp DC) v AC rozvaděči FVE: měří napětí
         # z přípojnice (port U nahoře), působí na vazební spínač (`acts_on` = označení hlavního vypínače);
         # docs/design/topologie_f1_f2.md, kap. 2 bod 8

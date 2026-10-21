@@ -684,3 +684,58 @@ def test_grid_protection_limit_from_standard(tmp_path, monkeypatch):
     path.write_text(json.dumps({"standard": {"grid_protection_kwp": 50}}), encoding="utf-8")
     p = build_project({"inverters": [{"ref": "T1", **_INV, "strings": [20] * 4}], "chain": dict(_EXIST_NN)})
     assert not _gp(p) and p.meta["grid_protection_kwp"] == "50" and "grid_protection_missing" not in _codes(p)
+
+
+# ---- krok 9: EPS a přepínač sítí jen u RD ---------------------------------------------------------------------
+_BAT = {"e_kwh": 10, "p_kw": 5, "type": "BYD HVS 10.2"}
+_RD_INV = {"p_ac": 10, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30}
+_EXIST_RD63 = {"rd": {"main_in": 63}, "re": {"main_in": 63}, "hds": {"in_": 80}}
+
+
+@pytest.mark.parametrize("extra", [{}, {"macros": {"ac_eps": "EPS přepínač sítí"}}, {"dc": {"tech_box": False}},
+                                   {"macros": {"dc_tech": "", "dc_route": "", "ac_feed": "", "ac_core": ""}}])
+def test_eps_changeover_in_house(extra):
+    """RD s hybridním střídačem a baterií: BACKUP → přerušení EPS-T1 → RFVE.XE1 → přepínač sítí (port 2), síť ze
+    sběrnice (port 1), výstup → XB1 → „zálohované okruhy“; makro `ac_eps` i kód; F7 čisté, bez křížení."""
+    from test_feed_review import _crossings
+
+    from envocad.model.checks import ERROR, WARNING, check_project
+    from envocad.model.inverter_io import inverter_io
+    p = build_project({"building": "house", "inverters": [{"ref": "T1", **_RD_INV, "strings": [16, 16]}],
+                       "battery": _BAT, "chain": _EXIST_RD63, **extra})
+    s = p.sheets[0]
+    t = next(e for e in s.elements if e.symbol_id == "fve.inverter_hybrid")
+    assert t.attrs["eps"] == "1" and "BACKUP" in inverter_io(t.attrs)
+    sb = _board(p, "RFVE")
+    q = next(e for e in sb.elements if e.symbol_id == "fve.changeover_switch")
+    by_id = {e.id: e for e in sb.elements}
+    ends = {(w.a.port if w.a.element_id == q.id else w.b.port):
+            by_id[w.b.element_id if w.a.element_id == q.id else w.a.element_id] for w in sb.wires if w.touches(q.id)}
+    assert ends["1"].symbol_id == "sb.busbar" and ends["2"].ref == "XE1" and ends["3"].ref == "XB1"
+    load = next(e for e in s.elements if e.symbol_id == "fve.load" and e.attrs.get("desc") == "zálohované okruhy")
+    assert any(w.touches(load.id) and "XB1" in (w.a.port, w.b.port) for w in s.wires)
+    assert len([e for e in s.elements if e.symbol_id == "fve.interrupt" and e.ref == "EPS-T1"]) == 2
+    lib = _lib()
+    bad = [(f.code, f.ref, f.text) for f in check_project(p, lib) if f.severity in (ERROR, WARNING)]
+    assert bad == []
+    assert [(a, b) for sh in p.sheets if not sh.is_switchboard for a, b in _crossings(p, sh, lib)] == []
+
+
+def test_eps_not_for_company_or_without_battery():
+    p = build_project({"inverters": [{"ref": "T1", **_INV, "strings": [20, 20]}], "battery": _BAT,
+                       "chain": dict(_EXIST_NN)})
+    assert not any(e.symbol_id == "fve.changeover_switch" for s in p.sheets for e in s.elements)
+    assert not any(e.attrs.get("eps") for s in p.sheets for e in s.elements)
+    p = build_project({"building": "house", "inverters": [{"ref": "T1", **_RD_INV, "strings": [16, 16]}],
+                       "chain": _EXIST_RD63})
+    assert not any(e.symbol_id in ("fve.changeover_switch", "fve.interrupt") for s in p.sheets for e in s.elements)
+
+
+def test_eps_unconnected_when_backup_wire_removed():
+    p = build_project({"building": "house", "inverters": [{"ref": "T1", **_RD_INV, "strings": [16, 16]}],
+                       "battery": _BAT, "chain": _EXIST_RD63})
+    assert "eps_unconnected" not in _codes(p)
+    s = p.sheets[0]
+    t = next(e for e in s.elements if e.symbol_id == "fve.inverter_hybrid")
+    s.wires = [w for w in s.wires if not (w.touches(t.id) and "BACKUP" in (w.a.port, w.b.port))]
+    assert "eps_unconnected" in _codes(p)

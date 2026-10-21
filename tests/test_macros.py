@@ -107,13 +107,13 @@ def test_save_macro_writes_v2_with_implicit_variables(tmp_path, monkeypatch):
 
 def test_builtin_macros_are_valid_v3():
     found = {m.name: m for m in list_macros() if m.source == "vestavěné"}
-    assert len(found) == 6
+    assert len(found) == 7                       # + „EPS přepínač sítí“ (role ac_eps, F2 krok 9)
     for m in found.values():
         data = json.loads(m.path.read_text(encoding="utf-8"))
         assert data["version"] == 3 and validate_macro(data) == [], (m.name, validate_macro(data))
     roles = {m.role: m.name for m in found.values() if m.role}
     assert roles == {"dc_tech": "DC string v rozvaděči", "dc_route": "DC string po trase",
-                     "ac_feed": "AC přívod střídače", "ac_core": "AC jádro rozvaděče"}
+                     "ac_feed": "AC přívod střídače", "ac_core": "AC jádro rozvaděče", "ac_eps": "EPS přepínač sítí"}
     dc = found["DC string v rozvaděči"]
     assert dc.repeat.count == "n" and dc.repeat.pitch == 50 and dc.value_sets
     assert all(v.label for v in dc.variables)

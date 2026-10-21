@@ -311,6 +311,8 @@ def build_main_sheet(ctx: ChainContext) -> Sheet:
     if not _ac_box_from_macros(p, sb, invs, ac, spec.get("macros") or {}):
         _build_ac_switchboard(p, sb, invs, ac, spec)
     single_phase_feeds(ctx, sb)
+    from envocad.generator.boards.eps import build_sheet_part
+    build_sheet_part(ctx, sb)          # EPS a přepínač sítí (jen rodinný dům s hybridním střídačem a baterií)
     mark_chain_devices(ctx, sb)
     ctx.done.add("main")
     return sb

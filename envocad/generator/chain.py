@@ -161,6 +161,8 @@ def build(ctx: ChainContext) -> None:
         sb = rfve_ac.build_main_sheet(ctx)
         if ctx.combined:
             rfve.build_dc_part(ctx, sb)
+    from envocad.generator.boards.eps import build_jps
+    build_jps(ctx)                    # EPS rodinného domu: BACKUP → RFVE.XE{i}, XB{i} → zálohované okruhy
     _layout(ctx)
 
 
@@ -287,6 +289,14 @@ def _choose_chain_layout(ctx: ChainContext, links: list, in_row) -> str:
     target = _boundary_target(ctx)
 
     def apply(mode: str) -> bool:
+        ok = _apply(mode)
+        if ok and ctx.eps:            # EPS rodinného domu (RFVE za střídači) podle polohy RFVE a lomů AC vodičů
+            from envocad.generator.boards.eps import place_jps
+            from envocad.generator.layout import xout_lane_x
+            place_jps(ctx, xout_lane_x(p, s, blk, ctx.earth, links))
+        return ok
+
+    def _apply(mode: str) -> bool:
         restore()
         in_row()
         if mode == "column_top" and not _raise_main(ctx):
@@ -399,11 +409,20 @@ def _layout(ctx: ChainContext) -> None:
     if ctx.combined and links:
         _prev, _pp, el0, port0, w0 = links.pop(0)
         first = (el0, port0, w0)
-        _route_house(p, blk, ctx.ac_wires, first, ctx.earth)
+        from envocad.generator.boards.eps import EPS_LANE_GAP, place_jps
+        gap = EPS_LANE_GAP if ctx.eps else 0.0
+        _route_house(p, blk, ctx.ac_wires, first, ctx.earth, gap)
+        if ctx.eps:                   # EPS u RFVE, pak trasa znovu – řetězec pod značkou zálohovaných okruhů
+            place_jps(ctx, w0.points[0][0] if w0.points else None)
+            _route_house(p, blk, ctx.ac_wires, first, ctx.earth, gap)
         if links:
             mode = _choose_house_layout(ctx, first, links, in_row)
     else:
         _align_outputs(p, blk, None, ctx.earth)
+        if ctx.eps:                   # rodinný dům bez DC části (RFVE za střídači): EPS u RFVE před volbou řetězce
+            from envocad.generator.boards.eps import place_jps
+            from envocad.generator.layout import xout_lane_x
+            place_jps(ctx, xout_lane_x(p, ctx.sheet, blk, ctx.earth, links))   # i pro řetězec v řadě
         # firma na nn s několika články za RFVE.AC: řetězec svisle pod RFVE.AC, v řadě pod FV částí, nebo v řadě
         # za RFVE.AC – podle toho, co dá nejmenší výkres bez křížení a překryvů textů (`_choose_chain_layout`)
         if choose:

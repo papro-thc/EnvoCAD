@@ -662,7 +662,12 @@ def _eps_findings(project: Project) -> list[Finding]:
             for w in s.wires:
                 for a, b in ((w.a, w.b), (w.b, w.a)):
                     if a.element_id == eid and (port == "*" or a.port == port) and b.element_id in by_id:
-                        nxt.append((b.element_id, "*"))
+                        # do bloku rozvaděče konkrétním portem (přívod listu), jinak přes všechny porty prvku
+                        nxt.append((b.element_id, b.port if by_id[b.element_id][1].symbol_id == "fve.switchboard"
+                                    else "*"))
+            if e.symbol_id == INTERRUPT_SYMBOL and e.ref:   # pár přerušovacích bodů = jeden vodič
+                nxt += [(x.id, "*") for _s2, x in by_id.values() if x.symbol_id == INTERRUPT_SYMBOL
+                        and x.ref == e.ref and x.id != e.id]
             if e.symbol_id == "fve.switchboard":       # blok: port bloku → přívod / vývod listu rozvaděče
                 sb = project.switchboard_sheet(e.id)
                 for f in (sb.elements if sb is not None else []):

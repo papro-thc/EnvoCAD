@@ -55,7 +55,7 @@ def _align_route_boxes(p: Project, blk: Element, chains: list[list[Element]]) ->
 
 
 def _route_house(p: Project, blk: Element, ac_wires: list[Wire], first: tuple[Element, str, Wire],
-                 earth: Element | None) -> None:
+                 earth: Element | None, lane_gap: float = 0.0) -> None:
     """JPS rodinného domu: rozvaděč FVE stojí před střídači. AC vodiče od střídačů vedou nad vším zpět na přívody
     X1…Xn vlevo (vnější lom pro dolní střídač – bez křížení), vývod XOUT pod vším k prvnímu článku za střídači
     (`first` = blok, jeho přívod, vodič – RD, jinak HDS / DS), uzemnění (HOP) hned pod vývod XPE."""
@@ -92,13 +92,14 @@ def _route_house(p: Project, blk: Element, ac_wires: list[Wire], first: tuple[El
     finally:
         s.wires = keep
     x_lo = bx - 15.0 - 5.0 * len(ac_wires)
-    x_hi = max(port(s.element(w.a.element_id), "AC")[0] for w in ac_wires) + 10.0 + 5.0 * len(ac_wires)
+    x_hi = max(port(s.element(w.a.element_id), "AC")[0] for w in ac_wires) + 10.0 + 5.0 * len(ac_wires) + lane_gap
     top = max((b[3] for b in boxes if b[2] >= x_lo and b[0] <= x_hi), default=blk.y)
     y_top = snap(top + 7.5)
     for i, w in enumerate(ac_wires):
         ac = port(s.element(w.a.element_id), "AC")
         feed = port(blk, w.b.port)
-        x_r, x_l, lane = ac[0] + 10.0 + 5.0 * i, bx - 20.0 - 5.0 * i, y_top + 5.0 * i
+        # `lane_gap`: svislé úseky dalších střídačů dál od značky (místo pro přerušení EPS u svorky BACKUP 1. střídače)
+        x_r, x_l, lane = ac[0] + 10.0 + 5.0 * i + (lane_gap if i else 0.0), bx - 20.0 - 5.0 * i, y_top + 5.0 * i
         w.points = [(x_r, ac[1]), (x_r, lane), (x_l, lane), (x_l, feed[1])]
     out = port(blk, "XOUT")
     x_out = bx + 30.0
@@ -498,6 +499,25 @@ def _chain_ids(links: list, loads: list) -> tuple[set[str], set[str]]:
     els = {el.id for _p, _q, el, _r, _w in links} | {ld.id for _b, _pt, ld, _w in loads}
     wires = {w.id for *_x, w in links} | {w.id for *_x, w in loads}
     return els, wires
+
+
+def xout_lane_x(p: Project, s: Sheet, blk: Element, earth: Element | None, links: list) -> float | None:
+    """x svislého úseku vodiče od vývodu XOUT za uzemněním a jeho popiskem (jako `_chain_column`); None = blok
+    bez XOUT."""
+    from envocad.model.textlayout import compute_layout
+    lib = context._lib()
+    if not _has_port(p, blk, "XOUT", lib):
+        return None
+    out = _port(p, blk, "XOUT", lib)
+    x_lane = out[0] + 15.0
+    with _without(s, *_chain_ids(links, [])):
+        lay = compute_layout(p, s, lib)
+        w_earth = next((w for w in s.wires if earth is not None and w.touches(earth.id)), None)
+        if earth is not None:
+            x_lane = max(x_lane, _snap(_extent(p, s, earth, lib)[2] + 5.0))
+        if w_earth is not None and w_earth.id in lay.wires:
+            x_lane = max([x_lane, *(_snap(b[2] + 5.0) for b in lay.wires[w_earth.id].boxes)])
+    return x_lane
 
 
 def _chain_column(p: Project, s: Sheet, blk: Element, links: list, loads: list, earth: Element | None,

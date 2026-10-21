@@ -173,6 +173,9 @@ def build(ctx: ChainContext) -> None:
         _apply_inverter_component(t, inv)
         if opt_comp is not None:
             _apply_optimizer_rules(t, inv, opt_comp)
+        if t.symbol_id == "fve.inverter_hybrid" and ctx.topology is not None and ctx.topology.node("rfve") is not None:
+            from envocad.generator.boards.eps import prepare_inverter
+            prepare_inverter(t)            # rodinný dům: EPS vývod (BACKUP) vede na přepínač sítí v RFVE
         # pás svorek typu střídače (záloha, komunikace – `inverter_io`) visí pod značkou: místo v řadě
         from envocad.model.inverter_io import inverter_io
         row_extra[i] += 5.0 * len(inverter_io(t.attrs))

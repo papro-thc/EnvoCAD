@@ -44,12 +44,13 @@ LOSS_PER_A_PER_POLE = {
     "fve.breaker_mcb": 0.09, "sb.rcbo": 0.11, "sb.rcd": 0.04, "fve.breaker_mccb": 0.06,
     "sb.main_switch": 0.03, "fve.switch_disconnector": 0.03, "fve.dc_disconnect": 0.03,
     "fve.contactor": 0.08, "ctl.contact_power": 0.08, "fve.fuse": 0.15, "fve.fuse_disconnect": 0.15,
-    "fve.meter": 0.0,
+    "fve.meter": 0.0, "fve.changeover_switch": 0.03,
 }
 # Pevná ztráta [W] nezávislá na proudu (cívky, elektronika) – ORIENTAČNÍ. Stykač kreslený jako jeden prvek má cívku
 # v sobě; cívka (ctl.coil) kreslená zvlášť nese ztrátu sama (silové kontakty `ctl.contact_power` mají jen ztrátu
 # průchodem proudu). Cívka se nezapočítá, když položkou výkazu je stykač (`is_bom_device`) – žádná dvojí cívka.
-FIXED_LOSS_W = {"fve.spd": 0.5, "fve.meter": 2.0, "fve.contactor": 2.5, "ctl.coil": 2.5, "fve.transformer": 0.0}
+FIXED_LOSS_W = {"fve.spd": 0.5, "fve.meter": 2.0, "fve.contactor": 2.5, "ctl.coil": 2.5, "fve.transformer": 0.0,
+                "fve.grid_protection": 3.0}
 
 # Hodnocení oteplení po přístrojích (`device_temperatures`): teplota vzduchu v úrovni řady DIN lišty přístroje se
 # porovná s horní mezí provozní teploty okolí přístroje `t_max` (datasheet; artikl `t_max_c` → atribut `t_max`).

@@ -134,6 +134,25 @@ def ac_core() -> dict:
     return _frag(s)
 
 
+def ac_eps() -> dict:
+    """EPS rodinného domu ({i}, {inverter}, {eps_in}): přívod XE{i} (záloha od střídače, dole) → přepínač sítí I-0-II
+    port 2 shora; síť ze sdílené sběrnice 1 vývod 5 → port 1; výstup port 3 → vývod XB{i} (zálohované okruhy)."""
+    p, s = Project(), Sheet(kind="switchboard")
+    bus = _el(p, s, "sb.busbar", *AC_BUS, "", desc="rozvod AC", in_="{main_in}", conductors=" ".join(AC_CONDUCTORS), shared="1",
+              **BUS_PARAMS)
+    bus.attrs["ref"] = "1"
+    q = _el(p, s, "fve.changeover_switch", 0, 140, "Q", in_="{eps_in}", poles="4", modules="4", kind="ruční")
+    q.attrs["desc"] = "přepínač sítí (EPS)"
+    fe = _feed(p, s, "in", 15, 105, "", desc="EPS od {inverter}")
+    fe.attrs["ref"] = "XE{i}"
+    fb = _feed(p, s, "out", 0, 105, "", desc="zálohované okruhy")
+    fb.attrs["ref"] = "XB{i}"
+    _wire(p, s, bus, "5", q, "1", AC_CONDUCTORS)
+    _wire(p, s, fe, "1", q, "2", AC_CONDUCTORS).points = [(15.0, 155.0), (5.0, 155.0)]
+    _wire(p, s, q, "3", fb, "1", AC_CONDUCTORS)
+    return _frag(s)
+
+
 def jps_string_chain() -> dict:
     """JPS: FV string → DC rozvaděč (blok) → střídač, s kabely."""
     p, s = Project(), Sheet()
@@ -224,6 +243,15 @@ META = {
             {"name": "SPD T2, hlavní vypínač 63 A", "values": {"spd": "T2", "main_in": "63"}},
         ],
     },
+    "EPS přepínač sítí": {
+        "role": "ac_eps",
+        "variables": [
+            _auto("i", "Číslo hybridního střídače", "1"),
+            _auto("inverter", "Střídač", "T{i}", typ="text"),
+            _num("eps_in", "In přepínače sítí", "40", "A", required=True, min=1),
+            _num("main_in", "In sběrnice", "125", "A", required=True, min=1),
+        ],
+    },
 }
 
 MACROS = [
@@ -232,6 +260,7 @@ MACROS = [
     ("DC string po trase", "Generátor (po trase): X{k} → X{nk} (průchozí svorky, bez odpínače), SPD-DC{i}.{j} {spd} DC z přívodní svorky, PE → XPE; pojistkové odpínače jen v rozvaděči u střídače; proměnné k, nk, i, j, string, inverter, spd", dc_string_route),
     ("AC přívod střídače", "Generátor: X{k} od {inverter} (zespodu) → jistič {breaker_in} → sběrnice 1 port B{k}; proměnné k, inverter, breaker_in, main_in", ac_feed),
     ("AC jádro rozvaděče", "Generátor: sběrnice 1 → SPD {spd} → XPE (k HOP), sběrnice → hlavní vypínač {main_in} → XOUT; síťová ochrana z vývodu 4 (when grid_protection)", ac_core),
+    ("EPS přepínač sítí", "Rodinný dům: XE{i} (EPS od {inverter}) → přepínač sítí I-0-II {eps_in} ← sběrnice 1 vývod 5; výstup → XB{i} (zálohované okruhy)", ac_eps),
     ("String → střídač", "FV string s kabelem H1Z2Z2-K na DC vstup střídače (JPS)", jps_string_chain),
 ]
 

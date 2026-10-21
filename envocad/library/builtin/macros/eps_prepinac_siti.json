@@ -1,0 +1,183 @@
+{
+ "version": 3,
+ "name": "EPS přepínač sítí",
+ "description": "Rodinný dům: XE{i} (EPS od {inverter}) → přepínač sítí I-0-II {eps_in} ← sběrnice 1 vývod 5; výstup → XB{i} (zálohované okruhy)",
+ "role": "ac_eps",
+ "variables": [
+  {
+   "name": "i",
+   "label": "Číslo hybridního střídače",
+   "type": "number",
+   "default": "1",
+   "auto": true
+  },
+  {
+   "name": "inverter",
+   "label": "Střídač",
+   "default": "T{i}",
+   "auto": true
+  },
+  {
+   "name": "eps_in",
+   "label": "In přepínače sítí",
+   "type": "number",
+   "default": "40",
+   "unit": "A",
+   "required": true,
+   "min": 1
+  },
+  {
+   "name": "main_in",
+   "label": "In sběrnice",
+   "type": "number",
+   "default": "125",
+   "unit": "A",
+   "required": true,
+   "min": 1
+  }
+ ],
+ "fragment": {
+  "elements": [
+   {
+    "id": "93d1dd39c607",
+    "symbol_id": "sb.busbar",
+    "x": 165,
+    "y": 175,
+    "rotation": 0,
+    "attrs": {
+     "ref": "1",
+     "desc": "rozvod AC",
+     "in_": "{main_in}",
+     "conductors": "L1 L2 L3 N PE",
+     "shared": "1",
+     "taps": "1",
+     "outs": "1",
+     "tap_pitch": "30"
+    },
+    "component_id": null
+   },
+   {
+    "id": "ff60fe35e3d5",
+    "symbol_id": "fve.changeover_switch",
+    "x": 0,
+    "y": 140,
+    "rotation": 0,
+    "attrs": {
+     "ref": "Q1",
+     "in_": "{eps_in}",
+     "poles": "4",
+     "modules": "4",
+     "kind": "ruční",
+     "desc": "přepínač sítí (EPS)"
+    },
+    "component_id": null
+   },
+   {
+    "id": "fb12a91b18b7",
+    "symbol_id": "sb.feed",
+    "x": 15,
+    "y": 105,
+    "rotation": 0,
+    "attrs": {
+     "ref": "XE{i}",
+     "dir": "in",
+     "desc": "EPS od {inverter}"
+    },
+    "component_id": null
+   },
+   {
+    "id": "0e2f982daa55",
+    "symbol_id": "sb.feed",
+    "x": 0,
+    "y": 105,
+    "rotation": 0,
+    "attrs": {
+     "ref": "XB{i}",
+     "dir": "out",
+     "desc": "zálohované okruhy"
+    },
+    "component_id": null
+   }
+  ],
+  "wires": [
+   {
+    "id": "2f03aa8dcf3b",
+    "a": {
+     "element_id": "93d1dd39c607",
+     "port": "5"
+    },
+    "b": {
+     "element_id": "ff60fe35e3d5",
+     "port": "1"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "L1",
+     "L2",
+     "L3",
+     "N",
+     "PE"
+    ],
+    "terminals": {}
+   },
+   {
+    "id": "6d37c0283d3b",
+    "a": {
+     "element_id": "fb12a91b18b7",
+     "port": "1"
+    },
+    "b": {
+     "element_id": "ff60fe35e3d5",
+     "port": "2"
+    },
+    "points": [
+     [
+      15.0,
+      155.0
+     ],
+     [
+      5.0,
+      155.0
+     ]
+    ],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "L1",
+     "L2",
+     "L3",
+     "N",
+     "PE"
+    ],
+    "terminals": {}
+   },
+   {
+    "id": "cc34b105e885",
+    "a": {
+     "element_id": "ff60fe35e3d5",
+     "port": "3"
+    },
+    "b": {
+     "element_id": "0e2f982daa55",
+     "port": "1"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "L1",
+     "L2",
+     "L3",
+     "N",
+     "PE"
+    ],
+    "terminals": {}
+   }
+  ]
+ }
+}
