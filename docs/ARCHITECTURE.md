@@ -54,7 +54,8 @@ envocad/
                  RD), groups (skupiny střídačů `ac_group` – RFVE.AC{n}). Rozsah (rozhodnutí 12): RD / HR / RE jen
                  bloky bez listu (porty a údaje v atributech), RFVE.AC / AC část RFVE z mustru (`rfve_ac.ac_mode`,
                  `spec.pattern_macro`), jinak blok / kotvy; vestavěný kód volbou `chain.<role>.builtin` / standard
-                 `ac_builtin`. Zkoušení rozložení s mezipamětí značek (`project.symbol_cache`); přístroje řetězce nesou atribut `chain`
+                 `ac_builtin`. Zkoušení rozložení s mezipamětí značek (`project.symbol_cache`) a rozložení textů
+                 (`textlayout.layout_cache`, klíč = úplný stav listů; benchmark `tools/bench_generate.py`); přístroje řetězce nesou atribut `chain`
                  (inv, rfve_main, fve_out, main, meter_main, inst_switch) pro `calc.check_selectivity_tree` (F7
                  `checks.chain_findings`)
   ui/         PySide6 GUI (nikdy neobsahuje business logiku)
