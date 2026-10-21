@@ -1,6 +1,7 @@
 """Projekt → listy → elementy a vodiče. Čistá data, bez Qt."""
 from __future__ import annotations
 
+import contextlib
 import copy
 import dataclasses
 import json
@@ -57,7 +58,7 @@ SWITCHBOARD_WIRE_ATTRIBUTES = [
     Attribute("prod", "Do výrobního seznamu (0 = ne)"),
 ]
 
-FORMAT_VERSION = 14
+FORMAT_VERSION = 15
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 DEVICE_HEIGHT_MM = 45.0  # mm – výška modulového přístroje na liště (rozložení, délky vodičů)
@@ -1215,6 +1216,9 @@ def migrate(d: dict, ver: int) -> dict:
     # v14: parametrická sběrnice `sb.busbar` (atributy `taps` / `outs` / `tap_pitch`, `model/busbar.py`) – bez migrace
     # dat (sběrnice bez `taps` kreslí pevnou geometrii jako dřív). Verze se zvedla jen proto, aby program v13 soubor
     # odmítl: atributy by sice zachoval, ale kreslil by pevnou sběrnici (přívody B{k} jinde, B13+ osiřelé porty).
+    # v15: blok rozvaděče bez listu s porty z atributů `ports_in` / `ports_out` (a jištěním portů `protect`) – bez
+    # migrace dat (blok bez atributů se kreslí jako dřív). Verze se zvedla jen proto, aby program v14 soubor odmítl:
+    # blok bez listu by kreslil se základní značkou a vodiče na jeho porty jako osiřelé „X1?“ (chyba `bad_port`).
     d["format_version"] = FORMAT_VERSION
     return d
 
@@ -1703,38 +1707,90 @@ def wire_xref(project: Project, wire_id: str, index: dict[str, list[tuple[Sheet,
 
 # ---- blok ROZVADĚČ s porty podle přívodů/vývodů listu rozvaděče -------------------------------------------
 PORT_PITCH = 10.0
+# Blok rozvaděče bez listu (formát v15): porty z atributů bloku – přívody vlevo `ports_in`, vývody vpravo `ports_out`
+# (označení oddělená mezerou / čárkou: „XIN“, „X1 X2“). Nepovinné; s listem se přidají za přívody / vývody listu
+# (porty, které list nemá). Generátor tak kreslí stávající RD / HR / RE a RFVE.AC bez mustru jen jako blok v blokovém
+# schématu (docs/NAVRH_TOPOLOGIE.md, kap. 8 bod 12). `protect` = jištění portů bloku bez listu („X1=63, X3=40“, A) –
+# kontrola kabelů (`calc.check_cables`) porovná In s Iz kabelu na portu, když za ním není list s přístrojem.
+BLOCK_PORTS_IN = "ports_in"
+BLOCK_PORTS_OUT = "ports_out"
+BLOCK_PROTECT = "protect"
+
+
+def _split_names(v) -> list[str]:
+    out: list[str] = []
+    for t in re.split(r"[\s,;]+", str(v or "")):
+        if t and t not in out:
+            out.append(t)
+    return out
+
+
+def block_port_names(e: Element) -> tuple[list[str], list[str]]:
+    """Porty bloku rozvaděče z atributů (`ports_in`, `ports_out`) – (přívody, vývody); jméno jen jednou."""
+    ins = _split_names(e.attrs.get(BLOCK_PORTS_IN))
+    outs = [n for n in _split_names(e.attrs.get(BLOCK_PORTS_OUT)) if n not in ins]
+    return ins, outs
+
+
+def is_block_only(project: Project, e: Element) -> bool:
+    """Blok rozvaděče bez listu s porty z atributů (`ports_in` / `ports_out`) – záměrně jen blok."""
+    return (e.symbol_id == "fve.switchboard" and project.switchboard_sheet(e.id) is None
+            and any(block_port_names(e)))
+
+
+def block_protect(e: Element) -> dict[str, float]:
+    """Jištění portů bloku bez listu z atributu `protect` („X1=63, X3=40“) → {port: In [A]}; nečitelné se vynechá."""
+    out: dict[str, float] = {}
+    # oddělovač „,“ / „;“ jen před označením portu (desetinná čárka „40,5“ zůstane)
+    for part in re.split(r"[,;]+(?=\s*[^\d\s,;])", str(e.attrs.get(BLOCK_PROTECT) or "")):
+        name, _sep, val = part.partition("=")
+        try:
+            v = float(val.strip().replace(",", ".").split()[0])
+        except (ValueError, IndexError):
+            continue
+        if name.strip() and v > 0:
+            out[name.strip()] = v
+    return out
 
 
 def switchboard_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
     """Značka bloku ROZVADĚČ odvozená z jeho listu: port za každý přívod (vlevo) a vývod (vpravo),
-    pojmenovaný označením svorky (X1, X4…). Bez listu zůstává základní značka. Porty, na které ještě vedou
-    vodiče se starými názvy (1–4), se zachovají, aby se nic nerozpojilo."""
+    pojmenovaný označením svorky (X1, X4…). Porty z atributů `ports_in` / `ports_out` (blok bez listu, nebo
+    porty, které list nemá) se přidají za ně. Bez listu a bez atributů zůstává základní značka. Porty, na které ještě
+    vedou vodiče se starými názvy (1–4), se zachovají, aby se nic nerozpojilo."""
     sheet = project.switchboard_sheet(e.id)
-    if sheet is None:   # list smazán / ještě nezaložen: vodiče na porty přívodů zůstanou na „?“ portech
+    extra_in, extra_out = block_port_names(e)
+    if sheet is None and not (extra_in or extra_out):
+        # list smazán / ještě nezaložen: vodiče na porty přívodů zůstanou na „?“ portech
         return with_orphan_ports(base, _used_ports(project, e))
+
     def nat(f: Element) -> tuple:
         m = re.match(r"([A-Za-z]*)(\d*)(.*)", f.ref)
         return (m.group(1), int(m.group(2)) if m.group(2) else 10**9, m.group(3))
-    feeds_in = sorted((f for f in sheet.elements if is_feed_in(f) and f.ref), key=nat)
-    feeds_out = sorted((f for f in sheet.elements if is_feed_out(f) and f.ref), key=nat)
-    if not feeds_in and not feeds_out:
+    elements = sheet.elements if sheet is not None else []
+    names_in = [f.ref for f in sorted((f for f in elements if is_feed_in(f) and f.ref), key=nat)]
+    names_out = [f.ref for f in sorted((f for f in elements if is_feed_out(f) and f.ref), key=nat)]
+    seen = set(names_in) | set(names_out)
+    names_in += [n for n in extra_in if n not in seen]
+    names_out += [n for n in extra_out if n not in seen and n not in extra_in]
+    if not names_in and not names_out:
         return with_orphan_ports(base, _used_ports(project, e))
-    n = max(len(feeds_in), len(feeds_out), 1)
+    n = max(len(names_in), len(names_out), 1)
     h = max(20.0, n * PORT_PITCH + PORT_PITCH)
     half = h / 2
     prims: list = [{"type": "rect", "x": -15, "y": -half, "w": 30, "h": h},
                    {"type": "text", "x": 0, "y": half + 1.5, "text": "ROZVADĚČ", "height": 2, "align": "center"}]
     ports: list[Port] = []
-    for i, f in enumerate(feeds_in):
+    for i, name in enumerate(names_in):
         y = half - PORT_PITCH / 2 - i * PORT_PITCH
         y = round(y / 2.5) * 2.5
-        ports.append(Port(f.ref, -15, y, "W"))
-        prims.append({"type": "text", "x": -13.5, "y": y - 0.8, "text": f.ref, "height": 1.8, "align": "left"})
-    for i, f in enumerate(feeds_out):
+        ports.append(Port(name, -15, y, "W"))
+        prims.append({"type": "text", "x": -13.5, "y": y - 0.8, "text": name, "height": 1.8, "align": "left"})
+    for i, name in enumerate(names_out):
         y = half - PORT_PITCH / 2 - i * PORT_PITCH
         y = round(y / 2.5) * 2.5
-        ports.append(Port(f.ref, 15, y, "E"))
-        prims.append({"type": "text", "x": 13.5, "y": y - 0.8, "text": f.ref, "height": 1.8, "align": "right"})
+        ports.append(Port(name, 15, y, "E"))
+        prims.append({"type": "text", "x": 13.5, "y": y - 0.8, "text": name, "height": 1.8, "align": "right"})
     names = {p.name for p in ports}
     parent = project.sheet_of_element(e.id)
     used = {end.port for w in (parent.wires if parent else []) for end in (w.a, w.b) if end.element_id == e.id}
@@ -1827,7 +1883,37 @@ def _used_ports(project: Project, e: Element) -> set[str]:
     return {end.port for w in (sheet.wires if sheet else []) for end in (w.a, w.b) if end.element_id == e.id}
 
 
+_SYMBOL_CACHE: dict | None = None
+
+
+@contextlib.contextmanager
+def symbol_cache():
+    """Mezipaměť `element_symbol` po dobu bloku (generátor: zkoušení rozložení blokového schématu počítá značky
+    tisíckrát). Platí jen, když se v bloku nemění listy rozvaděčů, atributy ani zapojení prvků – polohy ano (značka
+    na poloze nezávisí). Jen jedno vlákno (GUI ji nepoužívá); vnořený blok sdílí vnější mezipaměť."""
+    global _SYMBOL_CACHE
+    outer = _SYMBOL_CACHE
+    if outer is None:
+        _SYMBOL_CACHE = {}
+    try:
+        yield
+    finally:
+        if outer is None:
+            _SYMBOL_CACHE = None
+
+
 def element_symbol(project: Project, e: Element, lib) -> Symbol:
+    """Značka prvku (`_element_symbol`); v bloku `symbol_cache` z mezipaměti."""
+    if _SYMBOL_CACHE is not None:
+        key = (id(project), e.id, e.symbol_id)
+        hit = _SYMBOL_CACHE.get(key)
+        if hit is None:
+            hit = _SYMBOL_CACHE[key] = _element_symbol(project, e, lib)
+        return hit
+    return _element_symbol(project, e, lib)
+
+
+def _element_symbol(project: Project, e: Element, lib) -> Symbol:
     """Značka prvku – blok ROZVADĚČ podle jeho listu, střídač podle počtu DC vstupů, sběrnice s atributem `taps`
     podle počtu přívodů (`busbar.busbar_symbol`), jinak z knihovny.
     Nikdy nepadá na stavu projektu: symbol, který v knihovně není, nahradí zástupná značka (`placeholder`)

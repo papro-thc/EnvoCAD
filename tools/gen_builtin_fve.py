@@ -447,7 +447,18 @@ SYMBOLS = [
         "description": "Rozvaděč jako blok (odkaz na samostatný list)",
         "primitives": [R(-15, -10, 30, 20), T(0, 11.5, "ROZVADĚČ", 2)],
         "ports": [P("1", -15, 0, "W"), P("2", 15, 0, "E"), P("3", 0, 10, "N"), P("4", 0, -10, "S")],
-        "attributes": [REF, attr("desc", "Popis", "", True), attr("sheet", "Odkaz na list")],
+        # blok bez listu (generátor: stávající RD / HR / RE, RFVE.AC bez mustru): porty z atributů a údaje článku
+        # řetězce v popisku (docs/NAVRH_TOPOLOGIE.md, kap. 8 bod 12; formát projektu v15)
+        "attributes": [REF, attr("desc", "Popis", "", True), attr("sheet", "Odkaz na list"),
+                       attr("main", "Hlavní přístroj (blok bez listu)", "", True),
+                       attr("fve_out", "Vývod FVE (blok bez listu)", "", True, "vývod FVE: {}"),
+                       attr("metering", "Měření (blok bez listu)", "", True, "měření {}"),
+                       attr("inv_protect", "Jištění střídačů (blok bez listu)", "", True, "jištění střídačů {}"),
+                       attr("grid_protection", "Síťová ochrana – požadavek (blok bez listu)", "", True,
+                            "síťová ochrana: {}"),
+                       attr("ports_in", "Přívody bloku bez listu (X1 X2 …)"),
+                       attr("ports_out", "Vývody bloku bez listu (XOUT …)"),
+                       attr("protect", "Jištění portů bloku bez listu (X1=63, …) [A]")],
         "label_pos": {"x": -15, "y": -13},
     },
     {
@@ -478,7 +489,9 @@ SYMBOLS = [
         "primitives": [L(-7.5, 0, -2.5, 0), L(2.5, 0, -2, 4), L(2.5, 0, 7.5, 0), L(-2.5, -1.5, -2.5, 1.5),
                        C(2.5, 0, 0.8), T(0, 6, "HV", 2)],
         "ports": [P("1", -7.5, 0, "W"), P("2", 7.5, 0, "E")],
-        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS, *TEMP],
+        # vazební prvek síťové ochrany: vypínací spoušť (`trip`, kontrola F7 `grid_protection_trip`)
+        "attributes": [REF, TYPE, MFR, attr("in_", "In [A]", "", True), POLES, MOD, PLOSS, *TEMP,
+                       attr("trip", "Vypínací spoušť (vazební prvek síťové ochrany)", "", True)],
         "multipole": MP(CONTACT + DISC_BAR, [C(2.5, 0, 0.8), T(0, 6, "HV", 2)]),
         "label_pos": {"x": -5, "y": -6},
     },

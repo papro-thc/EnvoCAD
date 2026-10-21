@@ -11,7 +11,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field, replace
 
-from envocad.model.feed import FEED_SYMBOL
+from envocad.model.feed import FEED_SYMBOL, is_feed
 from envocad.model.notes import plural
 from envocad.model.project import INTERRUPT_SYMBOL, Element, Project, Sheet, Wire
 
@@ -1111,7 +1111,7 @@ def _find_inverter(project: Project, s: Sheet, start: Element, max_depth: int = 
     for _ in range(max_depth):
         nxt = []
         for fs, fe, entered in frontier:
-            exit_port = _block_exit(fs, fe, entered) if fe.symbol_id == "fve.switchboard" and entered else None
+            exit_port = _block_exit(fs, fe, entered, project) if fe.symbol_id == "fve.switchboard" and entered else None
             for ps, end, other, via in _wire_steps(project, fs, fe, groups):
                 if exit_port is not None and not via and end.port != exit_port:
                     continue
@@ -1130,17 +1130,56 @@ def _find_inverter(project: Project, s: Sheet, start: Element, max_depth: int = 
     return None
 
 
-def _block_exit(s: Sheet, block: Element, port: str) -> str | None:
-    """Průchod blokem DC rozvaděče: vstup X{k} ↔ výstup X{k + N/2} (N = počet zapojených portů X…, jako u generátoru).
-    Jiné zapojení → None (nejednoznačné)."""
+def _block_exit(s: Sheet, block: Element, port: str, project: Project | None = None) -> str | None:
+    """Průchod blokem DC rozvaděče: přívod `port` → vývod. S listem rozvaděče podle zapojení listu (`_sheet_exit` –
+    přívod → pojistka → vývod); jinak (nebo nejednoznačně) párem DC portů bloku: vstup X{k} ↔ výstup X{k + N/2}
+    (N = počet portů X… zapojených DC vodičem, jako u generátoru – AC přívody RFVE rodinného domu X1…Xn se
+    nepočítají, string by jinak skončil u cizího střídače). Jiné zapojení → None (nejednoznačné)."""
+    if project is not None:
+        hit = _sheet_exit(project, block, port)
+        if hit is not None:
+            return hit
     nums = sorted({int(mm.group(1)) for w in s.wires for end in (w.a, w.b) if end.element_id == block.id
-                   and (mm := re.fullmatch(r"X(\d+)", end.port or ""))})
+                   and _wire_system(w)[0] == "dc" and (mm := re.fullmatch(r"X(\d+)", end.port or ""))})
     mk = re.fullmatch(r"X(\d+)", port or "")
     if not mk or len(nums) % 2 or int(mk.group(1)) not in nums:
         return None
     i = nums.index(int(mk.group(1)))
     half = len(nums) // 2
     return f"X{nums[i + half]}" if i < half else None
+
+
+_SHEET_STOP = ("sb.busbar", "sb.pe_bar", "fve.busbar")
+
+
+def _sheet_exit(project: Project, block: Element, port: str) -> str | None:
+    """Vývod listu rozvaděče, kam vede přívod `port` (přes přístroje a svorky listu, bez PE vodičů a bez průchodu
+    sběrnicí); jediný jiný přívod / vývod → jeho označení, jinak None."""
+    sb = project.switchboard_sheet(block.id)
+    if sb is None:
+        return None
+    start = next((e for e in sb.elements if is_feed(e) and e.ref == port), None)
+    if start is None:
+        return None
+    by_id = {e.id: e for e in sb.elements}
+    seen, todo, found = {start.id}, [start], set()
+    while todo:
+        cur = todo.pop()
+        for w in sb.wires:
+            if not w.touches(cur.id) or set(w.conductors) <= {"PE"}:
+                continue
+            o = by_id.get(w.b.element_id if w.a.element_id == cur.id else w.a.element_id)
+            if o is None or o.id in seen:
+                continue
+            seen.add(o.id)
+            if is_feed(o):
+                if o.ref:
+                    found.add(o.ref)
+                continue
+            if o.symbol_id in _SHEET_STOP:
+                continue
+            todo.append(o)
+    return next(iter(found)) if len(found) == 1 else None
 
 
 def _trace_inverter(project: Project, s: Sheet, start: Element, max_depth: int = 12,
@@ -1154,7 +1193,7 @@ def _trace_inverter(project: Project, s: Sheet, start: Element, max_depth: int =
     cs, cur, entered = s, start, None
     visited = {start.id}
     for _ in range(max_depth + 1):
-        exit_port = _block_exit(cs, cur, entered) if cur.symbol_id == "fve.switchboard" else None
+        exit_port = _block_exit(cs, cur, entered, project) if cur.symbol_id == "fve.switchboard" else None
         if cur.symbol_id == "fve.switchboard" and exit_port is None:
             return inv, ""
         nxt = []
@@ -1177,6 +1216,46 @@ def _trace_inverter(project: Project, s: Sheet, start: Element, max_depth: int =
         visited.add(el.id)
         cs, cur, entered = ps, el, o.port
     return inv, ""
+
+
+_PROTECTION = ("fve.breaker_mcb", "fve.breaker_mccb", "sb.rcbo", "fve.fuse", "fve.fuse_disconnect")
+
+
+_TERMINALS = ("fve.terminal", "sb.terminal_block", "sb.junction")
+
+
+def _port_protection(project: Project, block: Element, port: str) -> tuple[float | None, str]:
+    """Jištění kabelu na vývodu bloku rozvaděče (vazba vývodu – vývod jistí svůj kabel): jistič / pojistka hned za
+    vývodem `port` v listu rozvaděče (přes svorky); blok bez listu → atribut `protect` („X1=63“). Přívod listu (kabel
+    jistí druhý konec) a vývod bez jištění → (None, "")."""
+    from envocad.model.feed import is_feed_out
+    from envocad.model.project import block_protect
+    sb = project.switchboard_sheet(block.id)
+    if sb is None:
+        v = block_protect(block).get(port)
+        return (v, f"{block.ref}:{port}") if v else (None, "")
+    start = next((e for e in sb.elements if is_feed(e) and e.ref == port), None)
+    if start is None or not is_feed_out(start):
+        return None, ""
+    by_id = {e.id: e for e in sb.elements}
+    seen, frontier = {start.id}, [start]
+    for _ in range(4):
+        nxt = []
+        for cur in frontier:
+            for w in sb.wires:
+                if not w.touches(cur.id) or set(w.conductors) <= {"PE"}:
+                    continue
+                o = by_id.get(w.b.element_id if w.a.element_id == cur.id else w.a.element_id)
+                if o is None or o.id in seen:
+                    continue
+                seen.add(o.id)
+                if o.symbol_id in _PROTECTION:
+                    i_n = _f(o.attrs.get("in_"))
+                    return (i_n, f"{block.ref}:{o.ref}") if i_n else (None, "")
+                if o.symbol_id in _TERMINALS:
+                    nxt.append(o)
+        frontier = nxt
+    return None, ""
 
 
 def check_cables(project: Project, t_ambient: float = 30.0, du_limit_pct: float = 3.0) -> list[CableCheck]:
@@ -1203,6 +1282,12 @@ def check_cables(project: Project, t_ambient: float = 30.0, du_limit_pct: float 
             loaded = 3 if system == "3f" else 2
             iz = ampacity(cross, method, loaded, alu, t_ambient) if cross else None
             in_b, bref = _breaker_on_wire(s, w)
+            if in_b is None:          # jištění za přívodem / vývodem bloku rozvaděče (list, jinak atribut `protect`)
+                for e, port in _far_ends(project, s, w, groups):
+                    if e.symbol_id == "fve.switchboard":
+                        in_b, bref = _port_protection(project, e, port)
+                        if in_b is not None:
+                            break
             du_v = du_pct = None
             if i_a and length and cross and u:
                 du_v, du_pct = voltage_drop(i_a, length, cross, system, u, alu)
@@ -1281,7 +1366,8 @@ def check_selectivity(project: Project, sheet: Sheet | None = None) -> list[tupl
 # ---- selektivita podél řetězce přes listy (F2, krok 7) --------------------------------------------------------------
 # role přístroje v řetězci FVE – atribut `chain` (zapisuje generátor; ruční projekt ho mít nemusí)
 CHAIN_ROLES = ("inv", "rfve_main", "fve_out", "main", "meter_main", "inst_switch", "hds")
-SWITCH_DEVICES = frozenset({"sb.main_switch"})        # odpínače: In nesmí být pod In jištění, které je chrání
+# odpínače (i přepínač sítí EPS): In nesmí být pod In jištění, které je chrání
+SWITCH_DEVICES = frozenset({"sb.main_switch", "fve.changeover_switch"})
 # ostatní dvojice přes list stačí In nadřazeného ≥ In přístroje (jištění střídače ≤ vývod FVE v RD/HR, hlavní
 # přístroj RD/HR ≤ HJ před elektroměrem); dvojice, kde nadřazené jištění musí být větší (vývod FVE < hlavní jistič RD/HR, HJ / hlavní přístroj < pojistky HDS);
 # dva jističe pod sebou navíc s poměrem In ≥ `SELECTIVITY_RATIO`
@@ -1312,7 +1398,10 @@ def check_selectivity_tree(project: Project, lib) -> list[ChainSelectivity]:
     jen dvojice přes hranici listu (uvnitř listu je `check_selectivity`) – nadřazený s menším In vždy; s rolemi
     `chain` (generátor) rovnost u `CHAIN_STRICT` (a poměr dvou jističů < `SELECTIVITY_RATIO`). Odpínač
     (`SWITCH_DEVICES`) s In pod In nejbližšího nadřazeného jištění – i na témže listu. Přístroje bez In se
-    přeskočí (hlásí je `checks.protection_findings`); nic se nepřepisuje."""
+    přeskočí (hlásí je `checks.protection_findings`); cesta přes rozvaděč jen jako blok bez listu
+    (`project.is_block_only` – stávající RD / HR / RE, RFVE.AC bez mustru) se nehodnotí (jeho přístroje nejsou
+    nakreslené); nic se nepřepisuje."""
+    from envocad.model.project import is_block_only
     from envocad.model.single_line import build_tree
     try:
         _root, nodes = build_tree(project, lib)
@@ -1326,6 +1415,9 @@ def check_selectivity_tree(project: Project, lib) -> list[ChainSelectivity]:
             continue
         u = n.parent
         while u is not None and u.element.symbol_id not in SELECTIVITY_DEVICES:
+            if u.element.symbol_id == "fve.switchboard" and is_block_only(project, u.element):
+                u = None              # rozvaděč jen jako blok (bez listu): jeho přístroje neznáme – nehodnotí se
+                break
             u = u.parent
         if u is None:
             continue

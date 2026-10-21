@@ -21,7 +21,7 @@ from envocad.model.designation import (
     validate_code,
     validate_ref,
 )
-from envocad.model.feed import FEED_SYMBOL, feed_dir_valid, is_feed_in, is_feed_out, raw_dir
+from envocad.model.feed import FEED_SYMBOL, feed_dir_valid, is_anchor_feed, is_feed_in, is_feed_out, raw_dir
 from envocad.model.notes import OPEN_NOTE_WORDS, count_label
 from envocad.model.project import (
     FEED_SYMBOLS,
@@ -33,6 +33,7 @@ from envocad.model.project import (
     contact_terminals,
     dangling_wires,
     element_symbol,
+    is_block_only,
     is_contact,
     linked_wire,
     without_dangling,
@@ -128,7 +129,12 @@ def check_project(project: Project, lib) -> list[Finding]:
             if not e.ref and e.symbol_id not in NO_REF_OK_SYMBOLS:
                 out.append(Finding(WARNING, s.id, s.name, e.id, False, "", f"Prvek {sym.name} bez označení", "no_ref"))
             conn = _connected_ports(s, e)
-            if e.symbol_id not in OPTIONAL_PORT_SYMBOLS:
+            if e.symbol_id in FEED_SYMBOLS and is_anchor_feed(e) and not conn:
+                # kotva přívodu/vývodu bez přístrojů (list RFVE bez mustru AC části): doplní mustr / projektant
+                out.append(Finding(INFO, s.id, s.name, e.id, False, e.ref,
+                                   "Přívod/vývod bez zapojení v listu (kotva – AC část doplní mustr / projektant)",
+                                   "feed_anchor"))
+            elif e.symbol_id not in OPTIONAL_PORT_SYMBOLS:
                 real = [p.name for p in sym.ports if p.name not in sym.orphan_ports]   # osiřelé hlásí bad_port
                 free = [p for p in real if p not in conn]
                 if e.symbol_id in INVERTER_SYMBOLS and any(p.startswith("DC") for p in conn):
@@ -165,7 +171,12 @@ def check_project(project: Project, lib) -> list[Finding]:
                 out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                    "Přerušovací bod bez protějšku (stejné označení jinde)", "interrupt_alone"))
             if e.symbol_id == "fve.switchboard" and project.switchboard_sheet(e.id) is None:
-                out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref, "Rozvaděč nemá list (dvojklik)", "no_sheet"))
+                if is_block_only(project, e):     # záměrně jen blok (porty z atributů `ports_in` / `ports_out`)
+                    out.append(Finding(INFO, s.id, s.name, e.id, False, e.ref,
+                                       "Rozvaděč jen jako blok bez listu (porty z atributů bloku)", "block_only"))
+                else:
+                    out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref, "Rozvaděč nemá list (dvojklik)",
+                                       "no_sheet"))
         for w in s.wires:
             ref = w.attrs.get("ref", "")
             try:
@@ -565,12 +576,13 @@ def protection_findings(project: Project, lib=None) -> list[Finding]:
     out: list[Finding] = []
     for s in project.sheets:
         if not s.is_switchboard:
-            # blokové schéma: pojistky HDS (stávající přípojková skříň) bez In – jako stávající přístroj
+            # blokové schéma: pojistky HDS (stávající přípojková skříň) bez In – jen informace (údaj stávající
+            # skříně projektant často nezná; selektivita s pojistkami HDS se pak nehodnotí)
             for e in s.elements:
                 if e.symbol_id == "fve.hds" and not str(e.attrs.get("in_") or "").strip():
-                    why = str(e.attrs.get(IN_UNRESOLVED) or "").strip()
-                    out.append(Finding(ERROR if why else WARNING, s.id, s.name, e.id, False, e.ref,
-                                       f"Pojistky HDS bez In – {why or 'doplňte'}", "breaker_no_in"))
+                    out.append(Finding(INFO, s.id, s.name, e.id, False, e.ref,
+                                       "Pojistky HDS bez In – doplňte, je-li známé (selektivita s HDS se nehodnotí)",
+                                       "hds_no_in"))
             continue
         for e in s.elements:
             if e.symbol_id not in PROTECTION_SYMBOLS:
@@ -618,8 +630,11 @@ FVE_FUSE_MAX_BREAKER_IN = 80.0  # vývod FVE do 80 A včetně vždy jistič
 def chain_findings(project: Project, lib) -> list[Finding]:
     """Řetězec FVE (F2): selektivita přes listy (`calc.check_selectivity_tree`, `chain_selectivity`), pojistkový
     vývod FVE do 80 A (`fve_out_fuse_le80`), chybějící síťová ochrana nad hranicí kWp (`grid_protection_missing` –
-    `meta["p_installed_kwp"]` nad `meta["grid_protection_kwp"]`, výchozí 30) a EPS vývod hybridního střídače, který
-    nevede na přepínač sítí (`eps_unconnected`). Vše varování; hodnoty se nepřepisují."""
+    `meta["p_installed_kwp"]` nad `meta["grid_protection_kwp"]`, výchozí 30; požadavek zapsaný na bloku rozvaděče bez
+    listu `grid_protection` stačí – AC rozvaděč dodá mustr), síťová ochrana bez vazebního prvku s vypínací spouští /
+    s nejištěným měřicím vstupem U (`grid_protection_trip`, `grid_protection_u`) a EPS vývod hybridního střídače,
+    který nevede na přepínač sítí (`eps_unconnected`). Kódy běží jen nad přístroji, které v projektu jsou (blok bez
+    listu nic nehlásí). Varování; hodnoty se nepřepisují."""
     from envocad.model import calc
     out: list[Finding] = []
     for c in calc.check_selectivity_tree(project, lib):
@@ -636,28 +651,79 @@ def chain_findings(project: Project, lib) -> list[Finding]:
     kwp = _num_attr(project.meta.get("p_installed_kwp"))
     limit = _num_attr(project.meta.get("grid_protection_kwp")) or GRID_PROTECTION_KWP
     if kwp is not None and kwp > limit + 1e-9 and not any(
-            e.symbol_id == GRID_PROTECTION_SYMBOL for s in project.sheets for e in s.elements):
+            e.symbol_id == GRID_PROTECTION_SYMBOL or _protection_required_on_block(project, e)
+            for s in project.sheets for e in s.elements):
         out.append(Finding(WARNING, "", "", "", False, "",
                            f"Instalovaný výkon {kwp:g} kWp > {limit:g} kWp a v projektu chybí síťová ochrana "
                            f"({GRID_PROTECTION_SYMBOL})", "grid_protection_missing"))
+    out += _grid_protection_findings(project)
     out += _eps_findings(project)
     return out
 
 
+def _protection_required_on_block(project: Project, e: Element) -> bool:
+    """Požadavek síťové ochrany na bloku rozvaděče, jehož AC část není nakreslená (blok bez listu, nebo list jen
+    s kotvami AC části – RFVE rodinného domu bez mustru): AC rozvaděč dodá mustr / projektant."""
+    if e.symbol_id != "fve.switchboard" or not grid_protection_required(e):
+        return False
+    sb = project.switchboard_sheet(e.id)
+    return is_block_only(project, e) or (sb is not None and any(is_anchor_feed(f) for f in sb.elements))
+
+
+def grid_protection_required(e: Element) -> bool:
+    """Blok rozvaděče nese požadavek síťové ochrany (`grid_protection` neprázdné a ne „0“ / „ne“)."""
+    v = str(e.attrs.get("grid_protection") or "").strip().lower()
+    return bool(v) and v not in ("0", "ne", "no", "false")
+
+
+TRIP_ATTR = "trip"   # vypínací spoušť vazebního prvku (síťová ochrana na něj působí) – neprázdné = má
+
+
+def _grid_protection_findings(project: Project) -> list[Finding]:
+    """Síťová ochrana (`fve.grid_protection`) – požadavek na mustr (docs/design/topologie_f1_f2.md, kap. 3): prvek,
+    na který působí (`acts_on`, vazební prvek), má vypínací spoušť (atribut `trip`), a měřicí vstup U je jištěný
+    (na portu U vodič k jističi / pojistce). Ochrana bez `acts_on` se nehodnotí (ruční výkres)."""
+    out: list[Finding] = []
+    for s in project.sheets:
+        by_id = {e.id: e for e in s.elements}
+        for e in s.elements:
+            if e.symbol_id != GRID_PROTECTION_SYMBOL:
+                continue
+            target = str(e.attrs.get("acts_on") or "").strip()
+            dev = next((x for x in s.elements if target and x.ref == target and x.id != e.id), None)
+            if dev is not None and not str(dev.attrs.get(TRIP_ATTR) or "").strip():
+                out.append(Finding(WARNING, s.id, s.name, dev.id, False, dev.ref,
+                                   f"Vazební prvek {dev.ref} síťové ochrany {e.ref} bez vypínací spouště "
+                                   "(atribut trip)", "grid_protection_trip"))
+            u = [by_id.get(w.b.element_id if w.a.element_id == e.id else w.a.element_id) for w in s.wires
+                 if any(end.element_id == e.id and end.port == "U" for end in (w.a, w.b))]
+            if u and not any(x is not None and x.symbol_id in PROTECTION_SYMBOLS for x in u):
+                out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
+                                   f"Měřicí vstup U síťové ochrany {e.ref} není jištěný (jistič / pojistka před "
+                                   "vstupem)", "grid_protection_u"))
+    return out
+
+
 def _eps_findings(project: Project) -> list[Finding]:
-    """Hybridní střídač s baterií a EPS vývodem (port BACKUP; generátor u rodinného domu značí `eps="1"`): vodič
-    z BACKUP musí vést (přes přívod / vývod rozvaděče a svorky) na přepínač sítí."""
+    """Hybridní střídač s baterií a EPS vývodem, který podle generátoru vede na přepínač sítí (`eps="1"`, rodinný
+    dům): vodič z BACKUP musí vést (přes přívod / vývod rozvaděče a svorky) na přepínač sítí – jinak varování
+    `eps_unconnected`. Vede-li do listu, kde AC část ještě není (kotva `anchor`, blok bez listu), jen INFO
+    `eps_open`. Ruční projekt (bez `eps`): zapojený BACKUP bez přepínače je jen INFO."""
     out: list[Finding] = []
     by_id = {e.id: (s, e) for s in project.sheets for e in s.elements}
 
-    def reaches_changeover(start: tuple[str, str]) -> bool:
+    def reaches_changeover(start: tuple[str, str]) -> str:
+        """„ok“ (přepínač), „open“ (kotva / blok bez listu – AC část chybí), „no“."""
         seen = {start, (start[0], "*")}          # zpět přes střídač (AC strana) se nehledá
         todo = [start]
+        open_ = False
         while todo:
             eid, port = todo.pop()
             s, e = by_id[eid]
             if e.symbol_id == CHANGEOVER_SYMBOL:
-                return True
+                return "ok"
+            if is_anchor_feed(e) and not any(w.touches(e.id) for w in s.wires if s.is_switchboard):
+                open_ = True
             nxt: list[tuple[str, str]] = []
             for w in s.wires:
                 for a, b in ((w.a, w.b), (w.b, w.a)):
@@ -670,6 +736,8 @@ def _eps_findings(project: Project) -> list[Finding]:
                         and x.ref == e.ref and x.id != e.id]
             if e.symbol_id == "fve.switchboard":       # blok: port bloku → přívod / vývod listu rozvaděče
                 sb = project.switchboard_sheet(e.id)
+                if sb is None and is_block_only(project, e):
+                    open_ = True
                 for f in (sb.elements if sb is not None else []):
                     if f.ref == port:
                         nxt.append((f.id, "*"))
@@ -677,7 +745,7 @@ def _eps_findings(project: Project) -> list[Finding]:
                 if k not in seen and len(seen) < 200:
                     seen.add(k)
                     todo.append(k)
-        return False
+        return "open" if open_ else "no"
 
     for s in project.sheets:
         for e in s.elements:
@@ -687,12 +755,23 @@ def _eps_findings(project: Project) -> list[Finding]:
                                                   and by_id[x][1].symbol_id == "fve.battery"
                                                   for x in (w.a.element_id, w.b.element_id)) for w in s.wires)
             wired = [w for w in s.wires if any(end.element_id == e.id and end.port == "BACKUP" for end in (w.a, w.b))]
-            if not battery or not (wired or str(e.attrs.get("eps") or "") == "1"):
+            expected = str(e.attrs.get("eps") or "") == "1"
+            if not battery or not (wired or expected):
                 continue
-            if not wired or not reaches_changeover((e.id, "BACKUP")):
+            state = reaches_changeover((e.id, "BACKUP")) if wired else "no"
+            if state == "ok":
+                continue
+            if expected and state == "no":
                 out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                    f"EPS vývod (BACKUP) hybridního střídače {e.ref} s baterií nevede na přepínač sítí",
                                    "eps_unconnected"))
+            elif expected:
+                out.append(Finding(INFO, s.id, s.name, e.id, False, e.ref,
+                                   f"EPS vývod (BACKUP) střídače {e.ref} vede do rozvaděče bez AC části – přepínač sítí "
+                                   "doplní mustr / projektant", "eps_open"))
+            else:
+                out.append(Finding(INFO, s.id, s.name, e.id, False, e.ref,
+                                   f"EPS vývod (BACKUP) střídače {e.ref} nevede na přepínač sítí", "eps_unconnected"))
     return out
 
 
