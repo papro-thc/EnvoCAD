@@ -140,6 +140,62 @@ def select_topology(spec: Mapping, topologies: Mapping[str, Topology] | None = N
     return topo
 
 
+# ---- volby článků řetězce (`spec["chain"][role]`) -----------------------------------------------------------
+def chain_options(spec: Mapping, topology: Topology | None, role: str) -> dict:
+    """Volby článku `role`: `spec["chain"][role]` > `node.options` presetu (docs/design/topologie_f1_f2.md, kap. 2
+    „chain.*“). Kopie – volající ji smí měnit."""
+    node = topology.node(role) if topology is not None else None
+    out: dict = dict(node.options) if node is not None else {}
+    given = (spec.get("chain") or {}).get(role) if isinstance(spec.get("chain"), Mapping) else None
+    if isinstance(given, Mapping):
+        out.update(given)
+    return out
+
+
+def chain_flag(v, default: bool = False) -> bool:
+    """Pravdivostní volba článku („1“, „true“, „ano“, True; prázdné = `default`)."""
+    t = _s(v).strip().lower()
+    if not t:
+        return default
+    return t in ("1", "true", "ano", "yes", "a", "y")
+
+
+def node_ref(spec: Mapping, topology: Topology | None, role: str, legacy: str = "", default: str = "") -> str:
+    """Označení článku: `chain.<role>.ref` > dřívější klíč specifikace (`legacy` – `switchboard.ref`,
+    `connection.main_board.ref`…, jen zadaný uživatelem) > `ref` článku presetu > `default` (konstanta generátoru)."""
+    given = (spec.get("chain") or {}).get(role) if isinstance(spec.get("chain"), Mapping) else None
+    ref = _s((given or {}).get("ref") if isinstance(given, Mapping) else "").strip()
+    node = topology.node(role) if topology is not None else None
+    return ref or _s(legacy).strip() or (node.ref if node is not None else "") or default
+
+
+def node_desc(spec: Mapping, topology: Topology | None, role: str, legacy: str = "", default: str = "") -> str:
+    """Popis článku: `chain.<role>.desc` > zadaný dřívější klíč > `default` (popis generátoru) > `desc` presetu."""
+    given = (spec.get("chain") or {}).get(role) if isinstance(spec.get("chain"), Mapping) else None
+    desc = _s((given or {}).get("desc") if isinstance(given, Mapping) else "").strip()
+    node = topology.node(role) if topology is not None else None
+    return desc or _s(legacy).strip() or default or (node.desc if node is not None else "")
+
+
+def resolve_chain_refs(spec: dict, raw: Mapping, topology: Topology) -> None:
+    """Označení a popisy článků do sloučené specifikace (`spec`, na místě): hlavní AC článek (`switchboard`),
+    HR / RVN / RE přípojky VN (`connection.*_board`) – podle `node_ref` / `node_desc`. `raw` = specifikace před
+    sloučením s `DEFAULT_SPEC` (jen tam jsou dřívější klíče zadané uživatelem, ne výchozí hodnoty)."""
+    main_role = "rfve" if topology.node("rfve") is not None else "rfve_ac"
+    sb_raw = raw.get("switchboard") if isinstance(raw.get("switchboard"), Mapping) else {}
+    sb = spec["switchboard"] = dict(spec.get("switchboard") or {})
+    sb["ref"] = node_ref(spec, topology, main_role, sb_raw.get("ref"), AC_SWITCHBOARD_REF)
+    sb["desc"] = node_desc(spec, topology, main_role, sb_raw.get("desc"), _s(sb.get("desc")))
+    conn_raw = raw.get("connection") if isinstance(raw.get("connection"), Mapping) else {}
+    conn = spec["connection"] = dict(spec.get("connection") or {})
+    for key, role, default in (("main_board", "hr", MAIN_LV_BOARD_REF), ("mv_board", "rvn", "RVN"),
+                               ("meter_board", "re", "RE")):
+        given = conn_raw.get(key) if isinstance(conn_raw.get(key), Mapping) else {}
+        board = conn[key] = dict(conn.get(key) or {})
+        board["ref"] = node_ref(spec, topology, role, given.get("ref"), default)
+        board["desc"] = node_desc(spec, topology, role, given.get("desc"), _s(board.get("desc")))
+
+
 # druh objektu (`spec["building"]`) → text v projektu (meta „building“)
 BUILDINGS = {"company": "firma", "house": "rodinný dům", "apartment": "bytový dům"}
 HOUSE_SWITCHBOARD = {"ref": "RFVE", "desc": "rozvaděč FVE (DC + AC)"}

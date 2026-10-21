@@ -17,12 +17,14 @@ from envocad.model.project import Element, Project, Sheet
 from envocad.model.topology import ChainNode
 
 
-def dc_box_ref(kind: str, inv_index: int, n_tech: int, p: Project) -> str:
-    """Označení DC rozvaděče generátoru: u technologie (`kind` "tech") RFVE.DC, je-li jediný, jinak RFVE.DC1, RFVE.DC2…
-    podle pořadí střídače (`inv_index` od 0; `n_tech` = počet rozvaděčů u technologie); po trase další volné RDCn
-    (rozvaděče u technologie číslo RDC neberou, takže po trase jdou RDC1…n souvisle)."""
+def dc_box_ref(kind: str, inv_index: int, n_tech: int, p: Project, base: str = DC_TECH_BOX_REF) -> str:
+    """Označení DC rozvaděče generátoru: u technologie (`kind` "tech") `base` (z presetu, výchozí RFVE.DC), je-li
+    jediný, jinak RFVE.DC1, RFVE.DC2… podle pořadí střídače (`inv_index` od 0; `n_tech` = počet rozvaděčů u
+    technologie); po trase další volné RDCn (rozvaděče u technologie číslo RDC neberou, takže po trase jdou RDC1…n
+    souvisle)."""
     if kind == "tech":
-        return DC_TECH_BOX_REF if n_tech <= 1 else f"{DC_TECH_BOX_REF}{inv_index + 1}"
+        base = base or DC_TECH_BOX_REF
+        return base if n_tech <= 1 else f"{base}{inv_index + 1}"
     return p.next_ref(DC_ROUTE_BOX_PREFIX)
 
 

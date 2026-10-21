@@ -18,6 +18,7 @@ from envocad.generator.spec import (
     _apply_optimizer_component,
     building_kind,
     chain_text,
+    resolve_chain_refs,
     select_topology,
 )
 from envocad.model.project import Project
@@ -44,10 +45,11 @@ def _build_project(spec: dict) -> Project:
     if isinstance(spec.get("optimizer"), dict) and spec["optimizer"].get("component_id"):
         spec["optimizer"], opt_comp = _apply_optimizer_component(spec["optimizer"])
     building = building_kind(spec.get("building"))
+    raw = dict(spec)                   # nesloučená: `DEFAULT_SPEC` má connection.level "nn" (výběr topologie) a
+    #                                    výchozí označení – přepisem jsou jen klíče zadané uživatelem
     if building == "house" and not spec.get("switchboard"):
         tech = _merge(DEFAULT_SPEC["dc"], spec.get("dc") or {}).get("tech_box")
         spec["switchboard"] = dict(HOUSE_SWITCHBOARD if tech else HOUSE_SWITCHBOARD_AC)
-    raw = spec                         # nesloučená: `DEFAULT_SPEC` má connection.level "nn" (výběr topologie)
     spec = _merge(DEFAULT_SPEC, spec)
     invs = spec.get("inverters") or []
     if not invs:
@@ -62,6 +64,9 @@ def _build_project(spec: dict) -> Project:
                          "negeneruje. Zvolte druh objektu firma, nebo připojení nn.")
     # topologie před vznikem prvního prvku (pořadí = id, `next_ref`); neplatná volba → ValueError
     topology = select_topology(raw)
+    # označení článků z presetu (`node.ref`); `chain.<role>.ref` a dřívější `switchboard` / `connection.*_board`
+    # zadané uživatelem jsou přepis
+    resolve_chain_refs(spec, raw, topology)
     p = Project(name=spec["name"], meta={k: _s(v) for k, v in spec["meta"].items()})
     p.meta.setdefault("building", BUILDINGS[building])
     # topologie řetězce (meta jsou řetězce – formát projektu beze změny): id presetu a náhled řetězce

@@ -8,12 +8,20 @@ import math
 from envocad.generator import context
 from envocad.generator.boards.base import ChainContext, PvGeometry
 from envocad.generator.boards.rfve_dc import dc_box_ref
-from envocad.generator.context import BATTERY_CABLE, BATTERY_ROW_EXTRA, INV_LABEL_SPACE, _int_attr, _s
+from envocad.generator.context import (
+    BATTERY_CABLE,
+    BATTERY_ROW_EXTRA,
+    DC_TECH_BOX_REF,
+    INV_LABEL_SPACE,
+    _int_attr,
+    _s,
+)
 from envocad.generator.spec import (
     INVERTER_MODE_KEYS,
     _apply_inverter_component,
     _apply_optimizer_rules,
     _modules_per_optimizer,
+    node_ref,
 )
 from envocad.library.templates import AC_CONDUCTORS, DC_CONDUCTORS
 from envocad.model.calc import DC_INPUTS_PER_MPPT_DEFAULT, InverterData, string_ports
@@ -81,6 +89,7 @@ def build(ctx: ChainContext) -> None:
     inverter_strings = ctx.strings
     dc_boxes = ctx.dc_boxes     # (blok, stringy, druh, č. střídače, střídač)
     n_tech = len(invs) if dc.get("tech_box") and not combined else 0   # DC rozvaděče u technologie (jeden na střídač)
+    tech_ref = node_ref(spec, ctx.topology, "rfve_dc", default=DC_TECH_BOX_REF)
     for i, inv in enumerate(invs):
         strings = inv.get("strings") or [1]
         y_mid = y - row_h[i] / 2
@@ -144,7 +153,7 @@ def build(ctx: ChainContext) -> None:
                 boxes.append(blk)
                 break
             desc = f"DC rozvaděč u {ref_t}" if kind == "tech" else (f"DC rozvaděč po trase {ref_t}" + (f" ({j + 1})" if n_route > 1 else ""))
-            b = Element("fve.switchboard", x_boxes[j], y_mid, attrs={"ref": dc_box_ref(kind, i, n_tech, p), "desc": desc})
+            b = Element("fve.switchboard", x_boxes[j], y_mid, attrs={"ref": dc_box_ref(kind, i, n_tech, p, tech_ref), "desc": desc})
             s.elements.append(b)
             boxes.append(b)
             row.append(b)
