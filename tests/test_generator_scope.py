@@ -123,16 +123,28 @@ def test_house_without_dc_part_is_block_only():
     assert _bad(p) == []
 
 
-def test_vn_default_rfve_ac_block_mv_sheets_stay():
-    """Přípojka VN: RFVE.AC bez mustru jen blok; HR, RVN a RE přípojky VN (přístroje trafostanice) listy dál.
-    Kabel RFVE.AC → HR bez zadaného `ac.grid_*` podle In vývodu FVE v HR (D3)."""
+def test_vn_default_station_blocks_without_sheets():
+    """Přípojka VN (rozhodnutí uživatele): HR, RVN, RE trafostanice i RFVE.AC jen bloky – porty z přívodů / vývodů
+    vestavěného listu, údaje v popisku; listy jen s `builtin`. Kabel RFVE.AC → HR bez zadaného `ac.grid_*` podle In
+    vývodu FVE v HR (D3). F7 bez chyb a varování (i bez známého překryvu vícepólu RE)."""
     p = build_project({"inverters": [{"ref": "T1", **INV, "strings": [20, 20]}], "connection": {"level": "vn"}})
-    assert {"HR", "RVN", "RE"} <= _sheet_refs(p) and "RFVE.AC" not in _sheet_refs(p)
+    assert not {"HR", "RVN", "RE", "RFVE.AC"} & _sheet_refs(p)
     b = _blocks(p)
+    assert all(is_block_only(p, b[r]) for r in ("HR", "RVN", "RE"))
+    ins, outs = _ports(p, b["HR"])
+    assert set(ins) == {"XT"} and set(outs) == {"X1", "X2", "XMI", "XMU"}
+    hr = b["HR"].attrs
+    assert hr["main"] == "hlavní jistič 1000 A" and hr["fve_out"] == "jistič 50 A" and hr["protect"] == "X1=50"
+    assert hr["metering"].startswith("na nn, MTP") and b["RVN"].attrs["main"].startswith("pojistky VN")
+    assert set(_ports(p, b["RE"])[0]) == {"XMI", "XMU"}
     w = next(w for w in p.sheets[0].wires if w.touches(b["RFVE.AC"].id) and w.touches(b["HR"].id))
     # vývod FVE v HR max(36 A, jistič střídače 50 A) → 50 A (B3, jako na nn), uložení D → 10 mm²
     assert (w.attrs["cable"], w.attrs["cross"]) == ("CYKY-J 5x10", "10")
-    assert not [c for c in _codes(p).get("calc_cable", []) if c.severity != INFO]
+    assert _bad(p) == []
+    # vestavěné listy TS volbou
+    p = build_project({"inverters": [{"ref": "T1", **INV, "strings": [20, 20]}], "connection": {"level": "vn"},
+                       "chain": {"hr": {"builtin": True}, "rvn": {"builtin": True}, "re": {"builtin": True}}})
+    assert {"HR", "RVN", "RE"} <= _sheet_refs(p)
 
 
 # ---- volba vestavěného kódu --------------------------------------------------------------------------------------
@@ -279,8 +291,8 @@ def test_block_exit_pairs_only_dc_ports():
 
 # ---- D1 / D2 / B3 / D3: jištění a kabely --------------------------------------------------------------------------
 def test_inverter_breaker_rules():
-    """D1: jistič přívodu střídače 1,25 × proud z P AC, z artiklu `i_ac_max_a` přímo; řada do 250 A, nad ní prázdné
-    s důvodem; 1f do 63 A."""
+    """D1: jistič přívodu střídače ≥ 1,25 × max. AC proud (z P AC i z artiklu `i_ac_max_a`); řada do 250 A, nad ní
+    prázdné s důvodem; 1f do 63 A."""
     from envocad.generator.currents import inverter_breaker
     assert inverter_breaker(Element("fve.inverter", 0, 0, attrs={"p_ac": "25"}))[0] == "50"
     assert inverter_breaker(Element("fve.inverter", 0, 0, attrs={"p_ac": "100"}))[0] == "200"
@@ -289,7 +301,7 @@ def test_inverter_breaker_rules():
     assert big[0] == "" and "T9" in big[1] and "250" in big[1]
     assert inverter_breaker(Element("fve.inverter", 0, 0, attrs={"p_ac": "5", "phases": "1"}))[0] == "32"
     art = Element("fve.inverter", 0, 0, attrs={}, component_id="huawei-sun2000-100ktl-m2")    # i_ac_max 160,4 A
-    assert inverter_breaker(art)[0] == "200"
+    assert inverter_breaker(art)[0] == "250"                                                  # 1,25 × 160,4 = 200,5
     assert inverter_breaker(Element("fve.inverter", 0, 0, attrs={})) == ("", "")
 
 
@@ -305,12 +317,12 @@ def test_inverter_breaker_over_series_is_unresolved():
 
 def test_main_switch_from_inverter_articles():
     """D2: hlavní vypínač RFVE.AC z prvků střídačů – artikl bez `p_ac` ve specifikaci: 2 × Huawei 100 kW
-    (i_ac_max 160,4 A) → vývod FVE ≥ 320,8 A → 400 A, hlavní vypínač 400 A (ne výchozí 125 A)."""
+    (i_ac_max 160,4 A, jistič 1,25 × → 250 A) → vývod FVE ≥ 320,8 A → 400 A, hlavní vypínač 400 A (ne 125 A)."""
     inv = {"component_id": "huawei-sun2000-100ktl-m2", "strings": [20]}
     p = build_project({"inverters": [{"ref": "T1", **inv}, {"ref": "T2", **inv}]})
     b = _blocks(p)
     assert b["RFVE.AC"].attrs["main"] == "hlavní vypínač 400 A"
-    assert b["RFVE.AC"].attrs["inv_protect"] == "2× 200 A"
+    assert b["RFVE.AC"].attrs["inv_protect"] == "2× 250 A"
     assert b["HR"].attrs["fve_out"] == "jistič 400 A"
 
 
@@ -380,9 +392,9 @@ def test_node_desc_precedence_like_ref():
 
 # ---- F7 výchozích projektů z průvodce --------------------------------------------------------------------------------
 def _wizard_spec(building: str, level: str = "nn", battery: bool = False) -> dict:
-    """Specifikace jako `ui/dialogs.NewProjectDialog.spec` s výchozími poli průvodce (2 střídače 25 kW, 1 rozvaděč
-    po trase, jistič 40 A, hlavní vypínač 125 A, kabel do HDS 35 mm²). Stringy po 18 modulech: výchozí text průvodce
-    „20,20,18,18; 20,20“ má Uoc při −20 °C 1110 V > 1100 V střídače (chyba stringu – zadání, ne generátor)."""
+    """Specifikace jako `ui/dialogs.ProjectWizard.spec` s výchozími poli průvodce (2 střídače 25 kW, stringy
+    „18,18,18,18; 18,18“, 1 rozvaděč po trase, jistič 40 A, hlavní vypínač 125 A, kabel do HDS 35 mm²); s baterií
+    navíc (průvodce ji zatím nenabízí). Skutečný dialog testuje `test_gui_smoke.py`."""
     from envocad.settings import load_settings
     std = load_settings()["standard"]
     spec = {
@@ -418,9 +430,7 @@ def test_wizard_default_projects_f7_clean(building, level, battery):
     from envocad.generator.jps import jps_max_paper
     from envocad.model.frame import paper_exceeds
     p = build_project(_wizard_spec(building, level, battery))
-    # vícepól RE přípojky VN (elektroměr na MTP): text P3 přes žílu – známé z doby před F2 (main), řeší se zvlášť
-    known = {("mp_text_overlap", "P3")} if level == "vn" else set()
-    assert [b for b in _bad(p) if b[:2] not in known] == []
+    assert _bad(p) == []
     assert not [s.paper for s in p.sheets if not s.is_switchboard and paper_exceeds(s.paper, jps_max_paper())]
 
 
@@ -466,3 +476,40 @@ def test_builtin_macros_not_a_pattern(monkeypatch, tmp_path):
     monkeypatch.setattr(macros, "shared_dir", lambda: None)
     p = build_project({"inverters": [{"ref": "T1", **INV, "strings": [20]}]})
     assert "RFVE.AC" not in _sheet_refs(p)
+
+
+# ---- RD: formát blokového schématu jako na main (sweep 1–4 střídače × 1–8 stringů × 0–2 rozvaděče po trase) ------
+# origin/main (před F2): "nkr" → (počet listů JPS, největší formát)
+MAIN_RD = {
+    "110": (1, "A3"), "111": (1, "A3"), "112": (1, "A2"), "120": (1, "A3"), "121": (1, "A3"), "122": (1, "A2"),
+    "130": (1, "A3"), "131": (1, "A3"), "132": (1, "A2"), "140": (1, "A3"), "141": (1, "A3"), "142": (1, "A2"),
+    "150": (1, "A3"), "151": (1, "A2"), "152": (1, "A2"), "160": (1, "A2"), "161": (1, "A2"), "162": (1, "A2"),
+    "170": (1, "A2"), "171": (1, "A2"), "172": (1, "A2"), "180": (1, "A2"), "181": (1, "A2"), "182": (1, "A2"),
+    "210": (1, "A3"), "211": (1, "A3"), "212": (1, "A2"), "220": (1, "A3"), "221": (1, "A3"), "222": (1, "A2"),
+    "230": (1, "A2"), "231": (1, "A2"), "232": (1, "A2"), "240": (1, "A2"), "241": (1, "A2"), "242": (1, "A2"),
+    "250": (1, "A2"), "251": (3, "A2"), "252": (3, "A2"), "260": (1, "A2"), "261": (3, "A2"), "262": (3, "A2"),
+    "270": (3, "A2"), "271": (3, "A2"), "272": (3, "A2"), "280": (3, "A2"), "281": (3, "A2"), "282": (3, "A1"),
+    "310": (1, "A3"), "311": (1, "A3"), "312": (1, "A2"), "320": (1, "A2"), "321": (1, "A2"), "322": (1, "A2"),
+    "330": (1, "A2"), "331": (3, "A2"), "332": (3, "A2"), "340": (3, "A2"), "341": (3, "A2"), "342": (3, "A2"),
+    "350": (3, "A2"), "351": (4, "A2"), "352": (4, "A2"), "360": (3, "A2"), "361": (4, "A2"), "362": (4, "A1"),
+    "370": (4, "A2"), "371": (4, "A2"), "372": (4, "A1"), "380": (4, "A1"), "381": (4, "A1"), "382": (4, "A1"),
+    "410": (1, "A2"), "411": (1, "A2"), "412": (1, "A2"), "420": (1, "A2"), "421": (3, "A2"), "422": (3, "A2"),
+    "430": (3, "A2"), "431": (3, "A2"), "432": (3, "A2"), "440": (3, "A2"), "441": (3, "A2"), "442": (5, "A1"),
+    "450": (3, "A2"), "451": (5, "A2"), "452": (5, "A1"), "460": (3, "A1"), "461": (5, "A1"), "462": (5, "A1"),
+    "470": (5, "A1"), "471": (5, "A1"), "472": (5, "A1"), "480": (5, "A0"), "481": (5, "A0"), "482": (5, "A0")
+}
+_PAPERS = ("A3", "A2", "A1", "A0")
+
+
+@pytest.mark.parametrize("n", [1, 2, 3, 4])
+def test_house_sheets_like_main(n):
+    """Rodinný dům (řetězec RD → RE → HDS → DS): žádný projekt nemá víc listů blokového schématu než na main a žádný
+    list není větší než na main ani než A2 (kromě přerostlé řady jednoho střídače, která byla větší i na main)."""
+    for k in range(1, 9):
+        for r in range(3):
+            p = build_project({"building": "house", "dc": {"route_boxes": r},
+                               "inverters": [{"ref": f"T{i}", **INV, "strings": [20] * k} for i in range(1, n + 1)]})
+            papers = [s.paper for s in p.sheets if not s.is_switchboard]
+            count, biggest = MAIN_RD[f"{n}{k}{r}"]
+            limit = max(_PAPERS.index(biggest), _PAPERS.index("A2"))
+            assert len(papers) <= count and max(_PAPERS.index(x) for x in papers) <= limit, (n, k, r, papers)

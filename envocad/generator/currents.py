@@ -61,7 +61,7 @@ def inverter_current(inv) -> tuple[float | None, str]:
 def inverter_breaker(inv) -> tuple[str, str]:
     """In automatického jističe přívodu střídače a důvod prázdného In (nad řadou). Neznámý proud → ("", "")
     (volající ponechá zadanou / výchozí hodnotu)."""
-    i, src = inverter_current(inv)
+    i, _src = inverter_current(inv)
     if i is None:
         return "", ""
     need = i * BREAKER_FACTOR

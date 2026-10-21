@@ -472,23 +472,69 @@ def build_blocks(ctx: ChainContext) -> None:
         w.attrs.update({"cable": cable_for(ctx.spec, x), "cross": f"{x:g}".replace(".", ",")})
 
 
-def build_sheets(ctx: ChainContext) -> None:
-    """Listy přípojky VN: hlavní rozvaděč nn HR, rozvaděč VN (ne u sloupové TS), elektroměrový rozvaděč RE."""
-    p, chain = ctx.project, ctx.mv
+def _boards(ctx: ChainContext) -> list[tuple[str, Element, object]]:
+    """(role, blok, funkce listu) rozvaděčů přípojky VN: HR, RVN (ne u sloupové TS), RE."""
     conn = ctx.spec.get("connection") or {}
-    _build_main_lv_board(p, p.create_switchboard_sheet(chain["hr"]), conn, ctx.spec["ac"], ctx.inverters, ctx.main.ref)
+    chain = ctx.mv
+    out = [("hr", chain["hr"], lambda p, sh: _build_main_lv_board(p, sh, conn, ctx.spec["ac"], ctx.inverters,
+                                                                  ctx.main.ref))]
     if chain["rvn"] is not None:
-        _build_mv_board(p, p.create_switchboard_sheet(chain["rvn"]), conn)
-    _build_meter_board(p, p.create_switchboard_sheet(chain["re"]), conn)
+        out.append(("rvn", chain["rvn"], lambda p, sh: _build_mv_board(p, sh, conn)))
+    out.append(("re", chain["re"], lambda p, sh: _build_meter_board(p, sh, conn)))
+    return out
+
+
+def build_sheets(ctx: ChainContext) -> None:
+    """Listy přípojky VN (HR, RVN, RE) jen s volbou vestavěného kódu (`chain.<role>.builtin` / standard
+    `ac_builtin`); jinak jsou rozvaděče trafostanice bloky bez listu (`block_attrs`, rozhodnutí 12)."""
+    from envocad.generator.spec import builtin_wanted
+    p = ctx.project
+    for role, blk, make in _boards(ctx):
+        if builtin_wanted(ctx.spec, ctx.topology, role):
+            make(p, p.create_switchboard_sheet(blk))
+
+
+def block_attrs(ctx: ChainContext) -> None:
+    """Rozvaděče trafostanice bez listu (výchozí rozsah): porty bloku z přívodů / vývodů vestavěného listu (sestaví se
+    naslepo v pomocném projektu – porty i jejich pořadí jako s listem) a údaje v popisku – hlavní jistič, vývod FVE,
+    měření, pojistky / vypínač VN; jištění vývodu FVE `protect` (kontrola kabelu od RFVE.AC)."""
+    from envocad.generator.spec import builtin_wanted
+    from envocad.model.feed import is_feed_in, is_feed_out
+    conn = ctx.spec.get("connection") or {}
+    c = connection_currents(conn)
+    for role, blk, make in _boards(ctx):
+        if builtin_wanted(ctx.spec, ctx.topology, role):
+            continue
+        tmp = Sheet(kind="switchboard")
+        make(Project(), tmp)
+        blk.attrs["ports_in"] = " ".join(e.ref for e in tmp.elements if is_feed_in(e) and e.ref)
+        blk.attrs["ports_out"] = " ".join(e.ref for e in tmp.elements if is_feed_out(e) and e.ref)
+        if role == "hr":
+            fin, _why = fve_feeder_in(conn, ctx.spec["ac"], ctx.inverters)
+            blk.attrs["main"] = f"hlavní jistič {c['main_in']} A"
+            blk.attrs["fve_out"] = f"jistič {fin} A" if fin else "jistič (In neurčené)"
+            if fin:
+                blk.attrs["protect"] = f"X1={fin}"
+            if c["metering"] == "nn":
+                blk.attrs["metering"] = f"na nn, MTP {c['ct_ratio']}"
+        elif role == "rvn":
+            blk.attrs["main"] = ("vypínač VN s ochranou" if c["breaker_vn"]
+                                 else f"pojistky VN {c['fuse_vn']} A")
+            if c["metering"] == "vn":
+                blk.attrs["metering"] = f"na vn, MTP {c['ct_ratio']}, MTN"
+        else:
+            blk.attrs["metering"] = "fakturační elektroměr"
 
 
 class MvBuilder:
     """Přípojka VN jako jeden složený builder (role hr, tr, rvn, grid a odbočka re topologie `vn`): bloky
-    `_connection_blocks` (přívod HR = X1 od RFVE.AC, DS na XDS), listy HR, RVN, RE. Volá se jednou za průchod."""
+    `_connection_blocks` (přívod HR = X1 od RFVE.AC, DS na XDS); HR, RVN, RE výchozí jen bloky (porty a údaje
+    v atributech), listy s volbou `builtin`. Volá se jednou za průchod."""
     name = "mv"
 
     def block(self, ctx: ChainContext, node: ChainNode) -> Element | None:
         build_blocks(ctx)
+        block_attrs(ctx)
         return ctx.mv["hr"]
 
     def ports(self, ctx: ChainContext, node: ChainNode) -> ChainPorts:
