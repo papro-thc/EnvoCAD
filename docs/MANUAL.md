@@ -646,11 +646,15 @@ rozvaděč **RFVE.AC** zvlášť; u **rodinného domu** je DC i AC v jednom **ro
 má RFVE na každý string pojistkový odpojovač a SPD DC (přívody za AC přívody od střídačů, vývody ke střídači) a k tomu
 AC část s vývodem do HDS. V blokovém schématu stojí RFVE před střídačem, AC kabel od střídače se vrací shora;
 rozvaděče po trase zůstávají. Přípojka VN se u rodinného domu negeneruje.
-**Označení rozvaděčů** z generátoru (firemní styl ENVO): AC rozvaděč FVE **RFVE.AC**, DC rozvaděč u technologie
-**RFVE.DC** – při více střídačích má každý střídač svůj (**RFVE.DC1**, **RFVE.DC2**… v pořadí střídačů), rozvaděče po
-trase **RDC1…n** (číslované souvisle jen mezi sebou), hlavní rozvaděč nn u přípojky VN **HR**, u rodinného domu jeden
-**RFVE**. Tečka je uvnitř jednoho kódu umístění (`+RFVE.AC-X1`), nedělí úrovně. Jiné označení lze zadat ve specifikaci
-(`switchboard.ref`, `connection.main_board.ref`). Starší projekty se nepřejmenovávají.
+**Označení rozvaděčů** z generátoru (firemní styl ENVO, bere se z presetu topologie): AC rozvaděč FVE **RFVE.AC**, DC
+rozvaděč u technologie **RFVE.DC** – jeden **společný** pro všechny střídače (přívody X1…Xn všech stringů, pojistky
+FU{střídač}.{string}); s volbou `"chain": {"rfve_dc": {"per_inverter": true}}` má každý střídač svůj (**RFVE.DC1**,
+**RFVE.DC2**… v pořadí střídačů, jako před F2). Rozvaděče po trase **RDC1…n** (číslované souvisle jen mezi sebou),
+hlavní rozvaděč **HR**, domovní rozvaděč **RD**, elektroměrový rozvaděč **RE**, hlavní domovní skříň **HDS**, u
+rodinného domu jeden **RFVE**. Tečka je uvnitř jednoho kódu umístění (`+RFVE.AC-X1`), nedělí úrovně. Jiné označení
+lze zadat ve specifikaci: `"chain": {"<role>": {"ref": "…"}}` (role `rfve_dc`, `rfve_ac`, `rfve`, `rd`, `hr`, `re`,
+`hds`, `rvn`), dřívější `switchboard.ref` a `connection.main_board.ref` / `meter_board.ref` platí dál jako přepis.
+Starší projekty se nepřejmenovávají.
 AC rozvaděč má přívody po střídačích, jističe, rozvodné svorky s můstky, SPD, hlavní vypínač a vývod do HDS; přívody
 i vývody jsou ve spodní řadě (vše zespodu), přívodní větev teče nahoru do sběrnice / rozvodných svorek.
 Označení jsou jedinečná uvnitř každého rozvaděče (jako v EPLAN `+RDC1-X1`), takže X1 smí být v každém
@@ -667,8 +671,29 @@ vygeneruje projekt, ty ho upravíš.
 **Topologie připojení**: generátor vybere preset řetězce (rodinný dům → `rd`, připojení na vn → `vn`, jinak `nn`;
 `nn_hr_meter` s měřením v HR jen volbou `"topology": "nn_hr_meter"` ve specifikaci). Do vlastností projektu zapíše
 `topology` (id presetu) a `topology_chain` (náhled řetězce, např. „stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS →
-DS“). **Náhled popisuje zvolený preset, ne výkres**: stávající HR, RE a HDS na nn (a RD u rodinného domu) zatím
-generátor nekreslí – výkres je stejný jako dřív a přibudou až s dalším krokem (F2). Vlastní nebo firemní presety
+DS“). Generátor řetězec kreslí celý (F2): za RFVE.AC / RFVE následují **stávající rozvaděče** (jen dotčená část) a
+HDS s DS:
+
+- **RD / HR** (stávající domovní / hlavní rozvaděč): přívod XIN → hlavní přístroj (RD vypínač, HR jistič; In
+  `main_in`) → přípojnice → **vývod FVE X1** (jistič, nebo pojistkový odpínač – volba `fve_device`; **do 80 A vždy
+  jistič**, pojistka do 80 A = chyba zadání) a vývod „stávající rozvody objektu“ X2 (v blokovém schématu značka
+  Spotřeba). In vývodu FVE bez zadání = nejbližší jistič ≥ součet proudů střídačů. **In stávajícího hlavního
+  přístroje musí projektant zadat** (`main_in`) – jinak zůstane prázdné a kontrola projektu hlásí chybu.
+- **RE** (elektroměrový rozvaděč): přívod XIN → **hlavní jistič před elektroměrem vždy** → elektroměr přímý (v sérii)
+  nebo nepřímý (MTP, převod z In nebo `ct_ratio`) → **vypínač instalace vždy** → vývod XOUT. U topologie
+  `nn_hr_meter` je stejné měření v HR (bez RE).
+- **HDS**: blok s pojistkami (`in_`, charakteristika gG), vodič HDS → DS bez kabelu.
+- **Hranice vlastnictví** DS / odběratel (`boundary`): `hds` (výchozí), `re_main` (svorky hlavního jističe), `re_meter`
+  (za elektroměrem) – atribut `boundary` na přístroji a text „hranice vlastnictví DS / odběratel“ v blokovém schématu.
+- **Kabely mezi články**: kabel článku směrem k síti `chain.<role>.cable / cross / length / method` (RFVE.AC → HR /
+  RD bez zadání = dřívější `ac.grid_*`). Nový úsek bez průřezu dostane nejmenší průřez pro In přístroje, který ho jistí
+  (vývod FVE, tabulka Iz); stávající úsek bez údajů je vodič bez označení a kabelu.
+
+U firmy stojí stávající články v řadě pod FV částí (vývod RFVE.AC vede dolů a zespodu do HR), u rodinného domu hned
+za RFVE pod střídači – výkres menší FVE zůstane na jednom listu A2. Volby se zadávají ve specifikaci, např.
+`"chain": {"hr": {"main_in": 250}, "re": {"main_in": 250, "metering": "indirect", "boundary": "re_main"},
+"hds": {"in_": 315}}` (přehled v `docs/LIBRARY_FORMAT.md`, „Volby článků“). Průvodce je zatím nenabízí (F5).
+Jednofázový střídač (`phases` 1) má AC kabel třížilový (L N PE) s průřezem podle proudu. Vlastní nebo firemní presety
 (`~/.envocad/topologies/`, sdílená knihovna `topologies/`) s neznámou rolí se nenačtou (záznam v logu) a platí
 vestavěný preset; preset pro rodinný dům musí mít rozvaděč FVE `rfve`, preset na vn aspoň jeden článek přípojky VN.
 

@@ -1,6 +1,38 @@
 # Changelog
 
 ## Nevydáno
+- **Topologie F2 – nové články řetězce na nn** (`docs/design/topologie_f1_f2.md`, kap. 2, kroky 1–6; rozhodnutí
+  `docs/NAVRH_TOPOLOGIE.md`, kap. 8). Formát projektu beze změny (v14) – nové jsou značka knihovny `fve.hds`
+  a nepovinné atributy (`boundary`, `in_unresolved`) a volné texty listu.
+  - **Označení z presetu** (`node.ref`), přepis `chain.<role>.ref`; dřívější `switchboard.ref` /
+    `connection.*_board.ref` jen zadané uživatelem (`spec.resolve_chain_refs`).
+  - **Společný RFVE.DC** pro 2+ střídače (výchozí): přívody X1…Xn všech stringů, pojistky FU{i}.{j}, lomy bez křížení
+    (`pv._common_lanes`); `chain.rfve_dc.per_inverter: true` = stav před F2 (snímek `two_inv_per_inverter` je shodný
+    s dřívějším `two_inv`). Dělení JPS: RFVE.DC zůstává na listu „AC a připojení“, přerušení u DC vstupů střídače
+    rozestoupená (`jps._fan_interrupts`). Opravy: `single_line._graph` (kabel přes přerušení do bloku rozvaděče),
+    `calc._find_inverter` (blok párem portů – string najde svůj střídač), `build_dc_strings` (víc než 6 stringů: PE
+    po sběrné čáře do lišty vlevo).
+  - **HDS** – značka `fve.hds` (porty 1 odběratel / 2 DS; `ref`, `desc`, `in_`, `char` gG, `poles`), builder `hds`,
+    vodič HDS → DS bez kabelu; `calc.SELECTIVITY_DEVICES` (+ `fve.hds`, `fve.fuse_disconnect`), `NO_ROTATE_PREFIXES`.
+  - **RE na nn** (`boards/meter_board.py`): XIN → hlavní jistič před elektroměrem (vždy; MCB do 125 A, jinak MCCB) →
+    elektroměr přímý (v sérii) | nepřímý (MTP, převod z In) → vypínač instalace (vždy) → XOUT; hranice vlastnictví
+    `chain.re.boundary` (`hds` | `re_main` | `re_meter`) – atribut `boundary` + text v blokovém schématu.
+    `single_line`: elektroměr v sérii je uzel stromu. Známé: vícepól nepřímého měření (elektroměr na MTP) má překryv
+    textu elektroměru jako RE přípojky VN.
+  - **Stávající RD / HR** (`boards/house_board.py`): XIN → hlavní přístroj (RD vypínač / HR jistič, `main_in`) →
+    přípojnice → vývod FVE X1 (jistič | pojistkový odpínač; do 80 A vždy jistič – jinak ValueError; In bez zadání
+    = nejbližší jistič ≥ Σ In střídačů) a stávající rozvody X2 (`fve.load`). Neznámé `main_in` → prázdné +
+    `in_unresolved` (F7 `breaker_no_in`, i pro vypínač). Měření v HR (`nn_hr_meter`) stejnou funkcí jako v RE.
+  - **Kabely mezi články** z `chain.<role>.cable/cross/length/method` (> `link` presetu > `ac.grid_*`); nový úsek bez
+    průřezu → `calc.min_cross(In, method)`; stávající bez údajů = vodič bez označení. **Jednofázový střídač**: AC kabel
+    3 žíly L1 N PE s průřezem podle proudu (a úbytku do 3 %), v RFVE.AC jistič 1+N podle proudu.
+  - Rozložení: firma – řetězec HR → RE → HDS → DS v řadě pod FV částí, když tím list vyjde menší (`layout._chain_below`,
+    i po rozdělení JPS); RD – hned za RFVE pod střídači. `frame.apply_placement` posouvá i volné texty listu.
+  - Testy `tests/test_generator_f2.py`; F7 bez chyb a varování pro rd / nn / nn_hr_meter / bytový dům / hranice
+    re_main (`test_generated_project_f7_clean`), nepřímé měření jen se známým překryvem vícepólu RE. Testy, které
+    ověřují „F7 bez chyb“, zadávají In stávajících článků (`tests/chain_data.py`). Snímek generátoru přegenerován:
+    vědomé změny – společný RFVE.DC a nové články řetězce rd / nn (HR/RD, RE, HDS); případy vn beze změny; nové
+    případy `two_inv_per_inverter`, `nn_existing_fuse`, `nn_hr_meter`, `house_existing`.
 - **Formát projektu v14 (parametrická sběrnice)** – migrace v13 → v14 nic nemění (`model/project.py:migrate`); verze
   je vyšší jen proto, aby program v13 soubor se sběrnicí s atributem `taps` odmítl („z novější verze“) místo kreslení
   pevné sběrnice s přívody jinde (B13+ osiřelé porty). Snímek generátoru: jediná změna `format_version`. Test

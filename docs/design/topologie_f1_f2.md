@@ -105,6 +105,11 @@ testy, `ui/main_window.py`, `ui/dialogs.py`). **Upravit testy**: `test_wizard_ca
 `envocad.generator.context._BUILD_LIB`.
 
 ## 2. F2 – nové články (pořadí = pořadí implementace)
+**Stav (2026-10-21): kroky 1–6 hotové** (větev `feature/topologie-f2`, CHANGELOG). Odchylky: In stávajících HJ (RE)
+i hlavního přístroje RD/HR bez zadání → `in_unresolved` (chyba F7), u vypínače RD také (`protection_findings` hlásí
+`in_unresolved` u jakéhokoli přístroje). Nepřímé měření: elektroměr v RE přímo na sekundáru MTP (bez svorek XMI/XMU).
+Řetězec stávajících článků firmy v řadě pod FV částí (užší list). Kroky 7–10 zbývají.
+
 Bloky za prvním AC článkem zleva doprava, zrcadlené (přívod vpravo, k DS) jako dnes RHN; zarovnání zobecní
 `_align_connection` (`align(next, pv_port, port(prev, grid_side))`). U RD vede XOUT RFVE (`_route_house`) na RD.
 

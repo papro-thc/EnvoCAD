@@ -37,12 +37,16 @@ envocad/
     build.py     build_project: specifikace → select_topology → pv.plan → chain.create_main_block → pv.build →
                  chain.build
     pv.py        plan (pracovní souřadnice řad) a build (střídače, stringy, DC rozvaděče, DC/AC vodiče, baterie)
-    chain.py     průchod topology.nodes přes registr BOARD_BUILDERS: 1. bloky (`block`), 2. listy (`build`);
-                 role bez builderu přeskočí; HOP, zarovnání, rozmístění JPS, vazby přívodů
+    chain.py     průchod topology.nodes přes registr BOARD_BUILDERS: 1. bloky (`block`) a vodiče mezi články
+                 (`link` – kabel `chain.<role>.*`, stávající úsek bez údajů a HDS → DS bez kabelu, nový bez průřezu
+                 `calc.min_cross`), 2. listy (`build`); HOP, zarovnání (řetězec stávajících článků firmy v řadě pod FV
+                 částí – `layout._chain_below`, u RD hned za RFVE), hranice vlastnictví, rozmístění JPS, vazby přívodů
     layout.py    zarovnání bloků a lomů JPS, trasa RD, zvětšení listů rozvaděčů
     jps.py       rozmístění JPS na list a dělení na listy střídačů
-    boards/      jeden modul na roli: base (ChainContext, ChainPorts, BoardBuilder), rfve_dc, rfve_ac, rfve (RD),
-                 grid (DS na nn), mv (přípojka VN: HR+TR+RVN+RE jako jeden builder), macro_glue (makra)
+    boards/      jeden modul na roli: base (ChainContext, ChainPorts, BoardBuilder), rfve_dc (i společný RFVE.DC),
+                 rfve_ac, rfve (rozvaděč FVE RD), house_board (stávající RD / HR: hlavní přístroj, vývod FVE, stávající
+                 rozvody), meter_board (RE na nn a funkce měření – i měření v HR), hds (`fve.hds`), grid (DS na nn),
+                 mv (přípojka VN: HR+TR+RVN+RE jako jeden builder), macro_glue (makra)
   ui/         PySide6 GUI (nikdy neobsahuje business logiku)
     canvas.py       QGraphicsView – mřížka, zoom, snap
     items.py        QGraphicsItem obaly nad Element/Wire
@@ -69,7 +73,9 @@ Zásada: **model nezávisí na UI.** Vše, co lze, se testuje bez spuštění Qt
   dědit). `attrs["ref"]` je jen přístrojová část („F3“). Plné označení („=AC+RDC1-F3“) skládá
   `model/designation.py` – používají ho výkazy a štítky; list rozvaděče má `+` = označení bloku. Kód je jedna
   úroveň; tečka uvnitř kódu (firemní `RFVE.AC`, `RFVE.DC1`) úrovně nedělí (`CODE_RE`, `parse_designation`). Generátor
-  označuje rozvaděče RFVE.AC / RFVE.DC(n) / RDCn / HR, u rodinného domu RFVE (`generator/boards/rfve_dc.dc_box_ref`).
+  označuje rozvaděče podle presetu topologie (`node.ref`; přepis `chain.<role>.ref`, dřívější `switchboard.ref`,
+  `connection.*_board.ref` – `generator/spec.resolve_chain_refs`): RFVE.AC, společný RFVE.DC (na střídač RFVE.DC1…n
+  s `chain.rfve_dc.per_inverter`), RDCn, HR, RD, RE, HDS, u rodinného domu RFVE (`generator/boards/rfve_dc.dc_box_ref`).
 - **Revize** – `Project.revisions` (`Revision`: označení, datum, zpracoval, otisky listů při uzavření, značky
   `RevisionMark` na listu, prvku nebo vodiči). Značky vznikají z porovnání `model/diff.py` přes `model/revision.py`;
   kreslí se v editoru, PDF a DXF (vrstva `REVIZE`) a revizi listu ukazuje popisové pole. **Uzavření revize je měkký
@@ -93,7 +99,10 @@ Zásada: **model nezávisí na UI.** Vše, co lze, se testuje bez spuštění Qt
   = A2): AC list první, listy střídačů za ním („T1–T3“), AC kabel přes pár přerušení „AC-T1“ s daty jen u bloku AC
   rozvaděče, úsek u střídače s `ref=""` (`generator/jps._split_jps` přeruší každý vodič mezi řadou a listem AC – u rodinného
   domu i DC vodiče přes RFVE; přípojka VN zůstává na listu AC); přerostlá řada jednoho střídače dostane větší formát.
-  Odvozené jednopólové schéma (`single_line._graph`) a kontrola stringů (`calc._wire_steps`) jdou přes pár přerušení. PDF dokumentace: listy JPS zmenšit na A3 / skutečný formát (`DocBuilder(jps_page=…)`, standard
+  Odvozené jednopólové schéma (`single_line._graph`, i kabel přes pár přerušení končící na bloku rozvaděče – společný
+  RFVE.DC zůstává na listu AC) a kontrola stringů (`calc._wire_steps`, blok DC rozvaděče párem portů) jdou přes pár
+  přerušení. Elektroměr v sérii (přímé měření v RE na nn – fáze na portu 1 i 2) je v JPS obyčejný uzel stromu, elektroměr
+  na MTP měřicí obvod. PDF dokumentace: listy JPS zmenšit na A3 / skutečný formát (`DocBuilder(jps_page=…)`, standard
   `doc_jps_page`).
 - **Výrobní data rozvaděče** (`model/wiring.py`) – výrobní zapojovací seznam pro dílnu: každá žíla vnitřního vodiče
   listu rozvaděče s průřezem (`wire_cross`: atribut, nejmenší In přístrojů přes `IN_TO_CROSS`, řízení, minimum),

@@ -361,11 +361,28 @@ Topologie = řetězec článků připojení od zdroje k síti (návrh `docs/desi
 | `link` | `{}` | kabel k dalšímu článku směrem k síti: `cable`, `cross`, `length`, `method` |
 
 Uzly před `inverter` jsou DC strana, za ním AC; `rfve` (rodinný dům) stojí před střídači a je i prvním AC článkem.
-Volby článků vestavěných presetů (logiku doplní F2): `rfve` – `grid_protection` (`auto` = síťová ochrana nad 30 kWp
-instalovaného výkonu DC), `changeover_switch` (přepínač sítí a EPS vývod – jen rodinný dům); `rfve_ac` –
-`grid_protection`; `rd` / `hr` – `main_device` (`switch` | `breaker`), `fve_device` (`breaker` | `fuse_disconnect`,
-do 80 A vždy jistič), u `nn_hr_meter` `metering`; `re` – `metering` (`direct` | `indirect`), `boundary` (`hds` |
-`re_main` | `re_meter`); `hds` – `char`.
+### Volby článků (`spec["chain"]`, F2)
+Volby článku: `spec["chain"][role]` > `options` článku presetu > výchozí hodnota generátoru; kabel k dalšímu článku
+`spec["chain"][role]` > `link` presetu (> `ac.grid_*` u hlavního AC článku). Logika `envocad/generator/boards/`.
+
+| role | klíč | výchozí | význam |
+|---|---|---|---|
+| všechny | `ref`, `desc` | z presetu | označení a popis bloku (přepis; dřívější `switchboard.ref`, `connection.*_board.ref` také) |
+| všechny | `cable`, `cross`, `length`, `method` | `""` | kabel od článku k dalšímu směrem k síti; nový úsek bez `cross` → `calc.min_cross(In, method)`; stávající (`existing`) bez `cable`/`cross` = vodič bez označení; od `hds` k DS vždy bez kabelu |
+| `rfve_dc` | `per_inverter` | `false` | DC rozvaděč u technologie na střídač (RFVE.DC1…n, stav před F2); jinak jeden společný RFVE.DC |
+| `rd`, `hr` | `main_device` | `switch` (RD), `breaker` (HR) | hlavní přístroj stávajícího rozvaděče |
+| `rd`, `hr` | `main_in` | `""` | In stávajícího hlavního přístroje; prázdné → `in_unresolved`, chyba F7 `breaker_no_in` |
+| `rd`, `hr` | `fve_device` | `breaker` | vývod FVE: `breaker` \| `fuse_disconnect`; pojistka s `fve_in` ≤ 80 A → ValueError |
+| `rd`, `hr` | `fve_in` | Σ In střídačů → nejbližší jistič | In vývodu FVE |
+| `rd`, `hr` | `load` | „stávající rozvody objektu“ | popis vývodu X2 a značky spotřeby |
+| `hr` | `metering`, `ct_ratio`, `switch_in`, `boundary` | `""` | měření v HR (topologie `nn_hr_meter`) – jako `re` |
+| `re` | `main_in`, `char` | `""`, `B` | hlavní jistič před elektroměrem (do 125 A MCB, jinak MCCB); prázdné In → chyba F7 |
+| `re` | `metering` | `direct` | `direct` (elektroměr v sérii) \| `indirect` (MTP, elektroměr na sekundáru) |
+| `re` | `ct_ratio` | z `main_in` | převod MTP („200/5 A“) |
+| `re` | `switch_in` | `main_in` | In vypínače instalace |
+| `re` | `boundary` | `hds` | hranice vlastnictví `hds` \| `re_main` \| `re_meter` (atribut `boundary="1"` na HDS / HJ / elektroměru + text v blokovém schématu) |
+| `hds` | `in_`, `char`, `poles` | `""`, `gG`, `3` | pojistky HDS (`fve.hds`) |
+| `rfve`, `rfve_ac` | `grid_protection` | `auto` | síťová ochrana (F2 krok 8 – zatím bez logiky) |
 
 **Výběr topologie** (`envocad/generator/spec.select_topology(spec, topologies)`): `spec["topology"]` zadané → ten preset
 (jediná cesta k `nn_hr_meter`); jinak rodinný dům → `rd` (i nad 30 kWp), `connection.level` "vn" → `vn`, jinak `nn`

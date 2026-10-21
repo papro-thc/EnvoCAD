@@ -246,9 +246,9 @@ připravené (F4 po dodání mustrů).
    **RFVE.AC** (AC rozvaděč FVE, dřív RH); u rodinného domu jeden rozvaděč **RFVE**. Dnešní „RH“ je chyba. Rozvaděče
    po trase zůstávají RDCn. Hlavní rozvaděč nn u vn = HR (dřív RHN). Základ: commit 537cdd8 (RH → RFVE.AC).
    **Hotovo v generátoru** (10/2026): `generator.context.AC_SWITCHBOARD_REF`, `DC_TECH_BOX_REF`,
-   `MAIN_LV_BOARD_REF`, `generator.boards.rfve_dc.dc_box_ref`. Dnes je DC rozvaděč u technologie vždy na střídač:
-   jediný = `RFVE.DC`, víc = `RFVE.DC1`, `RFVE.DC2`…
+   `MAIN_LV_BOARD_REF`, `generator.boards.rfve_dc.dc_box_ref`; od F2 z presetu (`node.ref`). DC rozvaděč u technologie
+   je od F2 společný `RFVE.DC`; s `chain.rfve_dc.per_inverter` na střídač: jediný = `RFVE.DC`, víc = `RFVE.DC1`, `RFVE.DC2`…
    podle pořadí střídače ve specifikaci (ne podle čísla v `ref` střídače); rozvaděče po trase `RDC1…n` souvisle (číslo
    RDC rozvaděče u technologie neberou). Návrh výše píše `RFVE_DC` / `RFVE_AC` – platí `RFVE.DC` / `RFVE.AC`
-   (kód umístění s tečkou uvnitř, `designation.CODE_RE`). Společný RFVE.DC (bod 3) zatím není – přijde s F1.
+   (kód umístění s tečkou uvnitř, `designation.CODE_RE`). Společný RFVE.DC (bod 3) je hotový (F2, krok 2).
 10. **Přepínač sítí a EPS vývod** jen u rodinného domu (RFVE); u firmy a bytového domu se nekreslí.
