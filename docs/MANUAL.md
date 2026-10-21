@@ -281,8 +281,14 @@ string zvlášť: pojistkový odpínač (u technologie) nebo jen průchozí svor
 *Sběrnice (rozvodný vodič)*; ve vícepólu se kreslí jako v EPLAN vodorovnými čarami L1 L2 L3 N PE přes
 celou stranu (i přes více stran) s názvem potenciálu a šipkou na obou koncích (`1L1`… – označení sběrnice je
 předpona), přístroje se na ni napojují odbočkou s tečkou; porty `T1…T12` shora (přívody), `1…13` zdola (vývody)
-a `B1…B12` zdola (přívody, které do sběrnice tečou zespodu; do 6 přívodů svisle pod nimi, při 7–12 přívodech
-schodovitě bez křížení – sběrnice je pak výš a hlavní vypínač visí z vývodu 13 za posledním přívodem). PE je potenciál sběrnice (1PE),
+a `B1…B12` zdola (přívody, které do sběrnice tečou zespodu). Sběrnice z generátoru, vestavěných maker a šablony
+„AC rozvaděč FVE“ je **parametrická**: vlastnost *Přívody zdola* (`taps`) určuje počet přívodů, *Rozteč přívodů*
+(výchozí 30 mm) jejich vzdálenost a *Vývody vpravo* počet vývodů za posledním přívodem; délka sběrnice a poloha portů
+se podle nich přepočítají, takže každý přívod `Bk` je přímo nad svým jističem a vývody `1` (PE → XPE), `2` (SPD) vlevo
+a `3` (hlavní vypínač → XOUT) vedou také rovně – bez schodů pro libovolný počet střídačů. Vodič na port za počtem
+(např. `B9` při 7 přívodech) sběrnici sám prodlouží. Sběrnice bez této vlastnosti (starší projekty, vlastní makra,
+nově vložená z knihovny) má pevnou délku jako dřív (do 6 přívodů svisle, při 7–12 schodovitě bez křížení, hlavní
+vypínač z vývodu 13). PE je potenciál sběrnice (1PE),
 PE sběrnice i PE svodiče přepětí jdou na vývod `XPE` – ekvipotenciální svorkovnici (HOP) vně rozvaděče. Nebo
 **rozvodné svorky s můstky** (skupiny svorek X2, můstky mezi nimi).
 
@@ -657,6 +663,14 @@ i `40.0` se berou jako 40. Typ svodiče `dc.spd` / `ac.spd` je text (T1, T2, T1+
 Totéž umí příkaz `python -m envocad.generate spec.json vystup.ecp` – specifikace je JSON popsaný
 v `envocad/generate.py`. To je cesta pro AI agenty: z poptávky a datasheetů připraví specifikaci, program
 vygeneruje projekt, ty ho upravíš.
+
+**Topologie připojení**: generátor vybere preset řetězce (rodinný dům → `rd`, připojení na vn → `vn`, jinak `nn`;
+`nn_hr_meter` s měřením v HR jen volbou `"topology": "nn_hr_meter"` ve specifikaci). Do vlastností projektu zapíše
+`topology` (id presetu) a `topology_chain` (náhled řetězce, např. „stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS →
+DS“). **Náhled popisuje zvolený preset, ne výkres**: stávající HR, RE a HDS na nn (a RD u rodinného domu) zatím
+generátor nekreslí – výkres je stejný jako dřív a přibudou až s dalším krokem (F2). Vlastní nebo firemní presety
+(`~/.envocad/topologies/`, sdílená knihovna `topologies/`) s neznámou rolí se nenačtou (záznam v logu) a platí
+vestavěný preset; preset pro rodinný dům musí mít rozvaděč FVE `rfve`, preset na vn aspoň jeden článek přípojky VN.
 
 **Velké JPS na víc listů**: když by se JPS nevešlo na největší povolený list (firemní standard
 `jps_max_paper`, výchozí A2 – Knihovna → Firemní standard…), průvodce i příkaz `python -m envocad.generate` ho

@@ -1,0 +1,161 @@
+{
+ "version": 3,
+ "name": "AC přívod střídače firemní",
+ "description": "Generátor: X{k} od {inverter} (zespodu) → jistič {breaker_in} → sběrnice 1 port B{k}; proměnné k, inverter, breaker_in, main_in",
+ "role": "ac_feed",
+ "variables": [
+  {
+   "name": "k",
+   "label": "Číslo přívodu",
+   "type": "number",
+   "default": "1",
+   "auto": true
+  },
+  {
+   "name": "inverter",
+   "label": "Střídač",
+   "default": "T{k}",
+   "auto": true
+  },
+  {
+   "name": "breaker_in",
+   "label": "In jističe",
+   "type": "number",
+   "default": "40",
+   "unit": "A",
+   "required": true,
+   "min": 1
+  },
+  {
+   "name": "main_in",
+   "label": "In sběrnice / hlavního vypínače",
+   "type": "number",
+   "default": "125",
+   "unit": "A",
+   "required": true,
+   "min": 1
+  }
+ ],
+ "value_sets": [
+  {
+   "name": "Jistič B25",
+   "values": {
+    "breaker_in": "25"
+   }
+  },
+  {
+   "name": "Jistič B32",
+   "values": {
+    "breaker_in": "32"
+   }
+  },
+  {
+   "name": "Jistič B40",
+   "values": {
+    "breaker_in": "40"
+   }
+  },
+  {
+   "name": "Jistič B63",
+   "values": {
+    "breaker_in": "63"
+   }
+  }
+ ],
+ "fragment": {
+  "elements": [
+   {
+    "id": "551096cf3c5c",
+    "symbol_id": "sb.feed",
+    "x": 105,
+    "y": 105,
+    "rotation": 0,
+    "attrs": {
+     "ref": "X{k}",
+     "dir": "in",
+     "desc": "od {inverter}"
+    },
+    "component_id": null
+   },
+   {
+    "id": "bfab44bb5679",
+    "symbol_id": "fve.breaker_mcb",
+    "x": 105,
+    "y": 140,
+    "rotation": 90,
+    "attrs": {
+     "ref": "F1",
+     "in_": "{breaker_in}",
+     "char": "B",
+     "poles": "3",
+     "modules": "3"
+    },
+    "component_id": null
+   },
+   {
+    "id": "61446c03e353",
+    "symbol_id": "sb.busbar",
+    "x": 165,
+    "y": 175,
+    "rotation": 0,
+    "attrs": {
+     "ref": "1",
+     "desc": "rozvod AC",
+     "in_": "{main_in}",
+     "conductors": "L1 L2 L3 N PE",
+     "shared": "1"
+    },
+    "component_id": null
+   }
+  ],
+  "wires": [
+   {
+    "id": "00ef414ff7ee",
+    "a": {
+     "element_id": "551096cf3c5c",
+     "port": "1"
+    },
+    "b": {
+     "element_id": "bfab44bb5679",
+     "port": "1"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "L1",
+     "L2",
+     "L3",
+     "N",
+     "PE"
+    ],
+    "terminals": {}
+   },
+   {
+    "id": "44f3aca210a9",
+    "a": {
+     "element_id": "bfab44bb5679",
+     "port": "2"
+    },
+    "b": {
+     "element_id": "61446c03e353",
+     "port": "B{k}"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "L1",
+     "L2",
+     "L3",
+     "N",
+     "PE"
+    ],
+    "terminals": {}
+   }
+  ],
+  "pitch": 30
+ }
+}

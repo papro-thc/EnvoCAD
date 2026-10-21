@@ -13,6 +13,7 @@ import uuid
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 
+from envocad.model.busbar import BUS_SYMBOL, TAPS_ATTR, busbar_symbol
 from envocad.model.designation import (
     CABLE_SCOPE,
     FUNC,
@@ -56,7 +57,7 @@ SWITCHBOARD_WIRE_ATTRIBUTES = [
     Attribute("prod", "Do výrobního seznamu (0 = ne)"),
 ]
 
-FORMAT_VERSION = 13
+FORMAT_VERSION = 14
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 DEVICE_HEIGHT_MM = 45.0  # mm – výška modulového přístroje na liště (rozložení, délky vodičů)
@@ -1211,6 +1212,9 @@ def migrate(d: dict, ver: int) -> dict:
         for s in d.get("sheets", []):
             for e in s.get("elements", []):
                 normalize_legacy_element(e, mark=True)
+    # v14: parametrická sběrnice `sb.busbar` (atributy `taps` / `outs` / `tap_pitch`, `model/busbar.py`) – bez migrace
+    # dat (sběrnice bez `taps` kreslí pevnou geometrii jako dřív). Verze se zvedla jen proto, aby program v13 soubor
+    # odmítl: atributy by sice zachoval, ale kreslil by pevnou sběrnici (přívody B{k} jinde, B13+ osiřelé porty).
     d["format_version"] = FORMAT_VERSION
     return d
 
@@ -1824,23 +1828,26 @@ def _used_ports(project: Project, e: Element) -> set[str]:
 
 
 def element_symbol(project: Project, e: Element, lib) -> Symbol:
-    """Značka prvku – blok ROZVADĚČ podle jeho listu, střídač podle počtu DC vstupů, jinak z knihovny.
+    """Značka prvku – blok ROZVADĚČ podle jeho listu, střídač podle počtu DC vstupů, sběrnice s atributem `taps`
+    podle počtu přívodů (`busbar.busbar_symbol`), jinak z knihovny.
     Nikdy nepadá na stavu projektu: symbol, který v knihovně není, nahradí zástupná značka (`placeholder`)
     s porty podle vodičů a port, na který vede vodič, ale značka ho nemá, se doplní jako osiřelý („X1?“,
     `orphan_ports`). Obojí hlásí kontrola projektu (`symbol`, `bad_port`)."""
+    used = _used_ports(project, e)      # jednou – hledá list prvku a prochází jeho vodiče
     try:
         base = lib.get_symbol(e.symbol_id)
     except KeyError:
-        return placeholder_symbol(e.symbol_id, _used_ports(project, e))
+        return placeholder_symbol(e.symbol_id, used)
     if e.symbol_id == "fve.switchboard":
         sym = switchboard_symbol(project, e, base)
     elif e.symbol_id in INVERTER_SYMBOLS:
         sym = inverter_symbol(project, e, base)
     elif is_feed(e):
         sym = feed_symbol(e, base)
+    elif e.symbol_id == BUS_SYMBOL and str(e.attrs.get(TAPS_ATTR, "")).strip():
+        sym = busbar_symbol(e, base, used)     # jen parametrická sběrnice (pevná = značka z knihovny)
     else:
         sym = base
-    used = _used_ports(project, e)
     if used and not used <= {p.name for p in sym.ports}:
         sym = with_orphan_ports(sym, used)
     return sym

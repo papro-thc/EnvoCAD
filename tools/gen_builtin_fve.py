@@ -445,7 +445,8 @@ SYMBOLS = [
         "id": "sb.busbar", "name": "Sběrnice (rozvodný vodič)", "category": "Svorky a propojení", "iec_ref": "",
         "description": "Rozvod potenciálů vodičem jako v EPLAN: ve vícepólu vodorovné čáry L1 L2 L3 N PE přes stranu "
                        "s názvy potenciálů na koncích, přístroje se na ně napojují odbočkou; 1 vstup, 12 přívodů shora, "
-                       "13 vývodů zdola, 12 přívodů zdola (B1…B12)",
+                       "13 vývodů zdola, 12 přívodů zdola (B1…B12); s atributem Přívody zdola (taps) "
+                       "délka a porty podle počtu přívodů – každý přívod Bk rovně nad svým přístrojem",
         "primitives": [{"type": "polyline", "points": [[-75, 0], [120, 0]], "closed": False},
                        {"type": "polyline", "points": [[-75, 1], [120, 1]], "closed": False}],
         # porty: IN vlevo nahoře, T1…T12 shora (přívody, jističe od střídačů – generátor: nejvýš 12 střídačů), 1…12 zdola (vývody) – šablona
@@ -458,7 +459,11 @@ SYMBOLS = [
                  # vždy mimo polohy vývodů 1…12 (ty leží o 7,5 mm vedle)
                  + [P(f"B{k + 1}", BUSBAR_B_X[k], -5, "S") for k in range(BUSBAR_INPUTS)],
         "attributes": [attr("ref", "Označení (předpona potenciálů, např. 1 → 1L1)", "", True), attr("desc", "Popis", "", True),
-                       attr("in_", "In [A]"), attr("conductors", "Vodiče", "L1 L2 L3 N PE")],
+                       attr("in_", "In [A]"), attr("conductors", "Vodiče", "L1 L2 L3 N PE"),
+                       # parametrická sběrnice (`model/busbar.py`): prázdné = pevná geometrie výše (staré projekty)
+                       attr("taps", "Přívody zdola (počet; prázdné = pevná sběrnice)", ""),
+                       attr("outs", "Vývody vpravo (počet, parametrická sběrnice)", ""),
+                       attr("tap_pitch", "Rozteč přívodů [mm] (parametrická sběrnice)", "")],
         "label_pos": {"x": -75, "y": 7.5},
     },
     {

@@ -28,6 +28,10 @@ def _isolated_home(tmp_path_factory, monkeypatch):
     """Každý test má vlastní ENVOCAD_HOME – autosave, nastavení ani knihovna uživatele testy neovlivní
     (jinak by např. autosave kopie z běžné práce zablokovala GUI testy dialogem obnovy)."""
     monkeypatch.setenv("ENVOCAD_HOME", str(tmp_path_factory.mktemp("envohome")))
+    # cache topologií (klíč podle mtime souborů) – test, který v rychlém sledu přepíše soubor stejné délky, nesmí
+    # dostat výsledek z předchozího testu
+    from envocad.library import topologies
+    topologies.clear_cache()
 
 
 @pytest.fixture(autouse=True)

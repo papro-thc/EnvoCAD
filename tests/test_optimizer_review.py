@@ -259,6 +259,7 @@ def test_tz_fixed_voltage_separate_table(tmp_path):
 
 def test_generator_logs_per_module_mismatch(tmp_path, caplog, monkeypatch):
     from envocad import generate
+    from envocad.generator import context
     from envocad.library.components import Component
 
     comp = Component(id="t-opt2", manufacturer="Test", part_number="TO-850", name="T", category="optimizer",
@@ -268,7 +269,7 @@ def test_generator_logs_per_module_mismatch(tmp_path, caplog, monkeypatch):
         def component(self, cid):
             return comp if cid == comp.id else None
 
-    monkeypatch.setattr(generate, "_lib", lambda: Lib())
+    monkeypatch.setattr(context, "_lib", lambda: Lib())   # jediné místo knihovny generátoru
     with caplog.at_level(logging.WARNING, logger="envocad.generate"):
         out, c = generate._apply_optimizer_component({"type": "", "per_module": 1, "component_id": "t-opt2"})
     assert c is comp and out["per_module"] == 0.5 and out["type"] == "TO-850"

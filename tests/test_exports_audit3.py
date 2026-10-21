@@ -538,6 +538,7 @@ def test_conftest_installs_translator_for_session():
 # ---- 16. rychlost: knihovna se při generování otevírá jednou, nezměněné soubory se nečtou znovu -----------------
 def test_build_project_opens_library_once(monkeypatch):
     from envocad import generate
+    from envocad.generator import context
     from envocad.library import store
     n = []
     orig = store.LibraryStore.__init__
@@ -547,7 +548,7 @@ def test_build_project_opens_library_once(monkeypatch):
         orig(self, *a, **k)
     monkeypatch.setattr(store.LibraryStore, "__init__", counting)
     p = generate.build_project(SPEC)
-    assert len(n) == 1 and generate._BUILD_LIB is None and p.switchboards()
+    assert len(n) == 1 and context._BUILD_LIB is None and p.switchboards()
 
 
 def test_library_parse_cache_sees_changed_files(tmp_path, monkeypatch):

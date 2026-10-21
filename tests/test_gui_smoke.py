@@ -1567,3 +1567,27 @@ def test_wizard_vn_connection_and_single_line_tab(app, tmp_path):
     assert sum(isinstance(w._unwrap(w.tabs.widget(i)), SingleLineView) for i in range(w.tabs.count())) == 1
     w.undo.setClean()
     w.close()
+
+
+def test_busbar_taps_change_refreshes_symbol(app, tmp_path):
+    """Změna počtu přívodů parametrické sběrnice ve Vlastnostech: položka dostane novou značku (délka, porty B{k})
+    a vodiče se překreslí k novým portům; undo vrátí původní značku."""
+    from PySide6.QtGui import QUndoStack
+
+    from envocad.ui import commands
+    from envocad.ui.canvas import SchematicScene
+    p = Project()
+    s = p.sheets[0]
+    bus = Element("sb.busbar", 165, 175, attrs={"ref": "1", "taps": "2"})
+    f = Element("fve.breaker_mcb", 135, 140, rotation=90, attrs={"ref": "F1"})
+    s.elements += [bus, f]
+    s.wires.append(Wire(WireEnd(f.id, "2"), WireEnd(bus.id, "B2")))
+    lib = LibraryStore(tmp_path / "lib.db")
+    undo = QUndoStack()
+    sc = SchematicScene(p, s, lib, undo)
+    names = lambda: {q.name for q in sc.element_items[bus.id].symbol.ports}
+    assert "B2" in names() and "B4" not in names()
+    undo.push(commands.SetAttrCommand(sc, bus.id, False, "taps", "2", "4"))
+    assert bus.attrs["taps"] == "4" and {"B3", "B4"} <= names()
+    undo.undo()
+    assert bus.attrs["taps"] == "2" and "B4" not in names()

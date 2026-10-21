@@ -1,7 +1,7 @@
 # Návrh: DXF vícepólu, JPS na víc listů, změny modelu mimo undo
 
 Stav: návrh (architekt, 10/2026), k implementaci `core-dev` / `gui-dev`. Formát projektu zůstává **v9** u všech tří bodů.
-Bod B implementován 10/2026 (`generate._place_jps` / `_split_jps`, `xref.through_interrupt`, `tests/test_jps_split.py`).
+Bod B implementován 10/2026 (`generator.jps._place_jps` / `_split_jps`, `xref.through_interrupt`, `tests/test_jps_split.py`).
 
 ## A) Export vícepólového schématu do DXF
 

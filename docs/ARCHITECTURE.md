@@ -23,10 +23,26 @@ envocad/
   model/      čistá data, žádné Qt  → testovatelné headless
     symbol.py   Symbol = grafická primitiva + porty + atributy
     project.py  Project → Sheet → Element (instance symbolu) + Wire
+    topology.py Topologie připojení (řetězec článků, obor-nezávislé role) – docs/design/topologie_f1_f2.md
   library/    knihovna prvků
     store.py       SQLite úložiště symbolů a komponent (artiklů)
     dxf_import.py  DXF → Symbol
+    topologies.py  presety topologií (builtin/topologies, sdílená, ~/.envocad/topologies) – jako makra
     builtin/       startovní symboly (JSON), verzované v gitu
+  generate.py   tenký re-export generátoru (build_project, DEFAULT_SPEC…) + CLI `python -m envocad.generate`
+  generator/  generátor FVE podle topologie (bez Qt; docs/design/topologie_f1_f2.md, kap. 1.3)
+    context.py   knihovna sestavení (`_lib`, `_BUILD_LIB` – patch v testech jen zde), převody, konstanty, logger
+                 "envocad.generate"
+    spec.py      DEFAULT_SPEC, BUILDINGS/building_kind, parse_*, load_spec, artikly, select_topology, chain_text
+    build.py     build_project: specifikace → select_topology → pv.plan → chain.create_main_block → pv.build →
+                 chain.build
+    pv.py        plan (pracovní souřadnice řad) a build (střídače, stringy, DC rozvaděče, DC/AC vodiče, baterie)
+    chain.py     průchod topology.nodes přes registr BOARD_BUILDERS: 1. bloky (`block`), 2. listy (`build`);
+                 role bez builderu přeskočí; HOP, zarovnání, rozmístění JPS, vazby přívodů
+    layout.py    zarovnání bloků a lomů JPS, trasa RD, zvětšení listů rozvaděčů
+    jps.py       rozmístění JPS na list a dělení na listy střídačů
+    boards/      jeden modul na roli: base (ChainContext, ChainPorts, BoardBuilder), rfve_dc, rfve_ac, rfve (RD),
+                 grid (DS na nn), mv (přípojka VN: HR+TR+RVN+RE jako jeden builder), macro_glue (makra)
   ui/         PySide6 GUI (nikdy neobsahuje business logiku)
     canvas.py       QGraphicsView – mřížka, zoom, snap
     items.py        QGraphicsItem obaly nad Element/Wire
@@ -53,7 +69,7 @@ Zásada: **model nezávisí na UI.** Vše, co lze, se testuje bez spuštění Qt
   dědit). `attrs["ref"]` je jen přístrojová část („F3“). Plné označení („=AC+RDC1-F3“) skládá
   `model/designation.py` – používají ho výkazy a štítky; list rozvaděče má `+` = označení bloku. Kód je jedna
   úroveň; tečka uvnitř kódu (firemní `RFVE.AC`, `RFVE.DC1`) úrovně nedělí (`CODE_RE`, `parse_designation`). Generátor
-  označuje rozvaděče RFVE.AC / RFVE.DC(n) / RDCn / HR, u rodinného domu RFVE (`generate.dc_box_ref`).
+  označuje rozvaděče RFVE.AC / RFVE.DC(n) / RDCn / HR, u rodinného domu RFVE (`generator/boards/rfve_dc.dc_box_ref`).
 - **Revize** – `Project.revisions` (`Revision`: označení, datum, zpracoval, otisky listů při uzavření, značky
   `RevisionMark` na listu, prvku nebo vodiči). Značky vznikají z porovnání `model/diff.py` přes `model/revision.py`;
   kreslí se v editoru, PDF a DXF (vrstva `REVIZE`) a revizi listu ukazuje popisové pole. **Uzavření revize je měkký
@@ -75,7 +91,7 @@ Zásada: **model nezávisí na UI.** Vše, co lze, se testuje bez spuštění Qt
   jeden kabel; ruční projekt s auto označením na obou úsecích se chová jako dřív („P:1“). `groups`
   (`interrupt_groups`) se předávají jednou za výkaz. Generátor dělí velké JPS na listy (nad `standard.jps_max_paper`
   = A2): AC list první, listy střídačů za ním („T1–T3“), AC kabel přes pár přerušení „AC-T1“ s daty jen u bloku AC
-  rozvaděče, úsek u střídače s `ref=""` (`generate._split_jps` přeruší každý vodič mezi řadou a listem AC – u rodinného
+  rozvaděče, úsek u střídače s `ref=""` (`generator/jps._split_jps` přeruší každý vodič mezi řadou a listem AC – u rodinného
   domu i DC vodiče přes RFVE; přípojka VN zůstává na listu AC); přerostlá řada jednoho střídače dostane větší formát.
   Odvozené jednopólové schéma (`single_line._graph`) a kontrola stringů (`calc._wire_steps`) jdou přes pár přerušení. PDF dokumentace: listy JPS zmenšit na A3 / skutečný formát (`DocBuilder(jps_page=…)`, standard
   `doc_jps_page`).
@@ -126,7 +142,10 @@ Vazby přívodů/vývodů rozvaděče na vodiče JPS: GUI po každé změně mod
 spočítají se při prvním redo, undo je vrátí): žíly vodičů u přívodu převezmou žíly navázaného vodiče JPS
 (`feed_conductor_followups` v `AddWireCommand`, `SplitWireCommand`, `SetConductorsCommand`, `SetAttrCommand` s
 `wire_id`), přejmenování přívodu přejmenuje port vodiče JPS na bloku (`rename_followups` → `TextChange` „wire_port“).
-Plná `sync_feed_links` (i s primárními změnami) jen při načtení projektu a v generátoru. Zápisy do modelu v `ui/`
+Plná `sync_feed_links` (i s primárními změnami) jen při načtení projektu a v generátoru. Parametrická sběrnice (`taps`) má porty i podle
+vodičů: scéna po každém vložení / odebrání položky vodiče (`add_wire_item` / `remove_wire_item` – vodič, schránka, makro,
+smazání, undo / redo) přestaví značku dotčené sběrnice (`SchematicScene.refresh_bus_symbols`), jako `SetAttrCommand`
+po změně `taps`; vícepól (`MultipoleAddCommand`) přestaví sousední jednopólovou scénu celou. Zápisy do modelu v `ui/`
 mimo `commands.py` hlídá `tests/test_no_model_writes_in_ui.py`; výjimky mají komentář `# model-write-ok: <důvod>`.
 
 ## Rozšiřitelnost na další obory
@@ -199,7 +218,9 @@ Tři vrstvy rozšíření, od nejjednodušší:
    starými `sb.feed_in` / `sb.feed_out` se po `build` převede (`feed.normalize_legacy_objects` v `apply_template`),
    callback menu, který vkládá prvky sám, musí použít `sb.feed`.
 
-Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **13** – jedna značka přívodu/vývodu
+Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **14** – parametrická sběrnice `sb.busbar`
+(atributy `taps` / `outs` / `tap_pitch`, `model/busbar.py`), migrace v13 → v14 nic nemění, verze zvednutá jen proto, aby
+program v13 soubor odmítl místo kreslení pevné sběrnice; v13 jedna značka přívodu/vývodu
 `sb.feed` se směrem `attrs.dir` místo `sb.feed_in` / `sb.feed_out`, migrace bez přeskládání: přívod se pootočí o 180°,
 port zůstane na místě, vodiče se nerozpojí (`model/feed.py:normalize_legacy_element`, makra a schránka se převádějí
 při načtení); v12 ruční posun prvku v jednopólovém schématu `Element.sl_pos`, bez migrace; v11 žíly dle ČSN EN 60445 (DC+/DC− → L+/L−,

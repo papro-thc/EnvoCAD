@@ -189,7 +189,7 @@ def test_v7_revisions_from_meta_skips_header_and_free_text():
 
 def test_example_migrates_to_current():
     p = Project.load(EXAMPLE)
-    assert FORMAT_VERSION == 13
+    assert FORMAT_VERSION == 14
     assert all(s.func == "" and s.loc == "" for s in p.sheets)
     assert p.structures == [] and p.revisions == [] and p.notes == []
 
@@ -290,3 +290,35 @@ def test_v11_to_v12_single_line_offset():
     assert d["format_version"] == FORMAT_VERSION and d["sheets"][0]["elements"][0]["sl_pos"] == [12.5, -5.0]
     assert Project.from_dict(d).sheets[0].elements[0].sl_pos == (12.5, -5.0)
     _roundtrip_stable(Project.from_dict(d))
+
+
+def test_v13_to_v14_parametric_busbar_noop(monkeypatch):
+    """v14: parametrická sběrnice (`taps` / `outs` / `tap_pitch`) – migrace v13 → v14 nic nemění (sběrnice bez `taps`
+    i s ním, vodiče, ostatní obsah); verze je vyšší jen kvůli tomu, aby program v13 soubor odmítl (kreslil by pevnou
+    sběrnici s přívody jinde)."""
+    from envocad.model.project import migrate
+    bus = {**_el("b", "sb.busbar", "1"), "attrs": {"ref": "1", "taps": "13", "outs": "2", "tap_pitch": "30"}}
+    fixed = _el("c", "sb.busbar", "2")
+    f = _el("f", "fve.breaker_mcb", "F1")
+    sh = _sheet("s1", [bus, fixed, f], [
+        {"id": "w1", "a": {"element_id": "f", "port": "2"}, "b": {"element_id": "b", "port": "B13"},
+         "conductors": ["L1", "L2", "L3", "N"], "attrs": {}},
+        {"id": "w2", "a": {"element_id": "f", "port": "1"}, "b": {"element_id": "c", "port": "B1"},
+         "conductors": ["L1"], "attrs": {}}], kind="switchboard")
+    raw = _v(13, [sh])
+    before = copy.deepcopy(raw)
+    mig = migrate(raw, 13)
+    assert raw == before                                         # vstup se nemění
+    assert mig == {**before, "format_version": 14}               # jen číslo verze
+    p = Project.from_dict(copy.deepcopy(raw))
+    d = p.to_dict()
+    assert d["format_version"] == FORMAT_VERSION == 14
+    els = {e["id"]: e for e in d["sheets"][0]["elements"]}
+    assert els["b"]["attrs"] == bus["attrs"] and els["c"]["attrs"] == {"ref": "2"}
+    assert [(w["a"], w["b"]) for w in d["sheets"][0]["wires"]] == [(w["a"], w["b"]) for w in sh["wires"]]
+    _roundtrip_stable(p)
+    # program s formátem 13 soubor v14 odmítne
+    import envocad.model.project as prj
+    monkeypatch.setattr(prj, "FORMAT_VERSION", 13)
+    with pytest.raises(ValueError, match="novější"):
+        Project.from_dict(d)

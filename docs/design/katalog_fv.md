@@ -10,7 +10,7 @@ Návrh agenta `architekt` (10/2026), schválil orchestrátor. Roadmapa „Datab�
 - `calc.check_strings`: modul `voc, vmp, isc, beta_voc`, střídač `u_dc_max, u_mppt_min, u_mppt_max, i_mppt_max`;
   pevné `T_MIN_DEFAULT=-10`, `T_MAX_DEFAULT=70`; proud `1,25·Isc` jednoho stringu proti `i_mppt_max` (paralelní
   stringy nesčítá, maximální napětí systému modulu nekontroluje).
-- `generate._apply_inverter_component` doplní atributy z artiklu; pro modul nic. Průvodce bez β_Voc a Imp,
+- `generator.spec._apply_inverter_component` doplní atributy z artiklu; pro modul nic. Průvodce bez β_Voc a Imp,
   `ComponentPicker` s pevnými sloupci a jednou kategorií.
 
 ## 1. Data artiklu

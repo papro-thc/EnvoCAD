@@ -14,6 +14,8 @@ from envocad.model.symbol import Symbol
 BUILTIN_DIR = Path(__file__).parent / "builtin"
 # soubory vestavěných značek, které knihovna už nemá (v13: sb.feed_in / sb.feed_out → sb.feed) – klíče `builtin_files`
 LEGACY_BUILTIN_FILES = frozenset(f"builtin:switchboard{sep}{sid}.json" for sid in LEGACY_FEEDS for sep in ("/", "\\"))
+# podsložky knihovny s jinými JSON soubory než značky (makra, topologie) – `_sync_symbols` je přeskočí
+NON_SYMBOL_DIRS = frozenset({"macros", "topologies"})
 log = logging.getLogger("envocad.library")
 
 SCHEMA = """
@@ -122,7 +124,7 @@ class LibraryStore:
         """Značky z JSON zdroje `root`; soubor beze změny se přeskočí, dokud se v pořadí zdrojů nezměnil žádný dřívější
         soubor (`force`). Vrací True, pokud se od tohoto místa musí přenačítat (změna tady nebo dřív)."""
         for f in sorted(root.rglob("*.json")):
-            if "macros" in f.relative_to(root).parts:   # makra nejsou značky
+            if NON_SYMBOL_DIRS & set(f.relative_to(root).parts):   # makra a topologie nejsou značky
                 continue
             key = f"{tag}:{f.relative_to(root)}"
             mtime = f.stat().st_mtime

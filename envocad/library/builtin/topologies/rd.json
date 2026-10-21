@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "id": "rd",
+  "name": "Rodinný dům",
+  "description": "Stringy → RFVE (DC i AC část, přepínač sítí a EPS) → střídač → stávající domovní rozvaděč RD → stávající elektroměrový rozvaděč RE → HDS → DS. Platí i nad 30 kWp (pak síťová ochrana v RFVE).",
+  "buildings": ["house"],
+  "level": "nn",
+  "nodes": [
+    {"role": "rfve", "ref": "RFVE", "desc": "rozvaděč FVE", "macros": {},
+     "options": {"grid_protection": "auto", "changeover_switch": "1"}},
+    {"role": "inverter"},
+    {"role": "rd", "ref": "RD", "desc": "domovní rozvaděč", "existing": true,
+     "options": {"main_device": "switch", "fve_device": "breaker"}},
+    {"role": "re", "ref": "RE", "desc": "elektroměrový rozvaděč", "existing": true,
+     "options": {"metering": "direct", "boundary": "hds"}},
+    {"role": "hds", "ref": "HDS", "desc": "hlavní domovní skříň", "sheet": false, "options": {"char": "gG"}},
+    {"role": "grid", "desc": "distribuční soustava", "sheet": false}
+  ]
+}

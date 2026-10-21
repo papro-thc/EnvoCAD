@@ -181,6 +181,8 @@ class SchematicScene(QGraphicsScene):
             self.removeItem(it)
 
     def add_wire_item(self, w: Wire) -> WireItem:
+        # parametrická sběrnice na konci vodiče: nový port (B2…) musí mít položka dřív, než se vodič trasuje
+        self.refresh_bus_symbols((w.a.element_id, w.b.element_id))
         it = WireItem(w)
         self.addItem(it)
         self.wire_items[w.id] = it
@@ -191,6 +193,30 @@ class SchematicScene(QGraphicsScene):
         it = self.wire_items.pop(wid, None)
         if it:
             self.removeItem(it)
+            self.refresh_bus_symbols((it.wire.a.element_id, it.wire.b.element_id))   # sběrnice se zase zkrátí
+
+    def refresh_bus_symbols(self, element_ids) -> list[str]:
+        """Parametrická sběrnice (`taps`, `model/busbar.py`) má délku a porty i podle vodičů, které na ni vedou
+        (B9 při `taps=7` → 9 přívodů). Po vložení / odebrání vodiče (vodič, schránka, makro, smazání, undo / redo
+        – `add_wire_item` / `remove_wire_item`) dostane položka sběrnice novou značku z `element_symbol` (jako
+        `SetAttrCommand._refresh_symbol` po změně `taps`) a její ostatní vodiče se přetrasují. Vrací id změněných."""
+        from envocad.model.busbar import BUS_SYMBOL, layout_of
+        from envocad.ui.render import symbol_path
+        changed = []
+        for eid in dict.fromkeys(element_ids):
+            it = self.element_items.get(eid)
+            if it is None or it.element.symbol_id != BUS_SYMBOL or layout_of(it.element) is None:
+                continue
+            sym = element_symbol(self.project, it.element, self.library)
+            if sym.ports == it.symbol.ports and sym.primitives == it.symbol.primitives:
+                continue
+            it.prepareGeometryChange()
+            it.symbol = sym
+            it._path = symbol_path(sym)
+            it.sync_from_model()
+            self.update_wires_of(eid)
+            changed.append(eid)
+        return changed
 
     def route_wire(self, it: WireItem) -> None:
         """Trasa z modelu (model/routing.py): ruční lomy, jinak Z-trasa s odstupem od ostatních vodičů."""

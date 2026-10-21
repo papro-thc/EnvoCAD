@@ -182,6 +182,17 @@ Jedna značka pro přívod i vývod rozvaděče (`docs/design/znacka_privod_vyvo
   vždy mimo polohy vývodů 1…12) – přívodní větev, která teče nahoru do sběrnice (RFVE, RFVE.AC). Při 7–12 přívodech
   generátor přiřadí porty B podle x zleva (odbočky schodovitě bez křížení); vývod 13 (x 112,5, za B12) je pro hlavní
   vypínač za posledním přívodem.
+- **Parametrická sběrnice** (`envocad/model/busbar.py`, skládá ji `project.element_symbol` jako značku střídače):
+  sběrnice s atributem **`taps`** (počet přívodů zdola) má délku a porty podle počtu přívodů a rozteče – přívody
+  `B1…Bn` (a `T1…Tn` přímo nad nimi) od x −60 po **`tap_pitch`** (výchozí 30 mm, násobek 2,5 ≥ 7,5), vývody `1`
+  (x B1 − 45, PE → XPE) a `2` (x B1 − 22,5, SPD) vlevo, vývody `3…` za posledním přívodem (`3` v x Bn + 37,5, další
+  po rozteči; počet vpravo **`outs`**, výchozí 1), `IN` vlevo nahoře na začátku čáry, čára 7,5 mm za krajními porty.
+  Počty se zvětší podle portů, na které vedou vodiče (nic se neodpojí). Prázdný / neplatný `taps` = pevná sběrnice
+  výše (staré projekty, vlastní makra, nově vložená sběrnice). Generátor (RFVE.AC, AC část RFVE), vestavěná makra
+  „AC přívod střídače“ / „AC jádro rozvaděče“ a šablona „AC rozvaděč FVE“ kreslí sběrnici parametrickou: každá
+  odbočka svisle. Formát symbolu se nemění (atributy prvku); **formát projektu v14** – migrace v13 → v14 nic
+  nemění, verze je vyšší jen proto, aby starší program (v13) soubor odmítl místo kreslení pevné sběrnice s přívody
+  jinde (B13 a další by byly osiřelé porty). Makra a schránka se sběrnicí s `taps` vlastní verzi nemají.
 
 ## Footprinty (pohled do rozložení)
 
@@ -306,3 +317,65 @@ XOUT AC jádra. V API `expand(..., copy=None)`: None = kopie právě u `not m.ha
 `resolve_values(..., repeat=True)`; `repeat_context_names(m)`, `repeat_limit(m)`;
 `expand(project, sheet, m, values, dx, dy, ref_prefix_of, components, repeat, copy)` → `(nové prvky, nové vodiče)` – list
 nemění (GUI je vloží jedním undo příkazem); `instantiate` = `expand` bez opakování + vložení do listu.
+
+## Formát topologie
+
+Topologie = řetězec článků připojení od zdroje k síti (návrh `docs/design/topologie_f1_f2.md`, rozhodnutí
+`docs/NAVRH_TOPOLOGIE.md`, kap. 8). Soubory `*.json` ve `builtin/topologies/` (vestavěné presety `rd`, `nn`,
+`nn_hr_meter`, `vn`), `<sdílená knihovna>/topologies/` a `~/.envocad/topologies/` – stejné `id` přepíše dřívější
+(vlastní > sdílená > vestavěná), neplatný soubor nebo vyšší `version` se vynechá (záznam v logu). Složky `topologies/`
+(i `macros/`) knihovna značek nenačítá (`store.NON_SYMBOL_DIRS`). **Formát projektu se kvůli topologiím nemění.**
+
+```jsonc
+{
+  "version": 1,                          // TOPOLOGY_VERSION; vyšší se nenačte
+  "id": "nn",                            // jedinečné, písmena/číslice/_ . -; spec["topology"] = id
+  "name": "Připojení na nn",             // povinné, text pro průvodce
+  "description": "…",
+  "buildings": ["company", "apartment"], // pro které druhy objektu (company | house | apartment); [] = všechny
+  "level": "nn",                         // úroveň připojení: nn | vn
+  "nodes": [                             // články v pořadí toku energie (od FV k síti), role jedinečné
+    {"role": "rfve_dc", "ref": "RFVE.DC", "desc": "DC rozvaděč FVE", "per_inverter": false, "macros": {}},
+    {"role": "inverter"},
+    {"role": "rfve_ac", "ref": "RFVE.AC", "desc": "AC rozvaděč FVE", "options": {"grid_protection": "auto"}},
+    {"role": "hr", "ref": "HR", "desc": "hlavní rozvaděč", "existing": true,
+     "options": {"main_device": "breaker", "fve_device": "breaker"},
+     "link": {"cable": "CYKY-J 5x35", "cross": 35, "length": 20, "method": "D"}},
+    {"role": "re", "ref": "RE", "existing": true, "options": {"metering": "direct", "boundary": "hds"}},
+    {"role": "hds", "ref": "HDS", "sheet": false, "options": {"char": "gG"}},
+    {"role": "grid", "sheet": false}
+  ]
+}
+```
+
+| klíč článku | výchozí | význam |
+|---|---|---|
+| `role` | povinné | `rfve_dc` \| `inverter` \| `rfve_ac` \| `rfve` \| `rd` \| `hr` \| `re` \| `hds` \| `tr` \| `rvn` \| `grid` (zná generátor FVE, `generator/spec.ROLES`) |
+| `ref`, `desc` | `""` | označení a popis rozvaděče (bloku) |
+| `per_inverter` | `false` | jen `rfve_dc`: jeden rozvaděč na střídač (RFVE.DC1…n), jinak společný |
+| `sheet` | `true` | `false` = jen blok bez listu rozvaděče (HDS, TR, DS) |
+| `existing` | `false` | stávající rozvaděč – kreslí se jen dotčená část (RD, HR, RE) |
+| `branch` | `false` | odbočka mimo hlavní tok (RE s měřicími obvody u `vn`) |
+| `macros` | `{}` | role makra → název makra (F4; prázdné = vestavěný kód) |
+| `options` | `{}` | výchozí hodnoty článku pro `spec["chain"][role]` (specifikace je přebíjí); hodnoty se převedou na text (`true` → „1“) |
+| `link` | `{}` | kabel k dalšímu článku směrem k síti: `cable`, `cross`, `length`, `method` |
+
+Uzly před `inverter` jsou DC strana, za ním AC; `rfve` (rodinný dům) stojí před střídači a je i prvním AC článkem.
+Volby článků vestavěných presetů (logiku doplní F2): `rfve` – `grid_protection` (`auto` = síťová ochrana nad 30 kWp
+instalovaného výkonu DC), `changeover_switch` (přepínač sítí a EPS vývod – jen rodinný dům); `rfve_ac` –
+`grid_protection`; `rd` / `hr` – `main_device` (`switch` | `breaker`), `fve_device` (`breaker` | `fuse_disconnect`,
+do 80 A vždy jistič), u `nn_hr_meter` `metering`; `re` – `metering` (`direct` | `indirect`), `boundary` (`hds` |
+`re_main` | `re_meter`); `hds` – `char`.
+
+**Výběr topologie** (`envocad/generator/spec.select_topology(spec, topologies)`): `spec["topology"]` zadané → ten preset
+(jediná cesta k `nn_hr_meter`); jinak rodinný dům → `rd` (i nad 30 kWp), `connection.level` "vn" → `vn`, jinak `nn`
+(firma i bytový dům). Preset jiného druhu objektu nebo jiné úrovně připojení než zadané, neznámé `id`, přípojka VN u
+rodinného domu nebo neznámá role → ValueError.
+
+### Rozhraní
+`envocad/model/topology.py` (bez Qt, obor-nezávislé): `CableLink`, `ChainNode`, `Topology` (`node(role)`, `roles()`,
+`flow()`, `chain_text(start, labels)`), `parse_topology(data, source, path, known_roles)` → `Topology` (ValueError
+česky), `validate_topology(data, known_roles)` → chyby česky. `envocad/library/topologies.py`: `topology_dirs()`,
+`load_topology(path, source)`, `load_topologies()` → `{id: Topology}`, `list_topologies()`, `find_topology(id)`.
+`envocad/generator/spec.py`: `select_topology`, `installed_kwp`, `chain_text(topology)` („stringy → RFVE.DC → T →
+RFVE.AC → HR → RE → HDS → DS“), `check_topology`, `ROLES`.

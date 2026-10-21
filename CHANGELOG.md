@@ -1,6 +1,44 @@
 # Changelog
 
 ## Nevydáno
+- **Formát projektu v14 (parametrická sběrnice)** – migrace v13 → v14 nic nemění (`model/project.py:migrate`); verze
+  je vyšší jen proto, aby program v13 soubor se sběrnicí s atributem `taps` odmítl („z novější verze“) místo kreslení
+  pevné sběrnice s přívody jinde (B13+ osiřelé porty). Snímek generátoru: jediná změna `format_version`. Test
+  `test_v13_to_v14_parametric_busbar_noop`.
+- **Generátor jako balíček `envocad/generator/` (F1, 2. část)** – `generate.py` (2 100 řádků) rozdělen podle
+  `docs/design/topologie_f1_f2.md`, kap. 1.3: `context` (knihovna sestavení, převody, konstanty), `spec`
+  (`DEFAULT_SPEC`, `BUILDINGS` a `building_kind` bez kopie, vstupy průvodce, artikly, výběr topologie), `build`
+  (`build_project`), `pv` (stringy, střídače, DC rozvaděče, baterie), `chain` (průchod topologií přes registr
+  `BOARD_BUILDERS`), `layout`, `jps` a `boards/` (`rfve_dc`, `rfve_ac`, `rfve`, `grid`, `mv`, `macro_glue`,
+  `base` s `ChainContext` / `ChainPorts` / `BoardBuilder`). `envocad/generate.py` zůstává tenkým re-exportem (API, CLI
+  `python -m envocad.generate`, logger „envocad.generate“). Generátor volá `select_topology` (na nesloučené
+  specifikaci) a zapíše `meta["topology"]` a `meta["topology_chain"]`; role bez builderu (stávající RD, HR a RE na nn,
+  HDS – F2) se přeskočí, přípojku VN staví jeden složený builder. Výkres beze změny – snímek
+  `tests/data/generate_snapshot.json` rozšířen na 15 specifikací a mezi kroky refaktoringu identický, jediná změna
+  jsou 2 klíče meta. Testy, které podstrkují knihovnu, patchují `envocad.generator.context._lib`. Formát projektu
+  beze změny. Testy `tests/test_generator_chain.py`.
+- **RFVE rodinného domu: PE svodičů bez křížení u XPE** – PE svodičů DC (kolem levého konce sběrnice) se připojuje
+  k vodiči vývod 1 → XPE zleva o 5 mm výš než PE svodiče AC zprava (`generator.boards.rfve.DC_PE_JOIN_DY`): dvě odbočky „T“ místo
+  bodu se čtyřmi směry, který vypadal jako křížení bez uzlu. Vestavěná makra beze změny (rozložení dělá
+  `_dc_from_below`). Test `test_switchboards_no_crossing_without_node` (všechny listy rozvaděčů RD 1/3 střídače,
+  makra i kód, rozvod svorkami, firma 1–12 střídačů; `_cross_nodes` v `tests/test_feed_review.py`), F7 čisté.
+- **Parametrická sběrnice – přívodní větve RFVE.AC / RFVE rovně do sběrnice** (formát projektu v14 – viz výše, bez
+  migrace dat): `sb.busbar` s atributem `taps` (počet přívodů zdola; `outs` vývody vpravo, `tap_pitch` rozteč) má délku a
+  porty podle počtu přívodů – `B{k}` přímo nad jističem k, vývod `1` (PE) nad XPE, `2` nad SPD, `3` nad hlavním
+  vypínačem za posledním přívodem (`envocad/model/busbar.py`, `project.element_symbol`). Generátor (kód i vestavěná
+  makra) a šablona „AC rozvaděč FVE“ kreslí všechny odbočky sběrnice svisle i pro 7–12 střídačů (dřív schody);
+  PE svodičů DC v RFVE rodinného domu vede kolem levého konce sběrnice. Sběrnice bez atributu (staré projekty,
+  vlastní makra – i „zespodu“ uložená z dřívějších vestavěných maker) kreslí pevnou geometrii jako dřív. Změna
+  atributu v GUI přestaví značku a vodiče. Vestavěná makra přegenerována (jádro: vývody 1/2/3 bez lomů); snímek
+  `tests/data/generate_snapshot.json` přegenerován – jediné rozdíly: atributy sběrnice a porty/lomy odboček SPD, PE
+  a hlavního vypínače (polohy prvků beze změny). Testy `tests/test_busbar.py`.
+- **Topologie připojení jako data (F1, 1. část)** – `model/topology.py` (`Topology`, `ChainNode`, `CableLink`,
+  `parse_topology`, `validate_topology` s chybami česky), knihovna `library/topologies.py` (vestavěné
+  `builtin/topologies/`, sdílené `<knihovna>/topologies/`, vlastní `~/.envocad/topologies/`; vlastní > sdílená >
+  vestavěná), presety `rd`, `nn`, `nn_hr_meter`, `vn` (RFVE / RFVE.DC / RFVE.AC / HR / RE / HDS / TR / RVN) a výběr
+  `generator/spec.select_topology` podle rozhodnutí (`docs/NAVRH_TOPOLOGIE.md`, kap. 8). Knihovna značek složku
+  `topologies/` nenačítá (`store.NON_SYMBOL_DIRS`). Generátor topologii zatím nepoužívá – výstup beze změny;
+  formát projektu beze změny. Formát: `docs/LIBRARY_FORMAT.md`, „Formát topologie“.
 - **`sb.feed` – opravy z review** (formát projektu zůstává v13 – v13 ještě nikde není –, bez migrace navíc):
   **uzavřená revize v12 zůstane po migraci uzavřená** – otisk listu (`diff._canon_element`) kreslí `sb.feed` kanonicky
   jako dřívější `sb.feed_in` / `sb.feed_out` bez `dir` (rotace v otisku není; převod přívodu o 180° zpět = stará
