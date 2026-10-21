@@ -28,12 +28,25 @@ def port_geometry(project: Project, sheet: Sheet, lib, e: Element, port: str) ->
     return e.port_pos(sym, port), place_dir(sym.port(port).dir, e.rotation, e.mirror)
 
 
-def wire_route(project: Project, sheet: Sheet, lib, w: Wire, stagger: float = 0.0) -> list[Point]:
-    """Trasa vodiče v souřadnicích modelu. `stagger` posune lom automatické Z-trasy."""
-    ea, eb = sheet.element(w.a.element_id), sheet.element(w.b.element_id)
+def wire_route(project: Project, sheet: Sheet, lib, w: Wire, stagger: float = 0.0,
+               els: dict[str, Element] | None = None) -> list[Point]:
+    """Trasa vodiče v souřadnicích modelu. `stagger` posune lom automatické Z-trasy. `els` = prvky listu podle id
+    (`element_map`; trasování celého listu tak nehledá prvky lineárně)."""
+    if els is None:
+        ea, eb = sheet.element(w.a.element_id), sheet.element(w.b.element_id)
+    else:
+        ea, eb = els[w.a.element_id], els[w.b.element_id]
     pa, da = port_geometry(project, sheet, lib, ea, w.a.port)
     pb, db = port_geometry(project, sheet, lib, eb, w.b.port)
     return route_points(pa, da, pb, db, w.points, stagger)
+
+
+def element_map(sheet: Sheet) -> dict[str, Element]:
+    """Prvky listu podle id – při duplicitním id první (jako `Sheet.element`)."""
+    out: dict[str, Element] = {}
+    for e in sheet.elements:
+        out.setdefault(e.id, e)
+    return out
 
 
 def route_points(pa: Point, da: str, pb: Point, db: str, mid: list[Point], stagger: float = 0.0) -> list[Point]:
@@ -110,11 +123,44 @@ def segments_cross(s1: tuple[Point, Point], s2: tuple[Point, Point]) -> bool:
 
 def route_score(pts: list[Point], others: list[list[tuple[Point, Point]]]) -> float:
     """Souběh = 1, křížení = 0,3 (křížení se dá snést, souběh ne)."""
-    mine = _inner_segments(pts)
+    return _route_score_boxed(pts, _boxed(others))
+
+
+def _seg_box(s: tuple[Point, Point]) -> tuple[float, float, float, float]:
+    (ax, ay), (bx, by) = s
+    return (min(ax, bx), min(ay, by), max(ax, bx), max(ay, by))
+
+
+def _box_entry(segs: list[tuple[Point, Point]]):
+    """Úseky jednoho vodiče s obálkami zvětšenými o `MIN_GAP` a obálka celého vodiče; None = bez úseků."""
+    if not segs:
+        return None
+    items = []
+    for o in segs:
+        x0, y0, x1, y1 = _seg_box(o)
+        items.append((o, x0 - MIN_GAP, y0 - MIN_GAP, x1 + MIN_GAP, y1 + MIN_GAP))
+    return (min(b[1] for b in items), min(b[2] for b in items), max(b[3] for b in items),
+            max(b[4] for b in items), items)
+
+
+def _boxed(others: list[list[tuple[Point, Point]]]) -> list:
+    """Úseky ostatních vodičů s obálkami (`_box_entry`) – po vodičích, v původním pořadí."""
+    return [b for b in map(_box_entry, others) if b is not None]
+
+
+def _route_score_boxed(pts: list[Point], boxed: list) -> float:
+    """`route_score` nad `_boxed`: úsek, jehož obálka (+ `MIN_GAP`) se nedotkne obálky úseku trasy, nemůže být
+    souběh ani křížení – přeskočí se. Pořadí sčítání nenulových příspěvků je stejné jako u úplného průchodu, takže
+    výsledek je bit po bitu shodný."""
     sc = 0.0
-    for s in mine:
-        for segs in others:
-            for o in segs:
+    for s in _inner_segments(pts):
+        sx0, sy0, sx1, sy1 = _seg_box(s)
+        for gx0, gy0, gx1, gy1, items in boxed:
+            if gx0 > sx1 or gx1 < sx0 or gy0 > sy1 or gy1 < sy0:
+                continue
+            for o, ox0, oy0, ox1, oy1 in items:
+                if ox0 > sx1 or ox1 < sx0 or oy0 > sy1 or oy1 < sy0:
+                    continue
                 if segments_conflict(s, o):
                     sc += 1.0
                 elif segments_cross(s, o):
@@ -126,42 +172,53 @@ def ends(w: Wire) -> set[tuple[str, str]]:
     return {(w.a.element_id, w.a.port), (w.b.element_id, w.b.port)}
 
 
-def best_route(project: Project, sheet: Sheet, lib, w: Wire, others) -> list[Point]:
+def best_route(project: Project, sheet: Sheet, lib, w: Wire, others,
+               els: dict[str, Element] | None = None) -> list[Point]:
     """Trasa vodiče s nejmenším souběhem s ostatními (u ručních lomů beze změny). `others` = [(konce, úseky)];
-    vodiče ze stejného portu (odbočka téhož potenciálu) smějí vést spolu."""
+    vodiče ze stejného portu (odbočka téhož potenciálu) smějí vést spolu. `els` jako u `wire_route`."""
+    return _best_route(project, sheet, lib, w, [(e, _box_entry(segs)) for e, segs in others], els)
+
+
+def _best_route(project: Project, sheet: Sheet, lib, w: Wire, placed: list,
+                els: dict[str, Element] | None) -> list[Point]:
+    """`best_route` nad položenými vodiči s obálkami: `placed` = [(konce, `_box_entry`)]."""
     mine = ends(w)
-    others = [segs for e, segs in others if not (e & mine)]
-    base = wire_route(project, sheet, lib, w)
-    if not is_staggerable(base, w) or not others:
+    base = wire_route(project, sheet, lib, w, els=els)
+    if not is_staggerable(base, w):
         return base
-    best, best_n = base, route_score(base, others)
+    boxed = [b for e, b in placed if b is not None and not (e & mine)]
+    if not boxed:
+        return base                   # bez ostatních úseků je skóre 0 – základní trasa
+    best, best_n = base, _route_score_boxed(base, boxed)
     horiz = abs(base[1][1] - base[2][1]) < 1e-6        # Z-trasa vodorovně–svisle–vodorovně
     k = 0 if horiz else 1
     lo, hi = sorted((base[1][k], base[4][k]))
     for st in STAGGERS[1:]:
         if best_n == 0:
             break
-        pts = wire_route(project, sheet, lib, w, st)
+        pts = wire_route(project, sheet, lib, w, st, els=els)
         if not (lo + 1e-6 < pts[2][k] < hi - 1e-6):    # lom mimo rozpětí → vodič by se vracel
             continue
-        n = route_score(pts, others) + 0.01 * abs(st)
+        n = _route_score_boxed(pts, boxed) + 0.01 * abs(st)
         if n < best_n - 1e-9:
             best, best_n = pts, n
     return best
 
 
 def route_sheet(project: Project, sheet: Sheet, lib) -> dict[str, list[Point]]:
-    """Trasy všech vodičů listu: nejdřív ručně lomené (pevné), pak automatické s odstupem od již položených."""
+    """Trasy všech vodičů listu: nejdřív ručně lomené (pevné), pak automatické s odstupem od již položených.
+    Obálky úseků položených vodičů se počítají jednou (`_box_entry`), prvky listu se hledají přes mapu."""
     routes: dict[str, list[Point]] = {}
     order = sorted(sheet.wires, key=lambda w: 0 if w.points else 1)
     placed: list = []
+    els = element_map(sheet)
     for w in order:
         try:
-            pts = best_route(project, sheet, lib, w, placed)
+            pts = _best_route(project, sheet, lib, w, placed, els)
         except (KeyError, ValueError, AttributeError, StopIteration):
             continue
         routes[w.id] = pts
-        placed.append((ends(w), _inner_segments(pts)))
+        placed.append((ends(w), _box_entry(_inner_segments(pts))))
     return routes
 
 

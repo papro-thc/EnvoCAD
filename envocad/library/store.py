@@ -65,6 +65,15 @@ _PARSED_SYMBOLS: dict[tuple[str, float, int], tuple] = {}
 _PARSED_CSV: dict[tuple[str, float, int], list] = {}
 
 
+def _rel(f: Path, root: Path) -> str:
+    """`str(f.relative_to(root))` pro soubor pod `root` řetězcově – `Path.relative_to` je pomalé a knihovna se při
+    každém otevření (každé `build_project`) prochází přes tisíce souborů."""
+    rs, fs = str(root), str(f)
+    if len(fs) > len(rs) + 1 and fs.startswith(rs) and fs[len(rs)] == os.sep:
+        return fs[len(rs) + 1:]
+    return str(f.relative_to(root))
+
+
 class LibraryStore:
     def __init__(self, path: Path | str | None = None, load_builtin: bool = True):
         self.path = Path(path) if path else default_db_path()
@@ -124,9 +133,10 @@ class LibraryStore:
         """Značky z JSON zdroje `root`; soubor beze změny se přeskočí, dokud se v pořadí zdrojů nezměnil žádný dřívější
         soubor (`force`). Vrací True, pokud se od tohoto místa musí přenačítat (změna tady nebo dřív)."""
         for f in sorted(root.rglob("*.json")):
-            if NON_SYMBOL_DIRS & set(f.relative_to(root).parts):   # makra a topologie nejsou značky
+            rel = _rel(f, root)
+            if NON_SYMBOL_DIRS & set(rel.split(os.sep)):   # makra a topologie nejsou značky
                 continue
-            key = f"{tag}:{f.relative_to(root)}"
+            key = f"{tag}:{rel}"
             mtime = f.stat().st_mtime
             if not force and seen.get(key) == mtime:
                 continue  # beze změny – přeskočit (start s ~700 symboly by jinak trval sekundy)
@@ -154,7 +164,7 @@ class LibraryStore:
             from envocad.library.components import read_csv
             seen = seen or {}
             for f in csvs:
-                key = f"csv:{tag}:{f.relative_to(root)}"
+                key = f"csv:{tag}:{_rel(f, root)}"
                 mtime = f.stat().st_mtime
                 if not force and seen.get(key) == mtime:
                     continue

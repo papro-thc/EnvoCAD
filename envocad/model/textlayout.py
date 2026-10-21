@@ -6,6 +6,7 @@ Co se nepodaří rozmístit, hlásí kontrola projektu (`text_overlap_findings`)
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from itertools import pairwise
 
@@ -101,11 +102,16 @@ def _place(x: float, y: float, align: str, vertical: bool, label: str, xref: str
 
 
 def _candidates(pts: list[Point], manual: bool, label: str, xref: str) -> list[LabelPos]:
-    out: list[LabelPos] = []
+    return list(_iter_candidates(pts, manual, label, xref))
+
+
+def _iter_candidates(pts: list[Point], manual: bool, label: str, xref: str):
+    """Kandidátní polohy popisku vodiče v pořadí přednosti (`_candidates`) – postupně: rozmístění končí na prvním
+    volném, další se pak nepočítají."""
     x, y, align, vertical = wire_label_anchor(pts)
     if manual and len(pts) >= 2 and abs(pts[1][1] - pts[0][1]) < 1e-6:
         x, y, align, vertical = min(pts[0][0], pts[1][0]) + GAP, pts[0][1] + GAP, "left", False
-    out.append(_place(x, y, align, vertical, label, xref, (x - GAP, y + 1.0) if vertical else None))
+    yield _place(x, y, align, vertical, label, xref, (x - GAP, y + 1.0) if vertical else None)
     width = max([len(t) * 2.0 * CHAR_W for t in (label, xref) if t] or [0.0])
     segs = sorted(((a, b) for a, b in pairwise(pts) if abs(a[0] - b[0]) + abs(a[1] - b[1]) > 1e-6),
                   key=lambda s: -(abs(s[0][0] - s[1][0]) + abs(s[0][1] - s[1][1])))
@@ -115,18 +121,17 @@ def _candidates(pts: list[Point], manual: bool, label: str, xref: str) -> list[L
             if x2 - x1 < width + 2 * GAP:
                 continue
             yy = a[1] + GAP
-            out += [_place(x1 + GAP, yy, "left", False, label, xref, None),
-                    _place((x1 + x2) / 2, yy, "center", False, label, xref, None),
-                    _place(x2 - GAP, yy, "right", False, label, xref, None)]
+            yield _place(x1 + GAP, yy, "left", False, label, xref, None)
+            yield _place((x1 + x2) / 2, yy, "center", False, label, xref, None)
+            yield _place(x2 - GAP, yy, "right", False, label, xref, None)
         else:                                  # svislý úsek: vpravo nebo vlevo, ve třetinách délky
             y1, y2 = sorted((a[1], b[1]))
             if y2 - y1 < 6.0:
                 continue
             for f in (0.5, 0.75, 0.25, 0.9, 0.1):
                 yy = y1 + (y2 - y1) * f - 1.0
-                out.append(_place(a[0] + GAP, yy, "left", True, label, xref, (a[0], yy + 1.0)))
-                out.append(_place(a[0] - GAP - 1.5, yy, "right", True, label, xref, (a[0], yy + 1.0)))
-    return out
+                yield _place(a[0] + GAP, yy, "left", True, label, xref, (a[0], yy + 1.0))
+                yield _place(a[0] - GAP - 1.5, yy, "right", True, label, xref, (a[0], yy + 1.0))
 
 
 class _Grid:
@@ -279,24 +284,26 @@ def element_label_texts(project: Project, sheet: Sheet, e: Element, sym, xref: s
 
 
 def _el_candidates(e: Element, sym, texts) -> list[ElementLabel]:
+    return list(_iter_el_candidates(e, sym, texts))
+
+
+def _iter_el_candidates(e: Element, sym, texts):
+    """Kandidátní polohy popisku prvku v pořadí přednosti (`_el_candidates`) – postupně, jako `_iter_candidates`."""
     lx, ly = rotate_point(*sym.label_pos, e.rotation)
-    out = [_el_label(e.x + lx, e.y + ly, "left", texts)]
+    yield _el_label(e.x + lx, e.y + ly, "left", texts)
     bx1, by1, bx2, by2 = symbol_box(e, sym)
     n_h = 2.5 if texts and texts[0][1] >= 2.5 else 2.0
     block = (3.5 if n_h >= 2.5 else 3.0) + 3.0 * (len(texts) - 2) if len(texts) > 1 else 0.0
     cy = (by1 + by2) / 2
     top_mid = cy + block / 2 - n_h / 2          # blok svisle na střed značky
-    out += [
-        _el_label(bx2 + GAP, top_mid, "left", texts),                    # vpravo od značky
-        _el_label(bx1 - GAP, top_mid, "right", texts),                   # vlevo
-        _el_label(bx2 + GAP, by2 - n_h, "left", texts),                  # vpravo nahoře
-        _el_label(bx1 - GAP, by2 - n_h, "right", texts),                 # vlevo nahoře
-        _el_label(bx2 + GAP, by1 + block, "left", texts),                # vpravo dole
-        _el_label(bx1 - GAP, by1 + block, "right", texts),               # vlevo dole
-        _el_label(bx1, by2 + GAP + 0.3 * n_h + block, "left", texts),    # nad
-        _el_label(bx1, by1 - GAP - n_h, "left", texts),                  # pod
-    ]
-    return out
+    yield _el_label(bx2 + GAP, top_mid, "left", texts)                    # vpravo od značky
+    yield _el_label(bx1 - GAP, top_mid, "right", texts)                   # vlevo
+    yield _el_label(bx2 + GAP, by2 - n_h, "left", texts)                  # vpravo nahoře
+    yield _el_label(bx1 - GAP, by2 - n_h, "right", texts)                 # vlevo nahoře
+    yield _el_label(bx2 + GAP, by1 + block, "left", texts)                # vpravo dole
+    yield _el_label(bx1 - GAP, by1 + block, "right", texts)               # vlevo dole
+    yield _el_label(bx1, by2 + GAP + 0.3 * n_h + block, "left", texts)    # nad
+    yield _el_label(bx1, by1 - GAP - n_h, "left", texts)                  # pod
 
 
 @dataclass
@@ -308,14 +315,32 @@ class SheetTextLayout:
 
 
 def _score(grid: _Grid, boxes: list[Box], own: str) -> float:
+    """Kolize obdélníků `boxes` s mřížkou: čára přes text `WEIGHT["line"]`, cizí text `WEIGHT["text"]`. Jako
+    průchod `grid.near` (každá položka jednou na obdélník), čáry mimo obálku textu se vyřadí bez Liang–Barsky."""
     s = 0.0
+    w_line, w_text = WEIGHT["line"], WEIGHT["text"]
+    cells, c = grid.cells, grid.CELL
     for b in boxes:
-        for ob, kind, owner in grid.near(b):
-            if kind == "line":
-                if segment_hits_box((ob[0], ob[1]), (ob[2], ob[3]), b):
-                    s += WEIGHT["line"]
-            elif owner != own and boxes_overlap(b, ob):
-                s += WEIGHT["text"]
+        bx0, by0, bx1, by1 = b
+        lx0, ly0, lx1, ly1 = bx0 + 0.2, by0 + 0.2, bx1 - 0.2, by1 - 0.2     # tolerance `segment_hits_box`
+        seen: set[int] = set()
+        for i in range(int(bx0 // c), int(bx1 // c) + 1):
+            for j in range(int(by0 // c), int(by1 // c) + 1):
+                for item in cells.get((i, j), ()):
+                    k = id(item)
+                    if k in seen:
+                        continue
+                    seen.add(k)
+                    ob, kind, owner = item
+                    if kind == "line":
+                        x0, x1 = (ob[0], ob[2]) if ob[0] <= ob[2] else (ob[2], ob[0])
+                        y0, y1 = (ob[1], ob[3]) if ob[1] <= ob[3] else (ob[3], ob[1])
+                        if x1 < lx0 or x0 > lx1 or y1 < ly0 or y0 > ly1:
+                            continue              # úsečka celá mimo obdélník – `segment_hits_box` by vrátil False
+                        if segment_hits_box((ob[0], ob[1]), (ob[2], ob[3]), b):
+                            s += w_line
+                    elif owner != own and boxes_overlap(b, ob):
+                        s += w_text
     return s
 
 
@@ -326,8 +351,61 @@ def _add_line(grid: _Grid, p: Point, q: Point, owner: str) -> None:
         grid.cells.setdefault(k, []).append(((p[0], p[1], q[0], q[1]), "line", owner))
 
 
+_LAYOUT_CACHE: dict | None = None
+
+
+@contextmanager
+def layout_cache():
+    """Mezipaměť `compute_layout` po dobu bloku (generátor: zkoušení rozložení blokového schématu a rozmístění na
+    listy počítá rozložení textů téhož stavu listu opakovaně). Klíč je úplný stav projektu, na kterém rozložení
+    závisí (`_layout_key`: listy v pořadí, jejich formát a aspekty, prvky, vodiče a volné texty s atributy) – změna
+    čehokoli z toho znamená nový výpočet, takže výsledek je stejný jako bez mezipaměti. Vrácené rozložení je sdílené
+    – volající ho nesmí měnit. Jen jedno vlákno (GUI ji nepoužívá); vnořený blok sdílí vnější mezipaměť."""
+    global _LAYOUT_CACHE
+    outer = _LAYOUT_CACHE
+    if outer is None:
+        _LAYOUT_CACHE = {}
+    try:
+        yield
+    finally:
+        if outer is None:
+            _LAYOUT_CACHE = None
+
+
+def _sheet_key(s: Sheet) -> tuple:
+    return (s.id, s.kind, s.parent_element_id, s.name, s.paper, s.width, s.height, s.func, s.loc, s.mp_paper,
+            tuple((e.id, e.symbol_id, e.x, e.y, e.rotation, e.mirror, e.component_id, tuple(e.attrs.items()))
+                  for e in s.elements),
+            tuple((w.id, w.a.element_id, w.a.port, w.b.element_id, w.b.port, tuple(w.points), tuple(w.attrs.items()),
+                   tuple(w.conductors)) for w in s.wires),
+            tuple((t.id, t.x, t.y, t.text, t.height) for t in s.texts))
+
+
+def _layout_key(project: Project, sheet: Sheet, lib) -> tuple:
+    """Klíč `layout_cache`: rozložení listu závisí i na ostatních listech (křížové odkazy přerušení a kontaktů,
+    vazby přívodů rozvaděčů, čísla listů, porty bloků podle listů rozvaděčů)."""
+    return (id(project), id(lib), _sheet_key(sheet), tuple(_sheet_key(s) for s in project.sheets),
+            tuple(project.meta.items()))
+
+
 def compute_layout(project: Project, sheet: Sheet, lib, routes: dict[str, list[Point]] | None = None,
                    xref_of=None, auto: bool = True, index=None) -> SheetTextLayout:
+    """`_compute_layout`; v bloku `layout_cache` (a jen s výchozími parametry) z mezipaměti."""
+    cache = _LAYOUT_CACHE
+    if cache is None or routes is not None or xref_of is not None or not auto or index is not None:
+        return _compute_layout(project, sheet, lib, routes, xref_of, auto, index)
+    key = _layout_key(project, sheet, lib)
+    try:
+        hit = cache.get(key)
+    except TypeError:                 # nehashovatelná hodnota atributu – bez mezipaměti
+        return _compute_layout(project, sheet, lib)
+    if hit is None:
+        hit = cache[key] = _compute_layout(project, sheet, lib)
+    return hit
+
+
+def _compute_layout(project: Project, sheet: Sheet, lib, routes: dict[str, list[Point]] | None = None,
+                    xref_of=None, auto: bool = True, index=None) -> SheetTextLayout:
     """Rozmístí popisky prvků (výchozí poloha značky, když je volná, jinak vpravo/vlevo/nad/pod) a pak popisky
     vodičů. `routes` = trasy z editoru (jinak `wire_route`); `auto=False` = jen výchozí polohy (pro kontrolu).
     Zrcadla kontaktů (`mirrors`) mají pevnou polohu pod hostitelem a jejich místo se rezervuje před popisky.
@@ -375,13 +453,12 @@ def compute_layout(project: Project, sheet: Sheet, lib, routes: dict[str, list[P
         texts = element_label_texts(project, sheet, e, sym, xref)
         if not texts:
             continue
-        cands = _el_candidates(e, sym, texts) if auto else _el_candidates(e, sym, texts)[:1]
-        best, best_s = cands[0], None
-        for i, c in enumerate(cands):
+        best, best_s = None, None
+        for i, c in enumerate(_iter_el_candidates(e, sym, texts)):     # postupně – většinou stačí první
             sc = _score(grid, c.boxes, e.id) + 0.01 * i
             if best_s is None or sc < best_s:
                 best, best_s = c, sc
-            if sc < 0.5:
+            if sc < 0.5 or not auto:
                 break
         out.elements[e.id] = best
         for b in best.boxes:
@@ -394,15 +471,12 @@ def compute_layout(project: Project, sheet: Sheet, lib, routes: dict[str, list[P
         xref = xref_of(w)
         if not (label or xref):
             continue
-        cands = _candidates(pts, bool(w.points), label, xref)
-        if not auto:
-            cands = cands[:1]
-        best, best_s = cands[0], None
-        for i, c in enumerate(cands):
+        best, best_s = None, None
+        for i, c in enumerate(_iter_candidates(pts, bool(w.points), label, xref)):
             sc = _score(grid, c.boxes, w.id) + 0.01 * i
             if best_s is None or sc < best_s:
                 best, best_s = c, sc
-            if sc < 0.5:
+            if sc < 0.5 or not auto:
                 break
         out.wires[w.id] = best
         for b in best.boxes:

@@ -848,7 +848,11 @@ class Project:
         raise KeyError(sid)
 
     def sheet_of_element(self, eid: str) -> Sheet | None:
-        return next((s for s in self.sheets if any(e.id == eid for e in s.elements)), None)
+        for s in self.sheets:                 # první list s prvkem (prostá smyčka – volá se tisíckrát za generování)
+            for e in s.elements:
+                if e.id == eid:
+                    return s
+        return None
 
     def switchboard_sheet(self, block_element_id: str) -> Sheet | None:
         """List rozvaděče reprezentovaný blokem na nadřazeném listu (nebo None)."""
@@ -1678,13 +1682,38 @@ def wire_label(attrs: dict, conductors: list[str] | None = None) -> str:
 
 def feed_link_index(project: Project) -> dict[str, list[tuple[Sheet, Element]]]:
     """{id vodiče JPS: [(list rozvaděče, přívod/vývod)…]} – spočítat jednou, pak se ptát za každý vodič
-    (výkazy a překreslení s 800 vodiči by jinak procházely všechny přívody × vodiče pokaždé)."""
+    (výkazy a překreslení s 800 vodiči by jinak procházely všechny přívody × vodiče pokaždé). Vazba jako
+    `linked_wire` (ruční `wire_id`, jinak vodič na portu bloku se jménem přívodu), jen přes mapy postavené jednou
+    – vodiče podle id, list prvku a konce vodičů nadřazeného listu (vždy první výskyt, jako lineární hledání)."""
     out: dict[str, list[tuple[Sheet, Element]]] = {}
+    wires: dict[str, tuple[Sheet, Wire]] | None = None
+    owner: dict[str, Sheet] | None = None
+    ends: dict[int, dict[tuple[str, str], Wire]] = {}       # nadřazený list → {(prvek, port): první vodič}
     for s in project.sheets:
         for e in s.elements:
             if e.symbol_id not in FEED_SYMBOLS:
                 continue
-            hit = linked_wire(project, s, e)
+            if wires is None:
+                wires, owner = {}, {}
+                for s2 in project.sheets:
+                    for w in s2.wires:
+                        wires.setdefault(w.id, (s2, w))
+                    for e2 in s2.elements:
+                        owner.setdefault(e2.id, s2)
+            wid = e.attrs.get("wire_id", "")
+            hit = wires.get(wid) if wid else None
+            if hit is None and s.parent_element_id and e.ref:       # `feed_wire_by_port`
+                ps = owner.get(s.parent_element_id)
+                if ps is not None:
+                    by_end = ends.get(id(ps))
+                    if by_end is None:
+                        by_end = ends[id(ps)] = {}
+                        for w in ps.wires:
+                            for end in (w.a, w.b):
+                                by_end.setdefault((end.element_id, end.port), w)
+                    w = by_end.get((s.parent_element_id, e.ref))
+                    if w is not None:
+                        hit = (ps, w)
             if hit is not None:
                 out.setdefault(hit[1].id, []).append((s, e))
     return out
