@@ -4,7 +4,7 @@ AC rozvaděče FVE. Jedno místo pro pravidla – používá je list RFVE.AC (ve
 
 Pravidla (review F2, D1 / D2 / B3):
 - proud střídače: `i_ac_max_a` artiklu (`component_id`), jinak z P AC (3f: P / (√3 · 400 V), 1f: P / 230 V);
-- automatický jistič přívodu střídače: nejbližší velikost řady ≥ proud z artiklu, nebo ≥ 1,25 × proud z P AC; nad
+- automatický jistič přívodu střídače: nejbližší velikost řady ≥ 1,25 × proud (z artiklu i z P AC); nad
   řadou (3f do 250 A, 1f do 63 A) zůstane In prázdné s důvodem (`in_unresolved`, chyba F7) – nic se nedosazuje;
 - vývod FVE v RD / HR (nezadaný): nejbližší velikost ≥ max(Σ proudů střídačů, největší jistič střídače) – jako u vn;
 - hlavní vypínač AC rozvaděče FVE (nezadaný): nejméně výchozí 125 A a nejméně vývod FVE (jinak by odpínač ležel
@@ -21,7 +21,7 @@ from envocad.model.project import Element
 
 AC3_BREAKER_SIZES = (10, 13, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250)
 AC1_BREAKER_SIZES = (10, 13, 16, 20, 25, 32, 40, 50, 63)
-BREAKER_FACTOR = 1.25          # jistič ≥ 1,25 × proud střídače spočtený z P AC (artikl uvádí max. proud přímo)
+BREAKER_FACTOR = 1.25          # jistič ≥ 1,25 × max. AC proud střídače (z artiklu i z P AC)
 U_3F, U_1F = 400.0, 230.0
 MAIN_SWITCH_MIN = 125.0        # výchozí hlavní vypínač AC rozvaděče FVE (`DEFAULT_SPEC.ac.main_in`)
 
@@ -64,7 +64,7 @@ def inverter_breaker(inv) -> tuple[str, str]:
     i, src = inverter_current(inv)
     if i is None:
         return "", ""
-    need = i if src == "artikl" else i * BREAKER_FACTOR
+    need = i * BREAKER_FACTOR
     sizes = AC1_BREAKER_SIZES if single_phase(inv) else AC3_BREAKER_SIZES
     x = next((s for s in sizes if s >= need - 1e-9), None)
     if x is None:
