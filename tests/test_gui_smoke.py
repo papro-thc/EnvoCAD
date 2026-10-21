@@ -600,7 +600,7 @@ def test_multipole_pagination(app):
         assert out.stat().st_size > 5000
 
 
-@pytest.mark.usefixtures("ac_builtin")   # list RFVE.AC vestavěným kódem
+@pytest.mark.usefixtures("ac_builtin_fn")   # list RFVE.AC vestavěným kódem
 def test_edit_in_switchboard_schematic(app):
     """Ve schématu rozvaděče (vícepól) jde vkládat prvky a kreslit žíly – i u vygenerovaného projektu."""
     from PySide6.QtCore import QPointF
@@ -644,7 +644,7 @@ def test_edit_in_switchboard_schematic(app):
     w.close()
 
 
-@pytest.mark.usefixtures("ac_builtin")   # list RFVE.AC vestavěným kódem
+@pytest.mark.usefixtures("ac_builtin_fn")   # list RFVE.AC vestavěným kódem
 def test_feed_cable_tag_edit_and_move(app):
     """Štítek kabelu u přívodu: dvojklik otevře parametry přívodu, tažení posune celý přívod."""
     from PySide6.QtCore import QPoint, Qt
@@ -1525,6 +1525,7 @@ def test_menu_export_production_xlsx(app, tmp_path, monkeypatch):
         win.close()
 
 
+@pytest.mark.usefixtures("ac_builtin_fn")   # listy trafostanice vestavěným kódem
 def test_wizard_vn_connection_and_single_line_tab(app, tmp_path):
     from envocad.generate import build_project
     from envocad.ui.dialogs import ProjectWizard
@@ -1618,3 +1619,19 @@ def test_busbar_taps_change_refreshes_symbol(app, tmp_path):
     assert bus.attrs["taps"] == "4" and {"B3", "B4"} <= names()
     undo.undo()
     assert bus.attrs["taps"] == "2" and "B4" not in names()
+
+
+@pytest.mark.parametrize("building,level", [("company", "nn"), ("house", "nn"), ("apartment", "nn"),
+                                            ("company", "vn")])
+def test_wizard_defaults_f7_clean(app, building, level):
+    """Výchozí pole průvodce (stringy „18,18,18,18; 18,18“ – Uoc při −20 °C pod 1100 V střídače): projekt firma, RD,
+    BD i přípojka VN projde kontrolou F7 bez chyb a varování."""
+    from envocad.generate import build_project
+    from envocad.model.checks import ERROR, WARNING, check_project
+    from envocad.ui.dialogs import ProjectWizard
+    d = ProjectWizard()
+    d.building.setCurrentIndex(d.building.findData(building))
+    d.conn_level.setCurrentIndex(d.conn_level.findData(level))
+    p = build_project(d.spec())
+    bad = [(f.code, f.ref, f.text) for f in check_project(p, LibraryStore()) if f.severity in (ERROR, WARNING)]
+    assert bad == []

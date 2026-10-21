@@ -82,3 +82,11 @@ def ac_builtin():
     mp.setattr(spec, "ac_builtin_default", lambda: True)
     yield
     mp.undo()
+
+
+@pytest.fixture
+def ac_builtin_fn(monkeypatch):
+    """Jako `ac_builtin`, ale jen pro jeden test – v modulech, kde ostatní testy jedou ve výchozím rozsahu (modulový
+    fixture by po prvním použití zůstal zapnutý pro zbytek modulu)."""
+    from envocad.generator import spec
+    monkeypatch.setattr(spec, "ac_builtin_default", lambda: True)
