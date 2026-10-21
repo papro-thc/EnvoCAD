@@ -257,3 +257,8 @@ připravené (F4 po dodání mustrů).
 11. **Skupiny střídačů (`ac_group`)** (2026-10-21): síťová ochrana v každém RFVE.AC zvlášť. Rodinné domy se na vn
     nepřipojují (beze změny – chyba). Skupiny zatím jen u nn s HR; RD a vn hlásí srozumitelnou chybu (rozšíření podle
     potřeby).
+12. **Rozsah generátoru** (2026-10-21, Patrik): generátor dělá hlavně **blokové schéma a DC rozvaděče**. AC rozvaděče
+    připraví Patrik (mustry). Proto: RD / HR / RE / HDS jen jako **bloky bez listů** (žádné chyby F7 o chybějícím In
+    stávajících přístrojů); list RFVE.AC (a AC část RFVE u RD) jen když existuje mustr (makra rolí `ac_feed`/`ac_core`/
+    `ac_eps` ve sdílené / vlastní knihovně), jinak blok bez listu (u RD list RFVE jen s DC částí + přívody/vývody).
+    Vestavěný kód AC listů zůstává jako volba (`chain.<role>.builtin: true` / standard) pro testy a nouzi.
