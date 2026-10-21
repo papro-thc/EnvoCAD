@@ -306,12 +306,15 @@ def test_inverter_input_bundle_fans_without_overlap(lib, per):
 
 @pytest.mark.parametrize("dist", ["bus", "terminals"])
 def test_grid_at_xout_height(lib, dist):
+    """DS stojí na výšce portu, ze kterého k ní vede vodič (rovně) – od F2 na konci řetězce (HDS), ne u XOUT."""
     p = build_project(spec(2, 6, ac={"distribution": dist}))
-    s = p.sheets[0]
-    blk = next(e for e in s.elements if e.ref == "RFVE.AC")
+    s = next(sh for sh in p.sheets if any(e.symbol_id == "fve.grid" for e in sh.elements))
     grid = next(e for e in s.elements if e.symbol_id == "fve.grid")
-    sym_b, sym_g = element_symbol(p, blk, lib), element_symbol(p, grid, lib)
-    assert blk.port_pos(sym_b, "XOUT")[1] == grid.port_pos(sym_g, "1")[1]
+    w = next(w for w in s.wires if w.touches(grid.id))
+    other, port = (w.a.element_id, w.a.port) if w.b.element_id == grid.id else (w.b.element_id, w.b.port)
+    src = s.element(other)
+    assert src.port_pos(element_symbol(p, src, lib), port)[1] == grid.port_pos(element_symbol(p, grid, lib), "1")[1]
+    assert not w.points
 
 
 # ---- 11. čitelné názvy prvků bez označení ---------------------------------------------------------------------

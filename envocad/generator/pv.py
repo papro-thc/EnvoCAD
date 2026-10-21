@@ -52,7 +52,10 @@ def plan(spec: dict, combined: bool, per_inverter: bool = True) -> PvGeometry:
     # rozvaděč FVE: lomy všech stringů do jednoho bloku a vlevo od něj svislé úseky AC vodičů od střídačů
     n_lanes = n_all + len(invs) if combined else (n_all if common_dc else n_max)
     dc_first = len(invs) + (1 if (spec["ac"].get("distribution") or "bus") == "bus" else 2)   # za AC přívody (a svorkami X(n+1))
-    x_box0 = x_str + 60.0 + 5.0 * n_lanes   # lomy stringů až za popisky kabelů u stringů
+    # lomy stringů až za popisky kabelů u stringů; u společného RFVE.DC za rozvaděči po trase jen stringy jedné řady
+    # (do rozvaděče po trase vede řada svého střídače) – lomy všech stringů jsou až před RFVE.DC
+    n_first = n_max if common_dc and n_route else n_lanes
+    x_box0 = x_str + 60.0 + 5.0 * n_first
     x_boxes = [x_box0 + j * box_pitch for j in range(n_boxes)]
     if (combined or common_dc) and n_boxes > 1:
         # rozvaděč FVE za rozvaděči po trase: popisek kabelu od rozvaděče po trase (~40 mm) se musí vejít před lomy

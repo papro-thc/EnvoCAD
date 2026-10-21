@@ -2,9 +2,21 @@
 kap. 8): označení z presetů, společný RFVE.DC, HDS, RE na nn, stávající RD / HR, kabely mezi články."""
 from __future__ import annotations
 
+import functools
+
+import pytest
+
 from envocad.generate import build_project
 from envocad.generator.spec import chain_flag, chain_options, node_ref
 from envocad.library.topologies import load_topologies
+from envocad.model.project import element_symbol
+
+
+@functools.cache
+def _lib():
+    from envocad.library.store import LibraryStore
+    return LibraryStore()
+
 
 _INV = {"p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30}
 
@@ -454,3 +466,69 @@ def test_single_phase_inverter_ac_cable():
     from envocad.model.calc import check_cables
     assert not [c for c in check_cables(p) if c.ref == w1.attrs["ref"] and c.issues]
     assert LibraryStore() is not None
+
+
+# ---- rozhodnutí (d): řetězec stávajících článků svisle – výkres jako před F2 --------------------------------------
+# počet listů JPS případů snímku, které se na main (před F2) vešly na A2 / A3 – musí se vejít i teď
+MAIN_JPS_SHEETS = {"default_1inv": 1, "two_inv": 1, "route2_terminals": 1, "with_component": 1,
+                   "house_code_battery": 1, "house_2inv": 1, "house_3inv": 1, "apartment_optimizer": 1,
+                   "vn_kobky_vn_1250": 2, "split_4x8": 5, "dc_disconnect": 1, "house_ac_only": 1, "house_terminals": 1,
+                   "company_battery": 1, "fuse_in_unresolved": 1, "macro_values": 1, "two_inv_per_inverter": 1,
+                   "nn_existing_fuse": 2, "nn_hr_meter": 1, "house_existing": 1, "inverter_1phase": 1}
+
+
+@pytest.mark.parametrize("name", sorted(MAIN_JPS_SHEETS))
+def test_snapshot_cases_fit_like_main(name):
+    """Případy snímku, které se před F2 vešly na A2: stejný počet listů JPS, žádný větší než A2, vodiče se nekříží."""
+    from generate_snapshot import CASES
+    from test_feed_review import _crossings
+
+    from envocad.generate import build_project as build
+    p = build(CASES[name])
+    jps = [s for s in p.sheets if not s.is_switchboard]
+    assert [s.paper for s in jps if s.paper not in ("A3", "A2")] == [] and len(jps) == MAIN_JPS_SHEETS[name], \
+        [s.paper for s in jps]
+    if name in KNOWN_CROSSINGS:      # křížení mimo řetězec stávajících článků – stejně na main (ROADMAP)
+        return
+    lib = _lib()
+    assert [(s.name, a, b) for s in jps for a, b in _crossings(p, s, lib)] == []
+
+
+# známá křížení z doby před F2 (i na main): DC vodiče rozvaděče FVE ke 3. střídači rodinného domu, měřicí obvody
+# XMI / XMU k RE u přípojky VN (kobky) – řeší se samostatně
+KNOWN_CROSSINGS = {"house_3inv", "vn_kobky_vn_1250"}
+
+
+@pytest.mark.parametrize("n,k,sheets", [(1, 6, 1), (2, 3, 1), (2, 4, 1), (3, 2, 1), (2, 6, 2), (4, 2, 2), (3, 3, 2)])
+def test_company_chain_column_keeps_a2(n, k, sheets):
+    """Firma (řetězec HR → RE → HDS → DS svisle pod RFVE.AC): jako před F2 – 1–2 střídače do 4 stringů na jednom
+    listu A2, větší dělené listy A2 (žádný A1); vedení RFVE.AC → HR neobchází list (vede k HR shora zprava)."""
+    p = build_project({"inverters": [{"ref": f"T{i}", **_INV, "strings": [20] * k} for i in range(1, n + 1)]})
+    jps = [s for s in p.sheets if not s.is_switchboard]
+    assert all(s.paper == "A2" for s in jps) and len(jps) == sheets, [s.paper for s in jps]   # listy jako na main
+    s = jps[0]
+    hr = _el(s, "HR")
+    w = _link(p, "RFVE.AC", "HR")
+    assert len(w.points) == 2 and w.points[0][0] == w.points[1][0]       # vpravo, svisle dolů, do X1 zprava
+    lib = _lib()
+    x1 = hr.port_pos(element_symbol(p, hr, lib), "X1")
+    assert w.points[1][1] == x1[1] and w.points[1][0] > x1[0]
+
+
+def test_house_chain_column_on_a2():
+    """Rodinný dům se 2 střídači × 4 stringy (před F2 jeden list A2): řetězec RD → RE → HDS → DS svisle vpravo."""
+    p = build_project({**_HOUSE, "inverters": [{"ref": f"T{i}", **_INV, "strings": [20] * 4} for i in (1, 2)]})
+    jps = [s for s in p.sheets if not s.is_switchboard]
+    assert [s.paper for s in jps] == ["A2"]
+
+
+def test_close_gaps_and_stack_components():
+    """Rozdělené JPS se společným RFVE.DC: list střídače bez prázdného pruhu po RFVE.DC (A2, ne A1); na listu AC
+    a připojení u přípojky VN je RFVE.DC pod řetězcem (A2)."""
+    p = build_project({"inverters": [{"ref": f"T{i}", **_INV, "strings": [20] * 8} for i in range(1, 5)],
+                       "jps": {"split": "auto", "max_paper": "A2", "paper": "A2"}})
+    assert [s.paper for s in p.sheets if not s.is_switchboard] == ["A2"] * 5
+    p = build_project({"inverters": [{"ref": "T1", **_INV, "strings": [20, 20]}, {"ref": "T2", **_INV, "strings": [20]}],
+                       "connection": {"level": "vn", "station": "kobky", "loop": False, "metering": "vn",
+                                      "u_vn": "35 kV", "transformer": {"sn": 1250}}})
+    assert [s.paper for s in p.sheets if not s.is_switchboard] == ["A2", "A2"]

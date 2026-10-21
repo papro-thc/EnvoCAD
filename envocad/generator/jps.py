@@ -55,6 +55,9 @@ def _place_jps(p: Project, s: Sheet, opts: dict, rows: list[list[Element]], ac_w
     sheets = _split_jps(p, s, rows, ac_wires, blk, sizes)
     if after_split is not None:       # list „AC a připojení“ bez řad střídačů: řetězec znovu pod jeho obsah
         after_split()
+    for sh in sheets:                 # společný DC rozvaděč zůstal na listu AC – mezera po něm v řadě se zavře
+        close_gaps(p, sh, lib)
+    stack_components(p, s, blk, lib, sizes)
     for sh in [s, *sheets]:
         bx = sheet_content_boxes(p, sh, lib)
         if bx:
@@ -62,6 +65,119 @@ def _place_jps(p: Project, s: Sheet, opts: dict, rows: list[list[Element]], ac_w
             if pl[0] == "vlastní":        # řada střídače sama přesahuje formát listu → nejmenší normalizovaný
                 pl = fit_placement(bx)
             apply_placement(sh, pl)
+
+
+GAP_KEEP = 30.0     # šířka svislého pruhu, na kterou se zúží prázdný pruh listu střídače (mm)
+
+
+def gap_shift(boxes: list, keep: float = GAP_KEEP):
+    """Funkce x → x po zúžení prázdných svislých pruhů mezi obálkami `boxes` na `keep` (None = žádný pruh)."""
+    boxes = sorted(boxes, key=lambda b: b[0])
+    if not boxes:
+        return None
+    cuts: list[tuple[float, float]] = []          # (x začátku pruhu, posun obsahu vpravo od něj)
+    right = boxes[0][2]
+    for b in boxes[1:]:
+        if b[0] - right > keep + 2.5:
+            cuts.append((right, round((b[0] - right - keep) / 2.5) * 2.5))
+        right = max(right, b[2])
+    if not cuts:
+        return None
+    return lambda x: x - sum(d for x0, d in cuts if x > x0)
+
+
+def close_gaps(p: Project, sh: Sheet, lib, keep: float = GAP_KEEP) -> bool:
+    """Zúží prázdné svislé pruhy listu (bez značek, textů i vodičů) na `keep`: obsah vpravo od pruhu se posune vlevo.
+    Na listu střídače po rozdělení JPS zůstane místo po společném RFVE.DC (ten je na listu AC) – list by byl zbytečně
+    široký. True = něco se posunulo."""
+    from envocad.model.textlayout import sheet_content_boxes
+    shift = gap_shift(sheet_content_boxes(p, sh, lib), keep)
+    if shift is None:
+        return False
+    for e in sh.elements:
+        e.x = shift(e.x)
+    for w in sh.wires:
+        w.points = [(shift(x), y) for x, y in w.points]
+    for t in sh.texts:
+        t.x = shift(t.x)
+    return True
+
+
+def _components(sh: Sheet) -> list[set[str]]:
+    """Souvislé skupiny prvků listu (spojené vodiči)."""
+    parent = {e.id: e.id for e in sh.elements}
+
+    def find(a: str) -> str:
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+    for w in sh.wires:
+        if w.a.element_id in parent and w.b.element_id in parent:
+            parent[find(w.a.element_id)] = find(w.b.element_id)
+    groups: dict[str, set[str]] = {}
+    for e in sh.elements:
+        groups.setdefault(find(e.id), set()).add(e.id)
+    return list(groups.values())
+
+
+def stack_components(p: Project, sh: Sheet, blk: Element, lib, sizes=None) -> bool:
+    """List „AC a připojení“ po rozdělení JPS: samostatné skupiny bez vazby vodičem na blok AC rozvaděče (společný
+    RFVE.DC s přerušeními) zkusí přesunout pod nebo nad zbytek listu, pokud tím list vyjde menší (přípojka VN v řadě
+    za RFVE.AC by se společným RFVE.DC vlevo přerostla formát). True = něco se přesunulo."""
+    from envocad.model.frame import PAPER_SIZES, fit_placement
+    from envocad.model.textlayout import sheet_content_boxes
+    comps = _components(sh)
+    others = [c for c in comps if blk.id not in c and len(c) > 1]
+    if not others:
+        return False
+    order = [n for n, _w, _h in PAPER_SIZES]
+
+    def rank(boxes) -> tuple:
+        name = fit_placement(boxes, sizes)[0] if boxes else "A3"
+        w = max(b[2] for b in boxes) - min(b[0] for b in boxes)
+        h = max(b[3] for b in boxes) - min(b[1] for b in boxes)
+        return (order.index(name) if name in order else len(order), w * h)
+
+    def boxes_of(ids: set[str] | None):
+        keep_el, keep_w = sh.elements, sh.wires
+        if ids is not None:
+            sh.elements = [e for e in keep_el if e.id in ids]
+            sh.wires = [w for w in keep_w if w.a.element_id in ids and w.b.element_id in ids]
+        try:
+            return sheet_content_boxes(p, sh, lib)
+        finally:
+            sh.elements, sh.wires = keep_el, keep_w
+
+    def move(ids: set[str], dx: float, dy: float) -> None:
+        for e in sh.elements:
+            if e.id in ids:
+                e.x, e.y = e.x + dx, e.y + dy
+        for w in sh.wires:
+            if w.a.element_id in ids and w.b.element_id in ids:
+                w.points = [(x + dx, y + dy) for x, y in w.points]
+
+    moved = False
+    for comp in others:
+        own = boxes_of(comp)
+        rest_ids = {e.id for e in sh.elements} - comp
+        rest = boxes_of(rest_ids)
+        if not own or not rest:
+            continue
+        ox0, oy0, _ox1, oy1 = (min(b[0] for b in own), min(b[1] for b in own), max(b[2] for b in own),
+                              max(b[3] for b in own))
+        rx0, ry0, _rx1, ry1 = (min(b[0] for b in rest), min(b[1] for b in rest), max(b[2] for b in rest),
+                               max(b[3] for b in rest))
+        best, best_r = (0.0, 0.0), rank(own + rest)
+        for dx, dy in ((rx0 - ox0, ry0 - 15.0 - oy1), (rx0 - ox0, ry1 + 15.0 - oy0)):     # pod, nad zbytkem
+            dx, dy = round(dx / 2.5) * 2.5, round(dy / 2.5) * 2.5
+            r = rank([(b[0] + dx, b[1] + dy, b[2] + dx, b[3] + dy) for b in own] + rest)
+            if r < best_r:
+                best, best_r = (dx, dy), r
+        if best != (0.0, 0.0):
+            move(comp, *best)
+            moved = True
+    return moved
 
 
 def _split_jps(p: Project, s: Sheet, rows: list[list[Element]], ac_wires: list[Wire], blk: Element,
@@ -145,6 +261,9 @@ def _split_jps(p: Project, s: Sheet, rows: list[list[Element]], ac_wires: list[W
 
     def fits(sh: Sheet) -> bool:
         bx = sheet_content_boxes(p, sh, lib)
+        shift = gap_shift(bx)               # jako po `close_gaps` (mezera po společném RFVE.DC se zavře)
+        if shift is not None:
+            bx = [(shift(b[0]), b[1], shift(b[0]) + b[2] - b[0], b[3]) for b in bx]
         return not bx or fit_placement(bx, sizes)[0] != "vlastní"
 
     sheets: list[Sheet] = []

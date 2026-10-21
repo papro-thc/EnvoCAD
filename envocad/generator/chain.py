@@ -214,6 +214,171 @@ def _paper_index(name: str) -> int:
     return order.index(name) if name in order else len(order)
 
 
+CHAIN_LAYOUTS = ("column", "column_top", "below", "row")
+
+
+def _chain_layout_score(ctx: ChainContext, wires: set[str]) -> tuple:
+    """Hodnocení rozložení řetězce na listu: (křížení vodičů řetězce, překryvy textů, formát, plocha obsahu) – menší
+    je lepší. Křížení = úsek vodiče řetězce přes cizí vodič nebo přes značku."""
+    from itertools import pairwise
+
+    from envocad.generator import context
+    from envocad.model.frame import fit_placement
+    from envocad.model.project import element_symbol
+    from envocad.model.textlayout import (
+        compute_layout,
+        segment_hits_box,
+        sheet_content_boxes,
+        symbol_box,
+        text_overlaps,
+    )
+    p, s, lib = ctx.project, ctx.sheet, context._lib()
+    lay = compute_layout(p, s, lib)
+    boxes = sheet_content_boxes(p, s, lib, lay)
+    segs = {wid: [(a, b) for a, b in pairwise(pts) if a != b] for wid, pts in lay.routes.items()}
+    ends = {w.id: {w.a.element_id, w.b.element_id} for w in s.wires}
+    cross = 0
+    for wid in wires & set(segs):
+        for a, b in segs[wid]:
+            for oid, other in segs.items():
+                if oid == wid:
+                    continue
+                for c, d in other:
+                    if _segments_cross((a, b), (c, d)):
+                        cross += 1
+            for e in s.elements:
+                if e.id in ends.get(wid, ()):
+                    continue
+                x1, y1, x2, y2 = symbol_box(e, element_symbol(p, e, lib))
+                if segment_hits_box(a, b, (x1 + 0.5, y1 + 0.5, x2 - 0.5, y2 - 0.5)):
+                    cross += 1
+    over = len(text_overlaps(p, s, lib, lay))
+    paper = fit_placement(boxes)[0] if boxes else "A3"
+    w = max(b[2] for b in boxes) - min(b[0] for b in boxes)
+    h = max(b[3] for b in boxes) - min(b[1] for b in boxes)
+    return (cross, over, _paper_index(paper), w * h)
+
+
+def _segments_cross(s1, s2) -> bool:
+    """Vodorovný úsek přes svislý uvnitř obou úseků (jako test `_crossings`)."""
+    (p, q), (r, t) = s1, s2
+    if p[1] == q[1] and r[0] == t[0]:
+        h, v = (p, q), (r, t)
+    elif r[1] == t[1] and p[0] == q[0]:
+        h, v = (r, t), (p, q)
+    else:
+        return False
+    x0, x1 = sorted((h[0][0], h[1][0]))
+    y0, y1 = sorted((v[0][1], v[1][1]))
+    return x0 + 0.1 < v[0][0] < x1 - 0.1 and y0 + 0.1 < h[0][1] < y1 - 0.1
+
+
+def _choose_chain_layout(ctx: ChainContext, links: list, in_row) -> str:
+    """Zkusí rozložení řetězce stávajících článků (svisle pod RFVE.AC, v řadě pod FV částí, v řadě za RFVE.AC),
+    každé ohodnotí (`_chain_layout_score`) a nechá nejlepší; vrací jeho název."""
+    from envocad.generator.layout import _chain_column, chain_snapshot
+    p, s, blk = ctx.project, ctx.sheet, ctx.main
+    els = [el for _p, _q, el, _r, _w in links] + [ld for _b, _pt, ld, _w in ctx.loads]
+    wires = [w for *_x, w in links] + [w for *_x, w in ctx.loads]
+    # „column_top“ posouvá i RFVE.AC s uzemněním (AC vodiče střídačů dostanou nové lomy)
+    w_earth = [w for w in s.wires if ctx.earth is not None and w.touches(ctx.earth.id)]
+    restore = chain_snapshot(s, [*els, blk, *([ctx.earth] if ctx.earth is not None else [])],
+                             [*wires, *w_earth, *ctx.ac_wires])
+    target = _boundary_target(ctx)
+
+    def apply(mode: str) -> bool:
+        restore()
+        in_row()
+        if mode == "column_top" and not _raise_main(ctx):
+            return False
+        if mode in ("column", "column_top"):
+            return _chain_column(p, s, blk, links, ctx.loads, ctx.earth, target)
+        if mode == "below":
+            return _chain_below(p, blk, links, ctx.loads, ctx.earth)
+        return True
+
+    best, best_score = "row", None
+    ids = {w.id for w in wires}
+    for mode in CHAIN_LAYOUTS:
+        if not apply(mode):
+            continue
+        _boundary_text(ctx)
+        sc = _chain_layout_score(ctx, ids)
+        if best_score is None or sc < best_score:
+            best, best_score = mode, sc
+    apply(best)
+    return best
+
+
+def _choose_house_layout(ctx: ChainContext, first: tuple, links: list, in_row) -> str:
+    """Rodinný dům: řetězec za RD v řadě pod vším (`_route_house` + `_align_chain`), nebo svisle vpravo od FV části
+    (`_house_column`) – nechá rozložení s lepším hodnocením (`_chain_layout_score`); vrací jeho název."""
+    from envocad.generator.layout import _house_column, chain_snapshot
+    p, s, blk = ctx.project, ctx.sheet, ctx.main
+    el0, _port0, w0 = first
+    els = [el0, *(el for _p, _q, el, _r, _w in links), *(ld for _b, _pt, ld, _w in ctx.loads)]
+    wires = [w0, *(w for *_x, w in links), *(w for *_x, w in ctx.loads)]
+    restore = chain_snapshot(s, els, wires)
+    target = _boundary_target(ctx)
+
+    def apply(mode: str) -> bool:
+        restore()
+        if mode == "column":
+            return _house_column(p, s, blk, first, links, ctx.loads, ctx.earth, target)
+        in_row()
+        return True
+
+    best, best_score = "row", None
+    ids = {w.id for w in wires}
+    for mode in ("row", "column"):
+        if not apply(mode):
+            continue
+        _boundary_text(ctx)
+        sc = _chain_layout_score(ctx, ids)
+        if best_score is None or sc < best_score:
+            best, best_score = mode, sc
+    apply(best)
+    return best
+
+
+def _raise_main(ctx: ChainContext) -> bool:
+    """RFVE.AC (s uzemněním) nahoru: horní přívod na výšku AC vývodu nejvyššího střídače na listu – pod blokem je
+    pak místo na svislý řetězec. False = blok už výš nejde (nic se nezměnilo)."""
+    from envocad.generator import context
+    from envocad.model.project import element_symbol
+    p, s, blk, lib = ctx.project, ctx.sheet, ctx.main, context._lib()
+    ys = []
+    for w in ctx.ac_wires:
+        a = s.element(w.a.element_id) if any(e.id == w.a.element_id for e in s.elements) else None
+        if a is not None:
+            ys.append(a.port_pos(element_symbol(p, a, lib), w.a.port)[1])
+    sym = element_symbol(p, blk, lib)
+    feeds = [blk.port_pos(sym, pt.name)[1] for pt in sym.ports if pt.dir == "W"]
+    if not ys or not feeds:
+        return False
+    dy = round((max(ys) - max(feeds)) / 2.5) * 2.5
+    if dy <= 0:
+        return False
+    blk.y += dy
+    if ctx.earth is not None:
+        ctx.earth.y += dy
+    for w in s.wires:
+        if ctx.earth is not None and w.touches(ctx.earth.id):
+            w.points = [(x, y + dy) for x, y in w.points]
+    _align_bends(p)
+    return True
+
+
+def _boundary_target(ctx: ChainContext) -> Element | None:
+    """Prvek blokového schématu, nad kterým leží text hranice vlastnictví (HDS, nebo blok s měřením)."""
+    if ctx.boundary is None:
+        return None
+    blk, mode = ctx.boundary
+    if mode == "hds":
+        return next((e for e in ctx.sheet.elements if e.symbol_id == hds.HDS_SYMBOL), None)
+    return blk
+
+
 def _layout(ctx: ChainContext) -> None:
     """Zarovnání bloků a lomů JPS, rozmístění na list(y), zvětšení přetékajících listů rozvaděčů, vazby přívodů."""
     p, s, blk = ctx.project, ctx.sheet, ctx.main
@@ -223,36 +388,37 @@ def _layout(ctx: ChainContext) -> None:
                                        for i in range(len(ctx.inverters))])
     _align_bends(p)
     links = list(ctx.links)
-    below = False
-    x0: dict[str, float] = {}
+    mode = "row"
 
     def in_row() -> None:
-        for e_id, x in x0.items():        # řetězec zpět za RFVE.AC (po nepovedeném umístění pod obsah)
-            ctx.sheet.element(e_id).x = x
         _align_chain(p, links)
         _place_loads(ctx)
 
+    choose = not ctx.combined and ctx.mv is None and len(links) > 2
+    first = None
     if ctx.combined and links:
-        _prev, _pp, first, port, w = links.pop(0)
-        _route_house(p, blk, ctx.ac_wires, (first, port, w), ctx.earth)
+        _prev, _pp, el0, port0, w0 = links.pop(0)
+        first = (el0, port0, w0)
+        _route_house(p, blk, ctx.ac_wires, first, ctx.earth)
+        if links:
+            mode = _choose_house_layout(ctx, first, links, in_row)
     else:
         _align_outputs(p, blk, None, ctx.earth)
-        # firma na nn s několika články za RFVE.AC: řetězec v řadě pod FV částí (užší výkres), pokud tím list
-        # vyjde menší (vysoké FV části s mnoha stringy zůstane řetězec v řadě za RFVE.AC)
-        if ctx.mv is None and len(links) > 2:
-            in_row()
-            paper_row = _paper(ctx)
-            below = _chain_below(p, blk, links, ctx.loads, ctx.earth, x0)
-            if below and _paper_index(_paper(ctx)) > _paper_index(paper_row):
-                below = False
-    if not below:
+        # firma na nn s několika články za RFVE.AC: řetězec svisle pod RFVE.AC, v řadě pod FV částí, nebo v řadě
+        # za RFVE.AC – podle toho, co dá nejmenší výkres bez křížení a překryvů textů (`_choose_chain_layout`)
+        if choose:
+            mode = _choose_chain_layout(ctx, links, in_row)
+    if mode == "row":
         in_row()
 
-    def after_split() -> None:
-        if below:
-            if not _chain_below(p, blk, links, ctx.loads, ctx.earth, x0):
-                in_row()
-            _boundary_text(ctx)
+    def after_split() -> None:          # list „AC a připojení“ bez řad střídačů: řetězec znovu
+        if choose:
+            _choose_chain_layout(ctx, links, in_row)
+        elif first is not None and links:
+            _choose_house_layout(ctx, first, links, in_row)
+        else:
+            return
+        _boundary_text(ctx)
 
     _boundary_text(ctx)
     if ctx.mv is not None:

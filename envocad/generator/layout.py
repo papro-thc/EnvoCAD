@@ -339,3 +339,234 @@ def _align_bends_sheet(project: Project, s: Sheet, lib) -> None:
         up = sorted((it for it in items if it[2] > it[1]), key=lambda it: it[1])
         for (w, ya, yb), x in zip(down + up, xs):
             w.points = [(x, ya), (x, yb)]
+
+
+def chain_snapshot(sheet: Sheet, elements: list[Element], wires: list[Wire]):
+    """Stav řetězce (poloha a zrcadlení prvků, lomy vodičů) – vrací funkci, která ho obnoví (volba rozložení
+    zkouší několik variant nad týmž listem)."""
+    state = [(e, e.x, e.y, e.mirror) for e in elements]
+    pts = [(w, list(w.points)) for w in wires]
+
+    def restore() -> None:
+        for e, x, y, m in state:
+            e.x, e.y, e.mirror = x, y, m
+        for w, ps in pts:
+            w.points = list(ps)
+    return restore
+
+
+def _extent(p: Project, s: Sheet, e: Element, lib, extra: list | None = None) -> tuple[float, float, float, float]:
+    """Obálka prvku v blokovém schématu: značka, texty značky a popisek ve výchozí poloze (+ `extra`)."""
+    from envocad.model.textlayout import _el_candidates, element_label_texts, symbol_box, symbol_text_boxes
+    sym = element_symbol(p, e, lib)
+    boxes = [symbol_box(e, sym), *symbol_text_boxes(e, sym)]
+    texts = element_label_texts(p, s, e, sym, "")
+    if texts:
+        boxes += _el_candidates(e, sym, texts)[0].boxes
+    boxes += extra or []
+    return (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
+
+
+COLUMN_GAP = 7.5       # svislá mezera mezi obálkami článků ve sloupci (mm)
+COLUMN_BESIDE = 20.0   # síť (DS) vedle posledního článku: délka rovného vodiče (mm)
+COLUMN_LANE = 7.5      # vodič mezi články ve sloupci: od obálky článků k svislému úseku (mm)
+
+
+def _snap(v: float) -> float:
+    return round(v / 2.5) * 2.5
+
+
+def _port(p: Project, e: Element, name: str, lib) -> tuple[float, float]:
+    return e.port_pos(element_symbol(p, e, lib), name)
+
+
+def _has_port(p: Project, e: Element, name: str, lib) -> bool:
+    return any(pt.name == name for pt in element_symbol(p, e, lib).ports)
+
+
+def _center_x(p: Project, e: Element, lib) -> float:
+    from envocad.model.textlayout import symbol_box
+    b = symbol_box(e, element_symbol(p, e, lib))
+    return (b[0] + b[2]) / 2
+
+
+def _side(p: Project, e: Element, name: str, lib) -> int:
+    """Strana portu prvku: +1 vpravo, −1 vlevo (po zrcadlení)."""
+    return 1 if _port(p, e, name, lib)[0] > _center_x(p, e, lib) else -1
+
+
+def _set_side(p: Project, e: Element, name: str, want: int, lib) -> None:
+    """Zrcadlí prvek, aby port `name` ležel na straně `want` (+1 vpravo, −1 vlevo)."""
+    if _side(p, e, name, lib) != want:
+        e.mirror = not e.mirror
+
+
+def _stack_column(p: Project, s: Sheet, links: list, loads: list, xc: float, top: float, first_side: int,
+                  load_under: bool, boundary: Element | None, lib) -> tuple[list[Element], list[str], list[Wire]]:
+    """Složí články řetězce (`links` jako `ChainContext.links`) do svislého sloupce se středem `xc` od výšky `top`
+    dolů („had“): první článek má přívod na straně `first_side`, každý další přívod na straně vývodu předchozího
+    (zrcadlení se střídá) a vodič mezi nimi je krátké „C“ po straně sloupce. Síť (jediný port) na konci stojí vedle
+    posledního článku (rovný vodič). Spotřeba (`loads`): `load_under` = pod článkem uvnitř (vodič z vývodu kousek
+    ven, dolů a zpět do značky), jinak vedle sloupce na straně vývodu. Vodič k prvnímu článku nechává volajícímu;
+    vrací (články, jejich přívody, vodiče k nim)."""
+    from envocad.generator.boards.meter_board import BOUNDARY_TEXT
+    from envocad.model.textlayout import symbol_box, text_box
+
+    def ext(e: Element) -> tuple[float, float, float, float]:
+        extra = []
+        if boundary is not None and e is boundary:
+            b = symbol_box(e, element_symbol(p, e, lib))
+            extra.append(text_box(_snap(b[0]), _snap(b[3] + 7.5), BOUNDARY_TEXT, 2.0))
+        return _extent(p, s, e, lib, extra)
+
+    els = [links[0][2], *(el for _p, _q, el, _r, _w in links[1:])]
+    in_ports = [links[0][3], *(r for _p, _q, _e, r, _w in links[1:])]
+    in_wires = [links[0][4], *(w for *_x, w in links[1:])]
+    out_ports = [q for _p, q, *_x in links[1:]]
+    by_board: dict[str, list] = {}
+    for b, pt, ld, w in loads:
+        by_board.setdefault(b.id, []).append((pt, ld, w))
+    prev_bottom = top
+    beside = None                     # síť (DS, jediný port) na konci řetězce vedle předchozího článku (rovný vodič)
+    if len(els) > 1 and len(element_symbol(p, els[-1], lib).ports) == 1:
+        beside = els[-1]
+    for i, e in enumerate(els):
+        want = first_side if i == 0 else _side(p, els[i - 1], out_ports[i - 1], lib)
+        if e is beside:
+            _set_side(p, e, in_ports[i], -want, lib)
+            pa = _port(p, els[i - 1], out_ports[i - 1], lib)
+            pe = _port(p, e, in_ports[i], lib)
+            e.x = _snap(e.x + pa[0] + want * COLUMN_BESIDE - pe[0])
+            e.y = _snap(e.y + pa[1] - pe[1])
+            continue
+        _set_side(p, e, in_ports[i], want, lib)
+        e.x = _snap(e.x + xc - _center_x(p, e, lib))
+        e.y = _snap(e.y + prev_bottom - ext(e)[3])
+        bottom = ext(e)[1]
+        for pt, ld, w in by_board.get(e.id, []):
+            if not _has_port(p, e, pt, lib):
+                continue
+            sx, sy = _port(p, e, pt, lib)
+            sg = _side(p, e, pt, lib)
+            if load_under:                    # pod článkem: z vývodu ven, dolů pod článek a zpět do značky
+                _set_side(p, ld, "1", sg, lib)
+                y_l = _snap(bottom - COLUMN_GAP - 5.0)
+                xb = sx + sg * 7.5
+                lp = _port(p, ld, "1", lib)
+                ld.x = _snap(ld.x + sx - sg * 20.0 - lp[0])     # vodorovný úsek nese popisek vazby
+            else:                             # vedle sloupce na straně vývodu
+                _set_side(p, ld, "1", -sg, lib)
+                y_l = _snap(sy - 15.0)
+                xb = sx + sg * 7.5
+                lp = _port(p, ld, "1", lib)
+                ld.x = _snap(ld.x + sx + sg * 15.0 - lp[0])
+            ld.y = _snap(ld.y + y_l - _port(p, ld, "1", lib)[1])
+            w.points = [(xb, sy), (xb, y_l)]
+            bottom = min(bottom, ext(ld)[1])
+        prev_bottom = bottom - COLUMN_GAP
+    for i in range(1, len(els)):
+        a, b = els[i - 1], els[i]
+        if b is beside:
+            in_wires[i].points = []
+            continue
+        pa, pb = _port(p, a, out_ports[i - 1], lib), _port(p, b, in_ports[i], lib)
+        sg = _side(p, a, out_ports[i - 1], lib)
+        ea, eb = ext(a), ext(b)
+        xl = _snap(max(ea[2], eb[2]) + COLUMN_LANE) if sg > 0 else _snap(min(ea[0], eb[0]) - COLUMN_LANE)
+        in_wires[i].points = [(xl, pa[1]), (xl, pb[1])]
+    return els, in_ports, in_wires
+
+
+def _without(s: Sheet, ids: set[str], wire_ids: set[str]):
+    """Kontext: list dočasně bez prvků `ids` a vodičů `wire_ids` (obálky obsahu bez řetězce)."""
+    from contextlib import contextmanager
+
+    @contextmanager
+    def cm():
+        keep_el, keep_w, keep_t = s.elements, s.wires, s.texts
+        s.elements = [e for e in keep_el if e.id not in ids]
+        s.wires = [w for w in keep_w if w.id not in wire_ids]
+        s.texts = []                  # volné texty listu jsou u řetězce (hranice vlastnictví)
+        try:
+            yield
+        finally:
+            s.elements, s.wires, s.texts = keep_el, keep_w, keep_t
+    return cm()
+
+
+def _chain_ids(links: list, loads: list) -> tuple[set[str], set[str]]:
+    els = {el.id for _p, _q, el, _r, _w in links} | {ld.id for _b, _pt, ld, _w in loads}
+    wires = {w.id for *_x, w in links} | {w.id for *_x, w in loads}
+    return els, wires
+
+
+def _chain_column(p: Project, s: Sheet, blk: Element, links: list, loads: list, earth: Element | None,
+                  boundary: Element | None = None) -> bool:
+    """Firma / bytový dům na nn: řetězec stávajících článků (HR → RE → HDS → DS) **svisle pod RFVE.AC** (ve sloupci
+    pod blokem, `_stack_column`): vodič z vývodu XOUT vede vpravo za uzemnění a jeho popisek, svisle dolů a do
+    přívodu prvního článku zprava; spotřeba (X2 stávajícího rozvaděče) visí vedle sloupce. Výkres se tak
+    nerozšiřuje ani neprodlužuje o řadu článků a vedení RFVE.AC → HR neobchází list. `boundary` = prvek, nad kterým
+    bude text hranice vlastnictví (místo pro text). False = řetězec nelze takto složit."""
+    from envocad.model.textlayout import compute_layout
+    lib = context._lib()
+    if not links or not _has_port(p, blk, "XOUT", lib):
+        return False
+    out = _port(p, blk, "XOUT", lib)
+    # svislý úsek od XOUT za uzemněním a jeho popiskem (jinak by křížil vodič XPE → HOP)
+    with _without(s, *_chain_ids(links, loads)):
+        lay = compute_layout(p, s, lib)
+        floor = [_extent(p, s, blk, lib, lay.elements[blk.id].boxes if blk.id in lay.elements else [])[1]]
+        x_lane = out[0] + 15.0
+        w_earth = next((w for w in s.wires if earth is not None and w.touches(earth.id)), None)
+        if earth is not None:
+            eb = _extent(p, s, earth, lib)
+            floor.append(eb[1])
+            x_lane = max(x_lane, _snap(eb[2] + 5.0))
+        if w_earth is not None and w_earth.id in lay.wires:
+            for b in lay.wires[w_earth.id].boxes:
+                floor.append(b[1])
+                x_lane = max(x_lane, _snap(b[2] + 5.0))
+    els, in_ports, in_wires = _stack_column(p, s, links, loads, _snap(_center_x(p, blk, lib)), min(floor) - COLUMN_GAP,
+                                            1, False, boundary, lib)
+    p0 = _port(p, els[0], in_ports[0], lib)
+    in_wires[0].points = [(x_lane, out[1]), (x_lane, p0[1])]
+    return True
+
+
+def _house_column(p: Project, s: Sheet, blk: Element, first: tuple[Element, str, Wire], links: list, loads: list,
+                  earth: Element | None, boundary: Element | None = None) -> bool:
+    """Rodinný dům: řetězec stávajících článků (RD → RE → HDS → DS) svisle vpravo od FV části (`_stack_column`, od
+    horního okraje obsahu dolů). Vodič z vývodu XOUT rozvaděče FVE vede pod vším vpravo za obsah a svisle nahoru do
+    přívodu RD zleva; spotřeba visí pod RD uvnitř sloupce (vodič od svislého úseku neodbočuje). `first` = první
+    článek (blok, přívod, vodič) jako u `_route_house`, `links` zbytek řetězce."""
+    lib = context._lib()
+    el0, port0, w0 = first
+    allc = [(blk, "XOUT", el0, port0, w0), *links]
+    ids, wids = _chain_ids(allc, loads)
+    from envocad.model.textlayout import sheet_content_boxes
+    with _without(s, ids, wids):
+        boxes = sheet_content_boxes(p, s, lib)
+    if not boxes or not _has_port(p, blk, "XOUT", lib):
+        return False
+    x_right, y_top, y_bot = max(b[2] for b in boxes), max(b[3] for b in boxes), min(b[1] for b in boxes)
+    # sloupec: přívod RD zleva; svislý úsek vodiče od XOUT vlevo od sloupce, mezi obsahem a sloupcem
+    x_lane = _snap(x_right + 10.0)
+    els, in_ports, in_wires = _stack_column(p, s, allc, loads, 0.0, y_top, -1, True, boundary, lib)
+    # sloupec vpravo od svislého úseku: posun celého sloupce (prvky a lomy) tak, aby levý okraj byl za úsekem
+    col = [*els] + [ld for _b, _pt, ld, _w in loads]
+    left = min(_extent(p, s, e, lib)[0] for e in col)
+    lanes = [w.points[0][0] for w in in_wires[1:] if w.points]
+    left = min([left, *lanes]) - 7.5
+    dx = _snap(x_lane + COLUMN_LANE - left)
+    for e in col:
+        e.x += dx
+    for w in [*in_wires[1:], *(w for *_x, w in loads)]:
+        w.points = [(x + dx, y) for x, y in w.points]
+    out = _port(p, blk, "XOUT", lib)
+    p0 = _port(p, els[0], in_ports[0], lib)
+    x_out = w0.points[0][0] if w0.points else blk.x + 30.0      # svislý úsek z `_route_house` (za uzemněním)
+    # vodorovný úsek pod obsahem jen v pásu mezi svislým úsekem od XOUT a sloupcem (stringy vlevo nevadí)
+    y_bot = min((b[1] for b in boxes if b[2] >= x_out - 2.5 and b[0] <= x_lane + 2.5), default=y_bot)
+    y_low = _snap(min(y_bot - 10.0, out[1] - 10.0))
+    w0.points = [(x_out, out[1]), (x_out, y_low), (x_lane, y_low), (x_lane, p0[1])]
+    return True
