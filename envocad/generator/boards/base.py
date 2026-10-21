@@ -70,6 +70,9 @@ class ChainContext:
     boundary: tuple[Element, str] | None = None     # blok s měřením a hranice vlastnictví (hds | re_main | re_meter)
     loads: list[tuple[Element, str, Element, Wire]] = field(default_factory=list)   # spotřeba pod RD / HR
     eps: list[dict] = field(default_factory=list)   # EPS rodinného domu v JPS (`boards.eps.build_jps`)
+    # skupiny střídačů na jiném místě (`inverters[].ac_group`, krok 10): klíč, blok RFVE.AC{n}, indexy střídačů,
+    # vývod FVE v RD / HR; prázdné = jeden společný RFVE.AC
+    groups: list[dict] = field(default_factory=list)
     node_in: dict[str, str] = field(default_factory=dict)   # role → In přístroje, který jistí kabel od předchozího
     #                                                         článku (vývod FVE v RD/HR, HJ v RE, pojistky HDS)
 

@@ -208,7 +208,12 @@ def place_load(project: Project, blk: Element, port: str, load: Element, w: Wire
     lp = load.port_pos(element_symbol(project, load, lib), "1")
     load.x += xs[0] + 7.5 - lp[0]
     load.y += low - lp[1]
-    w.points = [(xs[0] - 20.0, xs[1]), (xs[0] - 20.0, low)]
+    # pod vývodem spotřeby další vývody na téže straně (X3… skupin střídačů s přerušením): svislý úsek až za nimi
+    side = _side(project, blk, port, lib)
+    below = [q for q in sym.ports if q.name != port and _side(project, blk, q.name, lib) == side
+             and blk.port_pos(sym, q.name)[1] < xs[1] - 1e-6]
+    dx = 45.0 if below else 20.0
+    w.points = [(xs[0] + side * dx, xs[1]), (xs[0] + side * dx, low)]
 
 
 def _align_outputs(project: Project, blk: Element, grid: Element | None, earth: Element | None) -> None:
@@ -457,10 +462,15 @@ def _stack_column(p: Project, s: Sheet, links: list, loads: list, xc: float, top
                 ld.x = _snap(ld.x + sx - sg * 20.0 - lp[0])     # vodorovný úsek nese popisek vazby
             else:                             # vedle sloupce na straně vývodu
                 _set_side(p, ld, "1", -sg, lib)
-                y_l = _snap(sy - 15.0)
-                xb = sx + sg * 7.5
+                # pod vývodem spotřeby další vývody na téže straně (X3… skupin střídačů s přerušením) – svislý
+                # úsek k ní až za nimi
+                below = [q for q in element_symbol(p, e, lib).ports if q.name != pt
+                         and _side(p, e, q.name, lib) == sg and _port(p, e, q.name, lib)[1] < sy - 1e-6]
+                off = 7.5 if not below else 45.0
+                y_l = _snap(min([sy, *(_port(p, e, b.name, lib)[1] for b in below)]) - 15.0)
+                xb = sx + sg * off
                 lp = _port(p, ld, "1", lib)
-                ld.x = _snap(ld.x + sx + sg * 15.0 - lp[0])
+                ld.x = _snap(ld.x + sx + sg * (off + 7.5) - lp[0])
             ld.y = _snap(ld.y + y_l - _port(p, ld, "1", lib)[1])
             w.points = [(xb, sy), (xb, y_l)]
             bottom = min(bottom, ext(ld)[1])
@@ -521,7 +531,7 @@ def xout_lane_x(p: Project, s: Sheet, blk: Element, earth: Element | None, links
 
 
 def _chain_column(p: Project, s: Sheet, blk: Element, links: list, loads: list, earth: Element | None,
-                  boundary: Element | None = None) -> bool:
+                  boundary: Element | None = None, avoid: list[Element] | None = None) -> bool:
     """Firma / bytový dům na nn: řetězec stávajících článků (HR → RE → HDS → DS) **svisle pod RFVE.AC** (ve sloupci
     pod blokem, `_stack_column`): vodič z vývodu XOUT vede vpravo za uzemnění a jeho popisek, svisle dolů a do
     přívodu prvního článku zprava; spotřeba (X2 stávajícího rozvaděče) visí vedle sloupce. Výkres se tak
@@ -546,6 +556,17 @@ def _chain_column(p: Project, s: Sheet, blk: Element, links: list, loads: list, 
             for b in lay.wires[w_earth.id].boxes:
                 floor.append(b[1])
                 x_lane = max(x_lane, _snap(b[2] + 5.0))
+        # další AC rozvaděče (skupiny střídačů) pod RFVE.AC1: sloupec pod nimi, svislý úsek vpravo za nimi
+        avoid_ids = {e.id for e in avoid or ()}
+        for e in avoid or ():
+            ext = _extent(p, s, e, lib, lay.elements[e.id].boxes if e.id in lay.elements else [])
+            floor.append(ext[1])
+            x_lane = max(x_lane, _snap(ext[2] + 5.0))
+        for w in s.wires:                 # popisky vodičů od nich (kabel k přerušení, uzemnění)
+            if w.id in lay.wires and (w.a.element_id in avoid_ids or w.b.element_id in avoid_ids):
+                for b in lay.wires[w.id].boxes:
+                    floor.append(b[1])
+                    x_lane = max(x_lane, _snap(b[2] + 5.0))
     els, in_ports, in_wires = _stack_column(p, s, links, loads, _snap(_center_x(p, blk, lib)), min(floor) - COLUMN_GAP,
                                             1, False, boundary, lib)
     p0 = _port(p, els[0], in_ports[0], lib)

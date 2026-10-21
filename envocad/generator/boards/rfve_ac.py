@@ -291,19 +291,45 @@ def _build_ac_switchboard(project: Project, sheet: Sheet, invs: list[dict], ac: 
 
 def build_main_sheet(ctx: ChainContext) -> Sheet:
     """List hlavního AC článku (`ctx.main` – RFVE.AC, u rodinného domu AC část RFVE): přívody od střídačů z maker
-    `ac_feed` + `ac_core` (jen rozvod sběrnicí), jinak `_build_ac_switchboard`. Listy DC rozvaděčů vzniknou před ním."""
-    from envocad.generator.boards.macro_glue import _ac_box_from_macros
+    `ac_feed` + `ac_core` (jen rozvod sběrnicí), jinak `_build_ac_switchboard`. Listy DC rozvaděčů vzniknou před ním.
+    Skupiny střídačů na jiném místě (`ctx.groups`, krok 10): list RFVE.AC{n} na skupinu, každý se svými střídači.
+    Vrací list hlavního (prvního) AC rozvaděče."""
     from envocad.generator.boards.rfve_dc import build_dc_sheets
     build_dc_sheets(ctx)
+    if not ctx.groups:
+        sb = _build_main(ctx, ctx.spec.get("inverters") or [])
+    else:
+        sb = None
+        invs = ctx.spec.get("inverters") or []
+        keep = ctx.blocks["main"], ctx.inverters, ctx.ac_wires
+        try:
+            for g in ctx.groups:
+                ctx.blocks["main"] = g["block"]
+                ctx.inverters = [keep[1][i] for i in g["idx"]]
+                ctx.ac_wires = [keep[2][i] for i in g["idx"]]
+                one = _build_main(ctx, [invs[i] for i in g["idx"]])
+                sb = sb or one
+        finally:
+            ctx.blocks["main"], ctx.inverters, ctx.ac_wires = keep
+    ctx.done.add("main")
+    return sb
+
+
+def _build_main(ctx: ChainContext, invs: list[dict]) -> Sheet:
+    """List jednoho AC rozvaděče FVE (`ctx.main`) pro střídače `invs` (slovníky specifikace; `ctx.inverters` /
+    `ctx.ac_wires` odpovídají)."""
+    from envocad.generator.boards.macro_glue import _ac_box_from_macros
+    from envocad.generator.build import main_switch_in
     from envocad.generator.spec import grid_protection_limit, grid_protection_wanted
     p, spec = ctx.project, ctx.spec
-    invs = spec.get("inverters") or []
     # síťová ochrana nad hranicí kWp (u rodinného domu v RFVE) – podmíněné prvky `when: grid_protection`
     limit = grid_protection_limit()
     role = "rfve" if ctx.combined else "rfve_ac"
     gp = grid_protection_wanted(spec, ctx.topology, role, ctx.kwp, limit)
     p.meta["grid_protection_kwp"] = f"{limit:g}"
     ac = {**spec["ac"], "grid_protection": "1" if gp else ""}
+    if ctx.groups and _s(ac.get("main_in_auto")):        # hlavní vypínač podle střídačů skupiny
+        ac["main_in"] = main_switch_in(ctx.inverters)
     sb = p.create_switchboard_sheet(ctx.main)
     sb.layout.params.setdefault("network", "3NPE, 50 Hz")
     sb.layout.params.setdefault("un", "230/400 V")
@@ -314,7 +340,6 @@ def build_main_sheet(ctx: ChainContext) -> Sheet:
     from envocad.generator.boards.eps import build_sheet_part
     build_sheet_part(ctx, sb)          # EPS a přepínač sítí (jen rodinný dům s hybridním střídačem a baterií)
     mark_chain_devices(ctx, sb)
-    ctx.done.add("main")
     return sb
 
 

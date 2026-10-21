@@ -53,9 +53,18 @@ def create_main_block(ctx: ChainContext) -> Element:
     """Blok hlavního AC článku (RFVE.AC, u rodinného domu RFVE) – vzniká **před** stringy (pořadí prvků v listu).
     Označení zatím ze `spec.switchboard` (legacy; označení z presetu je F2)."""
     sw = ctx.spec["switchboard"]
-    blk = Element("fve.switchboard", ctx.geo.x_blk, 150.0, attrs={"ref": sw["ref"], "desc": sw["desc"]})
+    multi = len(ctx.groups) > 1          # skupiny střídačů: RFVE.AC1, RFVE.AC2… (vlastní vývod FVE v HR / RD)
+    blk = Element("fve.switchboard", ctx.geo.x_blk, 150.0,
+                  attrs={"ref": sw["ref"] + ("1" if multi else ""), "desc": sw["desc"]})
     ctx.sheet.elements.append(blk)
     ctx.blocks["main"] = blk
+    for n, g in enumerate(ctx.groups, start=1):
+        if n == 1:
+            g["block"] = blk
+            continue
+        g["block"] = Element("fve.switchboard", ctx.geo.x_blk, 150.0, attrs={
+            "ref": f"{sw['ref']}{n}", "desc": f"{sw['desc']} ({g['key']})" if g["key"] else sw["desc"]})
+        ctx.sheet.elements.append(g["block"])
     return blk
 
 
@@ -150,6 +159,9 @@ def build(ctx: ChainContext) -> None:
     if ctx.grid is None:              # vlastní topologie bez článku „grid“: DS za koncem řetězce jako dřív
         grid.build_grid(ctx)
     _earth_block(ctx)
+    if ctx.groups:                    # skupiny střídačů: RFVE.AC{n} → HR / RD X{3…} přes pár přerušení
+        from envocad.generator.boards.groups import build_links
+        build_links(ctx)
     p.meta.setdefault("p_installed_kwp", f"{ctx.kwp:g}")
     # 2. průchod: listy rozvaděčů (DC rozvaděče před hlavním AC rozvaděčem – zajistí `build_main_sheet`)
     for node, b in nodes:
@@ -254,6 +266,15 @@ def _chain_layout_score(ctx: ChainContext, wires: set[str]) -> tuple:
                 x1, y1, x2, y2 = symbol_box(e, element_symbol(p, e, lib))
                 if segment_hits_box(a, b, (x1 + 0.5, y1 + 0.5, x2 - 0.5, y2 - 0.5)):
                     cross += 1
+    # značky řetězce přes cizí značky (např. RFVE.AC dalších skupin střídačů pod hlavním)
+    owners = {w.a.element_id for w in s.wires if w.id in wires} | {w.b.element_id for w in s.wires if w.id in wires}
+    sym_boxes = {e.id: symbol_box(e, element_symbol(p, e, lib)) for e in s.elements}
+    for a in owners & set(sym_boxes):
+        ax = sym_boxes[a]
+        for b, bx in sym_boxes.items():
+            if b != a and b not in owners and ax[0] < bx[2] - 0.5 and bx[0] < ax[2] - 0.5 \
+                    and ax[1] < bx[3] - 0.5 and bx[1] < ax[3] - 0.5:
+                cross += 1
     over = len(text_overlaps(p, s, lib, lay))
     paper = fit_placement(boxes)[0] if boxes else "A3"
     w = max(b[2] for b in boxes) - min(b[0] for b in boxes)
@@ -290,6 +311,9 @@ def _choose_chain_layout(ctx: ChainContext, links: list, in_row) -> str:
 
     def apply(mode: str) -> bool:
         ok = _apply(mode)
+        if ok and ctx.groups:         # přerušení skupin u HR / RD podle polohy a strany jeho vývodů
+            from envocad.generator.boards.groups import place
+            place(ctx)
         if ok and ctx.eps:            # EPS rodinného domu (RFVE za střídači) podle polohy RFVE a lomů AC vodičů
             from envocad.generator.boards.eps import place_jps
             from envocad.generator.layout import xout_lane_x
@@ -302,7 +326,9 @@ def _choose_chain_layout(ctx: ChainContext, links: list, in_row) -> str:
         if mode == "column_top" and not _raise_main(ctx):
             return False
         if mode in ("column", "column_top"):
-            return _chain_column(p, s, blk, links, ctx.loads, ctx.earth, target)
+            from envocad.generator.boards.groups import obstacles, place_sources
+            place_sources(ctx)
+            return _chain_column(p, s, blk, links, ctx.loads, ctx.earth, target, obstacles(ctx))
         if mode == "below":
             return _chain_below(p, blk, links, ctx.loads, ctx.earth)
         return True
@@ -396,6 +422,9 @@ def _layout(ctx: ChainContext) -> None:
         target = blk if ctx.combined else ctx.dc_common
         _align_route_boxes(p, target, [[b for b, _g, k, no, _r in ctx.dc_boxes if no == i + 1 and b is not target]
                                        for i in range(len(ctx.inverters))])
+    if ctx.groups:                    # RFVE.AC{n} u svých střídačů
+        from envocad.generator.boards.groups import align_blocks
+        align_blocks(ctx)
     _align_bends(p)
     links = list(ctx.links)
     mode = "row"
@@ -429,6 +458,9 @@ def _layout(ctx: ChainContext) -> None:
             mode = _choose_chain_layout(ctx, links, in_row)
     if mode == "row":
         in_row()
+        if ctx.groups:
+            from envocad.generator.boards.groups import place
+            place(ctx)
 
     def after_split() -> None:          # list „AC a připojení“ bez řad střídačů: řetězec znovu
         if choose:

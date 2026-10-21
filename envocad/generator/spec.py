@@ -79,6 +79,17 @@ def grid_protection_wanted(spec: Mapping, topology: Topology | None, role: str, 
     return t == "1"
 
 
+def ac_groups(spec: Mapping) -> list[str]:
+    """Skupiny střídačů podle místa (`inverters[].ac_group`, krok 10): pořadí podle prvního výskytu, hlavní „“
+    první. Jediná skupina = jeden společný RFVE.AC (dnešní stav)."""
+    keys = [_s(inv.get("ac_group")).strip() for inv in spec.get("inverters") or [] if isinstance(inv, Mapping)]
+    out = [""] if "" in keys else []
+    for k in keys:
+        if k not in out:
+            out.append(k)
+    return out
+
+
 def installed_kwp(spec: Mapping) -> float:
     """Instalovaný výkon DC [kWp] = Σ modulů ve stringech × `module.p_wp` / 1000 (rozhodnutí 1). Chybí-li `p_wp`
     nebo počty modulů, počítá se 0 (specifikaci před sloučením s `DEFAULT_SPEC` doplní volající)."""

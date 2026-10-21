@@ -101,6 +101,15 @@ CASES: dict[str, dict] = {
     "house_existing": {"building": "house", "inverters": [{"ref": "T1", **_INV, "strings": [16, 16]}],
                        "chain": {"rd": {"main_in": 63}, "re": {"main_in": 63, "boundary": "re_meter"},
                                  "hds": {"in_": 80}}},
+    # F2 kroky 8–10: síťová ochrana (36 kWp), RD s hybridním střídačem, baterií a EPS, skupina střídačů jinde
+    "nn_grid_protection": {"inverters": [{"ref": "T1", **_INV, "strings": [20, 20, 20, 20]}],
+                           "chain": {"hr": {"main_in": 250}, "re": {"main_in": 250}, "hds": {"in_": 315}}},
+    "house_eps": {"building": "house", "inverters": [{"ref": "T1", **_INV, "strings": [16, 16]}],
+                  "battery": {"e_kwh": 10, "p_kw": 5, "type": "BYD HVS 10.2"},
+                  "chain": {"rd": {"main_in": 80}, "re": {"main_in": 80}, "hds": {"in_": 100}}},
+    "nn_ac_groups": {"inverters": [{"ref": "T1", **_INV, "strings": [20, 20]},
+                                   {"ref": "T2", **_INV, "strings": [20], "ac_group": "hala B"}],
+                     "chain": {"hr": {"main_in": 250}, "re": {"main_in": 250}, "hds": {"in_": 315}}},
     # jednofázový střídač
     "inverter_1phase": {"inverters": [{"ref": "T1", "p_ac": 5, "phases": 1, "u_dc_max": 600, "u_mppt_min": 90,
                                        "u_mppt_max": 550, "i_mppt_max": 16, "strings": [12, 10]}]},

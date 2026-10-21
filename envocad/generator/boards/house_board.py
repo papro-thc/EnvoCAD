@@ -48,6 +48,13 @@ def fve_feeder_in(ctx: ChainContext, o: dict, where: str) -> str:
     return f"{_next_size(i_fve, LV_FEEDER_SIZES):g}" if i_fve else ""
 
 
+def group_feeder_in(ctx: ChainContext, g: dict) -> str:
+    """In vývodu FVE pro skupinu střídačů (`ctx.groups`): nejbližší velikost ≥ Σ In střídačů skupiny."""
+    from envocad.generator.boards.mv import LV_FEEDER_SIZES, _next_size, inverters_ac_current
+    i_g = inverters_ac_current([ctx.inverters[i] for i in g["idx"]])
+    return f"{_next_size(i_g, LV_FEEDER_SIZES):g}" if i_g else ""
+
+
 def resolve_options(ctx: ChainContext, node: ChainNode, where: str) -> dict:
     """Volby článku RD / HR ověřené a doplněné: `main_device`, `fve_device`, `fve_in` (ValueError česky)."""
     o = chain_options(ctx.spec, ctx.topology, node.role)
@@ -56,6 +63,8 @@ def resolve_options(ctx: ChainContext, node: ChainNode, where: str) -> dict:
     o["fve_device"] = _choice(FVE_DEVICES, o.get("fve_device"), "breaker", where, "přístroj vývodu FVE",
                               "breaker (jistič) nebo fuse_disconnect (pojistkový odpínač)")
     o["fve_in"] = fve_feeder_in(ctx, o, where)
+    if ctx.groups and not _s(chain_options(ctx.spec, ctx.topology, node.role).get("fve_in")).strip():
+        o["fve_in"] = group_feeder_in(ctx, ctx.groups[0])      # vývod X1 jen pro hlavní skupinu
     fin = _num(o["fve_in"])
     if o["fve_device"] == "fuse_disconnect" and (fin is None or fin <= FVE_FUSE_MIN_IN):
         shown = f"{fin:g} A" if fin is not None else "neurčené In"
@@ -128,7 +137,30 @@ def build_house_sheet(ctx: ChainContext, sheet, o: dict, where: str, role: str, 
     _wire(p, sheet, bus, "1", qf, "1", AC_CONDUCTORS)
     _wire(p, sheet, qf, "2", out_f, "1", AC_CONDUCTORS)
     _wire(p, sheet, bus, "5", out_s, "1", AC_CONDUCTORS)
-    _place_sequential(sheet, [*devices, qf])
+    extra = []
+    for n, g in enumerate(ctx.groups[1:], start=2):     # skupiny střídačů na jiném místě: vlastní vývod FVE
+        x = x0 + 97.5 + 30.0 * (n - 2)
+        g_in = group_feeder_in(ctx, g)
+        if o["fve_device"] == "fuse_disconnect" and (_num(g_in) or 0) <= FVE_FUSE_MIN_IN:
+            raise ValueError(f"{where}: vývod FVE pro {g['block'].ref} ({g_in or '?'} A) do {FVE_FUSE_MIN_IN:g} A "
+                             "musí být jistič – zvolte fve_device breaker.")
+        big = (_num(g_in) or 0) > MCB_MAX_IN
+        sym = "fve.fuse_disconnect" if o["fve_device"] == "fuse_disconnect" else (
+            "fve.breaker_mccb" if big else "fve.breaker_mcb")
+        kw = {"char": "gG", "un": "400", "modules": "6"} if sym == "fve.fuse_disconnect" else (
+            {"modules": "6"} if big else {"char": "B", "modules": "3"})
+        qg = _el(p, sheet, sym, x, y_bus - 35.0, "F" if sym == "fve.fuse_disconnect" else "Q", rot=270, in_=g_in,
+                 poles="3", **kw)
+        qg.attrs["desc"] = "vývod FVE"
+        qg.attrs["chain"] = "fve_out"
+        if not g_in:
+            qg.attrs["in_unresolved"] = f"{where}: proud skupiny {g['block'].ref} neznámý (střídače bez P AC)"
+        out_g = _feed(p, sheet, "out", x, y_bus - 70.0, "", desc=f"k {g['block'].ref} (FVE)")
+        out_g.attrs["ref"] = g["feed"]
+        _wire(p, sheet, bus, str(7 + 2 * (n - 2)), qg, "1", AC_CONDUCTORS)
+        _wire(p, sheet, qg, "2", out_g, "1", AC_CONDUCTORS)
+        extra.append(qg)
+    _place_sequential(sheet, [*devices, qf, *extra])
 
 
 class HouseBoardBuilder:

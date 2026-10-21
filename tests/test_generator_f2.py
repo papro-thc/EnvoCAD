@@ -739,3 +739,58 @@ def test_eps_unconnected_when_backup_wire_removed():
     t = next(e for e in s.elements if e.symbol_id == "fve.inverter_hybrid")
     s.wires = [w for w in s.wires if not (w.touches(t.id) and "BACKUP" in (w.a.port, w.b.port))]
     assert "eps_unconnected" in _codes(p)
+
+
+# ---- krok 10: skupiny střídačů na jiném místě (ac_group) ----------------------------------------------------------
+def _grp(**kw):
+    return {"inverters": [{"ref": "T1", **_INV, "strings": [20, 20]},
+                          {"ref": "T2", **_INV, "strings": [20], "ac_group": "hala B"},
+                          {"ref": "T3", **_INV, "strings": [20, 20]}], "chain": dict(_EXIST_NN), **kw}
+
+
+def test_ac_groups_own_rfve_ac_and_feeder():
+    """Střídače skupiny „hala B“ mají vlastní RFVE.AC2 (přívod X1), hlavní skupina RFVE.AC1 (X1, X2); HR má vývody FVE
+    X1 (RFVE.AC1) a X3 (RFVE.AC2), X2 = stávající rozvody; kabel RFVE.AC2 → HR.X3 přes pár přerušení."""
+    p = build_project(_grp(jps={"split": "none"}))
+    b = _blocks(p)
+    assert {"RFVE.AC1", "RFVE.AC2", "HR"} <= set(b)
+    assert [e.ref for e in p.sheets[0].elements if e.symbol_id == "fve.inverter"] == ["T1", "T3", "T2"]  # po skupinách
+    s = p.sheets[0]
+    t2 = _el(s, "T2")
+    w = next(w for w in s.wires if w.touches(t2.id) and "AC" in (w.a.port, w.b.port))
+    assert {w.a.element_id, w.b.element_id} == {t2.id, b["RFVE.AC2"].id} and "X1" in (w.a.port, w.b.port)
+    hr = _board(p, "HR")
+    feeds = {e.ref: e for e in hr.elements if e.symbol_id == "sb.feed"}
+    assert {"X1", "X2", "X3"} <= set(feeds)
+    assert len([e for e in hr.elements if e.attrs.get("chain") == "fve_out"]) == 2
+    ints = [e for e in s.elements if e.symbol_id == "fve.interrupt" and e.ref == "AC2-HR"]
+    assert len(ints) == 2
+    w_g = next(w for w in s.wires if w.touches(b["RFVE.AC2"].id) and "XOUT" in (w.a.port, w.b.port))
+    assert w_g.attrs["cable"] and w_g.attrs["ref"].startswith("W")
+    assert len(_board(p, "RFVE.AC2").elements) > 0 and "RFVE.AC" not in b
+
+
+@pytest.mark.parametrize("extra", [{}, {"macros": {"dc_tech": "", "dc_route": "", "ac_feed": "", "ac_core": ""}},
+                                   {"topology": "nn_hr_meter"}, {"building": "apartment"}])
+def test_ac_groups_f7_clean(extra):
+    from test_feed_review import _crossings
+
+    from envocad.model.checks import ERROR, WARNING, check_project
+    spec = _grp(**extra)
+    if extra.get("topology") == "nn_hr_meter":
+        spec["chain"] = {"hr": {"main_in": 250}, "hds": {"in_": 315}}
+    p = build_project(spec)
+    lib = _lib()
+    assert [(f.code, f.ref, f.text) for f in check_project(p, lib) if f.severity in (ERROR, WARNING)] == []
+    assert [(a, b) for s in p.sheets if not s.is_switchboard for a, b in _crossings(p, s, lib)] == []
+    assert all(s.paper in ("A3", "A2") for s in p.sheets if not s.is_switchboard)
+
+
+def test_ac_groups_only_nn_with_rfve_ac():
+    with pytest.raises(ValueError, match="ac_group"):
+        build_project(_grp(building="house"))
+    with pytest.raises(ValueError, match="ac_group"):
+        build_project(_grp(connection={"level": "vn"}))
+    # jediná skupina (i pojmenovaná) = jeden společný RFVE.AC jako dřív
+    p = build_project({"inverters": [{"ref": "T1", **_INV, "strings": [20], "ac_group": "A"}], "chain": _EXIST_NN})
+    assert "RFVE.AC" in _blocks(p)

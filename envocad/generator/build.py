@@ -16,6 +16,7 @@ from envocad.generator.spec import (
     HOUSE_SWITCHBOARD_AC,
     _apply_module_component,
     _apply_optimizer_component,
+    ac_groups,
     building_kind,
     chain_text,
     resolve_chain_refs,
@@ -35,6 +36,17 @@ def build_project(spec: dict) -> Project:
         return _build_project(spec)
     finally:
         context._BUILD_LIB = None
+
+
+def main_switch_in(invs) -> str:
+    """In nezadaného hlavního vypínače AC rozvaděče FVE: nejméně 125 A a nejméně nejbližší velikost ≥ Σ In
+    střídačů (`invs` – slovníky specifikace nebo prvky)."""
+    from envocad.generator.boards.mv import LV_FEEDER_SIZES, _next_size, inverters_ac_current
+    i_fve = inverters_ac_current(invs)
+    main = float(DEFAULT_SPEC["ac"]["main_in"])
+    if i_fve:
+        main = max(main, _next_size(i_fve, LV_FEEDER_SIZES))
+    return f"{main:g}"
 
 
 def _build_project(spec: dict) -> Project:
@@ -60,12 +72,9 @@ def _build_project(spec: dict) -> Project:
         spec["ac"] = {**spec["ac"], "breaker_in_auto": "1"}
     if not _s((raw.get("ac") or {}).get("main_in")).strip():
         # hlavní vypínač RFVE.AC / RFVE nezadaný: nejméně výchozí 125 A a nejméně vývod FVE v RD / HR (nejbližší
-        # velikost ≥ Σ In střídačů) – jinak by odpínač ležel pod In jištění, které ho chrání (F7 `chain_selectivity`)
-        from envocad.generator.boards.mv import LV_FEEDER_SIZES, _next_size, inverters_ac_current
-        i_fve = inverters_ac_current(invs)
-        if i_fve:
-            main = max(float(DEFAULT_SPEC["ac"]["main_in"]), _next_size(i_fve, LV_FEEDER_SIZES))
-            spec["ac"] = {**spec["ac"], "main_in": f"{main:g}"}
+        # velikost ≥ Σ In střídačů) – jinak by odpínač ležel pod In jištění, které ho chrání (F7 `chain_selectivity`);
+        # u skupin střídačů (`ac_group`) podle střídačů skupiny (`rfve_ac.build_main_sheet`)
+        spec["ac"] = {**spec["ac"], "main_in": main_switch_in(invs), "main_in_auto": "1"}
     if (spec["ac"].get("distribution") or "bus") == "bus" and len(invs) > AC_MAX_INVERTERS_BUS:
         raise ValueError(f"AC rozvaděč: sběrnice má {AC_MAX_INVERTERS_BUS} přívodů – nejvýš {AC_MAX_INVERTERS_BUS} "
                          f"střídačů (zadáno {len(invs)}). Zvolte rozvod svorkami nebo rozdělte FVE na více rozvaděčů.")
@@ -79,6 +88,17 @@ def _build_project(spec: dict) -> Project:
     # označení článků z presetu (`node.ref`); `chain.<role>.ref` a dřívější `switchboard` / `connection.*_board`
     # zadané uživatelem jsou přepis
     resolve_chain_refs(spec, raw, topology)
+    groups = ac_groups(spec)
+    if len(groups) > 1:
+        # řady střídačů po skupinách (hlavní první): AC vodiče skupin k RFVE.AC{n} se nekříží; označení beze změny
+        order = {k: n for n, k in enumerate(groups)}
+        invs = spec["inverters"] = [
+            {**inv, "ref": _s(inv.get("ref")) or f"T{i + 1}"} for i, inv in sorted(
+                enumerate(invs), key=lambda t: (order[_s(t[1].get("ac_group")).strip()], t[0]))]
+    if len(groups) > 1 and (topology.node("rfve_ac") is None or topology.level != "nn"
+                            or not any(topology.node(r) is not None for r in ("hr", "rd"))):
+        raise ValueError("Skupiny střídačů na jiném místě (`inverters[].ac_group`) zatím jen pro připojení na nn "
+                         "s AC rozvaděčem RFVE.AC a stávajícím HR / RD (firma, bytový dům) – zadejte jednu skupinu.")
     p = Project(name=spec["name"], meta={k: _s(v) for k, v in spec["meta"].items()})
     p.meta.setdefault("building", BUILDINGS[building])
     # topologie řetězce (meta jsou řetězce – formát projektu beze změny): id presetu a náhled řetězce
@@ -92,6 +112,9 @@ def _build_project(spec: dict) -> Project:
     s.name = "Blokové schéma"
     ctx = ChainContext(spec=spec, project=p, sheet=s, building=building, combined=combined,
                        geo=pv.plan(spec, combined, rfve_dc_per_inverter(raw, topology)), topology=topology, opt_comp=opt_comp)
+    from envocad.generator.boards.groups import feeds
+    ctx.groups = [{"key": k, "feed": f, "idx": [i for i, inv in enumerate(invs) if _s(inv.get("ac_group")).strip() == k]}
+                  for k, f in zip(groups, feeds(len(groups)), strict=True)] if len(groups) > 1 else []
     chain.create_main_block(ctx)
     pv.build(ctx)
     chain.build(ctx)

@@ -287,7 +287,11 @@ def build(ctx: ChainContext) -> None:
         common_gens.extend(gens)
         # AC vodič ke bloku rozvaděče – port podle přívodu (X1, X2…), doplní se po vytvoření listu
         conductors, cable, cross = ac_cable_of(t, ac)
-        w_ac = Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, f"X{i + 1}"), conductors=conductors,
+        target, port_k = blk, i + 1
+        for g in ctx.groups:              # skupina střídačů na jiném místě: vlastní RFVE.AC{n}, přívody od X1
+            if i in g["idx"]:
+                target, port_k = g["block"], g["idx"].index(i) + 1
+        w_ac = Wire(WireEnd(t.id, "AC"), WireEnd(target.id, f"X{port_k}"), conductors=conductors,
                     attrs={"ref": p.next_ref("W"), "cable": cable, "cross": cross,
                            "length": _s(ac.get("length")), "method": "B1"})
         s.wires.append(w_ac)
