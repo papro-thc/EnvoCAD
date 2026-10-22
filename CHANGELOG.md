@@ -1,6 +1,17 @@
 # Changelog
 
 ## Nevydáno
+- **Příkazový řádek – fáze 1: jádro a CLI** (`envocad/cmd/`, návrh `docs/design/prikazovy_radek.md`): příkazy ve
+  stylu ZWCAD bez Qt – `INSERT`, `WIRE` (porty i body, ruční lomy), `MOVE`, `COPY`, `ROTATE`, `MIRROR`,
+  `DELETE`/`ERASE`, `SET`/`ATTR`, `SELECT` (označení, maska, okno, filtr), `SHEET`, `UNDO`/`REDO`, `CHECKS` (F7),
+  `SAVE`, `SCRIPT`, `HELP`; aliasy ZWCAD/AutoCAD a české (`cmd/aliases.json`, uživatelské `~/.envocad/aliases.json`).
+  Souřadnice `x,y` s desetinnou tečkou, `@dx,dy`, `ref:port`; zaokrouhlení na mřížku. Každý příkaz běží v transakci
+  (snímek listů → `ChangeSet`, chyba ani Esc nenechá nic napůl), GUI ho ve fázi 2 pushne jako `SheetsStateCommand`.
+  Skripty `.ecs` a CLI `python -m envocad.cmd projekt.ecp skript.ecs [-o | --in-place] [--dry-run] [--json]
+  [--keep-going] [--var]` – bez `-o` / `--in-place` nic neukládá, chyby s číslem řádku, žádné spouštění kódu.
+  `sheets_state` / `restore_sheets_state` přesunuty do `model/project.py` (`ui/commands.py` re-exportuje), navázané
+  změny přívodů sdílí `ui/commands.py` s `cmd/edits.py`. Formát projektu beze změny (v16). Testy `test_cmd_parse`,
+  `test_cmd_exec`, `test_cmd_script` (CLI v podprocesu), `test_cmd_parity` (stejné `to_dict` jako QUndoCommand GUI).
 - **Průvodce novým projektem po krocích** (`ui/dialogs.py:ProjectWizard`, `ui/wizard_topology.py`): místo jednoho dlouhého
   formuláře seznam sedmi kroků vlevo a stránka kroku vpravo (Projekt, Objekt a připojení, Moduly a střídače, Stringy,
   Kabely a rozvaděče, Stávající rozvaděče, Souhrn); volná navigace (klik na krok, Zpět / Další), posuvník jen uvnitř

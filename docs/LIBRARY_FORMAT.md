@@ -429,3 +429,21 @@ rodinného domu nebo neznámá role → ValueError.
 `load_topology(path, source)`, `load_topologies()` → `{id: Topology}`, `list_topologies()`, `find_topology(id)`.
 `envocad/generator/spec.py`: `select_topology`, `installed_kwp`, `chain_text(topology)` („stringy → RFVE.DC → T →
 RFVE.AC → HR → RE → HDS → DS“), `check_topology`, `ROLES`.
+
+## Aliasy příkazového řádku (`aliases.json`)
+
+Výchozí aliasy příkazů jsou v `envocad/cmd/aliases.json`, uživatelské (obdoba `acad.pgp` v ZWCAD/AutoCAD)
+v `~/.envocad/aliases.json` (Windows `C:\Users\<jméno>\.envocad\aliases.json`) ve stejném tvaru:
+
+```json
+{"format": "envocad-aliases", "aliases": {"M": "move", "PR": "move", "OT": "rotate"}}
+```
+
+Klíč = alias, hodnota = kanonické jméno příkazu (`insert`, `wire`, `move`, `copy`, `rotate`, `mirror`, `delete`, `set`,
+`select`, `sheet`, `undo`, `redo`, `checks`, `save`, `script`, `help`, `zoom`, `fit`; seznam vypíše `HELP`). Velikost
+písmen a diakritika se neporovnávají. Uživatelský alias přepíše výchozí alias se stejným zápisem, kanonické jméno
+příkazu ne; alias na neznámý příkaz se ignoruje (varování do logu). Klíč `format` je nepovinný. Návrh a syntaxe
+příkazů: `docs/design/prikazovy_radek.md`, `docs/MANUAL.md` sekce 12.
+
+Skripty příkazového řádku (`.ecs`) nejsou součástí knihovny ani projektu – formát projektu se nemění
+(`FORMAT_VERSION` 16).

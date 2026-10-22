@@ -58,6 +58,18 @@ envocad/
                  (`textlayout.layout_cache`, klíč = úplný stav listů; benchmark `tools/bench_generate.py`); přístroje řetězce nesou atribut `chain`
                  (inv, rfve_main, fve_out, main, meter_main, inst_switch) pro `calc.check_selectivity_tree` (F7
                  `checks.chain_findings`)
+  cmd/        příkazový řádek ve stylu ZWCAD (bez Qt – hlídá `test_model_pure.py`), pro GUI, CLI, skripty a agenty;
+              návrh docs/design/prikazovy_radek.md
+    registry.py  CommandDef (jméno = id akce MainWindow), Param (výzva: point, port, selection, number, text, symbol,
+                 choice, kv), Registry (aliasy bez diakritiky z aliases.json + ~/.envocad/aliases.json, `complete`)
+    parse.py     tokeny (shlex), body „x,y“ (desetinná tečka) / „@dx,dy“ / „ref:port“, klíč=hodnota, `space_submits`
+    runner.py    CommandRunner → Session (příkaz = generátor výzev, hodnoty z řádku nebo z GUI `send`/`send_value`),
+                 transakce `sheets_state` před/po → ChangeSet (jen změněné listy), chyba / Esc vrátí stav; Journal =
+                 headless UNDO/REDO; `sync_derived` = odvozená data po změně (CLI)
+    edits.py     změny modelu (vložit, smazat, posunout, otočit, zrcadlit, kopie, vodič, atribut) stejnými funkcemi
+                 modelu jako ui/commands.py; navázané změny přívodů (`feed_link_followups`, `wire_conductor_followups`,
+                 `feed_dir_followups`, `renames_location`) volá i ui/commands.py – jedna implementace
+    builtin.py   vestavěné příkazy, `default_registry()`;  script.py  skripty .ecs;  __main__.py  CLI
   ui/         PySide6 GUI (nikdy neobsahuje business logiku)
     canvas.py       QGraphicsView – mřížka, zoom, snap
     items.py        QGraphicsItem obaly nad Element/Wire
@@ -149,9 +161,13 @@ Viz `docs/LIBRARY_FORMAT.md`.
 ## Undo/redo
 
 `QUndoStack` v UI; každá změna modelu je `QUndoCommand` (přidat/smazat/posunout element, přidat vodič,
-změnit atribut). Model sám o undo neví. Operace nad projektem mají vlastní příkazy (`ui/commands.py`): přidání a
+změnit atribut). Model sám o undo neví. Příkazový řádek (`envocad/cmd`) mění model přímo přes `cmd/edits.py` v transakci runneru
+a vrací `ChangeSet` (`before`/`after` ve tvaru `model.project.sheets_state`); GUI ho pushne jako jeden
+`SheetsStateCommand` (první redo nic nemění), headless CLI drží historii v `Journal`. Shodu s QUndoCommandy GUI hlídá
+`tests/test_cmd_parity.py` (stejné `to_dict` po INSERT, MOVE, ROTATE, MIRROR, COPY, ERASE, SET ref). Operace nad projektem mají vlastní příkazy (`ui/commands.py`): přidání a
 smazání listu (`AddSheetCommand`, `DeleteSheetCommand` – vrací i odpojené listy rozvaděčů a atribut „sheet“ bloku,
-záložky listu se zavřou / obnoví), šablona rozvaděče (`SheetsStateCommand` – snímek změněných listů), vlastnosti
+záložky listu se zavřou / obnoví), šablona rozvaděče (`SheetsStateCommand` – snímek změněných listů, `sheets_state` / `restore_sheets_state` jsou čistý
+model v `model/project.py`, `ui/commands.py` je re-exportuje), vlastnosti
 projektu (`SetProjectMetaCommand`), skříň (`SetLayoutCommand` – snímek `Layout.to_dict`, po sobě jdoucí změny
 téhož pole panelu se slučují; dialog skříně pracuje na kopii). `undo.clear()` / `undo.resetClean()` smí GUI volat
 jen při načtení projektu, po založení nového projektu z průvodce / specifikace a po obnově autosave (hlídá test
