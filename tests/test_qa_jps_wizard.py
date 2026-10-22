@@ -137,7 +137,7 @@ def test_junction_has_no_ref_and_free_port_findings(lib):
     jsym = element_symbol(p, j, lib)
     s.wires += [Wire(WireEnd(a.id, "2"), WireEnd(j.id, jsym.ports[0].name), conductors=["L1"]),
                 Wire(WireEnd(j.id, jsym.ports[1].name), WireEnd(b.id, "1"), conductors=["L1"])]
-    fs = [f for f in check_project(p, lib) if f.target_id == j.id]
+    fs = [f for f in check_project(p, lib, standard_paper="A4") if f.target_id == j.id]
     codes = {f.code for f in fs}
     assert "no_ref" not in codes and "free_port" not in codes and "unconnected" not in codes
     assert "junction_free" in codes   # odbočka chybí – to hlásí vlastní kontrola uzlu
@@ -172,7 +172,7 @@ def test_dup_ref_reports_duplicate_feeds(lib):
     x1 = next(e for e in rh.elements if is_feed_in(e) and e.ref == "X1")
     dup = Element("sb.feed", x1.x + 60, x1.y, rotation=180, attrs={"dir": "in", "ref": "X1", "desc": "od T9"})
     rh.elements.append(dup)
-    fs = [f for f in check_project(p, lib) if f.code == "dup_ref"]
+    fs = [f for f in check_project(p, lib, standard_paper="A4") if f.code == "dup_ref"]
     assert {f.target_id for f in fs} >= {x1.id, dup.id}
     assert all("X1" in f.text for f in fs)
 
@@ -215,7 +215,7 @@ def test_switchboard_sheet_without_block_is_warning(lib):
     rdc1 = next(e for e in s.elements if e.ref == "RDC1")
     sb = p.switchboard_sheet(rdc1.id)
     s.remove_element(rdc1.id)
-    fs = [f for f in check_project(p, lib) if f.code == "sb_no_block"]
+    fs = [f for f in check_project(p, lib, standard_paper="A4") if f.code == "sb_no_block"]
     assert len(fs) == 1 and fs[0].severity == WARNING and fs[0].sheet_id == sb.id
 
 
@@ -225,7 +225,7 @@ def test_generated_multipole_has_no_text_overlaps(lib, kw):
     from envocad.model.multipole_geometry import multipole_text_overlaps
     p = build_project(spec(2, 4, **kw))
     for s in p.switchboards():
-        assert multipole_text_overlaps(p, s, lib) == [], s.name
+        assert multipole_text_overlaps(p, s, lib, standard_paper="A4") == [], s.name
 
 
 def test_multipole_device_label_left_of_poles(lib):
@@ -249,7 +249,7 @@ def test_multipole_overlap_detected():
     from envocad.model.multipole_geometry import MultipoleGeometry, multipole_text_overlaps
     g = MultipoleGeometry(texts=[((0, 0, 10, 3), "e1", "popisek F1"), ((20, 0, 30, 3), "e2", "popisek F2")],
                           lines=[((5, -5), (5, 10), "w1#L1", "žílu L1"), ((25, -5), (25, 10), "e2", "značku F2")])
-    hits = multipole_text_overlaps(None, None, None, geometry=g)
+    hits = multipole_text_overlaps(None, None, None, geometry=g, standard_paper="A4")
     assert hits == [("e1", "w1", "popisek F1 přes žílu L1")]
 
 
@@ -345,7 +345,7 @@ def test_element_name_and_reports_use_it(lib):
 # ---- 12. šum kontroly -----------------------------------------------------------------------------------------
 def test_info_aggregated_and_xpe_not_unlinked(lib):
     p = build_project(spec(1, 4, macros=NO_MACROS))
-    fs = check_project(p, lib)
+    fs = check_project(p, lib, standard_paper="A4")
     per_sheet = {}
     for f in fs:
         if f.code in ("no_article", "ref_syntax"):
@@ -357,12 +357,12 @@ def test_info_aggregated_and_xpe_not_unlinked(lib):
     p = build_project(spec(1, 2))
     p.sheets[0].wires = [w for w in p.sheets[0].wires if w.conductors != ["PE"]]   # smaž XPE → HOP v JPS
     rh = _ac(p)
-    fs = [f for f in check_project(p, lib) if f.code == "feed_unlinked"]
+    fs = [f for f in check_project(p, lib, standard_paper="A4") if f.code == "feed_unlinked"]
     xpe = next(e for e in rh.elements if e.ref == "XPE")
     assert xpe.id not in {f.target_id for f in fs}
     p.sheets[0].wires = [w for w in p.sheets[0].wires if "XOUT" not in (w.a.port, w.b.port)]
     xout = next(e for e in rh.elements if e.ref == "XOUT")
-    assert xout.id in {f.target_id for f in check_project(p, lib) if f.code == "feed_unlinked"}
+    assert xout.id in {f.target_id for f in check_project(p, lib, standard_paper="A4") if f.code == "feed_unlinked"}
 
 
 def test_aggregate_info_unit():
@@ -409,9 +409,9 @@ def test_check_project_speed_sanity(lib):
     sp = spec(4, 21)
     p = build_project(sp)
     assert sum(len(s.elements) for s in p.sheets) > 700
-    check_project(p, lib)
+    check_project(p, lib, standard_paper="A4")
     t = time.perf_counter()
-    check_project(p, lib)
+    check_project(p, lib, standard_paper="A4")
     assert time.perf_counter() - t < 6.0
 
 

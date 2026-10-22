@@ -1,8 +1,10 @@
 """Statická kontrola (AST, bez Qt): GUI mění model jen přes `QUndoCommand` (CLAUDE.md, `ui/commands.py`).
 
-V `envocad/ui/` (rekurzivně) mimo `commands.py` se hlásí zápisy do polí objektů modelu (`FIELDS`: attrs,
-conductors, terminals, mp_pos, points, port, bridges, wires, elements, meta, sheets, structures, component_id, x, y,
-rotation, mirror, name):
+V `envocad/ui/` (rekurzivně) mimo `commands.py` se hlásí zápisy do polí objektů modelu (`FIELDS`). Seznam polí se
+odvozuje z dataclass v `envocad/model/project.py` (`dataclasses.fields`) – nové pole modelu (`Sheet.texts`,
+`Element.sl_pos`…) se hlídá samo. Vynechané jsou záznamy změn (`MODEL_RECORDS`: `TextChange`, `ConductorChange` –
+hodnoty pro příkazy, ne stav dokumentu) a stav relace (`RUNTIME_FIELDS`: cesta k souboru, mezipaměť kabelů – neukládá
+se, undo ho nevrací):
 - přiřazení `X.<pole> = …` (i v n-tici, `+=`, `del`) a `X.<pole>[k] = …`;
 - volání slovníkových a seznamových mutátorů `X.<pole>.update/pop/setdefault/clear/popitem/append/extend/insert/
   remove/sort(…)`.
@@ -13,15 +15,32 @@ komentářem `# model-write-ok: <důvod>` na stejném řádku jako začátek př
 (souvislé řádky jen s komentářem) bezprostředně nad ním.
 
 Známá omezení (pragmatická kontrola, zbytek pokrývají testy undo): nevidí zápisy přes alias (`a = e.attrs;
-a["x"] = 1`, `lst = sheet.wires; lst.append(w)`), přes `setattr`, přes jiná jména polí (`n.w`, `sheet.func`) ani
-volání metod modelu, které zapisují uvnitř (`sheet.remove_element`)."""
+a["x"] = 1`, `lst = sheet.wires; lst.append(w)`), přes `setattr` ani volání metod modelu, které zapisují uvnitř
+(`sheet.remove_element`). Protože se hlídají jména polí, ne typy, ohlásí i zápis do stejně pojmenovaného atributu
+objektu GUI (`item.label`) – takové místo se označí komentářem výjimky."""
 import ast
+import dataclasses
+import inspect
 import re
 from pathlib import Path
 
+import envocad.model.project as model
+
 UI = Path(__file__).resolve().parent.parent / "envocad" / "ui"
-FIELDS = {"attrs", "conductors", "terminals", "mp_pos", "points", "port", "bridges", "wires", "elements", "meta",
-          "sheets", "structures", "component_id", "x", "y", "rotation", "mirror", "name"}
+MODEL_RECORDS = {"TextChange", "ConductorChange"}
+RUNTIME_FIELDS = {"path", "removed_cables", "loaded_orphan_cables"}
+
+
+def model_fields() -> set[str]:
+    """Jména polí dataclass modelu projektu (bez záznamů změn a stavu relace)."""
+    out: set[str] = set()
+    for name, cls in inspect.getmembers(model, inspect.isclass):
+        if dataclasses.is_dataclass(cls) and cls.__module__ == model.__name__ and name not in MODEL_RECORDS:
+            out |= {f.name for f in dataclasses.fields(cls)}
+    return out - RUNTIME_FIELDS
+
+
+FIELDS = model_fields()
 MUTATORS = {"update", "pop", "setdefault", "clear", "popitem", "append", "extend", "insert", "remove", "sort"}
 OK = re.compile(r"#\s*model-write-ok:\s*\S")
 
@@ -79,6 +98,18 @@ def model_writes(src: str) -> list[tuple[str, str, int]]:
     return sorted(out, key=lambda x: x[2])
 
 
+def test_fields_derived_from_model():
+    """Hlídaná pole = pole dataclass modelu: dřívější ruční seznam i pole přidaná později."""
+    earlier = {"attrs", "conductors", "terminals", "mp_pos", "points", "port", "bridges", "wires", "elements", "meta",
+               "sheets", "structures", "component_id", "x", "y", "rotation", "mirror", "name"}
+    assert earlier <= FIELDS
+    assert {"texts", "sl_pos", "mirror", "func", "loc", "mp_paper", "layout", "params", "cables", "revisions",
+            "notes", "marks", "fingerprints", "text", "height"} <= FIELDS
+    for cls in (model.Project, model.Sheet, model.Element, model.Wire, model.WireEnd, model.SheetText, model.Layout):
+        assert {f.name for f in dataclasses.fields(cls)} - RUNTIME_FIELDS <= FIELDS, cls.__name__
+    assert not RUNTIME_FIELDS & FIELDS and "wire_id" not in FIELDS     # jen ConductorChange (záznam změny)
+
+
 def test_model_writes_detector():
     samples = {
         "def f(w):\n    w.conductors = []\n": [("f", ".conductors =")],
@@ -86,7 +117,7 @@ def test_model_writes_detector():
         "def f(e):\n    e.attrs.update({})\n    e.attrs.pop('a', None)\n": [("f", ".attrs.update()"),
                                                                         ("f", ".attrs.pop()")],
         "def f(w):\n    w.a.port = 'X1'\n": [("f", ".port =")],
-        "def f(e):\n    e.mp_pos, e.w = None, 0\n": [("f", ".mp_pos =")],
+        "def f(e):\n    e.mp_pos, e.foo = None, 0\n": [("f", ".mp_pos =")],
         "def f(s, w):\n    s.wires.append(w)\n    s.elements.insert(0, w)\n": [("f", ".wires.append()"),
                                                                        ("f", ".elements.insert()")],
         "def f(p, s):\n    p.sheets.remove(s)\n    p.structures.sort()\n    s.wires.extend([])\n":
@@ -102,10 +133,14 @@ def test_model_writes_detector():
     }
     for code, expected in samples.items():
         assert [w[:2] for w in model_writes(code)] == expected, code
-    # stav objektu GUI (`self.points`), čtení a zápis do jiných polí se nehlásí
+    # nová pole modelu (odvozená z dataclass)
+    assert [w[:2] for w in model_writes("def f(s, e):\n    s.texts.append(1)\n    e.sl_pos = None\n"
+                                        "    s.func = 'AC'\n")] == [("f", ".texts.append()"), ("f", ".sl_pos ="),
+                                                                   ("f", ".func =")]
+    # stav objektu GUI (`self.points`), čtení a zápis do polí, která model nemá, se nehlásí
     assert model_writes("class A:\n    def g(self):\n        self.points = []\n        self.attrs['a'] = 1\n"
-                        "        x = self.e.attrs.get('a')\n        self.e.func = 'x'\n        self.wires.append(1)\n"
-                        ) == []
+                        "        x = self.e.attrs.get('a')\n        self.e.foo = 'x'\n        self.wires.append(1)\n"
+                        "        self.view.path = 'x'\n") == []
     # řádek víceřádkového příkazu = jeho začátek (komentář výjimky patří nad příkaz)
     assert [w[2] for w in model_writes("def f(e):\n    g(1,\n      e.attrs.pop('a'))\n")] == [2]
 

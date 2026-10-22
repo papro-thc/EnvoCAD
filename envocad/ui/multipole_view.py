@@ -16,6 +16,7 @@ from envocad.model import multipole as mp
 from envocad.model.feed import FEED_SYMBOLS
 from envocad.model.project import Element, Project, Sheet, Wire, element_symbol, wire_label
 from envocad.model.symbol import GRID, Symbol, rotate_dir
+from envocad.settings import switchboard_paper
 from envocad.ui import commands
 from envocad.ui.canvas import Mode, SchematicView
 from envocad.ui.items import PORT_R, path_points, snap
@@ -588,8 +589,9 @@ class MultipoleScene(QGraphicsScene):
         self._place_sid = None
         self._place_rot = 0
         self._poles: dict[str, mp.ElementPoles] = {}
-        self.paper_size = mp.page_size(sheet)          # strana vícepólu (list rozvaděče výchozí A4 na šířku)
-        self.paper_label = mp.page_paper_label(sheet)
+        std = switchboard_paper()                      # firemní standard (model nastavení nečte)
+        self.paper_size = mp.page_size(sheet, standard_paper=std)   # strana vícepólu (list rozvaděče výchozí A4)
+        self.paper_label = mp.page_paper_label(sheet, standard_paper=std)
         self._paper = QGraphicsRectItem(QRectF(0, -self.paper_size[1], *self.paper_size))
         self._paper.setZValue(-1)
         self.addItem(self._paper)
@@ -652,8 +654,9 @@ class MultipoleScene(QGraphicsScene):
         self._pole_items.clear()
         self._tags.clear()
         self._paper.setPen(QPen(colors().paper, 0.5))
-        self.paper_size = mp.page_size(self.sheet)
-        self.paper_label = mp.page_paper_label(self.sheet)
+        std = switchboard_paper()
+        self.paper_size = mp.page_size(self.sheet, standard_paper=std)
+        self.paper_label = mp.page_paper_label(self.sheet, standard_paper=std)
         poles: dict[str, mp.ElementPoles] = {}
         self._poles = poles
         poles.update(mp.sheet_poles(self.sheet, lambda e: element_symbol(self.project, e, self.library)))
@@ -664,7 +667,7 @@ class MultipoleScene(QGraphicsScene):
         from envocad.model.multipole_geometry import multipole_geometry
         self._geo = None
         try:
-            self._geo = multipole_geometry(self.project, self.sheet, self.library)
+            self._geo = multipole_geometry(self.project, self.sheet, self.library, standard_paper=std)
         except Exception:
             log.exception("vícepól: rozmístění z modelu selhalo")
         bus_taps: dict[tuple[str, int], list[tuple[float, float]]] = {}
@@ -719,14 +722,14 @@ class MultipoleScene(QGraphicsScene):
                 if tap is not None:     # žíla do sběrné čáry přes strany (z modelu)
                     ps, ds, pt, dt, ts = tap
                     it = ConductorItem(w, c, 0, sp(*ps), ds, sp(*pt), dt, (ts, ""))
-                    it.label = self._labels.get((w.id, c, 0))
+                    it.label = self._labels.get((w.id, c, 0))   # model-write-ok: popisek položky scény (ConductorItem), ne model
                     self._add(it)
                     continue
                 if ka == kb:
                     it = ConductorItem(w, c, i, sp(*pa), da, sp(*pb), db, (ta, tb),
                                        branch=mp.branch_side(branches, w.id))
                     it.staggered = len(mp.wire_conductors(w)) > 1
-                    it.label = self._labels.get((w.id, c, 0))
+                    it.label = self._labels.get((w.id, c, 0))   # model-write-ok: popisek položky scény (ConductorItem), ne model
                     self._add(it)
                 else:
                     self._add_page_break(w, c, i, pa, da, ka, pb, db, kb, (ta, tb))
@@ -795,7 +798,7 @@ class MultipoleScene(QGraphicsScene):
             tap = (px, y)
             t = "" if mp.is_terminal_block(dev.element) else mp.terminal_text(w, c, side)
             it = ConductorItem(w, c, 0, sp(px, py), ddir, sp(*tap), "S" if y > py else "N", (t, ""))
-            it.label = self._labels.get((w.id, c, 0))
+            it.label = self._labels.get((w.id, c, 0))   # model-write-ok: popisek položky scény (ConductorItem), ne model
             self._add(it)
             bus_taps.setdefault((bus.element.id, kd), []).append(tap)
 
@@ -845,7 +848,7 @@ class MultipoleScene(QGraphicsScene):
         for part, (a_, da_, b_, db_, ends_) in enumerate(((pa, da, ea_pt, "W" if right else "E", (texts[0], "")),
                                                            (eb_pt, "E" if right else "W", pb, db, ("", texts[1])))):
             it = ConductorItem(w, c, i, sp(*a_), da_, sp(*b_), db_, ends_)
-            it.label = self._labels.get((w.id, c, part))
+            it.label = self._labels.get((w.id, c, part))   # model-write-ok: popisek položky scény (ConductorItem), ne model
             self._add(it)
         self._add(PageBreakItem(xa, ya, right, ref_a))
         self._add(PageBreakItem(xb, yb, not right, ref_b))
@@ -1022,14 +1025,17 @@ class MultipoleScene(QGraphicsScene):
 
     def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
         from envocad.model.frame import frame_geometry, page_label
+        from envocad.settings import company
         c = PRINT if not self.draw_grid else colors()
         w, h = self.paper_size
         n = max(1, len(self.pages))
+        firm = company()
         for k in range(n):
             painter.save()
             painter.translate(0, k * self.page_pitch)
             draw_frame(painter, frame_geometry(self.project, self.sheet, w, h, "vícepólové schéma",
-                                               page_label(self.project, self.sheet, k, n), self.paper_label), c.ink)
+                                               page_label(self.project, self.sheet, k, n), self.paper_label,
+                                               firm), c.ink)
             painter.restore()
             if k:  # dělicí čára mezi stranami i bez rámečku
                 painter.setPen(QPen(c.grid, 0, Qt.DashLine))

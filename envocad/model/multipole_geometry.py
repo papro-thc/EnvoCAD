@@ -171,17 +171,18 @@ def _layout(sheet: Sheet, poles: dict[str, mp.ElementPoles], size: tuple[float, 
     return layout, page_of, n_pages
 
 
-def multipole_geometry(project: Project, sheet: Sheet, lib) -> MultipoleGeometry:
+def multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: str) -> MultipoleGeometry:
     """Texty a čáry vícepólu listu rozvaděče (souřadnice pohledu, strany pod sebou).
 
-    Strana má formát `multipole.paper_choice` (list rozvaděče výchozí A4 na šířku). Když kresba automaticky
+    Strana má formát `multipole.paper_choice` (list rozvaděče bez volby `mp_paper` formát firemního standardu
+    `standard_paper` od volajícího, výchozí A4 na šířku). Když kresba automaticky
     rozmístěných prvků sahá pod horní hranu popisového pole (s rámečkem i bez něj – rozmístění na zapnutí rámečku
     nezávisí), posune se nejdřív celé rozmístění nahoru (nejvýš pod nadpis rozvaděče) a pak se zmenší mezery mezi
     sloupci (nejvýš na `multipole.MIN_COL_GAP`). Posun i mezery jsou stejné na všech stranách (sběrnice zůstane
     ve stejné výšce). Výsledné polohy prvků jsou v `origins` – scéna (`ui/multipole_view.py`) je převezme, takže
     kreslí totéž."""
     from envocad.model.frame import MARGIN, TB_H
-    choice = mp.paper_choice(sheet)
+    choice = mp.paper_choice(sheet, standard_paper)
     size = mp.page_size(sheet, choice)
     poles: dict[str, mp.ElementPoles] = {}
     poles.update(mp.sheet_poles(sheet, lambda e: element_symbol(project, e, lib)))
@@ -786,12 +787,12 @@ def _place_conductor_labels(g: MultipoleGeometry, pending) -> None:
         g.texts.append((box, owner, f"popisek žíly {key[1]}"))
 
 
-def multipole_text_overlaps(project: Project, sheet: Sheet, lib,
-                            geometry: MultipoleGeometry | None = None) -> list[tuple[str, str, str]]:
+def multipole_text_overlaps(project: Project, sheet: Sheet, lib, geometry: MultipoleGeometry | None = None, *,
+                            standard_paper: str) -> list[tuple[str, str, str]]:
     """Překryvy ve vícepólu: text přes cizí text, text přes cizí čáru (žílu, značku, sběrnici, štítek).
     [(vlastník textu, vlastník druhého, popis)] – vlastník = id prvku nebo vodiče (žíla „id#L1“ se hlásí jako vodič);
     každá dvojice jen jednou."""
-    g = geometry or multipole_geometry(project, sheet, lib)
+    g = geometry or multipole_geometry(project, sheet, lib, standard_paper=standard_paper)
     found: dict[tuple, tuple[str, str, str]] = {}
     tgrid = _IndexGrid()
     for i, (b, _o, _w) in enumerate(g.texts):

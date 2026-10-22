@@ -16,6 +16,7 @@ import pytest
 from envocad.generate import build_project
 from envocad.library.store import LibraryStore, _rel
 from envocad.model import frame, routing, textlayout
+from envocad.model.multipole import DEFAULT_SWITCHBOARD_PAPER
 from envocad.model.project import (
     FEED_SYMBOLS,
     Element,
@@ -323,6 +324,9 @@ def test_layout_cache(projects, lib):
     assert textlayout._LAYOUT_CACHE is None
 
 
+STD = DEFAULT_SWITCHBOARD_PAPER                               # firemní standard formátu vícepólu (povinný parametr)
+
+
 # ---- zvětšení listů --------------------------------------------------------------------------------------------
 def test_grow_sheet_long_skips_boxes_without_long_paper(monkeypatch, lib):
     p = Project()
@@ -332,7 +336,7 @@ def test_grow_sheet_long_skips_boxes_without_long_paper(monkeypatch, lib):
     def boom(*_a, **_k):
         raise AssertionError("obálky se nemají počítat")
     monkeypatch.setattr(textlayout, "sheet_content_boxes", boom)
-    assert frame.grow_sheet_long(p, s, lib) is False
+    assert frame.grow_sheet_long(p, s, lib, standard_paper=STD) is False
 
 
 def test_grow_sheet_given_boxes(monkeypatch, lib):
@@ -342,17 +346,18 @@ def test_grow_sheet_given_boxes(monkeypatch, lib):
     s.paper, s.width, s.height = "A3", 420.0, 297.0
     monkeypatch.setattr(textlayout, "sheet_content_boxes", lambda *_a, **_k: pytest.fail("výpočet obálek"))
     wide = [(30.0, 30.0, 800.0, 200.0)]                       # přetéká jen vpravo → A4×5 (výška 297 mm)
-    assert frame.grow_sheet_long(p, s, lib, wide) is True and s.paper == "A4×5"
+    assert frame.grow_sheet_long(p, s, lib, wide, standard_paper=STD) is True and s.paper == "A4×5"
     s.paper, s.width, s.height = "A3", 420.0, 297.0
-    assert frame.grow_sheet_to_content(p, s, lib, [(30.0, 30.0, 100.0, 100.0)]) is False
+    assert frame.grow_sheet_to_content(p, s, lib, [(30.0, 30.0, 100.0, 100.0)], standard_paper=STD) is False
     # přetéká vpravo, nad popisovým polem A2 → A2 bez posunu
-    assert frame.grow_sheet_to_content(p, s, lib, [(30.0, 150.0, 500.0, 250.0)]) is True and s.paper == "A2"
+    assert frame.grow_sheet_to_content(p, s, lib, [(30.0, 150.0, 500.0, 250.0)], standard_paper=STD) is True and s.paper == "A2"
 
 
 def test_grow_switchboards_same_as_separate_calls(ac_builtin, lib):
     """`_grow_switchboards` se sdílenými obálkami = `grow_sheet_long` nebo `grow_sheet_to_content` zvlášť."""
     from envocad.generator import context
     from envocad.generator.layout import _grow_switchboards
+    from envocad.settings import switchboard_paper
     spec = {"inverters": [{"ref": "T1", **INV, "strings": [20] * 9}]}
     a, b = build_project(spec), build_project(spec)
     for p in (a, b):
@@ -364,8 +369,9 @@ def test_grow_switchboards_same_as_separate_calls(ac_builtin, lib):
         _grow_switchboards(a, [sh for sh in a.sheets if sh.is_switchboard])
     finally:
         context._BUILD_LIB = None
+    std = switchboard_paper()                                  # stejný standard, jaký předává `_grow_switchboards`
     for sh in (sh for sh in b.sheets if sh.is_switchboard):
-        frame.grow_sheet_long(b, sh, lib) or frame.grow_sheet_to_content(b, sh, lib)
+        frame.grow_sheet_long(b, sh, lib, standard_paper=std) or frame.grow_sheet_to_content(b, sh, lib, standard_paper=std)
     assert [(s.paper, s.width, s.height) for s in a.sheets] == [(s.paper, s.width, s.height) for s in b.sheets]
 
 

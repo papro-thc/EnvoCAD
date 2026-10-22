@@ -337,10 +337,11 @@ def template(tid: str) -> Template:
 
 
 def apply_template(project: Project, sheet: Sheet, tid: str, params: dict[str, str] | None = None,
-                   lib=None) -> None:
+                   lib=None, *, standard_paper: str) -> None:
     """Vloží šablonu do listu. Neplatný parametr → ValueError s českou hláškou; vestavěné šablony parametry ověří
     dřív, než cokoli vloží (list zůstane beze změny). S knihovnou (`lib`) se list zvětší, když obsah přetéká formát
-    (`frame.grow_sheet_to_content` – např. DC rozvaděč s 9 stringy po `DC_STRING_PITCH` se na A3 nevejde)."""
+    (`frame.grow_sheet_to_content` – např. DC rozvaděč s 9 stringy po `DC_STRING_PITCH` se na A3 nevejde);
+    `standard_paper` = formát stran vícepólu z firemního standardu (`envocad.settings.switchboard_paper`)."""
     t = template(tid)
     p = {tp.key: tp.default for tp in t.params}
     p.update(params or {})
@@ -349,4 +350,4 @@ def apply_template(project: Project, sheet: Sheet, tid: str, params: dict[str, s
     normalize_legacy_objects(sheet.elements)
     if lib is not None:
         from envocad.model.frame import grow_sheet_to_content
-        grow_sheet_to_content(project, sheet, lib)
+        grow_sheet_to_content(project, sheet, lib, standard_paper=standard_paper)

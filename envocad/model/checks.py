@@ -66,7 +66,9 @@ def _connected_ports(sheet: Sheet, e: Element) -> set[str]:
     return {end.port for w in sheet.wires for end in (w.a, w.b) if end.element_id == e.id}
 
 
-def check_project(project: Project, lib) -> list[Finding]:
+def check_project(project: Project, lib, *, standard_paper: str) -> list[Finding]:
+    """Kontrola projektu (F7). `standard_paper` = formát stran vícepólu z firemního standardu
+    (`envocad.settings.switchboard_paper`) pro překryvy ve vícepólu – model nastavení nečte."""
     from envocad.model.xref import (
         DeviceIndex,
         has_cable_data,
@@ -238,7 +240,7 @@ def check_project(project: Project, lib) -> list[Finding]:
     out += calc_findings(project)
     out += thermal_findings(project, lib)
     out += potential_findings(project, lib)
-    out += text_findings(project, lib)
+    out += text_findings(project, lib, standard_paper=standard_paper)
     out = aggregate_info(out)
     order = {ERROR: 0, WARNING: 1, INFO: 2}
     out.sort(key=lambda f: (order[f.severity], f.sheet_name, f.ref))
@@ -795,7 +797,7 @@ def interrupt_findings(project: Project, index=None) -> list[Finding]:
     return out
 
 
-def text_findings(project: Project, lib) -> list[Finding]:
+def text_findings(project: Project, lib, *, standard_paper: str) -> list[Finding]:
     """Překrývající se vodiče a texty na listech (po automatickém rozmístění popisků) – text přes text, vodič nebo značku."""
     from envocad.model.routing import wire_overlaps
     from envocad.model.textlayout import compute_layout, text_overlaps
@@ -819,18 +821,18 @@ def text_findings(project: Project, lib) -> list[Finding]:
                                f"Překryv textu: {text} – posuň prvek / lom vodiče nebo uprav polohu popisku značky",
                                "text_overlap"))
         if s.is_switchboard and mp.has_multipole(s):
-            out += multipole_text_findings(project, s, lib)
+            out += multipole_text_findings(project, s, lib, standard_paper=standard_paper)
     return out
 
 
 MP_OVERLAP_DETAIL = 5   # víc překryvů ve vícepólu jednoho listu → jedna souhrnná položka
 
 
-def multipole_text_findings(project: Project, s: Sheet, lib) -> list[Finding]:
+def multipole_text_findings(project: Project, s: Sheet, lib, *, standard_paper: str) -> list[Finding]:
     """Překryvy textů a čar ve vícepólovém schématu listu rozvaděče (`multipole_geometry`)."""
     from envocad.model.multipole_geometry import multipole_text_overlaps
     try:
-        hits = multipole_text_overlaps(project, s, lib)
+        hits = multipole_text_overlaps(project, s, lib, standard_paper=standard_paper)
     except (KeyError, ValueError, AttributeError, StopIteration):
         return []
     wires = {w.id: w for w in s.wires}

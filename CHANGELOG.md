@@ -1,6 +1,21 @@
 # Changelog
 
 ## Nevydáno
+- **Opravy z review generátoru** (`docs/ROADMAP.md`, „Chyby k řešení“):
+  - **Revize vidí volné texty listu** (`Sheet.texts`): porovnání s revizí hlásí přidaný / změněný / odebraný text
+    (značka revize vlevo od textu, pouhý posun bez značky) a otisk uzavřeného listu změnu textu pozná.
+    **Formát projektu v16** – data se nemění; otisky uzavřených revizí ze starší verze, které sedí na list bez
+    změny, se při načtení přepočtou (`diff.upgrade_fingerprints`) – žádné falešné „změněno po uzavření revize“
+    (test se souborem `tests/data/v15_closed_revision_texts.ecp`). Program v15 soubor v16 odmítne.
+  - **Hlídací test zápisů mimo undo** odvozuje hlídaná pole z dataclass modelu – nová pole se hlídají sama.
+  - **Model nečte uživatelská nastavení**: formát stran vícepólu a název firmy předává volající (parametry
+    `standard_paper`, `company`; `settings.switchboard_paper`, `settings.company`, `settings.frame_enabled`).
+    `multipole.standard_switchboard_paper` a `frame.frame_enabled` zrušeny.
+    U vstupních funkcí (`check_project`, `multipole_geometry`, `multipole_text_overlaps`, `sheet_plan_pages`,
+    `apply_template`, `grow_sheet_*`) je `standard_paper` povinný keyword-only parametr.
+  - Volné texty bez id dostanou při načtení stálé id „<list>.t<n>“, duplicitní id textů se opraví deterministicky.
+  - **Úklid**: zaokrouhlení na mřížku v `model/grid.py`, odstraněn nepoužitý `ui/render.elide_text`, pole uzlu
+    jednopólového schématu deklarovaná v dataclass. Výstup generátoru beze změny.
 - **Zrychlení generátoru** (výstup beze změny – snímek generátoru i rozšířená sada případů shodné). Po F2 bylo
   `build_project` 1,5–2,2× pomalejší než před F2 (zkoušení rozložení řetězce, hodnocení variant). Nově: hodnocení trasy
   vodiče jen proti úsekům v dosahu obálky (obálky položených vodičů jednou za list, prvky přes mapu), kandidáti popisků

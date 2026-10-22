@@ -185,7 +185,7 @@ def test_custom_from_below_macro_without_attribute_keeps_old_layout(lib, tmp_pat
         assert layout_of(bus) is None
         assert element_symbol(p, bus, lib).ports == lib.get_symbol("sb.busbar").ports
         assert _crossings(p, s, lib) == []
-        assert not [f for f in check_project(p, lib) if f.sheet_id == s.id and f.severity in (ERROR, WARNING)]
+        assert not [f for f in check_project(p, lib, standard_paper="A4") if f.sheet_id == s.id and f.severity in (ERROR, WARNING)]
 
 
 # ---- generátor: RFVE.AC a RFVE rodinného domu ---------------------------------------------------------------------
@@ -216,7 +216,7 @@ def test_rfve_ac_branches_straight(lib, n, use_macros):
     if gp is not None:
         assert gp.x == bus.x + sym.port("4").x
     assert line_end(sym) + bus.x == last.x + 7.5           # sběrnice končí za posledním vývodem (vypínač / ochrana)
-    bad = [(f.code, f.text) for f in check_project(p, lib) if f.severity in (ERROR, WARNING)]
+    bad = [(f.code, f.text) for f in check_project(p, lib, standard_paper="A4") if f.severity in (ERROR, WARNING)]
     assert bad == []
 
 
@@ -243,7 +243,7 @@ def test_rfve_house_branches_straight(lib, n):
                 assert not bus.x + lo <= x0 <= bus.x + hi, w.id
     # 3 střídače: vícepól RFVE měl překryv textů už se sběrnicí pevné délky (nesouvisí se sběrnicí – otevřené)
     known = {"mp_text_overlap"} if n == 3 else set()
-    bad = [(f.code, f.text) for f in check_project(p, lib)
+    bad = [(f.code, f.text) for f in check_project(p, lib, standard_paper="A4")
            if f.sheet_id == s.id and f.severity in (ERROR, WARNING) and f.code not in known]
     assert bad == []
 
@@ -284,7 +284,7 @@ def test_switchboards_no_crossing_without_node(lib, case):
     ids = {s.id for s in sheets}
     # rd3: vícepól RFVE má překryv textů nezávisle na trasování (viz test_rfve_house_branches_straight – otevřené)
     known = {"mp_text_overlap"} if case.startswith("rd3") else set()
-    bad = [(f.code, f.text) for f in check_project(p, lib)
+    bad = [(f.code, f.text) for f in check_project(p, lib, standard_paper="A4")
            if f.sheet_id in ids and f.severity in (ERROR, WARNING) and f.code not in known]
     assert bad == []
 
@@ -322,14 +322,14 @@ def test_ac_template_branches_straight(lib, n_out):
     blk = Element("fve.switchboard", 100, 100, attrs={"ref": "R1"})
     p.sheets[0].elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve", {"n_out": n_out}, lib=lib)
+    apply_template(p, sb, "ac_fve", {"n_out": n_out}, lib=lib, standard_paper="A4")
     bus = _bus(sb)
     assert layout_of(bus) == BusLayout(1, int(n_out), 30.0)
     bus_wires = [w for w in sb.wires if w.touches(bus.id)]
     assert len(bus_wires) == int(n_out) + 3
     assert _bent(p, sb, lib, bus_wires) == []
     assert _crossings(p, sb, lib) == []
-    assert not [f for f in check_project(p, lib) if f.sheet_id == sb.id and f.severity in (ERROR, WARNING)]
+    assert not [f for f in check_project(p, lib, standard_paper="A4") if f.sheet_id == sb.id and f.severity in (ERROR, WARNING)]
 
 
 # ---- vícepól -----------------------------------------------------------------------------------------------------
@@ -348,10 +348,10 @@ def test_multipole_with_parametric_bus(lib, case):
     poles = mp.sheet_poles(s, lambda e: element_symbol(p, e, lib))
     bus = _bus(s)
     assert poles[bus.id].symbol.ports == element_symbol(p, bus, lib).ports
-    geo = multipole_geometry(p, s, lib)
+    geo = multipole_geometry(p, s, lib, standard_paper="A4")
     # každá žíla odbočky sběrnice ve vícepólu (L1 L2 L3 N PE přívodů, L1…N SPD, PE XPE, hlavní vypínač)
     assert geo.prims
-    assert not [f for f in check_project(p, lib) if f.sheet_id == s.id and f.code.startswith("mp_")]
+    assert not [f for f in check_project(p, lib, standard_paper="A4") if f.sheet_id == s.id and f.code.startswith("mp_")]
 
 
 # ---- vestavěná makra a značka: přegenerování beze změny --------------------------------------------------------------

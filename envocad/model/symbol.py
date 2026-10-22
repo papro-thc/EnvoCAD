@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Any
 
 from envocad.model.designation import class_matches
-
-GRID = 2.5  # mm
+from envocad.model.grid import GRID
+from envocad.model.grid import snap as _snap
 
 Primitive = dict[str, Any]
 
@@ -241,9 +241,6 @@ class Symbol:
 
 ORPHAN_PITCH = 5.0   # mm – rozestup osiřelých portů pod značkou
 
-
-def _snap(v: float) -> float:
-    return round(v / GRID) * GRID
 
 
 def with_orphan_ports(sym: Symbol, names) -> Symbol:

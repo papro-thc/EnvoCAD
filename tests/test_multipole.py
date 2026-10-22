@@ -120,7 +120,7 @@ def test_auto_layout_terminal_schematic():
     blk = Element("fve.switchboard", 100, 150, attrs={"ref": "R1"})
     s.elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"}, standard_paper="A4")
     lib = _lib()
     poles = {e.id: mp.element_poles(sb, e, lib.get_symbol(e.symbol_id)) for e in sb.elements}
     lay = mp.auto_layout(sb, poles, y_top=257, bridges=sb.bridges)

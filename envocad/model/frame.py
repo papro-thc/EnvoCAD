@@ -4,31 +4,21 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime as _datetime
 
+from envocad.model.grid import snap as _snap
 from envocad.model.project import Project, Sheet
 
 MARGIN = 10.0        # okraj rámečku
 MARGIN_LEFT = 20.0   # širší okraj pro vazbu
 TB_W, TB_H = 180.0, 32.0  # popisové pole (š × v)
-COMPANY = "ENVO s.r.o."   # výchozí; přepíše `standard.company` v ~/.envocad/settings.json
+# výchozí název firmy; `standard.company` z ~/.envocad/settings.json čte `envocad.settings.company` a volající ho
+# předá parametrem `company` (model nastavení nečte). Zapnutí rámečku: `envocad.settings.frame_enabled`.
+COMPANY = "ENVO s.r.o."
 
 
-def frame_enabled() -> bool:
-    """Kreslit rámeček s popisovým polem? (nastavení `frame`, výchozí vypnuto – souřadnicová síť /2.B4 funguje i bez něj)"""
-    try:
-        from envocad.settings import load_settings
-        return bool(load_settings().get("frame", False))
-    except Exception:  # noqa: BLE001
-        return False
-
-
-def company_names() -> tuple[str, str]:
-    """(krátký název do loga, plný název firmy) z firemního standardu."""
-    try:
-        from envocad.settings import load_settings
-        full = (load_settings()["standard"].get("company") or COMPANY).strip()
-    except Exception:  # noqa: BLE001
-        full = COMPANY
-    short = full.split()[0].rstrip(",") if full else "ENVO"
+def company_names(company: str = COMPANY) -> tuple[str, str]:
+    """(krátký název do loga, plný název firmy) z názvu firmy firemního standardu (prázdný → `COMPANY`)."""
+    full = (str(company or "").strip() or COMPANY)
+    short = full.split()[0].rstrip(",")
     return short, full
 TEXT_CHAR_W = 0.72   # odhad průměrné šířky znaku / výška písma (Arial, jako `textlayout.CHAR_W`)
 MIN_TEXT_H = 1.6     # nejmenší výška písma hodnoty v popisovém poli
@@ -150,9 +140,10 @@ def qr_fits(width: float) -> bool:
 
 
 def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, height: float | None = None,
-                   view: str = "", page: str = "", paper: str = "") -> FrameGeometry:
+                   view: str = "", page: str = "", paper: str = "", company: str = COMPANY) -> FrameGeometry:
     """Rámeček s popisovým polem vpravo dole. Pro odvozené pohledy (vícepól) lze zadat jiný rozměr listu a jeho
-    formát (`paper`) do popisového pole. QR kód jen, když se vlevo od popisového pole vejde (`qr_fits`)."""
+    formát (`paper`) do popisového pole. QR kód jen, když se vlevo od popisového pole vejde (`qr_fits`). `company`
+    = název firmy do loga (firemní standard, `envocad.settings.company`)."""
     w = width or sheet.width
     h = height or sheet.height
     g = FrameGeometry()
@@ -180,7 +171,7 @@ def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, h
     rh = TB_H / len(rows)
     logo_w = 34.0
     g.lines.append((tx0 + logo_w, ty0, tx0 + logo_w, ty1))
-    short, full = company_names()
+    short, full = company_names(company)
     g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 2.0, *fit_text(short, logo_w - 3.0, 5.0, 2.5), "center"))
     g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 6.0, *fit_text(full, logo_w - 2.0, 1.8, 1.2), "center"))
     # QR kód s identifikací výkresu vlevo od popisového pole (projekt | zakázka | list | revize)
@@ -228,9 +219,6 @@ def title_block_box(width: float, height: float) -> tuple[float, float, float, f
     qr = QR_SIZE + QR_GAP if qr_fits(width) else 0.0
     return (width - MARGIN - TB_W - qr, MARGIN, width - MARGIN, MARGIN + TB_H)
 
-
-def _snap(v: float) -> float:
-    return round(v / 2.5) * 2.5
 
 
 def _boxes_hit(a, b) -> bool:
@@ -305,15 +293,16 @@ def _fits_unmoved(boxes: list, w: float, h: float) -> bool:
     return not any(_boxes_hit(b, tb) for b in boxes)
 
 
-def grow_sheet_to_content(project: Project, sheet: Sheet, lib, boxes: list | None = None) -> bool:
+def grow_sheet_to_content(project: Project, sheet: Sheet, lib, boxes: list | None = None, *,
+                          standard_paper: str) -> bool:
     """Zvětší formát listu, když obsah přetéká vnitřní rámeček nebo leží v popisovém poli (např. DC rozvaděč
     s 9 stringy po 50 mm na A3). Obsah, který se vejde, se nemění (formát ani polohy); jinak nejmenší větší formát
     na šířku (A3…A0), do kterého se obsah vejde bez posunu, a teprve když žádný, `fit_sheet_to_content` (s posunem).
     Nikdy nezmenšuje. Vrací True, když se list změnil.
 
-    List rozvaděče bez volby formátu vícepólu (`mp_paper`) ji dostane podle stavu před zvětšením (firemní standard,
-    A4) – jiný formát listu by jinak přepnul vícepól a plán svorkovnice na rozměr listu (`multipole.paper_choice`).
-    `boxes` = obálky obsahu (`sheet_content_boxes`), když je volající už má."""
+    List rozvaděče bez volby formátu vícepólu (`mp_paper`) ji dostane podle stavu před zvětšením (firemní standard
+    `standard_paper` od volajícího, výchozí A4) – jiný formát listu by jinak přepnul vícepól a plán svorkovnice na
+    rozměr listu (`multipole.paper_choice`). `boxes` = obálky obsahu (`sheet_content_boxes`), když je volající už má."""
     from envocad.model.textlayout import sheet_content_boxes
     if boxes is None:
         boxes = sheet_content_boxes(project, sheet, lib)
@@ -321,7 +310,7 @@ def grow_sheet_to_content(project: Project, sheet: Sheet, lib, boxes: list | Non
         return False
     if sheet.is_switchboard and not getattr(sheet, "mp_paper", ""):
         from envocad.model.multipole import paper_choice
-        sheet.mp_paper = paper_choice(sheet)
+        sheet.mp_paper = paper_choice(sheet, standard_paper)
     for name, w, h in PAPER_SIZES:
         if w * h <= sheet.width * sheet.height + 1e-6:
             continue
@@ -340,11 +329,13 @@ LONG_PAPERS = {
 }
 
 
-def grow_sheet_long(project: Project, sheet: Sheet, lib, boxes: list | None = None) -> bool:
+def grow_sheet_long(project: Project, sheet: Sheet, lib, boxes: list | None = None, *,
+                    standard_paper: str) -> bool:
     """Zvětší list jen do šířky (prodloužený formát na šířku, ISO 5457 A4×n / A3×n se stejnou výškou), když obsah
     přetéká jen vpravo a na výšku se vejde – široký list rozvaděče (RFVE s mnoha stringy) pak nedostane A0. Obsah se
     neposouvá. False = list se vejde beze změny, výška nemá prodloužený formát nebo obsah přetéká i jinam (list se
-    pak nezmění). `boxes` jako u `grow_sheet_to_content`; obálky se počítají, jen když má výška prodloužený formát."""
+    pak nezmění). `boxes` a `standard_paper` jako u `grow_sheet_to_content`; obálky se počítají, jen když má výška
+    prodloužený formát."""
     from envocad.model.textlayout import sheet_content_boxes
     sizes = LONG_PAPERS.get(float(sheet.height))
     if sizes is None:
@@ -357,7 +348,7 @@ def grow_sheet_long(project: Project, sheet: Sheet, lib, boxes: list | None = No
         if w > sheet.width + 1e-6 and _fits_unmoved(boxes, w, sheet.height):
             if sheet.is_switchboard and not getattr(sheet, "mp_paper", ""):
                 from envocad.model.multipole import paper_choice
-                sheet.mp_paper = paper_choice(sheet)
+                sheet.mp_paper = paper_choice(sheet, standard_paper)
             sheet.paper, sheet.width = name, w
             return True
     return False

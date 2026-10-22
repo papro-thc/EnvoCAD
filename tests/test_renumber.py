@@ -33,7 +33,7 @@ def test_fix_fills_empty_and_duplicates_keeps_rest(lib):
     apply_text_changes(p, ch)
     assert _refs(s) == {q1.id: "F1", q2.id: "F3", q3.id: "F2", q4.id: "F4", custom.id: "F1.5"}
     assert renumber.plan(p, lib, renumber.FIX) == []          # podruhé nic
-    assert not [f for f in check_project(p, lib) if f.code == "dup_ref"]
+    assert not [f for f in check_project(p, lib, standard_paper="A4") if f.code == "dup_ref"]
 
 
 def test_all_numbers_by_position_columns_then_rows(lib):

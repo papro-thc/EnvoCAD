@@ -58,7 +58,7 @@ def _sb(tid="ac_fve", params=None, n=1):
         blk = Element("fve.switchboard", 120 + 10 * i, 150, attrs={"ref": f"R{i + 1}"})
         p.sheets[0].elements.append(blk)
         sb = p.create_switchboard_sheet(blk)
-        apply_template(p, sb, tid, params or {})
+        apply_template(p, sb, tid, params or {}, standard_paper="A4")
         out.append(sb)
     return p, out
 
@@ -376,7 +376,7 @@ def test_multipole_drawing_clear_of_title_block_and_qr(lib, proj):
     from envocad.model.multipole_geometry import multipole_geometry
     _frame(True)
     rh = proj.switchboards()[-1]
-    g = multipole_geometry(proj, rh, lib)
+    g = multipole_geometry(proj, rh, lib, standard_paper="A4")
     tb = title_block_box(rh.width, rh.height)
     pitch = rh.height + 20.0
     for box, owner, _w in g.texts:
@@ -391,7 +391,7 @@ def test_duplicate_pe_labels_on_shared_segment(lib, proj):
 
     from envocad.model.multipole_geometry import multipole_geometry
     sb = next(s for s in proj.switchboards() if any(e.ref == "XPE" for e in s.elements))
-    g = multipole_geometry(proj, sb, lib)
+    g = multipole_geometry(proj, sb, lib, standard_paper="A4")
     pe = [(x, y) for (_w, c, _p), (x, y, text, _a) in g.conductor_labels.items() if text == "PE"]
     for (ax, ay), (bx, by) in combinations(pe, 2):
         assert not (abs(ax - bx) < 0.5 and abs(ay - by) < 6.0), (ax, ay, bx, by)

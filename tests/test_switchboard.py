@@ -30,7 +30,7 @@ def test_templates_build_and_place(tmp_path):
         p = Project()
         s = Sheet(kind="switchboard")
         p.sheets.append(s)
-        apply_template(p, s, t.id)
+        apply_template(p, s, t.id, standard_paper="A4")
         assert s.elements, t.id
         # všechny symboly existují a porty vodičů sedí
         for e in s.elements:
@@ -107,7 +107,7 @@ def test_thermal(tmp_path):
     p = Project()
     s = Sheet(kind="switchboard")
     p.sheets.append(s)
-    apply_template(p, s, "ac_fve", {"n_out": "6", "i_out": "32", "i_main": "100"})
+    apply_template(p, s, "ac_fve", {"n_out": "6", "i_out": "32", "i_main": "100"}, standard_paper="A4")
     f = next(e for e in s.elements if e.symbol_id == "fve.breaker_mcb")
     assert device_power_loss(f, rdf=1.0) == round(0.09 * 32 * 3, 2)
     f.attrs["p_loss_w"] = "9"
@@ -149,7 +149,7 @@ def test_feed_link_to_jps_wire():
     s.wires.append(w)
     sb = p.create_switchboard_sheet(blk)
     assert [c[0] for c in wire_choices(p, sb)] == [w.id]
-    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"}, standard_paper="A4")
     feed = next(e for e in sb.elements if is_feed_in(e))
     assert feed.attrs["wire_id"] == w.id and feed.attrs["from"].startswith("W2 T1:AC /1.") and feed.attrs["cable"] == "CYKY-J 5x16 16"
     assert linked_wire(p, sb, feed)[1] is w
@@ -178,7 +178,7 @@ def test_switchboard_block_ports_follow_feeds():
     s.wires.append(w_in)
     assert [pt.name for pt in element_symbol(p, blk, lib).ports] == ["1", "2", "3", "4"]  # bez listu základní
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"}, standard_paper="A4")
     sym = element_symbol(p, blk, lib)
     assert [pt.name for pt in sym.ports] == ["X1", "X4", "X5", "X6"]   # přívod vlevo, vývody vpravo
     assert w_in.b.port == "X1"                                           # vodič přejmenovaný na port přívodu
@@ -212,7 +212,7 @@ def test_block_follows_switchboard_edits():
     load = Element("fve.load", 200, 150, attrs={"ref": "M1"})
     s.elements += [blk, load]
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"}, standard_paper="A4")
     ports = lambda: [pt.name for pt in element_symbol(p, blk, lib).ports]
     assert ports() == ["X1", "X4", "X5", "X6"]
     # nový vývod v rozvaděči → nový port
@@ -320,7 +320,7 @@ def test_structures_and_revisions_roundtrip():
                    fingerprints={p.sheets[0].id: "abc"})
     p.revisions = [Revision("A", closed=True), rev]
     d = p.to_dict()
-    assert d["format_version"] == FORMAT_VERSION == 15
+    assert d["format_version"] == FORMAT_VERSION == 16
     q = Project.from_dict(json.loads(json.dumps(d)))
     assert q.to_dict() == d
     assert q.sheets[0].func == "AC" and q.sheets[0].loc == "STR"

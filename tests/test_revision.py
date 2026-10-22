@@ -154,11 +154,11 @@ def test_changed_after_close_and_check(tmp_path, lib):
     rev = open_revision(p, "B")
     close_revision(p, rev)
     assert changed_after_close(p) == []
-    assert not [f for f in check_project(p, lib) if f.code == "rev_closed_changed"]
+    assert not [f for f in check_project(p, lib, standard_paper="A4") if f.code == "rev_closed_changed"]
     orig = dict(s.elements[0].attrs)
     s.elements[0].attrs["type"] = "jiný"
     assert changed_after_close(p) == [(s, rev)]
-    found = [f for f in check_project(p, lib) if f.code == "rev_closed_changed"]
+    found = [f for f in check_project(p, lib, standard_paper="A4") if f.code == "rev_closed_changed"]
     assert len(found) == 1 and found[0].sheet_id == s.id and found[0].severity == "varování"
     assert "revize B" in found[0].text
     # porovnání do nové revize varování odstraní
@@ -246,7 +246,7 @@ def test_compare_flow_end_to_end(tmp_path, lib):
 
 # ---- regrese z review --------------------------------------------------------------------------------------
 def _warned(p, lib) -> list[str]:
-    return [f.sheet_id for f in check_project(p, lib) if f.code == "rev_closed_changed"]
+    return [f.sheet_id for f in check_project(p, lib, standard_paper="A4") if f.code == "rev_closed_changed"]
 
 
 def test_close_all_keeps_earlier_sheet_fingerprint(tmp_path, lib):

@@ -18,7 +18,7 @@ def test_checks_find_typical_problems():
     s.elements += [g, t, f, blk, lonely]
     s.wires.append(Wire(WireEnd(g.id, "DC"), WireEnd(t.id, "DC1"), attrs={"ref": "W1"}))  # bez kabelu, bez žil
     s.wires.append(Wire(WireEnd(t.id, "AC"), WireEnd(f.id, "9"), attrs={"ref": "W2", "cable": "CYKY"}))  # špatný port
-    fs = check_project(p, lib)
+    fs = check_project(p, lib, standard_paper="A4")
     codes = {(x.code, x.ref) for x in fs}
     assert ("dup_ref", "T1") in codes
     assert ("bad_port", "W2") in codes
@@ -38,8 +38,8 @@ def test_checks_switchboard_template_is_mostly_clean():
     blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
     s.elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
-    fs = [x for x in check_project(p, lib) if x.sheet_id == sb.id]
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"}, standard_paper="A4")
+    fs = [x for x in check_project(p, lib, standard_paper="A4") if x.sheet_id == sb.id]
     assert not any(x.severity == ERROR for x in fs), [x.text for x in fs if x.severity == ERROR]
     # vývody bez vazby na JPS jsou jen informace; přístroje šablony nemají rozsah teplot → jedna agregovaná INFO
     assert all(x.code in ("feed_unlinked", "no_article", "no_cable", "thermal_device") for x in fs), {x.code for x in fs}
@@ -62,21 +62,21 @@ def test_dup_ref_by_scope_key():
     s1, s2 = p.create_switchboard_sheet(b1), p.create_switchboard_sheet(b2)
     s1.elements.append(Element("fve.breaker_mcb", attrs={"ref": "F1"}))
     s2.elements.append(Element("fve.breaker_mcb", attrs={"ref": "F1"}))       # jiné umístění → OK
-    assert not _codes(check_project(p, lib), "dup_ref")
+    assert not _codes(check_project(p, lib, standard_paper="A4"), "dup_ref")
     # druhý list se stejným umístěním sdílí prostor označení
     s3 = Sheet(name="RDC1 – 2", kind="switchboard", loc="RDC1")
     p.sheets.append(s3)
     s3.elements.append(Element("fve.breaker_mcb", attrs={"ref": "F1"}))
-    assert {f.sheet_id for f in _codes(check_project(p, lib), "dup_ref")} == {s1.id, s3.id}
+    assert {f.sheet_id for f in _codes(check_project(p, lib, standard_paper="A4"), "dup_ref")} == {s1.id, s3.id}
     # override umístění prvku ho přesune jinam
     s3.elements[0].attrs["loc"] = "RX"
-    assert not _codes(check_project(p, lib), "dup_ref")
+    assert not _codes(check_project(p, lib, standard_paper="A4"), "dup_ref")
     # anonymní list rozvaděče = vlastní prostor (dnešní chování)
     a1, a2 = Sheet(name="A1", kind="switchboard"), Sheet(name="A2", kind="switchboard")
     p.sheets += [a1, a2]
     a1.elements.append(Element("fve.breaker_mcb", attrs={"ref": "F1"}))
     a2.elements.append(Element("fve.breaker_mcb", attrs={"ref": "F1"}))
-    assert not _codes(check_project(p, lib), "dup_ref")
+    assert not _codes(check_project(p, lib, standard_paper="A4"), "dup_ref")
     # vodiče JPS (kabely) mají společný prostor pro celý projekt, prvek se stejným ref nevadí
     jps2 = Sheet(name="JPS 2", func="AC")
     p.sheets.append(jps2)
@@ -84,7 +84,7 @@ def test_dup_ref_by_scope_key():
     g = Element("fve.pv_string", attrs={"ref": "W1"})
     jps2.elements.append(g)
     jps2.wires.append(Wire(WireEnd(g.id, "DC"), WireEnd(g.id, "DC"), attrs={"ref": "W1"}))
-    dups = _codes(check_project(p, lib), "dup_ref")
+    dups = _codes(check_project(p, lib, standard_paper="A4"), "dup_ref")
     assert {(f.ref, f.is_wire) for f in dups} == {("W1", True)} and len(dups) == 2
 
 
@@ -117,7 +117,7 @@ def test_designation_findings_codes():
     anon = Sheet(name="Anonymní", kind="switchboard")
     p.sheets.append(anon)
     p.structures.append(StructureId("+", "bad code"))
-    fs = check_project(p, lib)
+    fs = check_project(p, lib, standard_paper="A4")
     by = {}
     for f in fs:
         by.setdefault(f.code, []).append(f)
@@ -152,20 +152,20 @@ def test_contact_ambiguous():
     jps.elements += [b1, b2, c]
     s1, s2 = p.create_switchboard_sheet(b1), p.create_switchboard_sheet(b2)
     s1.elements.append(Element("ctl.coil", attrs={"ref": "K1"}))
-    assert not _codes(check_project(p, lib), "contact_ambiguous")
+    assert not _codes(check_project(p, lib, standard_paper="A4"), "contact_ambiguous")
     s2.elements.append(Element("ctl.coil", attrs={"ref": "K1"}))
-    amb = _codes(check_project(p, lib), "contact_ambiguous")
+    amb = _codes(check_project(p, lib, standard_paper="A4"), "contact_ambiguous")
     assert len(amb) == 1 and amb[0].severity == WARNING and amb[0].target_id == c.id
     assert "(+RDC1, +RH)" in amb[0].text
     c.attrs["loc"] = "RH"                       # umístění kontaktu vybere jednu cívku
-    assert not _codes(check_project(p, lib), "contact_ambiguous")
+    assert not _codes(check_project(p, lib, standard_paper="A4"), "contact_ambiguous")
     c.attrs["loc"] = "XX"                       # v prostoru kontaktu žádná cívka → nejednoznačné
-    assert len(_codes(check_project(p, lib), "contact_ambiguous")) == 1
+    assert len(_codes(check_project(p, lib, standard_paper="A4"), "contact_ambiguous")) == 1
     # kontakt přímo na listu rozvaděče +RH (bez overridu) – prostor listu vybere cívku v +RH, žádné varování
     del c.attrs["loc"]
     jps.elements.remove(c)
     s2.elements.append(c)
-    assert not _codes(check_project(p, lib), "contact_ambiguous")
+    assert not _codes(check_project(p, lib, standard_paper="A4"), "contact_ambiguous")
     from envocad.model.project import coil_of
     assert coil_of(p, c)[0] is s2
 
@@ -174,7 +174,7 @@ def test_example_has_no_new_errors():
     """Ukázkový projekt (v1) po migraci na v8: žádná chyba a žádné nové nálezy označení."""
     from pathlib import Path
     p = Project.load(Path(__file__).parent.parent / "examples" / "ukazka_fve.ecp")
-    fs = check_project(p, LibraryStore())
+    fs = check_project(p, LibraryStore(), standard_paper="A4")
     assert not [f for f in fs if f.severity == ERROR]
     new_codes = {"ref_syntax", "ref_chars", "ref_length", "ref_class", "struct_syntax", "struct_undefined",
                  "sb_no_loc", "loc_mismatch", "contact_ambiguous"}
@@ -190,7 +190,7 @@ def test_generated_projects_have_no_ref_warnings():
                                           {"ref": "T2", "p_ac": 25, "strings": [20]}],
             "dc": {"route_boxes": 1, "tech_box": True, "disconnect": True}, "ac": {"distribution": "bus"}}
     p = build_project(spec)
-    fs = [f for f in check_project(p, lib) if f.code.startswith("ref_")]
+    fs = [f for f in check_project(p, lib, standard_paper="A4") if f.code.startswith("ref_")]
     assert fs and all(f.severity == "info" for f in fs), [f.text for f in fs if f.severity != "info"]
     assert any(f.ref.startswith("SPD-DC") for f in fs)
     for t in T.TEMPLATES:
@@ -198,8 +198,8 @@ def test_generated_projects_have_no_ref_warnings():
             tp = Project()
             blk = Element("fve.switchboard", attrs={"ref": "RH"})
             tp.sheets[0].elements.append(blk)
-            T.apply_template(tp, tp.create_switchboard_sheet(blk), t.id, {"distribution": dist})
-            bad = [f.text for f in check_project(tp, lib) if f.code.startswith("ref_") and f.severity != "info"]
+            T.apply_template(tp, tp.create_switchboard_sheet(blk), t.id, {"distribution": dist}, standard_paper="A4")
+            bad = [f.text for f in check_project(tp, lib, standard_paper="A4") if f.code.startswith("ref_") and f.severity != "info"]
             assert not bad, (t.id, dist, bad)
 
 
@@ -214,7 +214,7 @@ def test_calc_string_severity_modes():
     lib = LibraryStore()
 
     def string_findings():
-        return [(f.ref, f.severity, f.text) for f in check_project(p, lib) if f.code == "calc_string"]
+        return [(f.ref, f.severity, f.text) for f in check_project(p, lib, standard_paper="A4") if f.code == "calc_string"]
 
     # nestejná délka na jednom MPPT → varování u obou stringů
     assert string_findings() == [("G1", WARNING, "String: nestejná délka stringů na MPPT (20 a 18 modulů, ΔUmpp 10 %)"),

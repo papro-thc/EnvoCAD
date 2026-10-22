@@ -56,7 +56,7 @@ def _sb_project(params=None):
     p.sheets[0].elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
     if params is not None:
-        apply_template(p, sb, "ac_fve", params)
+        apply_template(p, sb, "ac_fve", params, standard_paper="A4")
     return p, sb
 
 
