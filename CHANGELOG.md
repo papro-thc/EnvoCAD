@@ -1,6 +1,31 @@
 # Changelog
 
 ## Nevydáno
+- **Review kontrol z artiklů a soustavy DC:** TZ a výkaz Výpočty hlásí Un DC přístrojů stejně jako F7 (knihovna,
+  návrhová t_min jen z projektu); jedna příčina = jeden nález (`calc_string` chyba vyjmenuje všechny přístroje
+  cesty, `un_dc` / `spd_ucpv` je se zadanou t_min znovu nehlásí, jinak info); soustava 1500 V jen s 2pólovým
+  držákem (1p ani bez pólů ne), bez RFVE.DC stačí svodič, automatika jen u střídače nad 1000 V DC, zadaná 1500 V
+  nepoužita → info; přívod stringu v listu nenalezen → napětí neurčeno + info `dc_path_unknown`; sloupec artiklu
+  `ucpv_v` (→ atribut `ucpv`, hodnoty z poznámek Weidmüller / Eaton), záloha z poznámky („Ucpv = 1 100 V“, „1,1
+  kV“); Ik transformátoru × c_max 1,05; pojistka gG In ≤ 4 A I2 = 2,1·In; Un čte největší číslo všude; 3f přístroj
+  podle známých pólů; Soustava DC ve Firemním standardu. Katalog: Eaton CHPV15L85 1pólový, značka
+  `fve.fuse_disconnect`; ETI EFH 10/14 −5…40 °C jen do poznámky (normální podmínky IEC 60947-1); názvy vložek
+  ETI CH10x85 bez zdvojeného „DC“.
+- **Soustava DC 1000 / 1500 V** (`model/dc_system.py`, `generator/dc_voltage.py`): asistent stringů a „Navrhnout
+  stringy“ omezí délku stringu i nejnižším Un DC přístrojů ve stringové cestě (pojistkový odpojovač, svodič – Ucpv;
+  důvod „Un DC přístrojů 1000 V“); stejnou mez hlídá F7 `calc_string` (`calc.string_device_limits`, se zadanou
+  návrhovou t_min). Generátor podle Uoc stringů (nebo `dc.system_v` / standard `dc_system_v` = 1500) vybere
+  z katalogu DC přístroje 1500 V (2p pojistkový odpojovač, svodič DC stejného typu) a rozvaděč popíše „max. 1500 V
+  DC“; bez nich zůstane u 1000 V, zaloguje varování a F7 hlásí `dc_1500_missing` (info). Testy na fixture artiklech.
+- **Kontroly F7 z údajů artiklů** (`model/ratings.py`, `docs/design/kontroly_artiklu.md`): zkratová odolnost (Icu
+  jističe vs. Ik rozvaděče `ik_ka`, Icw rozvaděče vs. Ik, Icu vs. Icw; horní odhad z `meta["ik_ka"]` / Sn a uk
+  transformátoru jen jako informace), svodiče (AC Uc ≥ 1,1·Uo / √3·Uo podle sítě listu, DC Ucpv vs. Uoc stringu
+  při t_min, Up vs. Uw střídače, typ 1 při jímací soustavě), svorky (průřez vs. `cross_max`, In svorky vs. In
+  jištění), Un přístroje vs. síť (AC) a vs. Uoc stringů (DC). `calc_cable` nově hlídá i I2 ≤ 1,45·Iz (pojistky gG).
+  Nové `calc.dc_voltages` (napětí DC v místě prvku), `calc.conventional_trip_factor`. Kódy v MANUAL. Nálezy z Uoc
+  při t_min jsou bez návrhové teploty v projektu jen informace (předpoklad −10 °C). Generované projekty se stringy
+  20 × 49,5 V dostanou oprávněný nález `un_dc` u odpojovačů EFH 10 DC (1000 V < 1083,6 V; se standardem −20 °C
+  varování, i `spd_ucpv` – Ucpv 1100 V < 1110,3 V); výchozí průvodce (18 modulů, −20 °C: 999,3 V) zůstává čistý.
 - **Rozložení rozvaděče z dat artiklů** (návrh `docs/design/rozlozeni_z_artiklu.md`, formát projektu beze změny – v15):
   `model/device_size.py` určuje šířku, výšku a hloubku přístroje (ruční `width_mm`/`height_mm`/`depth_mm` > ruční
   `modules` > artikl > `modules` z atributu) a tvar – modulový, obdélník š × v (3VA / MCCB, artikl bez modulů vyšší

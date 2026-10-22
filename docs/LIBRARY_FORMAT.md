@@ -68,6 +68,7 @@ písmenný kód označení žádné třídě neodpovídá. Shoda je prefixem: t�
 - `validate()` vyžaduje třídy `^[A-Z]{1,3}$` a aby jim odpovídal i sám `iec_ref` (`iec_ref` + „1“).
 - Příklad: jistič `fve.breaker_mcb` má `iec_ref` „F“ a `function_class` `["F", "Q"]` – označení Q1 je také v pořádku.
 - Firemní prefix: svodič `fve.spd` má `iec_ref` „F“ a `function_class` `["F", "SPD"]` – firemní číslování
+- Svodič DC: artikl `ucpv_v` (Ucpv, docs/COMPONENTS.md) se propíše do atributu `ucpv`; podle něj se omezuje délka stringu (`model/dc_system.py`).
   `SPD-DC1.1` (`docs/ENVO_STYL.md`) neodpovídá třídě F ani podtřídě FC, a třída „S“ by znamenala ruční ovládání
   (tlačítka S1). Proto explicitní třípísmenný prefix místo volnějšího „S“.
 - Firemní číslování: tečka (`FU1.1`) je schválený standard ENVO a kontrola ji nehlásí; vnitřní „-“ (`SPD-DC1.1`)

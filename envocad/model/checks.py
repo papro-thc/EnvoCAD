@@ -237,7 +237,8 @@ def check_project(project: Project, lib, *, standard_paper: str) -> list[Finding
     out += revision_findings(full)
     out += note_findings(full)
     out += cable_findings(full)
-    out += calc_findings(project)
+    out += calc_findings(project, lib)
+    out += rating_findings(project, lib)
     out += thermal_findings(project, lib)
     out += potential_findings(project, lib)
     out += text_findings(project, lib, standard_paper=standard_paper)
@@ -891,7 +892,7 @@ def cable_findings(project: Project) -> list[Finding]:
             for c in orphan_cables(project)]
 
 
-def calc_findings(project: Project) -> list[Finding]:
+def calc_findings(project: Project, lib=None) -> list[Finding]:
     """Nálezy z výpočtů (model/calc.py): stringy, kabely, selektivita."""
     from envocad.model import calc
     out: list[Finding] = []
@@ -899,7 +900,7 @@ def calc_findings(project: Project) -> list[Finding]:
     el_by_ref = {e.ref: e for s in project.sheets for e in s.elements if e.ref}
     for msg in calc.design_temperature_issues(project):   # neplatná návrhová teplota ve Vlastnostech projektu
         out.append(Finding(WARNING, "", "", "", False, "", msg, "calc_temp"))
-    for sc in calc.check_strings(project):
+    for sc in calc.check_strings(project, lib=lib):
         e = el_by_ref.get(sc.ref)
         s = sheet_of.get(e.id) if e else None
         for msg in sc.issues:
@@ -920,6 +921,14 @@ def calc_findings(project: Project) -> list[Finding]:
             out.append(Finding(WARNING if "menší" in msg else INFO, s.id if s else "", s.name if s else "",
                                e.id if e else "", False, lo, f"Selektivita: {msg}", "calc_selectivity"))
     return out
+
+
+def rating_findings(project: Project, lib=None) -> list[Finding]:
+    """Kontroly z údajů artiklů (`model/ratings.py`, docs/design/kontroly_artiklu.md): zkratová odolnost (`sc_*`),
+    svodiče (`spd_uc`, `spd_ucpv`, `spd_up`, `spd_lps`), svorky (`terminal_cross`, `terminal_in`) a jmenovité napětí
+    (`un_ac`, `un_dc`). Chybějící údaj nic nehlásí."""
+    from envocad.model.ratings import rating_findings as _rating
+    return _rating(project, lib)
 
 
 def thermal_findings(project: Project, lib=None) -> list[Finding]:

@@ -143,6 +143,8 @@ def _build_once(spec: dict) -> tuple[Project, str | None]:
                   for k, f in zip(groups, feeds(len(groups)), strict=True)] if len(groups) > 1 else []
     chain.create_main_block(ctx)
     pv.build(ctx)
+    from envocad.generator.dc_voltage import resolve as resolve_dc_system
+    resolve_dc_system(spec, p)      # soustava DC 1000 / 1500 V podle Uoc stringů – před listy DC rozvaděčů
     if _s(spec["ac"].get("main_in_auto")):     # z prvků střídačů (artikl bez `p_ac` ve specifikaci)
         spec["ac"]["main_in"] = main_switch_in(spec, ctx.inverters)
     chain.build(ctx)

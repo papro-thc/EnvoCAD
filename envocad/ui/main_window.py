@@ -1509,6 +1509,13 @@ class MainWindow(QMainWindow):
         if not ok:
             return
         s["ac_builtin"] = v == ac_labels[1]
+        # soustava DC (`generator/dc_voltage.py`): 1000 V s automatikou na 1500 V, nebo vždy 1500 V
+        dc_labels = ["1000 V (automaticky 1500 V, když string přesáhne Un DC přístrojů)", "1500 V"]
+        v, ok = QInputDialog.getItem(self, "Firemní standard", "Soustava DC (pojistkové odpojovače, svodiče)",
+                                     dc_labels, 1 if str(s.get("dc_system_v") or "").strip() == "1500" else 0, False)
+        if not ok:
+            return
+        s["dc_system_v"] = 1500 if v == dc_labels[1] else 1000
         save_settings(st)
         for sh in self.project.switchboards():     # listy bez vlastní volby formátu se přestaví
             self._rebuild_sheet_views(sh)

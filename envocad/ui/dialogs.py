@@ -695,9 +695,11 @@ class ProjectWizard(QDialog):
         lay.addWidget(bb)
         for w in (self.mod_p, self.mod_voc, self.mod_vmp, self.mod_isc, self.mod_imp, self.mod_beta, self.inv_p,
                   self.inv_udc, self.inv_mppt, self.inv_mppt_max, self.inv_imax, self.inv_isc_mppt, self.inv_spm,
-                  self.t_min, self.t_max, self.mod_total, self.strings, self.opt_type, self.opt_per):
+                  self.t_min, self.t_max, self.mod_total, self.strings, self.opt_type, self.opt_per,
+                  self.dc_route_boxes, self.dc_spd):
             w.textChanged.connect(self.update_assistant)
         self.string_mode.currentIndexChanged.connect(self.update_assistant)
+        self.dc_tech_box.toggled.connect(self.update_assistant)
         self.opt_type.textChanged.connect(self._opt_type_changed)
         self.update_assistant()
 
@@ -821,6 +823,31 @@ class ProjectWizard(QDialog):
         except ValueError:
             return None
 
+    def _dc_devices(self, u_dc_max: float | None) -> list[tuple[float, str]]:
+        """Přístroje stringové cesty [(Un DC, popis)], které generátor použije (`generator.dc_voltage.assistant_devices`
+        – artikly `dc.*_component`, soustava a automatika 1500 V jako generátor), pro asistent i „Navrhnout stringy“;
+        mezipaměť podle polí DC, Umax střídače nad 1000 V, knihovny a firemního standardu `dc_system_v`."""
+        from envocad.generator.dc_voltage import assistant_devices, standard_system_v
+        if self.library is None and getattr(self, "_dc_lib", None) is None:
+            from envocad.generator import context
+            self._dc_lib = context._lib()
+        lib = self.library if self.library is not None else self._dc_lib
+        key = (id(lib), standard_system_v(), self.dc_tech_box.isChecked(), self.dc_route_boxes.text().strip(),
+               self.dc_spd.text().strip(), bool(u_dc_max and u_dc_max > 1000))
+        cache = getattr(self, "_dc_cache", None)
+        if cache is None or cache[0] != key:
+            dc = {"tech_box": key[2], "route_boxes": self._num(self.dc_route_boxes) or 0, "spd": key[4] or "T1+T2"}
+            try:
+                val = assistant_devices(dc, lib, u_dc_max)
+            except Exception:  # noqa: BLE001 – knihovna nedostupná: bez meze přístrojů
+                val = []
+            self._dc_cache = cache = (key, val)
+        return cache[1]
+
+    def _dc_limit(self, u_dc_max: float | None) -> tuple[float | None, str]:
+        devs = self._dc_devices(u_dc_max)
+        return min(devs, key=lambda d: d[0]) if devs else (None, "")
+
     def _calc_data(self):
         """(ModuleData | None, InverterData, t_min, t_max, OptimizerData | None) z polí a artiklů; neplatná pole se
         berou jako neznámá. Režim stringů a data optimizéru stejně jako generátor: volba průvodce > artikl střídače >
@@ -905,7 +932,8 @@ class ProjectWizard(QDialog):
             n_par = mppt_groups(assign_mppt(len(g), inv))
             over = capacity_issue(f"T{i + 1}", inv, len(g))
             cap = inverter_capacity(inv) or 0
-            row = [(n, string_issues(mod, inv, n, n_par[k], t_min, t_max, opt, self._n_optimizers(n, opt))
+            devs = self._dc_devices(inv.u_dc_max)
+            row = [(n, string_issues(mod, inv, n, n_par[k], t_min, t_max, opt, self._n_optimizers(n, opt), devs)
                     + ([over] if over and k >= cap else []))
                    for k, n in enumerate(g)]
             if inv.mode != "fixed_voltage":   # stringy na jednom MPPT: nestejná délka apod. (jako F7)
@@ -926,7 +954,7 @@ class ProjectWizard(QDialog):
         mod, inv, t_min, t_max, opt = self._calc_data()
         if mod is None:
             return "<i>Zadejte Uoc modulu – asistent pak spočítá rozsah stringu.</i>"
-        lim = string_limits(mod, inv, t_min, t_max, opt, self._manual_mpo())
+        lim = string_limits(mod, inv, t_min, t_max, opt, self._manual_mpo(), *self._dc_limit(inv.u_dc_max))
         hi = "?" if lim.n_max is None else str(lim.n_max)
         step = f", po {lim.step} modulech" if lim.step > 1 else ""
         lines = [f"<b>Modulů ve stringu: {lim.n_min}–{hi}{step}</b>"
@@ -1017,7 +1045,8 @@ class ProjectWizard(QDialog):
         n_inv = len(groups) or 1
         if total and mod.p_wp and inv.p_ac:
             n_inv = max(n_inv, suggest_inverter_count(n_total * mod.p_wp / 1000, inv.p_ac))
-        out, left = propose_strings(n_total, n_inv, string_limits(mod, inv, t_min, t_max, opt, self._manual_mpo()), inv)
+        lim = string_limits(mod, inv, t_min, t_max, opt, self._manual_mpo(), *self._dc_limit(inv.u_dc_max))
+        out, left = propose_strings(n_total, n_inv, lim, inv)
         out = [g for g in out if g]
         if not out:
             QMessageBox.warning(self, "Navrhnout stringy", "Pro tento modul a střídač nelze stringy navrhnout – "

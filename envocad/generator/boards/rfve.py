@@ -160,11 +160,12 @@ def build_dc_part(ctx: ChainContext, sb: Sheet) -> None:
         _mark_unresolved,
         fuse_of,
     )
+    from envocad.generator.dc_voltage import un_label
     p, s, blk, dc = ctx.project, ctx.sheet, ctx.main, ctx.spec["dc"]
     dc_first = ctx.geo.dc_first
     macros = ctx.spec.get("macros") or {}
     sb.layout.params["network"] = "3NPE, 50 Hz / DC IT"
-    sb.layout.params["un"] = "230/400 V AC / max. 1000 V DC"
+    sb.layout.params["un"] = f"230/400 V AC / {un_label(dc)}"
     groups = [(i + 1, t.ref, [g.ref for g in gens], fuse_of(ctx, t)[0])
               for i, (t, gens) in enumerate(zip(ctx.inverters, ctx.strings))]
     # DC přívody za vším, co AC část označila X<číslo> (PE lišta, svorkovnice); porty JPS se posunou s nimi

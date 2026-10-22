@@ -41,6 +41,9 @@ DEFAULTS = {
         "preferred_manufacturers": ["OEZ", "Eaton", "Weidmüller", "SMA", "Huawei", "SolaX"],
         # návrhové teploty pro stringy [°C] – průvodce je předvyplní do `meta pv_t_min/pv_t_max` (model/calc.py)
         "pv_t_min": -20, "pv_t_max": 70,
+        # soustava DC [V]: 1000 (automaticky 1500, když string přesáhne Un DC přístrojů a katalog má artikly 1500 V)
+        # nebo 1500 (DC přístroje 1500 V vždy) – `generator/dc_voltage.py`
+        "dc_system_v": 1000,
         "project_meta": {},
     },
 }

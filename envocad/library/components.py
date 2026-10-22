@@ -33,7 +33,9 @@ NUMERIC = {"price_czk", "in_", "poles", "icu_ka", "idn_ma", "un_v", "modules", "
            "partial_ok", "n_min_1ph", "n_max_1ph", "p_string_max_1ph_w", "n_min_3ph", "n_max_3ph", "p_string_max_3ph_w",
            "u_string_v", "n_opt_min", "n_opt_max", "p_string_max_w",
            # držák pojistky (fuse_holder): max. In vložky – horní mez pojistky gPV stringu (`calc.string_fuse_in`)
-           "in_max_a"}
+           "in_max_a",
+           # svodič DC: max. trvalé napětí Ucpv (EN 61643-31) – mez stringu a F7 (`model/dc_system.spd_ucpv`)
+           "ucpv_v"}
 SOURCES = {"catalog", "datasheet", "web", "seed", "user"}
 
 # výchozí schematická značka podle kategorie (když symbol_id chybí)
@@ -62,7 +64,7 @@ PARAM_TO_ATTR = {
     # rozsah provozní teploty okolí přístroje [°C] dle datasheetu – ověření oteplení po přístrojích (`thermal`)
     "t_min_c": "t_min", "t_max_c": "t_max",
     # SPD do výkresu: ochranná úroveň Up, zkratová odolnost ISCPV (DC SPD bez vlastní pojistky)
-    "up_kv": "up", "iscpv_ka": "iscpv",
+    "up_kv": "up", "iscpv_ka": "iscpv", "ucpv_v": "ucpv",
     "cross_max_mm2": "cross_max",   # max. průřez svorky – dvojitá dutinka se vejde? (`wiring.twin_clamp_note`)
     "contacts": "contacts",   # kontaktní obraz („1/2 3/4 5/6 13/14 21/22“) – zrcadlo kontaktů, kontroly kontaktů
     # střídač: režim stringu, pevné napětí stringu, pravidla stringu s optimizéry (`calc.InverterData`)
