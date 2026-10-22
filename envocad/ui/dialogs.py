@@ -1449,7 +1449,7 @@ class EnclosurePanel(QWidget):
         from envocad.model.thermal import layout_inputs, temperature_rise
         lay = self.layout
         total = lay.total_modules
-        used = lay.used_modules(self._sheet, self._project)
+        used = lay.used_modules(self._sheet, self._project, self.library)
         pct = (used / total * 100) if total else 0
         reserve = total - used
         self.info.setText(f"{total} modulů celkem, obsazeno {used:g} ({pct:.0f} %), rezerva {reserve:g} M; "
@@ -1458,7 +1458,7 @@ class EnclosurePanel(QWidget):
         warn = []
         if reserve < -1e-6:
             warn.append(f"Skříň je přeplněná: rozmístěné přístroje zabírají o {-reserve:g} M víc, než skříň má.")
-        probs = layout_problems(self._sheet, self._project, lay)
+        probs = layout_problems(self._sheet, self._project, lay, self.library)
         n_over = sum(1 for x in probs if x.code == "layout_overflow" and x.element is not None)
         n_rows = sum(1 for x in probs if x.code == "layout_overflow" and x.element is None)
         n_lap = sum(1 for x in probs if x.code == "layout_overlap")
@@ -1468,13 +1468,23 @@ class EnclosurePanel(QWidget):
             warn.append(f"Přístroje za koncem řady: {n_over} (zůstávají umístěné, upravte rozložení).")
         if n_lap:
             warn.append(f"Překryvy přístrojů v řadě: {n_lap}.")
+        from envocad.model.device_size import size_problems
+        sizes = size_problems(self._sheet, self._project, self.library, lay)   # rozměry z artiklu proti řadě / skříni
+        for code, text in (("layout_height", "Přístroje vyšší než rozteč řad"),
+                           ("layout_enclosure", "Přístroje přesahující skříň"),
+                           ("layout_depth", "Přístroje hlubší než skříň")):
+            n = sum(1 for x in sizes if x.code == code)
+            if n:
+                warn.append(f"{text}: {n}.")
         self.warning.setText(" ".join(warn))
         self.warning.setVisible(bool(warn))
         self._mark_invalid()
         rdf, t_amb = layout_inputs(lay)   # každá hodnota zvlášť; neplatná / nezadaná = výchozí
         r = temperature_rise(self._sheet, rdf=rdf, t_ambient_c=t_amb, project=self._project, layout=lay,
                              lib=self.library)
-        txt = (f"Ztráty přístrojů ΣPv = {r.p_devices_w:g} W, celkem s vodiči {r.p_total_w:g} W\n"
+        src = r.loss_summary()      # zdroj ztrát: artikl / ruční / odhad
+        txt = (f"Ztráty přístrojů ΣPv = {r.p_devices_w:g} W" + (f" ({src})" if src else "")
+               + f", celkem s vodiči {r.p_total_w:g} W\n"
                f"Účinná chladicí plocha Ae = {r.ae_m2:g} m²\n"
                f"Oteplení: střed Δt = {r.dt_mid_k:g} K, horní část Δt = {r.dt_top_k:g} K "
                f"→ ≈ {r.t_top_c:g} °C při okolí {r.t_ambient_c:g} °C\n")

@@ -1,4 +1,5 @@
-"""Pohled fyzického rozložení rozvaděče: řady DIN lišt, přístroje jako obdélníky v modulech (17,5 mm)."""
+"""Pohled fyzického rozložení rozvaděče: řady DIN lišt, přístroje ve skutečné šířce a výšce (`model/device_size`:
+ruční rozměr > artikl > moduly z atributu, výška 45 mm), svisle na střed osy lišty."""
 from __future__ import annotations
 
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
@@ -6,7 +7,8 @@ from PySide6.QtGui import QBrush, QColor, QPainter, QPen, QUndoCommand, QUndoSta
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsRectItem, QGraphicsScene, QGraphicsView
 
 from envocad.library.store import LibraryStore
-from envocad.model.project import DEVICE_HEIGHT_MM, MODULE_WIDTH, Element, Project, Sheet
+from envocad.model.device_size import SHAPE_BOX, SHAPE_TERMINAL, DeviceSize, device_size
+from envocad.model.project import DEVICE_HEIGHT_MM, MODULE_WIDTH, Element, Project, Sheet, terminal_count
 from envocad.ui.render import draw_text
 from envocad.ui.theme import colors
 
@@ -36,14 +38,22 @@ class SetPlacementCommand(QUndoCommand):
 
 
 class DeviceItem(QGraphicsRectItem):
-    """Přístroj v rozložení. Kreslí footprint artiklu (symbol v mm), jinak generický modulový přístroj."""
+    """Přístroj v rozložení. Kreslí footprint artiklu (symbol v mm), jinak generický tvar podle `DeviceSize.shape`:
+    modulový přístroj (páčky po pólech), obdélník š × v (kompaktní jistič), svorky (úzké obdélníky)."""
 
-    def __init__(self, element: Element, name: str, placed: bool, footprint=None, kind: str = ""):
-        w = max(element.modules, 1.0) * MODULE_WIDTH
-        super().__init__(0, 0, w, DEVICE_HEIGHT_MM)
+    def __init__(self, element: Element, name: str, placed: bool, footprint=None, kind: str = "",
+                 size: DeviceSize | None = None):
+        self.size = size if size is not None else device_size(element)
+        # skutečný rozměr (artikl / ruční mm) se kreslí, jak je; šířka z modulů nejméně 1 modul jako dřív
+        w = max(self.size.width_mm, 1.0) if self.size.real else max(self.size.modules, 1.0) * MODULE_WIDTH
+        super().__init__(0, 0, w, self.size.height_mm)
         self.element, self.name, self.placed, self.footprint, self.kind = element, name, placed, footprint, kind
         self.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemSendsGeometryChanges)
         self.setZValue(5)
+
+    @property
+    def modules(self) -> float:
+        return self.size.modules
 
     def paint(self, painter, option, widget=None):
         c = colors()
@@ -70,25 +80,48 @@ class DeviceItem(QGraphicsRectItem):
         if typ:
             draw_text(painter, r.center().x(), -(r.top() + 14), typ[:18], 2.0, "center")
         info = " ".join(x for x in (self.element.attrs.get("in_", ""), self.element.attrs.get("char", "")) if x)
+        if self.size.shape == SHAPE_TERMINAL and self.size.real:   # svorka z artiklu: průřez místo In
+            cross = self.element.attrs.get("cross", "")
+            info = f"{cross} mm²" if cross else ""
         if info:
             draw_text(painter, r.center().x(), -(r.top() + 19), info, 2.0, "center")
-        draw_text(painter, r.center().x(), -(r.bottom() - 2), f"{self.element.modules:g} M", 1.8, "center")
+        draw_text(painter, r.center().x(), -(r.bottom() - 2), self.size_label(), 1.8, "center")
+
+    def size_label(self) -> str:
+        """Popisek pod přístrojem: „3 M“, obdélník „76,2 × 130 mm“, svorky „5 × 3,5 mm“ (z artiklu)."""
+        return self.size.label(terminal_count(self.element))
 
     def _paint_generic(self, painter, pen, r):
-        """Generický modulový přístroj: páčky po pólech, svorky nahoře/dole; MCCB: široká páka."""
+        """Generický tvar: modulový přístroj (páčky po pólech, svorky nahoře/dole), kompaktní jistič / MCCB (obdélník
+        s pákou uprostřed), svorkovnice (úzké obdélníky po svorkách)."""
         painter.setBrush(Qt.NoBrush)
         painter.setPen(QPen(pen.color(), 0.25))
         poles = max(self.element.poles, 1)
-        if self.kind in ("mccb",):
-            hw = r.width() * 0.5
-            painter.drawRect(r.center().x() - hw / 2, r.top() + 22, hw, 10)
+        if self.size.shape == SHAPE_TERMINAL and self.size.real:   # bez artiklu kreslí jako dřív (moduly)
+            n = terminal_count(self.element)
+            tw = (r.width() - self.size.end_mm) / max(n, 1)
+            for i in range(1, n):
+                x = r.left() + i * tw
+                painter.drawLine(QPointF(x, r.top() + 2), QPointF(x, r.bottom() - 2))
             return
-        mods = max(self.element.modules, 1.0)
+        if self.size.shape == SHAPE_BOX or self.kind in ("mccb",):
+            hw = r.width() * 0.5
+            hh = min(10.0, r.height() * 0.2)
+            painter.drawRect(QRectF(r.center().x() - hw / 2, r.center().y() - hh / 2, hw, hh))
+            # svorky po pólech nahoře a dole
+            pw = r.width() / poles
+            for i in range(poles):
+                cx = r.left() + (i + 0.5) * pw
+                painter.drawRect(QRectF(cx - min(pw * 0.3, 6), r.top() + 2, min(pw * 0.6, 12), 6))
+                painter.drawRect(QRectF(cx - min(pw * 0.3, 6), r.bottom() - 8, min(pw * 0.6, 12), 6))
+            return
+        mods = max(self.modules, 1.0)
+        lever_y = r.top() + 22 + (r.height() - DEVICE_HEIGHT_MM) / 2   # páčka uprostřed výšky (45 mm: jako dřív)
         pole_w = r.width() / max(min(poles, mods), 1)
         n = int(min(poles, mods)) if mods >= 1 else 1
         for i in range(n):
             x = r.left() + i * pole_w
-            painter.drawRect(x + pole_w * 0.25, r.top() + 22, pole_w * 0.5, 9)  # páčka
+            painter.drawRect(x + pole_w * 0.25, lever_y, pole_w * 0.5, 9)  # páčka
             painter.drawEllipse(x + pole_w / 2 - 2.5, r.top() + 2, 5, 5)        # svorka nahoře
             painter.drawEllipse(x + pole_w / 2 - 2.5, r.bottom() - 7, 5, 5)     # svorka dole
 
@@ -126,15 +159,21 @@ class LayoutScene(QGraphicsScene):
         return QRectF(MARGIN, MARGIN + row * self.row_h, self.enclosure_w, self.row_h)
 
     def rail_y(self, row: int) -> float:
+        """Horní hrana modulového přístroje (45 mm) v řadě – lišta a značky modulů."""
         return MARGIN + row * self.row_h + (self.row_h - DEVICE_HEIGHT_MM) / 2
 
-    def pos_to_scene(self, row: int, pos: float) -> QPointF:
-        return QPointF(MARGIN + pos * MODULE_WIDTH, self.rail_y(row))
+    def axis_y(self, row: int) -> float:
+        """Osa řady (DIN lišty) – přístroje jsou na ní svisle na střed."""
+        return MARGIN + (row + 0.5) * self.row_h
 
-    def scene_to_placement(self, p: QPointF, width_modules: float) -> tuple[int, float] | None:
-        """Bod levého horního rohu přístroje → (řada, pozice) nebo None (mimo skříň)."""
+    def pos_to_scene(self, row: int, pos: float, height: float = DEVICE_HEIGHT_MM) -> QPointF:
+        return QPointF(MARGIN + pos * MODULE_WIDTH, self.axis_y(row) - height / 2)
+
+    def scene_to_placement(self, p: QPointF, width_modules: float,
+                           height: float = DEVICE_HEIGHT_MM) -> tuple[int, float] | None:
+        """Bod levého horního rohu přístroje výšky `height` → (řada, pozice) nebo None (mimo skříň)."""
         lay = self.sheet.layout
-        cy = p.y() + DEVICE_HEIGHT_MM / 2
+        cy = p.y() + height / 2
         if p.x() < MARGIN - MODULE_WIDTH or p.x() > MARGIN + self.enclosure_w or cy < MARGIN or cy > MARGIN + lay.rows * self.row_h:
             return None
         row = int((cy - MARGIN) // self.row_h)
@@ -155,10 +194,10 @@ class LayoutScene(QGraphicsScene):
             pl = lay.placement(e.id)
             it.placed = pl is not None
             if pl:
-                it.setPos(self.pos_to_scene(pl.row, pl.pos))
+                it.setPos(self.pos_to_scene(pl.row, pl.pos, it.rect().height()))
             else:
                 it.setPos(ux, unplaced_y)
-                unplaced_y += DEVICE_HEIGHT_MM + 8
+                unplaced_y += it.rect().height() + 8
             it.update()
 
     def rebuild(self) -> None:
@@ -191,10 +230,10 @@ class LayoutScene(QGraphicsScene):
         # přístroje
         unplaced_y = MARGIN
         ux = MARGIN + self.enclosure_w + UNPLACED_X_GAP
-        for e in self.sheet.layout.devices(self.sheet, self.project):
+        for e in self.sheet.layout.devices(self.sheet, self.project, self.library):
             sym = self.library.get_symbol(e.symbol_id)
             pl = lay.placement(e.id)
-            fp, kind = None, ""
+            fp, kind, comp = None, "", None
             if e.component_id:
                 comp = self.library.component(e.component_id)
                 if comp:
@@ -204,12 +243,12 @@ class LayoutScene(QGraphicsScene):
                             fp = self.library.get_symbol(comp.footprint_id)
                         except KeyError:
                             fp = None
-            it = DeviceItem(e, sym.name, pl is not None, fp, kind)
+            it = DeviceItem(e, sym.name, pl is not None, fp, kind, device_size(e, comp=comp))
             if pl:
-                it.setPos(self.pos_to_scene(pl.row, pl.pos))
+                it.setPos(self.pos_to_scene(pl.row, pl.pos, it.rect().height()))
             else:
                 it.setPos(ux, unplaced_y)
-                unplaced_y += DEVICE_HEIGHT_MM + 8
+                unplaced_y += it.rect().height() + 8
             self.addItem(it)
             self.items_by_id[e.id] = it
         label = self.addSimpleText("")
@@ -240,7 +279,7 @@ class LayoutScene(QGraphicsScene):
             it = self.items_by_id.get(eid)
             if it is None:
                 continue
-            new = self.scene_to_placement(it.pos(), it.element.modules)
+            new = self.scene_to_placement(it.pos(), it.modules, it.rect().height())
             if new != shown:
                 moves.append((eid, stored, new))
         self._drag_start = {}
@@ -265,7 +304,7 @@ class LayoutScene(QGraphicsScene):
         painter.setPen(QPen(c.ink, 0.2))
         top = self._encl_rect.top() if hasattr(self, "_encl_rect") else MARGIN
         dims = f"{lay.width_mm:g} × {lay.height_mm:g}" + (f" × {lay.depth_mm:g}" if lay.depth_mm else "") + " mm"
-        used, total = lay.used_modules(self.sheet, self.project), lay.total_modules
+        used, total = lay.used_modules(self.sheet, self.project, self.library), lay.total_modules
         printing = getattr(self, "printing", False)     # PDF: bez nápovědy editoru
         enc = lay.enclosure or ("–" if printing else "– (dvojklik = nastavení)")
         line1 = f"{self.sheet.name}   skříň: {enc}   {dims}   {lay.params.get('ip', '')}"
@@ -273,7 +312,7 @@ class LayoutScene(QGraphicsScene):
                  f"({(used / total * 100) if total else 0:.0f} %), rezerva {total - used:g} M")
         draw_text(painter, self._encl_rect.left() if hasattr(self, "_encl_rect") else MARGIN, -(top - 13), line1, 3.5, "left")
         draw_text(painter, self._encl_rect.left() if hasattr(self, "_encl_rect") else MARGIN, -(top - 7), line2, 2.5, "left")
-        if not printing or any(lay.placement(e.id) is None for e in lay.devices(self.sheet, self.project)):
+        if not printing or any(lay.placement(e.id) is None for e in lay.devices(self.sheet, self.project, self.library)):
             draw_text(painter, MARGIN + self.enclosure_w + UNPLACED_X_GAP, -(MARGIN - 6), "Nerozmístěno", 3.0, "left")
 
 

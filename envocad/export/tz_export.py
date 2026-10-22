@@ -120,8 +120,16 @@ def export_tz_docx(project: Project, lib: LibraryStore, path: Path | str, templa
         try:
             rdf, t_amb = layout_inputs(s.layout)
             r = temperature_rise(s, rdf=rdf, t_ambient_c=t_amb, project=project, lib=lib)
-            doc.add_paragraph(f"Odhad oteplení dle IEC TR 60890: ΣPv = {r.p_total_w:.0f} W, Ae = {r.ae_m2:.2f} m², "
+            src = r.loss_summary()
+            doc.add_paragraph(f"Odhad oteplení dle IEC TR 60890: ΣPv = {r.p_total_w:.0f} W"
+                              + (f" ({src})" if src else "") + f", Ae = {r.ae_m2:.2f} m², "
                               f"Δt uprostřed {r.dt_mid_k:.1f} K, v horní části {r.dt_top_k:.1f} K – {r.verdict()}.")
+            losses = [x for x in r.losses if x.p_w > 0]
+            if losses:
+                # ztrátové výkony po přístrojích se zdrojem údaje (artikl / ruční / odhad z In)
+                _table(doc, ["Přístroj", "Pv při In [W]", f"Pv při {r.rdf:g}·In [W]", "Zdroj"],
+                       [[x.ref or "?", f"{x.p_rated_w:g}" if x.p_rated_w is not None else "–", f"{x.p_w:g}", x.source]
+                        for x in losses])
         except Exception:  # noqa: BLE001, S110
             pass
         head, rows = reports.device_list(project, lib, s)
