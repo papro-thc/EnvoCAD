@@ -121,7 +121,8 @@ def _symbol(lib, symbol_id: str):
 
 @over_clean
 def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
-    """Seznam přístrojů (každý zvlášť) – pro štítky a kontrolu."""
+    """Seznam přístrojů (každý zvlášť) – pro štítky a kontrolu. Moduly z artiklu (`device_size`), jinak z atributu."""
+    from envocad.model.device_size import device_modules
     from envocad.model.multipole import is_terminal_block
     idx = _index(project)
     head = ["Označení", "Přístroj", "Typ", "Výrobce", "Parametry", "Kontakty", "Moduly", "Řada", "Pozice", "List"]
@@ -142,13 +143,14 @@ def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None)
             d = designation(s, e)
             keyed.append(((natural_key(d.func), natural_key(d.loc), _ref_key(e.ref), natural_key(s.name)),
                           [_tag(project, s, e), sym.name, e.attrs.get("type", ""), e.attrs.get("manufacturer", ""),
-                           _param_str(e), conts, e.modules or "", (pl.row + 1) if pl else "", pl.pos if pl else "",
+                           _param_str(e), conts, device_modules(e, lib) or "", (pl.row + 1) if pl else "",
+                           pl.pos if pl else "",
                            s.name]))
         for (_f, _l, ref), grp in strips.items():
             e = grp[0]
             n = sum(_terminal_qty(s, g) for g in grp)
             pls = sorted((pl.row, pl.pos) for g in grp if s.is_switchboard and (pl := s.layout.placement(g.id)))
-            mods = round(sum(g.modules for g in grp), 2)
+            mods = round(sum(device_modules(g, lib) for g in grp), 2)
             types = ", ".join(dict.fromkeys(t for g in grp if (t := g.attrs.get("type", ""))))
             mfrs = ", ".join(dict.fromkeys(m for g in grp if (m := g.attrs.get("manufacturer", ""))))
             params = f"{n} {_terminal_word(n)}" + (f", {len(grp)} {'skupiny' if len(grp) < 5 else 'skupin'}" if len(grp) > 1 else "")
@@ -169,6 +171,24 @@ def _terminal_qty(s: Sheet, e: Element) -> int:
     from envocad.model.multipole import terminal_numbers, wire_conductors
     n = len({c for w in s.wires for end in (w.a, w.b) if end.element_id == e.id for c in wire_conductors(w)})
     return n or len([x for x in terminal_numbers(e, 1) if x]) or 1
+
+
+def bridge_article(s: Sheet, strip: str, lib) -> tuple[str, str]:
+    """(typ, výrobce) můstku svorkovnice `strip` z artiklu v atributu `bridge_id` některé skupiny svorek (první
+    vyplněný); bez atributu ("", "") jako dřív, artikl mimo knihovnu → (id, ""). Katalog nemá vazbu svorka → můstek,
+    proto se můstek nevybírá automaticky."""
+    from envocad.model.multipole import is_terminal_block
+    bid = next((b for e in s.elements if is_terminal_block(e) and e.ref == strip
+                and (b := str(e.attrs.get("bridge_id") or "").strip())), "")
+    if not bid:
+        return "", ""
+    comp = None
+    if lib is not None and hasattr(lib, "component"):
+        try:
+            comp = lib.component(bid)
+        except Exception:  # noqa: BLE001 – výkaz se vytvoří i bez knihovny
+            comp = None
+    return (comp.part_number, comp.manufacturer) if comp is not None else (bid, "")
 
 
 @over_clean
@@ -227,11 +247,12 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
             for strip in sorted(first, key=natural_key):
                 existing = strip_numbers(project, s, strip)
                 tag = _tag(project, s, first[strip]) or strip
+                br_type, br_mfr = bridge_article(s, strip, lib)
                 for g in project.bridge_groups(strip, s):
                     g = [x for x in g if x in existing]
                     if len(g) < 2:
                         continue
-                    key = ("Můstek svorek", "", "", f"{len(g)} pólů")
+                    key = ("Můstek svorek", br_type, br_mfr, f"{len(g)} pólů")
                     groups.setdefault(key, []).append(f"{tag}:{'-'.join(g)}")
                     qty[key] = qty.get(key, 0) + 1
     rows = []

@@ -394,19 +394,22 @@ class Layout:
     def total_modules(self) -> int:
         return self.rows * self.modules_per_row
 
-    def devices(self, sheet: Sheet, project: Project | None = None) -> list[Element]:
+    def devices(self, sheet: Sheet, project: Project | None = None, lib=None) -> list[Element]:
         """Přístroje listu pro rozložení: šířka > 0, ne kontakt ani propojovací/vnější prvek (`NON_DEVICE_SYMBOLS`
         – kontakty jsou součástí přístroje své cívky) a položka výkazu (cívka stykače se nepočítá, když skupina má
         stykač na stejném listu – `xref.DeviceIndex.is_bom_device`). Cívka + hlavní kontakt = jeden přístroj
-        (cívka). Bez `project` se skupiny hledají jen na listu."""
+        (cívka). Bez `project` se skupiny hledají jen na listu. S knihovnou `lib` se šířka bere i z artiklu
+        (`device_size.device_modules`), bez ní z atributu `modules`."""
+        from envocad.model.device_size import device_modules
         from envocad.model.xref import DeviceIndex
         idx = DeviceIndex.build(project) if project is not None else DeviceIndex.for_sheets([sheet])
         return [e for e in sheet.elements
-                if e.modules > 0 and e.symbol_id not in NON_DEVICE_SYMBOLS and idx.is_bom_device(e, sheet)]
+                if e.symbol_id not in NON_DEVICE_SYMBOLS and device_modules(e, lib) > 0 and idx.is_bom_device(e, sheet)]
 
-    def used_modules(self, sheet: Sheet, project: Project | None = None) -> float:
-        devs = {e.id: e for e in self.devices(sheet, project)}
-        return sum(devs[pl.element_id].modules for pl in self.placements
+    def used_modules(self, sheet: Sheet, project: Project | None = None, lib=None) -> float:
+        from envocad.model.device_size import device_modules
+        devs = {e.id: e for e in self.devices(sheet, project, lib)}
+        return sum(device_modules(devs[pl.element_id], lib) for pl in self.placements
                    if pl.element_id in devs and self.in_enclosure(pl))
 
     def in_enclosure(self, pl: Placement) -> bool:
