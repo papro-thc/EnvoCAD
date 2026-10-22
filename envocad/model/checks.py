@@ -305,8 +305,9 @@ def layout_problems(sheet: Sheet, project: Project | None = None, layout=None, l
     kontaktů – umístěné v řadách skříně). Zmenšení počtu modulů v řadě umístění nemaže; přístroje za koncem řady
     hlásí tato kontrola. `layout` = rozpracovaná kopie (dialog skříně), jinak `sheet.layout`. S knihovnou `lib`
     šířky i z artiklů (`device_size`); rozměry proti řadě a skříni `device_size.size_problems`."""
-    from envocad.model.device_size import device_modules
+    from envocad.model.device_size import device_modules, memo_lib
     lay = layout if layout is not None else sheet.layout
+    lib = memo_lib(lib)
     devs = lay.devices(sheet, project, lib)
     rows: dict[int, list[tuple[float, float, Element]]] = {}
     for e in devs:

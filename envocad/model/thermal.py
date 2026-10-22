@@ -449,8 +449,9 @@ def temperature_rise(sheet: Sheet, rdf: float = 0.8, t_ambient_c: float = 35.0, 
     listu (`xref.DeviceIndex.is_bom_device`; bez `project` se skupiny hledají jen na listu). `layout` = rozměry
     a parametry skříně místo `sheet.layout` (rozpracovaná kopie v dialogu skříně). Výsledek nese i teploty po
     přístrojích (`device_temperatures`; `lib` = knihovna pro meze z artiklů, nejnižší okolí z `t_ambient_min`)."""
-    from envocad.model.device_size import component_of
+    from envocad.model.device_size import component_of, memo_lib
     from envocad.model.xref import DeviceIndex
+    lib = memo_lib(lib)
     idx = DeviceIndex.build(project) if project is not None else DeviceIndex.for_sheets([sheet])
     lay = layout if layout is not None else sheet.layout
     notes: list[str] = []

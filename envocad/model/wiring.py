@@ -167,7 +167,7 @@ class WiringParams:
                 f"min. průřez {_fmt(self.cross_min)} mm², řízení {_fmt(self.cross_ctl)} mm², neumístěné konce: {unpl}, "
                 f"DC žíly min. {_fmt(self.cross_dc)} mm², jímací soustava: {LPS_LABELS.get(self.lps, self.lps)}, "
                 f"značení vodičů: {MARKING_LABELS.get(self.marking, self.marking)}, "
-                f"výška přístroje {_fmt(DEVICE_HEIGHT_MM)} mm")
+                f"výška přístroje z artiklu, jinak {_fmt(DEVICE_HEIGHT_MM)} mm")
 
 
 def param_sources(layout: Layout | None, base: dict | None = None) -> list[tuple[str, str, str, str]]:
@@ -791,7 +791,9 @@ def production_wires(project: Project, sheet: Sheet | None = None, base: dict | 
     se sloučí do jednoho řádku mezi vnějšími konci („vede kolem Q1“; délka mezi vnějšími konci, koncovky jen na
     nich). Konce se srovnají (umístěné první, řada, pozice, označení, svorka), řádky podle listu (přirozeně), odkud,
     kam a žíly; čísla se přidělí po seřazení. `base` = `settings.json standard.wiring`."""
+    from envocad.model.device_size import memo_lib
     from envocad.model.xref import DeviceIndex, natural_key
+    lib = memo_lib(lib)        # artikly přístrojů (rozměry pro `terminal_point`) se čtou jednou
     index = DeviceIndex.build(project)
     sheets = [sheet] if sheet is not None else list(project.sheets)
     keyed: list[tuple[tuple, ProductionWire]] = []

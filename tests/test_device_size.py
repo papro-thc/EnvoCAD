@@ -139,12 +139,16 @@ def test_layout_used_modules_with_library():
 
 
 def test_size_problems_height_enclosure_depth():
-    """3VA 130 mm v rozteči 100 mm → `layout_height`; skříň nižší než řady → `layout_enclosure`; hloubka."""
+    """3VA 130 mm v rozteči 100 mm → jen `layout_height` (svisle stačí rozteč – řady jsou v obrysu na střed);
+    hloubka; řada mimo skříň se nekontroluje."""
     p, s, els = _board(row_pitch_mm=100, height_mm=200, depth_mm=80)
     codes = {(x.code, x.element.ref) for x in size_problems(s, p, LIB)}
     assert ("layout_height", "Q1") in codes and ("layout_depth", "Q1") in codes
-    assert ("layout_enclosure", "Q1") in codes      # řada 1 osa 150 mm od dna, 3VA nahoru 215 > 200 mm
+    assert ("layout_enclosure", "Q1") not in codes
     assert not any(ref == "F1" and c == "layout_height" for c, ref in codes)
+    s.layout.set_placement(els["Q1"].id, 5, 0)       # řada mimo skříň (hlásí `outside_enclosure`)
+    assert ("layout_height", "Q1") not in {(x.code, x.element.ref) for x in size_problems(s, p, LIB)}
+    s.layout.set_placement(els["Q1"].id, 0, 0)
     # dost místa – nic
     _p, s2, _ = _board(row_pitch_mm=200, height_mm=500, depth_mm=200)
     assert size_problems(s2, _p, LIB) == []
@@ -159,7 +163,7 @@ def test_check_project_reports_size_findings():
     from envocad.model.checks import layout_findings
     p, _s, _els = _board(row_pitch_mm=100, height_mm=200, depth_mm=80)
     codes = {f.code for f in layout_findings(p, LIB)}
-    assert {"layout_height", "layout_depth", "layout_enclosure"} <= codes
+    assert {"layout_height", "layout_depth"} <= codes
     assert not ({"layout_height", "layout_depth", "layout_enclosure"} & {f.code for f in layout_findings(p)})
 
 
@@ -261,3 +265,55 @@ def test_builtin_catalog_sizes(tmp_path):
     cands = bridge_candidates(lib.components(), term)
     assert cands and all(c.manufacturer == "Weidmüller" and is_bridge(c) for c in cands)
     assert any("ZQV" in c.name for c in cands)
+
+
+def test_explicit_zero_modules_is_not_layout_device():
+    """`modules="0"` (generátory: měření, VN přístroje; výchozí „0“ značek fve.disconnector…) = mimo rozložení, i když
+    artikl má moduly nebo jen `width_mm`; ruční `width_mm` ale platí."""
+    for cid, sym in (("mcb", "fve.breaker_mcb"), ("3va", "fve.breaker_mccb")):
+        e = el(sym, cid, modules=0)
+        assert device_size(e, LIB).width_mm == 0 and device_modules(e, LIB) == 0
+        p = Project(sheets=[Sheet(kind="switchboard", elements=[e])])
+        assert p.sheets[0].layout.devices(p.sheets[0], p, LIB) == []
+        e.attrs["width_mm"] = "50"
+        assert device_modules(e, LIB) == round(50 / MODULE_WIDTH, 2)
+    t = el("sb.terminal_block", "term", terminal="1 2", modules=0)
+    assert device_size(t, LIB).width_mm == 0
+
+
+def test_device_modules_without_article_is_element_modules():
+    e = el("fve.breaker_mcb", modules="2,5")
+    assert device_modules(e, LIB) == e.modules == 2.5
+    t = el("sb.terminal_block", terminal="1 2 3")
+    assert device_modules(t, LIB) == t.modules
+
+
+def test_memo_lib_reads_article_once():
+    from envocad.model.device_size import MemoLib, memo_lib
+
+    class Counting(FakeLib):
+        calls = 0
+
+        def component(self, cid):
+            Counting.calls += 1
+            return super().component(cid)
+    lib = Counting(VA, MCB, TERM)
+    p, s, _els = _board()
+    s.layout.used_modules(s, p, lib)
+    assert Counting.calls == 3          # Q1, F1, X1 – každý jednou (devices + součet)
+    m = memo_lib(lib)
+    assert isinstance(m, MemoLib) and memo_lib(m) is m and memo_lib(None) is None
+    assert m.comps is lib.comps         # ostatní atributy předává knihovně
+
+
+def test_terminal_point_uses_article_height():
+    """Délky vodičů: svorka přístroje je na hraně jeho skutečné výšky (artikl 80 mm), bez artiklu 45 mm."""
+    from envocad.model.wiring import WiringParams, terminal_point
+    p, s, els = _board(row_pitch_mm=150)
+    f1 = els["F1"]
+    params = WiringParams.resolve(s.layout, {})
+    axis = -(1 + 0.5) * 150
+    with_art = terminal_point(p, s, f1, "1", "L1", "F1:1", params, lib=LIB)
+    without = terminal_point(p, s, f1, "1", "L1", "F1:1", params)
+    assert with_art.y == pytest.approx(axis + 80 / 2) and without.y == pytest.approx(axis + DEVICE_HEIGHT_MM / 2)
+    assert "výška přístroje z artiklu, jinak 45 mm" in params.describe()

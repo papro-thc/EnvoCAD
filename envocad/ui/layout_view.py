@@ -208,7 +208,7 @@ class LayoutScene(QGraphicsScene):
         c = colors()
         # obrys skříně ve skutečných rozměrech (DIN lišty vycentrované uvnitř)
         inner_w, inner_h = self.enclosure_w, lay.rows * self.row_h
-        ew, eh = max(lay.width_mm, inner_w + 20), max(lay.height_mm, inner_h + 20)
+        ew, eh = lay.outline_mm      # stejný obrys jako kontrola rozměrů (`device_size.size_problems`)
         self._encl_rect = QRectF(MARGIN - (ew - inner_w) / 2, MARGIN - (eh - inner_h) / 2, ew, eh)
         encl = QGraphicsRectItem(self._encl_rect)
         encl.setPen(QPen(c.paper, 0.8))

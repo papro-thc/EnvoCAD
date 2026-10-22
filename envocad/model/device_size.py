@@ -77,6 +77,30 @@ def _num(v) -> float | None:
     return x if x is not None and x > 0 else None
 
 
+class MemoLib:
+    """Obal knihovny s mezipamětí artiklů na dobu jednoho výpočtu (rozložení, kontrola, délky vodičů) – stejný
+    artikl se z SQLite čte jednou. Ostatní atributy se předávají knihovně. `memo_lib` obal nevnořuje."""
+
+    def __init__(self, lib):
+        self._lib = lib
+        self._comps: dict[str, object] = {}
+
+    def component(self, cid: str):
+        if cid not in self._comps:
+            self._comps[cid] = self._lib.component(cid)
+        return self._comps[cid]
+
+    def __getattr__(self, name):
+        return getattr(self._lib, name)
+
+
+def memo_lib(lib):
+    """Knihovna s mezipamětí artiklů (`MemoLib`); None a knihovna bez `component` beze změny."""
+    if lib is None or isinstance(lib, MemoLib) or not hasattr(lib, "component"):
+        return lib
+    return MemoLib(lib)
+
+
 def component_of(e: Element, lib):
     """Artikl prvku z knihovny, nebo None (bez knihovny, bez artiklu, neznámé id, chyba knihovny)."""
     if lib is None or not e.component_id or not hasattr(lib, "component"):
@@ -138,6 +162,10 @@ def device_size(e: Element, lib=None, comp=None) -> DeviceSize:
     dev = {**common, "shape": SHAPE_BOX if is_box(comp) else SHAPE_DIN}
     if a_width:
         return DeviceSize(a_width, source=SRC_MANUAL, width_from_mm=True, **dev)
+    if raw_mod and a_mod is None:
+        # výslovně „0“ (nebo nečíslo) = není přístroj rozložení i s artiklem – generátory tak vyřazují přístroje
+        # mimo lištu (měření, VN přístroje, koncovky kabelů; výchozí „0“ značek fve.disconnector, fve.breaker_vn…)
+        return DeviceSize(0.0, source=SRC_MANUAL, **dev)
     if c_mod is not None:
         if a_mod is not None and abs(a_mod - c_mod) > 1e-9:
             return DeviceSize(a_mod * MODULE_WIDTH, source=SRC_MANUAL, **dev)
@@ -151,8 +179,9 @@ def device_size(e: Element, lib=None, comp=None) -> DeviceSize:
 
 
 def device_modules(e: Element, lib=None) -> float:
-    """Šířka přístroje v modulech pro rozložení (`device_size`); bez knihovny = `Element.modules`."""
-    if lib is None:
+    """Šířka přístroje v modulech pro rozložení (`device_size`); bez knihovny nebo bez artiklu a ručního `width_mm`
+    přímo `Element.modules` (staré projekty beze změny)."""
+    if lib is None or (not e.component_id and not _num(e.attrs.get("width_mm"))):
         return e.modules
     return device_size(e, lib).modules
 
@@ -161,7 +190,7 @@ def device_modules(e: Element, lib=None) -> float:
 @dataclass
 class SizeProblem:
     """Problém rozměru přístroje v rozložení: `layout_height` (vyšší než rozteč řad – zasahuje do sousední řady),
-    `layout_enclosure` (přesahuje skříň), `layout_depth` (hlubší než skříň)."""
+    `layout_enclosure` (širší než užitná šířka řady), `layout_depth` (hlubší než skříň)."""
     code: str
     element: Element
     text: str
@@ -175,10 +204,9 @@ def size_problems(sheet, project=None, lib=None, layout=None) -> list[SizeProble
     """Rozměry umístěných přístrojů proti řadě a skříni. Bez knihovny se kontrolují jen ruční rozměry prvků
     (`height_mm`, `depth_mm`); výchozí výška 45 mm se nehlásí nikdy (staré projekty beze změny)."""
     lay = layout if layout is not None else sheet.layout
+    lib = memo_lib(lib)
     out: list[SizeProblem] = []
     pitch = lay.row_pitch_mm
-    inner_h = lay.rows * pitch
-    h_encl = max(lay.height_mm, inner_h)
     usable_w = lay.modules_per_row * MODULE_WIDTH
     for e in lay.devices(sheet, project, lib):
         sz = device_size(e, lib)
@@ -188,18 +216,13 @@ def size_problems(sheet, project=None, lib=None, layout=None) -> list[SizeProble
             out.append(SizeProblem("layout_enclosure", e,
                                    f"Přístroj je široký {_mm(sz.width_mm)} mm ({sz.source}), řada má užitnou šířku "
                                    f"{_mm(usable_w)} mm"))
-        if pl is not None and sz.height_source != SRC_DEFAULT:
-            if sz.height_mm > pitch + 1e-6:
-                out.append(SizeProblem("layout_height", e,
-                                       f"Přístroj v řadě {pl.row + 1} je vysoký {_mm(sz.height_mm)} mm "
-                                       f"({sz.height_source}), rozteč řad je {_mm(pitch)} mm – zasahuje do sousední "
-                                       "řady"))
-            # osa řady od dna skříně (řady svisle na střed, jako kreslí rozložení a `thermal.row_height_ratio`)
-            axis = h_encl / 2 + (lay.rows / 2 - pl.row - 0.5) * pitch
-            if axis + sz.height_mm / 2 > h_encl + 1e-6 or axis - sz.height_mm / 2 < -1e-6:
-                out.append(SizeProblem("layout_enclosure", e,
-                                       f"Přístroj v řadě {pl.row + 1} (výška {_mm(sz.height_mm)} mm) přesahuje "
-                                       f"skříň výšky {_mm(h_encl)} mm"))
+        # `placement` vrací jen umístění v řadách skříně (řada mimo skříň = `outside_enclosure`); svisle stačí
+        # rozteč: řady jsou v obrysu skříně na střed (`Layout.outline_mm`), přístroj nejvýš vysoký jako rozteč se
+        # do obrysu vejde vždy
+        if pl is not None and sz.height_source != SRC_DEFAULT and sz.height_mm > pitch + 1e-6:
+            out.append(SizeProblem("layout_height", e,
+                                   f"Přístroj v řadě {pl.row + 1} je vysoký {_mm(sz.height_mm)} mm "
+                                   f"({sz.height_source}), rozteč řad je {_mm(pitch)} mm – zasahuje do sousední řady"))
         d_encl = lay.depth_mm
         if d_encl and sz.depth_mm and sz.depth_mm > d_encl + 1e-6:
             out.append(SizeProblem("layout_depth", e,
