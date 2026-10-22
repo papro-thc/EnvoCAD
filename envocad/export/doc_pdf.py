@@ -21,7 +21,7 @@ from envocad.export.pdf_export import set_scene_notes_visible
 from envocad.model import multipole as mp
 from envocad.model.frame import TB_H, frame_geometry, sheet_number
 from envocad.model.project import Project, Sheet
-from envocad.settings import company, frame_enabled
+from envocad.settings import company, frame_enabled, switchboard_paper
 from envocad.ui import theme
 from envocad.ui.render import draw_frame, draw_text, sp, text_width, wrap_text
 
@@ -371,7 +371,7 @@ class DocBuilder:
                 return tuple(float(v) for v in self._scene(sheet, view).paper_size)
             if view == "schematic" and self.jps_page == JPS_PAGE_SHEET:
                 return (float(sheet.width), float(sheet.height))
-            if view != "schematic" and mp.paper_choice(sheet) != mp.SHEET_PAPER:
+            if view != "schematic" and mp.paper_choice(sheet, switchboard_paper()) != mp.SHEET_PAPER:
                 w, h = getattr(self._scene(sheet, view), "paper_size", (PAGE_W, PAGE_H))
                 return (float(w), float(h))
         return (PAGE_W, PAGE_H)
