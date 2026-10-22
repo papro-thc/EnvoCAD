@@ -29,7 +29,7 @@ def test_assistant_caps_strings_by_dc_devices(wizard, catalog):  # noqa: F811
     text = d.assistant_text()
     assert "nejvýš 18 modulů" in text and "Un DC přístrojů 1000 V (EFH 10 DC 2p 1000 V)" in text
     d.strings.setText("20,20")
-    assert "Un DC přístrojů 1000 V" in d.assistant_text().split("T1:")[1]
+    assert "> Un DC přístrojů EFH 10 DC 2p 1000 V" in d.assistant_text().split("T1:")[1]
     d.mod_total.setText("40")
     d.propose_strings()
     assert max(int(x) for g in d.strings.text().split(";") for x in g.split(",")) <= 18

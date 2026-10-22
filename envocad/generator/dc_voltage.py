@@ -1,7 +1,7 @@
 """Soustava DC (1000 / 1500 V) pro generátor: volba artiklů DC přístrojů podle napětí stringů (bez Qt).
 
 Po `pv.build` (stringy a střídače jsou v projektu) a před listy DC rozvaděčů: Uoc stringů při t_min
-(`calc.string_voltages`) → `model.dc_system.choose` (spec `dc.system_v` > standard `dc_system_v` > 1000; automatika
+(`calc.string_paths`) → `model.dc_system.choose` (spec `dc.system_v` > standard `dc_system_v` > 1000; automatika
 na 1500 V, když string přesáhne Un DC přístrojů a katalog má artikly 1500 V) → přepis `dc.fuse_component`,
 `dc.spd_component`, popis rozvaděče `dc.un_label` („max. 1500 V DC“). Bez artiklů 1500 V zůstane 1000 V,
 string ze specifikace se nemění (zadání projektanta) – generátor zaloguje varování a kontrola F7 hlásí `un_dc`
@@ -25,23 +25,39 @@ def standard_system_v() -> float | None:
         return None
 
 
+def _cz(x: float) -> str:
+    return f"{x:g}".replace(".", ",")
+
+
+def inverters_allow_auto(u_dc_max_values) -> bool:
+    """Automatika 1500 V jen u střídače, který připouští víc než 1000 V DC (známé Umax > 1000 V); jinak by string nad
+    1000 V byl chybou střídače a 1500 V přístroje by ho jen zakryly."""
+    vals = [v for v in u_dc_max_values if v]
+    return bool(vals) and max(vals) > dc_system.DEFAULT_SYSTEM + 1e-9
+
+
 def resolve(spec: dict, project) -> dc_system.DcChoice:
-    """Zvolí soustavu DC a přepíše `spec["dc"]` (artikly, `system_v`, `un_label`); vrací volbu."""
+    """Zvolí soustavu DC a přepíše `spec["dc"]` (artikly, `system_v`, `un_label`); zadaná 1500 V, kterou katalog
+    nepokryje, se zapíše do `project.meta["dc_system_missing"]` (F7 informace `dc_1500_missing`). Vrací volbu."""
     dc = spec["dc"]
     if not has_dc_boxes(dc):      # bez DC rozvaděčů nejsou v cestě stringu přístroje z artiklů `dc`
         spec["dc"] = {**dc, "system_v": f"{dc_system.DEFAULT_SYSTEM:g}", "un_label": DC_LABEL_DEFAULT}
         return dc_system.DcChoice()
-    volts = calc.string_voltages(project)
-    worst = max(volts.values(), key=lambda v: v.u, default=None)
+    paths = calc.string_paths(project)
+    worst = max((sp.voltage for sp in paths if sp.voltage is not None), key=lambda v: v.u, default=None)
     want = dc_system.parse_system(dc.get("system_v")) or standard_system_v()
-    ch = dc_system.choose(context._lib(), dc, worst.u if worst else 0.0, want)
+    auto = inverters_allow_auto(calc._f(sp.inverter.attrs.get("u_dc_max")) for sp in paths if sp.inverter is not None)
+    ch = dc_system.choose(context._lib(), dc, worst.u if worst else 0.0, want, allow_auto=auto)
     spec["dc"] = {**dc, **ch.overrides, "system_v": f"{ch.system_v:g}", "un_label": ch.label}
+    if want and want >= 1500 and ch.system_v < 1500:
+        project.meta["dc_system_missing"] = ", ".join(ch.missing) or "artikly 1500 V"
+        log.warning("Zadaná soustava DC 1500 V nepoužita – v katalogu chybí %s", project.meta["dc_system_missing"])
     if ch.auto and worst is not None:
         log.info("Soustava DC 1500 V: string %s Uoc %s V > Un DC přístrojů 1000 V – artikly %s", worst.string_ref,
-                 f"{worst.u:g}", ", ".join(ch.overrides.values()))
+                 _cz(worst.u), ", ".join(ch.overrides.values()))
     if worst is not None and ch.limit and worst.u > ch.limit + 1e-9:
-        log.warning("String %s: Uoc %s V při t_min > Un DC přístrojů %s%s", worst.string_ref, f"{worst.u:g}",
-                    ch.limit_label or f"{ch.limit:g} V",
+        log.warning("String %s: Uoc %s V při t_min > Un DC přístrojů %s%s", worst.string_ref, _cz(worst.u),
+                    ch.limit_label or f"{_cz(ch.limit)} V",
                     f" – pro 1500 V chybí v katalogu {', '.join(ch.missing)}" if ch.missing else "")
     return ch
 
@@ -57,16 +73,24 @@ def has_dc_boxes(dc: dict) -> bool:
     return bool(tech) or boxes > 0
 
 
-def assistant_limit(dc: dict, lib=None) -> tuple[float | None, str]:
-    """Mez Un DC přístrojů pro asistent stringů v průvodci: artikly, které generátor použije (`dc` sloučené
-    s `DEFAULT_SPEC["dc"]`), včetně automatiky 1500 V (je-li sada v katalogu); bez DC rozvaděčů (None, "")."""
+def assistant_devices(dc: dict, lib=None, u_dc_max: float | None = None) -> list[tuple[float, str]]:
+    """Přístroje stringové cesty [(Un DC, popis)] pro asistent stringů v průvodci: artikly, které generátor použije
+    (`dc` sloučené s `DEFAULT_SPEC["dc"]`), se soustavou jako generátor (zadaná 1500 V; automatika 1500 V, je-li sada
+    v katalogu a Umax střídače `u_dc_max` > 1000 V); bez DC rozvaděčů []."""
     from envocad.generator.spec import DEFAULT_SPEC
     full = {**DEFAULT_SPEC["dc"], **{k: v for k, v in dc.items() if v not in (None, "")}}
     if not has_dc_boxes(full):
-        return None, ""
+        return []
+    lib = lib if lib is not None else context._lib()
     want = dc_system.parse_system(full.get("system_v")) or standard_system_v()
-    ch = dc_system.choose(lib if lib is not None else context._lib(), full, None, want)
-    return ch.limit, ch.limit_label
+    ch = dc_system.choose(lib, full, None, want, allow_auto=inverters_allow_auto([u_dc_max]))
+    return dc_system.path_devices(lib, {**full, **ch.overrides})
+
+
+def assistant_limit(dc: dict, lib=None, u_dc_max: float | None = None) -> tuple[float | None, str]:
+    """(nejnižší Un DC přístrojů, popis) z `assistant_devices`; bez přístrojů (None, "")."""
+    devs = assistant_devices(dc, lib, u_dc_max)
+    return min(devs, key=lambda d: d[0]) if devs else (None, "")
 
 
 def un_label(dc: dict) -> str:

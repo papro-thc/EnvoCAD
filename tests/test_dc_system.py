@@ -38,7 +38,9 @@ DC = {"fuse_component": "h1000", "spd_component": "s1000", "spd": "T1+T2"}
 def test_component_un():
     assert dc_system.component_un(H1000) == 1000
     assert dc_system.component_un(S1000) == 1100           # svodič: Ucpv z poznámky, ne Uc
-    assert dc_system.component_un(S1500) == 1500           # bez Ucpv → Uc
+    assert dc_system.component_un(S1500) is None           # bez Ucpv: Uc se za Ucpv nebere (mez stringu)
+    assert dc_system.component_un(S1500, uc_fallback=True) == 1500   # výběr artiklu soustavy: Uc stačí
+    assert dc_system.component_un(_c("y", "fuse_holder", un_v="230/400")) == 400
     assert dc_system.component_un(_c("x", "spd", ucpv_v=1200, uc_v=1000)) == 1200
     assert dc_system.component_un(None) is None
 
@@ -63,11 +65,19 @@ def test_choose_auto_1500_and_missing():
     assert ch.system_v == 1000 and ch.limit == 1000 and ch.missing == ["držák pojistky 1500 V DC 2p"]
     assert dc_system.choose(FakeLib(H1000, S1000, S1500), DC, 900.0).missing == []
     h1p = _c("h1500-1p", "fuse_holder", "fve.fuse_disconnect", un_v=1500, poles=1, in_max_a=63)
+    hnop = _c("h1500-nopoles", "fuse_holder", "fve.fuse_disconnect", un_v=1500)
     hsym = _c("h1500-fuse", "fuse_holder", "fve.fuse", un_v=1500, poles=2)
-    # 1pólový držák (generátor kreslí 2pólový odpojovač na string) ani jiná značka 2p odpojovač nenahradí
-    assert dc_system.choose(FakeLib(H1000, S1000, S1500, h1p, hsym), DC, 1083.6).missing == ["držák pojistky 1500 V DC 2p"]
-    assert dc_system.catalog_missing(FakeLib(H1000, S1500, h1p)) == ["pojistkový odpojovač 1500 V DC 2p"]
+    # 1pólový / bez pólů (generátor kreslí 2pólový odpojovač na string) ani jiná značka 2p odpojovač nenahradí
+    many = FakeLib(H1000, S1000, S1500, h1p, hnop, hsym)
+    assert dc_system.choose(many, DC, 1083.6).missing == ["držák pojistky 1500 V DC 2p"]
+    assert dc_system.catalog_missing(FakeLib(H1000, S1500, h1p, hnop)) == ["pojistkový odpojovač 1500 V DC 2p"]
     assert dc_system.catalog_missing(FakeLib(H1500, S1500)) == []
+    # bez RFVE.DC (cesta stringu bez pojistek) stačí svodič 1500 V
+    ch = dc_system.choose(many, {**DC, "tech_box": False}, 1150.0)
+    assert ch.system_v == 1500 and ch.overrides == {"spd_component": "s1500"}
+    assert dc_system.catalog_missing(FakeLib(H1000, S1500), need_holder=False) == []
+    # střídač do 1000 V: bez automatiky
+    assert dc_system.choose(lib, DC, 1083.6, allow_auto=False).system_v == 1000
 
 
 # ---- calc: asistent / kontrola stringu ---------------------------------------------------------------------------
@@ -81,10 +91,13 @@ def test_string_limits_capped_by_dc_devices():
 
 
 def test_string_issues_dc_devices():
-    msgs = calc.string_issues(MOD, INV, 19, t_min=-20, u_dc_devices=1000, u_dc_label="EFH 1000 V")
-    assert "Uoc 1054,8 V při -20 °C > Un DC přístrojů 1000 V (EFH 1000 V)" in msgs
+    devs = [(1000, "EFH 10 DC 2p 1000 V"), (1100, "VPU PV 1100 V"), (1000, "EFH 10 DC 2p 1000 V")]
+    msgs = calc.string_issues(MOD, INV, 19, t_min=-20, dc_devices=devs)
+    assert "Uoc 1054,8 V při −20 °C > Un DC přístrojů EFH 10 DC 2p 1000 V" in msgs
     assert not calc.is_warning(msgs[-1])
-    assert not calc.string_issues(MOD, INV, 18, t_min=-20, u_dc_devices=1000)
+    msgs = calc.string_issues(MOD, INV, 20, t_min=-20, dc_devices=devs)
+    assert msgs[-1].endswith("> Un DC přístrojů EFH 10 DC 2p 1000 V, VPU PV 1100 V")
+    assert not calc.string_issues(MOD, INV, 18, t_min=-20, dc_devices=devs)
     assert not calc.string_issues(MOD, INV, 19, t_min=-20)   # bez meze přístrojů jako dřív
 
 
@@ -103,7 +116,7 @@ class CatalogView:
 
     def _hidden(self, c) -> bool:
         return c is not None and c.id not in self.extra and c.category in ("fuse_holder", "spd") \
-            and (dc_system.component_un(c) or 0) >= 1500
+            and (dc_system.component_un(c, uc_fallback=True) or 0) >= 1500
 
     def component(self, cid):
         c = self.extra.get(cid) or self.lib.component(cid)
@@ -177,7 +190,8 @@ def test_generator_without_1500_catalog_logs_and_f7_info(catalog, caplog):
                for r in caplog.records)
     assert _boards(p)["RFVE.DC"].layout.params["un"] == "max. 1000 V DC"
     fs = check_project(p, lib)
-    assert {f.code for f in fs} >= {"un_dc", "dc_1500_missing"}
+    assert {f.code for f in fs} >= {"calc_string", "dc_1500_missing"} and not [f for f in fs if f.code == "un_dc"]
+    assert any("Un DC přístrojů EFH 10 DC 2p 1000 V" in f.text for f in fs if f.code == "calc_string")
     assert [f.severity for f in fs if f.code == "dc_1500_missing"] == [INFO]
 
 
@@ -186,10 +200,11 @@ def test_assistant_limit(catalog):
     catalog(False)
     assert not has_dc_boxes({"tech_box": False, "route_boxes": 0})
     assert assistant_limit({"tech_box": False, "route_boxes": 0}) == (None, "")
-    u, label = assistant_limit({})
+    u, label = assistant_limit({}, u_dc_max=1100)
     assert u == 1000 and "EFH 10 DC 2p" in label     # výchozí: držák ETI EFH 10 DC 1000 V (svodič Ucpv 1100 V)
-    catalog(True)
-    assert assistant_limit({})[0] == 1500            # s artikly 1500 V počítá asistent jako generátor (automatika)
+    lib = catalog(True)
+    assert assistant_limit({}, lib, u_dc_max=1100)[0] == 1500   # s artikly 1500 V jako generátor (automatika)
+    assert assistant_limit({}, lib, u_dc_max=1000)[0] == 1000   # střídač do 1000 V: bez automatiky
 
 
 def test_builtin_catalog_1500_choice_if_present():
