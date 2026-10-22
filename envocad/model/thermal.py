@@ -1,8 +1,9 @@
 """Ověření oteplení rozvaděče výpočtem – ČSN EN 61439-1 čl. 10.10.4.3.1 / IEC TR 60890:2014. Bez Qt.
 
 Postup:
-1. Ztrátový výkon přístrojů ΣPv – z atributu `p_loss_w` přístroje (údaj výrobce při In), jinak odhad
-   podle typu a In; přepočet na skutečné zatížení faktorem RDF² (RDF = Ib/In, výchozí 0,8).
+1. Ztrátový výkon přístrojů ΣPv – z atributu `p_loss_w` přístroje (ruční údaj), jinak z artiklu (`p_loss_w`
+   z katalogu, `lib`), jinak odhad podle typu a In (zdroj u každého přístroje: `ThermalResult.losses`);
+   přepočet na skutečné zatížení faktorem RDF² (RDF = Ib/In, výchozí 0,8).
    K tomu přirážka na vnitřní vodiče a spoje (výchozí 15 %). P = celkový ztrátový výkon [W].
 2. Účinná chladicí plocha skříně Ae = Σ(A0 · b) – IEC TR 60890 tab. 3 (činitel b podle polohy stěny;
    podlaha se nezapočítává).
@@ -69,6 +70,20 @@ DEVICE_REF_C = 40.0
 # na vyšší teploty (EN 60947-7-1, běžně do 100–130 °C) – předpoklad 40 °C by je hlásil zbytečně.
 THERMAL_SKIP_SYMBOLS = {"sb.terminal_block"}
 SOURCE_ARTICLE, SOURCE_ATTR, SOURCE_ASSUMED = "artikl", "atribut", "předpoklad"
+# Zdroj ztrátového výkonu přístroje (`rated_loss`, výkaz oteplení): údaj artiklu (i propsaný do atributu `p_loss_w`
+# se stejnou hodnotou), ruční atribut (bez artiklu nebo jiná hodnota než artikl), odhad z In (`LOSS_PER_A_PER_POLE`).
+LOSS_ARTICLE, LOSS_MANUAL, LOSS_ESTIMATE = "artikl", "ruční", "odhad"
+
+
+@dataclass
+class DeviceLoss:
+    """Ztrátový výkon přístroje ve výpočtu oteplení: `p_w` při zatížení RDF·In, `p_rated_w` při In (None = odhad
+    bez údaje), `source` „artikl“ / „ruční“ / „odhad“."""
+    element_id: str
+    ref: str
+    p_w: float
+    p_rated_w: float | None
+    source: str
 
 
 @dataclass
@@ -166,6 +181,21 @@ class ThermalResult:
     x: float = X_LARGE
     devices: list[DeviceTemp] = field(default_factory=list)
     t_ambient_min_c: float | None = None
+    losses: list[DeviceLoss] = field(default_factory=list)
+
+    def loss_counts(self) -> dict[str, int]:
+        """Počet přístrojů s nenulovou ztrátou podle zdroje (`LOSS_ARTICLE`, `LOSS_MANUAL`, `LOSS_ESTIMATE`)."""
+        out: dict[str, int] = {}
+        for x in self.losses:
+            if x.p_w > 0:
+                out[x.source] = out.get(x.source, 0) + 1
+        return out
+
+    def loss_summary(self) -> str:
+        """„Pv: 3× artikl, 1× ruční, 2× odhad“ (jen nenulové ztráty), prázdné bez ztrát."""
+        c = self.loss_counts()
+        parts = [f"{c[k]}× {k}" for k in (LOSS_ARTICLE, LOSS_MANUAL, LOSS_ESTIMATE) if c.get(k)]
+        return f"Pv: {', '.join(parts)}" if parts else ""
 
     @property
     def t_top_c(self) -> float:
@@ -314,7 +344,7 @@ def device_temperatures(sheet: Sheet, result: ThermalResult, layout=None, projec
     `t_ambient_min`). Řadové svorky (`THERMAL_SKIP_SYMBOLS`) jen s vlastním údajem."""
     lay = layout if layout is not None else sheet.layout
     out: list[DeviceTemp] = []
-    for e in lay.devices(sheet, project):
+    for e in lay.devices(sheet, project, lib):
         t_max, src = _limit(e, "t_max", "t_max_c", DEFAULT_T_MAX_C, lib)
         if e.symbol_id in THERMAL_SKIP_SYMBOLS and src == SOURCE_ASSUMED:
             continue
@@ -345,14 +375,24 @@ def ambient_min(layout) -> float | None:
     return _temp_value(raw.replace(" ", ""))
 
 
-def device_power_loss(e: Element, rdf: float = 0.8) -> float:
-    """Ztrátový výkon přístroje [W] při zatížení rdf·In."""
-    explicit = e.attrs.get("p_loss_w")
-    if explicit:
-        try:
-            return float(str(explicit).replace(",", ".")) * rdf ** 2
-        except ValueError:
-            pass
+def rated_loss(e: Element, comp=None) -> tuple[float | None, str]:
+    """Ztrátový výkon přístroje při In [W] a jeho zdroj: atribut `p_loss_w` (shodný s artiklem = „artikl“, jinak
+    „ruční“), jinak `p_loss_w` artiklu `comp` („artikl“), jinak (None, „odhad“)."""
+    a_val = _temp_value(e.attrs.get("p_loss_w")) if e.attrs.get("p_loss_w") else None
+    c_val = _temp_value(comp.params.get("p_loss_w")) if comp is not None and comp.params.get("p_loss_w") else None
+    if a_val is not None:
+        return a_val, LOSS_ARTICLE if c_val is not None and abs(a_val - c_val) < 1e-9 else LOSS_MANUAL
+    if c_val is not None:
+        return c_val, LOSS_ARTICLE
+    return None, LOSS_ESTIMATE
+
+
+def device_power_loss(e: Element, rdf: float = 0.8, comp=None) -> float:
+    """Ztrátový výkon přístroje [W] při zatížení rdf·In: údaj z atributu / artiklu `comp` (`rated_loss`), jinak
+    odhad z In a počtu pólů."""
+    rated, _src = rated_loss(e, comp)
+    if rated is not None:
+        return rated * rdf ** 2
     try:
         i_n = float(str(e.attrs.get("in_", "0")).replace(",", ".") or 0)
     except ValueError:
@@ -409,15 +449,22 @@ def temperature_rise(sheet: Sheet, rdf: float = 0.8, t_ambient_c: float = 35.0, 
     listu (`xref.DeviceIndex.is_bom_device`; bez `project` se skupiny hledají jen na listu). `layout` = rozměry
     a parametry skříně místo `sheet.layout` (rozpracovaná kopie v dialogu skříně). Výsledek nese i teploty po
     přístrojích (`device_temperatures`; `lib` = knihovna pro meze z artiklů, nejnižší okolí z `t_ambient_min`)."""
+    from envocad.model.device_size import component_of, memo_lib
     from envocad.model.xref import DeviceIndex
+    lib = memo_lib(lib)
     idx = DeviceIndex.build(project) if project is not None else DeviceIndex.for_sheets([sheet])
     lay = layout if layout is not None else sheet.layout
     notes: list[str] = []
     p_dev = 0.0
+    losses: list[DeviceLoss] = []
     for e in sheet.elements:
         if not idx.is_bom_device(e, sheet):
             continue
-        p = device_power_loss(e, rdf)
+        comp = component_of(e, lib)
+        p = device_power_loss(e, rdf, comp)
+        rated, src = rated_loss(e, comp)
+        if p or rated is not None:
+            losses.append(DeviceLoss(e.id, e.ref, round(p, 2), rated, src))
         if p:
             p_dev += p
     p_total = p_dev * (1 + wiring_pct / 100)
@@ -447,11 +494,13 @@ def temperature_rise(sheet: Sheet, rdf: float = 0.8, t_ambient_c: float = 35.0, 
     dt_top = c * dt_mid
     if not lay.params.get("depth_mm"):
         notes.append("hloubka skříně nezadána – počítáno 150 mm")
-    if not any(e.attrs.get("p_loss_w") for e in sheet.elements):
+    if not any(x.source != LOSS_ESTIMATE for x in losses):
         notes.append("ztráty přístrojů odhadnuty z In (doplňte p_loss_w z katalogů pro přesnější výsledek)")
     res = ThermalResult(round(p_dev, 1), round(p_total, 1), round(ae, 3), round(dt_mid, 1), round(dt_top, 1),
                         rdf, t_ambient_c, notes, k=round(k, 4), c=round(c, 3), d=d, x=x,
-                        t_ambient_min_c=ambient_min(lay))
+                        t_ambient_min_c=ambient_min(lay), losses=losses)
+    if any(x.source != LOSS_ESTIMATE for x in losses) and res.loss_counts().get(LOSS_ESTIMATE):
+        notes.append(f"{res.loss_summary()} – odhad z In u přístrojů bez údaje výrobce")
     res.devices = device_temperatures(sheet, res, lay, project, lib, res.t_ambient_min_c)
     if res.devices:
         notes.append("teplota u přístroje v úrovni osy jeho řady (střed → horní část lineárně, spodní polovina "

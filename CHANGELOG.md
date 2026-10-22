@@ -1,6 +1,31 @@
 # Changelog
 
 ## Nevydáno
+- **Rozložení rozvaděče z dat artiklů** (návrh `docs/design/rozlozeni_z_artiklu.md`, formát projektu beze změny – v15):
+  `model/device_size.py` určuje šířku, výšku a hloubku přístroje (ruční `width_mm`/`height_mm`/`depth_mm` > ruční
+  `modules` > artikl > `modules` z atributu) a tvar – modulový, obdélník š × v (3VA / MCCB, artikl bez modulů vyšší
+  než 100 mm), svorkovnice. Svorkovnice = počet svorek × `width_mm` artiklu svorky + `end_mm` (koncové desky /
+  zarážky, katalog je nemá – bez konstanty); můstky jako artikl ve výkazu materiálu přes atribut skupiny `bridge_id`
+  (`reports.bridge_article`, kandidáti `components.bridge_candidates`). Rozložení kreslí skutečné rozměry svisle na
+  střed lišty; `Layout.devices` / `used_modules`, `checks.layout_problems`, `wiring.terminal_point` a výkaz
+  přístrojů berou s knihovnou šířky z artiklů. Oteplení: Pv z artiklu, když prvek nemá `p_loss_w`
+  (`thermal.rated_loss`, `ThermalResult.losses` se zdrojem artikl / ruční / odhad – panel skříně, TZ s tabulkou
+  ztrát, protokol). Nové kontroly F7 `layout_height`, `layout_enclosure`, `layout_depth`. Panel Vlastnosti na listu
+  rozvaděče: rozměry v rozložení, koncové desky a artikl můstku (nabídka `bridge_candidates`). Projekt bez artiklů
+  se kreslí pixelově stejně (ověřeno snímkem proti main). Testy `tests/test_device_size.py`,
+  `tests/test_layout_articles_gui.py`.
+  - Výslovné `modules="0"` (generátory, výchozí „0“ VN / měřicích značek) = přístroj mimo rozložení i s artiklem.
+  - **Délky vodičů ve výrobním seznamu**: svorka přístroje s artiklem leží na hraně jeho skutečné výšky z katalogu
+    (Hager MBN 83 mm, 3VA11 130 mm) místo pevných 45 mm – vodiče k přístrojům s artiklem vyjdou delší (u modulového
+    jističe o ~19 mm na konec před zaokrouhlením); bez artiklu beze změny. Popis parametrů: „výška přístroje z artiklu,
+    jinak 45 mm“.
+  - Můstek ve výkazu materiálu po skupinách: každá skupina můstku bere `bridge_id` skupiny svorek, na které leží
+    (`model/bridges.py`); artikl s víc póly = „zkrátit z n pólů“, s méně póly / bez údaje nebo artikl, který není
+    můstek = bez typu s poznámkou a F7 varování `bridge_article` (i neznámé id).
+  - Změna artiklu v dialogu prvku vymaže ruční `width_mm` / `height_mm` / `depth_mm` v témže kroku undo.
+  - Kontrola `layout_enclosure` jen pro šířku (svisle stačí `layout_height`); obrys skříně `Layout.outline_mm` sdílí
+    rozložení i kontrola. Artikly se v rámci jednoho výpočtu čtou jednou (`device_size.memo_lib`). TZ: tabulka
+    ztrát s desetinnou čárkou.
 - **Opravy z review generátoru** (`docs/ROADMAP.md`, „Chyby k řešení“):
   - **Revize vidí volné texty listu** (`Sheet.texts`): porovnání s revizí hlásí přidaný / změněný / odebraný text
     (značka revize vlevo od textu, pouhý posun bez značky) a otisk uzavřeného listu změnu textu pozná.

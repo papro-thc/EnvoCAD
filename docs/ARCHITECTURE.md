@@ -157,7 +157,10 @@ jen při načtení projektu, po založení nového projektu z průvodce / specif
 `test_no_undo_reset_outside_allowed_places` – všechna volání v `ui/` včetně lambd a aliasů undo stacku). Zmenšení počtu řad skříně umístění nemaže: umístění v řadě mimo skříň
 zůstane v modelu (`Layout.stored_placement`), `Layout.placement` ho nevrací (přístroj je nerozmístěný) a kontrola
 hlásí `outside_enclosure`. Zmenšení počtu modulů v řadě také nic nemaže – přístroje za koncem řady a překryvy hlásí
-kontrola `layout_overflow` / `layout_overlap` (`checks.layout_problems`, varování i v panelu skříně). Kabely
+kontrola `layout_overflow` / `layout_overlap` (`checks.layout_problems`, varování i v panelu skříně). Rozměry
+přístroje v rozložení určuje `model/device_size.py` (ruční rozměr > artikl > `modules`; tvar modulový / obdélník /
+svorkovnice; kontroly `layout_height` / `layout_enclosure` / `layout_depth`); knihovna se předává volitelně (`lib`),
+bez ní platí jen atributy – návrh `docs/design/rozlozeni_z_artiklu.md`. Kabely
 (`Cable`) jsou odvozené z vodičů JPS (`sync_cables`): kabel bez vodiče se odebere do `Project.removed_cables`
 (neukládá se) a vrácený vodič (undo/redo) dostane týž kabel zpět – undo vložení/smazání vodiče vrátí `to_dict` přesně. Kabel osiřelý už v načteném souboru (`Project.loaded_orphan_cables`) se při otevření neodebere (ruční barvy žil, artikl); kontrola ho hlásí jako INFO `cable_no_wire`.
 Vazby přívodů/vývodů rozvaděče na vodiče JPS: GUI po každé změně modelu volá jen odvozenou `sync_feed_link_attrs`

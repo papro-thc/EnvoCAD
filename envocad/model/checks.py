@@ -227,7 +227,7 @@ def check_project(project: Project, lib, *, standard_paper: str) -> list[Finding
                     out.append(Finding(WARNING, s.id, s.name, "", False, strip,
                                        f"Můstek {strip}:{'-'.join(g)} odkazuje na neexistující svorky {', '.join(missing)}",
                                        "bridge_missing"))
-    out += layout_findings(project)
+    out += layout_findings(project, lib)
     out += contact_findings(project, idx)
     out += interrupt_findings(project, idx)
     out += spd_findings(project)
@@ -302,17 +302,20 @@ def _m(v: float) -> str:
     return f"{round(v, 2):g}".replace(".", ",")
 
 
-def layout_problems(sheet: Sheet, project: Project | None = None, layout=None) -> list[LayoutProblem]:
+def layout_problems(sheet: Sheet, project: Project | None = None, layout=None, lib=None) -> list[LayoutProblem]:
     """Přetečení a překryvy v řadách rozložení listu rozvaděče (jen přístroje rozložení – `Layout.devices`, bez
     kontaktů – umístěné v řadách skříně). Zmenšení počtu modulů v řadě umístění nemaže; přístroje za koncem řady
-    hlásí tato kontrola. `layout` = rozpracovaná kopie (dialog skříně), jinak `sheet.layout`."""
+    hlásí tato kontrola. `layout` = rozpracovaná kopie (dialog skříně), jinak `sheet.layout`. S knihovnou `lib`
+    šířky i z artiklů (`device_size`); rozměry proti řadě a skříni `device_size.size_problems`."""
+    from envocad.model.device_size import device_modules, memo_lib
     lay = layout if layout is not None else sheet.layout
-    devs = lay.devices(sheet, project)
+    lib = memo_lib(lib)
+    devs = lay.devices(sheet, project, lib)
     rows: dict[int, list[tuple[float, float, Element]]] = {}
     for e in devs:
         pl = lay.placement(e.id)
         if pl is not None:
-            rows.setdefault(pl.row, []).append((pl.pos, pl.pos + e.modules, e))
+            rows.setdefault(pl.row, []).append((pl.pos, pl.pos + device_modules(e, lib), e))
     out: list[LayoutProblem] = []
     cap = lay.modules_per_row
     for r in sorted(rows):
@@ -336,10 +339,14 @@ def layout_problems(sheet: Sheet, project: Project | None = None, layout=None) -
     return out
 
 
-def layout_findings(project: Project) -> list[Finding]:
+def layout_findings(project: Project, lib=None) -> list[Finding]:
     """Rozložení rozvaděče: přístroj s uloženým umístěním v řadě mimo skříň (po zmenšení počtu řad) – WARNING
     `outside_enclosure`; rozložení ho kreslí mezi nerozmístěnými, po zvětšení počtu řad se umístění vrátí.
-    Přetečení řady a překryvy přístrojů (`layout_problems`) – WARNING `layout_overflow` / `layout_overlap`."""
+    Přetečení řady a překryvy přístrojů (`layout_problems`) – WARNING `layout_overflow` / `layout_overlap`.
+    Rozměry z artiklu / atributů (`device_size.size_problems`) – WARNING `layout_height` / `layout_enclosure` /
+    `layout_depth`. Artikl můstku (`bridges.bridge_findings`) – WARNING `bridge_article`."""
+    from envocad.model.device_size import memo_lib, size_problems
+    lib = memo_lib(lib)
     out: list[Finding] = []
     for s in project.sheets:
         if not s.is_switchboard:
@@ -353,9 +360,13 @@ def layout_findings(project: Project) -> list[Finding]:
             out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                f"Přístroj je umístěn v řadě {pl.row + 1} mimo skříň (skříň má {lay.rows} řad) "
                                "– v rozložení je mezi nerozmístěnými", "outside_enclosure"))
-        for pr in layout_problems(s, project):
+        for pr in layout_problems(s, project, lib=lib):
             e = pr.element
             out.append(Finding(WARNING, s.id, s.name, e.id if e else "", False, e.ref if e else "", pr.text, pr.code))
+        for sp in size_problems(s, project, lib):
+            out.append(Finding(WARNING, s.id, s.name, sp.element.id, False, sp.element.ref, sp.text, sp.code))
+    from envocad.model.bridges import bridge_findings
+    out += bridge_findings(project, lib)      # artikl můstku (`bridge_id`): neznámý, není můstek, málo pólů
     return out
 
 

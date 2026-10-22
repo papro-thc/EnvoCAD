@@ -121,7 +121,8 @@ def _symbol(lib, symbol_id: str):
 
 @over_clean
 def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
-    """Seznam přístrojů (každý zvlášť) – pro štítky a kontrolu."""
+    """Seznam přístrojů (každý zvlášť) – pro štítky a kontrolu. Moduly z artiklu (`device_size`), jinak z atributu."""
+    from envocad.model.device_size import device_modules
     from envocad.model.multipole import is_terminal_block
     idx = _index(project)
     head = ["Označení", "Přístroj", "Typ", "Výrobce", "Parametry", "Kontakty", "Moduly", "Řada", "Pozice", "List"]
@@ -142,13 +143,14 @@ def device_list(project: Project, lib: LibraryStore, sheet: Sheet | None = None)
             d = designation(s, e)
             keyed.append(((natural_key(d.func), natural_key(d.loc), _ref_key(e.ref), natural_key(s.name)),
                           [_tag(project, s, e), sym.name, e.attrs.get("type", ""), e.attrs.get("manufacturer", ""),
-                           _param_str(e), conts, e.modules or "", (pl.row + 1) if pl else "", pl.pos if pl else "",
+                           _param_str(e), conts, device_modules(e, lib) or "", (pl.row + 1) if pl else "",
+                           pl.pos if pl else "",
                            s.name]))
         for (_f, _l, ref), grp in strips.items():
             e = grp[0]
             n = sum(_terminal_qty(s, g) for g in grp)
             pls = sorted((pl.row, pl.pos) for g in grp if s.is_switchboard and (pl := s.layout.placement(g.id)))
-            mods = round(sum(g.modules for g in grp), 2)
+            mods = round(sum(device_modules(g, lib) for g in grp), 2)
             types = ", ".join(dict.fromkeys(t for g in grp if (t := g.attrs.get("type", ""))))
             mfrs = ", ".join(dict.fromkeys(m for g in grp if (m := g.attrs.get("manufacturer", ""))))
             params = f"{n} {_terminal_word(n)}" + (f", {len(grp)} {'skupiny' if len(grp) < 5 else 'skupin'}" if len(grp) > 1 else "")
@@ -219,6 +221,7 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
         # můstky: za každou skupinu můstků jeden (vícepólový) můstek dané svorkovnice; počítají se jen svorky, které
         # na svorkovnici existují (můstek na smazanou svorku se nepočítá, skupina pod 2 svorky odpadá)
         if s.is_switchboard or sheet is not None:
+            from envocad.model.bridges import resolve_bridge
             from envocad.model.terminal_plan import strip_numbers
             first = {}
             for e in s.elements:
@@ -231,7 +234,10 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
                     g = [x for x in g if x in existing]
                     if len(g) < 2:
                         continue
-                    key = ("Můstek svorek", "", "", f"{len(g)} pólů")
+                    # artikl můstku z `bridge_id` skupiny svorek, na které můstek leží (`model/bridges.py`)
+                    br = resolve_bridge(s, strip, g, lib)
+                    params = f"{len(g)} pólů" + (f", {br.note}" if br.note else "")
+                    key = ("Můstek svorek", br.type, br.manufacturer, params)
                     groups.setdefault(key, []).append(f"{tag}:{'-'.join(g)}")
                     qty[key] = qty.get(key, 0) + 1
     rows = []

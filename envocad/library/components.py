@@ -186,6 +186,22 @@ class Component:
                    params=params, price=d.get("price"))
 
 
+def is_bridge(c: Component) -> bool:
+    """Artikl můstku svorek (propojka, ZQV/WQV): `terminal_kind` = `mustek` (`model.bridges.is_bridge_component`)."""
+    from envocad.model.bridges import is_bridge_component
+    return is_bridge_component(c)
+
+
+def bridge_candidates(components, terminal: Component | None = None) -> list[Component]:
+    """Můstky z `components` pro atribut skupiny svorek `bridge_id` (výkaz materiálu): jen artikly můstků
+    (`is_bridge`), s artiklem svorky `terminal` jen téhož výrobce. Katalog nemá vazbu svorka → můstek (řada,
+    průřez), proto se z kandidátů nevybírá automaticky; seřazeno podle typu."""
+    out = [c for c in components if is_bridge(c)]
+    if terminal is not None and terminal.manufacturer:
+        out = [c for c in out if c.manufacturer == terminal.manufacturer]
+    return sorted(out, key=lambda c: (c.manufacturer, c.part_number))
+
+
 def read_csv(path: Path | str) -> list[Component]:
     with open(path, encoding="utf-8-sig", newline="") as f:
         head = f.readline()

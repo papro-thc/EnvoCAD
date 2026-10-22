@@ -391,22 +391,34 @@ class Layout:
         return _num(self.params.get("row_pitch_mm")) or max(100.0, (self.height_mm - 50) / max(self.rows, 1))
 
     @property
+    def outline_mm(self) -> tuple[float, float]:
+        """Obrys skříně, jak ho kreslí rozložení (š, v): zadané rozměry, nejméně řady DIN lišt + 2 × 10 mm (lišty
+        svisle i vodorovně na střed). Sdílí ho pohled rozložení i kontrola rozměrů (`device_size.size_problems`)."""
+        inner_w, inner_h = self.modules_per_row * MODULE_WIDTH, self.rows * self.row_pitch_mm
+        return max(self.width_mm, inner_w + 20), max(self.height_mm, inner_h + 20)
+
+    @property
     def total_modules(self) -> int:
         return self.rows * self.modules_per_row
 
-    def devices(self, sheet: Sheet, project: Project | None = None) -> list[Element]:
+    def devices(self, sheet: Sheet, project: Project | None = None, lib=None) -> list[Element]:
         """Přístroje listu pro rozložení: šířka > 0, ne kontakt ani propojovací/vnější prvek (`NON_DEVICE_SYMBOLS`
         – kontakty jsou součástí přístroje své cívky) a položka výkazu (cívka stykače se nepočítá, když skupina má
         stykač na stejném listu – `xref.DeviceIndex.is_bom_device`). Cívka + hlavní kontakt = jeden přístroj
-        (cívka). Bez `project` se skupiny hledají jen na listu."""
+        (cívka). Bez `project` se skupiny hledají jen na listu. S knihovnou `lib` se šířka bere i z artiklu
+        (`device_size.device_modules`), bez ní z atributu `modules`."""
+        from envocad.model.device_size import device_modules, memo_lib
         from envocad.model.xref import DeviceIndex
+        lib = memo_lib(lib)      # artikl se v rámci volání čte jednou
         idx = DeviceIndex.build(project) if project is not None else DeviceIndex.for_sheets([sheet])
         return [e for e in sheet.elements
-                if e.modules > 0 and e.symbol_id not in NON_DEVICE_SYMBOLS and idx.is_bom_device(e, sheet)]
+                if e.symbol_id not in NON_DEVICE_SYMBOLS and device_modules(e, lib) > 0 and idx.is_bom_device(e, sheet)]
 
-    def used_modules(self, sheet: Sheet, project: Project | None = None) -> float:
-        devs = {e.id: e for e in self.devices(sheet, project)}
-        return sum(devs[pl.element_id].modules for pl in self.placements
+    def used_modules(self, sheet: Sheet, project: Project | None = None, lib=None) -> float:
+        from envocad.model.device_size import device_modules, memo_lib
+        lib = memo_lib(lib)
+        devs = {e.id: e for e in self.devices(sheet, project, lib)}
+        return sum(device_modules(devs[pl.element_id], lib) for pl in self.placements
                    if pl.element_id in devs and self.in_enclosure(pl))
 
     def in_enclosure(self, pl: Placement) -> bool:
