@@ -407,3 +407,33 @@ def test_break_texts_inside_frame_constants():
     assert align == "right" and x < W - MARGIN
     x, _y, align = mg.break_text_pos(MARGIN_LEFT + mg.BREAK_INSET, 0.0, False)
     assert align == "left" and x > MARGIN_LEFT
+
+
+def test_check_now_passes_standard_from_settings(qapp, lib, monkeypatch):
+    """F7 z GUI (`_check_now`) předá kontrole formát stran vícepólu z nastavení – překryvy ve vícepólu jsou tytéž
+    jako z `multipole_text_overlaps` se stejným standardem (model nastavení nečte)."""
+    from envocad.model import checks
+    from envocad.ui.main_window import MainWindow
+    _settings(switchboard_paper="A3")
+    p, sb = _dc(9)
+    seen = []
+    real = checks.check_project
+
+    def spy(project, lib_, *, standard_paper):
+        seen.append(standard_paper)
+        return real(project, lib_, standard_paper=standard_paper)
+
+    monkeypatch.setattr(checks, "check_project", spy)
+    w = MainWindow(lib, p)
+    try:
+        w._check_now()
+        assert seen == ["A3"]
+        got = sorted(f.text for f in w._findings if f.code == "mp_text_overlap" and f.sheet_id == sb.id)
+        want = sorted(f.text for f in checks.multipole_text_findings(p, sb, lib, standard_paper="A3"))
+        assert got == want
+        hits = mg.multipole_text_overlaps(p, sb, lib, standard_paper="A3")
+        assert bool(got) == bool(hits)
+        assert mg.multipole_geometry(p, sb, lib, standard_paper="A3").page_size == (420.0, 297.0)
+    finally:
+        w.undo.setClean()
+        w.close()
