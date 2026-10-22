@@ -21,7 +21,8 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from envocad.model.symbol import GRID, Attribute, Port, Primitive, Symbol
+from envocad.model.grid import snap as _snap
+from envocad.model.symbol import Attribute, Port, Primitive, Symbol
 
 SCALE = 0.25  # mm / px
 ORIENT = {"n": "N", "e": "E", "s": "S", "w": "W"}
@@ -42,9 +43,6 @@ def _f(v: str | None, default: float = 0.0) -> float:
         raise _SkipEntity(v)
     return f
 
-
-def _snap(v: float) -> float:
-    return round(v / GRID) * GRID
 
 
 class _Conv:

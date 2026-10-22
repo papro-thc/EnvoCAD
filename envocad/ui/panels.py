@@ -160,6 +160,7 @@ class PropertiesPanel(QWidget):
             # rámečky jednopólového schématu: pole / kobka rozvaděče, trafostanice (bloky a prvky blokového schématu)
             if sheet is not None and sheet.is_switchboard and sym.id not in ("sb.busbar",):
                 self._add_field("cell", "Pole / kobka (JPS)", e.attrs.get("cell", ""))
+                self._add_size_fields(e)
             elif sheet is not None and not sheet.is_switchboard:
                 self._add_field("station", "Trafostanice (JPS)", e.attrs.get("station", ""))
         elif isinstance(item, WireItem):
@@ -213,6 +214,35 @@ class PropertiesPanel(QWidget):
                           f"Příklad: {CONTACTS_HINT}\nBez předpony druhu se určí podle čísel svorek (IEC 60947-5-1).")
         ed.editingFinished.connect(lambda k=key, w=ed: self._commit(k, w.text()))
         self.form.addRow(label, ed)
+
+    def _add_size_fields(self, e) -> None:
+        """Rozměry v rozložení rozvaděče (ruční přepis artiklu, `model/device_size`): prázdné pole = z artiklu /
+        modulů – zástupný text ukáže použitou hodnotu a zdroj. Skupina svorek navíc koncové desky a artikl můstku."""
+        from envocad.model.device_size import device_size
+        from envocad.model.project import AUTO_WIDTH_TERMINALS, NON_DEVICE_SYMBOLS
+        if e.symbol_id in NON_DEVICE_SYMBOLS:
+            return
+        sz = device_size(e, self._library)
+        auto = {"width_mm": f"{sz.width_mm:g} ({sz.source})", "height_mm": f"{sz.height_mm:g} ({sz.height_source})",
+                "depth_mm": f"{sz.depth_mm:g}" if sz.depth_mm else "neznámá"}
+        for key, label in (("width_mm", "Šířka v rozložení [mm]"), ("height_mm", "Výška v rozložení [mm]"),
+                           ("depth_mm", "Hloubka přístroje [mm]")):
+            self._add_field(key, label, e.attrs.get(key, ""), placeholder=auto[key].replace(".", ","))
+        if e.symbol_id in AUTO_WIDTH_TERMINALS:
+            self._add_field("end_mm", "Koncové desky / zarážky [mm]", e.attrs.get("end_mm", ""), placeholder="0")
+            self._add_choice("bridge_id", "Artikl můstku", e.attrs.get("bridge_id", ""), self._bridge_items(e))
+
+    def _bridge_items(self, e) -> list[tuple[str, str]]:
+        """Nabídka artiklů můstku pro skupinu svorek: obecný můstek + `bridge_candidates` (s artiklem svorky jen
+        téhož výrobce). Uložené id mimo nabídku ukáže `ChoiceEdit` jako další položku."""
+        items = [("", "(obecný můstek bez artiklu)")]
+        if self._library is None:
+            return items
+        from envocad.library.components import bridge_candidates
+        term = self._library.component(e.component_id) if e.component_id else None
+        for c in bridge_candidates(self._library.components(category="accessory"), term):
+            items.append((c.id, f"{c.manufacturer} {c.part_number} – {c.name}"))
+        return items
 
     def _add_choice(self, key: str, label: str, value: str, items: list[tuple[str, str]]) -> None:
         """Nabídka hodnot atributu (`Attribute.choices`, např. směr přívodu/vývodu); změna = jeden příkaz undo."""

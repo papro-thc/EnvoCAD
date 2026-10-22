@@ -98,7 +98,7 @@ def test_device_index_groups():
 
 def test_contactor_with_coil_regression(lib):
     p, power, ctl, km, coil, c_no, c_nc = _km_project()
-    fs = check_project(p, lib)
+    fs = check_project(p, lib, standard_paper="A4")
     assert not _codes(fs, "dup_ref") and not _codes(fs, "contact_ambiguous")
     assert coil_of(p, c_no) == (ctl, coil) and coil_of(p, c_nc, ctl)[1] is coil
     assert [e for _, e in coil_candidates(p, c_no)] == [coil]
@@ -216,7 +216,7 @@ def test_dup_ref_rules(lib):
     def dups(*elements):
         p = Project()
         p.sheets[0].elements += list(elements)
-        return {f.target_id for f in _codes(check_project(p, lib), "dup_ref")}
+        return {f.target_id for f in _codes(check_project(p, lib, standard_paper="A4"), "dup_ref")}
 
     def el(sym, **a):
         return Element(sym, attrs={"ref": "K1", **a})
@@ -245,7 +245,7 @@ def test_dup_ref_rules(lib):
     sb.elements += [f1, f2, coil]
     w = Wire(WireEnd(f1.id, "2"), WireEnd(f2.id, "1"), attrs={"ref": "K1"})
     sb.wires.append(w)
-    assert {f.target_id for f in _codes(check_project(p, lib), "dup_ref")} == {coil.id, w.id}
+    assert {f.target_id for f in _codes(check_project(p, lib, standard_paper="A4"), "dup_ref")} == {coil.id, w.id}
 
 
 def test_interrupt_ref_collides_with_device_or_wire(lib):
@@ -262,12 +262,12 @@ def test_interrupt_ref_collides_with_device_or_wire(lib):
     sb.elements += [f1, f2, i1, i2, l1a, l1b]
     w = Wire(WireEnd(f1.id, "2"), WireEnd(f2.id, "1"), attrs={"ref": "W1"})
     sb.wires.append(w)
-    dup = _codes(check_project(p, lib), "dup_ref")
+    dup = _codes(check_project(p, lib, standard_paper="A4"), "dup_ref")
     assert {f.target_id for f in dup} == {f1.id, i1.id, i2.id, w.id}
     assert all(f.severity == ERROR for f in dup)
     # jiný prostor (list bez umístění rozvaděče) → bez kolize
     i1.attrs["loc"] = "RDC1"
-    assert i1.id not in {f.target_id for f in _codes(check_project(p, lib), "dup_ref")}
+    assert i1.id not in {f.target_id for f in _codes(check_project(p, lib, standard_paper="A4"), "dup_ref")}
 
 
 # ---- odkaz na místo --------------------------------------------------------------------------------------------
@@ -442,28 +442,28 @@ def test_contact_checks(lib):
     a = Element("ctl.contact_no", 200, 100, attrs={"ref": "K1"})
     b = Element("ctl.contact_no", 250, 100, attrs={"ref": "K1"})          # druhé výchozí 13/14
     s.elements += [coil, a, b]
-    fs = check_project(p, lib)
+    fs = check_project(p, lib, standard_paper="A4")
     dup = _codes(fs, "contact_dup")
     assert len(dup) == 1 and dup[0].target_id == b.id and dup[0].severity == WARNING
     assert dup[0].text == "K1: svorky 13/14 jsou u více kontaktů"
     assert not _codes(fs, "contact_count") and not _codes(fs, "contact_unknown")      # obraz nezadán
     b.attrs["terminals"] = "23/24"
     coil.attrs["contacts"] = "13/14 21/22"
-    fs = check_project(p, lib)
+    fs = check_project(p, lib, standard_paper="A4")
     assert not _codes(fs, "contact_dup")
     unk = _codes(fs, "contact_unknown")
     assert len(unk) == 1 and unk[0].target_id == b.id and unk[0].text == "Kontakt 23/24 není v kontaktním obrazu K1"
     cnt = _codes(fs, "contact_count")
     assert len(cnt) == 1 and cnt[0].text == "K1: použity 2 spínací kontakty, kontaktní obraz má 1" and cnt[0].target_id == coil.id
     coil.attrs["contacts"] = "13/14 23/24 xx/yy"
-    fs = check_project(p, lib)
+    fs = check_project(p, lib, standard_paper="A4")
     syn = _codes(fs, "contact_image_syntax")
     assert len(syn) == 1 and "xx/yy" in syn[0].text and syn[0].target_id == coil.id
     assert not _codes(fs, "contact_count") and not _codes(fs, "contact_unknown")
     # obraz ze stykače (položka výkazu) má přednost; póly stykače se počítají jako silové
     km = Element("fve.contactor", 50, 50, attrs={"ref": "K1", "poles": "3", "contacts": "1/2 3/4 13/14 23/24"})
     s.elements.append(km)
-    cnt = _codes(check_project(p, lib), "contact_count")
+    cnt = _codes(check_project(p, lib, standard_paper="A4"), "contact_count")
     assert [f.text for f in cnt] == ["K1: použity 3 silové kontakty, kontaktní obraz má 2"]
 
 
@@ -482,13 +482,13 @@ def test_contact_alone_and_ambiguous_via_index(lib):
     c = Element("ctl.contact_no", attrs={"ref": "K1"})
     lone = Element("ctl.contact_no", 20, attrs={"ref": "K7"})
     p.sheets[2].elements += [c, lone]
-    fs = check_project(p, lib)
+    fs = check_project(p, lib, standard_paper="A4")
     assert [f.target_id for f in _codes(fs, "contact_ambiguous")] == [c.id]
     assert [f.target_id for f in _codes(fs, "contact_alone")] == [lone.id]
     # cívka + stykač v jednom prostoru nejsou dvě cívky
     p.sheets[1].elements.append(Element("fve.contactor", attrs={"ref": "K1"}))
     c.attrs["loc"] = "RH"
-    assert not _codes(check_project(p, lib), "contact_ambiguous")
+    assert not _codes(check_project(p, lib, standard_paper="A4"), "contact_ambiguous")
 
 
 def test_next_contact_pair():
@@ -533,7 +533,7 @@ def test_interrupt_pair_and_chain(lib):
     assert element_xref(p, p.sheets[1], b) == f"← {_pos(p, 0, a)}\n→ {_pos(p, 2, c)}"
     assert element_xref(p, p.sheets[2], c) == "← " + _pos(p, 1, b)
     assert interrupt_partner(p, b)[1] is c and interrupt_partner(p, c)[1] is b
-    assert not _codes(check_project(p, lib), "interrupt_alone")
+    assert not _codes(check_project(p, lib, standard_paper="A4"), "interrupt_alone")
     # řazení v listu: x, pak −y (shora dolů)
     q = Project()
     e1, e2, e3 = (Element("fve.interrupt", 50, 100, attrs={"ref": "N"}), Element("fve.interrupt", 20, 100, attrs={"ref": "N"}),
@@ -554,9 +554,9 @@ def test_interrupt_star(lib):
     assert element_xref(p, p.sheets[0], pts[0]) == "← " + _pos(p, 2, src)
     assert X.interrupt_link(p, p.sheets[5], pts[5]).mode == "star_target"
     assert interrupt_partner(p, pts[4])[1] is src and interrupt_partner(p, src)[1] is pts[0]
-    assert not _codes(check_project(p, lib), "interrupt_star_multi")
+    assert not _codes(check_project(p, lib, standard_paper="A4"), "interrupt_star_multi")
     pts[4].attrs["star_source"] = "1"                         # druhý zdroj → varování, zdrojem zůstává první
-    multi = _codes(check_project(p, lib), "interrupt_star_multi")
+    multi = _codes(check_project(p, lib, standard_paper="A4"), "interrupt_star_multi")
     assert [f.target_id for f in multi] == [pts[4].id] and multi[0].severity == WARNING
     assert X.interrupt_link(p, p.sheets[4], pts[4]).mode == "star_target"
 
@@ -580,7 +580,7 @@ def test_interrupt_alone(lib):
     p, (a,) = _interrupt_project(1)
     assert X.interrupt_link(p, p.sheets[0], a).mode == "alone"
     assert element_xref(p, p.sheets[0], a) == "→ ?" and interrupt_partner(p, a) is None
-    assert _codes(check_project(p, lib), "interrupt_alone")
+    assert _codes(check_project(p, lib, standard_paper="A4"), "interrupt_alone")
     a.attrs["ref"] = ""
     assert element_xref(p, p.sheets[0], a) == "→ ?"
 
@@ -616,15 +616,15 @@ def test_example_generated_and_templates_clean(lib):
     from envocad.generate import build_project
     from envocad.library import templates as T
     p = Project.load(Path(__file__).parent.parent / "examples" / "ukazka_fve.ecp")
-    fs = check_project(p, lib)
+    fs = check_project(p, lib, standard_paper="A4")
     assert not [f for f in fs if f.severity == ERROR or f.code in NEW_CODES]
     spec = {"name": "X", "inverters": [{"ref": "T1", "p_ac": 25, "strings": [20, 20]}],
             "dc": {"route_boxes": 1, "tech_box": True, "disconnect": True}, "ac": {"distribution": "bus"}}
     g = build_project(spec)
-    assert not [f.text for f in check_project(g, lib) if f.code in NEW_CODES]
+    assert not [f.text for f in check_project(g, lib, standard_paper="A4") if f.code in NEW_CODES]
     for t in T.TEMPLATES:
         tp = Project()
         blk = Element("fve.switchboard", attrs={"ref": "RH"})
         tp.sheets[0].elements.append(blk)
-        T.apply_template(tp, tp.create_switchboard_sheet(blk), t.id, {})
-        assert not [f.text for f in check_project(tp, lib) if f.code in NEW_CODES], t.id
+        T.apply_template(tp, tp.create_switchboard_sheet(blk), t.id, {}, standard_paper="A4")
+        assert not [f.text for f in check_project(tp, lib, standard_paper="A4") if f.code in NEW_CODES], t.id

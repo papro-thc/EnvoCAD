@@ -356,10 +356,10 @@ def test_manual_project_without_articles_unchanged():
     blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
     p.sheets[0].elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"}, standard_paper="A4")
     p2, _f, _spd, _t = _dc_project()
     for proj in (p, p2):
-        assert not _codes(check_project(proj, lib), *RATING_CODES)
+        assert not _codes(check_project(proj, lib, standard_paper="A4"), *RATING_CODES)
 
 
 def test_check_project_one_cause_one_finding():
@@ -367,13 +367,13 @@ def test_check_project_one_cause_one_finding():
     `un_dc` / `spd_ucpv` je znovu nehlásí. Bez návrhové teploty jen informace `un_dc` / `spd_ucpv`."""
     from envocad.library.store import LibraryStore
     p, _f, _spd, _t = _dc_project(dev_attrs={"un": "1000"}, spd_attrs={"ucpv": "1050"})
-    fs = check_project(p, LibraryStore())
+    fs = check_project(p, LibraryStore(), standard_paper="A4")
     assert not _codes(fs, "un_dc", "spd_ucpv")
     cs = [f for f in _codes(fs, "calc_string") if "Un DC" in f.text]
     assert [(f.severity, f.ref) for f in cs] == [(ERROR, "G1")]
     assert "Uoc 1083,6 V při −10 °C > Un DC přístrojů F1 1000 V, F2 1050 V" in cs[0].text
     p, _f, _spd, _t = _dc_project(dev_attrs={"un": "1000"}, spd_attrs={"ucpv": "1050"}, t_min="")
-    fs = check_project(p, LibraryStore())
+    fs = check_project(p, LibraryStore(), standard_paper="A4")
     assert not [f for f in _codes(fs, "calc_string") if "Un DC" in f.text]
     assert {(f.code, f.severity) for f in _codes(fs, "un_dc", "spd_ucpv")} == {("un_dc", INFO), ("spd_ucpv", INFO)}
 
@@ -390,7 +390,7 @@ def test_tz_calculations_and_f7_agree(tmp_path):
         tz = [m for sc in calc.check_strings(p, t_lo, t_hi, lib=lib) for m in sc.issues if "Un DC" in m]
         _head, rows = reports.calculations(p, lib)
         rep = [r for r in rows if "Un DC" in str(r[-1])]
-        f7 = [f for f in check_project(p, lib) if f.code == "calc_string" and "Un DC" in f.text]
+        f7 = [f for f in check_project(p, lib, standard_paper="A4") if f.code == "calc_string" and "Un DC" in f.text]
         assert bool(tz) == bool(rep) == bool(f7) == expect
         if expect:
             assert tz[0] in f7[0].text and tz[0] in str(rep[0][-1])
@@ -412,9 +412,9 @@ def test_generated_projects_only_legit_dc_voltage_findings(ac_builtin_fn, monkey
     lib = CatalogView()          # katalog bez DC artiklů 1500 V – generátor zůstane u 1000 V (soustava DC)
     monkeypatch.setattr(context, "_lib", lambda: lib)
     spec = {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 18]}]}
-    fs = _codes(check_project(build_project(spec), lib), *RATING_CODES)
+    fs = _codes(check_project(build_project(spec), lib, standard_paper="A4"), *RATING_CODES)
     assert [(f.code, f.severity) for f in fs] == [("un_dc", INFO)] and "FU1.1 Un 1000 V < Uoc 1083,6 V" in fs[0].text
-    fs = check_project(build_project({**spec, "site": {"t_min": -20}}), lib)
+    fs = check_project(build_project({**spec, "site": {"t_min": -20}}), lib, standard_paper="A4")
     assert not _codes(fs, *RATING_CODES)
     cs = [f for f in _codes(fs, "calc_string") if "Un DC" in f.text]
     assert [(f.severity, f.ref) for f in cs] == [(ERROR, "G1")]
@@ -423,7 +423,7 @@ def test_generated_projects_only_legit_dc_voltage_findings(ac_builtin_fn, monkey
                {"building": "house", "site": {"t_min": -20},
                 "inverters": [{"ref": "T1", "p_ac": 10, "u_dc_max": 1000, "u_mppt_min": 160, "u_mppt_max": 950,
                                "i_mppt_max": 16, "strings": [12, 12]}]}):
-        assert not _codes(check_project(build_project(ok), lib), *RATING_CODES)
+        assert not _codes(check_project(build_project(ok), lib, standard_paper="A4"), *RATING_CODES)
 
 
 def test_unresolved_board_feed_no_voltage_and_one_info():

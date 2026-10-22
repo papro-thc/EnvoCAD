@@ -199,7 +199,7 @@ def test_potential_joins_inverter_with_switchboard_block(big, lib):
 
 # ---- kontroly F7 ---------------------------------------------------------------------------------------------
 def test_checks_no_new_findings_on_split_project(big, big_one_sheet, lib):
-    f_split, f_one = check_project(big, lib), check_project(big_one_sheet, lib)
+    f_split, f_one = check_project(big, lib, standard_paper="A4"), check_project(big_one_sheet, lib, standard_paper="A4")
     codes = {f.code for f in f_split}
     # „no_cable“ (INFO) má i nerozdělený projekt: vodič HDS → DS je záměrně bez kabelu (F2) – porovná `count` níže
     assert not codes & {"interrupt_alone", "cable_split", "dup_ref", "text_overlap", "free_port",
@@ -218,7 +218,7 @@ def test_cable_split_warning_when_both_segments_carry_cable(lib):
     s = p.sheets[1]
     cont = next(w for w in s.wires if is_continuation(p, s, w))
     cont.attrs.update({"ref": "W999", "cable": "CYKY-J 5x16", "cross": "16"})
-    found = [f for f in check_project(p, lib) if f.code == "cable_split"]
+    found = [f for f in check_project(p, lib, standard_paper="A4") if f.code == "cable_split"]
     assert len(found) == 1 and found[0].severity == WARNING   # jednou za dvojici úseků
 
 
@@ -296,7 +296,7 @@ def test_manual_pair_reports_calc_potential_checks(lib):
     assert cc.i_a == 36.1 and "P_AC" in calc._source_current(p, b, main, None)[1]
     net = next(n for n in nets(p, lib) if any(e is t and c == "L1" for _, e, _, c in n.members))
     assert any(e is f and c == "L1" for _, e, _, c in net.members)
-    codes = [x.code for x in check_project(p, lib)]
+    codes = [x.code for x in check_project(p, lib, standard_paper="A4")]
     assert "no_cable" not in codes and "cable_split" not in codes and "interrupt_alone" not in codes
 
 
@@ -321,11 +321,11 @@ def test_manual_auto_ref_on_both_segments_reports_as_before(lib):
     rows = {r[0]: r for r in got["Kabely"][1]}
     assert rows["W1"][1:3] == ["P:1", "F1:1"] and rows["W2"][1:3] == ["T1:AC", "P:1"]
     assert {r[1] for r in reports.wiring_list(p, lib)[1]} == {"W1", "W2"}
-    codes = Counter(x.code for x in check_project(p, lib))
+    codes = Counter(x.code for x in check_project(p, lib, standard_paper="A4"))
     assert codes["cable_split"] == 0 and codes["no_cable"] == 1          # W2 bez typu/průřezu – jako dřív
     # typ a průřez na obou úsecích → cable_split, texty zůstávají „P:1“
     cont.attrs.update({"cable": "CYKY-J 5x16", "cross": "16"})
-    assert [x.code for x in check_project(p, lib)].count("cable_split") == 1
+    assert [x.code for x in check_project(p, lib, standard_paper="A4")].count("cable_split") == 1
     rows = {r[0]: r for r in reports.cables(p, lib)[1]}
     assert rows["W1"][1] == "P:1" and rows["W2"][2] == "P:1"
 
@@ -348,12 +348,12 @@ def test_interrupt_chain_info(lib):
     p, _a, b, _t, _ia, _ib, _f, _cont, _main = _manual()
     third = Element(INTERRUPT_SYMBOL, 0, -50, attrs={"ref": "P"})
     b.elements.append(third)
-    found = [x for x in check_project(p, lib) if x.code == "interrupt_chain"]
+    found = [x for x in check_project(p, lib, standard_paper="A4") if x.code == "interrupt_chain"]
     assert len(found) == 1 and found[0].text == "Přerušení P je v 3 bodech (řetěz)" and found[0].severity == "info"
     third.attrs["star_source"] = "1"                                    # hvězda – žádné INFO
-    assert not [x for x in check_project(p, lib) if x.code == "interrupt_chain"]
+    assert not [x for x in check_project(p, lib, standard_paper="A4") if x.code == "interrupt_chain"]
     b.elements.remove(third)                                            # dvojice – žádné INFO
-    assert not [x for x in check_project(p, lib) if x.code == "interrupt_chain"]
+    assert not [x for x in check_project(p, lib, standard_paper="A4") if x.code == "interrupt_chain"]
 
 
 def test_oversized_inverter_row_gets_bigger_paper():
@@ -468,7 +468,7 @@ def _same_reports_and_no_new_findings(p, one, lib):
         sorted((c.ref, c.i_a, c.du_pct) for c in calc.check_cables(one))
     strings = calc.check_strings(p)
     assert strings and all(c.inverter for c in strings)
-    fs, f1 = check_project(p, lib), check_project(one, lib)
+    fs, f1 = check_project(p, lib, standard_paper="A4"), check_project(one, lib, standard_paper="A4")
     assert not [f for f in fs if f.severity == "chyba"]
     new = {(f.severity, f.code) for f in fs if f.severity == WARNING} - {(f.severity, f.code) for f in f1}
     assert not new, [f.text for f in fs if (f.severity, f.code) in new]

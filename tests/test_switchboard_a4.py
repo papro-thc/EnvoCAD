@@ -62,7 +62,7 @@ def _tpl(tid: str, params: dict):
     blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
     p.sheets[0].elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, tid, params)
+    apply_template(p, sb, tid, params, standard_paper="A4")
     return p, sb
 
 
@@ -90,14 +90,19 @@ def _is_pe_only(w) -> bool:
 def test_paper_choice_default_standard_sheet_and_legacy():
     p, sb = _tpl("dc", {"n_strings": "2"})
     assert mp.paper_choice(sb) == "A4" and mp.page_size(sb) == (297.0, 210.0) and mp.page_paper_label(sb) == "A4"
-    _settings(switchboard_paper="A4 na výšku")
-    assert mp.page_size(sb) == (210.0, 297.0) and mp.page_paper_label(sb) == "A4"
+    # firemní standard předává volající (model nastavení nečte – `envocad.settings.switchboard_paper`)
+    assert mp.page_size(sb, standard_paper="A4 na výšku") == (210.0, 297.0)
+    assert mp.page_paper_label(sb, standard_paper="A4 na výšku") == "A4"
+    assert mp.page_size(sb, standard_paper="A3") == (420.0, 297.0)
+    assert mp.paper_choice(sb, "Letter") == "A4"                # neplatná hodnota → výchozí A4
     _settings(switchboard_paper="A3")
-    assert mp.page_size(sb) == (420.0, 297.0)
-    _settings(switchboard_paper="Letter")                     # neplatná hodnota → výchozí A4
-    assert mp.paper_choice(sb) == "A4"
+    assert mp.page_size(sb) == (297.0, 210.0)                   # nastavení model neovlivní
+    from envocad.settings import switchboard_paper
+    assert switchboard_paper() == "A3" and mp.page_size(sb, standard_paper=switchboard_paper()) == (420.0, 297.0)
+    _settings(switchboard_paper="Letter")
+    assert switchboard_paper() == "A4"
     sb.mp_paper = "A3"                                        # volba listu má přednost před standardem
-    assert mp.page_size(sb) == (420.0, 297.0)
+    assert mp.page_size(sb) == (420.0, 297.0) and mp.page_size(sb, standard_paper="A4 na výšku") == (420.0, 297.0)
     sb.mp_paper = "list"
     assert mp.page_size(sb) == (sb.width, sb.height)
     sb.mp_paper = ""
@@ -139,7 +144,7 @@ def test_frame_qr_only_when_it_fits_and_page_label():
 def test_groups_not_split_and_drawing_inside_a4_frame(case, lib):
     _settings(frame=True)
     p, sb = CASES[case]()
-    g = mg.multipole_geometry(p, sb, lib)
+    g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
     W, H = g.page_size
     assert (W, H) == (297.0, 210.0) and g.paper == "A4"
     # žádná skupina mezi stranami: vodič s jinou žílou než PE vede vždy v rámci strany (mimo sběrnici)
@@ -165,13 +170,13 @@ def test_groups_not_split_and_drawing_inside_a4_frame(case, lib):
             assert x0 - 1e-6 <= x <= x1 + 1e-6 and y0 - 1e-6 <= y <= y1 + 1e-6, (case, what)
         assert not segment_hits_box(pa, pb, tb, 0.0), (case, what)
     # kontrola překryvů (F7 mp_text_overlap) nad stejnou geometrií nic nehlásí
-    assert mg.multipole_text_overlaps(p, sb, lib, g) == [], case
+    assert mg.multipole_text_overlaps(p, sb, lib, g, standard_paper="A4") == [], case
 
 
 def test_dc_string_fuse_and_spd_on_same_page(lib):
     """Otevřený problém: velký DC rozvaděč (21 stringů) rozdělil pojistku a SPD jednoho stringu na různé strany."""
     p, sb = _dc(21)
-    g = mg.multipole_geometry(p, sb, lib)
+    g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
     els = {e.id: e for e in sb.elements}
     pairs = 0
     for w in sb.wires:
@@ -184,14 +189,14 @@ def test_dc_string_fuse_and_spd_on_same_page(lib):
 
 
 def test_expected_page_counts(lib):
-    assert mg.multipole_geometry(*_dc(4), lib).pages == 2
-    assert mg.multipole_geometry(*_tpl("ac_fve", {"distribution": "bus", "n_out": "9"}), lib).pages == 3
+    assert mg.multipole_geometry(*_dc(4), lib, standard_paper="A4").pages == 2
+    assert mg.multipole_geometry(*_tpl("ac_fve", {"distribution": "bus", "n_out": "9"}), lib, standard_paper="A4").pages == 3
 
 
 # ---- přerušení a křížové odkazy -----------------------------------------------------------------------------------
 def test_pe_rail_continues_over_pages_with_refs_to_neighbours(lib):
     p, sb = _dc(21)
-    g = mg.multipole_geometry(p, sb, lib)
+    g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
     no = "2"                                                  # list rozvaděče je 2. list projektu
     rails = sorted(g.rails, key=lambda r: r.page)
     assert [r.page for r in rails] == list(range(g.pages))   # PE sběrná čára na každé straně
@@ -207,7 +212,7 @@ def test_pe_rail_continues_over_pages_with_refs_to_neighbours(lib):
 
 def test_bus_refs_to_neighbouring_pages(lib):
     p, sb = _tpl("ac_fve", {"distribution": "bus", "n_out": "9"})
-    g = mg.multipole_geometry(p, sb, lib)
+    g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
     (_bus_id, refs), = g.bus_refs.items()
     pages = sorted({k for k, *_ in refs})
     assert pages == list(range(g.pages))
@@ -222,7 +227,7 @@ def test_bus_refs_to_neighbouring_pages(lib):
 
 def test_single_cross_page_conductor_break_refs(lib):
     p, sb = _dc(4)
-    g = mg.multipole_geometry(p, sb, lib)
+    g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
     assert g.page_breaks                                     # PE 4. stringu do XPE na první straně
     for (wid, _c), ((xa, _ya, ra, ref_a), (xb, _yb, rb, ref_b)) in g.page_breaks.items():
         w = next(x for x in sb.wires if x.id == wid)
@@ -234,7 +239,7 @@ def test_single_cross_page_conductor_break_refs(lib):
 def test_legacy_sheet_keeps_its_size(lib):
     p, sb = _dc(4)
     sb.elements[0].mp_pos = (60.0, 200.0)                    # starší projekt s ruční polohou ve vícepólu
-    g = mg.multipole_geometry(p, sb, lib)
+    g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
     assert g.page_size == (420.0, 297.0) and g.paper == "A3"
 
 
@@ -242,7 +247,7 @@ def test_legacy_sheet_keeps_its_size(lib):
 def test_terminal_plan_pages_a4(lib):
     from envocad.model.terminal_plan import BOTTOM_PAD, T_H, sheet_plan_pages, terminal_plan
     p, sb = _dc(21)
-    size, pages = sheet_plan_pages(p, sb)
+    size, pages = sheet_plan_pages(p, sb, standard_paper="A4")
     assert size == (297.0, 210.0)
     x0, y0, x1, y1 = inner_box(*size)
     tb = title_block_box(*size)
@@ -263,7 +268,7 @@ def test_scene_uses_model_geometry(qapp, lib):
 
     from envocad.ui.multipole_view import MultipoleScene, PageBreakItem, RailItem
     p, sb = _dc(21)
-    g = mg.multipole_geometry(p, sb, lib)
+    g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
     sc = MultipoleScene(p, sb, lib, QUndoStack())
     assert sc.paper_size == (297.0, 210.0) and len(sc.pages) == g.pages
     assert {eid: ep.origin for eid, ep in sc._poles.items()} == g.origins
@@ -374,9 +379,12 @@ def test_sheet_props_paper_undo_and_pin_on_manual_move(qapp, lib):
         w.undo.push(commands.MoveMultipoleCommand(sc, {e.id: (None, (60.0, 150.0))}))
         assert e.mp_pos == (60.0, 150.0) and sb.mp_paper == "A4" and mp.page_size(sb) == (297.0, 210.0)
         _settings(switchboard_paper="A3")
-        assert mp.page_size(sb) == (297.0, 210.0)
+        assert mp.page_size(sb, standard_paper="A3") == (297.0, 210.0)
         w.undo.undo()
         assert e.mp_pos is None and sb.mp_paper == ""
+        # scéna předá modelu firemní standard z nastavení (`settings.switchboard_paper`)
+        sc.rebuild()
+        assert sc.paper_size == (420.0, 297.0) and sc.paper_label == "A3"
     finally:
         w.undo.setClean()
         w.close()
@@ -399,3 +407,33 @@ def test_break_texts_inside_frame_constants():
     assert align == "right" and x < W - MARGIN
     x, _y, align = mg.break_text_pos(MARGIN_LEFT + mg.BREAK_INSET, 0.0, False)
     assert align == "left" and x > MARGIN_LEFT
+
+
+def test_check_now_passes_standard_from_settings(qapp, lib, monkeypatch):
+    """F7 z GUI (`_check_now`) předá kontrole formát stran vícepólu z nastavení – překryvy ve vícepólu jsou tytéž
+    jako z `multipole_text_overlaps` se stejným standardem (model nastavení nečte)."""
+    from envocad.model import checks
+    from envocad.ui.main_window import MainWindow
+    _settings(switchboard_paper="A3")
+    p, sb = _dc(9)
+    seen = []
+    real = checks.check_project
+
+    def spy(project, lib_, *, standard_paper):
+        seen.append(standard_paper)
+        return real(project, lib_, standard_paper=standard_paper)
+
+    monkeypatch.setattr(checks, "check_project", spy)
+    w = MainWindow(lib, p)
+    try:
+        w._check_now()
+        assert seen == ["A3"]
+        got = sorted(f.text for f in w._findings if f.code == "mp_text_overlap" and f.sheet_id == sb.id)
+        want = sorted(f.text for f in checks.multipole_text_findings(p, sb, lib, standard_paper="A3"))
+        assert got == want
+        hits = mg.multipole_text_overlaps(p, sb, lib, standard_paper="A3")
+        assert bool(got) == bool(hits)
+        assert mg.multipole_geometry(p, sb, lib, standard_paper="A3").page_size == (420.0, 297.0)
+    finally:
+        w.undo.setClean()
+        w.close()

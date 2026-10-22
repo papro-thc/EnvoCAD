@@ -16,6 +16,9 @@ from types import SimpleNamespace
 from typing import NamedTuple
 
 from envocad.model.designation import Designation, designation, scope_key
+from envocad.model.grid import ceil_grid as _ceil_grid
+from envocad.model.grid import floor_grid as _floor_grid
+from envocad.model.grid import snap as _snap
 from envocad.model.multipole import is_terminal_block
 from envocad.model.project import (
     COIL_SYMBOLS,
@@ -354,16 +357,7 @@ class MirrorGeometry:
         return not (self.lines or self.texts)
 
 
-def _snap(v: float) -> float:
-    return round(v / GRID) * GRID
 
-
-def _floor_grid(v: float) -> float:
-    return math.floor(v / GRID + 1e-9) * GRID
-
-
-def _ceil_grid(v: float) -> float:
-    return math.ceil(v / GRID - 1e-9) * GRID
 
 
 # piktogramy hlavičky (svislý kontakt, souřadnice značek ctl.* zmenšené na 0,2)

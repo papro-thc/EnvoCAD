@@ -56,6 +56,11 @@ def dso_data(project: Project, lib: LibraryStore) -> list[tuple[str, str]]:
     return rows
 
 
+def _cz(v: float, fmt: str = "g") -> str:
+    """Číslo s desetinnou čárkou (2,44; 0,8)."""
+    return format(v, fmt).replace(".", ",")
+
+
 def export_tz_docx(project: Project, lib: LibraryStore, path: Path | str, template: Path | str | None = None) -> None:
     project = without_dangling(project)   # vodiče na neexistující prvek (poškozený soubor) se do zprávy nedostanou
     doc = Document(str(template)) if template else Document()
@@ -120,8 +125,17 @@ def export_tz_docx(project: Project, lib: LibraryStore, path: Path | str, templa
         try:
             rdf, t_amb = layout_inputs(s.layout)
             r = temperature_rise(s, rdf=rdf, t_ambient_c=t_amb, project=project, lib=lib)
-            doc.add_paragraph(f"Odhad oteplení dle IEC TR 60890: ΣPv = {r.p_total_w:.0f} W, Ae = {r.ae_m2:.2f} m², "
-                              f"Δt uprostřed {r.dt_mid_k:.1f} K, v horní části {r.dt_top_k:.1f} K – {r.verdict()}.")
+            src = r.loss_summary()
+            doc.add_paragraph(f"Odhad oteplení dle IEC TR 60890: ΣPv = {r.p_total_w:.0f} W"
+                              + (f" ({src})" if src else "") + f", Ae = {_cz(r.ae_m2, '.2f')} m², "
+                              f"Δt uprostřed {_cz(r.dt_mid_k, '.1f')} K, v horní části {_cz(r.dt_top_k, '.1f')} K – "
+                              f"{r.verdict()}.")
+            losses = [x for x in r.losses if x.p_w > 0]
+            if losses:
+                # ztrátové výkony po přístrojích se zdrojem údaje (artikl / ruční / odhad z In)
+                _table(doc, ["Přístroj", "Pv při In [W]", f"Pv při {_cz(r.rdf)}·In [W]", "Zdroj"],
+                       [[x.ref or "?", _cz(x.p_rated_w) if x.p_rated_w is not None else "–", _cz(x.p_w), x.source]
+                        for x in losses])
         except Exception:  # noqa: BLE001, S110
             pass
         head, rows = reports.device_list(project, lib, s)

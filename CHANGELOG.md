@@ -26,6 +26,67 @@
   při t_min jsou bez návrhové teploty v projektu jen informace (předpoklad −10 °C). Generované projekty se stringy
   20 × 49,5 V dostanou oprávněný nález `un_dc` u odpojovačů EFH 10 DC (1000 V < 1083,6 V; se standardem −20 °C
   varování, i `spd_ucpv` – Ucpv 1100 V < 1110,3 V); výchozí průvodce (18 modulů, −20 °C: 999,3 V) zůstává čistý.
+- **Rozložení rozvaděče z dat artiklů** (návrh `docs/design/rozlozeni_z_artiklu.md`, formát projektu beze změny – v15):
+  `model/device_size.py` určuje šířku, výšku a hloubku přístroje (ruční `width_mm`/`height_mm`/`depth_mm` > ruční
+  `modules` > artikl > `modules` z atributu) a tvar – modulový, obdélník š × v (3VA / MCCB, artikl bez modulů vyšší
+  než 100 mm), svorkovnice. Svorkovnice = počet svorek × `width_mm` artiklu svorky + `end_mm` (koncové desky /
+  zarážky, katalog je nemá – bez konstanty); můstky jako artikl ve výkazu materiálu přes atribut skupiny `bridge_id`
+  (`reports.bridge_article`, kandidáti `components.bridge_candidates`). Rozložení kreslí skutečné rozměry svisle na
+  střed lišty; `Layout.devices` / `used_modules`, `checks.layout_problems`, `wiring.terminal_point` a výkaz
+  přístrojů berou s knihovnou šířky z artiklů. Oteplení: Pv z artiklu, když prvek nemá `p_loss_w`
+  (`thermal.rated_loss`, `ThermalResult.losses` se zdrojem artikl / ruční / odhad – panel skříně, TZ s tabulkou
+  ztrát, protokol). Nové kontroly F7 `layout_height`, `layout_enclosure`, `layout_depth`. Panel Vlastnosti na listu
+  rozvaděče: rozměry v rozložení, koncové desky a artikl můstku (nabídka `bridge_candidates`). Projekt bez artiklů
+  se kreslí pixelově stejně (ověřeno snímkem proti main). Testy `tests/test_device_size.py`,
+  `tests/test_layout_articles_gui.py`.
+  - Výslovné `modules="0"` (generátory, výchozí „0“ VN / měřicích značek) = přístroj mimo rozložení i s artiklem.
+  - **Délky vodičů ve výrobním seznamu**: svorka přístroje s artiklem leží na hraně jeho skutečné výšky z katalogu
+    (Hager MBN 83 mm, 3VA11 130 mm) místo pevných 45 mm – vodiče k přístrojům s artiklem vyjdou delší (u modulového
+    jističe o ~19 mm na konec před zaokrouhlením); bez artiklu beze změny. Popis parametrů: „výška přístroje z artiklu,
+    jinak 45 mm“.
+  - Můstek ve výkazu materiálu po skupinách: každá skupina můstku bere `bridge_id` skupiny svorek, na které leží
+    (`model/bridges.py`); artikl s víc póly = „zkrátit z n pólů“, s méně póly / bez údaje nebo artikl, který není
+    můstek = bez typu s poznámkou a F7 varování `bridge_article` (i neznámé id).
+  - Změna artiklu v dialogu prvku vymaže ruční `width_mm` / `height_mm` / `depth_mm` v témže kroku undo.
+  - Kontrola `layout_enclosure` jen pro šířku (svisle stačí `layout_height`); obrys skříně `Layout.outline_mm` sdílí
+    rozložení i kontrola. Artikly se v rámci jednoho výpočtu čtou jednou (`device_size.memo_lib`). TZ: tabulka
+    ztrát s desetinnou čárkou.
+- **Opravy z review generátoru** (`docs/ROADMAP.md`, „Chyby k řešení“):
+  - **Revize vidí volné texty listu** (`Sheet.texts`): porovnání s revizí hlásí přidaný / změněný / odebraný text
+    (značka revize vlevo od textu, pouhý posun bez značky) a otisk uzavřeného listu změnu textu pozná.
+    **Formát projektu v16** – data se nemění; otisky uzavřených revizí ze starší verze, které sedí na list bez
+    změny, se při načtení přepočtou (`diff.upgrade_fingerprints`) – žádné falešné „změněno po uzavření revize“
+    (test se souborem `tests/data/v15_closed_revision_texts.ecp`). Program v15 soubor v16 odmítne.
+  - **Hlídací test zápisů mimo undo** odvozuje hlídaná pole z dataclass modelu – nová pole se hlídají sama.
+  - **Model nečte uživatelská nastavení**: formát stran vícepólu a název firmy předává volající (parametry
+    `standard_paper`, `company`; `settings.switchboard_paper`, `settings.company`, `settings.frame_enabled`).
+    `multipole.standard_switchboard_paper` a `frame.frame_enabled` zrušeny.
+    U vstupních funkcí (`check_project`, `multipole_geometry`, `multipole_text_overlaps`, `sheet_plan_pages`,
+    `apply_template`, `grow_sheet_*`) je `standard_paper` povinný keyword-only parametr.
+  - Volné texty bez id dostanou při načtení stálé id „<list>.t<n>“, duplicitní id textů se opraví deterministicky.
+  - **Úklid**: zaokrouhlení na mřížku v `model/grid.py`, odstraněn nepoužitý `ui/render.elide_text`, pole uzlu
+    jednopólového schématu deklarovaná v dataclass. Výstup generátoru beze změny.
+- **Zrychlení generátoru** (výstup beze změny – snímek generátoru i rozšířená sada případů shodné). Po F2 bylo
+  `build_project` 1,5–2,2× pomalejší než před F2 (zkoušení rozložení řetězce, hodnocení variant). Nově: hodnocení trasy
+  vodiče jen proti úsekům v dosahu obálky (obálky položených vodičů jednou za list, prvky přes mapu), kandidáti popisků
+  postupně, rychlejší `_score`, mezipaměť rozložení textů `textlayout.layout_cache` v rozmístění JPS (klíč = úplný stav
+  listů – stejný stav se nepočítá znovu), obálky značek v hodnocení řetězce jednou, obálky listu rozvaděče jednou pro
+  `grow_sheet_long` i `grow_sheet_to_content`, `feed_link_index` přes mapy, otevření knihovny 32 → 9 ms (relativní
+  cesty řetězcově). Benchmark `python tools/bench_generate.py` (nejlepší ze 2 × 7 běhů, s):
+
+  | případ | před F2 (24e08bb) | main (e2c5c85) | nyní |
+  |---|---:|---:|---:|
+  | firma 1 střídač | 0,066 | 0,074 | 0,032 |
+  | firma 2 střídače | 0,098 | 0,118 | 0,049 |
+  | firma 4 střídače | 0,215 | 0,399 | 0,182 |
+  | firma 8 střídačů | 0,356 | 0,690 | 0,320 |
+  | RD 1 střídač | 0,063 | 0,090 | 0,044 |
+  | RD 3 střídače | 0,116 | 0,166 | 0,086 |
+  | přípojka VN (kiosk) | 0,061 | 0,053 | 0,025 |
+  | rozdělené JPS 4×8 | 0,462 | 0,810 | 0,378 |
+  | **celkem** | **1,437** | **2,400** | **1,116** |
+
+  Celkem 2,1× rychlejší než main a o 22 % rychlejší než před F2 (aa6fa80 po F1: 1,498 s).
 - **Python 3.14** podporován (`requires-python` <3.15); celá sada testů prošla na Pythonu 3.14 s PySide6 6.12.
 - **Průvodce – topologie připojení (F5)** (`ui/wizard_topology.py`, `TopologyPanel`): skupiny „Objekt a připojení“
   (druh objektu, nn / vn – u RD zakázané s vysvětlením, předvolba topologie filtrovaná podle objektu a úrovně vč. sdílených

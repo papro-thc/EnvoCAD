@@ -156,7 +156,7 @@ def test_generator_switches_to_1500_with_catalog(catalog):
     assert {e.component_id for e in holders} == {"fix-holder-1500"} and {e.attrs["un"] for e in holders} == {"1500"}
     assert {e.component_id for e in spds} == {"fix-spd-1500"}
     assert sb.layout.params["un"] == "max. 1500 V DC" and _boards(p)["RDC1"].layout.params["un"] == "max. 1500 V DC"
-    assert not [f for f in check_project(p, lib) if f.code in ("un_dc", "spd_ucpv", "dc_1500_missing")]
+    assert not [f for f in check_project(p, lib, standard_paper="A4") if f.code in ("un_dc", "spd_ucpv", "dc_1500_missing")]
 
 
 def test_generator_keeps_1000_for_short_strings_and_forced_1500(catalog):
@@ -189,7 +189,7 @@ def test_generator_without_1500_catalog_logs_and_f7_info(catalog, caplog):
     assert any("Un DC přístrojů EFH 10 DC 2p 1000 V" in r.getMessage() and "chybí v katalogu" in r.getMessage()
                for r in caplog.records)
     assert _boards(p)["RFVE.DC"].layout.params["un"] == "max. 1000 V DC"
-    fs = check_project(p, lib)
+    fs = check_project(p, lib, standard_paper="A4")
     assert {f.code for f in fs} >= {"calc_string", "dc_1500_missing"} and not [f for f in fs if f.code == "un_dc"]
     assert any("Un DC přístrojů EFH 10 DC 2p 1000 V" in f.text for f in fs if f.code == "calc_string")
     assert [f.severity for f in fs if f.code == "dc_1500_missing"] == [INFO]

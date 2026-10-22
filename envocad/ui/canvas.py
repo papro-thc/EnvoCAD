@@ -740,6 +740,9 @@ class SchematicScene(QGraphicsScene):
             # vazba podle směru z dialogu (změna přívod ↔ vývod v témže dialogu: „Kam“ místo „Odkud“) – na kopii
             shown = dataclasses.replace(e, attrs={**e.attrs, **vals})
             vals.update(feed_link_attrs(self.project, self.sheet, shown, dlg.wire_id))
+        # nový artikl: ruční rozměry v rozložení patřily starému výrobku – vymazat v témže kroku undo
+        from envocad.model.device_size import size_resets_for_component
+        vals.update(size_resets_for_component(e, dlg.component_id))
         self.undo.beginMacro(f"Upravit {e.ref or sym.name}")
         if dlg.component_id != e.component_id:
             self.undo.push(commands.SetComponentCommand(self, eid, e.component_id, dlg.component_id))
@@ -1066,8 +1069,9 @@ class SchematicScene(QGraphicsScene):
     def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
         """Rámeček s popisovým polem, můstky mezi skupinami svorek (čárkovaně) a informační blok rozvaděče."""
         from envocad.model.frame import MARGIN, MARGIN_LEFT, frame_geometry
+        from envocad.settings import company
         c = PRINT if not self.draw_grid else colors()
-        draw_frame(painter, frame_geometry(self.project, self.sheet), c.ink)
+        draw_frame(painter, frame_geometry(self.project, self.sheet, company=company()), c.ink)
         for geom in self.text_layout().mirrors.values():   # zrcadla kontaktů pod hostiteli (PDF jde přes scene.render)
             draw_geometry(painter, geom, c.ink)
         self._draw_revision_marks(painter)

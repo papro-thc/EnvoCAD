@@ -167,7 +167,7 @@ class WiringParams:
                 f"min. průřez {_fmt(self.cross_min)} mm², řízení {_fmt(self.cross_ctl)} mm², neumístěné konce: {unpl}, "
                 f"DC žíly min. {_fmt(self.cross_dc)} mm², jímací soustava: {LPS_LABELS.get(self.lps, self.lps)}, "
                 f"značení vodičů: {MARKING_LABELS.get(self.marking, self.marking)}, "
-                f"výška přístroje {_fmt(DEVICE_HEIGHT_MM)} mm")
+                f"výška přístroje z artiklu, jinak {_fmt(DEVICE_HEIGHT_MM)} mm")
 
 
 def param_sources(layout: Layout | None, base: dict | None = None) -> list[tuple[str, str, str, str]]:
@@ -446,7 +446,9 @@ def terminal_point(project: Project, sheet: Sheet, e: Element, port: str, conduc
             return TerminalPoint(width / 2, duct_y(lay, lay.rows), lay.rows, True)
         return None
     dev, pl = found
-    w_dev = max(dev.modules, 0.0) * MODULE_WIDTH
+    from envocad.model.device_size import device_size
+    size = device_size(dev, lib)        # šířka a výška z artiklu (s `lib`), jinak z atributů jako dřív (45 mm)
+    w_dev = max(size.width_mm, 0.0)
     x0 = pl.pos * MODULE_WIDTH
     if is_terminal_block(e):
         slots = sorted({c for w in sheet.wires for end in (w.a, w.b) if end.element_id == e.id
@@ -467,7 +469,7 @@ def terminal_point(project: Project, sheet: Sheet, e: Element, port: str, conduc
         k = min(max(k, 0), poles - 1)
         x = x0 + (k + 0.5) * w_dev / poles
     axis = -(pl.row + 0.5) * lay.row_pitch_mm
-    y = axis + DEVICE_HEIGHT_MM / 2 if top else axis - DEVICE_HEIGHT_MM / 2
+    y = axis + size.height_mm / 2 if top else axis - size.height_mm / 2
     return TerminalPoint(x, y, pl.row if top else pl.row + 1, False)
 
 
@@ -789,7 +791,9 @@ def production_wires(project: Project, sheet: Sheet | None = None, base: dict | 
     se sloučí do jednoho řádku mezi vnějšími konci („vede kolem Q1“; délka mezi vnějšími konci, koncovky jen na
     nich). Konce se srovnají (umístěné první, řada, pozice, označení, svorka), řádky podle listu (přirozeně), odkud,
     kam a žíly; čísla se přidělí po seřazení. `base` = `settings.json standard.wiring`."""
+    from envocad.model.device_size import memo_lib
     from envocad.model.xref import DeviceIndex, natural_key
+    lib = memo_lib(lib)        # artikly přístrojů (rozměry pro `terminal_point`) se čtou jednou
     index = DeviceIndex.build(project)
     sheets = [sheet] if sheet is not None else list(project.sheets)
     keyed: list[tuple[tuple, ProductionWire]] = []

@@ -339,7 +339,7 @@ def test_template_production_list(lib):
     """Šablona AC rozvaděče: odvozené svorky jističů a délka F2:1 → sběrnice podle ručního výpočtu."""
     p, s = _sb()
     s.layout = Layout()
-    apply_template(p, s, "ac_fve", {"n_out": "2"})
+    apply_template(p, s, "ac_fve", {"n_out": "2"}, standard_paper="A4")
     head, rows = reports.production_wiring_list(p, lib, s, {})
     col = {h: i for i, h in enumerate(head)}
     r = next(r for r in rows if r[col["Odkud"]] == "+RDC1-F2:1")
@@ -384,7 +384,7 @@ def test_switchboard_wire_attrs_roundtrip(tmp_path):
     path = tmp_path / "v.ecp"
     p.save(path)
     import json
-    assert json.loads(path.read_text(encoding="utf-8"))["format_version"] == FORMAT_VERSION == 15
+    assert json.loads(path.read_text(encoding="utf-8"))["format_version"] == FORMAT_VERSION == 16
     q = Project.load(path)
     s2 = q.sheets[-1]
     assert s2.wires[0].attrs == attrs and s2.wires[0].id == w.id
@@ -468,7 +468,7 @@ def test_template_bypass_merge_loses_nothing(lib, dist):
     """(3) Šablona AC: méně řádků, každá žíla každého vodiče je právě v jednom řádku."""
     p, s = _sb()
     s.layout = Layout()
-    apply_template(p, s, "ac_fve", {"distribution": dist})
+    apply_template(p, s, "ac_fve", {"distribution": dist}, standard_paper="A4")
     rows = _rows(p, s, lib)
     segs = {(w.id, c) for w in s.wires for c in w.conductors}
     got = [(wid, r.conductor) for r in rows for wid in r.wire_ids]
@@ -583,7 +583,7 @@ def test_wiring_list_same_ends_as_production(lib):
     """(10) Zapojovací seznam na listu rozvaděče: stejné svorky a texty konců jako výrobní seznam."""
     p, s = _sb()
     s.layout = Layout()
-    apply_template(p, s, "ac_fve", {})
+    apply_template(p, s, "ac_fve", {}, standard_paper="A4")
     head, rows = reports.wiring_list(p, lib, s)
     ends = {(r[head.index("Odkud")], r[head.index("Kam")]) for r in rows}
     assert ("+RDC1-1L1", "+RDC1-F2:1") in ends and ("+RDC1-F2:2", "+RDC1-X3:1") in ends
@@ -693,7 +693,7 @@ def test_marking_report_cable_tags_and_sleeves():
     g = Element("fve.pv_string", 0, 150, attrs={"ref": "G1"})
     p.sheets[0].elements += [blk, g]
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"}, standard_paper="A4")
     p.sheets[0].wires.append(Wire(WireEnd(g.id, "DC"), WireEnd(blk.id, "X1"), attrs={"ref": "W1", "cable": "H1Z2Z2-K"}))
     _head, rows = marking(p, lib)
     tags = [r for r in rows if r[0] == "Štítek kabelu"]

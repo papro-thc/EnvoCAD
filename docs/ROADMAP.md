@@ -21,8 +21,8 @@
 - [ ] Doplnit: ABB, FV moduly, SolarEdge/Fronius/GoodWe, Pv pro 3VA (OEZ „3VA Parametry“), OPVF10 DC – z dalších PDF (web je v prostředí blokovaný)
 - [ ] Knihovna → program (analýza 10/2026): 222 artiklů bez rozměrů/modulů, 138 z 266 jističů/chráničů bez Pv, 0 footprintů
   - [ ] rozměry a Pv z Katalogu Minia a „3VA Parametry“ (PDF od uživatele), rozměry svorek Bečov z technických listů
-  - [ ] svorkovnice v rozložení: šířka = `width_mm` artiklu × počet svorek (+ koncové desky), místo ručních modulů
-  - [ ] generické footprinty podle kategorie a rozměrů (kompaktní jistič = obdélník š×v, svorka = úzký obdélník), ne jen moduly
+  - [x] svorkovnice v rozložení: šířka = `width_mm` artiklu × počet svorek (+ koncové desky `end_mm`), místo ručních modulů – hotovo 10/2026 (`model/device_size.py`); šířka koncových desek / zarážek a rozměry svorek Bečov / ELEMAN v katalogu chybí
+  - [x] generické footprinty podle kategorie a rozměrů (kompaktní jistič = obdélník š×v, svorka = úzký obdélník), ne jen moduly – hotovo 10/2026
   - [ ] kontroly z artiklů: In jističe vs. průřez vodiče (základní tabulka), Icu vs. Icw rozvaděče, Uc svodiče vs. síť
 - [x] Značky z QElectroTech (673), importéry EPLAN CSV/XML/DXF, pluginy a uživatelské balíčky
 - [ ] BMEcat/ETIM importér (volná data výrobců)
@@ -37,14 +37,14 @@
 - [x] Výkazy xlsx (přístroje, BOM, kabely, svorkovnice, štítky), protokol kusového ověření docx
 - [ ] Šablona ENVO pro protokol (loga, hlavička) – doplnit po dodání .docx
 - [x] Parametry skříně v panelu rozložení, odhad oteplení (IEC 60890)
-- [ ] Rozměry a ztrátové výkony přístrojů z artiklu (ne ručně v atributech `modules`, `p_loss_w`)
+- [x] Rozměry a ztrátové výkony přístrojů z artiklu (ne ručně v atributech `modules`, `p_loss_w`) – hotovo 10/2026: `docs/design/rozlozeni_z_artiklu.md`, zdroj Pv ve výkazu oteplení, kontroly `layout_height` / `layout_enclosure` / `layout_depth`
 - [x] Oteplení: tabulky IEC 60890 (k, c, d) – křivky k a c ověřit proti normě; [ ] ventilace (obr. 5), přepážky v GUI
 
 ## v0.6 – Vícepól  ← hotovo v základu
 - [x] Vícepólový pohled nad stejným listem (Ctrl+M / Ctrl+J), žíly z `Wire.conductors`, přiřazení svorek per žíla (`Wire.terminals`, Ctrl+T)
 - [x] Automatické číslování svorek na svorkovnicích (Úpravy → Očíslovat svorky)
 - [x] Svorkovnice jako v EPLAN: skupiny svorek s čísly, můstky (dialog, vícepól, JPS, výkaz); šablony bez sběrnice
-- [ ] Artikl svorky → šířka v rozložení (svorkovnice na DIN liště podle `width_mm`), můstky jako artikl (ZQV…) do BOM
+- [x] Artikl svorky → šířka v rozložení (svorkovnice na DIN liště podle `width_mm`), můstky jako artikl (ZQV…) do BOM – hotovo 10/2026 (můstek ručně atributem `bridge_id` skupiny; automatický výběr čeká na vazbu svorka → můstek v katalogu)
 - [x] Vlastní rozmístění ve vícepólu: automatické svorkové schéma + posun myší
 - [ ] Ruční lomy žil ve vícepólu, zalomení dlouhých řad svorek na další list
 - [ ] Vícepólové značky z knihovny (QET `qet.ap.*`) místo opakování jednopólové značky; společná spoušť/vazba pólů
@@ -99,10 +99,16 @@ Pořadí = priorita. Body 1, 2 a 5 jsou nejlevnější start.
 
 - [ ] **Vícepól elektroměrového rozvaděče RE** (přípojka VN – kiosk, kobky, sloup): text elektroměru P přes žílu napěťových obvodů (`mp_text_overlap`, jediné varování F7 generátoru). Rozmístění vícepólu značky se dvěma vstupy (`multipole.auto_layout` / `multipole_geometry`); otočení ani prohození portů v generátoru nepomůže. V testech `xfail(strict)` – `tests/test_generate.py::test_generated_project_f7_clean[vn_*]`
 - Z review generátoru `75c228f..d640b7d` (`docs/NAVRH_TOPOLOGIE.md`, kap. 6 – mimo generátor):
-  - [ ] **Revize nevidí volné texty listu** `Sheet.texts` (`model/diff.py`, porovnání listů) – změna textu se neoznačí
-  - [ ] **Hlídací test zápisů mimo undo** (`tests/test_no_model_writes_in_ui.py`) nezná nová pole modelu (`Sheet.texts`, `Element.sl_pos`, `Element.mirror`…) – doplnit seznam / odvodit z dataclass
-  - [ ] **Model čte uživatelská nastavení** (`model/multipole.py`, `standard_switchboard_paper` → `settings.load_settings`) – předávat standard parametrem (model má být čistý)
-  - [ ] **Úklid**: duplicitní `_snap` / `_ceil_grid` (routing, symbol, frame, xref, multipole, revision, notes – sjednotit), nepoužitý `ui/render.elide_text`, dynamické atributy `Node` v `model/single_line.py` (deklarovat v dataclass)
+  - [x] **Revize nevidí volné texty listu** – opraveno 10/2026: `diff_projects` porovnává `Sheet.texts` (značka u textu,
+    posun bez značky), otisk listu texty zahrnuje; formát 16 – otisky uzavřených revizí se při načtení převedou
+    (`diff.upgrade_fingerprints`, test se souborem v15)
+  - [x] **Hlídací test zápisů mimo undo** – hotovo 10/2026: pole odvozená z dataclass `model/project.py`
+    (`dataclasses.fields`), nová legitimní místa označená `# model-write-ok`
+  - [x] **Model čte uživatelská nastavení** – hotovo 10/2026: formát stran vícepólu (`standard_paper`) a název firmy
+    (`company`) předává volající, čtení v `settings.switchboard_paper` / `company` / `frame_enabled`; knihovna čte
+    z nastavení jen umístění dat (záměr); hlídá `tests/test_model_pure.py`
+  - [x] **Úklid** – hotovo 10/2026: mřížka v `model/grid.py` (`snap`, `floor_grid`, `ceil_grid`), `elide_text`
+    odstraněn, `Node.anchor` / `box` / `meter_dx` deklarované v dataclass
 
 ## Odloženo (analýza 10/2026 – nebrzdí práci)
 - Příkazový řádek (styl ZWCAD/CADCraft) – až bude potřeba ovládat program z agentů

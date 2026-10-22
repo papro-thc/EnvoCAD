@@ -32,7 +32,7 @@ def _tpl(tid: str, params: dict):
     blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
     p.sheets[0].elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, tid, params)
+    apply_template(p, sb, tid, params, standard_paper="A4")
     return p, sb
 
 
@@ -74,7 +74,7 @@ def _placement(e) -> tuple[float, float]:
 # ---- model: můstky, šipky, kreslicí seznam --------------------------------------------------------------------
 def test_bridge_paths_per_page_and_in_overlap_lines(lib):
     p, sb = _ac_terminals()
-    g = mg.multipole_geometry(p, sb, lib)
+    g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
     assert g.pages >= 2 and g.bridges
     groups = {tuple(gr) for grs in sb.bridges.values() for gr in grs}
     assert {b.group for b in g.bridges} == groups
@@ -84,7 +84,7 @@ def test_bridge_paths_per_page_and_in_overlap_lines(lib):
     # čáry můstků vidí kontrola překryvů (F7)
     bridge_lines = [ln for ln in g.lines if "#bridge" in ln[2]]
     assert len(bridge_lines) == sum(len(b.pts) - 1 for b in g.bridges)
-    assert mg.multipole_text_overlaps(p, sb, lib, g) == []
+    assert mg.multipole_text_overlaps(p, sb, lib, g, standard_paper="A4") == []
 
 
 def test_bridge_paths_skips_single_terminal_and_unknown():
@@ -107,7 +107,7 @@ def test_arrow_helpers():
 @pytest.mark.parametrize("case", sorted(CASES))
 def test_prims_local_on_their_page(case, lib):
     p, sb = CASES[case]()
-    g = mg.multipole_geometry(p, sb, lib)
+    g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
     w, h = g.page_size
     assert {pr.page for pr in g.prims} == set(range(g.pages))
     assert g.prims and all(0 <= pr.page < g.pages for pr in g.prims)
@@ -126,7 +126,7 @@ def test_prims_local_on_their_page(case, lib):
 
 def test_prims_break_and_dots_match_model(lib):
     p, sb = _dc9()
-    g = mg.multipole_geometry(p, sb, lib)
+    g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
     odkazy = {pr.text for pr in g.prims if pr.kind == "text" and pr.layer == "ODKAZY"}
     assert {b[3] for r in g.rails for b in r.breaks} <= odkazy
     dots = [pr for pr in g.prims if pr.kind == "dot" and pr.layer == "SBERNICE"]
@@ -136,7 +136,7 @@ def test_prims_break_and_dots_match_model(lib):
 # ---- DXF ------------------------------------------------------------------------------------------------------
 def test_dxf_layers_layouts_and_bridges(lib, tmp_path):
     p, sb = _ac_terminals()
-    g = mg.multipole_geometry(p, sb, lib)
+    g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
     out = export_multipole_dxf(p, sb, lib, tmp_path / "mp.dxf")
     assert out == [tmp_path / "mp.dxf"]
     doc = ezdxf.readfile(out[0])
@@ -174,7 +174,7 @@ def test_dxf_layers_layouts_and_bridges(lib, tmp_path):
 @pytest.mark.parametrize("case", sorted(CASES))
 def test_dxf_entities_inside_their_page(case, lib, tmp_path):
     p, sb = CASES[case]()
-    g = mg.multipole_geometry(p, sb, lib)
+    g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
     w, h = g.page_size
     doc = ezdxf.readfile(export_multipole_dxf(p, sb, lib, tmp_path / "mp.dxf")[0])
     pitch = w + MP_PAGE_GAP
@@ -200,7 +200,7 @@ def test_dxf_entities_inside_their_page(case, lib, tmp_path):
 
 def test_dxf_break_refs_and_conductor_labels(lib, tmp_path):
     p, sb = _dc4()
-    g = mg.multipole_geometry(p, sb, lib)
+    g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
     assert g.page_breaks
     doc = ezdxf.readfile(export_multipole_dxf(p, sb, lib, tmp_path / "dc.dxf")[0])
     msp = doc.modelspace()
@@ -218,7 +218,7 @@ def test_dxf_break_refs_and_conductor_labels(lib, tmp_path):
 
 def test_dxf_bus_taps_and_refs(lib, tmp_path):
     p, sb = _ac_bus()
-    g = mg.multipole_geometry(p, sb, lib)
+    g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
     doc = ezdxf.readfile(export_multipole_dxf(p, sb, lib, tmp_path / "bus.dxf")[0])
     msp = doc.modelspace()
     dots = [e for e in msp if e.dxftype() == "CIRCLE" and e.dxf.layer == "SBERNICE"]
@@ -232,7 +232,7 @@ def test_dxf_bus_taps_and_refs(lib, tmp_path):
 
 def test_dxf_split_pages(lib, tmp_path):
     p, sb = _ac_terminals()
-    g = mg.multipole_geometry(p, sb, lib)
+    g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
     out = export_multipole_dxf(p, sb, lib, tmp_path / "rozvadec.dxf", split_pages=True)
     assert out == [tmp_path / f"rozvadec_s{k + 1}.dxf" for k in range(g.pages)]
     assert not (tmp_path / "rozvadec.dxf").exists()
@@ -252,7 +252,7 @@ def test_dxf_frame_per_page(lib, tmp_path):
     from envocad.model.frame import page_label
     _frame(True)
     p, sb = _ac_terminals()
-    g = mg.multipole_geometry(p, sb, lib)
+    g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
     doc = ezdxf.readfile(export_multipole_dxf(p, sb, lib, tmp_path / "r.dxf")[0])
     texts = {e.dxf.text for e in doc.modelspace() if e.dxftype() == "TEXT" and e.dxf.layer == "RAMECEK"}
     for k in range(g.pages):
@@ -275,7 +275,7 @@ p = Project()
 blk = Element("fve.switchboard", 120, 150, attrs={{"ref": "R1"}})
 p.sheets[0].elements.append(blk)
 sb = p.create_switchboard_sheet(blk)
-apply_template(p, sb, "ac_fve", {{"distribution": "terminals", "n_out": "9"}})
+apply_template(p, sb, "ac_fve", {{"distribution": "terminals", "n_out": "9"}}, standard_paper="A4")
 out = export_multipole_dxf(p, sb, LibraryStore(Path({str(tmp_path)!r}) / "l.db"), Path({str(tmp_path)!r}) / "x.dxf")
 assert not [m for m in sys.modules if m.startswith("PySide6") and sys.modules[m] is not None]
 print(len(out))
@@ -314,7 +314,7 @@ def test_scene_bridges_and_breaks_from_model(qapp, lib):
     from envocad.ui.multipole_view import BridgeItem, PageBreakItem
     for make in (_ac_terminals, _dc4, _dc9):
         p, sb = make()
-        g = mg.multipole_geometry(p, sb, lib)
+        g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
         sc = _scene(p, sb, lib)
         items = sc.items()
         got = sorted((it.strip, tuple(it.group), tuple(it.points)) for it in items if isinstance(it, BridgeItem))
@@ -346,7 +346,7 @@ def test_gui_export_dxf_from_multipole_tab(qapp, lib, tmp_path, monkeypatch):
         monkeypatch.setattr(QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: (str(out), "")))
         monkeypatch.setattr(w, "_ask_multipole_dxf_split", lambda: True)
         w.export_dxf()
-        g = mg.multipole_geometry(p, sb, lib)
+        g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
         assert sorted(tmp_path.glob("gui_s*.dxf")) == [tmp_path / f"gui_s{k + 1}.dxf" for k in range(g.pages)]
         monkeypatch.setattr(w, "_ask_multipole_dxf_split", lambda: None)     # zrušeno: nic se nezapíše
         out.unlink(missing_ok=True)
@@ -385,7 +385,7 @@ def test_scene_matches_model_prims(case, qapp, lib):
     from envocad.ui.items import path_points
     from envocad.ui.multipole_view import BusItem, CableTagItem, ConductorItem, PoleItem, RailItem, TitleItem
     p, sb = CASES[case]()
-    g = mg.multipole_geometry(p, sb, lib)
+    g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
     sc = _scene(p, sb, lib)
     items = sc.items()
     # trasy žil: ConductorItem ↔ prims „poly“
@@ -445,7 +445,7 @@ def test_prims_of_element_above_top_edge_stay_on_its_page(lib):
     q2.mp_pos = (160.0, top1 - 80.0)
     sb.wires.append(Wire(WireEnd(q1.id, "1"), WireEnd(q2.id, "1"), attrs={"ref": "W1"}, conductors=["L1"],
                          terminals={"L1": {"a": "1", "b": "1"}}))
-    g = mg.multipole_geometry(p, sb, lib)
+    g = mg.multipole_geometry(p, sb, lib, standard_paper="A4")
     assert g.page_of[q1.id] == g.page_of[q2.id] == 1
     polys = [pr for pr in g.prims if pr.kind == "poly"]
     assert all(pr.page == 1 for pr in polys)

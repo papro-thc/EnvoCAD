@@ -127,7 +127,7 @@ def test_delete_switchboard_sheet_undo_restores_block_attr(app, lib, asked):
     p = _jps_project()
     blk = p.sheets[0].elements[1]
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"}, standard_paper="A4")
     w = _win(lib, p)
     w.open_sheet(sb, "multipole")
     before = _state(p)
@@ -165,7 +165,7 @@ def test_delete_parent_sheet_with_linked_feeds_undo_is_exact(app, lib, asked):
     p = _jps_project()
     blk = p.sheets[0].elements[1]
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"}, standard_paper="A4")
     feed = next(e for e in sb.elements if is_feed_in(e) and e.attrs.get("wire_id"))
     attrs_before = dict(feed.attrs)
     assert "to" not in attrs_before
@@ -187,7 +187,7 @@ def test_sync_feed_links_does_not_add_empty_keys():
     p = _jps_project()
     blk = p.sheets[0].elements[1]
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"}, standard_paper="A4")
     before = _state(p)
     parent = p.sheets.pop(0)
     assert sync_feed_links(p)
@@ -324,7 +324,7 @@ def _sb_window(lib):
     p = _jps_project()
     blk = p.sheets[0].elements[1]
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve", {"distribution": "terminals", "n_out": "9"})
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals", "n_out": "9"}, standard_paper="A4")
     sb.layout.rows = 3
     sb.layout.placements[-1].row = 2
     w = _win(lib, p)
@@ -440,10 +440,10 @@ def test_reducing_rows_keeps_placements(app, lib, asked):
     assert sb.layout.placement(moved) is None and sb.layout.stored_placement(moved).row == 2
     scene = w._unwrap(w.tabs.widget(w._find_tab(sb, "layout"))).scene()
     assert isinstance(w.view, LayoutView) and scene.items_by_id[moved].placed is False   # kreslí se nerozmístěný
-    assert any(f.code == "outside_enclosure" and f.target_id == moved for f in check_project(p, lib))
+    assert any(f.code == "outside_enclosure" and f.target_id == moved for f in check_project(p, lib, standard_paper="A4"))
     panel.rows.setValue(3)                                    # zvětšení řad umístění vrátí
     assert sb.layout.placement(moved).row == 2 and scene.items_by_id[moved].placed is True
-    assert not any(f.code == "outside_enclosure" for f in check_project(p, lib))
+    assert not any(f.code == "outside_enclosure" for f in check_project(p, lib, standard_paper="A4"))
     _done(w)
 
 
@@ -519,7 +519,7 @@ def test_sheets_state_command_roundtrip(app):
     sb = p.create_switchboard_sheet(blk)
     before = commands.sheets_state(p)
     s0 = _state(p)
-    apply_template(p, sb, "ac_fve", {})
+    apply_template(p, sb, "ac_fve", {}, standard_paper="A4")
     after = commands.sheets_state(p)
     commands.restore_sheets_state(p, before)
     assert _state(p) == s0

@@ -58,7 +58,7 @@ SWITCHBOARD_WIRE_ATTRIBUTES = [
     Attribute("prod", "Do výrobního seznamu (0 = ne)"),
 ]
 
-FORMAT_VERSION = 15
+FORMAT_VERSION = 16
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 DEVICE_HEIGHT_MM = 45.0  # mm – výška modulového přístroje na liště (rozložení, délky vodičů)
@@ -391,22 +391,34 @@ class Layout:
         return _num(self.params.get("row_pitch_mm")) or max(100.0, (self.height_mm - 50) / max(self.rows, 1))
 
     @property
+    def outline_mm(self) -> tuple[float, float]:
+        """Obrys skříně, jak ho kreslí rozložení (š, v): zadané rozměry, nejméně řady DIN lišt + 2 × 10 mm (lišty
+        svisle i vodorovně na střed). Sdílí ho pohled rozložení i kontrola rozměrů (`device_size.size_problems`)."""
+        inner_w, inner_h = self.modules_per_row * MODULE_WIDTH, self.rows * self.row_pitch_mm
+        return max(self.width_mm, inner_w + 20), max(self.height_mm, inner_h + 20)
+
+    @property
     def total_modules(self) -> int:
         return self.rows * self.modules_per_row
 
-    def devices(self, sheet: Sheet, project: Project | None = None) -> list[Element]:
+    def devices(self, sheet: Sheet, project: Project | None = None, lib=None) -> list[Element]:
         """Přístroje listu pro rozložení: šířka > 0, ne kontakt ani propojovací/vnější prvek (`NON_DEVICE_SYMBOLS`
         – kontakty jsou součástí přístroje své cívky) a položka výkazu (cívka stykače se nepočítá, když skupina má
         stykač na stejném listu – `xref.DeviceIndex.is_bom_device`). Cívka + hlavní kontakt = jeden přístroj
-        (cívka). Bez `project` se skupiny hledají jen na listu."""
+        (cívka). Bez `project` se skupiny hledají jen na listu. S knihovnou `lib` se šířka bere i z artiklu
+        (`device_size.device_modules`), bez ní z atributu `modules`."""
+        from envocad.model.device_size import device_modules, memo_lib
         from envocad.model.xref import DeviceIndex
+        lib = memo_lib(lib)      # artikl se v rámci volání čte jednou
         idx = DeviceIndex.build(project) if project is not None else DeviceIndex.for_sheets([sheet])
         return [e for e in sheet.elements
-                if e.modules > 0 and e.symbol_id not in NON_DEVICE_SYMBOLS and idx.is_bom_device(e, sheet)]
+                if e.symbol_id not in NON_DEVICE_SYMBOLS and device_modules(e, lib) > 0 and idx.is_bom_device(e, sheet)]
 
-    def used_modules(self, sheet: Sheet, project: Project | None = None) -> float:
-        devs = {e.id: e for e in self.devices(sheet, project)}
-        return sum(devs[pl.element_id].modules for pl in self.placements
+    def used_modules(self, sheet: Sheet, project: Project | None = None, lib=None) -> float:
+        from envocad.model.device_size import device_modules, memo_lib
+        lib = memo_lib(lib)
+        devs = {e.id: e for e in self.devices(sheet, project, lib)}
+        return sum(device_modules(devs[pl.element_id], lib) for pl in self.placements
                    if pl.element_id in devs and self.in_enclosure(pl))
 
     def in_enclosure(self, pl: Placement) -> bool:
@@ -744,6 +756,14 @@ class Sheet:
             key = "elements" if kind == "prvek" else "wires"
             return [_part(fn, x, f"{where}, {_label(x, kind, k)}") for k, x in enumerate(_list(d.get(key), key))]
         pid = d.get("parent_element_id")
+        sid = str(d["id"])
+        raw_texts = _list(d.get("texts"), "texts")
+        texts = [_part(SheetText.from_dict, x, f"{where}, text {k + 1}") for k, x in enumerate(raw_texts)]
+        for k, (x, t) in enumerate(zip(raw_texts, texts, strict=True)):
+            if not x.get("id"):
+                # text bez id (ručně psaný soubor): stálé id z listu a pořadí – náhodné by při každém otevření změnilo
+                # otisk listu a uzavřená revize by hlásila falešné „změněno po uzavření“
+                t.id = f"{sid}.t{k + 1}"
         return cls(
             name=str(d.get("name") or ""), paper=str(d.get("paper") or "A3"), width=_float(d.get("width", 420), "width"),
             height=_float(d.get("height", 297), "height"),
@@ -751,13 +771,12 @@ class Sheet:
             parent_element_id=str(pid) if pid else None,
             layout=Layout.from_dict(d.get("layout")),
             elements=part(Element.from_dict, "prvek"),
-            wires=part(Wire.from_dict, "vodič"), id=str(d["id"]),
+            wires=part(Wire.from_dict, "vodič"), id=sid,
             bridges={str(k): [[str(x) for x in _list(g, "bridges")] for g in _list(v, "bridges")]
                      for k, v in _dict(d.get("bridges"), "bridges").items()},
             func=str(d.get("func") or ""), loc=str(d.get("loc") or ""),
             mp_paper=str(d.get("mp_paper") or ""),
-            texts=[_part(SheetText.from_dict, x, f"{where}, text {k + 1}")
-                   for k, x in enumerate(_list(d.get("texts"), "texts"))],
+            texts=texts,
         )
 
 
@@ -848,7 +867,11 @@ class Project:
         raise KeyError(sid)
 
     def sheet_of_element(self, eid: str) -> Sheet | None:
-        return next((s for s in self.sheets if any(e.id == eid for e in s.elements)), None)
+        for s in self.sheets:                 # první list s prvkem (prostá smyčka – volá se tisíckrát za generování)
+            for e in s.elements:
+                if e.id == eid:
+                    return s
+        return None
 
     def switchboard_sheet(self, block_element_id: str) -> Sheet | None:
         """List rozvaděče reprezentovaný blokem na nadřazeném listu (nebo None)."""
@@ -926,6 +949,9 @@ class Project:
                    revisions=[_part(Revision.from_dict, r, _label(r, "revize", k)) for k, r in enumerate(_top(d, "revisions"))],
                    notes=[_part(Note.from_dict, n, f"připomínka č. {k + 1}") for k, n in enumerate(_top(d, "notes"))])
         _repair_duplicate_ids(proj)
+        if ver < 16:
+            from envocad.model.diff import upgrade_fingerprints  # diff importuje project – až tady
+            upgrade_fingerprints(proj)
         proj.loaded_orphan_cables = {c.id for c in orphan_cables(proj)}
         return proj
 
@@ -1012,7 +1038,9 @@ def _repair_duplicate_ids(proj: Project) -> None:
     druhý a další výskyt, a to tak, aby se nic nerozbilo: po přeznačení prvku na listu se přepíší konce vodičů,
     umístění ve skříni, značky revizí a připomínky téhož listu, `parent_element_id` listu rozvaděče, který blok
     podle atributu „sheet“ reprezentuje, a vazby přívodů/vývodů (`wire_id`) listů rozvaděčů pod tímto listem.
-    Duplicita uvnitř jednoho listu je nejednoznačná: vodiče dál vedou na první prvek s daným id (`Sheet.element`)."""
+    Duplicita uvnitř jednoho listu je nejednoznačná: vodiče dál vedou na první prvek s daným id (`Sheet.element`).
+    Volné texty listu (`Sheet.texts`) mají id jedinečná v projektu; duplicita dostane stálé id „<id>.<n>“ (na id
+    textu nic neodkazuje, ale náhodné id by měnilo otisk listu při každém otevření)."""
     seen_s: set[str] = set()
     seen_e: dict[str, Element] = {}   # id → první prvek s tímto id (předchozí listy)
     seen_w: set[str] = set()
@@ -1050,6 +1078,22 @@ def _repair_duplicate_ids(proj: Project) -> None:
             local_w.add(w.id)
         seen_w |= {w.id for w in s.wires}
         _remap_sheet_refs(proj, s, emap, wmap, marks)
+    _repair_text_ids(proj)
+
+
+def _repair_text_ids(proj: Project) -> None:
+    used = {t.id for s in proj.sheets for t in s.texts}
+    seen: set[str] = set()
+    for s in proj.sheets:
+        for t in s.texts:
+            if t.id in seen:
+                old, n = t.id, 2
+                while f"{old}.{n}" in used:
+                    n += 1
+                t.id = f"{old}.{n}"
+                used.add(t.id)
+                log.warning("duplicitní id textu %s (list %s) – nové id %s", old, s.name, t.id)
+            seen.add(t.id)
 
 
 def _repoint_switchboard(proj: Project, first: Element | None, renamed: Element, old: str) -> None:
@@ -1219,6 +1263,9 @@ def migrate(d: dict, ver: int) -> dict:
     # v15: blok rozvaděče bez listu s porty z atributů `ports_in` / `ports_out` (a jištěním portů `protect`) – bez
     # migrace dat (blok bez atributů se kreslí jako dřív). Verze se zvedla jen proto, aby program v14 soubor odmítl:
     # blok bez listu by kreslil se základní značkou a vodiče na jeho porty jako osiřelé „X1?“ (chyba `bad_port`).
+    # v16: otisk listu (`diff.sheet_fingerprint`) zahrnuje volné texty listu. Data se nemění; otisky uzavřených revizí
+    # převádí `Project.from_dict` nad hotovými listy (`diff.upgrade_fingerprints`). Verze se zvedla, aby program v15
+    # u listu s texty nehlásil falešné „změněno po uzavření revize“.
     d["format_version"] = FORMAT_VERSION
     return d
 
@@ -1678,13 +1725,38 @@ def wire_label(attrs: dict, conductors: list[str] | None = None) -> str:
 
 def feed_link_index(project: Project) -> dict[str, list[tuple[Sheet, Element]]]:
     """{id vodiče JPS: [(list rozvaděče, přívod/vývod)…]} – spočítat jednou, pak se ptát za každý vodič
-    (výkazy a překreslení s 800 vodiči by jinak procházely všechny přívody × vodiče pokaždé)."""
+    (výkazy a překreslení s 800 vodiči by jinak procházely všechny přívody × vodiče pokaždé). Vazba jako
+    `linked_wire` (ruční `wire_id`, jinak vodič na portu bloku se jménem přívodu), jen přes mapy postavené jednou
+    – vodiče podle id, list prvku a konce vodičů nadřazeného listu (vždy první výskyt, jako lineární hledání)."""
     out: dict[str, list[tuple[Sheet, Element]]] = {}
+    wires: dict[str, tuple[Sheet, Wire]] | None = None
+    owner: dict[str, Sheet] | None = None
+    ends: dict[int, dict[tuple[str, str], Wire]] = {}       # nadřazený list → {(prvek, port): první vodič}
     for s in project.sheets:
         for e in s.elements:
             if e.symbol_id not in FEED_SYMBOLS:
                 continue
-            hit = linked_wire(project, s, e)
+            if wires is None:
+                wires, owner = {}, {}
+                for s2 in project.sheets:
+                    for w in s2.wires:
+                        wires.setdefault(w.id, (s2, w))
+                    for e2 in s2.elements:
+                        owner.setdefault(e2.id, s2)
+            wid = e.attrs.get("wire_id", "")
+            hit = wires.get(wid) if wid else None
+            if hit is None and s.parent_element_id and e.ref:       # `feed_wire_by_port`
+                ps = owner.get(s.parent_element_id)
+                if ps is not None:
+                    by_end = ends.get(id(ps))
+                    if by_end is None:
+                        by_end = ends[id(ps)] = {}
+                        for w in ps.wires:
+                            for end in (w.a, w.b):
+                                by_end.setdefault((end.element_id, end.port), w)
+                    w = by_end.get((s.parent_element_id, e.ref))
+                    if w is not None:
+                        hit = (ps, w)
             if hit is not None:
                 out.setdefault(hit[1].id, []).append((s, e))
     return out

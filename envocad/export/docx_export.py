@@ -179,8 +179,9 @@ def _thermal_text(project: Project, lib: LibraryStore, sheet: Sheet) -> str:
         r = temperature_rise(sheet, rdf=rdf, t_ambient_c=t_amb, project=project, lib=lib)
     except Exception:  # noqa: BLE001 – protokol se vygeneruje i bez výpočtu
         return ""
-    return (f"ΣPv {r.p_total_w:.0f} W, okolí {r.t_ambient_c:.0f} °C, horní část ≈ {r.t_top_c:.0f} °C – "
-            f"{r.verdict()}")
+    src = r.loss_summary()     # zdroj ztrát přístrojů: artikl / ruční / odhad
+    return (f"ΣPv {r.p_total_w:.0f} W" + (f" ({src})" if src else "") + f", okolí {r.t_ambient_c:.0f} °C, "
+            f"horní část ≈ {r.t_top_c:.0f} °C – {r.verdict()}")
 
 
 def export_routine_test_docx(project: Project, lib: LibraryStore, sheet: Sheet, path: Path | str,
@@ -191,8 +192,8 @@ def export_routine_test_docx(project: Project, lib: LibraryStore, sheet: Sheet, 
     devs = reports.devices(project, lib, sheet)
     mains = [e for e in devs if e.symbol_id in ("sb.main_switch", "fve.breaker_mccb")]
     i_n = mains[0].attrs.get("in_", "") if mains else ""
-    from envocad.model.frame import company_names
-    company = company_names()[1]
+    from envocad.settings import company as standard_company
+    company = standard_company()
     setup_document(doc, f"Protokol o kusovém ověření rozvaděče {sheet.name}", doc_author(project),
                    f"{project.name}" + (f" (č. {m['order']})" if m.get("order") else ""))
 
@@ -218,7 +219,7 @@ def export_routine_test_docx(project: Project, lib: LibraryStore, sheet: Sheet, 
         list(dims),
         ["Rozložení", (f"{_count(lay.rows, 'řada', 'řady', 'řad')} × "
                        f"{_count(lay.modules_per_row, 'modul', 'moduly', 'modulů')} "
-                       f"({lay.total_modules} M), obsazeno {lay.used_modules(sheet, project):g} M")],
+                       f"({lay.total_modules} M), obsazeno {lay.used_modules(sheet, project, lib):g} M")],
         list(mount) if mount else None,
         ["Jmenovitý proud In", _with_unit(lay.params.get("in_") or i_n, "A")],
         ["Jmenovité napětí Un", lay.params.get("un", "3×400/230 V, 50 Hz")],

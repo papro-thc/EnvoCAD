@@ -26,7 +26,7 @@ Volitelné (podle kategorie): viz tabulka. Neznámou hodnotu nechte **prázdnou*
 | `name` | Lidský název | např. „Jistič LTN 16B 3p“ |
 | `category` | `mcb`, `mccb`, `rcd`, `rcbo`, `spd`, `switch`, `contactor`, `fuse`, `fuse_holder`, `meter`, `inverter`, `inverter_hybrid`, `battery`, `pv_module`, `enclosure`, `terminal`, `relay`, `accessory`, `connector`, `cable`, `other` | |
 | `symbol_id` | schematická značka z knihovny (viz `LibraryStore().list_symbols()`) | např. `fve.breaker_mcb`, `sb.rcd`, `fve.inverter`, `fve.spd`; skříň: prázdné |
-| `footprint_id` | symbol pro rozložení (prázdné = generický modulový podle `modules`) | |
+| `footprint_id` | symbol pro rozložení (prázdné = generický tvar: modulový podle `modules`, obdélník `width_mm` × `height_mm` u MCCB / 3VA a artiklů bez `modules` vyšších než 100 mm, svorky po `width_mm` – `model/device_size.py`) | |
 | `datasheet_url` | odkaz na katalogový list / stránku výrobce, ze které hodnoty pocházejí | **povinné pro data od agentů** |
 | `source` | `catalog`, `datasheet`, `web`, `seed` (ručně, ověřit), `user` | |
 | `price_czk` | cena bez DPH, pokud veřejná | Kč |
@@ -72,6 +72,9 @@ Při výběru artiklu v dialogu prvku se naplní atributy prvku: `type` ← `par
 `i_mppt_max`, `isc_mppt_max`, `strings_per_mppt`, u svodiče DC `ucpv`, u FV modulu (`fve.pv_string`) `p_module`, `voc`, `vmp`, `isc`,
 `imp`, `beta_voc`, `u_sys_max`… (mapování `PARAM_TO_ATTR` v `envocad/library/components.py`, hodnoty bez prvku
 vrací `Component.attr_values()`). Atributy, které artikl nezná, zůstanou, jak byly.
+Rozměry (`width_mm`, `height_mm`, `depth_mm`) a `p_loss_w` se pro rozložení a oteplení čtou z artiklu i bez propsání
+(`model/device_size.py`, `thermal.rated_loss`); atributy prvku `width_mm` / `height_mm` / `depth_mm` jsou ruční
+přepis. Skupina svorek: `end_mm` (koncové desky / zarážky) a `bridge_id` (artikl můstku, `terminal_kind=mustek`).
 
 ## Checklist pro agenty `data-entry`
 

@@ -1478,7 +1478,7 @@ class EnclosurePanel(QWidget):
         from envocad.model.thermal import layout_inputs, temperature_rise
         lay = self.layout
         total = lay.total_modules
-        used = lay.used_modules(self._sheet, self._project)
+        used = lay.used_modules(self._sheet, self._project, self.library)
         pct = (used / total * 100) if total else 0
         reserve = total - used
         self.info.setText(f"{total} modulů celkem, obsazeno {used:g} ({pct:.0f} %), rezerva {reserve:g} M; "
@@ -1487,7 +1487,7 @@ class EnclosurePanel(QWidget):
         warn = []
         if reserve < -1e-6:
             warn.append(f"Skříň je přeplněná: rozmístěné přístroje zabírají o {-reserve:g} M víc, než skříň má.")
-        probs = layout_problems(self._sheet, self._project, lay)
+        probs = layout_problems(self._sheet, self._project, lay, self.library)
         n_over = sum(1 for x in probs if x.code == "layout_overflow" and x.element is not None)
         n_rows = sum(1 for x in probs if x.code == "layout_overflow" and x.element is None)
         n_lap = sum(1 for x in probs if x.code == "layout_overlap")
@@ -1497,13 +1497,23 @@ class EnclosurePanel(QWidget):
             warn.append(f"Přístroje za koncem řady: {n_over} (zůstávají umístěné, upravte rozložení).")
         if n_lap:
             warn.append(f"Překryvy přístrojů v řadě: {n_lap}.")
+        from envocad.model.device_size import size_problems
+        sizes = size_problems(self._sheet, self._project, self.library, lay)   # rozměry z artiklu proti řadě / skříni
+        for code, text in (("layout_height", "Přístroje vyšší než rozteč řad"),
+                           ("layout_enclosure", "Přístroje přesahující skříň"),
+                           ("layout_depth", "Přístroje hlubší než skříň")):
+            n = sum(1 for x in sizes if x.code == code)
+            if n:
+                warn.append(f"{text}: {n}.")
         self.warning.setText(" ".join(warn))
         self.warning.setVisible(bool(warn))
         self._mark_invalid()
         rdf, t_amb = layout_inputs(lay)   # každá hodnota zvlášť; neplatná / nezadaná = výchozí
         r = temperature_rise(self._sheet, rdf=rdf, t_ambient_c=t_amb, project=self._project, layout=lay,
                              lib=self.library)
-        txt = (f"Ztráty přístrojů ΣPv = {r.p_devices_w:g} W, celkem s vodiči {r.p_total_w:g} W\n"
+        src = r.loss_summary()      # zdroj ztrát: artikl / ruční / odhad
+        txt = (f"Ztráty přístrojů ΣPv = {r.p_devices_w:g} W" + (f" ({src})" if src else "")
+               + f", celkem s vodiči {r.p_total_w:g} W\n"
                f"Účinná chladicí plocha Ae = {r.ae_m2:g} m²\n"
                f"Oteplení: střed Δt = {r.dt_mid_k:g} K, horní část Δt = {r.dt_top_k:g} K "
                f"→ ≈ {r.t_top_c:g} °C při okolí {r.t_ambient_c:g} °C\n")
@@ -1566,9 +1576,11 @@ class EnclosurePanel(QWidget):
         return after != before
 
     def _write(self, lay: Layout) -> Layout:
+        # model-write-ok: `lay` je kopie rozložení – s `commit` kopie snímku (`apply`), bez něj pracovní kopie
+        # dialogu (`EnclosureDialog.working`); do listu ho zapíše `SetLayoutCommand`
         lay.enclosure = self.name.text().strip()
-        lay.rows = self.rows.value()
-        lay.modules_per_row = self.mods.value()
+        lay.rows = self.rows.value()   # model-write-ok: kopie rozložení (viz výše)
+        lay.modules_per_row = self.mods.value()   # model-write-ok: kopie rozložení (viz výše)
         own_wiring = self.wiring_group.isChecked()
         # výchozí hodnotu pole, které v parametrech nebylo (panel ji jen ukazuje), nedoplňovat – jinak by se
         # rozložení změnilo pouhým zápisem jiného pole a krok undo by po návratu hodnoty nezmizel
@@ -1584,7 +1596,7 @@ class EnclosurePanel(QWidget):
                 edits[key] = combo.currentData()
         # klíče, které panel nezná, zůstanou; wire_* spravuje skupina „Výrobní data“
         unknown = {k: v for k, v in lay.params.items() if k not in self._edits and k not in self._wiring_keys}
-        lay.params = {**unknown, **edits}
+        lay.params = {**unknown, **edits}   # model-write-ok: kopie rozložení (viz začátek `_write`)
         # umístění v řadách nad novým počtem řad zůstanou (vrátí se po zvětšení počtu řad); do té doby je rozložení
         # kreslí mezi nerozmístěnými a kontrola je hlásí (`outside_enclosure`)
         return lay
@@ -1632,9 +1644,10 @@ class SheetPropsDialog(QDialog):
         self.paper: QComboBox | None = None
         if sheet.is_switchboard:
             # formát stran schématu (vícepólu) a plánu svorkovnice listu rozvaděče
-            from envocad.model.multipole import SHEET_PAPER, SWITCHBOARD_PAPERS, standard_switchboard_paper
+            from envocad.model.multipole import SHEET_PAPER, SWITCHBOARD_PAPERS
+            from envocad.settings import switchboard_paper
             self.paper = QComboBox()
-            self.paper.addItem(f"podle firemního standardu ({_paper_text(standard_switchboard_paper())})", "")
+            self.paper.addItem(f"podle firemního standardu ({_paper_text(switchboard_paper())})", "")
             for key in SWITCHBOARD_PAPERS:
                 self.paper.addItem(_paper_text(key), key)
             self.paper.addItem(f"jako list ({sheet.paper}, {sheet.width:g} × {sheet.height:g} mm)", SHEET_PAPER)
@@ -2018,9 +2031,10 @@ class NoteDialog(QDialog):
         """Poznámka s hodnotami z dialogu (kopie, originál zůstává beze změny)."""
         import copy
         n = copy.deepcopy(self.note)
+        # model-write-ok: `n` je kopie připomínky, do projektu ji zapíše příkaz volajícího
         n.text = self.text.toPlainText().strip()
-        n.reply = self.reply.text().strip()
-        n.status = self.status.currentData()
+        n.reply = self.reply.text().strip()   # model-write-ok: kopie (viz výše)
+        n.status = self.status.currentData()   # model-write-ok: kopie (viz výše)
         return n
 
 

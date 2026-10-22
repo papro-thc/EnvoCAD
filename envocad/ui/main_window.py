@@ -293,7 +293,7 @@ class MainWindow(QMainWindow):
         self.act_dark.toggled.connect(self.set_dark)
         m_view.addAction(self.act_dark)
         self.actions["dark"] = self.act_dark
-        from envocad.model.frame import frame_enabled
+        from envocad.settings import frame_enabled
         self.act_frame = QAction("Rámeček a popisové pole", self, checkable=True)
         self.act_frame.setChecked(frame_enabled())
         self.act_frame.toggled.connect(self.set_frame)
@@ -932,7 +932,8 @@ class MainWindow(QMainWindow):
         from envocad.library.templates import apply_template, template
         before = commands.sheets_state(self.project)
         try:
-            apply_template(self.project, sheet, tid, params, lib=self.library)
+            from envocad.settings import switchboard_paper
+            apply_template(self.project, sheet, tid, params, lib=self.library, standard_paper=switchboard_paper())
         except ValueError as ex:
             commands.restore_sheets_state(self.project, before)
             QMessageBox.warning(self, "Šablona", f"Šablonu nelze vložit: {ex}")
@@ -1163,7 +1164,8 @@ class MainWindow(QMainWindow):
 
     def _check_now(self) -> None:
         from envocad.model.checks import check_project
-        self._findings = check_project(self.project, self.library)
+        from envocad.settings import switchboard_paper
+        self._findings = check_project(self.project, self.library, standard_paper=switchboard_paper())
         self.checks_panel.set_findings(self._findings)
         self._update_status()
 
@@ -1475,10 +1477,11 @@ class MainWindow(QMainWindow):
             if not ok:
                 return
             s[key] = v.strip()
-        from envocad.model.multipole import SWITCHBOARD_PAPERS, standard_switchboard_paper
+        from envocad.model.multipole import SWITCHBOARD_PAPERS
+        from envocad.settings import switchboard_paper
         papers = list(SWITCHBOARD_PAPERS)
         v, ok = QInputDialog.getItem(self, "Firemní standard", "Formát stran schématu rozvaděče a plánu svorkovnice",
-                                     papers, papers.index(standard_switchboard_paper()), False)
+                                     papers, papers.index(switchboard_paper()), False)
         if not ok:
             return
         s["switchboard_paper"] = v
@@ -1598,6 +1601,7 @@ class MainWindow(QMainWindow):
             # model-write-ok: dočasná změna se snímkem `after`, finally ji vrátí a zapíše ReplaceRevisionsCommand
             self.project.meta["changes"] = merge_change_lines(self.project.meta.get("changes", ""),
                                                               {rev.label, prev_label}, change_text, rev.auto_lines)
+            # model-write-ok: dočasná změna se snímkem `after` (jako `meta["changes"]` výše)
             rev.auto_lines = [ln.strip() for ln in change_text.splitlines() if ln.strip()]
             after = revisions_state(self.project)
         finally:

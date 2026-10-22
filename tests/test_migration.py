@@ -189,7 +189,7 @@ def test_v7_revisions_from_meta_skips_header_and_free_text():
 
 def test_example_migrates_to_current():
     p = Project.load(EXAMPLE)
-    assert FORMAT_VERSION == 15
+    assert FORMAT_VERSION == 16
     assert all(s.func == "" and s.loc == "" for s in p.sheets)
     assert p.structures == [] and p.revisions == [] and p.notes == []
 
@@ -347,9 +347,31 @@ def test_v14_to_v15_block_ports_noop(monkeypatch):
     p.sheets[0].wires[0].b.port = "X1"
     _ports_ok(p, lib)
     d = p.to_dict()
-    assert d["format_version"] == FORMAT_VERSION == 15
+    assert d["format_version"] == FORMAT_VERSION >= 15
     _roundtrip_stable(Project.from_dict(copy.deepcopy(d)))
     import envocad.model.project as prj
     monkeypatch.setattr(prj, "FORMAT_VERSION", 14)
+    with pytest.raises(ValueError, match="novější"):
+        Project.from_dict(d)
+
+
+def test_v15_to_v16_fingerprints_with_texts(monkeypatch):
+    """v16: otisk listu zahrnuje volné texty. Migrace dat nic nemění; otisk uzavřené revize spočtený v15 (bez textů)
+    nad nezměněným listem se při načtení přepočte (`diff.upgrade_fingerprints`). Starší program v16 odmítne."""
+    from envocad.model.diff import sheet_fingerprint
+    from envocad.model.project import migrate
+    sh = {**_sheet("s1", [_el("t", "fve.inverter", "T1")]), "texts": [{"id": "x1", "x": 10, "y": 20, "text": "Pozn."}]}
+    s = Project.from_dict(_v(15, [copy.deepcopy(sh)])).sheets[0]
+    raw = _v(15, [sh])
+    raw["revisions"] = [{"id": "r", "label": "A", "closed": True,
+                         "fingerprints": {"s1": sheet_fingerprint(s, texts=False)}}]
+    before = copy.deepcopy(raw)
+    assert migrate(raw, 15) == {**before, "format_version": FORMAT_VERSION} and raw == before
+    p = Project.from_dict(copy.deepcopy(raw))
+    assert p.revisions[0].fingerprints == {"s1": sheet_fingerprint(p.sheets[0])} != before["revisions"][0]["fingerprints"]
+    d = p.to_dict()
+    assert Project.from_dict(copy.deepcopy(d)).revisions[0].fingerprints == p.revisions[0].fingerprints
+    import envocad.model.project as prj
+    monkeypatch.setattr(prj, "FORMAT_VERSION", 15)
     with pytest.raises(ValueError, match="novější"):
         Project.from_dict(d)

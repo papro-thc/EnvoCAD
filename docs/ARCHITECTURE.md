@@ -54,7 +54,8 @@ envocad/
                  RD), groups (skupiny střídačů `ac_group` – RFVE.AC{n}). Rozsah (rozhodnutí 12): RD / HR / RE jen
                  bloky bez listu (porty a údaje v atributech), RFVE.AC / AC část RFVE z mustru (`rfve_ac.ac_mode`,
                  `spec.pattern_macro`), jinak blok / kotvy; vestavěný kód volbou `chain.<role>.builtin` / standard
-                 `ac_builtin`. Zkoušení rozložení s mezipamětí značek (`project.symbol_cache`); přístroje řetězce nesou atribut `chain`
+                 `ac_builtin`. Zkoušení rozložení s mezipamětí značek (`project.symbol_cache`) a rozložení textů
+                 (`textlayout.layout_cache`, klíč = úplný stav listů; benchmark `tools/bench_generate.py`); přístroje řetězce nesou atribut `chain`
                  (inv, rfve_main, fve_out, main, meter_main, inst_switch) pro `calc.check_selectivity_tree` (F7
                  `checks.chain_findings`)
   ui/         PySide6 GUI (nikdy neobsahuje business logiku)
@@ -65,6 +66,10 @@ envocad/
 ```
 
 Zásada: **model nezávisí na UI.** Vše, co lze, se testuje bez spuštění Qt.
+Model nečte ani uživatelská nastavení (`~/.envocad/settings.json`): firemní standard (formát stran vícepólu
+`standard_paper`, název firmy `company`) předává volající (GUI, export, generátor) parametrem a čte ho přes
+`envocad/settings.py` (`switchboard_paper`, `company`, `frame_enabled`); hlídá `tests/test_model_pure.py`. Knihovna
+čte z nastavení jen umístění dat (uživatelská a sdílená složka knihovny, maker a topologií).
 
 ## Klíčové pojmy
 
@@ -153,7 +158,10 @@ jen při načtení projektu, po založení nového projektu z průvodce / specif
 `test_no_undo_reset_outside_allowed_places` – všechna volání v `ui/` včetně lambd a aliasů undo stacku). Zmenšení počtu řad skříně umístění nemaže: umístění v řadě mimo skříň
 zůstane v modelu (`Layout.stored_placement`), `Layout.placement` ho nevrací (přístroj je nerozmístěný) a kontrola
 hlásí `outside_enclosure`. Zmenšení počtu modulů v řadě také nic nemaže – přístroje za koncem řady a překryvy hlásí
-kontrola `layout_overflow` / `layout_overlap` (`checks.layout_problems`, varování i v panelu skříně). Kabely
+kontrola `layout_overflow` / `layout_overlap` (`checks.layout_problems`, varování i v panelu skříně). Rozměry
+přístroje v rozložení určuje `model/device_size.py` (ruční rozměr > artikl > `modules`; tvar modulový / obdélník /
+svorkovnice; kontroly `layout_height` / `layout_enclosure` / `layout_depth`); knihovna se předává volitelně (`lib`),
+bez ní platí jen atributy – návrh `docs/design/rozlozeni_z_artiklu.md`. Kabely
 (`Cable`) jsou odvozené z vodičů JPS (`sync_cables`): kabel bez vodiče se odebere do `Project.removed_cables`
 (neukládá se) a vrácený vodič (undo/redo) dostane týž kabel zpět – undo vložení/smazání vodiče vrátí `to_dict` přesně. Kabel osiřelý už v načteném souboru (`Project.loaded_orphan_cables`) se při otevření neodebere (ruční barvy žil, artikl); kontrola ho hlásí jako INFO `cable_no_wire`.
 Vazby přívodů/vývodů rozvaděče na vodiče JPS: GUI po každé změně modelu volá jen odvozenou `sync_feed_link_attrs`
@@ -237,7 +245,8 @@ Tři vrstvy rozšíření, od nejjednodušší:
    starými `sb.feed_in` / `sb.feed_out` se po `build` převede (`feed.normalize_legacy_objects` v `apply_template`),
    callback menu, který vkládá prvky sám, musí použít `sb.feed`.
 
-Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **15** – blok rozvaděče bez listu
+Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **16** – otisk listu uzavřené revize zahrnuje volné texty listu, migrace v15 → v16 přepočítá
+otisky listů s texty, které sedí na starý výpočet (`diff.upgrade_fingerprints`), data se nemění; v15 blok rozvaděče bez listu
 s porty z atributů `ports_in` / `ports_out` a jištěním portů `protect` (`project.block_port_names`, `is_block_only`,
 `block_protect`; generátor tak kreslí stávající RD / HR / RE a RFVE.AC bez mustru jen jako blok), migrace v14 → v15
 nic nemění, verze zvednutá, aby program v14 soubor odmítl místo osiřelých portů „X1?“; v14 parametrická sběrnice `sb.busbar`
