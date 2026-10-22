@@ -258,3 +258,17 @@ def test_single_line_dxf(tmp_path, lib):
     assert {"RVN", "TR1", "TA1", "TS1", "P3 měřicí pole"} <= texts
     # rozvaděče RVN, HR, RE, RFVE.AC + 4 pole + trafostanice
     assert len(msp.query('LWPOLYLINE[layer=="ROZVADECE"]')) == 9
+
+
+def test_node_has_no_dynamic_attributes():
+    """Uzel jednopólového schématu má všechna pole deklarovaná v dataclass (`anchor`, `box`, `meter_dx` dřív
+    vznikaly dynamicky) – zápis neznámého atributu by se neměl objevit."""
+    import dataclasses
+    import re
+    from pathlib import Path
+
+    from envocad.model import single_line as sl
+    names = {f.name for f in dataclasses.fields(sl.Node)}
+    assert {"anchor", "box", "meter_dx"} <= names
+    src = Path(sl.__file__).read_text(encoding="utf-8")
+    assert "attr-defined" not in src and not re.search(r"\bn\._(anchor|box|dx)\b", src)

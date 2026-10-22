@@ -6,6 +6,9 @@ from PySide6.QtGui import QPainter, QPainterPath, QPen, QTransform
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QStyleOptionGraphicsItem, QWidget
 
 from envocad.model.designation import display_designation
+from envocad.model.grid import (
+    snap,
+)
 from envocad.model.project import Element, Wire, wire_label
 from envocad.model.symbol import GRID, Symbol, place_dir, rotate_point
 from envocad.ui.render import LINE_WIDTH, draw_text, paint_symbol, sp, symbol_path
@@ -14,10 +17,6 @@ from envocad.ui.theme import colors
 PORT_R = 0.8
 
 DIR_VEC = {"N": (0, 1), "E": (1, 0), "S": (0, -1), "W": (-1, 0)}
-
-
-def snap(v: float) -> float:
-    return round(v / GRID) * GRID
 
 
 class ElementItem(QGraphicsItem):

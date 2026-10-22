@@ -10,7 +10,7 @@ import ezdxf
 
 from envocad.library.store import LibraryStore
 from envocad.model.project import Element, Project, Sheet, element_symbol
-from envocad.model.symbol import GRID, MIRROR_ALIGN, Symbol, place_point
+from envocad.model.symbol import MIRROR_ALIGN, Symbol, place_point
 
 LAYERS = {
     "SYMBOLY": 7, "VODICE": 7, "TEXTY": 7, "RAMECEK": 8, "REVIZE": 1,   # REVIZE = červená (porty se do DXF nekreslí)
@@ -37,9 +37,6 @@ class _At:
         self.x, self.y, self.rotation = x, y, rotation
         self.mirror = False
 
-
-def _snap(v: float) -> float:
-    return round(v / GRID) * GRID
 
 
 def _tr(e: Element, x: float, y: float) -> tuple[float, float]:

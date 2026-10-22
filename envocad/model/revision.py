@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from itertools import pairwise
 
 from envocad.model.diff import MOVE_DETAIL, Change, sheet_fingerprint
+from envocad.model.grid import ceil_grid as _ceil_grid
 from envocad.model.project import Project, Revision, RevisionMark, Sheet, element_symbol
 from envocad.model.symbol import GRID
 
@@ -272,9 +273,6 @@ def triangle(x: float, y: float, label: str) -> tuple[list[tuple[float, float]],
     pts = [(x - a / 2, base), (x + a / 2, base), (x, base + h)]
     return pts, (x, base + 0.8, label, TEXT_H, "center")
 
-
-def _ceil_grid(v: float) -> float:
-    return math.ceil(round(v / GRID, 6)) * GRID
 
 
 def _element_anchor(project: Project, sheet: Sheet, lib, eid: str) -> tuple[float, float] | None:

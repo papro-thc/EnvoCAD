@@ -140,16 +140,6 @@ def wrap_text(text: str, width: float, height: float = 2.5) -> list[str]:
     return out or [""]
 
 
-def elide_text(text: str, width: float, height: float = 2.5) -> str:
-    """Text zkrácený na `width` mm s „…“ na konci (beze změny, když se vejde)."""
-    if text_width(text, height) <= width:
-        return text
-    k = len(text)
-    while k > 0 and text_width(text[:k].rstrip() + "…", height) > width:
-        k -= 1
-    return text[:k].rstrip() + "…" if k else "…"
-
-
 def draw_frame(painter: QPainter, geom, color) -> None:
     """Rámeček a popisové pole z `model/frame.py` (geometrie v mm, Y nahoru). Nic, když je rámeček vypnutý."""
     from envocad.settings import frame_enabled

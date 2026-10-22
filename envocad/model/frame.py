@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime as _datetime
 
+from envocad.model.grid import snap as _snap
 from envocad.model.multipole import DEFAULT_SWITCHBOARD_PAPER
 from envocad.model.project import Project, Sheet
 
@@ -219,9 +220,6 @@ def title_block_box(width: float, height: float) -> tuple[float, float, float, f
     qr = QR_SIZE + QR_GAP if qr_fits(width) else 0.0
     return (width - MARGIN - TB_W - qr, MARGIN, width - MARGIN, MARGIN + TB_H)
 
-
-def _snap(v: float) -> float:
-    return round(v / 2.5) * 2.5
 
 
 def _boxes_hit(a, b) -> bool:

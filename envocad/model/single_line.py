@@ -96,6 +96,10 @@ class Node:
     bottom: float = 0.0                  # spodek značky (absolutně)
     down: float = 0.0                    # spodek značky i popisku (absolutně)
     labels: list[str] = field(default_factory=list)
+    # rozměry otočené značky vůči vložnému bodu (`_measure`, jen kind == "symbol")
+    anchor: Point = (0.0, 0.0)           # bod vstupu (port od nadřazeného prvku, u kořene horní hrana)
+    box: Box = (0.0, 0.0, 0.0, 0.0)      # obálka značky (x0, y0, x1, y1)
+    meter_dx: float = 0.0                # elektroměr vpravo: odstup jeho osy od osy prvku, ke kterému patří
 
     @property
     def segment(self) -> str:
@@ -488,8 +492,8 @@ def _measure(n: Node) -> None:
         n.left += 1.5 + text_w       # vpravo vede čárkovaný vodič k elektroměru – popisek vlevo
     elif n.labels:
         n.right += 1.5 + text_w
-    n._anchor = anchor            # type: ignore[attr-defined]
-    n._box = (bx0, by0, bx1, by1)  # type: ignore[attr-defined]
+    n.anchor = anchor
+    n.box = (bx0, by0, bx1, by1)
 
 
 def _assign_columns(root: Node) -> int:
@@ -543,8 +547,8 @@ def _place_y(root: Node, nodes: dict[Key, Node]) -> None:
         placed.add(id(n))
         n.y = y
         if n.kind == "symbol":
-            ax, ay = n._anchor     # type: ignore[attr-defined]
-            _bx0, by0, _bx1, by1 = n._box   # type: ignore[attr-defined]
+            ax, ay = n.anchor
+            _bx0, by0, _bx1, by1 = n.box
             # značka, která přesahuje nad vstupní port (DS, spotřeba s portem z boku), začíná horní hranou v y
             top = ay if n.element.symbol_id in METER_SYMBOLS else max(ay, by1)   # elektroměr: port na výšce MTP
             n.origin = (n.x - ax, y - top)
@@ -640,8 +644,8 @@ def _layout(project: Project, root: Node, nodes: dict[Key, Node]) -> None:
     for n in nodes.values():
         for m in n.meters:
             if m.sheet is n.sheet:
-                m._dx = n.right + METER_GAP + m.left      # type: ignore[attr-defined]
-                n.right = m._dx + m.right                  # type: ignore[attr-defined]
+                m.meter_dx = n.right + METER_GAP + m.left
+                n.right = m.meter_dx + m.right
     n_cols = _assign_columns(root)
     left = [0.0] * n_cols
     right = [0.0] * n_cols
@@ -663,7 +667,7 @@ def _layout(project: Project, root: Node, nodes: dict[Key, Node]) -> None:
     for n in nodes.values():
         for m in n.meters:
             if m.sheet is n.sheet:
-                m.x = n.x + m._dx                          # type: ignore[attr-defined]
+                m.x = n.x + m.meter_dx
             else:
                 edge = max(_right_edge(k, nodes) for k in nodes.values()
                            if k.segment == n.segment and id(k) not in meters)
@@ -743,7 +747,7 @@ def _node_box(n: Node) -> Box:
         return (min(xs) - 2.5, n.y - 1.5, max(xs) + 2.5, n.y + 1.5)
     top = n.y
     if n.kind == "symbol":
-        top = max(n.y, n.origin[1] + n._box[3])   # type: ignore[attr-defined]
+        top = max(n.y, n.origin[1] + n.box[3])
     return (n.x - n.left, n.down, n.x + max(n.right, 1.5), top)
 
 
@@ -758,9 +762,9 @@ def _draw(project: Project, root: Node, nodes: dict[Key, Node], g: SingleLineGeo
             out.append(Prim("symbol", 0, (n.origin,), rot=n.rot, symbol=n.symbol, symbol_id=n.symbol.id, layer="SYMBOLY"))
             if n.labels:
                 if n.meters:
-                    lx, align = min(n.origin[0] + n._box[0], n.x) - 1.5, "right"   # type: ignore[attr-defined]
+                    lx, align = min(n.origin[0] + n.box[0], n.x) - 1.5, "right"
                 else:
-                    lx, align = max(n.origin[0] + n._box[2], n.x) + 1.5, "left"    # type: ignore[attr-defined]
+                    lx, align = max(n.origin[0] + n.box[2], n.x) + 1.5, "left"
                 for i, t in enumerate(n.labels):
                     out.append(_text(lx, n.y - REF_H - i * LINE_H, t, REF_H if i == 0 else LABEL_H, align))
         elif n.kind == "pass" and n.labels:

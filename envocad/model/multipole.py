@@ -20,6 +20,7 @@ from envocad.model.feed import (
     is_mp_legacy,
     multipole_feed_view,
 )
+from envocad.model.grid import snap as _snap
 from envocad.model.project import FEED_SYMBOLS, Element, Sheet, Wire
 from envocad.model.symbol import GRID, Symbol, rotate_dir
 
@@ -984,9 +985,6 @@ def pole_label_lines(ep: ElementPoles) -> list[tuple[float, float, str, float, s
 
 DIR_VEC = {"N": (0, 1), "E": (1, 0), "S": (0, -1), "W": (-1, 0)}
 
-
-def _snap(v: float) -> float:
-    return round(v / GRID) * GRID
 
 
 BREAK_PITCH = 2.5      # rozteč přerušení žil na okraji strany
