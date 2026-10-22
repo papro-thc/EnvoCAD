@@ -12,7 +12,7 @@ Elektrotechnická část – fotovoltaická elektrárna
 - Výchozí revize elektrické instalace: {{dsps.revizni_zprava}}
 
 Dokumentace skutečného provedení vychází z projektové dokumentace a zachycuje stav instalace po dokončení. Změny
-proti projektové dokumentaci jsou uvedeny v následující kapitole a vyznačeny ve výkresech značkou revize.
+proti projektové dokumentaci jsou uvedeny v následující kapitole.
 
 # {{§}} Změny proti projektové dokumentaci
 
