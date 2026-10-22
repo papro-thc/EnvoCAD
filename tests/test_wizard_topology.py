@@ -47,7 +47,7 @@ def _wizard(building="company", level="nn") -> ProjectWizard:
 def _f7(p) -> list:
     from envocad.library.store import LibraryStore
     from envocad.model.checks import ERROR, WARNING, check_project
-    return [(f.code, f.ref, f.text) for f in check_project(p, LibraryStore()) if f.severity in (ERROR, WARNING)]
+    return [(f.code, f.ref, f.text) for f in check_project(p, LibraryStore(), standard_paper="A4") if f.severity in (ERROR, WARNING)]
 
 
 # ---- výchozí průvodce = dnešní specifikace --------------------------------------------------------------------

@@ -97,7 +97,7 @@ def test_v12_closed_revision_stays_closed_after_migration(lib):
     assert any(e["symbol_id"] in LEGACY_FEEDS for s in raw["sheets"] for e in s["elements"])
     p = Project.from_dict(raw)
     assert changed_after_close(p) == []
-    assert not [f for f in check_project(p, lib) if f.code == "rev_closed_changed"]
+    assert not [f for f in check_project(p, lib, standard_paper="A4") if f.code == "rev_closed_changed"]
     # otisky uložené starou verzí = otisky převedených listů
     rev = p.revisions[0]
     assert all(rev.fingerprints[s.id] == sheet_fingerprint(s) for s in p.sheets if s.id in rev.fingerprints)
@@ -169,7 +169,7 @@ def test_legacy_ac_macros_generate_clean(lib, legacy_macros, n):
     feeds = [e for e in ac.elements if is_feed_in(e)]
     q = next(e for e in ac.elements if e.symbol_id == "sb.main_switch")
     assert len(feeds) == n and q.x > max(e.x for e in feeds)      # jádro za přívody jako dřív
-    bad = [(f.code, f.sheet_name, f.text) for f in check_project(p, lib) if f.severity in (ERROR, WARNING)]
+    bad = [(f.code, f.sheet_name, f.text) for f in check_project(p, lib, standard_paper="A4") if f.severity in (ERROR, WARNING)]
     assert bad == []
 
 
@@ -187,7 +187,7 @@ def test_many_inverters_no_crossings(lib, n, use_macros):
     bus = next(e for e in s.elements if e.symbol_id == "sb.busbar")
     ports = [w.a.port if w.a.element_id == bus.id else w.b.port for w in s.wires if w.touches(bus.id)]
     assert len({x for x in ports if x.startswith("B")}) == n
-    bad = [(f.code, f.text) for f in check_project(p, lib)
+    bad = [(f.code, f.text) for f in check_project(p, lib, standard_paper="A4")
            if f.severity in (ERROR, WARNING) and f.sheet_id == s.id]
     assert bad == []
 
@@ -275,7 +275,7 @@ def test_plugin_template_with_legacy_feeds_is_normalized(monkeypatch):
     p = Project()
     sh = Sheet(name="R", kind="switchboard")
     p.sheets.append(sh)
-    T.apply_template(p, sh, "stara")
+    T.apply_template(p, sh, "stara", standard_paper="A4")
     x1, x2 = sh.elements
     assert (x1.symbol_id, x1.attrs["dir"], x1.rotation) == (FEED_SYMBOL, "in", 180)
     assert (x2.symbol_id, x2.attrs["dir"], x2.rotation) == (FEED_SYMBOL, "out", 90)
@@ -303,7 +303,7 @@ def test_wide_house_switchboard_gets_long_landscape_paper(lib):
     s = next(s for s in p.switchboards() if s.loc == "RFVE")
     assert s.height == 297.0 and (s.paper, s.width) in LONG_PAPERS[297.0]
     assert _crossings(p, s, lib) == []
-    assert not [f for f in check_project(p, lib)
+    assert not [f for f in check_project(p, lib, standard_paper="A4")
                 if f.severity in (ERROR, WARNING) and f.sheet_id == s.id and f.code in ("outside_frame", "text_overlap")]
 
 
@@ -313,10 +313,10 @@ def test_grow_sheet_long_unit(lib):
     sh = Sheet(name="R", kind="switchboard")
     p.sheets.append(sh)
     sh.elements.append(Element("fve.breaker_mcb", 60, 150, rotation=90, attrs={"ref": "F1"}))
-    assert not grow_sheet_long(p, sh, lib) and sh.paper == "A3"      # vejde se – beze změny
+    assert not grow_sheet_long(p, sh, lib, standard_paper="A4") and sh.paper == "A3"      # vejde se – beze změny
     sh.elements.append(Element("fve.breaker_mcb", 500, 150, rotation=90, attrs={"ref": "F2"}))
-    assert grow_sheet_long(p, sh, lib)
+    assert grow_sheet_long(p, sh, lib, standard_paper="A4")
     assert (sh.paper, sh.width, sh.height) == ("A4×3", 630.0, 297.0)
     sh.elements.append(Element("fve.breaker_mcb", 300, 280, rotation=90, attrs={"ref": "F3"}))   # přetéká nahoru
-    assert not grow_sheet_long(p, sh, lib)
+    assert not grow_sheet_long(p, sh, lib, standard_paper="A4")
 

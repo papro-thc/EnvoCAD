@@ -102,7 +102,7 @@ def test_vn_connection_checks_clean(lib):
     for kw in ({"metering": "nn"}, {"metering": "vn"}, {"station": "sloup"}, {"station": "kobky"}):
         p = _vn(**kw)
         re_id = _board(p, "RE").id
-        fs = check_project(p, lib)
+        fs = check_project(p, lib, standard_paper="A4")
         # vícepól elektroměru (proud S1/S2 a napětí L1–N do dvou portů jedné značky) zatím popisek kříží žílou
         assert not [f.text for f in fs if f.code in noisy and not (f.code == "mp_text_overlap" and f.sheet_id == re_id)], kw
         assert not [f for f in fs if f.code == "calc_selectivity" and "menší In" in f.text], kw
@@ -258,3 +258,28 @@ def test_single_line_dxf(tmp_path, lib):
     assert {"RVN", "TR1", "TA1", "TS1", "P3 měřicí pole"} <= texts
     # rozvaděče RVN, HR, RE, RFVE.AC + 4 pole + trafostanice
     assert len(msp.query('LWPOLYLINE[layer=="ROZVADECE"]')) == 9
+
+
+def test_node_has_no_dynamic_attributes():
+    """Uzel jednopólového schématu má všechna pole deklarovaná v dataclass (`anchor`, `box`, `meter_dx` dřív
+    vznikaly dynamicky) – zápis neznámého atributu by se neměl objevit."""
+    import dataclasses
+    import re
+    from pathlib import Path
+
+    from envocad.model import single_line as sl
+    names = {f.name for f in dataclasses.fields(sl.Node)}
+    assert {"anchor", "box", "meter_dx"} <= names
+    src = Path(sl.__file__).read_text(encoding="utf-8")
+    assert "attr-defined" not in src and not re.search(r"\bn\._(anchor|box|dx)\b", src)
+    # neměřený uzel: chyba při použití, ne tiché (0, 0)
+    from envocad.model.project import Element, Sheet
+    from envocad.model.symbol import placeholder_symbol
+    e = Element("fve.inverter", 0, 0, attrs={"ref": "T1"})
+    n = sl.Node(("s", e.id), Sheet(), e, placeholder_symbol("fve.inverter"))
+    assert n.anchor is None and n.box is None
+    import pytest
+    with pytest.raises(ValueError, match="není změřený"):
+        n.measured()
+    n.anchor, n.box = (1.0, 2.0), (0.0, 0.0, 5.0, 5.0)
+    assert n.measured() == ((1.0, 2.0), (0.0, 0.0, 5.0, 5.0))

@@ -162,7 +162,7 @@ def test_insert_macro_continues_numbering_in_switchboard(app, lib, monkeypatch):
     n0 = len(rdc.elements)
     w.insert_macro(str(find_macro("DC string v rozvaděči").path))
     assert len(rdc.elements) > n0
-    assert not [f for f in check_project(p, LibraryStore()) if f.code == "dup_ref"]
+    assert not [f for f in check_project(p, LibraryStore(), standard_paper="A4") if f.code == "dup_ref"]
     assert "X9" in {e.ref for e in rdc.elements}
     _done(w)
 
@@ -220,7 +220,7 @@ def test_delete_switchboard_block_offers_sheet_delete(app, lib, monkeypatch, ans
         assert all(w._unwrap(w.tabs.widget(i)).scene().sheet is not sheet for i in range(w.tabs.count()))
     else:
         assert sheet in p.sheets
-        assert any(f.code == "sb_no_block" for f in check_project(p, LibraryStore()))
+        assert any(f.code == "sb_no_block" for f in check_project(p, LibraryStore(), standard_paper="A4"))
     w.undo.undo()
     assert _state(p) == before
     _done(w)
@@ -235,7 +235,7 @@ def test_multipole_scene_uses_model_labels_and_pe_join(app, lib):
     sheet = next(s for s in p.sheets if s.name.startswith("RFVE.DC"))
     w.open_sheet(sheet, "multipole")
     sc = w.view.scene()
-    geo = multipole_geometry(p, sheet, lib)
+    geo = multipole_geometry(p, sheet, lib, standard_paper="A4")
     items = [it for it in sc.items() if isinstance(it, ConductorItem)]
     assert items and all(it.label is not None for it in items)
     labels = {(it.wire.id, it.conductor): it.label for it in items}

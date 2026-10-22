@@ -34,7 +34,7 @@ def test_build_project_from_spec(tmp_path):
     sb = p.sheets[1]
     feeds = [e for e in sb.elements if is_feed_in(e)]
     assert all(f.attrs.get("wire_id") for f in feeds) and len(p.cables) >= 8
-    fs = check_project(p, lib)
+    fs = check_project(p, lib, standard_paper="A4")
     assert not [f for f in fs if f.severity in (ERROR, WARNING)], [f.text for f in fs if f.severity != "info"]
     p.save(tmp_path / "g.ecp")
     assert (tmp_path / "g.ecp").stat().st_size > 1000
@@ -93,7 +93,7 @@ def test_dc_boxes_along_route():
     assert sorted(w.b.port for w in s.wires if w.touches(inv.id) and w.a.element_id == boxes[2].id) == ["DC1", "DC2", "DC3"]
     assert all(f.attrs.get("wire_id") for f in tech.elements if is_feed_in(f))
     assert s.width > 420   # dva rozvaděče po trase → širší list
-    fs = check_project(p, lib)
+    fs = check_project(p, lib, standard_paper="A4")
     assert not [f for f in fs if f.severity in (ERROR, WARNING)], [f.text for f in fs if f.severity != "info"]
 
 
@@ -301,7 +301,7 @@ def test_house_combined_switchboard(dc):
     inv = next(e for e in p.sheets[0].elements if e.symbol_id == "fve.inverter")
     assert sorted(w.b.port for w in p.sheets[0].wires if w.a.element_id == blk.id and w.b.element_id == inv.id) == ["DC1", "DC2"]
     # vše na listu bez překryvů a chyb
-    fs = check_project(p, lib)
+    fs = check_project(p, lib, standard_paper="A4")
     assert not [f for f in fs if f.severity in (ERROR, WARNING)], [f.text for f in fs if f.severity != "info"]
 
 
@@ -324,10 +324,10 @@ def test_datasheet_solaredge_se25k_p1100_runergy():
             "optimizer": {"component_id": "solaredge-p1100-4rm4mbt"},
             "inverters": [{"ref": "T1", "component_id": "solaredge-se25k", "strings": [30, 32]}]}
     p = build_project(spec)
-    assert not [f for f in check_project(p, lib) if f.severity in (ERROR, WARNING)]
+    assert not [f for f in check_project(p, lib, standard_paper="A4") if f.severity in (ERROR, WARNING)]
     spec["module"] = {"component_id": "runergy-hy-dh96n11b-450"}
     p = build_project(spec)
-    assert any("Isc max vstupu optimizéru" in f.text for f in check_project(p, lib) if f.severity == ERROR)
+    assert any("Isc max vstupu optimizéru" in f.text for f in check_project(p, lib, standard_paper="A4") if f.severity == ERROR)
 
 
 # ---- F0: opravy z review generátoru (docs/NAVRH_TOPOLOGIE.md, kap. 6) ------------------------------------------
@@ -341,7 +341,7 @@ def _fuses(p, loc=None):
 
 
 def _codes(p, lib, *codes):
-    return [f for f in check_project(p, lib) if f.code in codes]
+    return [f for f in check_project(p, lib, standard_paper="A4") if f.code in codes]
 
 
 def test_string_fuse_series_and_holder_limit():
@@ -396,7 +396,7 @@ def test_house_fuse_in_per_inverter_group(macros):
         spec["macros"] = macros
     p = build_project(spec)
     assert sorted(f.attrs["in_"] for f in _fuses(p, "RFVE")) == ["15", "15", "25"]
-    fs = check_project(p, LibraryStore())
+    fs = check_project(p, LibraryStore(), standard_paper="A4")
     assert not [f for f in fs if f.severity in (ERROR, WARNING)], [f.text for f in fs if f.severity != "info"]
 
 
@@ -413,7 +413,7 @@ def test_vn_fve_feeder_limited_by_main_breaker():
     feeder = rhn.element(w.a.element_id if w.b.element_id == x1.id else w.b.element_id)
     ins = sorted((e.attrs["in_"] for e in rhn.elements if e.symbol_id == "fve.breaker_mccb"), key=float)
     assert feeder.attrs["in_"] == "50" and ins == ["50", "50", "100"]   # vývod FVE, spotřeba, hlavní jistič
-    assert not [f for f in check_project(p, lib) if f.code in ("calc_selectivity", "breaker_no_in")]
+    assert not [f for f in check_project(p, lib, standard_paper="A4") if f.code in ("calc_selectivity", "breaker_no_in")]
     # 630 kVA (HJ 1000 A): beze změny – In hlavního vypínače RFVE.AC
     assert fve_feeder_in({"transformer": {"sn": 630}}, {"main_in": 125}, [])[0] == "125"
     # FVE 60 kW na 50 kVA: žádný selektivní vývod neunese proud → prázdné In + chyba F7, nic se nedosazuje
@@ -427,7 +427,7 @@ def test_vn_fve_feeder_limited_by_main_breaker():
     # zadané main_board.fve_in platí beze změny (selektivitu hlásí F7)
     over = {**spec, "connection": {**spec["connection"], "main_board": {"fve_in": 125}}}
     p = build_project(over)
-    assert any(f.code == "calc_selectivity" and f.severity == WARNING for f in check_project(p, lib))
+    assert any(f.code == "calc_selectivity" and f.severity == WARNING for f in check_project(p, lib, standard_paper="A4"))
 
 
 @pytest.mark.parametrize("text, volts", [("22 kV", 22000), ("22kV", 22000), ("22000 V", 22000), ("22 000 V", 22000),
@@ -592,7 +592,7 @@ _F7_XFAIL = {"vn_kiosk", "vn_kobky_mereni_vn", "vn_sloup_50kva"}
 @pytest.mark.parametrize("name", [pytest.param(n, marks=_KNOWN_RE_METER) if n in _F7_XFAIL else n for n in F7_CASES])
 def test_generated_project_f7_clean(name):
     p = build_project(F7_CASES[name])
-    fs = [f for f in check_project(p, LibraryStore()) if f.severity in (ERROR, WARNING)]
+    fs = [f for f in check_project(p, LibraryStore(), standard_paper="A4") if f.severity in (ERROR, WARNING)]
     assert not fs, [(f.sheet_name, f.ref, f.text) for f in fs]
 
 
@@ -605,7 +605,7 @@ def test_generated_vn_only_known_re_meter_warning(name):
     """Přípojka VN a nepřímé měření v RE na nn (elektroměr na MTP): kromě známého překryvu ve vícepólu RE (viz
     `_KNOWN_RE_METER` – elektroměr bez vícepólové podoby) bez chyb a varování."""
     p = build_project(F7_CASES.get(name) or _F7_RE_INDIRECT)
-    fs = [f for f in check_project(p, LibraryStore()) if f.severity in (ERROR, WARNING)]
+    fs = [f for f in check_project(p, LibraryStore(), standard_paper="A4") if f.severity in (ERROR, WARNING)]
     assert {(f.code, f.sheet_name.split(" ")[0]) for f in fs} == {("mp_text_overlap", "RE")}, [f.text for f in fs]
     assert len(fs) == (1 if name in _F7_XFAIL else 3)
 
@@ -627,7 +627,7 @@ def test_switchboard_designations_company_two_inverters():
     tech = {b.attrs["desc"]: b.ref for b in p.sheets[0].elements if b.ref.startswith("RFVE.DC")}
     assert tech == {"DC rozvaděč u T1": "RFVE.DC1", "DC rozvaděč u T2": "RFVE.DC2"}
     assert {s.code for s in p.structures} >= {"RFVE.DC1", "RFVE.DC2", "RFVE.AC", "RDC1", "RDC2"}
-    assert not [f for f in check_project(p, LibraryStore()) if f.code in ("struct_syntax", "dup_ref")]
+    assert not [f for f in check_project(p, LibraryStore(), standard_paper="A4") if f.code in ("struct_syntax", "dup_ref")]
 
 
 def test_dc_box_ref_helper():
@@ -803,10 +803,10 @@ def test_dc_template_9_strings_fits_sheet():
         blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
         p.sheets[0].elements.append(blk)
         sh = p.create_switchboard_sheet(blk)
-        apply_template(p, sh, "dc", {"n_strings": str(n)}, lib=lib)
+        apply_template(p, sh, "dc", {"n_strings": str(n)}, lib=lib, standard_paper="A4")
         assert sh.paper == paper and _inside(p, sh, lib)
         # vícepól a plán svorkovnice zůstávají na stranách firemního standardu (ne na rozměru zvětšeného listu)
-        assert mp.paper_choice(sh) == mp.standard_switchboard_paper()
+        assert mp.paper_choice(sh) == mp.DEFAULT_SWITCHBOARD_PAPER
     p = build_project({"inverters": [{"ref": "T1", **_INV25, "strings": [20] * 9}]})
     dcs = [sh for sh in p.sheets if sh.loc.startswith(("RDC", "RFVE.DC"))]
     # generátor: prodloužený formát na šířku se stejnou výškou (`frame.grow_sheet_long`), ne vyšší list
@@ -820,9 +820,9 @@ def test_grow_sheet_to_content_keeps_fitting_sheet():
     lib = LibraryStore()
     p = Project()
     sh = p.sheets[0]
-    apply_template(p, sh, "dc", {"n_strings": "2"})
+    apply_template(p, sh, "dc", {"n_strings": "2"}, standard_paper="A4")
     pos = [(e.x, e.y) for e in sh.elements]
-    assert not grow_sheet_to_content(p, sh, lib) and sh.paper == "A3" and pos == [(e.x, e.y) for e in sh.elements]
+    assert not grow_sheet_to_content(p, sh, lib, standard_paper="A4") and sh.paper == "A3" and pos == [(e.x, e.y) for e in sh.elements]
 
 
 @pytest.mark.parametrize("level", [" VN ", "vn", "Vn\t"])

@@ -11,6 +11,7 @@ from __future__ import annotations
 from itertools import pairwise
 
 from envocad.model.geometry import Point, orthogonalize
+from envocad.model.grid import snap as _snap
 from envocad.model.project import Element, Project, Sheet, Wire, element_symbol
 from envocad.model.symbol import GRID, place_dir
 
@@ -18,9 +19,6 @@ DIR_VEC = {"N": (0, 1), "E": (1, 0), "S": (0, -1), "W": (-1, 0)}
 MIN_GAP = 2 * GRID          # souběžné vodiče blíž než 5 mm = „přes sebe“
 STAGGERS = (0.0, 5.0, -5.0, 10.0, -10.0, 15.0, -15.0, 20.0, -20.0)
 
-
-def _snap(v: float) -> float:
-    return round(v / GRID) * GRID
 
 
 def port_geometry(project: Project, sheet: Sheet, lib, e: Element, port: str) -> tuple[Point, str]:

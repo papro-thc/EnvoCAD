@@ -67,6 +67,6 @@ def test_comm_wire_conductors_and_checks(lib):
     assert default_conductors(t, "RS485-2", m, "1") == ["A", "B"]
     assert io_conductors("BACKUP") is None and io_conductors("LAN") == ["LAN"]
     s.wires.append(Wire(WireEnd(t.id, "RS485-2"), WireEnd(m.id, "1"), attrs={"ref": "W1"}, conductors=["A", "B"]))
-    fs = {(f.code, f.ref): f.text for f in check_project(p, lib)}
+    fs = {(f.code, f.ref): f.text for f in check_project(p, lib, standard_paper="A4")}
     assert ("bad_port", "W1") not in fs
     assert fs[("free_port", "T1")] == "Nezapojené porty: DC1, DC2, AC"     # RS485-1 ani DI se nehlásí

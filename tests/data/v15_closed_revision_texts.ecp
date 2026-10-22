@@ -1,0 +1,110 @@
+{
+  "format": "envocad-project",
+  "format_version": 15,
+  "name": "Texty v15",
+  "meta": {
+    "revision": "A"
+  },
+  "sheets": [
+    {
+      "id": "sheet-texts",
+      "name": "Blokové schéma",
+      "paper": "A3",
+      "width": 420.0,
+      "height": 297.0,
+      "kind": "schematic",
+      "parent_element_id": null,
+      "layout": {
+        "rows": 3,
+        "modules_per_row": 24,
+        "enclosure": "",
+        "params": {},
+        "placements": []
+      },
+      "elements": [
+        {
+          "id": "el-t1",
+          "symbol_id": "fve.inverter",
+          "x": 100,
+          "y": 100,
+          "rotation": 0,
+          "attrs": {
+            "ref": "T1"
+          },
+          "component_id": null
+        }
+      ],
+      "wires": [],
+      "bridges": {},
+      "func": "",
+      "loc": "",
+      "texts": [
+        {
+          "id": "txt-1",
+          "x": 20,
+          "y": 250,
+          "text": "Poznámka:\nkabely v chráničce",
+          "height": 3.5
+        },
+        {
+          "id": "txt-2",
+          "x": 200,
+          "y": 40,
+          "text": "Část A",
+          "height": 2.5
+        }
+      ]
+    },
+    {
+      "id": "sheet-plain",
+      "name": "Bez textů",
+      "paper": "A3",
+      "width": 420.0,
+      "height": 297.0,
+      "kind": "schematic",
+      "parent_element_id": null,
+      "layout": {
+        "rows": 3,
+        "modules_per_row": 24,
+        "enclosure": "",
+        "params": {},
+        "placements": []
+      },
+      "elements": [
+        {
+          "id": "el-t2",
+          "symbol_id": "fve.inverter",
+          "x": 50,
+          "y": 50,
+          "rotation": 0,
+          "attrs": {
+            "ref": "T2"
+          },
+          "component_id": null
+        }
+      ],
+      "wires": [],
+      "bridges": {},
+      "func": "",
+      "loc": ""
+    }
+  ],
+  "cables": [],
+  "structures": [],
+  "revisions": [
+    {
+      "id": "rev-a",
+      "label": "A",
+      "date": "2026-10-01",
+      "author": "test",
+      "description": "",
+      "closed": true,
+      "marks": [],
+      "fingerprints": {
+        "sheet-texts": "cfaf11bb574b1f3bb319352a235ddc9b5557cbab",
+        "sheet-plain": "763be6c3e9487bcff0bbb8ff8a2a9a5ab91de259"
+      }
+    }
+  ],
+  "notes": []
+}

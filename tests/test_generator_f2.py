@@ -87,7 +87,7 @@ def test_rfve_dc_common_by_default():
     assert {e.ref for e in sh.elements if e.symbol_id == "fve.fuse_disconnect"} == {"FU1.1", "FU1.2", "FU1.3",
                                                                                      "FU2.1", "FU2.2"}
     lib = LibraryStore()
-    assert not [f for f in check_project(p, lib) if f.severity in (ERROR, WARNING)]
+    assert not [f for f in check_project(p, lib, standard_paper="A4") if f.severity in (ERROR, WARNING)]
     # stringy vedou přes společný rozvaděč každý na svůj střídač a DC vstup
     from envocad.model.calc import check_strings
     assert {(c.ref, c.inverter) for c in check_strings(p)} == {
@@ -126,7 +126,7 @@ def test_rfve_dc_common_split_jps():
     assert len(jps) == 5 and jps[0].name == JPS_AC_SHEET_NAME
     assert any(e.ref == "RFVE.DC" for e in jps[0].elements)
     lib = LibraryStore()
-    assert not [f for f in check_project(p, lib) if f.severity in (ERROR, WARNING)]
+    assert not [f for f in check_project(p, lib, standard_paper="A4") if f.severity in (ERROR, WARNING)]
     _root, nodes = build_tree(p, lib, dc=True)
     assert sum(n.element.symbol_id == "fve.pv_string" for n in nodes.values()) == 32
 
@@ -238,7 +238,7 @@ def test_re_unknown_main_in_is_f7_error():
     p = build_project(_NN1)
     hj = next(e for e in _re(p).elements if e.symbol_id == "fve.breaker_mcb")
     assert hj.attrs["in_"] == "" and "chain.re.main_in" in hj.attrs["in_unresolved"]
-    fs = [f for f in check_project(p, LibraryStore()) if f.code == "breaker_no_in" and f.target_id == hj.id]
+    fs = [f for f in check_project(p, LibraryStore(), standard_paper="A4") if f.code == "breaker_no_in" and f.target_id == hj.id]
     assert fs and fs[0].severity == ERROR
 
 
@@ -347,7 +347,7 @@ def test_rd_unknown_main_in_is_f7_error():
     p = build_project({**_HOUSE, "chain": {**_EXIST_RD, "rd": {}}})
     q = next(e for e in _board(p, "RD").elements if e.attrs.get("desc") == "hlavní vypínač")
     assert q.attrs["in_"] == "" and "chain.rd.main_in" in q.attrs["in_unresolved"]
-    fs = [f for f in check_project(p, LibraryStore()) if f.target_id == q.id and f.severity == ERROR]
+    fs = [f for f in check_project(p, LibraryStore(), standard_paper="A4") if f.target_id == q.id and f.severity == ERROR]
     assert [f.code for f in fs] == ["breaker_no_in"]
 
 
@@ -542,7 +542,7 @@ def test_close_gaps_and_stack_components():
 def _codes(p) -> dict[str, list]:
     from envocad.model.checks import check_project
     out: dict[str, list] = {}
-    for f in check_project(p, _lib()):
+    for f in check_project(p, _lib(), standard_paper="A4"):
         out.setdefault(f.code, []).append(f)
     return out
 
@@ -637,7 +637,7 @@ def test_chain_f7_clean(spec):
     from envocad.model.checks import ERROR, WARNING, check_project
     p = build_project(spec)
     lib = _lib()
-    bad = [(f.code, f.ref, f.text) for f in check_project(p, lib) if f.severity in (ERROR, WARNING)]
+    bad = [(f.code, f.ref, f.text) for f in check_project(p, lib, standard_paper="A4") if f.severity in (ERROR, WARNING)]
     assert bad == []
     assert [(s.name, a, b) for s in p.sheets if not s.is_switchboard for a, b in _crossings(p, s, lib)] == []
 
@@ -733,7 +733,7 @@ def test_eps_changeover_in_house(extra):
     assert any(w.touches(load.id) and "XB1" in (w.a.port, w.b.port) for w in s.wires)
     assert len([e for e in s.elements if e.symbol_id == "fve.interrupt" and e.ref == "EPS-T1"]) == 2
     lib = _lib()
-    bad = [(f.code, f.ref, f.text) for f in check_project(p, lib) if f.severity in (ERROR, WARNING)]
+    bad = [(f.code, f.ref, f.text) for f in check_project(p, lib, standard_paper="A4") if f.severity in (ERROR, WARNING)]
     assert bad == []
     assert [(a, b) for sh in p.sheets if not sh.is_switchboard for a, b in _crossings(p, sh, lib)] == []
 
@@ -798,7 +798,7 @@ def test_ac_groups_f7_clean(extra):
         spec["chain"] = {"hr": {"main_in": 250}, "hds": {"in_": 315}}
     p = build_project(spec)
     lib = _lib()
-    assert [(f.code, f.ref, f.text) for f in check_project(p, lib) if f.severity in (ERROR, WARNING)] == []
+    assert [(f.code, f.ref, f.text) for f in check_project(p, lib, standard_paper="A4") if f.severity in (ERROR, WARNING)] == []
     assert [(a, b) for s in p.sheets if not s.is_switchboard for a, b in _crossings(p, s, lib)] == []
     assert all(s.paper in ("A3", "A2") for s in p.sheets if not s.is_switchboard)
 

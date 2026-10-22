@@ -145,10 +145,10 @@ def test_check_reports_invalid_direction(lib):
     s = p.sheets[0]
     f = Element(FEED_SYMBOL, attrs={"ref": "X1", "dir": "nahoru"})
     s.elements.append(f)
-    codes = {x.code for x in check_project(p, lib)}
+    codes = {x.code for x in check_project(p, lib, standard_paper="A4")}
     assert "feed_dir" in codes
     f.attrs["dir"] = "out"
-    assert "feed_dir" not in {x.code for x in check_project(p, lib)}
+    assert "feed_dir" not in {x.code for x in check_project(p, lib, standard_paper="A4")}
 
 
 # ---- migrace v12 → v13 -------------------------------------------------------------------------------------------
@@ -176,7 +176,7 @@ def test_v12_project_opens_with_same_port_positions(lib):
                 got[f"{w.id}:{end.element_id}:{end.port}"] = [round(x, 3), round(y, 3),
                                                               place_dir(sym.port(end.port).dir, e.rotation, e.mirror)]
     assert got == expected
-    findings = check_project(p, lib)
+    findings = check_project(p, lib, standard_paper="A4")
     assert not [f for f in findings if f.code in ("bad_port", "dangling", "symbol", "feed_dir")]
     # RVN: přívod z DS byl sb.feed_in rot 180 → sb.feed rot 0 (port nahoře, kabel zespodu)
     rvn = next(s for s in p.sheets if s.loc == "RVN")
@@ -334,7 +334,7 @@ def test_block_ports_split_by_direction(lib):
     assert {(q.name, q.dir) for q in sym.ports} == {("X1", "W"), ("X2", "E")}
     assert x1.attrs["from"].startswith("W1 T1:AC") and "to" not in x1.attrs
     assert x2.attrs["to"].startswith("W2 DS:1") and "from" not in x2.attrs
-    assert not [f for f in check_project(p, lib) if f.code in ("bad_port", "feed_unlinked")]
+    assert not [f for f in check_project(p, lib, standard_paper="A4") if f.code in ("bad_port", "feed_unlinked")]
 
 
 def test_feed_dir_followups(lib):
@@ -467,12 +467,12 @@ def test_ac_template_from_below(lib):
         blk = Element("fve.switchboard", 100, 100, attrs={"ref": "R1"})
         p.sheets[0].elements.append(blk)
         sb = p.create_switchboard_sheet(blk)
-        apply_template(p, sb, "ac_fve", {"n_out": "2", "distribution": dist}, lib=lib)
+        apply_template(p, sb, "ac_fve", {"n_out": "2", "distribution": dist}, lib=lib, standard_paper="A4")
         feeds = [e for e in sb.elements if is_feed(e)]
         assert {e.rotation for e in feeds} == {0} and len({e.y for e in feeds}) == 1
         assert next(e for e in sb.elements if e.symbol_id == "sb.main_switch").rotation == 90
         assert not _crossings(p, sb, lib)
-        assert not [f for f in check_project(p, lib) if f.sheet_id == sb.id and f.severity in ("chyba", "varování")]
+        assert not [f for f in check_project(p, lib, standard_paper="A4") if f.sheet_id == sb.id and f.severity in ("chyba", "varování")]
 
 
 def test_no_wire_crossings_on_generated_switchboards(lib):

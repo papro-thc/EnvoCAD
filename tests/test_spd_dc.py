@@ -47,7 +47,7 @@ def test_spd_branch_leaves_from_disconnector_terminal(route_box, lib):
     portu se zkosením 45°; konec „b“ se trasuje od svého portu a obrátí."""
     p, sb = route_box
     from envocad.model.multipole_geometry import multipole_geometry
-    g = multipole_geometry(p, sb, lib)
+    g = multipole_geometry(p, sb, lib, standard_paper="A4")
     poles = {e.id: mp.element_poles(sb, e, element_symbol(p, e, lib)) for e in sb.elements}
     for eid, ep in poles.items():
         ep.origin = g.origins.get(eid, ep.origin)

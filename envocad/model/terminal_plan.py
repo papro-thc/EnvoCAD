@@ -202,12 +202,12 @@ def layout_plan_pages(plans: list[StripPlan], inner: tuple[float, float, float, 
     return pages
 
 
-def sheet_plan_pages(project: Project, sheet: Sheet, plans: list[StripPlan] | None = None
-                     ) -> tuple[tuple[float, float], list[list[PlanChunk]]]:
+def sheet_plan_pages(project: Project, sheet: Sheet, plans: list[StripPlan] | None = None, *,
+                     standard_paper: str) -> tuple[tuple[float, float], list[list[PlanChunk]]]:
     """Plán svorkovnice listu rozmístěný na strany formátu vícepólu listu (`multipole.page_size`, list rozvaděče
-    výchozí A4 na šířku). Vrací (rozměr strany, strany)."""
+    bez volby formát firemního standardu `standard_paper`, výchozí A4 na šířku). Vrací (rozměr strany, strany)."""
     from envocad.model.frame import inner_box
-    size = mp.page_size(sheet)
+    size = mp.page_size(sheet, standard_paper=standard_paper)
     if plans is None:
         plans = terminal_plan(project, sheet)
     return size, layout_plan_pages(plans, inner_box(*size))

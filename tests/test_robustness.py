@@ -74,7 +74,7 @@ def test_wire_to_missing_port_is_orphan_and_reported(lib, tmp_path):
     s.wires.append(Wire(WireEnd(g.id, "ZZ"), WireEnd(t.id, "DC1"), attrs={"ref": "W1"}))
     sym = element_symbol(p, g, lib)
     assert "ZZ" in sym.orphan_ports and g.port_pos(sym, "ZZ")       # žádný KeyError
-    fs = check_project(p, lib)
+    fs = check_project(p, lib, standard_paper="A4")
     assert any(f.code == "bad_port" and f.ref == "W1" for f in fs)
     _dxf(p, lib, tmp_path)
     from envocad.model.routing import route_sheet
@@ -90,7 +90,7 @@ def test_unknown_symbol_gets_placeholder_and_check(lib, tmp_path):
     assert sym.placeholder
     used = {end.port for w in p.sheets[0].wires for end in (w.a, w.b) if end.element_id == e.id}
     assert used and used <= {pt.name for pt in sym.ports}
-    fs = check_project(p, lib)
+    fs = check_project(p, lib, standard_paper="A4")
     assert any(f.code == "symbol" and "Neznámá značka x.unknown" in f.text for f in fs)
     assert not any(f.code == "bad_port" and f.target_id in {w.id for w in p.sheets[0].wires if w.touches(e.id)}
                    for f in fs)
@@ -115,7 +115,7 @@ def test_switchboard_block_without_sheet_keeps_wires(lib, tmp_path):
     sym = element_symbol(p, block, lib)
     used = {end.port for w in jps.wires for end in (w.a, w.b) if end.element_id == block_id}
     assert used <= set(sym.orphan_ports)
-    bad = [f for f in check_project(p, lib) if f.code == "bad_port"]
+    bad = [f for f in check_project(p, lib, standard_paper="A4") if f.code == "bad_port"]
     assert len(bad) >= n_wires
     p.save(tmp_path / "x.ecp")
     p2 = Project.load(tmp_path / "x.ecp")
@@ -208,7 +208,7 @@ def test_dangling_wire_and_duplicate_ids_load_and_check(lib, tmp_path):
     s = p.sheets[0]
     assert len({e.id for e in s.elements}) == len(s.elements)        # duplicity dostaly nová id
     assert len({w.id for w in s.wires}) == len(s.wires)
-    fs = check_project(p, lib)
+    fs = check_project(p, lib, standard_paper="A4")
     assert "dangling" in _codes(fs)
     clean = without_dangling(p)
     assert clean is not p and len(clean.sheets[0].wires) < len(s.wires) and len(p.sheets[0].wires) == len(s.wires)
@@ -367,7 +367,7 @@ def _jps_with_switchboard() -> Project:
     s.elements += [t, blk]
     s.wires.append(Wire(WireEnd(t.id, "AC"), WireEnd(blk.id, "1"), attrs={"ref": "W2"}))
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"}, standard_paper="A4")
     sync_feed_links(p)
     if not sb.layout.placements:
         sb.layout = Layout(rows=3)

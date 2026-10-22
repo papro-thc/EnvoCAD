@@ -573,10 +573,11 @@ def _pinned_paper(sheet) -> tuple[str, str]:
     v souřadnicích stran, proto se dosud platný formát (firemní standard) zapíše k listu (`Sheet.mp_paper`) –
     pozdější změna standardu je neposune na jiné místo."""
     from envocad.model.multipole import paper_choice
+    from envocad.settings import switchboard_paper
     old = getattr(sheet, "mp_paper", "")
     if not sheet.is_switchboard:     # vícepól listu JPS má vždy formát listu
         return old, old
-    return old, old or paper_choice(sheet)
+    return old, old or paper_choice(sheet, switchboard_paper())
 
 
 class MoveMultipoleCommand(QUndoCommand):
