@@ -342,8 +342,9 @@ def layout_findings(project: Project, lib=None) -> list[Finding]:
     `outside_enclosure`; rozložení ho kreslí mezi nerozmístěnými, po zvětšení počtu řad se umístění vrátí.
     Přetečení řady a překryvy přístrojů (`layout_problems`) – WARNING `layout_overflow` / `layout_overlap`.
     Rozměry z artiklu / atributů (`device_size.size_problems`) – WARNING `layout_height` / `layout_enclosure` /
-    `layout_depth`."""
-    from envocad.model.device_size import size_problems
+    `layout_depth`. Artikl můstku (`bridges.bridge_findings`) – WARNING `bridge_article`."""
+    from envocad.model.device_size import memo_lib, size_problems
+    lib = memo_lib(lib)
     out: list[Finding] = []
     for s in project.sheets:
         if not s.is_switchboard:
@@ -362,6 +363,8 @@ def layout_findings(project: Project, lib=None) -> list[Finding]:
             out.append(Finding(WARNING, s.id, s.name, e.id if e else "", False, e.ref if e else "", pr.text, pr.code))
         for sp in size_problems(s, project, lib):
             out.append(Finding(WARNING, s.id, s.name, sp.element.id, False, sp.element.ref, sp.text, sp.code))
+    from envocad.model.bridges import bridge_findings
+    out += bridge_findings(project, lib)      # artikl můstku (`bridge_id`): neznámý, není můstek, málo pólů
     return out
 
 

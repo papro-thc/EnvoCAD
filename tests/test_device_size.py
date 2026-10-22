@@ -222,31 +222,50 @@ def test_bridge_candidates():
     assert bridge_candidates([BRIDGE, TERM]) == [BRIDGE]
 
 
-def test_bom_bridge_article(monkeypatch):
-    """Můstek s `bridge_id` skupiny svorek: typ a výrobce artiklu ve výkazu materiálu; bez něj jako dřív."""
-    from envocad.export.reports import bom, bridge_article
+def test_bom_bridge_article_per_group(monkeypatch):
+    """Můstek bere `bridge_id` skupiny svorek, na které leží; póly artiklu vs. velikost skupiny: shoda = typ, víc =
+    „zkrátit“, míň = bez typu s poznámkou; neznámé id a artikl, který není můstek, hlásí F7."""
+    from envocad.export.reports import bom
     from envocad.model import terminal_plan
-    # svorky svorkovnice podle plánu (bez vodičů by plán byl prázdný) – tady jen čísla svorek X1
-    monkeypatch.setattr(terminal_plan, "strip_numbers", lambda project, sheet, strip: {"1", "2", "3"})
+    from envocad.model.bridges import CUT, NOT_BRIDGE, OK, POLES, UNKNOWN, bridge_findings, resolve_bridge
 
     class Lib(FakeLib):
         def get_symbol(self, sid):
             from envocad.model.symbol import placeholder_symbol
             return placeholder_symbol(sid)
-    lib = Lib(TERM, BRIDGE)
+    zqv10 = comp("zqv10", "accessory", terminal_kind="mustek", poles=10, manufacturer="Weidmüller", pn="ZQV 2.5N/10")
+    lib = Lib(TERM, BRIDGE, zqv10)
+    monkeypatch.setattr(terminal_plan, "strip_numbers", lambda project, sheet, strip: {str(i) for i in range(1, 13)})
     p, s, els = _board()
-    p.set_bridges("X1", [["1", "2"]], s)
-    _head, rows = bom(p, lib, s)
-    row = next(r for r in rows if r[1] == "Můstek svorek")
-    assert row[2:5] == ["", "", "2 pólů"]
+    x2 = el("sb.terminal_block", "term", ref="X1", terminal="7 8 9 10 11 12")
+    s.elements.append(x2)
+    p.set_bridges("X1", [["1", "2"], ["7", "8", "9"]], s)
+
+    def bridge_rows():
+        return [r for r in bom(p, lib, s)[1] if r[1] == "Můstek svorek"]
+    assert {(r[2], r[4]) for r in bridge_rows()} == {("", "2 pólů"), ("", "3 pólů")}     # bez bridge_id jako dřív
     els["X1"].attrs["bridge_id"] = "zqv"
-    assert bridge_article(s, "X1", lib) == ("ZQV 2.5N/2", "Weidmüller")
-    _head, rows = bom(p, lib, s)
-    row = next(r for r in rows if r[1] == "Můstek svorek")
-    assert row[2:6] == ["ZQV 2.5N/2", "Weidmüller", "2 pólů", 1]
+    x2.attrs["bridge_id"] = "zqv10"
+    assert resolve_bridge(s, "X1", ["1", "2"], lib).status == OK
+    assert resolve_bridge(s, "X1", ["7", "8", "9"], lib).status == CUT
+    rows = {r[4]: r for r in bridge_rows()}
+    assert rows["2 pólů"][2:4] == ["ZQV 2.5N/2", "Weidmüller"]
+    assert rows["3 pólů, zkrátit z 10 pólů"][2:4] == ["ZQV 2.5N/10", "Weidmüller"]
+    assert bridge_findings(p, lib) == []
+    # málo pólů → bez typu, F7
+    x2.attrs["bridge_id"] = "zqv"
+    r = resolve_bridge(s, "X1", ["7", "8", "9"], lib)
+    assert r.status == POLES and r.type == "" and "má 2 pólů" in r.note
+    assert any(r[2] == "" and "má 2 pólů" in r[4] for r in bridge_rows())
+    # artikl, který není můstek / neznámé id
+    x2.attrs["bridge_id"] = "term"
+    assert resolve_bridge(s, "X1", ["7", "8", "9"], lib).status == NOT_BRIDGE
     els["X1"].attrs["bridge_id"] = "neznamy"
-    assert bridge_article(s, "X1", lib) == ("neznamy", "")
-    assert bridge_article(s, "X1", None) == ("neznamy", "")
+    assert resolve_bridge(s, "X1", ["1", "2"], lib).status == UNKNOWN
+    found = bridge_findings(p, lib)
+    assert {f.code for f in found} == {"bridge_article"} and len(found) == 2
+    assert bridge_findings(p, None) == []
+    assert resolve_bridge(s, "X1", ["1", "2"], None).type == "neznamy"     # bez knihovny id jako typ
 
 
 # ---- skutečný katalog -------------------------------------------------------------------------------------------
@@ -317,3 +336,24 @@ def test_terminal_point_uses_article_height():
     without = terminal_point(p, s, f1, "1", "L1", "F1:1", params)
     assert with_art.y == pytest.approx(axis + 80 / 2) and without.y == pytest.approx(axis + DEVICE_HEIGHT_MM / 2)
     assert "výška přístroje z artiklu, jinak 45 mm" in params.describe()
+
+
+def test_tz_thermal_losses_decimal_comma(tmp_path):
+    """TZ: ΣPv se zdrojem a tabulka ztrát po přístrojích s desetinnou čárkou."""
+    from docx import Document
+
+    from envocad.export.tz_export import export_tz_docx
+    from envocad.library.store import LibraryStore
+    lib = LibraryStore(tmp_path / "lib.db")
+    s = Sheet(name="RFVE.AC", kind="switchboard")
+    f1 = el("fve.breaker_mcb", ref="F1", modules=1, in_=16, poles=1)
+    lib.component("hager-mbn116").apply_to(f1)
+    s.elements = [f1, el("fve.breaker_mcb", ref="F2", modules=1, in_=10, poles=1)]
+    p = Project(name="TZ", sheets=[s])
+    export_tz_docx(p, lib, tmp_path / "tz.docx")
+    doc = Document(str(tmp_path / "tz.docx"))
+    text = "\n".join(par.text for par in doc.paragraphs)
+    assert "Pv: 1× artikl, 1× odhad" in text and "Ae = " in text and "Ae = 0." not in text
+    cells = [[c.text for c in row.cells] for t in doc.tables for row in t.rows]
+    assert ["Přístroj", "Pv při In [W]", "Pv při 0,8·In [W]", "Zdroj"] in cells
+    assert ["F1", "2,44", "1,56", "artikl"] in cells

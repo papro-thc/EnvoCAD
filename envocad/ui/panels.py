@@ -230,8 +230,19 @@ class PropertiesPanel(QWidget):
             self._add_field(key, label, e.attrs.get(key, ""), placeholder=auto[key].replace(".", ","))
         if e.symbol_id in AUTO_WIDTH_TERMINALS:
             self._add_field("end_mm", "Koncové desky / zarážky [mm]", e.attrs.get("end_mm", ""), placeholder="0")
-            self._add_field("bridge_id", "Artikl můstku (id)", e.attrs.get("bridge_id", ""),
-                            placeholder="např. weidmuller-1527540000")
+            self._add_choice("bridge_id", "Artikl můstku", e.attrs.get("bridge_id", ""), self._bridge_items(e))
+
+    def _bridge_items(self, e) -> list[tuple[str, str]]:
+        """Nabídka artiklů můstku pro skupinu svorek: obecný můstek + `bridge_candidates` (s artiklem svorky jen
+        téhož výrobce). Uložené id mimo nabídku ukáže `ChoiceEdit` jako další položku."""
+        items = [("", "(obecný můstek bez artiklu)")]
+        if self._library is None:
+            return items
+        from envocad.library.components import bridge_candidates
+        term = self._library.component(e.component_id) if e.component_id else None
+        for c in bridge_candidates(self._library.components(category="accessory"), term):
+            items.append((c.id, f"{c.manufacturer} {c.part_number} – {c.name}"))
+        return items
 
     def _add_choice(self, key: str, label: str, value: str, items: list[tuple[str, str]]) -> None:
         """Nabídka hodnot atributu (`Attribute.choices`, např. směr přívodu/vývodu); změna = jeden příkaz undo."""

@@ -187,8 +187,9 @@ class Component:
 
 
 def is_bridge(c: Component) -> bool:
-    """Artikl můstku svorek (propojka, ZQV/WQV): `terminal_kind` = `mustek`."""
-    return (c.params.get("terminal_kind") or "").strip().lower() == "mustek"
+    """Artikl můstku svorek (propojka, ZQV/WQV): `terminal_kind` = `mustek` (`model.bridges.is_bridge_component`)."""
+    from envocad.model.bridges import is_bridge_component
+    return is_bridge_component(c)
 
 
 def bridge_candidates(components, terminal: Component | None = None) -> list[Component]:

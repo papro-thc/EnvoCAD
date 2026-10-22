@@ -173,24 +173,6 @@ def _terminal_qty(s: Sheet, e: Element) -> int:
     return n or len([x for x in terminal_numbers(e, 1) if x]) or 1
 
 
-def bridge_article(s: Sheet, strip: str, lib) -> tuple[str, str]:
-    """(typ, výrobce) můstku svorkovnice `strip` z artiklu v atributu `bridge_id` některé skupiny svorek (první
-    vyplněný); bez atributu ("", "") jako dřív, artikl mimo knihovnu → (id, ""). Katalog nemá vazbu svorka → můstek,
-    proto se můstek nevybírá automaticky."""
-    from envocad.model.multipole import is_terminal_block
-    bid = next((b for e in s.elements if is_terminal_block(e) and e.ref == strip
-                and (b := str(e.attrs.get("bridge_id") or "").strip())), "")
-    if not bid:
-        return "", ""
-    comp = None
-    if lib is not None and hasattr(lib, "component"):
-        try:
-            comp = lib.component(bid)
-        except Exception:  # noqa: BLE001 – výkaz se vytvoří i bez knihovny
-            comp = None
-    return (comp.part_number, comp.manufacturer) if comp is not None else (bid, "")
-
-
 @over_clean
 def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Výkaz materiálu – sloučeno podle přístroje/typu/výrobce/parametrů."""
@@ -239,6 +221,7 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
         # můstky: za každou skupinu můstků jeden (vícepólový) můstek dané svorkovnice; počítají se jen svorky, které
         # na svorkovnici existují (můstek na smazanou svorku se nepočítá, skupina pod 2 svorky odpadá)
         if s.is_switchboard or sheet is not None:
+            from envocad.model.bridges import resolve_bridge
             from envocad.model.terminal_plan import strip_numbers
             first = {}
             for e in s.elements:
@@ -247,12 +230,14 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
             for strip in sorted(first, key=natural_key):
                 existing = strip_numbers(project, s, strip)
                 tag = _tag(project, s, first[strip]) or strip
-                br_type, br_mfr = bridge_article(s, strip, lib)
                 for g in project.bridge_groups(strip, s):
                     g = [x for x in g if x in existing]
                     if len(g) < 2:
                         continue
-                    key = ("Můstek svorek", br_type, br_mfr, f"{len(g)} pólů")
+                    # artikl můstku z `bridge_id` skupiny svorek, na které můstek leží (`model/bridges.py`)
+                    br = resolve_bridge(s, strip, g, lib)
+                    params = f"{len(g)} pólů" + (f", {br.note}" if br.note else "")
+                    key = ("Můstek svorek", br.type, br.manufacturer, params)
                     groups.setdefault(key, []).append(f"{tag}:{'-'.join(g)}")
                     qty[key] = qty.get(key, 0) + 1
     rows = []
