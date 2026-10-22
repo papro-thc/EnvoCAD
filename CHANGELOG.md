@@ -1,6 +1,12 @@
 # Changelog
 
 ## Nevydáno
+- **Soustava DC 1000 / 1500 V** (`model/dc_system.py`, `generator/dc_voltage.py`): asistent stringů a „Navrhnout
+  stringy“ omezí délku stringu i nejnižším Un DC přístrojů ve stringové cestě (pojistkový odpojovač, svodič – Ucpv;
+  důvod „Un DC přístrojů 1000 V“); stejnou mez hlídá F7 `calc_string` (`calc.string_device_limits`, se zadanou
+  návrhovou t_min). Generátor podle Uoc stringů (nebo `dc.system_v` / standard `dc_system_v` = 1500) vybere
+  z katalogu DC přístroje 1500 V (2p pojistkový odpojovač, svodič DC stejného typu) a rozvaděč popíše „max. 1500 V
+  DC“; bez nich zůstane u 1000 V, zaloguje varování a F7 hlásí `dc_1500_missing` (info). Testy na fixture artiklech.
 - **Kontroly F7 z údajů artiklů** (`model/ratings.py`, `docs/design/kontroly_artiklu.md`): zkratová odolnost (Icu
   jističe vs. Ik rozvaděče `ik_ka`, Icw rozvaděče vs. Ik, Icu vs. Icw; horní odhad z `meta["ik_ka"]` / Sn a uk
   transformátoru jen jako informace), svodiče (AC Uc ≥ 1,1·Uo / √3·Uo podle sítě listu, DC Ucpv vs. Uoc stringu

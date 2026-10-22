@@ -39,7 +39,19 @@ String → `_find_inverter` (s `trail`) → průchozí prvky JPS + bloky DC rozv
 prvky dosažitelné z přívodu (`_board_reach`, stop na přívodech/vývodech a sběrnicích). Napětí: n·Uoc(t_min),
 režim optimizer `_uoc_capped`, fixed_voltage `u_string` střídače. Na prvku maximum ze stringů.
 
+## Soustava DC 1000 / 1500 V (`model/dc_system.py`, `generator/dc_voltage.py`)
+- Un DC přístroje: svodič Ucpv (`ucpv`, artikl `ucpv_v` / poznámka), jinak Uc; ostatní `un` / `un_v`.
+- Asistent (průvodce) i F7 `calc_string`: n_max = ⌊min(Umax střídače, Umax systému modulu, Un DC přístrojů) / Uoc(t_min)⌋;
+  průvodce z artiklů `dc.fuse_component` (jen s RFVE.DC) a `dc.spd_component`, projekt z prvků cesty stringu
+  (`calc.string_device_limits`; v F7 jen se zadanou návrhovou t_min, jinak `un_dc` jako INFO). „Navrhnout stringy“ mez dodrží.
+- Generátor po `pv.build`: `dc.system_v` > standard `dc_system_v` > 1000. 1500 → sada 1500 V; 1000 → když Uoc stringu
+  > Un DC přístrojů a katalog má sadu 1500 V (2p `fve.fuse_disconnect` – 1p držák by ve výkazu chyběl – a svodič DC
+  stejného typu), automaticky 1500 V; popis rozvaděče „max. 1500 V DC“. Bez sady: 1000 V, string ze zadání se nemění,
+  log + F7 `dc_1500_missing` (INFO). Bez DC rozvaděčů se mez neuplatní.
+
 ## Otevřené / data
+- Pojistkové vložky gPV 1500 V generátor jako artikl nedává (prvek nese jen In, vložka není samostatný prvek).
+- Katalog má zatím jen 1p držáky 1500 V (ETI EFH 10/14) – automatika je nepoužije, chybí 2p (nebo dvojice 1p ve výkazu).
 - Sloupce `ucpv_v` (DC SPD), `uw_kv` (střídače), `icw_ka`/`ipk_ka` (skříně) v katalogu chybí; Ik rozvaděče a
   `ik_ka` nejsou v dialogu skříně ani ve Vlastnostech projektu (jen atribut / parametr).
 - Kaskáda (záložní jištění) a Ipk vs. ip se nehodnotí; umístění SPD (vstup do objektu) neznáme.

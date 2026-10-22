@@ -484,6 +484,14 @@ při nejnižší návrhové teplotě (Vlastnosti projektu); když ji projekt nem
 | `terminal_in` | varování | In svorky < In nejbližšího jištění |
 | `un_ac` | chyba | Un přístroje < napětí sítě (3f přístroj sdružené, jinak fázové) |
 | `un_dc` | varování | Un přístroje DC < Uoc stringu při nejnižší teplotě (např. odpojovač 1000 V DC a string 20 × 49,5 V při −10 °C = 1083,6 V) |
+| `dc_1500_missing` | info | stringy nad 1000 V DC a v katalogu chybí DC přístroje pro soustavu 1500 V (2p pojistkový odpojovač, svodič DC) – generátor zůstal u 1000 V |
+| `calc_string` (Un DC) | chyba | Uoc stringu při zadané návrhové t_min > nejnižší Un DC přístrojů v jeho cestě (pojistkový odpojovač, odpínač, svorka, svodič – Ucpv); stejná hláška jako asistent průvodce |
+
+**Soustava DC 1000 / 1500 V.** Asistent stringů v průvodci počítá největší počet modulů i z Un DC přístrojů, které
+generátor do cesty stringu dá (pojistkový odpojovač v RFVE.DC, svodič DC; důvod „Un DC přístrojů 1000 V (EFH 10 DC
+2p 1000 V)“), a „Navrhnout stringy“ tuto mez dodrží. Generátor vybere DC přístroje 1500 V (popis rozvaděče „max.
+1500 V DC“), když je zadaná soustava 1500 V (`dc.system_v`, firemní standard `dc_system_v`), nebo automaticky, když
+Uoc stringu přesáhne Un DC přístrojů a katalog má 2pólový pojistkový odpojovač a svodič DC stejného typu na 1500 V.
 
 Připomínky (sekce 9):
 
