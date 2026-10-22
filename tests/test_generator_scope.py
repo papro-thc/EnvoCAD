@@ -28,12 +28,12 @@ def _lib():
 
 
 def _bad(p) -> list:
-    return [(f.code, f.ref, f.text) for f in check_project(p, _lib()) if f.severity in (ERROR, WARNING)]
+    return [(f.code, f.ref, f.text) for f in check_project(p, _lib(), standard_paper="A4") if f.severity in (ERROR, WARNING)]
 
 
 def _codes(p) -> dict[str, list]:
     out: dict[str, list] = {}
-    for f in check_project(p, _lib()):
+    for f in check_project(p, _lib(), standard_paper="A4"):
         out.setdefault(f.code, []).append(f)
     return out
 
@@ -312,7 +312,7 @@ def test_inverter_breaker_over_series_is_unresolved():
     sb = next(s for s in p.sheets if s.loc == "RFVE.AC")
     f = next(e for e in sb.elements if e.attrs.get("chain") == "inv")
     assert f.attrs["in_"] == "" and "nad řadou" in f.attrs["in_unresolved"]
-    assert any(x.code == "breaker_no_in" and x.severity == ERROR for x in check_project(p, _lib()))
+    assert any(x.code == "breaker_no_in" and x.severity == ERROR for x in check_project(p, _lib(), standard_paper="A4"))
 
 
 def test_main_switch_from_inverter_articles():
@@ -338,7 +338,7 @@ def test_cable_to_hr_from_raw_grid_or_fve_in():
     b = _blocks(p)
     w = next(w for w in p.sheets[0].wires if w.touches(b["RFVE.AC"].id) and w.touches(b["HR"].id))
     assert w.attrs["cable"] == "CYKY-J 5x6"
-    bad = [f.text for f in check_project(p, _lib()) if f.code == "calc_cable" and f.severity == ERROR]
+    bad = [f.text for f in check_project(p, _lib(), standard_paper="A4") if f.code == "calc_cable" and f.severity == ERROR]
     assert any("HR:X1" in t and "Iz" in t for t in bad), bad
 
 

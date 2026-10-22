@@ -61,7 +61,7 @@ class TerminalPlanScene(QGraphicsScene):
         from envocad.model.project import clean_view
         self.plans: list[StripPlan] = terminal_plan(*clean_view(self.project, self.sheet))
         std = switchboard_paper()
-        self.paper_size, self.page_chunks = sheet_plan_pages(self.project, self.sheet, self.plans, std)
+        self.paper_size, self.page_chunks = sheet_plan_pages(self.project, self.sheet, self.plans, standard_paper=std)
         self.paper_label = page_paper_label(self.sheet, standard_paper=std)
         w, h = self.paper_size
         n = len(self.page_chunks)

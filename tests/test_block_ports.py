@@ -59,12 +59,12 @@ def test_block_without_sheet_has_ports_from_attrs():
 def test_block_only_no_sheet_warning_and_ports_ok():
     """Blok jen s porty z atributů: žádné `no_sheet` ani `bad_port`, jen INFO `block_only`."""
     p, hr = _project()
-    found = check_project(p, _lib())
+    found = check_project(p, _lib(), standard_paper="A4")
     codes = {f.code: f.severity for f in found}
     assert "no_sheet" not in codes and "bad_port" not in codes
     assert codes.get("block_only") == INFO
     del hr.attrs["ports_in"], hr.attrs["ports_out"]
-    codes = {(f.code, f.severity) for f in check_project(p, _lib())}
+    codes = {(f.code, f.severity) for f in check_project(p, _lib(), standard_paper="A4")}
     assert ("no_sheet", WARNING) in codes and ("bad_port", ERROR) in codes     # bez atributů jako dřív
 
 

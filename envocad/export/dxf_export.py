@@ -287,7 +287,7 @@ def export_multipole_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path
         sheet = next((s for s in clean.sheets if s.id == sheet.id), sheet)
         project = clean
     from envocad.settings import switchboard_paper
-    g = multipole_geometry(project, sheet, lib, switchboard_paper())
+    g = multipole_geometry(project, sheet, lib, standard_paper=switchboard_paper())
     w, h = g.page_size
     path = Path(path)
     if path.suffix.lower() != ".dxf":     # bez přípony (i „projekt.v2“) se doplní – stejně pro jeden i více souborů

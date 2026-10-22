@@ -65,7 +65,7 @@ def test_string_and_cable_checks():
     sel = calc.check_selectivity(p)
     pair = next(x for x in sel if x[0] == "F1")
     assert pair[1] == "F2" and "menší In" in pair[4]           # F2 (63 A) je od sítě nadřazený F1 (80 A)
-    codes = {f.code for f in check_project(p, LibraryStore())}
+    codes = {f.code for f in check_project(p, LibraryStore(), standard_paper="A4")}
     assert {"calc_cable", "calc_selectivity"} <= codes
     from envocad.export import reports
     _, rows = reports.calculations(p, LibraryStore())
@@ -199,7 +199,7 @@ def test_check_strings_design_temperatures_and_warning():
     g.attrs["imp"] = "13.2"
     t.attrs.update({"isc_mppt_max": "40", "i_mppt_max": "10"})
     p.meta.pop("pv_t_min")
-    fs = [f for f in check_project(p, LibraryStore()) if f.code == "calc_string"]
+    fs = [f for f in check_project(p, LibraryStore(), standard_paper="A4") if f.code == "calc_string"]
     assert len(fs) == 1 and fs[0].severity == WARNING and "omezení výkonu" in fs[0].text
 
 
@@ -262,7 +262,7 @@ def test_capacity_issue_more_strings_than_inputs():
     msg = "Střídač T1 má jen 6 vstupů (MPPT × stringů), zapojeno 8 stringů"
     assert [sc.ref for sc in st if msg in sc.issues] == ["G7", "G8"]
     assert [sc.mppt for sc in st] == [0, 0, 1, 1, 2, 2, 3, 3]
-    fs = [f for f in check_project(p, LibraryStore()) if f.code == "calc_string" and msg in f.text]
+    fs = [f for f in check_project(p, LibraryStore(), standard_paper="A4") if f.code == "calc_string" and msg in f.text]
     assert len(fs) == 2 and all(f.severity == ERROR for f in fs)
 
 
@@ -303,7 +303,7 @@ def test_parse_temperature_and_invalid_meta_warning():
     p.meta["pv_t_min"] = "mráz"
     assert calc.design_temperatures(p) == (-10.0, 75.0)
     assert calc.design_temperature_issues(p) == ["Návrhová teplota min „mráz“ není číslo – počítá se s -10 °C"]
-    fs = [f for f in check_project(p, LibraryStore()) if f.code == "calc_temp"]
+    fs = [f for f in check_project(p, LibraryStore(), standard_paper="A4") if f.code == "calc_temp"]
     assert len(fs) == 1 and fs[0].severity == WARNING and "není číslo" in fs[0].text
 
 
@@ -515,7 +515,7 @@ def test_check_strings_parallel_and_modes():
     assert st["G1"].mppt == st["G2"].mppt == 0 and st["G3"].mppt == 1
     assert st["G1"].issues == st["G2"].issues == ["nestejná délka stringů na MPPT (20 a 18 modulů, ΔUmpp 10 %)"]
     assert st["G3"].ok and st["G1"].mode == "classic"
-    fs = [f for f in check_project(p, LibraryStore()) if f.code == "calc_string"]
+    fs = [f for f in check_project(p, LibraryStore(), standard_paper="A4") if f.code == "calc_string"]
     assert len(fs) == 2 and all(f.severity == WARNING for f in fs)
     # orientace ze stringu
     g = {e.ref: e for e in p.sheets[0].elements if e.symbol_id == "fve.pv_string"}

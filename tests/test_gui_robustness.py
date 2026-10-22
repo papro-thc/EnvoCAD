@@ -90,7 +90,7 @@ def test_delete_switchboard_sheet_keeps_block_and_project_openable(app, lib, dia
     used = {end.port for x in jps.wires for end in (x.a, x.b) if end.element_id == block_id}
     assert used and used <= set(sc.element_items[block_id].symbol.orphan_ports)
     assert all(x.id in sc.wire_items for x in jps.wires if x.touches(block_id))
-    assert any(f.code == "bad_port" for f in check_project(p, lib))
+    assert any(f.code == "bad_port" for f in check_project(p, lib, standard_paper="A4"))
     p.save(tmp_path / "del.ecp")
     w2 = _win(lib, Project.load(tmp_path / "del.ecp"))
     assert w2.tabs.count() == len(p.sheets)

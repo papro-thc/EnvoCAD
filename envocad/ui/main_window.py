@@ -1165,7 +1165,7 @@ class MainWindow(QMainWindow):
     def _check_now(self) -> None:
         from envocad.model.checks import check_project
         from envocad.settings import switchboard_paper
-        self._findings = check_project(self.project, self.library, switchboard_paper())
+        self._findings = check_project(self.project, self.library, standard_paper=switchboard_paper())
         self.checks_panel.set_findings(self._findings)
         self._update_status()
 

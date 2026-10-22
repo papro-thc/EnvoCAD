@@ -667,7 +667,7 @@ class MultipoleScene(QGraphicsScene):
         from envocad.model.multipole_geometry import multipole_geometry
         self._geo = None
         try:
-            self._geo = multipole_geometry(self.project, self.sheet, self.library, std)
+            self._geo = multipole_geometry(self.project, self.sheet, self.library, standard_paper=std)
         except Exception:
             log.exception("vícepól: rozmístění z modelu selhalo")
         bus_taps: dict[tuple[str, int], list[tuple[float, float]]] = {}

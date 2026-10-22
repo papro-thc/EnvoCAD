@@ -10,7 +10,6 @@ from dataclasses import dataclass
 
 from envocad.model.busbar import B1_X, BusLayout
 from envocad.model.feed import FEED_SYMBOL, normalize_legacy_objects
-from envocad.model.multipole import DEFAULT_SWITCHBOARD_PAPER
 from envocad.model.project import Element, Project, Sheet, Wire, WireEnd
 
 AC_CONDUCTORS = ["L1", "L2", "L3", "N", "PE"]
@@ -338,7 +337,7 @@ def template(tid: str) -> Template:
 
 
 def apply_template(project: Project, sheet: Sheet, tid: str, params: dict[str, str] | None = None,
-                   lib=None, standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) -> None:
+                   lib=None, *, standard_paper: str) -> None:
     """Vloží šablonu do listu. Neplatný parametr → ValueError s českou hláškou; vestavěné šablony parametry ověří
     dřív, než cokoli vloží (list zůstane beze změny). S knihovnou (`lib`) se list zvětší, když obsah přetéká formát
     (`frame.grow_sheet_to_content` – např. DC rozvaděč s 9 stringy po `DC_STRING_PITCH` se na A3 nevejde);
@@ -351,4 +350,4 @@ def apply_template(project: Project, sheet: Sheet, tid: str, params: dict[str, s
     normalize_legacy_objects(sheet.elements)
     if lib is not None:
         from envocad.model.frame import grow_sheet_to_content
-        grow_sheet_to_content(project, sheet, lib, standard_paper)
+        grow_sheet_to_content(project, sheet, lib, standard_paper=standard_paper)

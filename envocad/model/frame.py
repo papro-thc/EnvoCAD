@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from datetime import datetime as _datetime
 
 from envocad.model.grid import snap as _snap
-from envocad.model.multipole import DEFAULT_SWITCHBOARD_PAPER
 from envocad.model.project import Project, Sheet
 
 MARGIN = 10.0        # okraj rámečku
@@ -294,7 +293,7 @@ def _fits_unmoved(boxes: list, w: float, h: float) -> bool:
     return not any(_boxes_hit(b, tb) for b in boxes)
 
 
-def grow_sheet_to_content(project: Project, sheet: Sheet, lib, standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) -> bool:
+def grow_sheet_to_content(project: Project, sheet: Sheet, lib, *, standard_paper: str) -> bool:
     """Zvětší formát listu, když obsah přetéká vnitřní rámeček nebo leží v popisovém poli (např. DC rozvaděč
     s 9 stringy po 50 mm na A3). Obsah, který se vejde, se nemění (formát ani polohy); jinak nejmenší větší formát
     na šířku (A3…A0), do kterého se obsah vejde bez posunu, a teprve když žádný, `fit_sheet_to_content` (s posunem).
@@ -328,7 +327,7 @@ LONG_PAPERS = {
 }
 
 
-def grow_sheet_long(project: Project, sheet: Sheet, lib, standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) -> bool:
+def grow_sheet_long(project: Project, sheet: Sheet, lib, *, standard_paper: str) -> bool:
     """Zvětší list jen do šířky (prodloužený formát na šířku, ISO 5457 A4×n / A3×n se stejnou výškou), když obsah
     přetéká jen vpravo a na výšku se vejde – široký list rozvaděče (RFVE s mnoha stringy) pak nedostane A0. Obsah se
     neposouvá. False = list se vejde beze změny, výška nemá prodloužený formát nebo obsah přetéká i jinam.

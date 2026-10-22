@@ -217,7 +217,7 @@ def test_grid_coords_and_interrupt_points():
     assert interrupt_partner(p, a)[1] is b
     assert element_xref(p, s1, a) == "→ /2.A2" and element_xref(p, s2, b) == "→ /1.F3"
     assert element_xref(p, s2, lone) == "→ ?"
-    assert any(f.code == "interrupt_alone" and f.ref == "N-X" for f in check_project(p, LibraryStore()))
+    assert any(f.code == "interrupt_alone" and f.ref == "N-X" for f in check_project(p, LibraryStore(), standard_paper="A4"))
     # křížový odkaz vodiče na vývod má i souřadnici
     t = Element("fve.inverter", 50, 150, attrs={"ref": "T1"})
     blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
@@ -253,7 +253,7 @@ def test_coil_contacts_mirror():
     assert element_xref(p, s1, c_no) == "→ /2.B5" and element_xref(p, s1, lone) == "→ ?"
     assert "K1" in p.used_refs() and p.next_ref("K") == "K2"   # kontakty označení neblokují ani nezdvojují
     assert default_conductors(k1, "A1", c_no, "14") == ["L"]
-    codes = {(f.code, f.ref) for f in check_project(p, LibraryStore())}
+    codes = {(f.code, f.ref) for f in check_project(p, LibraryStore(), standard_paper="A4")}
     assert ("contact_alone", "K9") in codes and not any(c == "dup_ref" for c, _ in codes)
     _, rows = reports.device_list(p, LibraryStore())
     k = next(r for r in rows if r[0] == "K1")
@@ -290,13 +290,13 @@ def test_potentials_and_branch():
     l1 = next(n for n in ns if "L1" in n.conductors)
     assert {e.ref for _, e, _, _ in l1.members} >= {"X1", "F1", "F2"} and l1.name == "L1 (W1)"
     assert net_of_wire(p, lib, wb.id)["N"].name == next(n for n in ns if "N" in n.conductors).name == "N (W1)"
-    assert not [f for f in check_project(p, lib) if f.code in ("pot_short", "junction_free")]
+    assert not [f for f in check_project(p, lib, standard_paper="A4") if f.code in ("pot_short", "junction_free")]
     # zkrat potenciálů: N spojené s L1 přes další uzel
     bad = Wire(WireEnd(f1.id, "2"), WireEnd(f2.id, "2"), conductors=["L1"], attrs={"ref": "W3"})
     s.wires.append(bad)
     bad2 = Wire(WireEnd(f1.id, "2"), WireEnd(f2.id, "2"), conductors=["N"], attrs={"ref": "W4"})
     s.wires.append(bad2)
-    fs = [f for f in check_project(p, lib) if f.code == "pot_short"]
+    fs = [f for f in check_project(p, lib, standard_paper="A4") if f.code == "pot_short"]
     assert fs and fs[0].severity == ERROR and "N spojeno s L1" in fs[0].text
 
 

@@ -102,7 +102,7 @@ def test_vn_connection_checks_clean(lib):
     for kw in ({"metering": "nn"}, {"metering": "vn"}, {"station": "sloup"}, {"station": "kobky"}):
         p = _vn(**kw)
         re_id = _board(p, "RE").id
-        fs = check_project(p, lib)
+        fs = check_project(p, lib, standard_paper="A4")
         # vícepól elektroměru (proud S1/S2 a napětí L1–N do dvou portů jedné značky) zatím popisek kříží žílou
         assert not [f.text for f in fs if f.code in noisy and not (f.code == "mp_text_overlap" and f.sheet_id == re_id)], kw
         assert not [f for f in fs if f.code == "calc_selectivity" and "menší In" in f.text], kw

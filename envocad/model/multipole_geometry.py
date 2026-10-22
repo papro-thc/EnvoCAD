@@ -171,8 +171,7 @@ def _layout(sheet: Sheet, poles: dict[str, mp.ElementPoles], size: tuple[float, 
     return layout, page_of, n_pages
 
 
-def multipole_geometry(project: Project, sheet: Sheet, lib,
-                       standard_paper: str = mp.DEFAULT_SWITCHBOARD_PAPER) -> MultipoleGeometry:
+def multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: str) -> MultipoleGeometry:
     """Texty a čáry vícepólu listu rozvaděče (souřadnice pohledu, strany pod sebou).
 
     Strana má formát `multipole.paper_choice` (list rozvaděče bez volby `mp_paper` formát firemního standardu
@@ -788,12 +787,12 @@ def _place_conductor_labels(g: MultipoleGeometry, pending) -> None:
         g.texts.append((box, owner, f"popisek žíly {key[1]}"))
 
 
-def multipole_text_overlaps(project: Project, sheet: Sheet, lib, geometry: MultipoleGeometry | None = None,
-                            standard_paper: str = mp.DEFAULT_SWITCHBOARD_PAPER) -> list[tuple[str, str, str]]:
+def multipole_text_overlaps(project: Project, sheet: Sheet, lib, geometry: MultipoleGeometry | None = None, *,
+                            standard_paper: str) -> list[tuple[str, str, str]]:
     """Překryvy ve vícepólu: text přes cizí text, text přes cizí čáru (žílu, značku, sběrnici, štítek).
     [(vlastník textu, vlastník druhého, popis)] – vlastník = id prvku nebo vodiče (žíla „id#L1“ se hlásí jako vodič);
     každá dvojice jen jednou."""
-    g = geometry or multipole_geometry(project, sheet, lib, standard_paper)
+    g = geometry or multipole_geometry(project, sheet, lib, standard_paper=standard_paper)
     found: dict[tuple, tuple[str, str, str]] = {}
     tgrid = _IndexGrid()
     for i, (b, _o, _w) in enumerate(g.texts):

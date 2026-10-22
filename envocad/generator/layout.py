@@ -20,7 +20,8 @@ def _grow_switchboards(p: Project, sheets: list[Sheet]) -> bool:
     std = switchboard_paper()            # formát vícepólu, který list dostane před zvětšením (`Sheet.mp_paper`)
     changed = False
     for sh in sheets:
-        changed = (grow_sheet_long(p, sh, lib, std) or grow_sheet_to_content(p, sh, lib, std)) or changed
+        changed = (grow_sheet_long(p, sh, lib, standard_paper=std)
+                   or grow_sheet_to_content(p, sh, lib, standard_paper=std)) or changed
     return changed
 
 
