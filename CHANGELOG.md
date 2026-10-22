@@ -11,6 +11,9 @@
   - **Model nečte uživatelská nastavení**: formát stran vícepólu a název firmy předává volající (parametry
     `standard_paper`, `company`; `settings.switchboard_paper`, `settings.company`, `settings.frame_enabled`).
     `multipole.standard_switchboard_paper` a `frame.frame_enabled` zrušeny.
+    U vstupních funkcí (`check_project`, `multipole_geometry`, `multipole_text_overlaps`, `sheet_plan_pages`,
+    `apply_template`, `grow_sheet_*`) je `standard_paper` povinný keyword-only parametr.
+  - Volné texty bez id dostanou při načtení stálé id „<list>.t<n>“, duplicitní id textů se opraví deterministicky.
   - **Úklid**: zaokrouhlení na mřížku v `model/grid.py`, odstraněn nepoužitý `ui/render.elide_text`, pole uzlu
     jednopólového schématu deklarovaná v dataclass. Výstup generátoru beze změny.
 - **Python 3.14** podporován (`requires-python` <3.15); celá sada testů prošla na Pythonu 3.14 s PySide6 6.12.
