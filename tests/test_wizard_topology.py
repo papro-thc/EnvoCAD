@@ -376,3 +376,34 @@ def test_wizard_screenshots(app):
     shot(d, "firma_nn")
     shot(_wizard("house", "nn"), "rd")
     shot(_wizard("company", "vn"), "vn")
+
+
+# ---- Ik v místě připojení -------------------------------------------------------------------------------------
+def test_wizard_ik_empty_changes_nothing(app):
+    d = _wizard()
+    assert "ik_ka" not in d.spec()["site"] and not d.topo.has_changes()
+    p = build_project(d.spec())
+    assert "ik_ka" not in p.meta and not any("ik_ka" in e.attrs for e in _blocks(p).values())
+
+
+def test_wizard_ik_validation_czech(app):
+    d = _wizard()
+    d.topo.ik_ka.setText("abc")
+    assert any("Ik v místě připojení" in e and "není číslo" in e for e in d.errors())
+    d.topo.ik_ka.setText("-3")
+    assert any("mimo rozsah" in e for e in d.errors())
+    assert d.topo.errors_by_page()[0]          # chyba patří kroku „Objekt a připojení“
+
+
+def test_wizard_ik_written_to_meta_and_blocks(app):
+    from envocad.model import ratings
+    d = _wizard()
+    d.topo.ik_ka.setText("8,5")
+    assert d.errors() == [] and d.topo.has_changes()
+    p = build_project(d.spec())
+    assert p.meta["ik_ka"] == "8,5"
+    blocks = _blocks(p)
+    given = [r for r, e in blocks.items() if e.attrs.get("ik_ka") == "8,5"]
+    assert {"RFVE.AC", "HR"} <= set(given), given
+    assert not any(e.attrs.get("ik_ka") for r, e in blocks.items() if r.startswith("RFVE.DC"))
+    assert ratings.upstream_ik(p)[0] == 8.5
