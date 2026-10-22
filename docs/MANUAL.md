@@ -369,7 +369,7 @@ krátké texty (DC rozvaděč) dají dva pásy na stranu A4. Export do PDF, stej
 
 ### Rozložení a skříň
 `Ctrl+L` otevře rozložení: DIN lišty podle řad, přístroje se přetahují na lišty (snap 0,5 modulu), vpravo
-panel **skříně**: označení, řady, moduly na řadu, rozměry, rozteč řad, IP/IK, montáž, materiál, dveře, Un/In/Icw,
+panel **skříně**: označení, řady, moduly na řadu, rozměry, rozteč řad, IP, IK (mechanická odolnost krytu, ne zkrat), montáž, materiál, dveře, Un/In, Icw [kA] (1 s), Ipk [kA] a Ik v rozvaděči [kA],
 síť, rezerva, teplota okolí, nejnižší teplota okolí (nepovinné), RDF (`Ctrl+Alt+K` otevře totéž jako dialog; skříň lze
 vybrat z artiklů).
 **Rozměry přístrojů z artiklů.** Přístroj s artiklem má v rozložení skutečnou šířku a výšku z katalogu (Hager MBN
@@ -498,6 +498,16 @@ při nejnižší návrhové teplotě (Vlastnosti projektu). **Jedna příčina =
 hlásí podkročení Un / Ucpv přístrojů v cestě stringu jen `calc_string` (chyba, všechny takové přístroje v jedné
 hlášce; totéž ukáže TZ i výkaz Výpočty), `un_dc` / `spd_ucpv` je znovu nehlásí. Když projekt návrhovou teplotu nemá,
 počítá se s −10 °C a `un_dc` / `spd_ucpv` jsou jen jedna informace na list.
+
+**Kde zadat zkratové údaje** (kontroly `sc_*` bez nich nic nehlásí, jen `sc_upstream` počítá z trafa):
+
+| Údaj | Kde | Klíč |
+|---|---|---|
+| Ik v místě připojení [kA] (vyjádření DS / výpočet; prázdné = odhad z transformátoru Sn, uk) | Soubor → Vlastnosti projektu; v průvodci krok „Objekt a připojení“ (zapíše se i do bloků HR, RE, RFVE.AC) | `meta["ik_ka"]` |
+| Ik v rozvaděči [kA] | panel / dialog skříně („Ik v rozvaděči“), nebo Vlastnosti bloku rozvaděče (atribut „Ik v rozvaděči“) | parametr skříně `ik_ka`, atribut bloku `ik_ka` (blok má přednost) |
+| Icw [kA] (1 s), Ipk [kA] | panel / dialog skříně | parametr skříně `icw`, `ipk` |
+
+Pozor: pole „IK“ u skříně je mechanická odolnost krytu (IK07…), se zkratovým proudem nesouvisí.
 
 | Kód | Závažnost | Význam |
 |---|---|---|
