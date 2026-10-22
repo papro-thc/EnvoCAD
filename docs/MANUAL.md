@@ -347,7 +347,13 @@ můstek) a editace **můstků** – jedna skupina na řádek, čísla svorek pom
 ve vícepólu, v blokovém schématu čárkovaně mezi skupinami, a jsou ve výkazech a BOM. Můstky patří listu rozvaděče –
 svorkovnice X1 v RDC1 a X1 v RFVE.AC jsou dvě různé. Přepnutí svorkovnice v dialogu rozpracované můstky nezahodí;
 OK uloží změny všech svorkovnic jedním krokem undo a odmítne číslo svorky, které na svorkovnici není.
-Šířka skupiny svorek v rozložení = počet svorek × 6,2 mm, pokud atribut „Šířka skupiny“ nevyplníš.
+Šířka skupiny svorek v rozložení = počet svorek × šířka svorky z artiklu (`width_mm`, např. Weidmüller A2C 1.5 =
+3,5 mm), bez artiklu (nebo když artikl šířku nemá – Bečov, ELEMAN) počet svorek × 6,2 mm; ruční „Šířka skupiny“
+(moduly) má přednost. Koncové desky a zarážky přidá pole „Koncové desky / zarážky [mm]“ v panelu Vlastnosti (katalog
+jejich šířku nemá, výchozí 0). **Můstek jako artikl**: do pole „Artikl můstku (id)“ skupiny svorek napiš id artiklu
+můstku (např. `weidmuller-1527540000` = ZQV 2.5N/2); výkaz materiálu pak u můstků této svorkovnice uvede typ
+a výrobce. Bez něj zůstane obecný řádek „Můstek svorek“ (můstek se nevybírá automaticky – katalog nemá vazbu svorka →
+můstek).
 
 `Ctrl+T` (Svorky vybraného vodiče) přiřadí svorky ručně po žílách (`X1:3`, `F2:1`) – pro PE lištu a
 prvky bez skupin svorek.
@@ -365,8 +371,16 @@ krátké texty (DC rozvaděč) dají dva pásy na stranu A4. Export do PDF, stej
 panel **skříně**: označení, řady, moduly na řadu, rozměry, rozteč řad, IP/IK, montáž, materiál, dveře, Un/In/Icw,
 síť, rezerva, teplota okolí, nejnižší teplota okolí (nepovinné), RDF (`Ctrl+Alt+K` otevře totéž jako dialog; skříň lze
 vybrat z artiklů).
-Panel ukazuje obsazenost a **odhad oteplení** podle IEC TR 60890 (ΣPv z atributů `p_loss_w` nebo odhad
-z In a pólů, chladicí plocha podle montáže, Δt uprostřed a v horní části, kritický přístroj, hodnocení). Parametry
+**Rozměry přístrojů z artiklů.** Přístroj s artiklem má v rozložení skutečnou šířku a výšku z katalogu (Hager MBN
+1 M × 83 mm); kompaktní jistič / odpínač 3VA a jiné nemodulové přístroje (MCCB, artikl bez modulů vyšší než 100 mm)
+se kreslí jako obdélník š × v (3VA11 76,2 × 130 mm) s popiskem rozměru, svorkovnice z artiklu jako řada úzkých
+svorek („8 × 3,5 mm“). Přístroje jsou svisle na střed lišty. Priorita: ruční rozměr prvku (panel Vlastnosti na listu
+rozvaděče: „Šířka / Výška v rozložení [mm]“, „Hloubka přístroje [mm]“ – prázdné pole ukáže použitou hodnotu a zdroj)
+> ruční moduly (liší-li se od artiklu) > artikl > moduly z atributu. Projekt bez artiklů vypadá jako dřív.
+
+Panel ukazuje obsazenost a **odhad oteplení** podle IEC TR 60890 (ΣPv z atributu `p_loss_w`, jinak z artiklu,
+jinak odhad z In a pólů – zdroj „Pv: 5× artikl, 1× ruční, 2× odhad“ je u ΣPv v panelu, v TZ (tabulka ztrát po
+přístrojích) i v protokolu kusového ověření; chladicí plocha podle montáže, Δt uprostřed a v horní části, kritický přístroj, hodnocení). Parametry
 skříně se kreslí v informačním bloku listu rozvaděče a jdou do protokolu kusového ověření.
 
 **Hodnocení oteplení po přístrojích.** Rozhoduje teplota vzduchu u každého přístroje proti rozsahu provozní teploty
@@ -455,6 +469,16 @@ Oteplení rozvaděče (sekce 4, Rozložení a skříň):
 |---|---|---|
 | `thermal_device` | varování | teplota vzduchu v řadě přístroje překračuje jeho `t_max` z artiklu/atributu (nebo nejnižší teplota okolí skříně je pod jeho `t_min`) |
 | `thermal_device` | info | jedna položka na list: u N přístrojů chybí rozsah teplot z datasheetu (předpoklad 40 °C), kolik z nich je nad předpokladem |
+
+Rozložení rozvaděče (rozměry z artiklu nebo ručních rozměrů prvku; přístroj bez nich se nekontroluje):
+
+| Kód | Závažnost | Význam |
+|---|---|---|
+| `layout_overflow` / `layout_overlap` | varování | přeplněná řada, přístroj za koncem řady, překryv přístrojů (šířky z artiklů) |
+| `outside_enclosure` | varování | přístroj umístěný v řadě mimo skříň (po zmenšení počtu řad) |
+| `layout_height` | varování | přístroj je vyšší než rozteč řad – zasahuje do sousední řady (3VA13 248 mm při rozteči 150 mm) |
+| `layout_enclosure` | varování | přístroj přesahuje skříň svisle nebo je širší než užitná šířka řady |
+| `layout_depth` | varování | hloubka přístroje je větší než hloubka skříně (jen se zadanou hloubkou skříně) |
 
 Jištění v rozvaděčích (`protection_findings`):
 

@@ -21,8 +21,8 @@
 - [ ] Doplnit: ABB, FV moduly, SolarEdge/Fronius/GoodWe, Pv pro 3VA (OEZ „3VA Parametry“), OPVF10 DC – z dalších PDF (web je v prostředí blokovaný)
 - [ ] Knihovna → program (analýza 10/2026): 222 artiklů bez rozměrů/modulů, 138 z 266 jističů/chráničů bez Pv, 0 footprintů
   - [ ] rozměry a Pv z Katalogu Minia a „3VA Parametry“ (PDF od uživatele), rozměry svorek Bečov z technických listů
-  - [ ] svorkovnice v rozložení: šířka = `width_mm` artiklu × počet svorek (+ koncové desky), místo ručních modulů
-  - [ ] generické footprinty podle kategorie a rozměrů (kompaktní jistič = obdélník š×v, svorka = úzký obdélník), ne jen moduly
+  - [x] svorkovnice v rozložení: šířka = `width_mm` artiklu × počet svorek (+ koncové desky `end_mm`), místo ručních modulů – hotovo 10/2026 (`model/device_size.py`); šířka koncových desek / zarážek a rozměry svorek Bečov / ELEMAN v katalogu chybí
+  - [x] generické footprinty podle kategorie a rozměrů (kompaktní jistič = obdélník š×v, svorka = úzký obdélník), ne jen moduly – hotovo 10/2026
   - [ ] kontroly z artiklů: In jističe vs. průřez vodiče (základní tabulka), Icu vs. Icw rozvaděče, Uc svodiče vs. síť
 - [x] Značky z QElectroTech (673), importéry EPLAN CSV/XML/DXF, pluginy a uživatelské balíčky
 - [ ] BMEcat/ETIM importér (volná data výrobců)
@@ -37,14 +37,14 @@
 - [x] Výkazy xlsx (přístroje, BOM, kabely, svorkovnice, štítky), protokol kusového ověření docx
 - [ ] Šablona ENVO pro protokol (loga, hlavička) – doplnit po dodání .docx
 - [x] Parametry skříně v panelu rozložení, odhad oteplení (IEC 60890)
-- [ ] Rozměry a ztrátové výkony přístrojů z artiklu (ne ručně v atributech `modules`, `p_loss_w`)
+- [x] Rozměry a ztrátové výkony přístrojů z artiklu (ne ručně v atributech `modules`, `p_loss_w`) – hotovo 10/2026: `docs/design/rozlozeni_z_artiklu.md`, zdroj Pv ve výkazu oteplení, kontroly `layout_height` / `layout_enclosure` / `layout_depth`
 - [x] Oteplení: tabulky IEC 60890 (k, c, d) – křivky k a c ověřit proti normě; [ ] ventilace (obr. 5), přepážky v GUI
 
 ## v0.6 – Vícepól  ← hotovo v základu
 - [x] Vícepólový pohled nad stejným listem (Ctrl+M / Ctrl+J), žíly z `Wire.conductors`, přiřazení svorek per žíla (`Wire.terminals`, Ctrl+T)
 - [x] Automatické číslování svorek na svorkovnicích (Úpravy → Očíslovat svorky)
 - [x] Svorkovnice jako v EPLAN: skupiny svorek s čísly, můstky (dialog, vícepól, JPS, výkaz); šablony bez sběrnice
-- [ ] Artikl svorky → šířka v rozložení (svorkovnice na DIN liště podle `width_mm`), můstky jako artikl (ZQV…) do BOM
+- [x] Artikl svorky → šířka v rozložení (svorkovnice na DIN liště podle `width_mm`), můstky jako artikl (ZQV…) do BOM – hotovo 10/2026 (můstek ručně atributem `bridge_id` skupiny; automatický výběr čeká na vazbu svorka → můstek v katalogu)
 - [x] Vlastní rozmístění ve vícepólu: automatické svorkové schéma + posun myší
 - [ ] Ruční lomy žil ve vícepólu, zalomení dlouhých řad svorek na další list
 - [ ] Vícepólové značky z knihovny (QET `qet.ap.*`) místo opakování jednopólové značky; společná spoušť/vazba pólů

@@ -1,6 +1,18 @@
 # Changelog
 
 ## Nevydáno
+- **Rozložení rozvaděče z dat artiklů** (návrh `docs/design/rozlozeni_z_artiklu.md`, formát projektu beze změny – v15):
+  `model/device_size.py` určuje šířku, výšku a hloubku přístroje (ruční `width_mm`/`height_mm`/`depth_mm` > ruční
+  `modules` > artikl > `modules` z atributu) a tvar – modulový, obdélník š × v (3VA / MCCB, artikl bez modulů vyšší
+  než 100 mm), svorkovnice. Svorkovnice = počet svorek × `width_mm` artiklu svorky + `end_mm` (koncové desky /
+  zarážky, katalog je nemá – bez konstanty); můstky jako artikl ve výkazu materiálu přes atribut skupiny `bridge_id`
+  (`reports.bridge_article`, kandidáti `components.bridge_candidates`). Rozložení kreslí skutečné rozměry svisle na
+  střed lišty; `Layout.devices` / `used_modules`, `checks.layout_problems`, `wiring.terminal_point` a výkaz
+  přístrojů berou s knihovnou šířky z artiklů. Oteplení: Pv z artiklu, když prvek nemá `p_loss_w`
+  (`thermal.rated_loss`, `ThermalResult.losses` se zdrojem artikl / ruční / odhad – panel skříně, TZ s tabulkou
+  ztrát, protokol). Nové kontroly F7 `layout_height`, `layout_enclosure`, `layout_depth`. Panel Vlastnosti na listu
+  rozvaděče: rozměry v rozložení, koncové desky a artikl můstku. Projekt bez artiklů se kreslí pixelově stejně
+  (ověřeno snímkem proti main). Testy `tests/test_device_size.py`, `tests/test_layout_articles_gui.py`.
 - **Python 3.14** podporován (`requires-python` <3.15); celá sada testů prošla na Pythonu 3.14 s PySide6 6.12.
 - **Průvodce – topologie připojení (F5)** (`ui/wizard_topology.py`, `TopologyPanel`): skupiny „Objekt a připojení“
   (druh objektu, nn / vn – u RD zakázané s vysvětlením, předvolba topologie filtrovaná podle objektu a úrovně vč. sdílených
