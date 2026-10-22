@@ -1,6 +1,18 @@
 # Changelog
 
 ## Nevydáno
+- **Opravy z review generátoru** (`docs/ROADMAP.md`, „Chyby k řešení“):
+  - **Revize vidí volné texty listu** (`Sheet.texts`): porovnání s revizí hlásí přidaný / změněný / odebraný text
+    (značka revize vlevo od textu, pouhý posun bez značky) a otisk uzavřeného listu změnu textu pozná.
+    **Formát projektu v16** – data se nemění; otisky uzavřených revizí ze starší verze, které sedí na list bez
+    změny, se při načtení přepočtou (`diff.upgrade_fingerprints`) – žádné falešné „změněno po uzavření revize“
+    (test se souborem `tests/data/v15_closed_revision_texts.ecp`). Program v15 soubor v16 odmítne.
+  - **Hlídací test zápisů mimo undo** odvozuje hlídaná pole z dataclass modelu – nová pole se hlídají sama.
+  - **Model nečte uživatelská nastavení**: formát stran vícepólu a název firmy předává volající (parametry
+    `standard_paper`, `company`; `settings.switchboard_paper`, `settings.company`, `settings.frame_enabled`).
+    `multipole.standard_switchboard_paper` a `frame.frame_enabled` zrušeny.
+  - **Úklid**: zaokrouhlení na mřížku v `model/grid.py`, odstraněn nepoužitý `ui/render.elide_text`, pole uzlu
+    jednopólového schématu deklarovaná v dataclass. Výstup generátoru beze změny.
 - **Python 3.14** podporován (`requires-python` <3.15); celá sada testů prošla na Pythonu 3.14 s PySide6 6.12.
 - **Průvodce – topologie připojení (F5)** (`ui/wizard_topology.py`, `TopologyPanel`): skupiny „Objekt a připojení“
   (druh objektu, nn / vn – u RD zakázané s vysvětlením, předvolba topologie filtrovaná podle objektu a úrovně vč. sdílených
