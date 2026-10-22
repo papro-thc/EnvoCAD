@@ -82,16 +82,16 @@ class MemoLib:
     artikl se z SQLite čte jednou. Ostatní atributy se předávají knihovně. `memo_lib` obal nevnořuje."""
 
     def __init__(self, lib):
-        self._lib = lib
+        self._inner = lib
         self._comps: dict[str, object] = {}
 
     def component(self, cid: str):
         if cid not in self._comps:
-            self._comps[cid] = self._lib.component(cid)
+            self._comps[cid] = self._inner.component(cid)
         return self._comps[cid]
 
     def __getattr__(self, name):
-        return getattr(self._lib, name)
+        return getattr(self._inner, name)
 
 
 def memo_lib(lib):
