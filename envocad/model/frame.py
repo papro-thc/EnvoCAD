@@ -293,7 +293,8 @@ def _fits_unmoved(boxes: list, w: float, h: float) -> bool:
     return not any(_boxes_hit(b, tb) for b in boxes)
 
 
-def grow_sheet_to_content(project: Project, sheet: Sheet, lib, *, standard_paper: str) -> bool:
+def grow_sheet_to_content(project: Project, sheet: Sheet, lib, boxes: list | None = None, *,
+                          standard_paper: str) -> bool:
     """Zvětší formát listu, když obsah přetéká vnitřní rámeček nebo leží v popisovém poli (např. DC rozvaděč
     s 9 stringy po 50 mm na A3). Obsah, který se vejde, se nemění (formát ani polohy); jinak nejmenší větší formát
     na šířku (A3…A0), do kterého se obsah vejde bez posunu, a teprve když žádný, `fit_sheet_to_content` (s posunem).
@@ -301,9 +302,10 @@ def grow_sheet_to_content(project: Project, sheet: Sheet, lib, *, standard_paper
 
     List rozvaděče bez volby formátu vícepólu (`mp_paper`) ji dostane podle stavu před zvětšením (firemní standard
     `standard_paper` od volajícího, výchozí A4) – jiný formát listu by jinak přepnul vícepól a plán svorkovnice na
-    rozměr listu (`multipole.paper_choice`)."""
+    rozměr listu (`multipole.paper_choice`). `boxes` = obálky obsahu (`sheet_content_boxes`), když je volající už má."""
     from envocad.model.textlayout import sheet_content_boxes
-    boxes = sheet_content_boxes(project, sheet, lib)
+    if boxes is None:
+        boxes = sheet_content_boxes(project, sheet, lib)
     if not boxes or _fits_unmoved(boxes, sheet.width, sheet.height):
         return False
     if sheet.is_switchboard and not getattr(sheet, "mp_paper", ""):
@@ -327,15 +329,20 @@ LONG_PAPERS = {
 }
 
 
-def grow_sheet_long(project: Project, sheet: Sheet, lib, *, standard_paper: str) -> bool:
+def grow_sheet_long(project: Project, sheet: Sheet, lib, boxes: list | None = None, *,
+                    standard_paper: str) -> bool:
     """Zvětší list jen do šířky (prodloužený formát na šířku, ISO 5457 A4×n / A3×n se stejnou výškou), když obsah
     přetéká jen vpravo a na výšku se vejde – široký list rozvaděče (RFVE s mnoha stringy) pak nedostane A0. Obsah se
-    neposouvá. False = list se vejde beze změny, výška nemá prodloužený formát nebo obsah přetéká i jinam.
-    `standard_paper` jako u `grow_sheet_to_content`."""
+    neposouvá. False = list se vejde beze změny, výška nemá prodloužený formát nebo obsah přetéká i jinam (list se
+    pak nezmění). `boxes` a `standard_paper` jako u `grow_sheet_to_content`; obálky se počítají, jen když má výška
+    prodloužený formát."""
     from envocad.model.textlayout import sheet_content_boxes
     sizes = LONG_PAPERS.get(float(sheet.height))
-    boxes = sheet_content_boxes(project, sheet, lib)
-    if sizes is None or not boxes or _fits_unmoved(boxes, sheet.width, sheet.height):
+    if sizes is None:
+        return False
+    if boxes is None:
+        boxes = sheet_content_boxes(project, sheet, lib)
+    if not boxes or _fits_unmoved(boxes, sheet.width, sheet.height):
         return False
     for name, w in sizes:
         if w > sheet.width + 1e-6 and _fits_unmoved(boxes, w, sheet.height):
