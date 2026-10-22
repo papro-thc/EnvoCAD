@@ -9,12 +9,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from dataclasses import dataclass
 from itertools import pairwise
 
 from envocad.model import multipole as mp
 from envocad.model.feed import LEGACY_FEED_IDS, MP_LEGACY_ATTR, feed_dir, is_feed
 from envocad.model.project import Element, Project, Sheet, SheetText, Wire
+
+log = logging.getLogger("envocad.model")
 
 IGNORED_ATTRS = {"wire_id", "cable_id", "sheet", MP_LEGACY_ATTR}   # odvozené/technické atributy
 FEED_CANON_SKIP = {"dir"}          # sb.feed v otisku: směr je v kanonickém id značky (sb.feed_in / sb.feed_out)
@@ -328,6 +331,7 @@ def upgrade_fingerprints(project: Project) -> None:
                 legacy, new = sheet_fingerprint(s, texts=False), sheet_fingerprint(s)
             if fp == legacy:
                 rev.fingerprints[s.id] = new
+                log.info("otisk listu %s v revizi %s převeden na formát 16 (s volnými texty)", s.name, rev.label)
 
 
 CHANGE_SEP = "|"          # oddělovač sloupců řádku změnového listu (`meta["changes"]`)
