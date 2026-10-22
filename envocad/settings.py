@@ -76,6 +76,36 @@ def shared_library_dir() -> Path | None:
     return p if p.is_dir() else None
 
 
+# ---- firemní standard pro model -----------------------------------------------------------------------------------
+# Model (`envocad/model`) ani knihovna (`envocad/library`) nastavení nečtou: volající (GUI, export, generátor) přečte
+# hodnotu tady a předá ji parametrem (`standard_paper`, `company`).
+def frame_enabled() -> bool:
+    """Kreslit rámeček s popisovým polem? (nastavení `frame`, výchozí vypnuto – souřadnicová síť /2.B4 funguje i bez
+    něj)"""
+    try:
+        return bool(load_settings().get("frame", False))
+    except Exception:  # noqa: BLE001 – poškozené nastavení nesmí shodit kreslení
+        return False
+
+
+def company() -> str:
+    """Název firmy do popisového pole (`standard.company`, výchozí `frame.COMPANY`)."""
+    from envocad.model.frame import COMPANY
+    try:
+        return str(load_settings()["standard"].get("company") or COMPANY).strip() or COMPANY
+    except Exception:  # noqa: BLE001
+        return COMPANY
+
+
+def switchboard_paper() -> str:
+    """Formát stran schématu rozvaděče a plánu svorkovnice (`standard.switchboard_paper`; neplatný → A4 na šířku)."""
+    from envocad.model.multipole import DEFAULT_SWITCHBOARD_PAPER, normalize_switchboard_paper
+    try:
+        return normalize_switchboard_paper(load_settings()["standard"].get("switchboard_paper"))
+    except Exception:  # noqa: BLE001
+        return DEFAULT_SWITCHBOARD_PAPER
+
+
 def current_user() -> str:
     """Autor připomínek a revizí: `standard.author` z nastavení, jinak přihlašovací jméno uživatele OS."""
     author = str(load_settings()["standard"].get("author") or "").strip()

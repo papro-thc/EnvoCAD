@@ -198,7 +198,7 @@ def test_note_findings(proj, monkeypatch):
     assert len(orphan) == 1 and orphan[0].severity == INFO and "č. 4" in orphan[0].text
     # check_project je volá
     from envocad.library.store import LibraryStore
-    codes = {x.code for x in check_project(proj, LibraryStore())}
+    codes = {x.code for x in check_project(proj, LibraryStore(), standard_paper="A4")}
     assert {"note_open", "note_orphan"} <= codes
 
 

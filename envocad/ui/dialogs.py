@@ -1547,9 +1547,11 @@ class EnclosurePanel(QWidget):
         return after != before
 
     def _write(self, lay: Layout) -> Layout:
+        # model-write-ok: `lay` je kopie rozložení – s `commit` kopie snímku (`apply`), bez něj pracovní kopie
+        # dialogu (`EnclosureDialog.working`); do listu ho zapíše `SetLayoutCommand`
         lay.enclosure = self.name.text().strip()
-        lay.rows = self.rows.value()
-        lay.modules_per_row = self.mods.value()
+        lay.rows = self.rows.value()   # model-write-ok: kopie rozložení (viz výše)
+        lay.modules_per_row = self.mods.value()   # model-write-ok: kopie rozložení (viz výše)
         own_wiring = self.wiring_group.isChecked()
         # výchozí hodnotu pole, které v parametrech nebylo (panel ji jen ukazuje), nedoplňovat – jinak by se
         # rozložení změnilo pouhým zápisem jiného pole a krok undo by po návratu hodnoty nezmizel
@@ -1565,7 +1567,7 @@ class EnclosurePanel(QWidget):
                 edits[key] = combo.currentData()
         # klíče, které panel nezná, zůstanou; wire_* spravuje skupina „Výrobní data“
         unknown = {k: v for k, v in lay.params.items() if k not in self._edits and k not in self._wiring_keys}
-        lay.params = {**unknown, **edits}
+        lay.params = {**unknown, **edits}   # model-write-ok: kopie rozložení (viz začátek `_write`)
         # umístění v řadách nad novým počtem řad zůstanou (vrátí se po zvětšení počtu řad); do té doby je rozložení
         # kreslí mezi nerozmístěnými a kontrola je hlásí (`outside_enclosure`)
         return lay
@@ -1613,9 +1615,10 @@ class SheetPropsDialog(QDialog):
         self.paper: QComboBox | None = None
         if sheet.is_switchboard:
             # formát stran schématu (vícepólu) a plánu svorkovnice listu rozvaděče
-            from envocad.model.multipole import SHEET_PAPER, SWITCHBOARD_PAPERS, standard_switchboard_paper
+            from envocad.model.multipole import SHEET_PAPER, SWITCHBOARD_PAPERS
+            from envocad.settings import switchboard_paper
             self.paper = QComboBox()
-            self.paper.addItem(f"podle firemního standardu ({_paper_text(standard_switchboard_paper())})", "")
+            self.paper.addItem(f"podle firemního standardu ({_paper_text(switchboard_paper())})", "")
             for key in SWITCHBOARD_PAPERS:
                 self.paper.addItem(_paper_text(key), key)
             self.paper.addItem(f"jako list ({sheet.paper}, {sheet.width:g} × {sheet.height:g} mm)", SHEET_PAPER)
@@ -1999,9 +2002,10 @@ class NoteDialog(QDialog):
         """Poznámka s hodnotami z dialogu (kopie, originál zůstává beze změny)."""
         import copy
         n = copy.deepcopy(self.note)
+        # model-write-ok: `n` je kopie připomínky, do projektu ji zapíše příkaz volajícího
         n.text = self.text.toPlainText().strip()
-        n.reply = self.reply.text().strip()
-        n.status = self.status.currentData()
+        n.reply = self.reply.text().strip()   # model-write-ok: kopie (viz výše)
+        n.status = self.status.currentData()   # model-write-ok: kopie (viz výše)
         return n
 
 

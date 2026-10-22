@@ -158,7 +158,7 @@ def test_sync_cables_keeps_orphans_from_file(lib):
     sync_feed_links(q)
     sync_cables(q)
     assert q.cable(cid) is not None and q.cable(cid).cores[0].color == "fialová"
-    fs = [f for f in check_project(q, lib) if f.code == "cable_no_wire"]
+    fs = [f for f in check_project(q, lib, standard_paper="A4") if f.code == "cable_no_wire"]
     assert len(fs) == 1 and fs[0].severity == INFO and "nemá vodič" in fs[0].text
     # kabel osiřelý změnou v této relaci se dál odebírá (undo vrátí týž kabel)
     w2 = next(w for w in q.sheets[0].wires if w.attrs.get("cable_id"))
@@ -248,13 +248,13 @@ def test_multipole_pe_break_avoids_terminal_numbers(lib, monkeypatch):
     from envocad.model.multipole_geometry import multipole_text_overlaps
     p = build_project({"inverters": [{"ref": "T1", **INV, "strings": [20] * 6}], "dc": {"route_boxes": 1}})
     s = next(x for x in p.sheets if x.is_switchboard and x.loc == "RDC1")
-    assert not [o for o in multipole_text_overlaps(p, s, lib) if "číslo svorky" in o[2]]
+    assert not [o for o in multipole_text_overlaps(p, s, lib, standard_paper="A4") if "číslo svorky" in o[2]]
     # kontrola čísla svorek hlídá: dřívější vedení v úrovni portu (přes řadu svorek) se ohlásí – PE z více stran
     # do XPE vede sběrná čára (za portem XPE), ostatní přerušení `break_y`
     from envocad.model import multipole_geometry as mg
     monkeypatch.setattr(mp, "break_y", lambda pt, d, n, used: pt[1] - 2.5 * n)
     monkeypatch.setattr(mg, "RAIL_OFFSET", -5.0)     # čára pod portem = přes řadu čísel svorek
-    hits = [o for o in multipole_text_overlaps(p, s, lib) if "číslo svorky" in o[2]]
+    hits = [o for o in multipole_text_overlaps(p, s, lib, standard_paper="A4") if "číslo svorky" in o[2]]
     assert hits
 
 
@@ -274,6 +274,6 @@ def test_busbar_takes_twelve_inverters(lib):
     assert {f"T{i}" for i in range(1, 13)} <= {pt.name for pt in sym.ports}
     assert all(pt.x % 2.5 == 0 and pt.y % 2.5 == 0 for pt in sym.ports)
     p = build_project({"inverters": [{"ref": f"T{i + 1}", "p_ac": 10, "strings": [18]} for i in range(12)]})
-    assert not [f for f in check_project(p, lib) if f.code == "bad_port"]
+    assert not [f for f in check_project(p, lib, standard_paper="A4") if f.code == "bad_port"]
     with pytest.raises(ValueError, match="nejvýš 12 střídačů"):
         build_project({"inverters": [{"ref": f"T{i + 1}", "p_ac": 10, "strings": [18]} for i in range(13)]})

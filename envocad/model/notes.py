@@ -6,13 +6,12 @@ součástí dokumentace – `diff_projects` ani `sheet_fingerprint` je nevidí a
 """
 from __future__ import annotations
 
-import math
 import textwrap
 from dataclasses import dataclass, field
 
 from envocad.model.designation import element_name
+from envocad.model.grid import ceil_grid as _ceil_grid
 from envocad.model.project import NOTE_STATUSES, Note, Project, Sheet
-from envocad.model.symbol import GRID
 
 FLAG_H = 5.0          # výška praporku s číslem [mm]
 TEXT_H = 2.5          # výška písma [mm]
@@ -145,9 +144,6 @@ class NoteShape:
     texts: list[tuple[float, float, str, float, str]] = field(default_factory=list)
     bbox: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)   # x0, y0, x1, y1
 
-
-def _ceil_grid(v: float) -> float:
-    return math.ceil(v / GRID - 1e-9) * GRID
 
 
 def flag_width(label: str) -> float:

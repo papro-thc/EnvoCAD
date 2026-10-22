@@ -99,10 +99,16 @@ Pořadí = priorita. Body 1, 2 a 5 jsou nejlevnější start.
 
 - [ ] **Vícepól elektroměrového rozvaděče RE** (přípojka VN – kiosk, kobky, sloup): text elektroměru P přes žílu napěťových obvodů (`mp_text_overlap`, jediné varování F7 generátoru). Rozmístění vícepólu značky se dvěma vstupy (`multipole.auto_layout` / `multipole_geometry`); otočení ani prohození portů v generátoru nepomůže. V testech `xfail(strict)` – `tests/test_generate.py::test_generated_project_f7_clean[vn_*]`
 - Z review generátoru `75c228f..d640b7d` (`docs/NAVRH_TOPOLOGIE.md`, kap. 6 – mimo generátor):
-  - [ ] **Revize nevidí volné texty listu** `Sheet.texts` (`model/diff.py`, porovnání listů) – změna textu se neoznačí
-  - [ ] **Hlídací test zápisů mimo undo** (`tests/test_no_model_writes_in_ui.py`) nezná nová pole modelu (`Sheet.texts`, `Element.sl_pos`, `Element.mirror`…) – doplnit seznam / odvodit z dataclass
-  - [ ] **Model čte uživatelská nastavení** (`model/multipole.py`, `standard_switchboard_paper` → `settings.load_settings`) – předávat standard parametrem (model má být čistý)
-  - [ ] **Úklid**: duplicitní `_snap` / `_ceil_grid` (routing, symbol, frame, xref, multipole, revision, notes – sjednotit), nepoužitý `ui/render.elide_text`, dynamické atributy `Node` v `model/single_line.py` (deklarovat v dataclass)
+  - [x] **Revize nevidí volné texty listu** – opraveno 10/2026: `diff_projects` porovnává `Sheet.texts` (značka u textu,
+    posun bez značky), otisk listu texty zahrnuje; formát 16 – otisky uzavřených revizí se při načtení převedou
+    (`diff.upgrade_fingerprints`, test se souborem v15)
+  - [x] **Hlídací test zápisů mimo undo** – hotovo 10/2026: pole odvozená z dataclass `model/project.py`
+    (`dataclasses.fields`), nová legitimní místa označená `# model-write-ok`
+  - [x] **Model čte uživatelská nastavení** – hotovo 10/2026: formát stran vícepólu (`standard_paper`) a název firmy
+    (`company`) předává volající, čtení v `settings.switchboard_paper` / `company` / `frame_enabled`; knihovna čte
+    z nastavení jen umístění dat (záměr); hlídá `tests/test_model_pure.py`
+  - [x] **Úklid** – hotovo 10/2026: mřížka v `model/grid.py` (`snap`, `floor_grid`, `ceil_grid`), `elide_text`
+    odstraněn, `Node.anchor` / `box` / `meter_dx` deklarované v dataclass
 
 ## Odloženo (analýza 10/2026 – nebrzdí práci)
 - Příkazový řádek (styl ZWCAD/CADCraft) – až bude potřeba ovládat program z agentů

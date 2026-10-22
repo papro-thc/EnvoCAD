@@ -192,8 +192,8 @@ def export_routine_test_docx(project: Project, lib: LibraryStore, sheet: Sheet, 
     devs = reports.devices(project, lib, sheet)
     mains = [e for e in devs if e.symbol_id in ("sb.main_switch", "fve.breaker_mccb")]
     i_n = mains[0].attrs.get("in_", "") if mains else ""
-    from envocad.model.frame import company_names
-    company = company_names()[1]
+    from envocad.settings import company as standard_company
+    company = standard_company()
     setup_document(doc, f"Protokol o kusovém ověření rozvaděče {sheet.name}", doc_author(project),
                    f"{project.name}" + (f" (č. {m['order']})" if m.get("order") else ""))
 

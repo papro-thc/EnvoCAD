@@ -43,7 +43,7 @@ def _sb(tid="ac_fve", params=None, ref="R1"):
     blk = Element("fve.switchboard", 120, 150, attrs={"ref": ref})
     p.sheets[0].elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, tid, params or {})
+    apply_template(p, sb, tid, params or {}, standard_paper="A4")
     return p, sb
 
 
@@ -70,8 +70,8 @@ def test_bus_template_all_ports_exist(lib, n):
     for w in sb.wires:
         for end in (w.a, w.b):
             lib.get_symbol(sb.element(end.element_id).symbol_id).port(end.port)
-    assert checks.check_project(p, lib) is not None
-    assert not [f for f in checks.check_project(p, lib) if f.code == "bad_port"]
+    assert checks.check_project(p, lib, standard_paper="A4") is not None
+    assert not [f for f in checks.check_project(p, lib, standard_paper="A4") if f.code == "bad_port"]
 
 
 @pytest.mark.parametrize("kind", ["trasa", "Trasa", "po trase", "route", "  TRASA "])
@@ -106,7 +106,7 @@ def test_empty_template_links_feed_to_jps_wire():
              conductors=["L1", "L2", "L3", "N", "PE"])
     j.wires.append(w)
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "empty")
+    apply_template(p, sb, "empty", standard_paper="A4")
     feed = next(e for e in sb.elements if is_feed_in(e))
     assert feed.attrs["wire_id"] == w.id and feed.attrs["cable"].startswith("CYKY-J 5x10")
     assert w.b.port == feed.ref
@@ -125,7 +125,7 @@ def test_template_invalid_params_raise_czech_and_change_nothing(params, msg):
     p.sheets[0].elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
     with pytest.raises(ValueError, match=msg):
-        apply_template(p, sb, "ac_fve", params)
+        apply_template(p, sb, "ac_fve", params, standard_paper="A4")
     assert sb.elements == [] and sb.wires == [] and sb.layout.placements == [] and not sb.bridges
 
 
@@ -136,7 +136,7 @@ def test_dc_template_invalid_strings():
     sb = p.create_switchboard_sheet(blk)
     for bad in ("0", "-1", "x", "12"):
         with pytest.raises(ValueError, match="Počet stringů"):
-            apply_template(p, sb, "dc", {"n_strings": bad})
+            apply_template(p, sb, "dc", {"n_strings": bad}, standard_paper="A4")
     assert sb.elements == []
 
 
@@ -174,10 +174,10 @@ def test_layout_overflow_and_overlap_findings(lib):
     sb.layout.set_placement(a.id, 0, 0.0)
     sb.layout.set_placement(b.id, 0, 2.0)                       # překryv s F1 (0–3)
     sb.layout.set_placement(c.id, 0, 6.0)
-    codes = {(f.code, f.ref) for f in checks.check_project(p, lib) if f.code.startswith("layout_")}
+    codes = {(f.code, f.ref) for f in checks.check_project(p, lib, standard_paper="A4") if f.code.startswith("layout_")}
     assert codes == {("layout_overlap", "F2")}
     sb.layout.modules_per_row = 8                               # F3 (6–9) za koncem řady, součet 9 > 8
-    found = [f for f in checks.check_project(p, lib) if f.code.startswith("layout_")]
+    found = [f for f in checks.check_project(p, lib, standard_paper="A4") if f.code.startswith("layout_")]
     assert {(f.code, f.ref) for f in found} == {("layout_overlap", "F2"), ("layout_overflow", "F3"),
                                                 ("layout_overflow", "")}
     assert all(f.severity == checks.WARNING for f in found)
@@ -288,11 +288,11 @@ def _two_boards(lib):
     j.wires.append(Wire(WireEnd(inv.id, "AC"), WireEnd(blk.id, "1"), attrs={"ref": "W2", "cable": "CYKY-J 5x16"},
                         conductors=["L1", "L2", "L3", "N", "PE"]))
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve", {"distribution": "terminals", "n_out": "3"})
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals", "n_out": "3"}, standard_paper="A4")
     blk2 = Element("fve.switchboard", 120, 250, attrs={"ref": "R2"})
     j.elements.append(blk2)
     sb2 = p.create_switchboard_sheet(blk2)
-    apply_template(p, sb2, "dc", {"n_strings": "2"})
+    apply_template(p, sb2, "dc", {"n_strings": "2"}, standard_paper="A4")
     return p, sb, sb2
 
 

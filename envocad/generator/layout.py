@@ -6,6 +6,7 @@ from itertools import pairwise
 
 from envocad.generator import context
 from envocad.model.feed import is_feed_out
+from envocad.model.grid import snap
 from envocad.model.project import PORT_PITCH, Element, Project, Sheet, Wire, element_symbol
 
 
@@ -14,10 +15,13 @@ def _grow_switchboards(p: Project, sheets: list[Sheet]) -> bool:
     a se střídači): přednostně prodloužený formát na šířku se stejnou výškou (`frame.grow_sheet_long` – RFVE
     s 9 stringy je A4×5, ne A0), jinak `frame.grow_sheet_to_content`. True = některý list se změnil."""
     from envocad.model.frame import grow_sheet_long, grow_sheet_to_content
+    from envocad.settings import switchboard_paper
     lib = context._lib()
+    std = switchboard_paper()            # formát vícepólu, který list dostane před zvětšením (`Sheet.mp_paper`)
     changed = False
     for sh in sheets:
-        changed = (grow_sheet_long(p, sh, lib) or grow_sheet_to_content(p, sh, lib)) or changed
+        changed = (grow_sheet_long(p, sh, lib, standard_paper=std)
+                   or grow_sheet_to_content(p, sh, lib, standard_paper=std)) or changed
     return changed
 
 
@@ -67,9 +71,6 @@ def _route_house(p: Project, blk: Element, ac_wires: list[Wire], first: tuple[El
 
     def port(e: Element, name: str) -> tuple[float, float]:
         return e.port_pos(element_symbol(p, e, lib), name)
-
-    def snap(v: float) -> float:
-        return round(v / 2.5) * 2.5
 
     sheet = p.switchboard_sheet(blk.id)
     names = {e.ref for e in (sheet.elements if sheet else []) if is_feed_out(e)}
@@ -131,9 +132,6 @@ def _chain_below(p: Project, blk: Element, links: list, loads: list, earth: Elem
 
     def port(e: Element, name: str) -> tuple[float, float]:
         return e.port_pos(element_symbol(p, e, lib), name)
-
-    def snap(v: float) -> float:
-        return round(v / 2.5) * 2.5
 
     _prev, _pp, first, fport, w0 = links[0]
     chain_els = [first, *(el for _p, _q, el, _r, _w in links[1:]), *(ld for _b, _pt, ld, _w in loads)]
@@ -385,9 +383,6 @@ COLUMN_BESIDE = 20.0   # síť (DS) vedle posledního článku: délka rovného 
 COLUMN_LANE = 7.5      # vodič mezi články ve sloupci: od obálky článků k svislému úseku (mm)
 
 
-def _snap(v: float) -> float:
-    return round(v / 2.5) * 2.5
-
 
 def _port(p: Project, e: Element, name: str, lib) -> tuple[float, float]:
     return e.port_pos(element_symbol(p, e, lib), name)
@@ -432,7 +427,7 @@ def _stack_column(p: Project, s: Sheet, links: list, loads: list, xc: float, top
         extra = []
         if boundary is not None and e is boundary:
             b = symbol_box(e, element_symbol(p, e, lib))
-            extra.append(text_box(_snap(b[0]), _snap(b[3] + 7.5), BOUNDARY_TEXT, 2.0))
+            extra.append(text_box(snap(b[0]), snap(b[3] + 7.5), BOUNDARY_TEXT, 2.0))
         return _extent(p, s, e, lib, extra)
 
     els = [links[0][2], *(el for _p, _q, el, _r, _w in links[1:])]
@@ -453,20 +448,20 @@ def _stack_column(p: Project, s: Sheet, links: list, loads: list, xc: float, top
             _set_side(p, e, in_ports[i], want, lib)
             pa = _port(p, els[i - 1], out_ports[i - 1], lib)
             pe = _port(p, e, in_ports[i], lib)
-            y_d = _snap(prev_bottom - 7.5)
-            e.x = _snap(e.x + pa[0] - want * 2.5 - pe[0])
-            e.y = _snap(e.y + y_d - pe[1])
+            y_d = snap(prev_bottom - 7.5)
+            e.x = snap(e.x + pa[0] - want * 2.5 - pe[0])
+            e.y = snap(e.y + y_d - pe[1])
             continue
         if e is beside:
             _set_side(p, e, in_ports[i], -want, lib)
             pa = _port(p, els[i - 1], out_ports[i - 1], lib)
             pe = _port(p, e, in_ports[i], lib)
-            e.x = _snap(e.x + pa[0] + want * COLUMN_BESIDE - pe[0])
-            e.y = _snap(e.y + pa[1] - pe[1])
+            e.x = snap(e.x + pa[0] + want * COLUMN_BESIDE - pe[0])
+            e.y = snap(e.y + pa[1] - pe[1])
             continue
         _set_side(p, e, in_ports[i], want, lib)
-        e.x = _snap(e.x + xc - _center_x(p, e, lib))
-        e.y = _snap(e.y + prev_bottom - ext(e)[3])
+        e.x = snap(e.x + xc - _center_x(p, e, lib))
+        e.y = snap(e.y + prev_bottom - ext(e)[3])
         bottom = ext(e)[1]
         for pt, ld, w in by_board.get(e.id, []):
             if not _has_port(p, e, pt, lib):
@@ -475,10 +470,10 @@ def _stack_column(p: Project, s: Sheet, links: list, loads: list, xc: float, top
             sg = _side(p, e, pt, lib)
             if load_under:                    # pod článkem: z vývodu ven, dolů pod článek a zpět do značky
                 _set_side(p, ld, "1", sg, lib)
-                y_l = _snap(bottom - COLUMN_GAP - 5.0)
+                y_l = snap(bottom - COLUMN_GAP - 5.0)
                 xb = sx + sg * 7.5
                 lp = _port(p, ld, "1", lib)
-                ld.x = _snap(ld.x + sx - sg * 20.0 - lp[0])     # vodorovný úsek nese popisek vazby
+                ld.x = snap(ld.x + sx - sg * 20.0 - lp[0])     # vodorovný úsek nese popisek vazby
             else:                             # vedle sloupce na straně vývodu
                 _set_side(p, ld, "1", -sg, lib)
                 # pod vývodem spotřeby další vývody na téže straně (X3… skupin střídačů s přerušením) – svislý
@@ -486,11 +481,11 @@ def _stack_column(p: Project, s: Sheet, links: list, loads: list, xc: float, top
                 below = [q for q in element_symbol(p, e, lib).ports if q.name != pt
                          and _side(p, e, q.name, lib) == sg and _port(p, e, q.name, lib)[1] < sy - 1e-6]
                 off = 7.5 if not below else 45.0
-                y_l = _snap(min([sy, *(_port(p, e, b.name, lib)[1] for b in below)]) - 15.0)
+                y_l = snap(min([sy, *(_port(p, e, b.name, lib)[1] for b in below)]) - 15.0)
                 xb = sx + sg * off
                 lp = _port(p, ld, "1", lib)
-                ld.x = _snap(ld.x + sx + sg * (off + 7.5) - lp[0])
-            ld.y = _snap(ld.y + y_l - _port(p, ld, "1", lib)[1])
+                ld.x = snap(ld.x + sx + sg * (off + 7.5) - lp[0])
+            ld.y = snap(ld.y + y_l - _port(p, ld, "1", lib)[1])
             w.points = [(xb, sy), (xb, y_l)]
             bottom = min(bottom, ext(ld)[1])
         prev_bottom = bottom - COLUMN_GAP
@@ -498,7 +493,7 @@ def _stack_column(p: Project, s: Sheet, links: list, loads: list, xc: float, top
         a, b = els[i - 1], els[i]
         if b is beside and end_below:
             pa, pb = _port(p, a, out_ports[i - 1], lib), _port(p, b, in_ports[i], lib)
-            xl = _snap(pa[0] + _side(p, a, out_ports[i - 1], lib) * COLUMN_LANE)
+            xl = snap(pa[0] + _side(p, a, out_ports[i - 1], lib) * COLUMN_LANE)
             in_wires[i].points = [(xl, pa[1]), (xl, pb[1])]
             continue
         if b is beside:
@@ -507,7 +502,7 @@ def _stack_column(p: Project, s: Sheet, links: list, loads: list, xc: float, top
         pa, pb = _port(p, a, out_ports[i - 1], lib), _port(p, b, in_ports[i], lib)
         sg = _side(p, a, out_ports[i - 1], lib)
         ea, eb = ext(a), ext(b)
-        xl = _snap(max(ea[2], eb[2]) + COLUMN_LANE) if sg > 0 else _snap(min(ea[0], eb[0]) - COLUMN_LANE)
+        xl = snap(max(ea[2], eb[2]) + COLUMN_LANE) if sg > 0 else snap(min(ea[0], eb[0]) - COLUMN_LANE)
         in_wires[i].points = [(xl, pa[1]), (xl, pb[1])]
     return els, in_ports, in_wires
 
@@ -548,9 +543,9 @@ def xout_lane_x(p: Project, s: Sheet, blk: Element, earth: Element | None, links
         lay = compute_layout(p, s, lib)
         w_earth = next((w for w in s.wires if earth is not None and w.touches(earth.id)), None)
         if earth is not None:
-            x_lane = max(x_lane, _snap(_extent(p, s, earth, lib)[2] + 5.0))
+            x_lane = max(x_lane, snap(_extent(p, s, earth, lib)[2] + 5.0))
         if w_earth is not None and w_earth.id in lay.wires:
-            x_lane = max([x_lane, *(_snap(b[2] + 5.0) for b in lay.wires[w_earth.id].boxes)])
+            x_lane = max([x_lane, *(snap(b[2] + 5.0) for b in lay.wires[w_earth.id].boxes)])
     return x_lane
 
 
@@ -575,23 +570,23 @@ def _chain_column(p: Project, s: Sheet, blk: Element, links: list, loads: list, 
         if earth is not None:
             eb = _extent(p, s, earth, lib)
             floor.append(eb[1])
-            x_lane = max(x_lane, _snap(eb[2] + 5.0))
+            x_lane = max(x_lane, snap(eb[2] + 5.0))
         if w_earth is not None and w_earth.id in lay.wires:
             for b in lay.wires[w_earth.id].boxes:
                 floor.append(b[1])
-                x_lane = max(x_lane, _snap(b[2] + 5.0))
+                x_lane = max(x_lane, snap(b[2] + 5.0))
         # další AC rozvaděče (skupiny střídačů) pod RFVE.AC1: sloupec pod nimi, svislý úsek vpravo za nimi
         avoid_ids = {e.id for e in avoid or ()}
         for e in avoid or ():
             ext = _extent(p, s, e, lib, lay.elements[e.id].boxes if e.id in lay.elements else [])
             floor.append(ext[1])
-            x_lane = max(x_lane, _snap(ext[2] + 5.0))
+            x_lane = max(x_lane, snap(ext[2] + 5.0))
         for w in s.wires:                 # popisky vodičů od nich (kabel k přerušení, uzemnění)
             if w.id in lay.wires and (w.a.element_id in avoid_ids or w.b.element_id in avoid_ids):
                 for b in lay.wires[w.id].boxes:
                     floor.append(b[1])
-                    x_lane = max(x_lane, _snap(b[2] + 5.0))
-    els, in_ports, in_wires = _stack_column(p, s, links, loads, _snap(_center_x(p, blk, lib)), min(floor) - COLUMN_GAP,
+                    x_lane = max(x_lane, snap(b[2] + 5.0))
+    els, in_ports, in_wires = _stack_column(p, s, links, loads, snap(_center_x(p, blk, lib)), min(floor) - COLUMN_GAP,
                                             1, False, boundary, lib, end_below=end_below)
     p0 = _port(p, els[0], in_ports[0], lib)
     in_wires[0].points = [(x_lane, out[1]), (x_lane, p0[1])]
@@ -615,7 +610,7 @@ def _house_column(p: Project, s: Sheet, blk: Element, first: tuple[Element, str,
         return False
     x_right, y_top, y_bot = max(b[2] for b in boxes), max(b[3] for b in boxes), min(b[1] for b in boxes)
     # sloupec: přívod RD zleva; svislý úsek vodiče od XOUT vlevo od sloupce, mezi obsahem a sloupcem
-    x_lane = _snap(x_right + 5.0)
+    x_lane = snap(x_right + 5.0)
     els, in_ports, in_wires = _stack_column(p, s, allc, loads, 0.0, y_top, -1, True, boundary, lib,
                                             end_below=end_below)
     # sloupec vpravo od svislého úseku: posun celého sloupce (prvky a lomy) tak, aby levý okraj byl za úsekem
@@ -623,7 +618,7 @@ def _house_column(p: Project, s: Sheet, blk: Element, first: tuple[Element, str,
     left = min(_extent(p, s, e, lib)[0] for e in col)
     lanes = [w.points[0][0] for w in in_wires[1:] if w.points]
     left = min([left, *lanes]) - 5.0
-    dx = _snap(x_lane + COLUMN_LANE - left)
+    dx = snap(x_lane + COLUMN_LANE - left)
     for e in col:
         e.x += dx
     for w in [*in_wires[1:], *(w for *_x, w in loads)]:
@@ -633,7 +628,7 @@ def _house_column(p: Project, s: Sheet, blk: Element, first: tuple[Element, str,
     x_out = w0.points[0][0] if w0.points else blk.x + 30.0      # svislý úsek z `_route_house` (za uzemněním)
     # vodorovný úsek pod obsahem jen v pásu mezi svislým úsekem od XOUT a sloupcem (stringy vlevo nevadí)
     y_bot = min((b[1] for b in boxes if b[2] >= x_out - 2.5 and b[0] <= x_lane + 2.5), default=y_bot)
-    y_low = _snap(min(y_bot - 10.0, out[1] - 10.0))
+    y_low = snap(min(y_bot - 10.0, out[1] - 10.0))
     w0.points = [(x_out, out[1]), (x_out, y_low), (x_lane, y_low), (x_lane, p0[1])]
     return True
 
@@ -665,8 +660,8 @@ def _house_row_left(p: Project, s: Sheet, blk: Element, first: tuple[Element, st
     sym = element_symbol(p, el0, lib)
     pe = _port(p, el0, port0, lib)
     above = symbol_box(el0, sym)[3] - pe[1]
-    y = _snap(min(b[1] for b in boxes) - 10.0 - max(0.0, above))
-    el0.x += _snap(x_lane - 15.0) - pe[0]
+    y = snap(min(b[1] for b in boxes) - 10.0 - max(0.0, above))
+    el0.x += snap(x_lane - 15.0) - pe[0]
     el0.y += y - pe[1]
     out = _port(p, blk, "XOUT", lib)
     w0.points = [(x_lane, out[1]), (x_lane, y)]
@@ -679,7 +674,7 @@ def _house_row_left(p: Project, s: Sheet, blk: Element, first: tuple[Element, st
         else:
             gap = (ROW_LEFT_GAP_CABLE if w.attrs.get("ref") else ROW_LEFT_GAP_PLAIN) + (
                 ROW_LEFT_GAP_BOARDS if boards else 0.0)
-        el.x += _snap(pa[0] - gap) - pe[0]
+        el.x += snap(pa[0] - gap) - pe[0]
         el.y += pa[1] - pe[1]
         w.points = []
     for b, pt, ld, wl in loads:

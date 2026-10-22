@@ -13,7 +13,7 @@ def _proj():
     block = Element("fve.switchboard", 100, 100, attrs={"ref": "R1", "desc": "AC"})
     p.sheets[0].elements.append(block)
     s = p.create_switchboard_sheet(block)
-    apply_template(p, s, "ac_fve", {"n_out": "3"})
+    apply_template(p, s, "ac_fve", {"n_out": "3"}, standard_paper="A4")
     # dva stejné jističe → BOM sloučí
     s.wires[0].attrs.update({"ref": "W1", "cable": "CYKY-J", "cross": "5x16", "length": "12"})
     s.wires[0].terminals = {"L1": {"a": "1"}, "L2": {"a": "2"}}
@@ -177,7 +177,7 @@ def test_cable_material_switchboard_wires_and_ferrules():
     blk = Element("fve.switchboard", 120, 150, attrs={"ref": "R1"})
     p.sheets[0].elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
-    apply_template(p, sb, "ac_fve", {"distribution": "terminals"})
+    apply_template(p, sb, "ac_fve", {"distribution": "terminals"}, standard_paper="A4")
     head, rows = cable_material(p, lib, sb)
     kinds = {r[1] for r in rows}
     assert {"Vodič rozvaděče", "Dutinka"} <= kinds
