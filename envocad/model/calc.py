@@ -53,6 +53,11 @@ def _f(v, default: float | None = None) -> float | None:
         return default
 
 
+def _num_cz(x: float) -> str:
+    """1.6 → „1,6“ (česká desetinná čárka v hláškách)."""
+    return f"{x:g}".replace(".", ",")
+
+
 def route_method(w: Wire) -> str:
     m = (w.attrs.get("method") or "").strip().upper()
     if m in IZ_3:
@@ -996,12 +1001,42 @@ def _source_current(project: Project, s: Sheet, w: Wire, inverter_u_dc: float | 
     return None, ""
 
 
-def _breaker_on_wire(s: Sheet, w: Wire) -> tuple[float | None, str]:
+def _breaker_el_on_wire(s: Sheet, w: Wire) -> Element | None:
     for end in (w.a, w.b):
         e = s.element(end.element_id)
         if e.symbol_id in ("fve.breaker_mcb", "fve.breaker_mccb", "sb.rcbo", "fve.fuse"):
-            return _f(e.attrs.get("in_")), e.ref
-    return None, ""
+            return e
+    return None
+
+
+def _breaker_on_wire(s: Sheet, w: Wire) -> tuple[float | None, str]:
+    e = _breaker_el_on_wire(s, w)
+    return (_f(e.attrs.get("in_")), e.ref) if e is not None else (None, "")
+
+
+# I2 / In – smluvený vypínací proud jisticího přístroje (ČSN 33 2000-4-43, čl. 433.1: I2 ≤ 1,45·Iz). Jističe
+# EN 60898 (B/C/D) 1,45, jističe EN 60947-2 (kompaktní, MCCB) 1,3, pojistky gPV (EN 60269-6) 1,45, pojistky gG / gL
+# (EN 60269-1, tab. 2) podle In: < 4 A 2,1; 4–16 A 1,9; ≥ 16 A 1,6. aM a neznámá charakteristika pojistky → None
+# (bez kontroly přetížení – aM nechrání proti přetížení, neznámou nehádáme).
+I2_LIMIT = 1.45
+
+
+def conventional_trip_factor(e: Element) -> float | None:
+    """I2/In jisticího přístroje podle značky a charakteristiky (`char`), None = neznámé (kontrola I2 se přeskočí)."""
+    if e.symbol_id in ("fve.breaker_mcb", "sb.rcbo"):
+        return 1.45
+    if e.symbol_id == "fve.breaker_mccb":
+        return 1.3
+    if e.symbol_id in ("fve.fuse", "fve.fuse_disconnect"):
+        ch = str(e.attrs.get("char") or "").strip().lower()
+        if ch == "gpv":
+            return 1.45
+        if ch in ("gg", "gl", "gl/gg", "gg/gl"):
+            i_n = _f(e.attrs.get("in_"))
+            if not i_n:
+                return None
+            return 2.1 if i_n < 4 else (1.9 if i_n < 16 else 1.6)
+    return None
 
 
 def check_strings(project: Project, t_min: float | None = None, t_max: float | None = None) -> list[StringCheck]:
@@ -1103,9 +1138,10 @@ def _wire_steps(project: Project, s: Sheet, e: Element, groups: dict | None):
 
 
 def _find_inverter(project: Project, s: Sheet, start: Element, max_depth: int = 12,
-                   groups: dict | None = None) -> Element | None:
+                   groups: dict | None = None, trail: list | None = None) -> Element | None:
     # blok DC rozvaděče se prochází párem portů (`_block_exit`): společný rozvaděč u technologie (RFVE.DC pro víc
-    # střídačů) vede každý string jen na jeho střídač; nejednoznačné zapojení bloku = všechny vodiče jako dřív
+    # střídačů) vede každý string jen na jeho střídač; nejednoznačné zapojení bloku = všechny vodiče jako dřív.
+    # `trail` (seznam) = sem se zapíšou prošlé průchozí prvky (list, prvek, port vstupu) – napětí DC prvků (`dc_voltages`)
     seen = {start.id}
     frontier: list[tuple[Sheet, Element, str | None]] = [(s, start, None)]
     for _ in range(max_depth):
@@ -1124,6 +1160,8 @@ def _find_inverter(project: Project, s: Sheet, start: Element, max_depth: int = 
                 if o.symbol_id in _PASS_THROUGH:
                     seen.add(key)
                     nxt.append((ps, o, other.port))
+                    if trail is not None:
+                        trail.append((ps, o, other.port))
         frontier = nxt
         if not frontier:
             break
@@ -1218,6 +1256,90 @@ def _trace_inverter(project: Project, s: Sheet, start: Element, max_depth: int =
     return inv, ""
 
 
+@dataclass
+class DcVoltage:
+    """Nejvyšší napětí DC v místě prvku: Uoc stringu při t_min (režim fixed_voltage: pevné napětí stringu střídače,
+    režim optimizer s U max výstupu optimizéru: `_uoc_capped`), string, který ho dává, a jeho střídač."""
+    u: float
+    string_ref: str
+    inverter: Element | None = None
+
+
+def _string_dc_voltage(m: ModuleData, n: int, t_min: float, inv: InverterData | None, attrs: dict) -> float | None:
+    mode = inv.mode if inv is not None else "classic"
+    if mode == "fixed_voltage":
+        return inv.u_string if inv is not None else None
+    uoc = _u_strings(m, n, t_min, T_MAX_DEFAULT)[0]
+    if mode == "optimizer":
+        capped = _uoc_capped(m, n, t_min, OptimizerData.from_attrs(attrs), _int(attrs.get("n_optimizers")))
+        if capped is not None:
+            return capped
+    return uoc
+
+
+def _board_reach(project: Project, block: Element, port: str | None) -> list[Element]:
+    """Prvky listu rozvaděče bloku `block`, kam vede přívod `port` (přes přístroje a svorky listu, bez PE vodičů,
+    zastaví se na přívodech / vývodech a sběrnicích). Přívod nenalezen → všechny prvky listu s DC vodičem."""
+    sb = project.switchboard_sheet(block.id)
+    if sb is None:
+        return []
+    start = next((e for e in sb.elements if is_feed(e) and port and e.ref == port), None)
+    if start is None:
+        ids = {end.element_id for w in sb.wires if _wire_system(w)[0] == "dc" for end in (w.a, w.b)}
+        return [e for e in sb.elements if e.id in ids]
+    by_id = {e.id: e for e in sb.elements}
+    seen, todo, out = {start.id}, [start], [start]
+    while todo:
+        cur = todo.pop()
+        for w in sb.wires:
+            if not w.touches(cur.id) or set(w.conductors) <= {"PE"}:
+                continue
+            o = by_id.get(w.b.element_id if w.a.element_id == cur.id else w.a.element_id)
+            if o is None or o.id in seen:
+                continue
+            seen.add(o.id)
+            out.append(o)
+            if is_feed(o) or o.symbol_id in _SHEET_STOP:
+                continue
+            todo.append(o)
+    return out
+
+
+def dc_voltages(project: Project, t_min: float | None = None) -> dict[str, DcVoltage]:
+    """Id prvku → nejvyšší napětí DC v jeho místě (`DcVoltage`) ze stringů, které jím vedou: průchozí prvky
+    blokového schématu na cestě stringu ke střídači (odpínače, pojistky, svorky, SPD) a prvky listů DC rozvaděčů,
+    kam vede přívod stringu (`_board_reach`). Teplota `t_min` jako u stringů (`design_temperatures`). String bez
+    počtu modulů / Uoc modulu se nepočítá. Pro kontroly Un a Uc / Ucpv prvků DC strany z údajů artiklů."""
+    from envocad.model.xref import interrupt_groups
+    t_min = design_temperatures(project)[0] if t_min is None else t_min
+    groups = interrupt_groups(project)
+    out: dict[str, DcVoltage] = {}
+
+    def put(e: Element, v: DcVoltage) -> None:
+        if e.id not in out or out[e.id].u < v.u:
+            out[e.id] = v
+    for s in project.sheets:
+        for e in s.elements:
+            if e.symbol_id != "fve.pv_string":
+                continue
+            m, n = ModuleData.from_attrs(e.attrs), int(_f(e.attrs.get("n_modules"), 0) or 0)
+            if m is None or not n:
+                continue
+            trail: list = []
+            inv_el = _find_inverter(project, s, e, groups=groups, trail=trail)
+            inv = InverterData.from_attrs(inv_el.attrs) if inv_el is not None else None
+            u = _string_dc_voltage(m, n, t_min, inv, e.attrs)
+            if not u:
+                continue
+            v = DcVoltage(round(u, 1), e.ref, inv_el)
+            for _ps, o, entered in trail:
+                put(o, v)
+                if o.symbol_id == "fve.switchboard":
+                    for x in _board_reach(project, o, entered):
+                        put(x, v)
+    return out
+
+
 _PROTECTION = ("fve.breaker_mcb", "fve.breaker_mccb", "sb.rcbo", "fve.fuse", "fve.fuse_disconnect")
 
 
@@ -1228,15 +1350,21 @@ def _port_protection(project: Project, block: Element, port: str) -> tuple[float
     """Jištění kabelu na vývodu bloku rozvaděče (vazba vývodu – vývod jistí svůj kabel): jistič / pojistka hned za
     vývodem `port` v listu rozvaděče (přes svorky); blok bez listu → atribut `protect` („X1=63“). Přívod listu (kabel
     jistí druhý konec) a vývod bez jištění → (None, "")."""
+    i_n, label, _e = _port_protection_el(project, block, port)
+    return i_n, label
+
+
+def _port_protection_el(project: Project, block: Element, port: str) -> tuple[float | None, str, Element | None]:
+    """Jako `_port_protection` + prvek jištění v listu rozvaděče (blok bez listu – jen In z `protect`, prvek None)."""
     from envocad.model.feed import is_feed_out
     from envocad.model.project import block_protect
     sb = project.switchboard_sheet(block.id)
     if sb is None:
         v = block_protect(block).get(port)
-        return (v, f"{block.ref}:{port}") if v else (None, "")
+        return (v, f"{block.ref}:{port}", None) if v else (None, "", None)
     start = next((e for e in sb.elements if is_feed(e) and e.ref == port), None)
     if start is None or not is_feed_out(start):
-        return None, ""
+        return None, "", None
     by_id = {e.id: e for e in sb.elements}
     seen, frontier = {start.id}, [start]
     for _ in range(4):
@@ -1251,11 +1379,11 @@ def _port_protection(project: Project, block: Element, port: str) -> tuple[float
                 seen.add(o.id)
                 if o.symbol_id in _PROTECTION:
                     i_n = _f(o.attrs.get("in_"))
-                    return (i_n, f"{block.ref}:{o.ref}") if i_n else (None, "")
+                    return (i_n, f"{block.ref}:{o.ref}", o) if i_n else (None, "", None)
                 if o.symbol_id in _TERMINALS:
                     nxt.append(o)
         frontier = nxt
-    return None, ""
+    return None, "", None
 
 
 def check_cables(project: Project, t_ambient: float = 30.0, du_limit_pct: float = 3.0) -> list[CableCheck]:
@@ -1281,11 +1409,12 @@ def check_cables(project: Project, t_ambient: float = 30.0, du_limit_pct: float 
             method = route_method(w)
             loaded = 3 if system == "3f" else 2
             iz = ampacity(cross, method, loaded, alu, t_ambient) if cross else None
-            in_b, bref = _breaker_on_wire(s, w)
+            prot = _breaker_el_on_wire(s, w)
+            in_b, bref = (_f(prot.attrs.get("in_")), prot.ref) if prot is not None else (None, "")
             if in_b is None:          # jištění za přívodem / vývodem bloku rozvaděče (list, jinak atribut `protect`)
                 for e, port in _far_ends(project, s, w, groups):
                     if e.symbol_id == "fve.switchboard":
-                        in_b, bref = _port_protection(project, e, port)
+                        in_b, bref, prot = _port_protection_el(project, e, port)
                         if in_b is not None:
                             break
             du_v = du_pct = None
@@ -1299,6 +1428,12 @@ def check_cables(project: Project, t_ambient: float = 30.0, du_limit_pct: float 
                 cc.issues.append(f"proud {i_a} A > Iz {iz} A ({method})")
             if iz and in_b and in_b > iz:
                 cc.issues.append(f"In jističe {bref} {in_b:g} A > Iz kabelu {iz} A")
+            elif iz and in_b and prot is not None:   # In ≤ Iz splněno – smluvený vypínací proud I2 ≤ 1,45·Iz
+                k2 = conventional_trip_factor(prot)
+                if k2 is not None and k2 * in_b > I2_LIMIT * iz + 1e-9:
+                    cc.issues.append(f"I2 jištění {bref} = {_num_cz(k2)}·In = {_num_cz(round(k2 * in_b, 1))} A > "
+                                     f"1,45·Iz = {_num_cz(round(I2_LIMIT * iz, 1))} A (pojistka "
+                                     f"{prot.attrs.get('char') or ''} – zvolte menší In nebo větší průřez)")
             if du_pct is not None and du_pct > du_limit_pct:
                 cc.issues.append(f"úbytek {du_pct} % > {du_limit_pct:g} %")
             if length is None and not s.is_switchboard:

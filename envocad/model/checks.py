@@ -236,6 +236,7 @@ def check_project(project: Project, lib) -> list[Finding]:
     out += note_findings(full)
     out += cable_findings(full)
     out += calc_findings(project)
+    out += rating_findings(project, lib)
     out += thermal_findings(project, lib)
     out += potential_findings(project, lib)
     out += text_findings(project, lib)
@@ -907,6 +908,14 @@ def calc_findings(project: Project) -> list[Finding]:
             out.append(Finding(WARNING if "menší" in msg else INFO, s.id if s else "", s.name if s else "",
                                e.id if e else "", False, lo, f"Selektivita: {msg}", "calc_selectivity"))
     return out
+
+
+def rating_findings(project: Project, lib=None) -> list[Finding]:
+    """Kontroly z údajů artiklů (`model/ratings.py`, docs/design/kontroly_artiklu.md): zkratová odolnost (`sc_*`),
+    svodiče (`spd_uc`, `spd_ucpv`, `spd_up`, `spd_lps`), svorky (`terminal_cross`, `terminal_in`) a jmenovité napětí
+    (`un_ac`, `un_dc`). Chybějící údaj nic nehlásí."""
+    from envocad.model.ratings import rating_findings as _rating
+    return _rating(project, lib)
 
 
 def thermal_findings(project: Project, lib=None) -> list[Finding]:
