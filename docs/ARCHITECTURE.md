@@ -237,7 +237,8 @@ Tři vrstvy rozšíření, od nejjednodušší:
    starými `sb.feed_in` / `sb.feed_out` se po `build` převede (`feed.normalize_legacy_objects` v `apply_template`),
    callback menu, který vkládá prvky sám, musí použít `sb.feed`.
 
-Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **15** – blok rozvaděče bez listu
+Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **16** – otisk listu uzavřené revize zahrnuje volné texty listu, migrace v15 → v16 přepočítá
+otisky listů s texty, které sedí na starý výpočet (`diff.upgrade_fingerprints`), data se nemění; v15 blok rozvaděče bez listu
 s porty z atributů `ports_in` / `ports_out` a jištěním portů `protect` (`project.block_port_names`, `is_block_only`,
 `block_protect`; generátor tak kreslí stávající RD / HR / RE a RFVE.AC bez mustru jen jako blok), migrace v14 → v15
 nic nemění, verze zvednutá, aby program v14 soubor odmítl místo osiřelých portů „X1?“; v14 parametrická sběrnice `sb.busbar`

@@ -1,7 +1,7 @@
 """Porovnání dvou verzí projektu (revize) → změnový list. Bez Qt.
 
-Porovnává prvky a vodiče podle id (přežívají uložení), svorkovnice/můstky a kabely podle označení,
-označení listů (`Sheet.func/loc`) a registr struktur projektu (`Project.structures`).
+Porovnává prvky, vodiče a volné texty listu (`Sheet.texts`) podle id (přežívají uložení), svorkovnice/můstky a kabely
+podle označení, označení listů (`Sheet.func/loc`) a registr struktur projektu (`Project.structures`).
 Výstup: seznam změn (list, prvek, druh změny, co se změnilo) pro změnový list, navigátor a značky revize
 ve výkresu (`model/revision.py`): `Change.sheet_id` + `target_id` = kde, `x/y` = pevná poloha odebraných.
 """
@@ -14,11 +14,13 @@ from itertools import pairwise
 
 from envocad.model import multipole as mp
 from envocad.model.feed import LEGACY_FEED_IDS, MP_LEGACY_ATTR, feed_dir, is_feed
-from envocad.model.project import Element, Project, Sheet, Wire
+from envocad.model.project import Element, Project, Sheet, SheetText, Wire
 
 IGNORED_ATTRS = {"wire_id", "cable_id", "sheet", MP_LEGACY_ATTR}   # odvozené/technické atributy
 FEED_CANON_SKIP = {"dir"}          # sb.feed v otisku: směr je v kanonickém id značky (sb.feed_in / sb.feed_out)
 MOVE_DETAIL = "posun ve výkresu"                   # detail změny, která je jen posunem prvku (bez značky revize)
+TEXT_MARK_DX = 5.0        # značka revize volného textu: těžiště tolik mm vlevo od začátku textu (nepřekryje ho)
+TEXT_SHORT = 40           # zkrácení textu v popisu změny (znaků)
 
 
 @dataclass
@@ -26,12 +28,13 @@ class Change:
     kind: str        # "přidáno" | "odebráno" | "změněno"
     sheet: str
     ref: str
-    what: str        # prvek | vodič | kabel | můstky | skříň | list | struktura
+    what: str        # prvek | vodič | text | kabel | můstky | skříň | list | struktura
     detail: str
-    target_id: str = ""      # id prvku/vodiče v novém projektu ("" = změna listu, odebraná věc, kabel…)
+    target_id: str = ""      # id prvku/vodiče v novém projektu ("" = změna listu, odebraná věc, text, kabel…)
     is_wire: bool = False
     sheet_id: str = ""       # id listu v novém projektu ("" = mimo list: kabel, struktura, odebraný list)
-    x: float | None = None   # poloha odebraného prvku/vodiče (mm, souřadnice listu); jinak None
+    # poloha značky (mm, souřadnice listu): odebraný prvek/vodič, volný text (vždy – `text_mark_pos`); jinak None
+    x: float | None = None
     y: float | None = None
 
 
@@ -102,6 +105,45 @@ def _designation_diff(o: Sheet, n: Sheet) -> list[str]:
     return d
 
 
+def _short(text: str) -> str:
+    """Text do popisu změny: jeden řádek, nejvýš `TEXT_SHORT` znaků."""
+    t = " ".join(text.split())
+    return f"„{t[:TEXT_SHORT - 1]}…“" if len(t) > TEXT_SHORT else f"„{t}“"
+
+
+def text_mark_pos(t: SheetText) -> tuple[float, float]:
+    """Poloha značky revize volného textu: vlevo od začátku prvního řádku (text nepřekryje)."""
+    return (t.x - TEXT_MARK_DX, t.y + t.height / 2)
+
+
+def _texts_diff(os_: Sheet, ns: Sheet) -> list[Change]:
+    """Změny volných textů listu (podle id). Pouhý posun = `MOVE_DETAIL` (bez značky, jako u prvku)."""
+    out = []
+    ot = {t.id: t for t in os_.texts}
+    nt = {t.id: t for t in ns.texts}
+    sid = ns.id
+    for tid, t in nt.items():
+        o = ot.get(tid)
+        x, y = text_mark_pos(t)
+        if o is None:
+            out.append(Change("přidáno", ns.name, "", "text", _short(t.text), sheet_id=sid, x=x, y=y))
+            continue
+        d = []
+        if o.text != t.text:
+            d.append(f"{_short(o.text)} → {_short(t.text)}")
+        if o.height != t.height:
+            d.append(f"výška: {o.height:g} → {t.height:g}")
+        if (o.x, o.y) != (t.x, t.y):
+            d.append(MOVE_DETAIL)
+        if d:
+            out.append(Change("změněno", ns.name, "", "text", "; ".join(d), sheet_id=sid, x=x, y=y))
+    for tid, o in ot.items():
+        if tid not in nt:
+            x, y = text_mark_pos(o)
+            out.append(Change("odebráno", ns.name, "", "text", _short(o.text), sheet_id=sid, x=x, y=y))
+    return out
+
+
 def _structures_diff(old: Project, new: Project) -> list[Change]:
     out = []
     oa = {(x.aspect, x.code): x for x in old.structures}
@@ -134,6 +176,7 @@ def diff_projects(old: Project, new: Project, lib=None) -> list[Change]:
         if os_ is None:
             for e in ns.elements:
                 changes.append(Change("přidáno", ns.name, e.ref, "prvek", e.symbol_id, e.id, sheet_id=sid))
+            changes += _texts_diff(Sheet(texts=[]), ns)
             continue
         d = [f"přejmenován {os_.name} → {ns.name}"] if os_.name != ns.name else []
         d += _designation_diff(os_, ns)
@@ -181,6 +224,7 @@ def diff_projects(old: Project, new: Project, lib=None) -> list[Change]:
                 pos = removed_wire_pos(old, os_, o, lib) or (None, None)
                 changes.append(Change("odebráno", ns.name, o.attrs.get("ref", ""), "vodič", o.attrs.get("cable", ""),
                                       is_wire=True, sheet_id=sid, x=pos[0], y=pos[1]))
+        changes += _texts_diff(os_, ns)
         if os_.is_switchboard or ns.is_switchboard:
             op, np_ = os_.layout.params, ns.layout.params
             d = _attrs_diff(op, np_)
@@ -237,23 +281,53 @@ def _canon_wire(w: Wire) -> dict:
             "ends": [w.a.element_id, w.a.port, w.b.element_id, w.b.port]}
 
 
-def sheet_fingerprint(sheet: Sheet) -> str:
+def _canon_text(t: SheetText) -> dict:
+    return {"id": t.id, "text": t.text, "height": t.height}
+
+
+def sheet_fingerprint(sheet: Sheet, *, texts: bool = True) -> str:
     """Otisk listu (sha1 kanonického JSON) ze stejných údajů, jaké porovnává `diff_projects` (název, označení listu,
-    prvky, vodiče, můstky, skříň). Stejný otisk ⇔ porovnání listu nenajde změnu se značkou (kabely a struktury
+    prvky, vodiče, volné texty, můstky, skříň). Stejný otisk ⇔ porovnání listu nenajde změnu se značkou (kabely a struktury
     jsou projektové, do otisku listu nepatří). Pořadí prvků/vodičů v seznamu otisk nemění. Poloha prvků (x, y, rotace) ani ruční
     lomy vodičů v otisku nejsou – pouhý posun nedostane značku revize (`revision.MARK_MOVES = False`), takže by
-    po uzavření vyvolal varování `rev_closed_changed`, které další porovnání nemůže odstranit."""
+    po uzavření vyvolal varování `rev_closed_changed`, které další porovnání nemůže odstranit. Totéž platí pro polohu
+    volného textu (v otisku je jen id, text a výška).
+
+    Volné texty (od formátu 16) jsou v otisku jen u listu, který nějaké má – otisk listu bez textů je stejný jako dřív.
+    `texts=False` = otisk starších verzí (≤ 15, bez textů); použije ho jen migrace otisků uzavřených revizí
+    (`upgrade_fingerprints`)."""
     data = {
         "name": sheet.name, "func": sheet.func, "loc": sheet.loc,
         "elements": sorted((_canon_element(e) for e in sheet.elements), key=lambda x: x["id"]),
         "wires": sorted((_canon_wire(w) for w in sheet.wires), key=lambda x: x["id"]),
         "bridges": {k: v for k, v in sorted(sheet.bridges.items()) if v},
     }
+    if texts and sheet.texts:
+        data["texts"] = sorted((_canon_text(t) for t in sheet.texts), key=lambda x: x["id"])
     if sheet.is_switchboard:
         data["layout"] = {"params": {k: v for k, v in sorted(sheet.layout.params.items()) if v not in ("", None)},
                           "rows": sheet.layout.rows, "modules_per_row": sheet.layout.modules_per_row}
     raw = json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
+
+def upgrade_fingerprints(project: Project) -> None:
+    """Migrace otisků uzavřených revizí z formátu ≤ 15 (otisk bez volných textů): otisk listu s texty, který sedí na
+    starý výpočet nad listem teď, se nahradí novým otiskem – list od uzavření nezměněný tak nehlásí falešné
+    `rev_closed_changed` a další změna textu se už pozná. Otisk, který nesedí (list se po uzavření změnil), zůstane
+    – změna se dál hlásí. Změnu samotných textů po uzavření ve starší verzi zpětně poznat nelze."""
+    for s in project.sheets:
+        if not s.texts:
+            continue
+        legacy = new = None
+        for rev in project.revisions:
+            fp = rev.fingerprints.get(s.id)
+            if fp is None:
+                continue
+            if legacy is None:
+                legacy, new = sheet_fingerprint(s, texts=False), sheet_fingerprint(s)
+            if fp == legacy:
+                rev.fingerprints[s.id] = new
 
 
 CHANGE_SEP = "|"          # oddělovač sloupců řádku změnového listu (`meta["changes"]`)

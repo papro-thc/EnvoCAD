@@ -35,18 +35,19 @@ from envocad.model.symbol import GRID
 MARK_MOVES = False        # pouhý posun prvku ve výkresu značku revize nevytváří
 TEXT_H = 2.5              # výška písma v trojúhelníku
 MIN_SIDE = 6.0            # minimální strana trojúhelníku (mm)
-MARK_WHATS = {"prvek", "vodič", "můstky", "skříň", "list"}   # změny, které mají místo na listu
+MARK_WHATS = {"prvek", "vodič", "text", "můstky", "skříň", "list"}   # změny, které mají místo na listu
 
 
 # ---- značky z porovnání ------------------------------------------------------------------------------------
 def _is_move_only(c: Change) -> bool:
-    return c.kind == "změněno" and c.what in ("prvek", "vodič") and c.detail == MOVE_DETAIL
+    return c.kind == "změněno" and c.what in ("prvek", "vodič", "text") and c.detail == MOVE_DETAIL
 
 
 def marks_from_changes(changes: list[Change]) -> list[RevisionMark]:
     """Značky revize ze změn `diff_projects`. Jedna značka na místo (list, prvek/vodič, resp. poloha odebraného);
     změny listu bez místa (skříň, přejmenování, označení listu, nový list) → jedna značka listu (`target_id=""`,
-    bez polohy – projeví se jen v popisovém poli). Bez značky: kabely, struktury, odebrané listy, pouhý posun
+    bez polohy – projeví se jen v popisovém poli); volný text listu – značka v pevné poloze u textu (`Change.x/y`).
+    Bez značky: kabely, struktury, odebrané listy, pouhý posun
     (`MARK_MOVES`) a jednotlivé prvky na zcela novém listu (je označený celý list)."""
     new_sheets = {c.sheet_id for c in changes if c.what == "list" and c.kind == "přidáno" and c.sheet_id}
     out: list[RevisionMark] = []
@@ -58,11 +59,11 @@ def marks_from_changes(changes: list[Change]) -> list[RevisionMark]:
             continue
         if c.sheet_id in new_sheets and c.what != "list":
             continue
-        removed = c.kind == "odebráno" and c.x is not None and c.y is not None
-        if c.what in ("skříň", "list") or not (c.target_id or removed):
+        fixed_pos = (c.kind == "odebráno" or c.what == "text") and c.x is not None and c.y is not None
+        if c.what in ("skříň", "list") or not (c.target_id or fixed_pos):
             key: tuple = (c.sheet_id, "", False, None, None)
             target, is_wire = "", False
-        elif removed:
+        elif fixed_pos:
             key = (c.sheet_id, "", c.is_wire, round(c.x, 3), round(c.y, 3))
             target, is_wire = "", c.is_wire
         else:
@@ -71,7 +72,7 @@ def marks_from_changes(changes: list[Change]) -> list[RevisionMark]:
         text = " ".join(x for x in (c.what, c.ref, c.kind) if x) + (f": {c.detail}" if c.detail else "")
         m = index.get(key)
         if m is None:
-            m = RevisionMark(c.sheet_id, target, is_wire, c.kind, c.x if removed else None, c.y if removed else None, text)
+            m = RevisionMark(c.sheet_id, target, is_wire, c.kind, c.x if fixed_pos else None, c.y if fixed_pos else None, text)
             index[key] = m
             out.append(m)
         else:

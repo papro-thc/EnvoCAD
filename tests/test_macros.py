@@ -309,8 +309,9 @@ def test_generator_regression_snapshot():
     snap = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
     assert set(snap) == set(CASES)
     for name in CASES:
-        got = canon(build_case(name))
-        assert got == snap[name], name
+        # verze formátu souboru není výstup generátoru (zvedá se se změnou formátu, např. v16 otisky revizí s texty)
+        got = {**canon(build_case(name)), "format_version": None}
+        assert got == {**snap[name], "format_version": None}, name
 
 
 def test_generator_component_fills_mppt_when_not_given():

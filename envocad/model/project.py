@@ -58,7 +58,7 @@ SWITCHBOARD_WIRE_ATTRIBUTES = [
     Attribute("prod", "Do výrobního seznamu (0 = ne)"),
 ]
 
-FORMAT_VERSION = 15
+FORMAT_VERSION = 16
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 DEVICE_HEIGHT_MM = 45.0  # mm – výška modulového přístroje na liště (rozložení, délky vodičů)
@@ -926,6 +926,9 @@ class Project:
                    revisions=[_part(Revision.from_dict, r, _label(r, "revize", k)) for k, r in enumerate(_top(d, "revisions"))],
                    notes=[_part(Note.from_dict, n, f"připomínka č. {k + 1}") for k, n in enumerate(_top(d, "notes"))])
         _repair_duplicate_ids(proj)
+        if ver < 16:
+            from envocad.model.diff import upgrade_fingerprints  # diff importuje project – až tady
+            upgrade_fingerprints(proj)
         proj.loaded_orphan_cables = {c.id for c in orphan_cables(proj)}
         return proj
 
@@ -1219,6 +1222,9 @@ def migrate(d: dict, ver: int) -> dict:
     # v15: blok rozvaděče bez listu s porty z atributů `ports_in` / `ports_out` (a jištěním portů `protect`) – bez
     # migrace dat (blok bez atributů se kreslí jako dřív). Verze se zvedla jen proto, aby program v14 soubor odmítl:
     # blok bez listu by kreslil se základní značkou a vodiče na jeho porty jako osiřelé „X1?“ (chyba `bad_port`).
+    # v16: otisk listu (`diff.sheet_fingerprint`) zahrnuje volné texty listu. Data se nemění; otisky uzavřených revizí
+    # převádí `Project.from_dict` nad hotovými listy (`diff.upgrade_fingerprints`). Verze se zvedla, aby program v15
+    # u listu s texty nehlásil falešné „změněno po uzavření revize“.
     d["format_version"] = FORMAT_VERSION
     return d
 
