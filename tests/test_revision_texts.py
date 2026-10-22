@@ -176,3 +176,40 @@ def test_upgrade_fingerprints_only_legacy_match():
     upgrade_fingerprints(p)
     assert p.revisions[0].fingerprints == {"s1": sheet_fingerprint(s)}
     assert p.revisions[1].fingerprints == {"s1": "jiný"} and p.revisions[2].fingerprints == {}
+
+
+def test_text_without_id_gets_stable_id():
+    """Text bez id (ručně psaný soubor) dostane stálé id z listu a pořadí – otisk listu je při každém otevření stejný
+    a uzavřená revize nehlásí falešné „změněno po uzavření“."""
+    raw = _project().to_dict()
+    for t in raw["sheets"][0]["texts"]:
+        del t["id"]
+    p = Project.from_dict(copy.deepcopy(raw))
+    assert [t.id for t in p.sheets[0].texts] == ["s1.t1", "s1.t2"]
+    rev = open_revision(p, "A")
+    close_revision(p, rev)
+    raw["revisions"] = [r.to_dict() for r in p.revisions]
+    again = Project.from_dict(copy.deepcopy(raw))
+    assert sheet_fingerprint(again.sheets[0]) == sheet_fingerprint(p.sheets[0])
+    assert changed_after_close(again) == []
+
+
+def test_duplicate_text_ids_repaired_deterministically(caplog):
+    raw = _project().to_dict()
+    s2 = copy.deepcopy(raw["sheets"][0])
+    s2["id"], s2["name"], s2["elements"] = "s2", "L2", []
+    raw["sheets"][0]["texts"].append({"id": "t1", "x": 0, "y": 0, "text": "kopie"})   # duplicita na listu
+    raw["sheets"].append(s2)                                                         # duplicity na jiném listu
+    a, b = Project.from_dict(copy.deepcopy(raw)), Project.from_dict(copy.deepcopy(raw))
+    ids = [t.id for s in a.sheets for t in s.texts]
+    assert ids == ["t1", "t2", "t1.2", "t1.3", "t2.2"]
+    assert ids == [t.id for s in b.sheets for t in s.texts]
+    assert "duplicitní id textu" in caplog.text
+
+
+def test_upgrade_logs_info(caplog):
+    import logging
+    raw = json.loads((DATA / "v15_closed_revision_texts.ecp").read_text(encoding="utf-8"))
+    with caplog.at_level(logging.INFO, logger="envocad.model"):
+        Project.from_dict(raw)
+    assert any("převeden na formát 16" in r.getMessage() and r.levelno == logging.INFO for r in caplog.records)

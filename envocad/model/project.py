@@ -744,6 +744,14 @@ class Sheet:
             key = "elements" if kind == "prvek" else "wires"
             return [_part(fn, x, f"{where}, {_label(x, kind, k)}") for k, x in enumerate(_list(d.get(key), key))]
         pid = d.get("parent_element_id")
+        sid = str(d["id"])
+        raw_texts = _list(d.get("texts"), "texts")
+        texts = [_part(SheetText.from_dict, x, f"{where}, text {k + 1}") for k, x in enumerate(raw_texts)]
+        for k, (x, t) in enumerate(zip(raw_texts, texts, strict=True)):
+            if not x.get("id"):
+                # text bez id (ručně psaný soubor): stálé id z listu a pořadí – náhodné by při každém otevření změnilo
+                # otisk listu a uzavřená revize by hlásila falešné „změněno po uzavření“
+                t.id = f"{sid}.t{k + 1}"
         return cls(
             name=str(d.get("name") or ""), paper=str(d.get("paper") or "A3"), width=_float(d.get("width", 420), "width"),
             height=_float(d.get("height", 297), "height"),
@@ -751,13 +759,12 @@ class Sheet:
             parent_element_id=str(pid) if pid else None,
             layout=Layout.from_dict(d.get("layout")),
             elements=part(Element.from_dict, "prvek"),
-            wires=part(Wire.from_dict, "vodič"), id=str(d["id"]),
+            wires=part(Wire.from_dict, "vodič"), id=sid,
             bridges={str(k): [[str(x) for x in _list(g, "bridges")] for g in _list(v, "bridges")]
                      for k, v in _dict(d.get("bridges"), "bridges").items()},
             func=str(d.get("func") or ""), loc=str(d.get("loc") or ""),
             mp_paper=str(d.get("mp_paper") or ""),
-            texts=[_part(SheetText.from_dict, x, f"{where}, text {k + 1}")
-                   for k, x in enumerate(_list(d.get("texts"), "texts"))],
+            texts=texts,
         )
 
 
@@ -1015,7 +1022,9 @@ def _repair_duplicate_ids(proj: Project) -> None:
     druhý a další výskyt, a to tak, aby se nic nerozbilo: po přeznačení prvku na listu se přepíší konce vodičů,
     umístění ve skříni, značky revizí a připomínky téhož listu, `parent_element_id` listu rozvaděče, který blok
     podle atributu „sheet“ reprezentuje, a vazby přívodů/vývodů (`wire_id`) listů rozvaděčů pod tímto listem.
-    Duplicita uvnitř jednoho listu je nejednoznačná: vodiče dál vedou na první prvek s daným id (`Sheet.element`)."""
+    Duplicita uvnitř jednoho listu je nejednoznačná: vodiče dál vedou na první prvek s daným id (`Sheet.element`).
+    Volné texty listu (`Sheet.texts`) mají id jedinečná v projektu; duplicita dostane stálé id „<id>.<n>“ (na id
+    textu nic neodkazuje, ale náhodné id by měnilo otisk listu při každém otevření)."""
     seen_s: set[str] = set()
     seen_e: dict[str, Element] = {}   # id → první prvek s tímto id (předchozí listy)
     seen_w: set[str] = set()
@@ -1053,6 +1062,22 @@ def _repair_duplicate_ids(proj: Project) -> None:
             local_w.add(w.id)
         seen_w |= {w.id for w in s.wires}
         _remap_sheet_refs(proj, s, emap, wmap, marks)
+    _repair_text_ids(proj)
+
+
+def _repair_text_ids(proj: Project) -> None:
+    used = {t.id for s in proj.sheets for t in s.texts}
+    seen: set[str] = set()
+    for s in proj.sheets:
+        for t in s.texts:
+            if t.id in seen:
+                old, n = t.id, 2
+                while f"{old}.{n}" in used:
+                    n += 1
+                t.id = f"{old}.{n}"
+                used.add(t.id)
+                log.warning("duplicitní id textu %s (list %s) – nové id %s", old, s.name, t.id)
+            seen.add(t.id)
 
 
 def _repoint_switchboard(proj: Project, first: Element | None, renamed: Element, old: str) -> None:
