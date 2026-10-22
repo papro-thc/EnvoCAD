@@ -40,6 +40,7 @@ from envocad.model.project import (
     Sheet,
     Wire,
     enclosure_param_error,
+    ik_ka_error,
 )
 from envocad.model.symbol import Attribute, Symbol
 from envocad.ui.wizard_topology import TopologyPanel
@@ -1485,6 +1486,8 @@ class ProjectWizard(QDialog):
         if self._opt_comp is not None and optimizer["type"]:   # bez typu = bez optimizérů, artikl se neposílá
             optimizer["component_id"] = self._opt_comp.id
         site = {k: v[k] for k in ("t_min", "t_max") if v.get(k) not in (None, "")}
+        if self.topo.ik_value():
+            site["ik_ka"] = self.topo.ik_value()   # → meta["ik_ka"] a ik_ka bloků HR / RE / RFVE.AC
         spec = {
             "name": self.name.text().strip() or "Nový projekt FVE",
             "meta": {"investor": self.investor.text().strip(), "place": self.place.text().strip(),
@@ -1637,7 +1640,12 @@ class EnclosurePanel(QWidget):
         f2.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
         hints = {"mounting": "nástěnná / zapuštěná / stojanová / volně stojící", "material": "plast / ocel / nerez",
                  "door": "plné / průhledné / bez dveří",
-                 "t_ambient_min": "nepovinné – kontrola t_min přístrojů (např. −20)"}
+                 "t_ambient_min": "nepovinné – kontrola t_min přístrojů (např. −20)",
+                 "ik": "mechanická odolnost krytu proti nárazu (IK07…) – nesouvisí se zkratovým proudem",
+                 "icw": "krátkodobá výdržná odolnost rozvaděče 1 s [kA] – kontrola Icw ≥ Ik",
+                 "ipk": "špičková výdržná odolnost Ipk [kA] (údaj výrobce skříně / rozvaděče)",
+                 "ik_ka": "očekávaný zkratový proud v rozvaděči [kA] z výpočtu; prázdné = odhad z projektu "
+                          "(Vlastnosti projektu) – kontroly Icu a Icw"}
         self._edits: dict[str, QLineEdit] = {}
         for key, label, default in ENCLOSURE_PARAMS:
             ed = QLineEdit(lay.params.get(key, default))
@@ -2328,12 +2336,19 @@ class NoteDialog(QDialog):
         return n
 
 
+IK_META_LABEL = "Ik v místě připojení [kA]"
+IK_META_HINT = ("Maximální zkratový proud v místě připojení – z vyjádření distributora nebo výpočtu. "
+                "Prázdné = horní odhad z transformátoru (Sn, uk) v projektu.")
+
+
 # Vlastnosti projektu: (klíč, popisek); „name“ = Project.name, ostatní Project.meta
 PROJECT_META_FIELDS = [
     ("name", "Název projektu"), ("investor", "Investor"), ("order", "Číslo zakázky"), ("place", "Místo"),
     ("author", "Zpracoval"), ("date", "Datum"), ("revision", "Revize"),
     # návrhové teploty kontroly stringů (`calc.design_temperatures`); prázdné = výchozí −10 / 70 °C
     ("pv_t_min", "Návrhová teplota min pro stringy [°C]"), ("pv_t_max", "Návrhová teplota max pro stringy [°C]"),
+    # zkratový proud v místě připojení (kontroly Icu / Icw, `ratings.project_ik_upper`); prázdné = odhad z trafa
+    ("ik_ka", IK_META_LABEL),
 ]
 PROJECT_CHANGES_LABEL = "Změnový list (řádek = revize | datum | popis | zpracoval)"
 
@@ -2352,6 +2367,9 @@ class ProjectMetaDialog(QDialog):
         for key, label in PROJECT_META_FIELDS:
             ed = QLineEdit(project.name if key == "name" else project.meta.get(key, ""))
             self.edits[key] = ed
+            if key == "ik_ka":
+                ed.setToolTip(IK_META_HINT)
+                ed.setPlaceholderText("prázdné = odhad z trafa")
             form.addRow(label, ed)
         self.changes = QPlainTextEdit(project.meta.get("changes", ""))
         self.changes.setMinimumHeight(90)
@@ -2373,6 +2391,8 @@ class ProjectMetaDialog(QDialog):
                     errs.append(str(ex))
         if len(temps) == 2 and temps["pv_t_min"] >= temps["pv_t_max"]:
             errs.append("Návrhová teplota min musí být menší než max.")
+        if (msg := ik_ka_error(self.edits["ik_ka"].text(), IK_META_LABEL)):
+            errs.append(msg)
         return errs
 
     def accept(self) -> None:
@@ -2393,6 +2413,8 @@ class ProjectMetaDialog(QDialog):
             t = parse_temperature(texts.get(k))
             if t is not None:
                 texts[k] = f"{t:g}"
+        if texts.get("ik_ka", "").strip():
+            texts["ik_ka"] = texts["ik_ka"].strip()
         texts["changes"] = self.changes.toPlainText()
         for k, v in texts.items():
             if v or k in meta:

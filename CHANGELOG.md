@@ -1,6 +1,13 @@
 # Changelog
 
 ## Nevydáno
+- **Zkratové údaje pro kontroly F7** (`sc_icu`, `sc_icw`, `sc_icu_icw`, `sc_upstream`): Vlastnosti projektu mají pole
+  „Ik v místě připojení [kA]“ (`meta["ik_ka"]`, prázdné = odhad z trafa); skříň rozvaděče má „Icw [kA] (1 s)“,
+  „Ipk [kA]“ a „Ik v rozvaděči [kA]“ (`ik_ka`), pole IK je přejmenované na „IK – mechanická odolnost (ne zkrat)“;
+  blok rozvaděče má atribut `ik_ka`; průvodce (krok Objekt a připojení) zapíše `site.ik_ka` do meta a do bloků
+  HR / RE / RFVE.AC (jen když je zadáno). Čísla se kontrolují česky (číslo > 0, nejvýše 200 kA), změny jdou přes
+  `SetProjectMetaCommand` / `SetLayoutCommand` (undo). Formát projektu beze změny. Sloupce katalogu skříní
+  `icw_ka` / `ipk_ka` zatím nejsou (nejsou ověřená data se zdrojem).
 - **Průvodce novým projektem po krocích** (`ui/dialogs.py:ProjectWizard`, `ui/wizard_topology.py`): místo jednoho dlouhého
   formuláře seznam sedmi kroků vlevo a stránka kroku vpravo (Projekt, Objekt a připojení, Moduly a střídače, Stringy,
   Kabely a rozvaděče, Stávající rozvaděče, Souhrn); volná navigace (klik na krok, Zpět / Další), posuvník jen uvnitř

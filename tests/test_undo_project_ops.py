@@ -687,3 +687,56 @@ def test_no_undo_reset_outside_allowed_places():
             assert "undo-reset-ok" in near, f"{path.name}:{lineno}: chybí komentář undo-reset-ok"
             found.add(key)
     assert found == ALLOWED_UNDO_RESETS
+
+
+# ---- Ik / Icw: vlastnosti projektu a skříň (kontroly F7 `sc_*`) -----------------------------------------------------
+def test_project_meta_ik_ka_undo_and_validation(app, lib, asked, monkeypatch):
+    from envocad.ui.dialogs import ProjectMetaDialog
+    p = _jps_project()
+    d = ProjectMetaDialog(p)
+    d.edits["ik_ka"].setText("abc")
+    assert any("Ik v místě připojení" in e and "není číslo" in e for e in d.errors())
+    d.edits["ik_ka"].setText("0")
+    assert any("mimo rozsah" in e for e in d.errors())
+    d.edits["ik_ka"].setText("")
+    assert d.errors() == [] and "ik_ka" not in d.values()[1]            # prázdné klíč nepřidá
+    w = _win(lib, p)
+    before = _state(p)
+
+    def ok(dlg):
+        dlg.edits["ik_ka"].setText("12,5")
+        return QDialog.Accepted
+    monkeypatch.setattr(ProjectMetaDialog, "exec", ok)
+    w.edit_project_meta()
+    assert p.meta["ik_ka"] == "12,5" and w.undo.count() == 1
+    _roundtrip(w, before)
+    _done(w)
+
+
+def test_enclosure_panel_icw_ipk_ik_undo_and_ratings(app, lib, asked):
+    from envocad.model import ratings
+    p, sb, w = _sb_window(lib)
+    w.open_sheet(sb, "layout")
+    panel = w.view.side_panel
+    from envocad.model.project import ENCLOSURE_PARAMS
+    assert "mechanick" in {k: lab for k, lab, _d in ENCLOSURE_PARAMS}["ik"]
+    before = _state(p)
+    for key, val in (("icw", "6"), ("ik_ka", "10")):
+        panel._edits[key].setText(val)
+        panel._edits[key].editingFinished.emit()
+    panel._edits["ipk"].setText("13,2")
+    panel._edits["ipk"].editingFinished.emit()
+    assert sb.layout.params["icw"] == "6" and sb.layout.params["ik_ka"] == "10" and sb.layout.params["ipk"] == "13,2"
+    b = ratings.board_of(p, sb)
+    assert (b.ik, b.icw) == (10.0, 6.0)
+    codes = [f.code for f in ratings.short_circuit_findings(p, ratings.Data())]
+    assert "sc_icw" in codes                                   # Icw 6 kA < Ik 10 kA
+    assert not panel.invalid_fields()
+    panel._edits["icw"].setText("x")
+    assert "icw" in panel.invalid_fields()
+    panel._edits["icw"].setText("6")
+    for _ in range(3):
+        w.undo.undo()
+    assert "ik_ka" not in sb.layout.params and "icw" not in sb.layout.params
+    assert _state(p) == before
+    _done(w)

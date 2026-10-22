@@ -476,13 +476,15 @@ ENCLOSURE_PARAMS = [
     ("depth_mm", "Hloubka [mm]", ""),
     ("row_pitch_mm", "Rozteč řad [mm]", "150"),
     ("ip", "Krytí IP", "IP 40"),
-    ("ik", "Odolnost IK", ""),
+    ("ik", "IK – mechanická odolnost (ne zkrat)", ""),
     ("mounting", "Montáž", "nástěnná"),
     ("material", "Materiál", "plast"),
     ("door", "Dveře", "plné"),
     ("un", "Jmenovité napětí Un", "3×400/230 V, 50 Hz"),
     ("in_", "Jmenovitý proud In [A]", ""),
-    ("icw", "Zkrat. odolnost [kA]", ""),
+    ("icw", "Icw [kA] (1 s) – zkratová odolnost", ""),
+    ("ipk", "Ipk [kA] – dynamická odolnost (špičkový proud)", ""),
+    ("ik_ka", "Ik v rozvaděči [kA] – očekávaný zkrat", ""),
     ("network", "Síť / uzemnění", "TN-S"),
     ("reserve_pct", "Požadovaná rezerva [%]", "20"),
     ("t_ambient", "Teplota okolí [°C]", "35"),
@@ -495,7 +497,8 @@ ENCLOSURE_PARAMS = [
 ENCLOSURE_NUMERIC: dict[str, tuple[float, float, bool, str]] = {
     "width_mm": (0.0, 5000.0, True, "mm"), "height_mm": (0.0, 5000.0, True, "mm"),
     "depth_mm": (0.0, 2000.0, True, "mm"), "row_pitch_mm": (50.0, 1000.0, False, "mm"),
-    "in_": (0.0, 10000.0, True, "A"), "icw": (0.0, 200.0, True, "kA"), "reserve_pct": (0.0, 100.0, False, "%"),
+    "in_": (0.0, 10000.0, True, "A"), "icw": (0.0, 200.0, True, "kA"), "ipk": (0.0, 500.0, True, "kA"),
+    "ik_ka": (0.0, 200.0, True, "kA"), "reserve_pct": (0.0, 100.0, False, "%"),
     "t_ambient": (-40.0, 60.0, False, "°C"), "t_ambient_min": (-60.0, 60.0, False, "°C"), "rdf": (0.0, 1.0, True, ""),
 }
 
@@ -517,6 +520,20 @@ def enclosure_param_error(key: str, text: str) -> str | None:
         u = f" {unit}" if unit and unit != "%" else unit
         span = f"větší než {lo:g} a nejvýše {hi:g}{u}" if lo_open else f"{lo:g} až {hi:g}{u}"
         return f"{label}: hodnota {t} je mimo rozsah ({span})"
+    return None
+
+
+def ik_ka_error(text: str, label: str = "Ik [kA]") -> str | None:
+    """Česká hláška pro neplatný zkratový proud v kA (číslo > 0 a nejvýše 200), jinak None; prázdné je v pořádku."""
+    t = (text or "").strip()
+    if not t:
+        return None
+    try:
+        v = float(t.replace(",", ".").replace(" ", ""))
+    except ValueError:
+        return f"{label}: „{t}“ není číslo"
+    if not math.isfinite(v) or v <= 0 or v > 200:
+        return f"{label}: hodnota {t} je mimo rozsah (větší než 0 a nejvýše 200 kA)"
     return None
 
 

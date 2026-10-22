@@ -76,6 +76,8 @@ Rozvaděče po trase mají jen SPD (přívod vede rovně na vývod) – odpojova
 v rozvaděči u střídače.
 `site.t_min` / `site.t_max` [°C] se zapíšou do `meta["pv_t_min"]` / `meta["pv_t_max"]` (kontrola stringů,
 `calc.design_temperatures`); bez nich platí výchozí −10 / 70 °C.
+`site.ik_ka` [kA] (Ik v místě připojení) se zapíše do `meta["ik_ka"]` a do atributu `ik_ka` bloků HR / RE / RD /
+RFVE.AC (jen když je zadáno; kontroly `ratings`).
 `jps.split` "auto" (výchozí) rozdělí JPS, které by se nevešlo na `jps.max_paper` (výchozí firemní standard
 `jps_max_paper` = A2), na listy formátu `jps.paper` (výchozí = limit): první „Blokové schéma – AC a připojení“
 (AC rozvaděč, síť, HOP; u přípojky VN celá přípojka – hlavní rozvaděč nn, transformátor, rozvaděč VN, elektroměrový

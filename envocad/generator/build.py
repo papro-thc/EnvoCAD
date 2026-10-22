@@ -134,6 +134,12 @@ def _build_once(spec: dict) -> tuple[Project, str | None]:
     for key, meta_key in (("t_min", "pv_t_min"), ("t_max", "pv_t_max")):
         if site.get(key) not in (None, ""):
             p.meta[meta_key] = _s(site[key])
+    ik = _s(site.get("ik_ka")).strip()
+    if ik:   # Ik v místě připojení [kA] (vyjádření DS / výpočet) – kontroly Icu / Icw (`ratings`)
+        from envocad.model.project import ik_ka_error
+        if (msg := ik_ka_error(ik, "site.ik_ka")):
+            raise ValueError(msg + ".")
+        p.meta["ik_ka"] = ik
     s = p.sheets[0]
     s.name = "Blokové schéma"
     ctx = ChainContext(spec=spec, raw=raw, project=p, sheet=s, building=building, combined=combined,
@@ -148,4 +154,8 @@ def _build_once(spec: dict) -> tuple[Project, str | None]:
     if _s(spec["ac"].get("main_in_auto")):     # z prvků střídačů (artikl bez `p_ac` ve specifikaci)
         spec["ac"]["main_in"] = main_switch_in(spec, ctx.inverters)
     chain.build(ctx)
+    if ik:   # jen zadané: bloky přípojných rozvaděčů dostanou Ik (blok má přednost před odhadem z trafa)
+        for blk in (*(g.get("block") for g in ctx.groups), *(ctx.blocks.get(r) for r in ("main", "hr", "re", "rd"))):
+            if blk is not None:
+                blk.attrs["ik_ka"] = ik
     return p, (ctx.dc_common.id if ctx.dc_common is not None else None)
