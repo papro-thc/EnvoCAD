@@ -1,6 +1,15 @@
 # Changelog
 
 ## Nevydáno
+- **Kontroly F7 z údajů artiklů** (`model/ratings.py`, `docs/design/kontroly_artiklu.md`): zkratová odolnost (Icu
+  jističe vs. Ik rozvaděče `ik_ka`, Icw rozvaděče vs. Ik, Icu vs. Icw; horní odhad z `meta["ik_ka"]` / Sn a uk
+  transformátoru jen jako informace), svodiče (AC Uc ≥ 1,1·Uo / √3·Uo podle sítě listu, DC Ucpv vs. Uoc stringu
+  při t_min, Up vs. Uw střídače, typ 1 při jímací soustavě), svorky (průřez vs. `cross_max`, In svorky vs. In
+  jištění), Un přístroje vs. síť (AC) a vs. Uoc stringů (DC). `calc_cable` nově hlídá i I2 ≤ 1,45·Iz (pojistky gG).
+  Nové `calc.dc_voltages` (napětí DC v místě prvku), `calc.conventional_trip_factor`. Kódy v MANUAL. Nálezy z Uoc
+  při t_min jsou bez návrhové teploty v projektu jen informace (předpoklad −10 °C). Generované projekty se stringy
+  20 × 49,5 V dostanou oprávněný nález `un_dc` u odpojovačů EFH 10 DC (1000 V < 1083,6 V; se standardem −20 °C
+  varování, i `spd_ucpv` – Ucpv 1100 V < 1110,3 V); výchozí průvodce (18 modulů, −20 °C: 999,3 V) zůstává čistý.
 - **Python 3.14** podporován (`requires-python` <3.15); celá sada testů prošla na Pythonu 3.14 s PySide6 6.12.
 - **Průvodce – topologie připojení (F5)** (`ui/wizard_topology.py`, `TopologyPanel`): skupiny „Objekt a připojení“
   (druh objektu, nn / vn – u RD zakázané s vysvětlením, předvolba topologie filtrovaná podle objektu a úrovně vč. sdílených

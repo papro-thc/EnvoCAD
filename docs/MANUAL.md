@@ -464,6 +464,27 @@ Jištění v rozvaděčích (`protection_findings`):
 | `fuse_no_in` / `breaker_no_in` | chyba | In nechal prázdné generátor, protože nic nevyhovělo (atribut prvku `in_unresolved` = důvod, je v hlášce): pojistka stringu, na kterou nevyhoví žádná vložka gPV (Isc, max. jištění modulu, max. In držáku) nebo modul nemá Isc; vývod HR, na který není selektivní jistič, jenž unese proud FVE |
 | `fuse_over_holder` | chyba | In vložky je nad max. In přiřazeného držáku (artikl `fuse_holder`, sloupec `in_max_a`) |
 
+Kontroly z údajů artiklů (`model/ratings.py`, návrh `docs/design/kontroly_artiklu.md`). Údaj se bere z atributu
+prvku, jinak z přiřazeného artiklu; když chybí, kontrola nic nehlásí. Napětí DC = Uoc stringů, které prvkem vedou,
+při nejnižší návrhové teplotě (Vlastnosti projektu); když ji projekt nemá, počítá se s −10 °C a nálezy `un_dc` /
+`spd_ucpv` jsou jen jedna informace na list.
+
+| Kód | Závažnost | Význam |
+|---|---|---|
+| `calc_cable` (I2) | chyba | smluvený vypínací proud I2 > 1,45·Iz kabelu (pojistka gG: I2 = 1,6·In od 16 A, 1,9·In do 16 A, 2,1·In pod 4 A), i když In ≤ Iz |
+| `sc_icu` | varování | Icu jističe < Ik v rozvaděči (atribut bloku `ik_ka` nebo parametr skříně `ik_ka`); kaskádu se záložním jištěním program nehodnotí |
+| `sc_icw` | chyba | zkratová odolnost rozvaděče (parametr skříně `icw`) < Ik v rozvaděči |
+| `sc_icu_icw` | varování | Icu jističe < Icw rozvaděče a Ik v rozvaděči není zadané |
+| `sc_upstream` | info | jedna položka na list: Ik v místě připojení (`ik_ka` ve vlastnostech projektu) nebo na svorkách nn transformátoru (Sn, uk) je nad Icu / Icw – horní odhad, ověřte Ik v rozvaděči |
+| `spd_uc` | chyba | AC svodič: Uc < 1,1·Uo (síť TN, TT) / √3·Uo (IT) podle parametrů skříně „Síť“ a „Un“ |
+| `spd_ucpv` | varování | DC svodič: Ucpv (atribut `ucpv`, artikl) < Uoc stringu; **info**, když je známé jen Uc a je pod Uoc (ověřte Ucpv v datasheetu) |
+| `spd_up` | varování | DC svodič: Up > výdržné napětí Uw střídače (atribut střídače `uw` v kV) |
+| `spd_lps` | info | rozvaděč v objektu s jímací soustavou (parametr skříně „Jímací soustava“ = ano) a svodič bez typu 1 |
+| `terminal_cross` | chyba | průřez vodiče / navázaného kabelu > max. průřez svorky nebo přístroje (`cross_max`) |
+| `terminal_in` | varování | In svorky < In nejbližšího jištění |
+| `un_ac` | chyba | Un přístroje < napětí sítě (3f přístroj sdružené, jinak fázové) |
+| `un_dc` | varování | Un přístroje DC < Uoc stringu při nejnižší teplotě (např. odpojovač 1000 V DC a string 20 × 49,5 V při −10 °C = 1083,6 V) |
+
 Připomínky (sekce 9):
 
 | Kód | Závažnost | Význam |
