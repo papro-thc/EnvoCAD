@@ -53,7 +53,7 @@
 ## v0.4 – Vícelistové projekty a dokumentace
 - [x] Vazba přívod/vývod rozvaděče ↔ vodič JPS (křížový odkaz, kabel jen jednou)
 - [x] Křížové odkazy potenciálů mezi listy JPS – hotovo 10/2026: přerušovací body se stejným označením jsou v `potential.nets` jeden potenciál (dvojice, řetěz, hvězda)
-- [ ] Generování částí TZ/DSPS z modelu (šablony)
+- [x] Generování částí TZ/DSPS z modelu (šablony) – hotovo 10/2026: `docs/design/tz_dsps.md`, vestavěné šablony TZ a DSPS, firemní .docx s poli `{{…}}`, DSPS se změnami proti PD
 - [ ] Sdílená knihovna pro celé ENVO (PostgreSQL nebo sdílený soubor)
 
 ## Nad rámec EPLAN – hotovo 10/2026
