@@ -372,14 +372,16 @@ def test_check_project_runs_rating_findings():
 _INV25 = {"p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30}
 
 
-def test_generated_projects_only_legit_dc_voltage_findings(ac_builtin_fn):
-    """Generátor: stringy 20 × 49,5 V mají Uoc při −10 °C 1083,6 V – odpojovače EFH 10 DC (1000 V DC) jsou pod ním
+def test_generated_projects_only_legit_dc_voltage_findings(ac_builtin_fn, monkeypatch):
+    """Generátor (katalog bez artiklů 1500 V): stringy 20 × 49,5 V mají Uoc při −10 °C 1083,6 V – odpojovače EFH 10 DC (1000 V DC) jsou pod ním
     (oprávněný nález, svodič VPU PV má Ucpv 1100 V z poznámky artiklu – v pořádku). Bez návrhové teploty jen
     informace, se zadanou (standard −20 °C) varování (i Ucpv 1100 V svodiče). 18 modulů (výchozí průvodce) i RD bez nálezu."""
     from chain_data import build_project
+    from test_dc_system import CatalogView
 
-    from envocad.library.store import LibraryStore
-    lib = LibraryStore()
+    from envocad.generator import context
+    lib = CatalogView()          # katalog bez DC artiklů 1500 V – generátor zůstane u 1000 V (soustava DC)
+    monkeypatch.setattr(context, "_lib", lambda: lib)
     spec = {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 18]}]}
     fs = _codes(check_project(build_project(spec), lib), *RATING_CODES)
     assert [(f.code, f.severity) for f in fs] == [("un_dc", INFO)] and "FU1.1 Un 1000 V < Uoc 1083,6 V" in fs[0].text

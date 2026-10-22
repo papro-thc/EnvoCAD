@@ -235,7 +235,7 @@ def check_project(project: Project, lib) -> list[Finding]:
     out += revision_findings(full)
     out += note_findings(full)
     out += cable_findings(full)
-    out += calc_findings(project)
+    out += calc_findings(project, lib)
     out += rating_findings(project, lib)
     out += thermal_findings(project, lib)
     out += potential_findings(project, lib)
@@ -879,7 +879,7 @@ def cable_findings(project: Project) -> list[Finding]:
             for c in orphan_cables(project)]
 
 
-def calc_findings(project: Project) -> list[Finding]:
+def calc_findings(project: Project, lib=None) -> list[Finding]:
     """Nálezy z výpočtů (model/calc.py): stringy, kabely, selektivita."""
     from envocad.model import calc
     out: list[Finding] = []
@@ -887,7 +887,7 @@ def calc_findings(project: Project) -> list[Finding]:
     el_by_ref = {e.ref: e for s in project.sheets for e in s.elements if e.ref}
     for msg in calc.design_temperature_issues(project):   # neplatná návrhová teplota ve Vlastnostech projektu
         out.append(Finding(WARNING, "", "", "", False, "", msg, "calc_temp"))
-    for sc in calc.check_strings(project):
+    for sc in calc.check_strings(project, lib=lib):
         e = el_by_ref.get(sc.ref)
         s = sheet_of.get(e.id) if e else None
         for msg in sc.issues:

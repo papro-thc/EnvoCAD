@@ -11,7 +11,7 @@ import math
 import re
 from dataclasses import dataclass
 
-from envocad.model import calc
+from envocad.model import calc, dc_system
 from envocad.model.checks import ERROR, INFO, WARNING, Finding
 from envocad.model.feed import is_feed
 from envocad.model.project import Element, Project, Sheet, conductor_name, linked_wire
@@ -28,7 +28,6 @@ UN_SYMBOLS = frozenset({"fve.breaker_mcb", "fve.breaker_mccb", "sb.rcbo", "sb.rc
                         "fve.changeover_switch", *TERMINAL_SYMBOLS})
 UN_CATEGORIES = frozenset({"mcb", "mccb", "rcd", "rcbo", "switch", "contactor", "fuse", "fuse_holder", "terminal"})
 _NUM = re.compile(r"[-+]?\d+(?:[.,]\d+)?")
-_UCPV_NOTE = re.compile(r"U\s*C\s*PV\s*(\d+(?:[.,]\d+)?)\s*V", re.IGNORECASE)
 _T1 = re.compile(r"\bT1\b|\bI\s*\+\s*II\b|\bTYP\s*1\b", re.IGNORECASE)
 
 
@@ -252,8 +251,7 @@ def spd_ucpv(e: Element, data: Data) -> float | None:
     v = data.num(e, "ucpv", "ucpv_v")
     if v:
         return v
-    m = _UCPV_NOTE.search(data.note(e))
-    return float(m.group(1).replace(",", ".")) if m else None
+    return dc_system.note_ucpv(data.note(e))
 
 
 def spd_findings(project: Project, data: Data, dcv: dict | None = None) -> list[Finding]:
@@ -381,6 +379,7 @@ def un_findings(project: Project, data: Data, dcv: dict | None = None) -> list[F
     given = design_t_min_given(project)
     out: list[Finding] = []
     infos = _Infos()
+    over_1000: list[tuple[Sheet, Element]] = []    # přístroje pod Uoc stringu nad 1000 V (soustava 1500 V?)
     for s in project.sheets:
         b = None
         for e in s.elements:
@@ -392,6 +391,8 @@ def un_findings(project: Project, data: Data, dcv: dict | None = None) -> list[F
             name = e.ref or e.symbol_id
             if is_dc(s, e, data):
                 v = dcv.get(e.id)
+                if v is not None and un < v.u - 1e-9 and v.u > dc_system.DEFAULT_SYSTEM:
+                    over_1000.append((s, e))
                 if v is not None and un < v.u - 1e-9 and not given:
                     infos.add(s, "un_dc_t", e, f"{name} Un {_g(un)} V < Uoc {_g(v.u)} V ({v.string_ref})")
                 elif v is not None and un < v.u - 1e-9:
@@ -408,7 +409,14 @@ def un_findings(project: Project, data: Data, dcv: dict | None = None) -> list[F
                 out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref,
                                    f"Un {name} {_g(un)} V < {'sdružené' if three else 'fázové'} napětí sítě "
                                    f"{_g(req)} V", "un_ac"))
-    return out + infos.findings({"un_dc_t": _assumed_text("Un přístroje DC pod Uoc stringu")})
+    out += infos.findings({"un_dc_t": _assumed_text("Un přístroje DC pod Uoc stringu")})
+    missing = dc_system.catalog_missing(data.lib) if over_1000 else []
+    if missing:
+        s0, e0 = over_1000[0]
+        out.append(Finding(INFO, s0.id, s0.name, e0.id, False, e0.ref,
+                           f"Stringy nad 1000 V DC: pro soustavu 1500 V chybí v katalogu artikly ({', '.join(missing)}) "
+                           "– zkraťte stringy, nebo doplňte artikly 1500 V", "dc_1500_missing"))
+    return out
 
 
 def rating_findings(project: Project, lib=None) -> list[Finding]:
