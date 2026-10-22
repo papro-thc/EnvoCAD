@@ -1,6 +1,16 @@
 # Changelog
 
 ## Nevydáno
+- **Review kontrol z artiklů a soustavy DC:** TZ a výkaz Výpočty hlásí Un DC přístrojů stejně jako F7 (knihovna,
+  návrhová t_min jen z projektu); jedna příčina = jeden nález (`calc_string` chyba vyjmenuje všechny přístroje
+  cesty, `un_dc` / `spd_ucpv` je se zadanou t_min znovu nehlásí, jinak info); soustava 1500 V jen s 2pólovým
+  držákem (1p ani bez pólů ne), bez RFVE.DC stačí svodič, automatika jen u střídače nad 1000 V DC, zadaná 1500 V
+  nepoužita → info; přívod stringu v listu nenalezen → napětí neurčeno + info `dc_path_unknown`; sloupec artiklu
+  `ucpv_v` (→ atribut `ucpv`, hodnoty z poznámek Weidmüller / Eaton), záloha z poznámky („Ucpv = 1 100 V“, „1,1
+  kV“); Ik transformátoru × c_max 1,05; pojistka gG In ≤ 4 A I2 = 2,1·In; Un čte největší číslo všude; 3f přístroj
+  podle známých pólů; Soustava DC ve Firemním standardu. Katalog: Eaton CHPV15L85 1pólový, značka
+  `fve.fuse_disconnect`; ETI EFH 10/14 −5…40 °C jen do poznámky (normální podmínky IEC 60947-1); názvy vložek
+  ETI CH10x85 bez zdvojeného „DC“.
 - **Soustava DC 1000 / 1500 V** (`model/dc_system.py`, `generator/dc_voltage.py`): asistent stringů a „Navrhnout
   stringy“ omezí délku stringu i nejnižším Un DC přístrojů ve stringové cestě (pojistkový odpojovač, svodič – Ucpv;
   důvod „Un DC přístrojů 1000 V“); stejnou mez hlídá F7 `calc_string` (`calc.string_device_limits`, se zadanou

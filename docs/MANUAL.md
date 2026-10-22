@@ -466,32 +466,37 @@ Jištění v rozvaděčích (`protection_findings`):
 
 Kontroly z údajů artiklů (`model/ratings.py`, návrh `docs/design/kontroly_artiklu.md`). Údaj se bere z atributu
 prvku, jinak z přiřazeného artiklu; když chybí, kontrola nic nehlásí. Napětí DC = Uoc stringů, které prvkem vedou,
-při nejnižší návrhové teplotě (Vlastnosti projektu); když ji projekt nemá, počítá se s −10 °C a nálezy `un_dc` /
-`spd_ucpv` jsou jen jedna informace na list.
+při nejnižší návrhové teplotě (Vlastnosti projektu). **Jedna příčina = jeden nález:** se zadanou návrhovou t_min
+hlásí podkročení Un / Ucpv přístrojů v cestě stringu jen `calc_string` (chyba, všechny takové přístroje v jedné
+hlášce; totéž ukáže TZ i výkaz Výpočty), `un_dc` / `spd_ucpv` je znovu nehlásí. Když projekt návrhovou teplotu nemá,
+počítá se s −10 °C a `un_dc` / `spd_ucpv` jsou jen jedna informace na list.
 
 | Kód | Závažnost | Význam |
 |---|---|---|
-| `calc_cable` (I2) | chyba | smluvený vypínací proud I2 > 1,45·Iz kabelu (pojistka gG: I2 = 1,6·In od 16 A, 1,9·In do 16 A, 2,1·In pod 4 A), i když In ≤ Iz |
+| `calc_cable` (I2) | chyba | smluvený vypínací proud I2 > 1,45·Iz kabelu (pojistka gG: I2 = 1,6·In od 16 A, 1,9·In nad 4 A pod 16 A, 2,1·In do 4 A včetně), i když In ≤ Iz |
 | `sc_icu` | varování | Icu jističe < Ik v rozvaděči (atribut bloku `ik_ka` nebo parametr skříně `ik_ka`); kaskádu se záložním jištěním program nehodnotí |
 | `sc_icw` | chyba | zkratová odolnost rozvaděče (parametr skříně `icw`) < Ik v rozvaděči |
 | `sc_icu_icw` | varování | Icu jističe < Icw rozvaděče a Ik v rozvaděči není zadané |
-| `sc_upstream` | info | jedna položka na list: Ik v místě připojení (`ik_ka` ve vlastnostech projektu) nebo na svorkách nn transformátoru (Sn, uk) je nad Icu / Icw – horní odhad, ověřte Ik v rozvaděči |
+| `sc_upstream` | info | jedna položka na list: Ik v místě připojení (`ik_ka` ve vlastnostech projektu) nebo na svorkách nn transformátoru (c_max · Sn / (√3 · 400 V · uk), c = 1,05) je nad Icu / Icw – horní odhad, ověřte Ik v rozvaděči |
 | `spd_uc` | chyba | AC svodič: Uc < 1,1·Uo (síť TN, TT) / √3·Uo (IT) podle parametrů skříně „Síť“ a „Un“ |
-| `spd_ucpv` | varování | DC svodič: Ucpv (atribut `ucpv`, artikl) < Uoc stringu; **info**, když je známé jen Uc a je pod Uoc (ověřte Ucpv v datasheetu) |
+| `spd_ucpv` | chyba / info | DC svodič: Ucpv (atribut `ucpv` > artikl `ucpv_v` > „Ucpv …“ z poznámky) < Uoc stringu – v cestě stringu se zadanou t_min hlásí `calc_string`; **info** bez návrhové teploty nebo když je známé jen Uc a je pod Uoc (ověřte Ucpv v datasheetu) |
 | `spd_up` | varování | DC svodič: Up > výdržné napětí Uw střídače (atribut střídače `uw` v kV) |
 | `spd_lps` | info | rozvaděč v objektu s jímací soustavou (parametr skříně „Jímací soustava“ = ano) a svodič bez typu 1 |
 | `terminal_cross` | chyba | průřez vodiče / navázaného kabelu > max. průřez svorky nebo přístroje (`cross_max`) |
 | `terminal_in` | varování | In svorky < In nejbližšího jištění |
 | `un_ac` | chyba | Un přístroje < napětí sítě (3f přístroj sdružené, jinak fázové) |
-| `un_dc` | varování | Un přístroje DC < Uoc stringu při nejnižší teplotě (např. odpojovač 1000 V DC a string 20 × 49,5 V při −10 °C = 1083,6 V) |
-| `dc_1500_missing` | info | stringy nad 1000 V DC a v katalogu chybí DC přístroje pro soustavu 1500 V (2p pojistkový odpojovač, svodič DC) – generátor zůstal u 1000 V |
-| `calc_string` (Un DC) | chyba | Uoc stringu při zadané návrhové t_min > nejnižší Un DC přístrojů v jeho cestě (pojistkový odpojovač, odpínač, svorka, svodič – Ucpv); stejná hláška jako asistent průvodce |
+| `un_dc` | chyba / info | Un přístroje DC < Uoc stringu při nejnižší teplotě (např. odpojovač 1000 V DC a string 20 × 49,5 V při −10 °C = 1083,6 V) – v cestě stringu se zadanou t_min hlásí `calc_string`; bez návrhové teploty info na list |
+| `dc_path_unknown` | info | přívod stringu v listu DC rozvaděče chybí (jiné označení než port bloku) – napětí DC prvků listu se neurčuje, Un / Ucpv se nehodnotí |
+| `dc_1500_missing` | info | stringy nad 1000 V DC a v katalogu chybí DC přístroje pro soustavu 1500 V (2p pojistkový odpojovač – jen když cesta stringu vede přes RFVE.DC, svodič DC) – generátor zůstal u 1000 V; nebo zadaná soustava 1500 V nepoužita |
+| `calc_string` (Un DC) | chyba | Uoc stringu při zadané návrhové t_min > Un DC přístrojů v jeho cestě (pojistkový odpojovač, odpínač, svorka, svodič – Ucpv); hláška vyjmenuje všechny takové přístroje, stejně jako asistent průvodce, TZ a výkaz Výpočty |
 
 **Soustava DC 1000 / 1500 V.** Asistent stringů v průvodci počítá největší počet modulů i z Un DC přístrojů, které
 generátor do cesty stringu dá (pojistkový odpojovač v RFVE.DC, svodič DC; důvod „Un DC přístrojů 1000 V (EFH 10 DC
 2p 1000 V)“), a „Navrhnout stringy“ tuto mez dodrží. Generátor vybere DC přístroje 1500 V (popis rozvaděče „max.
 1500 V DC“), když je zadaná soustava 1500 V (`dc.system_v`, firemní standard `dc_system_v`), nebo automaticky, když
-Uoc stringu přesáhne Un DC přístrojů a katalog má 2pólový pojistkový odpojovač a svodič DC stejného typu na 1500 V.
+Uoc stringu přesáhne Un DC přístrojů, střídač připouští víc než 1000 V DC a katalog má 2pólový pojistkový odpojovač
+(2× 1pólový se nepoužije) a svodič DC stejného typu na 1500 V (bez RFVE.DC stačí svodič). Soustavu nastavíte i ve
+Firemním standardu (Soustava DC).
 
 Připomínky (sekce 9):
 
