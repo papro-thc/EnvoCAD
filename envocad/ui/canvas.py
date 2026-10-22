@@ -1030,13 +1030,8 @@ class SchematicScene(QGraphicsScene):
             cb()
 
     def _renames_location(self, element_id: str, old: str, new: str) -> bool:
-        from envocad.model.designation import LOCATION_SYMBOLS
-        if not old or not new or self.sheet.element(element_id).symbol_id not in LOCATION_SYMBOLS:
-            return False
-        p = self.project
-        used = {s.loc for s in p.sheets} | {e.attrs.get("loc", "") for s in p.sheets for e in s.elements}
-        known = lambda code: p.structure("+", code) is not None or code in used
-        return known(old) and not known(new)
+        from envocad.cmd.edits import renames_location  # sdílené s příkazovým řádkem
+        return renames_location(self.project, self.sheet, element_id, old, new)
 
     def _on_selection(self) -> None:
         sel = self.selectedItems()
