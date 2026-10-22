@@ -55,6 +55,7 @@ Volitelné (podle kategorie): viz tabulka. Neznámou hodnotu nechte **prázdnou*
 | `n_min_1ph`, `n_max_1ph`, `p_string_max_1ph_w`, `n_min_3ph`, `n_max_3ph`, `p_string_max_3ph_w` | optimizéry – pravidla stringu z listu optimizéru podle fáze střídače: počet optimizérů ve stringu a max. výkon stringu. Z nich vznikají atributy stringu `opt_n_min`, `opt_n_max`, `opt_p_string_max`; ve výpočtu platí nejpřísnější z pravidel střídače a optimizéru. Výjimky („vyšší P stringu při ≥ N optimizérech“) patří do `note` | ks, ks, W |
 | `e_kwh`, `p_kw`, `u_dc_v` | baterie | kWh, kW, V |
 | `spd_type`, `uc_v`, `up_kv`, `iimp_ka`, `in_ka` | svodiče | T1 / T2 / T1+T2 / T1+T2 DC; V; kV; kA; kA |
+| `ucpv_v` | svodič DC: max. trvalé napětí Ucpv (EN 61643-31, datasheet „UCPV“) – mez délky stringu a kontrola F7 (atribut prvku `ucpv`; bez sloupce se jako záloha čte „Ucpv … V“ z `note`). U DC svodiče je `uc_v` jmenovitá třída (např. 1000), Ucpv může být vyšší (VPU PV I+II 3 1000: 1100 V) | V |
 | `rows`, `modules_per_row`, `ip`, `ik`, `material`, `mounting`, `door` | skříně | |
 | `terminal_kind`, `connection`, `cross_mm2`, `cross_max_mm2`, `width_mm`, `in_`, `un_v`, `color`, `levels` | řadové svorky: druh (`prochozi`, `pe`, `n-odpojovaci`, `dvoupatrova`, `pojistkova`, `rozbocovaci`, `distribucni`, `mustek`), připojení (`sroub`, `push-in`, `pruzina`), jmenovitý / max. průřez, rozteč (šířka), In, Un, barva, počet pater | mm², mm, A, V |
 | `in_max_a` | držák pojistky (`fuse_holder`): max. In vložky (EFH 10 DC = 25 A, OEZ OPVP10/14/22 = 32/63/125 A, Eaton CHPV1U = 30 A). Mez se bere **jen** z `in_max_a` (ne z `in_`). Generátor podle něj omezí In pojistky gPV stringu (i SolarEdge 25 A); když žádná velikost nevyhoví, nechá In prázdné a kontrola (F7) hlásí chybu; In vložky nad `in_max_a` přiřazeného držáku = chyba F7 `fuse_over_holder`. `in_` u držáku = jmenovitý proud odpínače (OPVP: Ie) – do prvku se **nepropisuje** (In je vlastnost vložky) | A |
@@ -68,7 +69,7 @@ Volitelné (podle kategorie): viz tabulka. Neznámou hodnotu nechte **prázdnou*
 Při výběru artiklu v dialogu prvku se naplní atributy prvku: `type` ← `part_number`, `manufacturer`,
 `in_`, `poles`, `char`, `icu`, `idn`, `modules`, `p_loss_w`, `t_min`, `t_max`, `spd_type`, `uc`, `p_ac`, `p_dc_max`,
 `mppt`, `phases`, `e_kwh`, `p_kw`, `p_string`, `contacts`, u střídače `u_dc_max`, `u_mppt_min`, `u_mppt_max`,
-`i_mppt_max`, `isc_mppt_max`, `strings_per_mppt`, u FV modulu (`fve.pv_string`) `p_module`, `voc`, `vmp`, `isc`,
+`i_mppt_max`, `isc_mppt_max`, `strings_per_mppt`, u svodiče DC `ucpv`, u FV modulu (`fve.pv_string`) `p_module`, `voc`, `vmp`, `isc`,
 `imp`, `beta_voc`, `u_sys_max`… (mapování `PARAM_TO_ATTR` v `envocad/library/components.py`, hodnoty bez prvku
 vrací `Component.attr_values()`). Atributy, které artikl nezná, zůstanou, jak byly.
 
