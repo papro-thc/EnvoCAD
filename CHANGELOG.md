@@ -1,6 +1,13 @@
 # Changelog
 
 ## Nevydáno
+- **Průvodce novým projektem po krocích** (`ui/dialogs.py:ProjectWizard`, `ui/wizard_topology.py`): místo jednoho dlouhého
+  formuláře seznam sedmi kroků vlevo a stránka kroku vpravo (Projekt, Objekt a připojení, Moduly a střídače, Stringy,
+  Kabely a rozvaděče, Stávající rozvaděče, Souhrn); volná navigace (klik na krok, Zpět / Další), posuvník jen uvnitř
+  kroku, okno 1000×640. Krok s chybou zadání je červený s ikonou a tooltipem, Souhrn ukáže zadání, počty, DC/AC,
+  asistenta stringů, chyby po krocích s odkazy a chybu generátoru / nálezy F7 projektu, který by vznikl; „Vytvořit“
+  je zakázané při chybě. Veřejné API (`spec()`, `errors()`, pole průvodce) i výchozí `spec()` beze změny; nové
+  `STEPS`, `goto()`, `step_errors()`, `refresh_state()`, `TopologyPanel.errors_by_page()`. Testy `test_wizard_steps.py`.
 - **Review kontrol z artiklů a soustavy DC:** TZ a výkaz Výpočty hlásí Un DC přístrojů stejně jako F7 (knihovna,
   návrhová t_min jen z projektu); jedna příčina = jeden nález (`calc_string` chyba vyjmenuje všechny přístroje
   cesty, `un_dc` / `spd_ucpv` je se zadanou t_min znovu nehlásí, jinak info); soustava 1500 V jen s 2pólovým
