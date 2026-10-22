@@ -458,3 +458,25 @@ def test_two_pole_device_is_phase_voltage():
     p, sb, _ = _board()
     _ac_breaker(sb, un="230", poles="2")
     assert ratings.un_findings(p, ratings.Data()) == []
+
+
+def test_without_ik_icw_input_no_findings():
+    """Bez zadaného Ik / Icw (meta, blok, skříň) kontroly `sc_*` nic neohlásí."""
+    p, sb, _ = _board()
+    _ac_breaker(sb, icu="6")
+    assert ratings.short_circuit_findings(p, ratings.Data()) == []
+    b = ratings.board_of(p, sb)
+    assert b.ik is None and b.icw is None and ratings.upstream_ik(p) is None
+
+
+def test_board_params_ik_icw_enclosure_dialog_keys():
+    """Klíče z dialogu skříně (`ik_ka`, `icw`) a Ik místa připojení (meta) – čárka jako desetinný oddělovač."""
+    p, sb, _ = _board({"ik_ka": "10,5", "icw": "8"})
+    _ac_breaker(sb, icu="6")
+    fs = ratings.short_circuit_findings(p, ratings.Data())
+    assert sorted(x.code for x in fs) == ["sc_icu", "sc_icw"]
+    p, sb, _ = _board()
+    _ac_breaker(sb, icu="6")
+    p.meta["ik_ka"] = "15"                            # Ik místa připojení z Vlastností projektu → informace sc_upstream
+    fs = ratings.short_circuit_findings(p, ratings.Data())
+    assert [(x.code, x.severity) for x in fs] == [("sc_upstream", INFO)] and "15 kA" in fs[0].text
