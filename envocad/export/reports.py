@@ -522,7 +522,7 @@ def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None
     from envocad.model import calc
     head = ["Část", "Prvek", "Hodnoty", "Mez / porovnání", "Výsledek"]
     rows = []
-    for sc in calc.check_strings(project):
+    for sc in calc.check_strings(project, lib=lib):
         if sheet is not None and sc.sheet != sheet.name:
             continue
         if sc.mode == "fixed_voltage":   # pevné napětí (SolarEdge): Uoc·n ani okno MPPT se nekontrolují

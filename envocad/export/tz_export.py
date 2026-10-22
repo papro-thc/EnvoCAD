@@ -85,7 +85,7 @@ def export_tz_docx(project: Project, lib: LibraryStore, path: Path | str, templa
     doc.add_paragraph("")
     doc.add_heading("2.1 Kontrola stringů proti střídači", 2)
     t_min, t_max = calc.design_temperatures(project)
-    sc = calc.check_strings(project, t_min, t_max)
+    sc = calc.check_strings(project, t_min, t_max, lib=lib)
     classic = [x for x in sc if x.mode != "fixed_voltage"]
     fixed = [x for x in sc if x.mode == "fixed_voltage"]
     if classic or not fixed:

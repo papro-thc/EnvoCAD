@@ -123,9 +123,13 @@ def board_of(project: Project, s: Sheet) -> Board:
     return Board(network, round(uo, 1), ik, icw, lps)
 
 
+C_MAX = 1.05   # napěťový součinitel c_max pro maximální zkratový proud v sítích nn (ČSN EN 60909-0, tab. 1)
+
+
 def transformer_ik_ka(sn_kva: float, uk_pct: float, u_v: float = U_NN) -> float:
-    """Počáteční souměrný zkratový proud na svorkách nn transformátoru při tvrdé síti vn: Sn / (√3 · U · uk)."""
-    return round(sn_kva * 1000 / (math.sqrt(3) * u_v * uk_pct / 100) / 1000, 1)
+    """Počáteční souměrný zkratový proud na svorkách nn transformátoru při tvrdé síti vn (horní odhad):
+    c_max · Sn / (√3 · U · uk), c_max = 1,05."""
+    return round(C_MAX * sn_kva * 1000 / (math.sqrt(3) * u_v * uk_pct / 100) / 1000, 1)
 
 
 def upstream_ik(project: Project) -> tuple[float, str] | None:
@@ -143,7 +147,7 @@ def upstream_ik(project: Project) -> tuple[float, str] | None:
             if sn and uk and uk > 0:
                 ik = transformer_ik_ka(sn, uk)
                 if best is None or ik > best[0]:
-                    best = (ik, f"na svorkách nn {e.ref or 'TR'} (Sn {_g(sn)} kVA, uk {_g(uk)} %)")
+                    best = (ik, f"na svorkách nn {e.ref or 'TR'} (Sn {_g(sn)} kVA, uk {_g(uk)} %, c = 1,05)")
     return best
 
 
@@ -173,9 +177,10 @@ def is_dc(s: Sheet, e: Element, data: Data) -> bool:
 
 
 def _three_phase(s: Sheet, e: Element, data: Data) -> bool:
+    """Přístroj na sdružené napětí: známé póly ≥ 3 (1+N / 2p na fázové napětí); bez pólů podle žil vodičů L1–L3."""
     poles = data.num(e, "poles", "poles")
-    if poles is not None and poles >= 3:
-        return True
+    if poles is not None:
+        return poles >= 3
     return any({"L1", "L2", "L3"} <= {conductor_name(c) for c in w.conductors} for w in _touching(s, e))
 
 
@@ -247,16 +252,16 @@ def spd_uc_required(network: str, uo: float) -> float:
 
 
 def spd_ucpv(e: Element, data: Data) -> float | None:
-    """Ucpv DC svodiče: atribut `ucpv`, parametr artiklu `ucpv_v`, jinak „Ucpv 1100 V“ z poznámky artiklu."""
-    v = data.num(e, "ucpv", "ucpv_v")
-    if v:
-        return v
-    return dc_system.note_ucpv(data.note(e))
+    """Ucpv DC svodiče – stejné pořadí jako mez stringu (`dc_system.spd_ucpv`): atribut `ucpv` > artikl `ucpv_v` >
+    „Ucpv …“ z poznámky artiklu."""
+    return dc_system.spd_ucpv(e.attrs, data.comp(e))
 
 
-def spd_findings(project: Project, data: Data, dcv: dict | None = None) -> list[Finding]:
+def spd_findings(project: Project, data: Data, dcv: dict | None = None, covered: set | None = None) -> list[Finding]:
     """AC svodič: Uc ≥ 1,1·Uo (TN/TT) / √3·Uo (IT) podle sítě listu (`spd_uc`, chyba). DC svodič: Ucpv ≥ Uoc
-    stringu při t_min (`spd_ucpv`, varování – bez návrhové teploty v projektu informace; jen Uc známé a pod Uoc → informace „ověřte Ucpv“), Up ≤ Uw střídače
+    stringu při t_min (`spd_ucpv`, chyba – svodič v cestě stringu se zadanou návrhovou t_min hlásí `calc_string`
+    (`covered`), bez návrhové teploty jedna informace na list; jen Uc známé a pod Uoc → informace „ověřte Ucpv“),
+    Up ≤ Uw střídače
     (`uw` / artikl `uw_kv`, `spd_up`). Jímací soustava rozvaděče a svodič bez typu 1 → informace (`spd_lps`)."""
     dcv = calc.dc_voltages(project) if dcv is None else dcv
     given = design_t_min_given(project)
@@ -274,10 +279,12 @@ def spd_findings(project: Project, data: Data, dcv: dict | None = None) -> list[
                 if v is None:
                     continue
                 ucpv = spd_ucpv(e, data)
-                if ucpv and ucpv < v.u - 1e-9 and not given:
+                if ucpv and covered and e.id in covered:
+                    pass          # podkročení Ucpv hlásí `calc_string` u stringu (stejná příčina, chyba)
+                elif ucpv and ucpv < v.u - 1e-9 and not given:
                     infos.add(s, "spd_ucpv_t", e, f"{name} Ucpv {_g(ucpv)} V < Uoc {_g(v.u)} V ({v.string_ref})")
                 elif ucpv and ucpv < v.u - 1e-9:
-                    out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
+                    out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref,
                                        f"Svodič {name}: Ucpv {_g(ucpv)} V < Uoc stringu {v.string_ref} {_g(v.u)} V "
                                        "při nejnižší teplotě – zvolte svodič na vyšší napětí", "spd_ucpv"))
                 elif not ucpv and uc and uc < v.u - 1e-9:
@@ -371,10 +378,14 @@ def terminal_findings(project: Project, data: Data) -> list[Finding]:
 
 
 # ---- 5. jmenovité napětí -----------------------------------------------------------------------------------------
-def un_findings(project: Project, data: Data, dcv: dict | None = None) -> list[Finding]:
+def un_findings(project: Project, data: Data, dcv: dict | None = None, covered: set | None = None,
+                paths: list | None = None) -> list[Finding]:
     """Un přístroje (atribut `un`, artikl `un_v`) pod napětím obvodu: AC – 3f přístroj sdružené napětí, jinak Uo sítě
     listu (`un_ac`, chyba; artikl jen pro DC se v AC obvodu nehodnotí); DC – Uoc stringů při t_min, které prvkem
-    vedou (`un_dc`, varování; bez návrhové teploty v projektu jedna informace na list)."""
+    vedou (`un_dc`, chyba; přístroje v cestě stringu se zadanou návrhovou t_min hlásí `calc_string` – `covered`;
+    bez návrhové teploty jedna informace na list). Stringy nad 1000 V a katalog bez sady 1500 V → `dc_1500_missing`
+    (držák jen tehdy, když cesta vede přes pojistkový odpojovač); zadaná soustava 1500 V nepoužita (meta
+    `dc_system_missing` z generátoru) → `dc_1500_missing`."""
     dcv = calc.dc_voltages(project) if dcv is None else dcv
     given = design_t_min_given(project)
     out: list[Finding] = []
@@ -385,7 +396,7 @@ def un_findings(project: Project, data: Data, dcv: dict | None = None) -> list[F
         for e in s.elements:
             if e.symbol_id not in UN_SYMBOLS and data.category(e) not in UN_CATEGORIES:
                 continue
-            un = max_num(data.text(e, "un", "un_v"))
+            un = dc_system.un_value(data.text(e, "un", "un_v"))
             if not un:
                 continue
             name = e.ref or e.symbol_id
@@ -393,10 +404,12 @@ def un_findings(project: Project, data: Data, dcv: dict | None = None) -> list[F
                 v = dcv.get(e.id)
                 if v is not None and un < v.u - 1e-9 and v.u > dc_system.DEFAULT_SYSTEM:
                     over_1000.append((s, e))
-                if v is not None and un < v.u - 1e-9 and not given:
+                if v is None or un >= v.u - 1e-9 or (covered and e.id in covered):
+                    continue      # v cestě stringu se zadanou t_min hlásí `calc_string` (stejná příčina, chyba)
+                if not given:
                     infos.add(s, "un_dc_t", e, f"{name} Un {_g(un)} V < Uoc {_g(v.u)} V ({v.string_ref})")
-                elif v is not None and un < v.u - 1e-9:
-                    out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
+                else:
+                    out.append(Finding(ERROR, s.id, s.name, e.id, False, e.ref,
                                        f"Un {name} {_g(un)} V DC < Uoc stringu {v.string_ref} {_g(v.u)} V při "
                                        "nejnižší teplotě – přístroj na vyšší napětí, nebo kratší string", "un_dc"))
                 continue
@@ -410,18 +423,34 @@ def un_findings(project: Project, data: Data, dcv: dict | None = None) -> list[F
                                    f"Un {name} {_g(un)} V < {'sdružené' if three else 'fázové'} napětí sítě "
                                    f"{_g(req)} V", "un_ac"))
     out += infos.findings({"un_dc_t": _assumed_text("Un přístroje DC pod Uoc stringu")})
-    missing = dc_system.catalog_missing(data.lib) if over_1000 else []
+    holder = any(e.symbol_id in ("fve.fuse", "fve.fuse_disconnect") for _s, e in over_1000)
+    missing = dc_system.catalog_missing(data.lib, need_holder=holder) if over_1000 else []
     if missing:
         s0, e0 = over_1000[0]
         out.append(Finding(INFO, s0.id, s0.name, e0.id, False, e0.ref,
                            f"Stringy nad 1000 V DC: pro soustavu 1500 V chybí v katalogu artikly ({', '.join(missing)}) "
                            "– zkraťte stringy, nebo doplňte artikly 1500 V", "dc_1500_missing"))
+    req = str((project.meta or {}).get("dc_system_missing") or "").strip()
+    if req:
+        out.append(Finding(INFO, "", "", "", False, "", f"Zadaná soustava DC 1500 V nepoužita – v katalogu chybí {req}; "
+                           "DC přístroje zůstaly na 1000 V", "dc_1500_missing"))
+    unknown = _Infos()
+    for sp in paths or []:
+        for blk, port in sp.unresolved:
+            unknown.add(sp.sheet, "dc_path_unknown", blk, f"{blk.ref or 'rozvaděč'} (přívod {port or '?'}, string "
+                      f"{sp.string.ref})")
+    out += unknown.findings({"dc_path_unknown": "Napětí DC v listu rozvaděče neurčeno – přívod stringu v listu chybí "
+                                              "(Un / Ucpv přístrojů se nehodnotí)"})
     return out
 
 
 def rating_findings(project: Project, lib=None) -> list[Finding]:
     """Všechny kontroly z údajů artiklů (pro `checks.check_project`)."""
     data = Data(lib)
-    dcv = calc.dc_voltages(project)
-    return (short_circuit_findings(project, data) + spd_findings(project, data, dcv) + terminal_findings(project, data)
-            + un_findings(project, data, dcv))
+    paths = calc.string_paths(project)
+    dcv = calc.dc_voltages(project, paths=paths)
+    covered: set[str] = set()
+    if design_t_min_given(project):   # přístroje v cestě stringu: podkročení Un / Ucpv hlásí `calc_string`
+        covered = {x.id for sp in paths for x in sp.elements if x.symbol_id in calc.DC_PATH_DEVICES}
+    return (short_circuit_findings(project, data) + spd_findings(project, data, dcv, covered)
+            + terminal_findings(project, data) + un_findings(project, data, dcv, covered, paths))

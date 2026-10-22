@@ -376,7 +376,7 @@ MSG_INV_NO_LIMITS = "střídač nemá zadané Umax / rozsah MPPT (doplňte z art
 MSG_OPT_NO_PARAMS = "optimizér bez parametrů (doplňte z katalogu)"
 MSG_NO_OPTIMIZERS = "string nemá optimizéry (režim stringů s optimizéry)"
 MSG_PARALLEL_MODULES = "různé moduly stringů na MPPT"
-MSG_DC_DEVICES = "Uoc {u} V při {t} °C > Un DC přístrojů {lim} V{label}"
+MSG_DC_DEVICES = "Uoc {u} V při {t} °C > Un DC přístrojů {devices}"   # devices: „EFH 10 DC 2p 1000 V, …“
 POWER_LIMIT_SUFFIX = " – omezení výkonu"     # přípona varování „omezení výkonu“ (proud MPPT, okno MPPT optimizéru)
 _WARNING_TEMPLATES = (
     re.escape(MSG_NO_MODULES),
@@ -535,15 +535,16 @@ def _mode_issues(m: ModuleData, inv: InverterData, n: int, opt: OptimizerData | 
 
 def string_issues(m: ModuleData, inv: InverterData | None, n: int, n_par: int = 1, t_min: float = T_MIN_DEFAULT,
                   t_max: float = T_MAX_DEFAULT, opt: OptimizerData | None = None,
-                  n_opt: int | None = None, u_dc_devices: float | None = None, u_dc_label: str = "") -> list[str]:
+                  n_opt: int | None = None, dc_devices=None) -> list[str]:
     """České hlášky ke stringu n modulů, n_par paralelních stringů na stejném MPPT (prázdný seznam = vyhovuje).
     Texty sdílí kontrola projektu (F7), výkaz Výpočty i asistent průvodce; závažnost určuje `is_warning`.
     Režim podle střídače (`InverterData.mode`): classic – napětí, okno MPPT, proudy; optimizer – navíc počet
     optimizérů, P stringu, smíšení a Uoc s U max výstupu optimizéru; fixed_voltage – místo Uoc·n, okna MPPT a proudů
     počet optimizérů, optimizér na každém modulu, P stringu a pevné napětí. `opt` (data optimizéru stringu) → kontrola
     vstupu optimizéru ve všech režimech; `n_opt` = počet optimizérů ve stringu (atribut `n_optimizers`).
-    `u_dc_devices` = nejnižší Un DC přístrojů ve stringové cestě [V] (`model/dc_system.device_limit`, popis
-    `u_dc_label`) – Uoc stringu nad ním je chyba (`MSG_DC_DEVICES`)."""
+    `dc_devices` = [(Un DC [V], popis)] přístrojů ve stringové cestě (`dc_system.path_devices` v průvodci,
+    `string_device_limits` v projektu) – Uoc stringu nad Un kteréhokoli z nich je chyba (`MSG_DC_DEVICES`, všechny
+    takové přístroje v jedné hlášce)."""
     out = []
     if not n or not m.voc:
         out.append(MSG_NO_MODULES)
@@ -555,11 +556,12 @@ def string_issues(m: ModuleData, inv: InverterData | None, n: int, n_par: int = 
     if mode != "fixed_voltage":
         uoc = _uoc_capped(m, n, t_min, opt, n_opt) if mode == "optimizer" else None
         out += _voltage_issues(m, inv, n, t_min, t_max, uoc)
-        if u_dc_devices and n and m.voc:
+        if dc_devices and n and m.voc:
             u = uoc if uoc is not None else _u_strings(m, n, t_min, t_max)[0]
-            if u > u_dc_devices + 1e-9:
-                out.append(MSG_DC_DEVICES.format(u=_num_cz(u), t=_num_cz(t_min), lim=_num_cz(u_dc_devices),
-                                                 label=f" ({u_dc_label})" if u_dc_label else ""))
+            under = sorted((d for d in dc_devices if u > d[0] + 1e-9), key=lambda d: d[0])
+            if under:
+                out.append(MSG_DC_DEVICES.format(u=_num_cz(u), t=_num_cz(t_min).replace("-", "−"),
+                                                 devices=", ".join(dict.fromkeys(lab for _u, lab in under))))
         if inv is not None:
             out += _current_issues(m, inv, n_par)
             if not (inv.u_dc_max or inv.u_mppt_min):
@@ -1033,7 +1035,7 @@ def _breaker_on_wire(s: Sheet, w: Wire) -> tuple[float | None, str]:
 
 # I2 / In – smluvený vypínací proud jisticího přístroje (ČSN 33 2000-4-43, čl. 433.1: I2 ≤ 1,45·Iz). Jističe
 # EN 60898 (B/C/D) 1,45, jističe EN 60947-2 (kompaktní, MCCB) 1,3, pojistky gPV (EN 60269-6) 1,45, pojistky gG / gL
-# (EN 60269-1, tab. 2) podle In: < 4 A 2,1; 4–16 A 1,9; ≥ 16 A 1,6. aM a neznámá charakteristika pojistky → None
+# (EN 60269-1, tab. 2) podle In: ≤ 4 A 2,1; nad 4 A pod 16 A 1,9; ≥ 16 A 1,6. aM a neznámá charakteristika pojistky → None
 # (bez kontroly přetížení – aM nechrání proti přetížení, neznámou nehádáme).
 I2_LIMIT = 1.45
 
@@ -1052,7 +1054,7 @@ def conventional_trip_factor(e: Element) -> float | None:
             i_n = _f(e.attrs.get("in_"))
             if not i_n:
                 return None
-            return 2.1 if i_n < 4 else (1.9 if i_n < 16 else 1.6)
+            return 2.1 if i_n <= 4 else (1.9 if i_n < 16 else 1.6)
     return None
 
 
@@ -1065,10 +1067,10 @@ def check_strings(project: Project, t_min: float | None = None, t_max: float | N
     `capacity_issue` u stringů nad kapacitu (v pořadí vstupů DCk). Režim stringu = atribut střídače `string_mode`,
     data optimizéru = atributy `opt_*` stringu (`OptimizerData.from_attrs`), počet optimizérů = `n_optimizers`.
     Uoc nad nejnižším Un DC přístrojů ve stringové cestě (`string_device_limits`, s `lib` i z artiklů) je chyba
-    `MSG_DC_DEVICES` – stejně jako v asistentu průvodce; jen se zadanou návrhovou teplotou t_min (jinak F7 `un_dc`
-    jako informace)."""
+    `MSG_DC_DEVICES` – stejně jako v asistentu průvodce; jen se zadanou návrhovou teplotou t_min v projektu
+    (`meta["pv_t_min"]`, i když volající teploty předá – TZ i výkaz Výpočty tak hlásí totéž co F7); bez ní F7 `un_dc`
+    jako informace."""
     d_min, d_max = design_temperatures(project)
-    t_min_arg = t_min
     t_min = d_min if t_min is None else t_min
     t_max = d_max if t_max is None else t_max
     found = []
@@ -1098,9 +1100,9 @@ def check_strings(project: Project, t_min: float | None = None, t_max: float | N
             ordered = sorted(idx, key=lambda i: (found[i][5] is None, found[i][5] or 0, i))
             over.update(dict.fromkeys(ordered[inverter_capacity(inv):], msg))
     out = []
-    # Un DC přístrojů ve stringové cestě (jako asistent průvodce) – jen se zadanou návrhovou teplotou (projekt nebo
-    # parametr); s předpokladem T_MIN_DEFAULT hlásí podkročení Un jen informace F7 `un_dc` (`model/ratings.py`)
-    t_given = t_min_arg is not None or parse_temperature((getattr(project, "meta", None) or {}).get("pv_t_min")) is not None
+    # Un DC přístrojů ve stringové cestě (jako asistent průvodce) – jen se zadanou návrhovou teplotou v projektu;
+    # s předpokladem T_MIN_DEFAULT hlásí podkročení Un jen informace F7 `un_dc` (`model/ratings.py`)
+    t_given = parse_temperature((getattr(project, "meta", None) or {}).get("pv_t_min")) is not None
     dev_limits = string_device_limits(project, lib) if t_given else {}
     modules: list[tuple[int, ModuleData | None]] = []
     for i, (s, e, inv_el, inv, mppt, _p) in enumerate(found):
@@ -1129,8 +1131,7 @@ def check_strings(project: Project, t_min: float | None = None, t_max: float | N
                          p_string=round(n * m.p_wp, 1) if m.p_wp and n else None,
                          u_string=inv.u_string if inv is not None and mode == "fixed_voltage" else None,
                          p_string_max=p_max, n_opt_min=n_lo, n_opt_max=n_hi)
-        u_dc, u_lab = dev_limits.get(e.id, (None, ""))
-        sc.issues = string_issues(m, inv, n, n_par, t_min, t_max, opt, n_opt, u_dc, u_lab) \
+        sc.issues = string_issues(m, inv, n, n_par, t_min, t_max, opt, n_opt, dev_limits.get(e.id)) \
             + ([over[i]] if i in over else [])
         out.append(sc)
     for idx in groups.values():
@@ -1305,16 +1306,16 @@ def _string_dc_voltage(m: ModuleData, n: int, t_min: float, inv: InverterData | 
     return uoc
 
 
-def _board_reach(project: Project, block: Element, port: str | None) -> list[Element]:
+def _board_reach(project: Project, block: Element, port: str | None) -> list[Element] | None:
     """Prvky listu rozvaděče bloku `block`, kam vede přívod `port` (přes přístroje a svorky listu, bez PE vodičů,
-    zastaví se na přívodech / vývodech a sběrnicích). Přívod nenalezen → všechny prvky listu s DC vodičem."""
+    zastaví se na přívodech / vývodech a sběrnicích). Blok bez listu → []; přívod `port` v listu nenalezen → None
+    (napětí se neurčuje – `StringPath.unresolved`, F7 informace `dc_path_unknown`)."""
     sb = project.switchboard_sheet(block.id)
     if sb is None:
         return []
     start = next((e for e in sb.elements if is_feed(e) and port and e.ref == port), None)
     if start is None:
-        ids = {end.element_id for w in sb.wires if _wire_system(w)[0] == "dc" for end in (w.a, w.b)}
-        return [e for e in sb.elements if e.id in ids]
+        return None
     by_id = {e.id: e for e in sb.elements}
     seen, todo, out = {start.id}, [start], [start]
     while todo:
@@ -1333,109 +1334,121 @@ def _board_reach(project: Project, block: Element, port: str | None) -> list[Ele
     return out
 
 
-def string_voltages(project: Project, t_min: float | None = None) -> dict[str, DcVoltage]:
-    """Id stringu → napětí DC stringu při t_min (`DcVoltage`, jako `dc_voltages`); string bez dat chybí."""
+@dataclass
+class StringPath:
+    """String a jeho cesta ke střídači: průchozí prvky blokového schématu a prvky listů DC rozvaděčů od přívodu
+    stringu (`_board_reach`); `unresolved` = (blok, port) rozvaděčů, kde přívod v listu chybí; `voltage` = napětí
+    stringu při t_min (`DcVoltage`, None bez údajů modulu)."""
+    sheet: Sheet
+    string: Element
+    inverter: Element | None
+    elements: list[Element] = field(default_factory=list)
+    unresolved: list[tuple[Element, str]] = field(default_factory=list)
+    voltage: DcVoltage | None = None
+
+
+def string_paths(project: Project, t_min: float | None = None) -> list[StringPath]:
+    """Cesty všech stringů projektu (`StringPath`) s napětím při t_min (`design_temperatures`, je-li None)."""
     from envocad.model.xref import interrupt_groups
     t_min = design_temperatures(project)[0] if t_min is None else t_min
     groups = interrupt_groups(project)
-    out: dict[str, DcVoltage] = {}
+    out: list[StringPath] = []
     for s in project.sheets:
         for e in s.elements:
             if e.symbol_id != "fve.pv_string":
                 continue
+            trail: list = []
+            inv_el = _find_inverter(project, s, e, groups=groups, trail=trail)
+            sp = StringPath(s, e, inv_el)
+            for _ps, o, entered in trail:
+                sp.elements.append(o)
+                if o.symbol_id == "fve.switchboard":
+                    reach = _board_reach(project, o, entered)
+                    if reach is None:
+                        sp.unresolved.append((o, entered or ""))
+                    else:
+                        sp.elements += reach
             m, n = ModuleData.from_attrs(e.attrs), int(_f(e.attrs.get("n_modules"), 0) or 0)
-            if m is None or not n:
-                continue
-            inv_el = _find_inverter(project, s, e, groups=groups)
-            inv = InverterData.from_attrs(inv_el.attrs) if inv_el is not None else None
-            u = _string_dc_voltage(m, n, t_min, inv, e.attrs)
-            if u:
-                out[e.id] = DcVoltage(round(u, 1), e.ref, inv_el)
+            if m is not None and n:
+                inv = InverterData.from_attrs(inv_el.attrs) if inv_el is not None else None
+                u = _string_dc_voltage(m, n, t_min, inv, e.attrs)
+                if u:
+                    sp.voltage = DcVoltage(round(u, 1), e.ref, inv_el)
+            out.append(sp)
     return out
 
 
-def _string_path(project: Project, s: Sheet, e: Element, groups: dict | None) -> tuple[Element | None, list[Element]]:
-    """(střídač, prvky ve stringové cestě): průchozí prvky blokového schématu ke střídači a prvky listů DC rozvaděčů,
-    kam vede přívod stringu (`_board_reach`)."""
-    trail: list = []
-    inv_el = _find_inverter(project, s, e, groups=groups, trail=trail)
-    out: list[Element] = []
-    for _ps, o, entered in trail:
-        out.append(o)
-        if o.symbol_id == "fve.switchboard":
-            out += _board_reach(project, o, entered)
-    return inv_el, out
-
-
-def dc_voltages(project: Project, t_min: float | None = None) -> dict[str, DcVoltage]:
-    """Id prvku → nejvyšší napětí DC v jeho místě (`DcVoltage`) ze stringů, které jím vedou: průchozí prvky
-    blokového schématu na cestě stringu ke střídači (odpínače, pojistky, svorky, SPD) a prvky listů DC rozvaděčů,
-    kam vede přívod stringu (`_board_reach`). Teplota `t_min` jako u stringů (`design_temperatures`). String bez
-    počtu modulů / Uoc modulu se nepočítá. Pro kontroly Un a Uc / Ucpv prvků DC strany z údajů artiklů."""
-    from envocad.model.xref import interrupt_groups
-    t_min = design_temperatures(project)[0] if t_min is None else t_min
-    groups = interrupt_groups(project)
+def dc_voltages(project: Project, t_min: float | None = None,
+                paths: list[StringPath] | None = None) -> dict[str, DcVoltage]:
+    """Id prvku → nejvyšší napětí DC v jeho místě (`DcVoltage`) ze stringů, které jím vedou (`string_paths`):
+    průchozí prvky blokového schématu a prvky listů DC rozvaděčů od přívodu stringu. Rozvaděč, kde přívod stringu
+    v listu chybí, se neurčuje. Pro kontroly Un a Ucpv prvků DC strany z údajů artiklů (`model/ratings.py`)."""
     out: dict[str, DcVoltage] = {}
-    for s in project.sheets:
-        for e in s.elements:
-            if e.symbol_id != "fve.pv_string":
-                continue
-            m, n = ModuleData.from_attrs(e.attrs), int(_f(e.attrs.get("n_modules"), 0) or 0)
-            if m is None or not n:
-                continue
-            inv_el, path = _string_path(project, s, e, groups)
-            inv = InverterData.from_attrs(inv_el.attrs) if inv_el is not None else None
-            u = _string_dc_voltage(m, n, t_min, inv, e.attrs)
-            if not u:
-                continue
-            v = DcVoltage(round(u, 1), e.ref, inv_el)
-            for x in path:
-                if x.id not in out or out[x.id].u < v.u:
-                    out[x.id] = v
+    for sp in string_paths(project, t_min) if paths is None else paths:
+        v = sp.voltage
+        if v is None:
+            continue
+        for x in sp.elements:
+            if x.id not in out or out[x.id].u < v.u:
+                out[x.id] = v
     return out
 
 
-# přístroje stringové cesty s Un DC (svodič: Ucpv) – mez délky stringu (`string_device_limits`, `dc_system`)
+# přístroje stringové cesty s Un DC (svodič: Ucpv) – mez délky stringu (`string_device_limits`, `dc_system`); stejné
+# druhy hodnotí F7 `un_dc` / `spd_ucpv` (`model/ratings.py`), v cestě stringu je ale pokryje `calc_string`
 DC_PATH_DEVICES = frozenset({"fve.fuse", "fve.fuse_disconnect", "fve.dc_disconnect", "fve.switch_disconnector",
-                             "fve.breaker_mcb", "fve.terminal", "sb.terminal_block", "fve.spd"})
+                             "fve.breaker_mcb", "fve.breaker_mccb", "sb.rcbo", "sb.rcd", "sb.main_switch",
+                             "fve.contactor", "fve.changeover_switch", "fve.terminal", "sb.terminal_block",
+                             "fve.spd"})
 
 
-def device_dc_un(e: Element, lib=None) -> float | None:
-    """Un DC přístroje ve stringové cestě: svodič – atribut `ucpv`, artikl (Ucpv / poznámka / Uc,
-    `dc_system.component_un`), atribut `uc`; ostatní – atribut `un`, artikl `un_v`. Neznámé → None."""
+def _cached_component(lib, cid: str | None, cache: dict | None = None):
+    if lib is None or not cid:
+        return None
+    if cache is not None and cid in cache:
+        return cache[cid]
+    try:
+        comp = lib.component(cid)
+    except Exception:  # noqa: BLE001 – knihovna nedostupná
+        comp = None
+    if cache is not None:
+        cache[cid] = comp
+    return comp
+
+
+def device_dc_un(e: Element, lib=None, cache: dict | None = None) -> float | None:
+    """Un DC přístroje ve stringové cestě (pořadí atribut > artikl jako F7): svodič – Ucpv (`dc_system.spd_ucpv`,
+    Uc se za Ucpv nebere); ostatní – atribut `un`, artikl `un_v` (`dc_system.un_value`). Neznámé → None."""
     from envocad.model import dc_system
-    comp = None
-    if lib is not None and e.component_id:
-        try:
-            comp = lib.component(e.component_id)
-        except Exception:  # noqa: BLE001 – knihovna nedostupná
-            comp = None
-    num = dc_system._num
+    if e.symbol_id not in DC_PATH_DEVICES:
+        return None
+    comp = _cached_component(lib, e.component_id, cache)
     if e.symbol_id == "fve.spd":
-        return num(e.attrs.get("ucpv")) or dc_system.component_un(comp) or num(e.attrs.get("uc"))
-    return num(e.attrs.get("un")) or dc_system.component_un(comp)
+        return dc_system.spd_ucpv(e.attrs, comp)
+    return dc_system.un_value(e.attrs.get("un")) or dc_system.component_un(comp)
 
 
-def string_device_limits(project: Project, lib=None) -> dict[str, tuple[float, str]]:
-    """Id stringu → (nejnižší Un DC přístrojů v jeho cestě [V], popis „EFH 10 DC 2p 1000 V“) – stejná mez jako
-    asistent průvodce (`dc_system.device_limit`); při shodě vyhrává jiný přístroj než svodič. String bez přístrojů
-    s Un chybí."""
-    from envocad.model.xref import interrupt_groups
-    groups = interrupt_groups(project)
-    out: dict[str, tuple[float, str]] = {}
-    for s in project.sheets:
-        for e in s.elements:
-            if e.symbol_id != "fve.pv_string":
-                continue
-            best = None
-            for x in _string_path(project, s, e, groups)[1]:
-                if x.symbol_id not in DC_PATH_DEVICES:
-                    continue
-                u = device_dc_un(x, lib)
-                if u and (best is None or (u, x.symbol_id == "fve.spd") < (best[0], best[2])):
-                    best = (u, f"{x.attrs.get('type') or x.ref or x.symbol_id} {u:g} V", x.symbol_id == "fve.spd")
-            if best is not None:
-                out[e.id] = (best[0], best[1])
+def path_devices(sp: StringPath, lib=None, cache: dict | None = None) -> list[tuple[float, str, Element]]:
+    """(Un DC [V], popis „EFH 10 DC 2p 1000 V“, prvek) přístrojů v cestě stringu se známým Un (bez opakování)."""
+    out, seen = [], set()
+    for x in sp.elements:
+        u = device_dc_un(x, lib, cache) if x.id not in seen else None
+        seen.add(x.id)
+        if u:
+            out.append((u, f"{x.attrs.get('type') or x.ref or x.symbol_id} {u:g} V", x))
+    return out
+
+
+def string_device_limits(project: Project, lib=None,
+                         paths: list[StringPath] | None = None) -> dict[str, list[tuple[float, str]]]:
+    """Id stringu → [(Un DC, popis)] přístrojů v jeho cestě – stejná data jako asistent průvodce
+    (`dc_system.path_devices`); string bez přístrojů se známým Un chybí."""
+    cache: dict = {}
+    out: dict[str, list[tuple[float, str]]] = {}
+    for sp in string_paths(project) if paths is None else paths:
+        devs = [(u, label) for u, label, _x in path_devices(sp, lib, cache)]
+        if devs:
+            out[sp.string.id] = devs
     return out
 
 

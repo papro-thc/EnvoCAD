@@ -86,6 +86,7 @@ def test_conventional_trip_factor():
     f = calc.conventional_trip_factor
     assert f(Element("fve.breaker_mcb", 0, 0)) == 1.45 and f(Element("fve.breaker_mccb", 0, 0)) == 1.3
     assert f(Element("fve.fuse", 0, 0, attrs={"char": "gG", "in_": "2"})) == 2.1
+    assert f(Element("fve.fuse", 0, 0, attrs={"char": "gG", "in_": "4"})) == 2.1      # In ≤ 4 A (EN 60269-1)
     assert f(Element("fve.fuse", 0, 0, attrs={"char": "gG", "in_": "10"})) == 1.9
     assert f(Element("fve.fuse", 0, 0, attrs={"char": "gG", "in_": "125"})) == 1.6
     assert f(Element("fve.fuse", 0, 0, attrs={"char": "gPV", "in_": "16"})) == 1.45
@@ -154,7 +155,7 @@ def test_dc_breaker_skips_short_circuit():
 
 
 def test_upstream_ik_transformer_and_meta_is_info():
-    assert ratings.transformer_ik_ka(630, 6) == pytest.approx(15.2, abs=0.05)
+    assert ratings.transformer_ik_ka(630, 6) == pytest.approx(15.9, abs=0.05)    # c_max 1,05 · 15,2 kA
     p, sb, blk = _board()
     _ac_breaker(sb, icu="6")
     _ac_breaker(sb, ref="F2", icu="25")
@@ -247,7 +248,7 @@ def test_dc_spd_ucpv():
     assert ratings.spd_findings(p, ratings.Data()) == []
     p, _f, _spd, _t = _dc_project(spd_attrs={"ucpv": "1050"})
     fs = ratings.spd_findings(p, ratings.Data())
-    assert [(x.code, x.severity) for x in fs] == [("spd_ucpv", WARNING)] and "1083,6 V" in fs[0].text
+    assert [(x.code, x.severity) for x in fs] == [("spd_ucpv", ERROR)] and "1083,6 V" in fs[0].text
     lib = FakeLib(_comp("vpu", "spd", uc_v=1000, spd_type="T1+T2 DC", note="DC | Ucpv 1100 V | Up 3,8 kV"))
     p, _f, _spd, _t = _dc_project(spd_comp="vpu")                       # Ucpv z poznámky artiklu
     assert ratings.spd_findings(p, ratings.Data(lib)) == []
@@ -328,7 +329,7 @@ def test_un_ac_skips_dc_article():
 def test_un_dc_vs_string_uoc():
     p, _f, _spd, _t = _dc_project(dev_attrs={"un": "1000"})
     fs = ratings.un_findings(p, ratings.Data())
-    assert [(x.code, x.severity, x.ref) for x in fs] == [("un_dc", WARNING, "F1")]
+    assert [(x.code, x.severity, x.ref) for x in fs] == [("un_dc", ERROR, "F1")]
     assert "Un F1 1000 V DC < Uoc stringu G1 1083,6 V" in fs[0].text
     p, _f, _spd, _t = _dc_project(dev_attrs={"un": "1500"})
     assert ratings.un_findings(p, ratings.Data()) == []
@@ -361,11 +362,38 @@ def test_manual_project_without_articles_unchanged():
         assert not _codes(check_project(proj, lib), *RATING_CODES)
 
 
-def test_check_project_runs_rating_findings():
-    p, _f, _spd, _t = _dc_project(dev_attrs={"un": "1000"}, spd_attrs={"ucpv": "1050"})
+def test_check_project_one_cause_one_finding():
+    """Se zadanou t_min hlásí přístroje v cestě stringu jen `calc_string` (chyba, všechny přístroje v jedné hlášce);
+    `un_dc` / `spd_ucpv` je znovu nehlásí. Bez návrhové teploty jen informace `un_dc` / `spd_ucpv`."""
     from envocad.library.store import LibraryStore
-    codes = {f.code for f in check_project(p, LibraryStore())}
-    assert {"un_dc", "spd_ucpv"} <= codes
+    p, _f, _spd, _t = _dc_project(dev_attrs={"un": "1000"}, spd_attrs={"ucpv": "1050"})
+    fs = check_project(p, LibraryStore())
+    assert not _codes(fs, "un_dc", "spd_ucpv")
+    cs = [f for f in _codes(fs, "calc_string") if "Un DC" in f.text]
+    assert [(f.severity, f.ref) for f in cs] == [(ERROR, "G1")]
+    assert "Uoc 1083,6 V při −10 °C > Un DC přístrojů F1 1000 V, F2 1050 V" in cs[0].text
+    p, _f, _spd, _t = _dc_project(dev_attrs={"un": "1000"}, spd_attrs={"ucpv": "1050"}, t_min="")
+    fs = check_project(p, LibraryStore())
+    assert not [f for f in _codes(fs, "calc_string") if "Un DC" in f.text]
+    assert {(f.code, f.severity) for f in _codes(fs, "un_dc", "spd_ucpv")} == {("un_dc", INFO), ("spd_ucpv", INFO)}
+
+
+def test_tz_calculations_and_f7_agree(tmp_path):
+    """TZ (teploty předá explicitně), výkaz Výpočty i F7: Un DC přístrojů stejně – s knihovnou a jen se zadanou
+    návrhovou t_min v projektu."""
+    from envocad.export import reports
+    from envocad.library.store import LibraryStore
+    lib = LibraryStore()
+    for t_min, expect in ((-10, True), ("", False)):
+        p, _f, _spd, _t = _dc_project(dev_attrs={"un": "1000"}, t_min=t_min)
+        t_lo, t_hi = calc.design_temperatures(p)
+        tz = [m for sc in calc.check_strings(p, t_lo, t_hi, lib=lib) for m in sc.issues if "Un DC" in m]
+        _head, rows = reports.calculations(p, lib)
+        rep = [r for r in rows if "Un DC" in str(r[-1])]
+        f7 = [f for f in check_project(p, lib) if f.code == "calc_string" and "Un DC" in f.text]
+        assert bool(tz) == bool(rep) == bool(f7) == expect
+        if expect:
+            assert tz[0] in f7[0].text and tz[0] in str(rep[0][-1])
 
 
 # ---- generované projekty ---------------------------------------------------------------------------------------
@@ -373,9 +401,10 @@ _INV25 = {"p_ac": 25, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "
 
 
 def test_generated_projects_only_legit_dc_voltage_findings(ac_builtin_fn, monkeypatch):
-    """Generátor (katalog bez artiklů 1500 V): stringy 20 × 49,5 V mají Uoc při −10 °C 1083,6 V – odpojovače EFH 10 DC (1000 V DC) jsou pod ním
-    (oprávněný nález, svodič VPU PV má Ucpv 1100 V z poznámky artiklu – v pořádku). Bez návrhové teploty jen
-    informace, se zadanou (standard −20 °C) varování (i Ucpv 1100 V svodiče). 18 modulů (výchozí průvodce) i RD bez nálezu."""
+    """Generátor (katalog bez artiklů 1500 V): stringy 20 × 49,5 V mají Uoc při −10 °C 1083,6 V – odpojovače EFH 10
+    DC (1000 V DC) jsou pod ním (oprávněný nález, svodič VPU PV má Ucpv 1100 V – v pořádku). Bez návrhové teploty jen
+    informace `un_dc`; se zadanou (standard −20 °C, 1110,3 V) jedna chyba `calc_string` na string (odpojovač
+    i svodič). 18 modulů (výchozí průvodce) i RD bez nálezu."""
     from chain_data import build_project
     from test_dc_system import CatalogView
 
@@ -385,13 +414,47 @@ def test_generated_projects_only_legit_dc_voltage_findings(ac_builtin_fn, monkey
     spec = {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 18]}]}
     fs = _codes(check_project(build_project(spec), lib), *RATING_CODES)
     assert [(f.code, f.severity) for f in fs] == [("un_dc", INFO)] and "FU1.1 Un 1000 V < Uoc 1083,6 V" in fs[0].text
-    fs = _codes(check_project(build_project({**spec, "site": {"t_min": -20}}), lib), *RATING_CODES)
-    # −20 °C: 1110,3 V je nad 1000 V odpojovače i nad Ucpv 1100 V svodičů VPU PV (v RDC1 i RFVE.DC)
-    assert sorted((f.code, f.severity, f.sheet_name.split(" ")[0]) for f in fs) == [
-        ("spd_ucpv", WARNING, "RDC1"), ("spd_ucpv", WARNING, "RFVE.DC"), ("un_dc", WARNING, "RFVE.DC")]
-    assert all("1110,3 V" in f.text for f in fs)
+    fs = check_project(build_project({**spec, "site": {"t_min": -20}}), lib)
+    assert not _codes(fs, *RATING_CODES)
+    cs = [f for f in _codes(fs, "calc_string") if "Un DC" in f.text]
+    assert [(f.severity, f.ref) for f in cs] == [(ERROR, "G1")]
+    assert "Uoc 1110,3 V při −20 °C > Un DC přístrojů EFH 10 DC 2p 1000 V, VPU PV I+II 3 1000 1100 V" in cs[0].text
     for ok in ({"inverters": [{"ref": "T1", **_INV25, "strings": [18, 18]}], "site": {"t_min": -20}},
                {"building": "house", "site": {"t_min": -20},
                 "inverters": [{"ref": "T1", "p_ac": 10, "u_dc_max": 1000, "u_mppt_min": 160, "u_mppt_max": 950,
                                "i_mppt_max": 16, "strings": [12, 12]}]}):
         assert not _codes(check_project(build_project(ok), lib), *RATING_CODES)
+
+
+def test_unresolved_board_feed_no_voltage_and_one_info():
+    """Přívod stringu v listu rozvaděče chybí: napětí prvků listu se neurčuje (žádné Un DC nálezy) + jedna informace."""
+    p, f, spd, _t = _dc_project(dev_attrs={"un": "1000"})
+    sb = p.switchboard_sheet(p.sheets[0].elements[1].id)
+    next(e for e in sb.elements if e.ref == "X1").attrs["ref"] = "X9"      # přívod jinak než port bloku
+    v = calc.dc_voltages(p)
+    assert f.id not in v and spd.id not in v
+    fs = ratings.rating_findings(p, None)
+    assert [(x.code, x.severity) for x in fs] == [("dc_path_unknown", INFO)] and "přívod X1" in fs[0].text
+
+
+def test_note_ucpv_variants_and_attribute_first():
+    from envocad.model import dc_system
+    assert [dc_system.note_ucpv(s) for s in ("Ucpv 1100 V", "UCPV = 1170 V DC", "Ucpv: 1 100 V", "Ucpv 1,1 kV")] \
+        == [1100, 1170, 1100, 1100]
+    comp = _comp("spd", "spd", ucpv_v=1200, note="Ucpv 1100 V")
+    assert dc_system.spd_ucpv({}, comp) == 1200 and dc_system.spd_ucpv({"ucpv": "1300"}, comp) == 1300
+    assert dc_system.spd_ucpv({}, _comp("s2", "spd", note="DC | Ucpv 1100 V")) == 1100
+
+
+def test_forced_1500_not_used_info():
+    p = Project()
+    p.meta["dc_system_missing"] = "držák pojistky 1500 V DC 2p"
+    fs = ratings.un_findings(p, ratings.Data())
+    assert [(x.code, x.severity) for x in fs] == [("dc_1500_missing", INFO)] and "nepoužita" in fs[0].text
+
+
+def test_two_pole_device_is_phase_voltage():
+    """Známé póly rozhodují: 2pólový přístroj 230 V v trojfázovém obvodu je na fázové napětí (bez nálezu)."""
+    p, sb, _ = _board()
+    _ac_breaker(sb, un="230", poles="2")
+    assert ratings.un_findings(p, ratings.Data()) == []

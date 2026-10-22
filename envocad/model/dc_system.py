@@ -3,12 +3,14 @@
 Návrh: docs/design/kontroly_artiklu.md (kap. „Soustava DC 1000 / 1500 V“). Knihovna (`lib`) se předává zvenku
 (`LibraryStore` nebo cokoli s `component(id)` a `components(category=…)`); artikl je `library.components.Component`.
 
-- `component_un`: Un DC přístroje z artiklu – svodič Ucpv (`ucpv_v`, „Ucpv NNN V“ v poznámce), jinak Uc; ostatní `un_v`.
-- `device_limit`: nejnižší Un DC přístrojů, které generátor do stringové cesty dá (`dc.fuse_component`,
+- `spd_ucpv` / `component_un`: Un DC přístroje – svodič Ucpv (atribut `ucpv` > artikl `ucpv_v` > „Ucpv …“ v poznámce;
+  Uc jen pro výběr artiklu soustavy), ostatní `un_v` (`un_value`, největší číslo).
+- `path_devices` / `device_limit`: přístroje, které generátor dá do stringové cesty (`dc.fuse_component` jen s RFVE.DC,
   `dc.spd_component`, je-li typ SPD shodný se `dc.spd`).
-- `find_set`: artikly pro soustavu `system_v` (držák pojistky a svodič DC daného typu s Un ≥ soustava).
+- `find_set`: artikly pro soustavu `system_v` (2pólový držák se stejnou značkou – jen s RFVE.DC – a svodič DC daného
+  typu s Un ≥ soustava).
 - `choose`: volba soustavy pro generátor a asistent stringů (zadaná 1500, jinak 1000 s automatikou na 1500, když
-  string přesáhne Un DC přístrojů a katalog artikly 1500 V má).
+  string přesáhne Un DC přístrojů, střídač připouští víc než 1000 V a katalog sadu 1500 V má).
 """
 from __future__ import annotations
 
@@ -17,19 +19,45 @@ from dataclasses import dataclass, field
 
 SYSTEMS = (1000.0, 1500.0)
 DEFAULT_SYSTEM = 1000.0
+GENERATOR_HOLDER_POLES = "2"   # generátor kreslí jeden 2pólový pojistkový odpojovač na string (L+ i L−)
 _NUM = re.compile(r"\d+(?:[.,]\d+)?")
-_UCPV_NOTE = re.compile(r"U\s*C\s*PV\s*(\d+(?:[.,]\d+)?)\s*V", re.IGNORECASE)
+# „Ucpv 1100 V“, „UCPV = 1170 V DC“, „Ucpv: 1 100 V“, „Ucpv 1,1 kV“
+_UCPV_NOTE = re.compile(r"U\s*C\s*PV\s*(?:[=:≤]\s*)?(\d{1,3}(?:[ \u00a0]\d{3})+|\d+(?:[.,]\d+)?)\s*(kV|V)\b",
+                        re.IGNORECASE)
 
 
 def _num(v) -> float | None:
+    """První číslo v textu („1000 V DC“ → 1000, „3,8“ → 3,8), jinak None."""
     m = _NUM.search(str(v or ""))
     return float(m.group(0).replace(",", ".")) if m else None
 
 
+def un_value(v) -> float | None:
+    """Jmenovité napětí z textu – největší číslo („230/400 V“ → 400, „1000 V DC“ → 1000); jediné čtení Un pro
+    kontroly F7 (`ratings`), mez stringu (`calc.device_dc_un`) i volbu artiklů."""
+    n = [float(x.replace(",", ".")) for x in _NUM.findall(str(v or ""))]
+    return max(n) if n else None
+
+
 def note_ucpv(note: str) -> float | None:
-    """Ucpv svodiče z poznámky artiklu („Ucpv 1100 V“, „UCPV 1170 V DC“), jinak None."""
+    """Ucpv svodiče z poznámky artiklu (záloha, když chybí sloupec `ucpv_v`): „Ucpv 1100 V“, „UCPV = 1170 V DC“,
+    „Ucpv 1 100 V“, „Ucpv 1,1 kV“; jinak None."""
     m = _UCPV_NOTE.search(note or "")
-    return float(m.group(1).replace(",", ".")) if m else None
+    if not m:
+        return None
+    x = float(re.sub(r"[ \u00a0]", "", m.group(1)).replace(",", "."))
+    return round(x * 1000, 1) if m.group(2).lower() == "kv" else x
+
+
+def spd_ucpv(attrs: dict | None, comp=None) -> float | None:
+    """Ucpv DC svodiče – jedno pořadí pro F7 i mez stringu: atribut prvku `ucpv` > artikl `ucpv_v` > „Ucpv …“
+    z poznámky artiklu. Uc se za Ucpv nebere."""
+    v = _num((attrs or {}).get("ucpv"))
+    if v:
+        return v
+    if comp is None:
+        return None
+    return _num(comp.params.get("ucpv_v")) or note_ucpv(comp.params.get("note", ""))
 
 
 def _spd_kind(t: str) -> str:
@@ -40,13 +68,14 @@ def is_dc_spd(comp) -> bool:
     return getattr(comp, "category", "") == "spd" and "DC" in str(comp.params.get("spd_type") or "").upper()
 
 
-def component_un(comp) -> float | None:
-    """Un DC přístroje z artiklu: svodič Ucpv (parametr `ucpv_v`, poznámka), jinak Uc (`uc_v`); jiné `un_v`."""
+def component_un(comp, uc_fallback: bool = False) -> float | None:
+    """Un DC přístroje z artiklu: svodič Ucpv (`spd_ucpv`; s `uc_fallback` jinak Uc `uc_v` – jen pro výběr artiklu
+    soustavy), jiné `un_v` (`un_value`)."""
     if comp is None:
         return None
     if getattr(comp, "category", "") == "spd":
-        return _num(comp.params.get("ucpv_v")) or note_ucpv(comp.params.get("note", "")) or _num(comp.params.get("uc_v"))
-    return _num(comp.params.get("un_v"))
+        return spd_ucpv(None, comp) or (un_value(comp.params.get("uc_v")) if uc_fallback else None)
+    return un_value(comp.params.get("un_v"))
 
 
 def _comp(lib, cid):
@@ -76,14 +105,20 @@ def path_components(lib, dc: dict) -> list:
     return out
 
 
-def device_limit(lib, dc: dict) -> tuple[float | None, str]:
-    """(nejnižší Un DC přístrojů ve stringové cestě [V], popis „EFH 10 DC 2p 1000 V“), bez údaje (None, "")."""
-    best: tuple[float | None, str] = (None, "")
+def path_devices(lib, dc: dict) -> list[tuple[float, str]]:
+    """(Un DC [V], popis „EFH 10 DC 2p 1000 V“) artiklů ve stringové cestě (`path_components`) se známým Un."""
+    out = []
     for c in path_components(lib, dc):
         u = component_un(c)
-        if u and (best[0] is None or u < best[0]):
-            best = (u, f"{c.part_number} {u:g} V")
-    return best
+        if u:
+            out.append((u, f"{c.part_number} {u:g} V"))
+    return out
+
+
+def device_limit(lib, dc: dict) -> tuple[float | None, str]:
+    """(nejnižší Un DC přístrojů ve stringové cestě [V], popis), bez údaje (None, ""); při shodě první (držák)."""
+    devs = path_devices(lib, dc)
+    return min(devs, key=lambda d: d[0]) if devs else (None, "")
 
 
 def _candidates(lib, category: str) -> list:
@@ -104,7 +139,7 @@ def find_set(lib, dc: dict, system_v: float) -> tuple[dict[str, str], list[str]]
     out: dict[str, str] = {}
     missing: list[str] = []
     cur = _comp(lib, dc.get("fuse_component"))
-    if dc.get("fuse_component"):
+    if dc.get("fuse_component") and _flag(dc.get("tech_box", True)):   # držák jen v RFVE.DC (cesta stringu)
         hs = [c for c in _candidates(lib, "fuse_holder") if (component_un(c) or 0) >= system_v - 1e-9
               and _holder_fits(c, cur)]
         if cur is not None and (component_un(cur) or 0) >= system_v - 1e-9:
@@ -118,42 +153,45 @@ def find_set(lib, dc: dict, system_v: float) -> tuple[dict[str, str], list[str]]
     if dc.get("spd_component"):
         kind = _spd_kind(dc.get("spd") or "T2")
         ss = [c for c in _candidates(lib, "spd") if is_dc_spd(c) and _spd_kind(c.params.get("spd_type", "")) == kind
-              and (component_un(c) or 0) >= system_v - 1e-9]
+              and (component_un(c, uc_fallback=True) or 0) >= system_v - 1e-9]
         cur_spd = _comp(lib, dc.get("spd_component"))
         if cur_spd is not None and cur_spd in ss:
             ss = [cur_spd]
         if ss:
             maker = cur_spd.manufacturer if cur_spd is not None else ""
-            out["spd_component"] = min(ss, key=lambda c: (c.manufacturer != maker, component_un(c) or 0, c.id)).id
+            out["spd_component"] = min(ss, key=lambda c: (c.manufacturer != maker, component_un(c, True) or 0,
+                                                           c.id)).id
         else:
             missing.append(f"svodič DC {dc.get('spd') or 'T2'} {system_v:g} V")
     return out, missing
 
 
-def catalog_missing(lib, system_v: float = 1500.0, poles: str = "2") -> list[str]:
-    """Chybějící druhy DC přístrojů soustavy v katalogu (pojistkový odpojovač `fve.fuse_disconnect` s `poles` póly
-    jako u generátoru, svodič DC) – bez ohledu na typ SPD; knihovna bez seznamu artiklů → [] (nehodnotí se)."""
+def catalog_missing(lib, system_v: float = 1500.0, need_holder: bool = True) -> list[str]:
+    """Chybějící druhy DC přístrojů soustavy v katalogu: 2pólový pojistkový odpojovač `fve.fuse_disconnect` (jen
+    `need_holder` – cesta stringu vede přes RFVE.DC s pojistkami) a svodič DC (typ SPD se nehodnotí); knihovna bez
+    seznamu artiklů → [] (nehodnotí se)."""
     if lib is None or not hasattr(lib, "components"):
         return []
     out = []
-    if not any((component_un(c) or 0) >= system_v - 1e-9 and c.symbol_id == "fve.fuse_disconnect"
-               and str(c.params.get("poles") or "") == poles for c in _candidates(lib, "fuse_holder")):
-        out.append(f"pojistkový odpojovač {system_v:g} V DC {poles}p")
-    if not any(is_dc_spd(c) and (component_un(c) or 0) >= system_v - 1e-9 for c in _candidates(lib, "spd")):
+    if need_holder and not any((component_un(c) or 0) >= system_v - 1e-9 and _holder_fits(c, None)
+                               for c in _candidates(lib, "fuse_holder")):
+        out.append(f"pojistkový odpojovač {system_v:g} V DC {GENERATOR_HOLDER_POLES}p")
+    if not any(is_dc_spd(c) and (component_un(c, uc_fallback=True) or 0) >= system_v - 1e-9
+               for c in _candidates(lib, "spd")):
         out.append(f"svodič DC {system_v:g} V")
     return out
 
 
 def _holder_fits(c, cur) -> bool:
-    """Držák nahradí dosavadní: stejná značka a stejný počet pólů (neznámé póly kandidáta → ne)."""
-    if cur is None:
-        return True
-    return c.symbol_id == cur.symbol_id and (not cur.params.get("poles")
-                                             or str(c.params.get("poles") or "") == str(cur.params["poles"]))
+    """Držák nahradí dosavadní: stejná značka (bez dosavadního `fve.fuse_disconnect`) a známý počet pólů rovný
+    pólům dosavadního držáku (bez údaje 2 – generátor kreslí 2pólový odpojovač); prázdné / 1 póly jako 2p ne."""
+    sym = cur.symbol_id if cur is not None else "fve.fuse_disconnect"
+    poles = str((cur.params.get("poles") if cur is not None else "") or GENERATOR_HOLDER_POLES)
+    return c.symbol_id == sym and str(c.params.get("poles") or "").strip() == poles
 
 
 def _poles_text(cur) -> str:
-    return f" {cur.params['poles']}p" if cur is not None and cur.params.get("poles") else ""
+    return f" {(cur.params.get('poles') if cur is not None else '') or GENERATOR_HOLDER_POLES}p"
 
 
 def parse_system(v) -> float | None:
@@ -177,16 +215,15 @@ class DcChoice:
         return f"max. {self.system_v:g} V DC"
 
 
-def choose(lib, dc: dict, u_string_max: float | None = None, system_v=None) -> DcChoice:
+def choose(lib, dc: dict, u_string_max: float | None = None, system_v=None, allow_auto: bool = True) -> DcChoice:
     """Soustava DC pro generátor / asistent. `system_v` = zadání (spec `dc.system_v`, standard `dc_system_v`):
     1500 → artikly 1500 V (chybí-li, zůstane 1000 V a `missing`); 1000 (výchozí) → artikly z `dc`, a když Uoc
-    stringu `u_string_max` přesáhne jejich Un a katalog má sadu 1500 V, automaticky 1500 V. Bez `u_string_max`
-    (asistent před zadáním stringů) se automatika uplatní, kdykoli je sada 1500 V k dispozici – mez pro stringy je
-    pak Un sady 1500 V."""
+    stringu `u_string_max` přesáhne jejich Un, katalog má sadu 1500 V a `allow_auto` (střídač připouští víc než
+    1000 V), automaticky 1500 V. Bez `u_string_max` (asistent) se automatika uplatní, kdykoli je sada k dispozici."""
     want = parse_system(system_v) or DEFAULT_SYSTEM
     base_u, base_label = device_limit(lib, dc)
     base = DcChoice(DEFAULT_SYSTEM, {}, base_u, base_label)
-    need = u_string_max is None or (base_u is not None and u_string_max > base_u + 1e-9)
+    need = allow_auto and (u_string_max is None or (base_u is not None and u_string_max > base_u + 1e-9))
     if want < 1500 and not need:
         return base
     over, missing = find_set(lib, dc, 1500.0)
