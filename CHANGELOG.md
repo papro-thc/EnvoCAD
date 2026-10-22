@@ -11,8 +11,21 @@
   přístrojů berou s knihovnou šířky z artiklů. Oteplení: Pv z artiklu, když prvek nemá `p_loss_w`
   (`thermal.rated_loss`, `ThermalResult.losses` se zdrojem artikl / ruční / odhad – panel skříně, TZ s tabulkou
   ztrát, protokol). Nové kontroly F7 `layout_height`, `layout_enclosure`, `layout_depth`. Panel Vlastnosti na listu
-  rozvaděče: rozměry v rozložení, koncové desky a artikl můstku. Projekt bez artiklů se kreslí pixelově stejně
-  (ověřeno snímkem proti main). Testy `tests/test_device_size.py`, `tests/test_layout_articles_gui.py`.
+  rozvaděče: rozměry v rozložení, koncové desky a artikl můstku (nabídka `bridge_candidates`). Projekt bez artiklů
+  se kreslí pixelově stejně (ověřeno snímkem proti main). Testy `tests/test_device_size.py`,
+  `tests/test_layout_articles_gui.py`.
+  - Výslovné `modules="0"` (generátory, výchozí „0“ VN / měřicích značek) = přístroj mimo rozložení i s artiklem.
+  - **Délky vodičů ve výrobním seznamu**: svorka přístroje s artiklem leží na hraně jeho skutečné výšky z katalogu
+    (Hager MBN 83 mm, 3VA11 130 mm) místo pevných 45 mm – vodiče k přístrojům s artiklem vyjdou delší (u modulového
+    jističe o ~19 mm na konec před zaokrouhlením); bez artiklu beze změny. Popis parametrů: „výška přístroje z artiklu,
+    jinak 45 mm“.
+  - Můstek ve výkazu materiálu po skupinách: každá skupina můstku bere `bridge_id` skupiny svorek, na které leží
+    (`model/bridges.py`); artikl s víc póly = „zkrátit z n pólů“, s méně póly / bez údaje nebo artikl, který není
+    můstek = bez typu s poznámkou a F7 varování `bridge_article` (i neznámé id).
+  - Změna artiklu v dialogu prvku vymaže ruční `width_mm` / `height_mm` / `depth_mm` v témže kroku undo.
+  - Kontrola `layout_enclosure` jen pro šířku (svisle stačí `layout_height`); obrys skříně `Layout.outline_mm` sdílí
+    rozložení i kontrola. Artikly se v rámci jednoho výpočtu čtou jednou (`device_size.memo_lib`). TZ: tabulka
+    ztrát s desetinnou čárkou.
 - **Python 3.14** podporován (`requires-python` <3.15); celá sada testů prošla na Pythonu 3.14 s PySide6 6.12.
 - **Průvodce – topologie připojení (F5)** (`ui/wizard_topology.py`, `TopologyPanel`): skupiny „Objekt a připojení“
   (druh objektu, nn / vn – u RD zakázané s vysvětlením, předvolba topologie filtrovaná podle objektu a úrovně vč. sdílených

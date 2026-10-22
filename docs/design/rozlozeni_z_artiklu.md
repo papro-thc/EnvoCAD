@@ -13,7 +13,8 @@
 1. **`model/device_size.py`** (bez Qt): `device_size(e, lib=None) -> DeviceSize(width_mm, height_mm, depth_mm,
    modules, shape, source)`. Knihovna duck-typed (`lib.component(id)`), jako `thermal._limit`; bez knihovny se
    chová přesně jako dnes (jen atributy).
-   - Priorita šířky: ruční `width_mm` prvku > ruční `modules` (liší-li se od artiklu, který moduly má) > artikl
+   - Priorita šířky: ruční `width_mm` prvku > výslovné `modules="0"` (mimo rozložení) > ruční `modules` (liší-li se
+     od artiklu, který moduly má) > artikl
      (`modules`, jinak `width_mm`) > atribut `modules` (výchozí značky / starý projekt) > nic (není přístroj).
    - Výška a hloubka: atribut `height_mm` / `depth_mm` > artikl > výchozí 45 mm / neznámá.
    - Tvar `shape`: `din` (modulový), `box` (artikl bez `modules` s `width_mm` – kompaktní jistič 3VA, MCCB,
@@ -23,8 +24,9 @@
    zarážky; katalog jejich šířku nemá, proto bez konstanty, výchozí 0). Bez artiklu nebo bez `width_mm`
    (Bečov, Eleman) 6,2 mm jako dnes. Ruční `modules` skupiny má přednost.
    **Můstky**: atribut `bridge_id` skupiny svorek = artikl můstku (katalog: Weidmüller ZQV/WQV, Bečov propojky,
-   `terminal_kind=mustek`). BOM pak místo „Můstek svorek / – / –“ uvede typ a výrobce artiklu. Automatický výběr
-   můstku podle svorky se nedělá (katalog nemá vazbu svorka → můstek; nepřidávat data bez zdroje).
+   `terminal_kind=mustek`, nabídka v panelu z `bridge_candidates`), po skupinách můstku (`model/bridges.py`):
+   póly artiklu = skupina → typ, víc → „zkrátit“, míň / neznámé / není můstek → bez typu + F7 `bridge_article`.
+   Automatický výběr můstku podle svorky se nedělá (katalog nemá vazbu svorka → můstek).
 3. **Rozhraní** `Layout.devices/used_modules`, `checks.layout_problems`, `wiring.terminal_point`, výkaz přístrojů
    (sloupec Moduly) dostanou volitelné `lib`; volající s knihovnou (GUI, F7, výkazy) ji předají.
    Rozložení (`ui/layout_view.py`) kreslí přístroj ve skutečné šířce a výšce, svisle na střed osy lišty;
@@ -33,9 +35,11 @@
    s artiklem = „artikl“, jiný = „ruční“, bez atributu artikl, jinak odhad z In. `ThermalResult.losses` + souhrn
    zdrojů v panelu skříně, TZ a protokolu („Pv: 3× artikl, 1× ruční, 2× odhad“).
 5. **Kontroly F7** (`device_size.size_problems`, volané z `checks.layout_findings`): WARNING
-   `layout_height` (výška přístroje > rozteč řad – zasahuje do sousední řady), `layout_enclosure` (přístroj
-   přesahuje skříň svisle nebo je širší než užitná šířka), `layout_depth` (hloubka přístroje > hloubka skříně,
-   jen se zadanou `depth_mm` skříně).
+   `layout_height` (výška přístroje > rozteč řad – zasahuje do sousední řady), `layout_enclosure` (přístroj je
+   širší než užitná šířka; svisle stačí rozteč – řady jsou v obrysu `Layout.outline_mm` na střed), `layout_depth`
+   (hloubka přístroje > hloubka skříně, jen se zadanou `depth_mm` skříně). Artikly přes `memo_lib` (jedno čtení).
+6. Změna artiklu prvku vymaže ruční rozměry (`size_resets_for_component`, jeden krok undo). Délky vodičů
+   (`wiring.terminal_point`) se skutečnou výškou z artiklu.
 
 ## Zpětná kompatibilita
 - Prvek bez artiklu: šířka, výška 45 mm, tvar a kontroly beze změny; bez `lib` vše jako dnes.

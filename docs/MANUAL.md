@@ -350,10 +350,11 @@ OK uloží změny všech svorkovnic jedním krokem undo a odmítne číslo svork
 Šířka skupiny svorek v rozložení = počet svorek × šířka svorky z artiklu (`width_mm`, např. Weidmüller A2C 1.5 =
 3,5 mm), bez artiklu (nebo když artikl šířku nemá – Bečov, ELEMAN) počet svorek × 6,2 mm; ruční „Šířka skupiny“
 (moduly) má přednost. Koncové desky a zarážky přidá pole „Koncové desky / zarážky [mm]“ v panelu Vlastnosti (katalog
-jejich šířku nemá, výchozí 0). **Můstek jako artikl**: do pole „Artikl můstku (id)“ skupiny svorek napiš id artiklu
-můstku (např. `weidmuller-1527540000` = ZQV 2.5N/2); výkaz materiálu pak u můstků této svorkovnice uvede typ
-a výrobce. Bez něj zůstane obecný řádek „Můstek svorek“ (můstek se nevybírá automaticky – katalog nemá vazbu svorka →
-můstek).
+jejich šířku nemá, výchozí 0). **Můstek jako artikl**: v poli „Artikl můstku“ skupiny svorek vyber můstek z nabídky
+(můstky z knihovny, s artiklem svorky jen téhož výrobce – např. Weidmüller ZQV 2.5N/2). Výkaz materiálu pak u můstků,
+které leží na této skupině, uvede typ a výrobce; n-pólový můstek delší než skupina dostane poznámku „zkrátit z n
+pólů“, kratší (nebo bez počtu pólů) se vypíše bez typu s poznámkou a F7 varuje (`bridge_article`). Bez výběru zůstane
+obecný řádek „Můstek svorek“ (můstek se nevybírá automaticky – katalog nemá vazbu svorka → můstek).
 
 `Ctrl+T` (Svorky vybraného vodiče) přiřadí svorky ručně po žílách (`X1:3`, `F2:1`) – pro PE lištu a
 prvky bez skupin svorek.
@@ -376,7 +377,9 @@ vybrat z artiklů).
 se kreslí jako obdélník š × v (3VA11 76,2 × 130 mm) s popiskem rozměru, svorkovnice z artiklu jako řada úzkých
 svorek („8 × 3,5 mm“). Přístroje jsou svisle na střed lišty. Priorita: ruční rozměr prvku (panel Vlastnosti na listu
 rozvaděče: „Šířka / Výška v rozložení [mm]“, „Hloubka přístroje [mm]“ – prázdné pole ukáže použitou hodnotu a zdroj)
-> ruční moduly (liší-li se od artiklu) > artikl > moduly z atributu. Projekt bez artiklů vypadá jako dřív.
+> ruční moduly (liší-li se od artiklu) > artikl > moduly z atributu; moduly „0“ = přístroj mimo rozložení. Změna
+artiklu v dialogu prvku ruční rozměry vymaže (jeden krok undo). Projekt bez artiklů vypadá jako dřív. Délky vodičů
+výrobního seznamu počítají se skutečnou výškou přístroje z artiklu (svorky na horní / dolní hraně).
 
 Panel ukazuje obsazenost a **odhad oteplení** podle IEC TR 60890 (ΣPv z atributu `p_loss_w`, jinak z artiklu,
 jinak odhad z In a pólů – zdroj „Pv: 5× artikl, 1× ruční, 2× odhad“ je u ΣPv v panelu, v TZ (tabulka ztrát po
@@ -477,8 +480,9 @@ Rozložení rozvaděče (rozměry z artiklu nebo ručních rozměrů prvku; př�
 | `layout_overflow` / `layout_overlap` | varování | přeplněná řada, přístroj za koncem řady, překryv přístrojů (šířky z artiklů) |
 | `outside_enclosure` | varování | přístroj umístěný v řadě mimo skříň (po zmenšení počtu řad) |
 | `layout_height` | varování | přístroj je vyšší než rozteč řad – zasahuje do sousední řady (3VA13 248 mm při rozteči 150 mm) |
-| `layout_enclosure` | varování | přístroj přesahuje skříň svisle nebo je širší než užitná šířka řady |
+| `layout_enclosure` | varování | přístroj je širší než užitná šířka řady |
 | `layout_depth` | varování | hloubka přístroje je větší než hloubka skříně (jen se zadanou hloubkou skříně) |
+| `bridge_article` | varování | artikl můstku skupiny svorek není v knihovně, není můstek nebo má méně pólů než skupina můstku |
 
 Jištění v rozvaděčích (`protection_findings`):
 
