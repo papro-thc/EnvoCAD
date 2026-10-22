@@ -258,7 +258,7 @@ def test_picker_websearch_note_unverified(app):
 
 
 def test_builtin_web_sourced_inverters_marked_web(builtin_lib):
-    for cid in ("sma-stp-25-50", "sma-stp-110-60", "huawei-sun2000-100ktl-m2"):
+    for cid in ("sma-stp-25-50", "sma-stp-110-60", "huawei-sun2000-150k-mg0"):
         assert builtin_lib.component(cid).source == "web"
 
 

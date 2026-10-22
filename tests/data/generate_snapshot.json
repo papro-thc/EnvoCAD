@@ -48356,7 +48356,10 @@
        "u_mppt_max": "1000",
        "i_mppt_max": "30",
        "p_dc_max": "",
-       "string_mode": "fixed_voltage"
+       "string_mode": "fixed_voltage",
+       "n_opt_min": "16",
+       "n_opt_max": "50",
+       "p_string_max": "11250"
       },
       "component_id": null
      },
@@ -48389,7 +48392,10 @@
        "opt_u_out_max": "60",
        "opt_modules": "1",
        "opt_compat": "SolarEdge",
-       "optimizer_id": "solaredge-s440-1gm4mrm"
+       "optimizer_id": "solaredge-s440-1gm4mrm",
+       "opt_n_min": "16",
+       "opt_n_max": "50",
+       "opt_p_string_max": "11250"
       },
       "component_id": null
      },
@@ -48422,7 +48428,10 @@
        "opt_u_out_max": "60",
        "opt_modules": "1",
        "opt_compat": "SolarEdge",
-       "optimizer_id": "solaredge-s440-1gm4mrm"
+       "optimizer_id": "solaredge-s440-1gm4mrm",
+       "opt_n_min": "16",
+       "opt_n_max": "50",
+       "opt_p_string_max": "11250"
       },
       "component_id": null
      },
@@ -48470,7 +48479,10 @@
        "u_mppt_max": "1000",
        "i_mppt_max": "30",
        "p_dc_max": "",
-       "string_mode": "fixed_voltage"
+       "string_mode": "fixed_voltage",
+       "n_opt_min": "16",
+       "n_opt_max": "50",
+       "p_string_max": "11250"
       },
       "component_id": null
      },
@@ -48503,7 +48515,10 @@
        "opt_u_out_max": "60",
        "opt_modules": "1",
        "opt_compat": "SolarEdge",
-       "optimizer_id": "solaredge-s440-1gm4mrm"
+       "optimizer_id": "solaredge-s440-1gm4mrm",
+       "opt_n_min": "16",
+       "opt_n_max": "50",
+       "opt_p_string_max": "11250"
       },
       "component_id": null
      },

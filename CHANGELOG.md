@@ -22,6 +22,14 @@
   | **celkem** | **1,437** | **2,400** | **1,116** |
 
   Celkem 2,1× rychlejší než main a o 22 % rychlejší než před F2 (aa6fa80 po F1: 1,498 s).
+- **Python 3.14** podporován (`requires-python` <3.15); celá sada testů prošla na Pythonu 3.14 s PySide6 6.12.
+- **Průvodce – topologie připojení (F5)** (`ui/wizard_topology.py`, `TopologyPanel`): skupiny „Objekt a připojení“
+  (druh objektu, nn / vn – u RD zakázané s vysvětlením, předvolba topologie filtrovaná podle objektu a úrovně vč. sdílených
+  / vlastních, živý náhled `chain_text()`, měření v RE / HR, RFVE.DC na střídač, síťová ochrana auto / ano / ne
+  s kWp vs. 30 kWp), „Stávající rozvaděče“ (hlavní přístroj a In, vývod FVE – pojistka do 80 A nedostupná, HJ v RE,
+  přímé / nepřímé měření + MTP, hranice vlastnictví, HDS) a „Skupiny střídačů“ (`ac_group`, jen nn). `spec()` zapíše
+  `topology` / `chain.*` jen při změně od výchozího (výchozí specifikace beze změny); chyby generátoru se zobrazí
+  v průvodci. Testy `tests/test_wizard_topology.py`.
 - **Rozhodnutí uživatele k otevřeným otázkám F2:**
   - **Přípojka VN jen bloky**: HR, RVN a RE trafostanice bez listů – porty bloku z přívodů / vývodů vestavěného listu
     (sestaví se naslepo, `mv.block_attrs`), v popisku hlavní jistič, vývod FVE (`protect`), měření, pojistky / vypínač
