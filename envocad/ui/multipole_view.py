@@ -719,14 +719,14 @@ class MultipoleScene(QGraphicsScene):
                 if tap is not None:     # žíla do sběrné čáry přes strany (z modelu)
                     ps, ds, pt, dt, ts = tap
                     it = ConductorItem(w, c, 0, sp(*ps), ds, sp(*pt), dt, (ts, ""))
-                    it.label = self._labels.get((w.id, c, 0))
+                    it.label = self._labels.get((w.id, c, 0))   # model-write-ok: popisek položky scény (ConductorItem), ne model
                     self._add(it)
                     continue
                 if ka == kb:
                     it = ConductorItem(w, c, i, sp(*pa), da, sp(*pb), db, (ta, tb),
                                        branch=mp.branch_side(branches, w.id))
                     it.staggered = len(mp.wire_conductors(w)) > 1
-                    it.label = self._labels.get((w.id, c, 0))
+                    it.label = self._labels.get((w.id, c, 0))   # model-write-ok: popisek položky scény (ConductorItem), ne model
                     self._add(it)
                 else:
                     self._add_page_break(w, c, i, pa, da, ka, pb, db, kb, (ta, tb))
@@ -795,7 +795,7 @@ class MultipoleScene(QGraphicsScene):
             tap = (px, y)
             t = "" if mp.is_terminal_block(dev.element) else mp.terminal_text(w, c, side)
             it = ConductorItem(w, c, 0, sp(px, py), ddir, sp(*tap), "S" if y > py else "N", (t, ""))
-            it.label = self._labels.get((w.id, c, 0))
+            it.label = self._labels.get((w.id, c, 0))   # model-write-ok: popisek položky scény (ConductorItem), ne model
             self._add(it)
             bus_taps.setdefault((bus.element.id, kd), []).append(tap)
 
@@ -845,7 +845,7 @@ class MultipoleScene(QGraphicsScene):
         for part, (a_, da_, b_, db_, ends_) in enumerate(((pa, da, ea_pt, "W" if right else "E", (texts[0], "")),
                                                            (eb_pt, "E" if right else "W", pb, db, ("", texts[1])))):
             it = ConductorItem(w, c, i, sp(*a_), da_, sp(*b_), db_, ends_)
-            it.label = self._labels.get((w.id, c, part))
+            it.label = self._labels.get((w.id, c, part))   # model-write-ok: popisek položky scény (ConductorItem), ne model
             self._add(it)
         self._add(PageBreakItem(xa, ya, right, ref_a))
         self._add(PageBreakItem(xb, yb, not right, ref_b))

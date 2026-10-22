@@ -29,9 +29,9 @@ def single_line_sheet(project: Project, paper: str = "", size: tuple[float, floa
     """Pomocný (neuložený) list pro popisové pole jednopólového schématu."""
     s = Sheet(name=TITLE)
     if paper:
-        s.paper = paper
+        s.paper = paper   # model-write-ok: nový pomocný list, do projektu nepatří
     if size:
-        s.width, s.height = size
+        s.width, s.height = size   # model-write-ok: nový pomocný list, do projektu nepatří
     return s
 
 

@@ -1591,6 +1591,7 @@ class MainWindow(QMainWindow):
             # model-write-ok: dočasná změna se snímkem `after`, finally ji vrátí a zapíše ReplaceRevisionsCommand
             self.project.meta["changes"] = merge_change_lines(self.project.meta.get("changes", ""),
                                                               {rev.label, prev_label}, change_text, rev.auto_lines)
+            # model-write-ok: dočasná změna se snímkem `after` (jako `meta["changes"]` výše)
             rev.auto_lines = [ln.strip() for ln in change_text.splitlines() if ln.strip()]
             after = revisions_state(self.project)
         finally:
