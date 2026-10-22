@@ -117,3 +117,84 @@ def test_layout_pdf_and_enclosure_panel_with_articles(lib, tmp_path):
     panel.refresh()
     assert "vyšší než rozteč řad" in panel.warning.text() and "hlubší než skříň" in panel.warning.text()
     assert "artikl" in panel.thermal.text() and "odhad" in panel.thermal.text()
+
+
+def _window(lib):
+    from envocad.ui.main_window import MainWindow
+    p, s = board(lib)
+    win = MainWindow(lib, p)
+    win.open_sheet(s, "schematic")
+    win.show()
+    return win, p, s
+
+
+def _pump(n=6):
+    from PySide6.QtWidgets import QApplication
+    for _ in range(n):
+        QApplication.processEvents()
+
+
+def test_panel_size_fields_and_bridge_choice(lib):
+    """Panel Vlastnosti na listu rozvaděče: pole rozměrů zapisují přes undo, nabídka můstků z katalogu."""
+    from PySide6.QtWidgets import QLineEdit
+
+    from envocad.ui.dialogs import ChoiceEdit
+    win, _p, s = _window(lib)
+    q1 = next(e for e in s.elements if e.ref == "Q1")
+    win.scene.clearSelection()
+    win.scene.element_items[q1.id].setSelected(True)
+    _pump()
+    width = next(f for f in win.props_panel.findChildren(QLineEdit) if f.placeholderText().startswith("76,2"))
+    assert "(artikl)" in width.placeholderText()
+    width.setText("90")
+    width.editingFinished.emit()
+    _pump()
+    assert q1.attrs["width_mm"] == "90"
+    win.undo.undo()
+    assert not q1.attrs.get("width_mm")
+    # svorkovnice: výběr můstku z kandidátů (Weidmüller)
+    x1 = next(e for e in s.elements if e.ref == "X1")
+    win.scene.clearSelection()
+    win.scene.element_items[x1.id].setSelected(True)
+    _pump()
+    combo = next(c for c in win.props_panel.findChildren(ChoiceEdit))
+    ids = [combo.itemData(i) for i in range(combo.count())]
+    assert ids[0] == "" and "weidmuller-1527540000" in ids
+    assert all(lib.component(i).manufacturer == "Weidmüller" for i in ids[1:])
+    combo.setCurrentIndex(ids.index("weidmuller-1527540000"))
+    _pump()
+    assert x1.attrs["bridge_id"] == "weidmuller-1527540000"
+    win.undo.setClean()
+    win.close()
+
+
+def test_component_change_clears_manual_sizes(lib, monkeypatch):
+    """Změna artiklu v dialogu prvku vymaže ruční rozměry v témže kroku undo."""
+    from envocad.model.device_size import size_resets_for_component
+    from envocad.ui import dialogs
+    win, _p, s = _window(lib)
+    f1 = next(e for e in s.elements if e.ref == "F1")
+    f1.attrs.update({"width_mm": "20", "depth_mm": "75"})
+    assert size_resets_for_component(f1, f1.component_id) == {}
+
+    class FakeDialog:
+        Accepted = 1
+        wire_combo = None
+
+        def __init__(self, sym, attrs, *a, **k):
+            self.attrs, self.component_id = dict(attrs), "hager-mbn110"
+
+        def exec(self):
+            return 1
+
+        def values(self):
+            return dict(self.attrs)
+    monkeypatch.setattr(dialogs, "ElementDialog", FakeDialog)
+    n = win.undo.count()
+    win.scene.edit_element(f1.id)
+    assert f1.component_id == "hager-mbn110" and not f1.attrs.get("width_mm") and not f1.attrs.get("depth_mm")
+    assert win.undo.count() == n + 1
+    win.undo.undo()
+    assert f1.component_id == "hager-mbn116" and f1.attrs["width_mm"] == "20" and f1.attrs["depth_mm"] == "75"
+    win.undo.setClean()
+    win.close()

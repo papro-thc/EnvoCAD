@@ -178,6 +178,17 @@ def device_size(e: Element, lib=None, comp=None) -> DeviceSize:
     return DeviceSize(max(e.modules, 0.0) * MODULE_WIDTH, source=SRC_MANUAL if raw_mod else SRC_DEFAULT, **dev)
 
 
+MANUAL_SIZE_ATTRS = ("width_mm", "height_mm", "depth_mm")
+
+
+def size_resets_for_component(e: Element, new_component_id: str | None) -> dict[str, str]:
+    """Změna artiklu prvku: ruční rozměry (`MANUAL_SIZE_ATTRS`) patřily starému výrobku – vrátí {klíč: ""} pro ty
+    vyplněné (GUI je vymaže v témže kroku undo jako změnu artiklu); stejný artikl → {}."""
+    if (new_component_id or None) == (e.component_id or None):
+        return {}
+    return {k: "" for k in MANUAL_SIZE_ATTRS if str(e.attrs.get(k) or "").strip()}
+
+
 def device_modules(e: Element, lib=None) -> float:
     """Šířka přístroje v modulech pro rozložení (`device_size`); bez knihovny nebo bez artiklu a ručního `width_mm`
     přímo `Element.modules` (staré projekty beze změny)."""
