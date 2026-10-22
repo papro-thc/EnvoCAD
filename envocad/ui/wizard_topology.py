@@ -80,6 +80,7 @@ class TopologyPanel:
         self._topo: Topology | None = None       # topologie podle současných voleb (None = volba je neplatná)
         self._topo_key: str | None = None        # id topologie, pro kterou jsou pole naplněná výchozími hodnotami
         self._busy = False
+        self.on_change = None                    # volá se při změně polí vytvořených dynamicky (skupiny střídačů)
         self._group_texts: dict[int, str] = {}   # umístění střídačů podle pořadí (přežije změnu počtu střídačů)
         self._group_edits: list[QLineEdit] = []
 
@@ -453,6 +454,8 @@ class TopologyPanel:
             e.setPlaceholderText("hlavní")
             e.setToolTip("Umístění / skupina střídače, např. „Hala B“; střídače se stejným názvem sdílejí RFVE.AC")
             e.setEnabled(enabled)
+            if self.on_change is not None:
+                e.textChanged.connect(self.on_change)
             self._group_edits.append(e)
             self._inv_form.addRow(f"T{i + 1} – umístění / skupina", e)
 
@@ -475,12 +478,20 @@ class TopologyPanel:
 
     def parts(self) -> tuple[dict, list[str]]:
         """({"topology"?, "chain"?}, české chyby): jen hodnoty odlišné od výchozích."""
+        out, obj_errs, existing_errs = self._parts()
+        return out, obj_errs + existing_errs
+
+    def errors_by_page(self) -> tuple[list[str], list[str]]:
+        """Chyby rozdělené podle kroku průvodce: (topologie = „Objekt a připojení“, stávající rozvaděče)."""
+        _out, obj_errs, existing_errs = self._parts()
+        return obj_errs, existing_errs
+
+    def _parts(self) -> tuple[dict, list[str], list[str]]:
         errs: list[str] = []
         out: dict = {}
         t = self._topo
         if t is None:
-            errs.append(self.topo_error.text() or "Topologie: neplatná volba.")
-            return out, errs
+            return out, [self.topo_error.text() or "Topologie: neplatná volba."], []
         chosen = self.selected_id()
         if chosen:
             auto_id = AUTO_TOPOLOGY["house" if self.building() == "house" else self.level()]
@@ -524,7 +535,7 @@ class TopologyPanel:
                 put("hds", "char", self.hds_char.text().strip())
         if chain:
             out["chain"] = chain
-        return out, errs
+        return out, [], errs
 
     def errors(self) -> list[str]:
         return self.parts()[1]
