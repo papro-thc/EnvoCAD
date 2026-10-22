@@ -6,9 +6,7 @@ from PySide6.QtGui import QPainter, QPainterPath, QPen, QTransform
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QStyleOptionGraphicsItem, QWidget
 
 from envocad.model.designation import display_designation
-from envocad.model.grid import (
-    snap,
-)
+from envocad.model.grid import snap  # re-export: canvas, vícepól a poznámky importují `envocad.ui.items.snap`
 from envocad.model.project import Element, Wire, wire_label
 from envocad.model.symbol import GRID, Symbol, place_dir, rotate_point
 from envocad.ui.render import LINE_WIDTH, draw_text, paint_symbol, sp, symbol_path
