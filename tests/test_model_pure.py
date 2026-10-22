@@ -11,7 +11,7 @@ from envocad.model import frame
 from envocad.model import multipole as mp
 
 ROOT = Path(__file__).resolve().parent.parent / "envocad"
-LIBRARY_LOCATIONS = {"store.py", "macros.py", "topologies.py"}   # složky knihovny ze nastavení (záměr, viz výše)
+LIBRARY_LOCATIONS = {"store.py", "macros.py", "topologies.py", "doc_templates.py"}   # složky knihovny ze nastavení (záměr, viz výše)
 
 
 def _imports_settings(path: Path) -> bool:
