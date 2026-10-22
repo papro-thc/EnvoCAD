@@ -65,6 +65,10 @@ envocad/
 ```
 
 Zásada: **model nezávisí na UI.** Vše, co lze, se testuje bez spuštění Qt.
+Model nečte ani uživatelská nastavení (`~/.envocad/settings.json`): firemní standard (formát stran vícepólu
+`standard_paper`, název firmy `company`) předává volající (GUI, export, generátor) parametrem a čte ho přes
+`envocad/settings.py` (`switchboard_paper`, `company`, `frame_enabled`); hlídá `tests/test_model_pure.py`. Knihovna
+čte z nastavení jen umístění dat (uživatelská a sdílená složka knihovny, maker a topologií).
 
 ## Klíčové pojmy
 

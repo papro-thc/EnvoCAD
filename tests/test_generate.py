@@ -806,7 +806,7 @@ def test_dc_template_9_strings_fits_sheet():
         apply_template(p, sh, "dc", {"n_strings": str(n)}, lib=lib)
         assert sh.paper == paper and _inside(p, sh, lib)
         # vícepól a plán svorkovnice zůstávají na stranách firemního standardu (ne na rozměru zvětšeného listu)
-        assert mp.paper_choice(sh) == mp.standard_switchboard_paper()
+        assert mp.paper_choice(sh) == mp.DEFAULT_SWITCHBOARD_PAPER
     p = build_project({"inverters": [{"ref": "T1", **_INV25, "strings": [20] * 9}]})
     dcs = [sh for sh in p.sheets if sh.loc.startswith(("RDC", "RFVE.DC"))]
     # generátor: prodloužený formát na šířku se stejnou výškou (`frame.grow_sheet_long`), ne vyšší list

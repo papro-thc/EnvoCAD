@@ -109,10 +109,11 @@ class SingleLineScene(QGraphicsScene):
 
     def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
         from envocad.model.frame import frame_geometry
+        from envocad.settings import company
         c = PRINT if not self.draw_grid else colors()
         w, h = self.paper_size
         draw_frame(painter, frame_geometry(self.project, self.sheet, w, h, "", page_label(self.project),
-                                           self.paper_label), c.ink)
+                                           self.paper_label, company()), c.ink)
         t = self._drag[0] if self._drag else self._hover
         if t is not None and self.draw_grid:       # zvýraznění toho, co se táhne (jen v náhledu, ne v tisku)
             box = self._box_of(t)

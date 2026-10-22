@@ -90,14 +90,19 @@ def _is_pe_only(w) -> bool:
 def test_paper_choice_default_standard_sheet_and_legacy():
     p, sb = _tpl("dc", {"n_strings": "2"})
     assert mp.paper_choice(sb) == "A4" and mp.page_size(sb) == (297.0, 210.0) and mp.page_paper_label(sb) == "A4"
-    _settings(switchboard_paper="A4 na výšku")
-    assert mp.page_size(sb) == (210.0, 297.0) and mp.page_paper_label(sb) == "A4"
+    # firemní standard předává volající (model nastavení nečte – `envocad.settings.switchboard_paper`)
+    assert mp.page_size(sb, standard_paper="A4 na výšku") == (210.0, 297.0)
+    assert mp.page_paper_label(sb, standard_paper="A4 na výšku") == "A4"
+    assert mp.page_size(sb, standard_paper="A3") == (420.0, 297.0)
+    assert mp.paper_choice(sb, "Letter") == "A4"                # neplatná hodnota → výchozí A4
     _settings(switchboard_paper="A3")
-    assert mp.page_size(sb) == (420.0, 297.0)
-    _settings(switchboard_paper="Letter")                     # neplatná hodnota → výchozí A4
-    assert mp.paper_choice(sb) == "A4"
+    assert mp.page_size(sb) == (297.0, 210.0)                   # nastavení model neovlivní
+    from envocad.settings import switchboard_paper
+    assert switchboard_paper() == "A3" and mp.page_size(sb, standard_paper=switchboard_paper()) == (420.0, 297.0)
+    _settings(switchboard_paper="Letter")
+    assert switchboard_paper() == "A4"
     sb.mp_paper = "A3"                                        # volba listu má přednost před standardem
-    assert mp.page_size(sb) == (420.0, 297.0)
+    assert mp.page_size(sb) == (420.0, 297.0) and mp.page_size(sb, standard_paper="A4 na výšku") == (420.0, 297.0)
     sb.mp_paper = "list"
     assert mp.page_size(sb) == (sb.width, sb.height)
     sb.mp_paper = ""
@@ -374,9 +379,12 @@ def test_sheet_props_paper_undo_and_pin_on_manual_move(qapp, lib):
         w.undo.push(commands.MoveMultipoleCommand(sc, {e.id: (None, (60.0, 150.0))}))
         assert e.mp_pos == (60.0, 150.0) and sb.mp_paper == "A4" and mp.page_size(sb) == (297.0, 210.0)
         _settings(switchboard_paper="A3")
-        assert mp.page_size(sb) == (297.0, 210.0)
+        assert mp.page_size(sb, standard_paper="A3") == (297.0, 210.0)
         w.undo.undo()
         assert e.mp_pos is None and sb.mp_paper == ""
+        # scéna předá modelu firemní standard z nastavení (`settings.switchboard_paper`)
+        sc.rebuild()
+        assert sc.paper_size == (420.0, 297.0) and sc.paper_label == "A3"
     finally:
         w.undo.setClean()
         w.close()

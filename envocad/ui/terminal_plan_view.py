@@ -25,6 +25,7 @@ from envocad.model.terminal_plan import (  # noqa: F401 – rozměry zůstávaj�
     sheet_plan_pages,
     terminal_plan,
 )
+from envocad.settings import company, switchboard_paper
 from envocad.ui.canvas import SchematicView
 from envocad.ui.render import draw_frame, draw_text, sp
 from envocad.ui.theme import PRINT, colors
@@ -41,8 +42,9 @@ class TerminalPlanScene(QGraphicsScene):
         self.project, self.sheet, self.library, self.undo = project, sheet, library, undo
         self.draw_grid = True
         self.mode = None
-        self.paper_size = page_size(sheet)      # strana jako vícepól listu (výchozí A4 na šířku)
-        self.paper_label = page_paper_label(sheet)
+        std = switchboard_paper()               # firemní standard (model nastavení nečte)
+        self.paper_size = page_size(sheet, standard_paper=std)   # strana jako vícepól listu (výchozí A4 na šířku)
+        self.paper_label = page_paper_label(sheet, standard_paper=std)
         w, h = self.paper_size
         self._paper = QGraphicsRectItem(QRectF(0, -h, w, h))
         self._paper.setZValue(-1)
@@ -58,8 +60,9 @@ class TerminalPlanScene(QGraphicsScene):
         self._paper.setPen(QPen(colors().paper, 0.5))
         from envocad.model.project import clean_view
         self.plans: list[StripPlan] = terminal_plan(*clean_view(self.project, self.sheet))
-        self.paper_size, self.page_chunks = sheet_plan_pages(self.project, self.sheet, self.plans)
-        self.paper_label = page_paper_label(self.sheet)
+        std = switchboard_paper()
+        self.paper_size, self.page_chunks = sheet_plan_pages(self.project, self.sheet, self.plans, std)
+        self.paper_label = page_paper_label(self.sheet, standard_paper=std)
         w, h = self.paper_size
         n = len(self.page_chunks)
         pitch = self.page_pitch
@@ -85,12 +88,14 @@ class TerminalPlanScene(QGraphicsScene):
         c = PRINT if not self.draw_grid else colors()
         w, h = self.paper_size
         n = max(1, len(self.page_chunks))
+        firm = company()
         painter.setRenderHint(QPainter.Antialiasing)
         for k in range(n):
             painter.save()
             painter.translate(0, k * self.page_pitch)
             draw_frame(painter, frame_geometry(self.project, self.sheet, w, h, "plán svorkovnice",
-                                               page_label(self.project, self.sheet, k, n), self.paper_label), c.ink)
+                                               page_label(self.project, self.sheet, k, n), self.paper_label,
+                                               firm), c.ink)
             for chunk in self.page_chunks[k] if k < len(self.page_chunks) else []:
                 self._draw_chunk(painter, chunk, c)
             painter.restore()

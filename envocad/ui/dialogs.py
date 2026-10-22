@@ -1605,9 +1605,10 @@ class SheetPropsDialog(QDialog):
         self.paper: QComboBox | None = None
         if sheet.is_switchboard:
             # formát stran schématu (vícepólu) a plánu svorkovnice listu rozvaděče
-            from envocad.model.multipole import SHEET_PAPER, SWITCHBOARD_PAPERS, standard_switchboard_paper
+            from envocad.model.multipole import SHEET_PAPER, SWITCHBOARD_PAPERS
+            from envocad.settings import switchboard_paper
             self.paper = QComboBox()
-            self.paper.addItem(f"podle firemního standardu ({_paper_text(standard_switchboard_paper())})", "")
+            self.paper.addItem(f"podle firemního standardu ({_paper_text(switchboard_paper())})", "")
             for key in SWITCHBOARD_PAPERS:
                 self.paper.addItem(_paper_text(key), key)
             self.paper.addItem(f"jako list ({sheet.paper}, {sheet.width:g} × {sheet.height:g} mm)", SHEET_PAPER)

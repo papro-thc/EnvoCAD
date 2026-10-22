@@ -738,22 +738,21 @@ SHEET_PAPER = "list"      # strana = rozměr listu (`Sheet.width × height`, cho
 _DEFAULT_SHEET_SIZE = ("A3", 420.0, 297.0)
 
 
-def standard_switchboard_paper() -> str:
-    """Formát stran schématu rozvaděče z firemního standardu (`standard.switchboard_paper`), výchozí A4 na šířku."""
-    try:
-        from envocad.settings import load_settings
-        v = str(load_settings()["standard"].get("switchboard_paper") or "").strip()
-    except Exception:  # noqa: BLE001
-        v = ""
+def normalize_switchboard_paper(value: object) -> str:
+    """Platný formát stran schématu rozvaděče (`SWITCHBOARD_PAPERS`), jinak výchozí A4 na šířku. Hodnotu firemního
+    standardu (`standard.switchboard_paper`) čte `envocad.settings.switchboard_paper` – model nastavení nečte,
+    funkce níže dostávají standard parametrem `standard_paper` od volajícího (GUI, export, generátor)."""
+    v = str(value or "").strip()
     return v if v in SWITCHBOARD_PAPERS else DEFAULT_SWITCHBOARD_PAPER
 
 
-def paper_choice(sheet: Sheet) -> str:
+def paper_choice(sheet: Sheet, standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) -> str:
     """Formát stran vícepólu listu: „A4“, „A4 na výšku“, „A3“ nebo „list“ (rozměr listu).
 
     Pořadí: volba listu `mp_paper`; list, který není rozvaděč (vícepól JPS), a list rozvaděče s ručně nastaveným
     formátem (jiný než výchozí A3 420 × 297) nebo s ručními polohami ve vícepólu (`mp_pos` jsou v souřadnicích
-    stran původního rozměru) bez volby → „list“ (beze změny proti dřívějšku); jinak firemní standard (výchozí A4)."""
+    stran původního rozměru) bez volby → „list“ (beze změny proti dřívějšku); jinak firemní standard `standard_paper`
+    (výchozí A4; neplatná hodnota → A4)."""
     v = getattr(sheet, "mp_paper", "") or ""
     if v in SWITCHBOARD_PAPERS or v == SHEET_PAPER:
         return v
@@ -762,39 +761,43 @@ def paper_choice(sheet: Sheet) -> str:
     if (sheet.paper, float(sheet.width), float(sheet.height)) != _DEFAULT_SHEET_SIZE \
             or any(e.mp_pos for e in sheet.elements):
         return SHEET_PAPER
-    return standard_switchboard_paper()
+    return normalize_switchboard_paper(standard_paper)
 
 
-def page_size(sheet: Sheet, choice: str | None = None) -> tuple[float, float]:
+def page_size(sheet: Sheet, choice: str | None = None,
+              standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) -> tuple[float, float]:
     """Rozměr strany vícepólu / plánu svorkovnice (šířka, výška v mm)."""
-    v = choice or paper_choice(sheet)
+    v = choice or paper_choice(sheet, standard_paper)
     return (float(sheet.width), float(sheet.height)) if v == SHEET_PAPER else SWITCHBOARD_PAPERS[v]
 
 
-def page_paper_label(sheet: Sheet, choice: str | None = None) -> str:
+def page_paper_label(sheet: Sheet, choice: str | None = None, standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) -> str:
     """Formát strany do popisového pole („A4“; u rozměru listu jeho formát)."""
-    v = choice or paper_choice(sheet)
+    v = choice or paper_choice(sheet, standard_paper)
     return sheet.paper if v == SHEET_PAPER else v.split()[0]
 
 
 def layout_x0(sheet: Sheet, choice: str | None = None) -> float:
     """Začátek rozmístění vícepólu (levý okraj strany 0): se sběrnicí místo vlevo pro názvy potenciálů a odkazy,
-    bez ní užší okraj; formát „list“ beze změny proti dřívějšku."""
+    bez ní užší okraj; formát „list“ beze změny proti dřívějšku. Na firemním standardu nezávisí (standard nikdy není
+    „list“)."""
     v = choice or paper_choice(sheet)
     if v == SHEET_PAPER or any(e.symbol_id == BUS_SYMBOL for e in sheet.elements):
         return MP_X0
     return MP_X0_NO_BUS
 
 
-def page_width(sheet: Sheet, size: tuple[float, float] | None = None) -> float:
+def page_width(sheet: Sheet, size: tuple[float, float] | None = None,
+               standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) -> float:
     """Použitelná šířka strany vícepólu pro rozmístění (od `layout_x0` po 10 mm před vnitřním rámečkem)."""
     from envocad.model.frame import MARGIN
-    w = (size or page_size(sheet))[0]
+    w = (size or page_size(sheet, standard_paper=standard_paper))[0]
     return w - layout_x0(sheet) - MARGIN - 10.0
 
 
-def page_pitch(sheet: Sheet, size: tuple[float, float] | None = None) -> float:
-    return (size or page_size(sheet))[1] + MP_PAGE_GAP
+def page_pitch(sheet: Sheet, size: tuple[float, float] | None = None,
+               standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) -> float:
+    return (size or page_size(sheet, standard_paper=standard_paper))[1] + MP_PAGE_GAP
 
 
 def page_ref(sheet_no: str, k: int, x: float, y_local: float, size: tuple[float, float]) -> str:
@@ -804,12 +807,12 @@ def page_ref(sheet_no: str, k: int, x: float, y_local: float, size: tuple[float,
     return f"/{sheet_no}.{k + 1}.{grid_coord(None, x, y_local, size[0], size[1])}"
 
 
-def paginate(sheet: Sheet, poles: dict[str, ElementPoles], size: tuple[float, float] | None = None
-             ) -> tuple[dict[str, int], int]:
+def paginate(sheet: Sheet, poles: dict[str, ElementPoles], size: tuple[float, float] | None = None,
+             standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) -> tuple[dict[str, int], int]:
     """Rozmístění (strany za sebou v x) → strany pod sebou: prvek na straně k se posune o k·šířka doleva a o
     k·(výška + mezera) dolů (mění `origin`). Ruční pozice (`mp_pos`) jsou už stránkované – strana se jim jen určí.
     Vrací (prvek → strana, počet stran)."""
-    size = size or page_size(sheet)
+    size = size or page_size(sheet, standard_paper=standard_paper)
     x0, pw, pitch = layout_x0(sheet), page_width(sheet, size), page_pitch(sheet, size)
     page_of: dict[str, int] = {}
     n_pages = 1

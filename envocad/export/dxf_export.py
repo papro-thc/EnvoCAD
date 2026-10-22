@@ -139,8 +139,9 @@ def export_sheet_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Pa
     if notes:
         doc.layers.add(NOTES_LAYER, color=NOTES_COLOR)
     msp = doc.modelspace()
-    from envocad.model.frame import MARGIN, MARGIN_LEFT, frame_enabled, frame_geometry
-    _draw_geometry(msp, frame_geometry(project, sheet) if frame_enabled() else None, "RAMECEK")
+    from envocad.model.frame import MARGIN, MARGIN_LEFT, frame_geometry
+    from envocad.settings import company, frame_enabled
+    _draw_geometry(msp, frame_geometry(project, sheet, company=company()) if frame_enabled() else None, "RAMECEK")
     if sheet.is_switchboard:
         from envocad.model.project import switchboard_header
         rows = switchboard_header(project, sheet)
@@ -223,12 +224,13 @@ def _draw_prim(msp, p, dx: float = 0.0) -> None:
 
 def _draw_mp_page(msp, project: Project, sheet: Sheet, g, k: int, dx: float) -> None:
     """Strana k vícepólu do modelspace posunutá o `dx`: rámeček (jinak obrys strany) a primitiva strany."""
-    from envocad.model.frame import frame_enabled, frame_geometry, page_label
+    from envocad.model.frame import frame_geometry, page_label
     from envocad.model.multipole_geometry import page_prims
+    from envocad.settings import company, frame_enabled
     w, h = g.page_size
     if frame_enabled():
         _draw_geometry(msp, frame_geometry(project, sheet, w, h, "vícepólové schéma",
-                                           page_label(project, sheet, k, g.pages), g.paper), "RAMECEK", dx)
+                                           page_label(project, sheet, k, g.pages), g.paper, company()), "RAMECEK", dx)
     else:      # obrys strany, aby byly strany vedle sebe rozlišitelné i bez rámečku
         msp.add_lwpolyline([(dx, 0), (dx + w, 0), (dx + w, h), (dx, h)], close=True, dxfattribs={"layer": "RAMECEK"})
     for p in page_prims(g, k):
@@ -245,9 +247,10 @@ def _page_layout(doc, name: str, w: float, h: float, cx: float) -> None:
 def export_single_line_dxf(project: Project, lib: LibraryStore, path: Path | str) -> Path:
     """DXF jednopólového schématu (`single_line.single_line_geometry`): strana v počátku modelspace, rámeček
     s popisovým polem a paperspace layout 1 : 1. Vrací cestu zapsaného souboru."""
-    from envocad.model.frame import frame_enabled, frame_geometry
+    from envocad.model.frame import frame_geometry
     from envocad.model.project import without_dangling
     from envocad.model.single_line import TITLE, page_label, single_line_geometry
+    from envocad.settings import company, frame_enabled
     project = without_dangling(project)
     g = single_line_geometry(project, lib)
     w, h = g.page_size
@@ -259,7 +262,8 @@ def export_single_line_dxf(project: Project, lib: LibraryStore, path: Path | str
     msp = doc.modelspace()
     sheet = Sheet(name=TITLE, paper=g.paper, width=w, height=h)
     if frame_enabled():
-        _draw_geometry(msp, frame_geometry(project, sheet, w, h, "", page_label(project), g.paper), "RAMECEK")
+        _draw_geometry(msp, frame_geometry(project, sheet, w, h, "", page_label(project), g.paper, company()),
+                       "RAMECEK")
     else:
         msp.add_lwpolyline([(0, 0), (w, 0), (w, h), (0, h)], close=True, dxfattribs={"layer": "RAMECEK"})
     for p in g.prims:
@@ -285,7 +289,8 @@ def export_multipole_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path
     if clean is not project:
         sheet = next((s for s in clean.sheets if s.id == sheet.id), sheet)
         project = clean
-    g = multipole_geometry(project, sheet, lib)
+    from envocad.settings import switchboard_paper
+    g = multipole_geometry(project, sheet, lib, switchboard_paper())
     w, h = g.page_size
     path = Path(path)
     if path.suffix.lower() != ".dxf":     # bez přípony (i „projekt.v2“) se doplní – stejně pro jeden i více souborů

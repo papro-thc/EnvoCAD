@@ -19,8 +19,9 @@ from PySide6.QtGui import QPageLayout, QPageSize, QPainter, QPdfWriter, QPen, QU
 from envocad.export import reports
 from envocad.export.pdf_export import set_scene_notes_visible
 from envocad.model import multipole as mp
-from envocad.model.frame import TB_H, company_names, frame_enabled, frame_geometry, sheet_number
+from envocad.model.frame import TB_H, frame_geometry, sheet_number
 from envocad.model.project import Project, Sheet
+from envocad.settings import company, frame_enabled
 from envocad.ui import theme
 from envocad.ui.render import draw_frame, draw_text, sp, text_width, wrap_text
 
@@ -69,7 +70,7 @@ def _pseudo_sheet(name: str, project: Project) -> Sheet:
 
 
 def _draw_frame_page(painter, project, sheet_for_frame, view="", page=""):
-    g = frame_geometry(project, sheet_for_frame, PAGE_W, PAGE_H, view, page)
+    g = frame_geometry(project, sheet_for_frame, PAGE_W, PAGE_H, view, page, company=company())
     draw_frame(painter, g, theme.PRINT.ink)
     return g
 
@@ -303,7 +304,7 @@ class DocBuilder:
         s = _pseudo_sheet("Titulní list", p)
         _draw_frame_page(painter, p, s, page=self._page)
         painter.setPen(QPen(theme.PRINT.ink, 0.2))
-        draw_text(painter, PAGE_W / 2, 200, company_names()[1], 8, "center")
+        draw_text(painter, PAGE_W / 2, 200, company(), 8, "center")
         draw_text(painter, PAGE_W / 2, 180, "Elektrotechnická dokumentace", 6, "center")
         draw_text(painter, PAGE_W / 2, 160, p.name, 10, "center")
         y = 130

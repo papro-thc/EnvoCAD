@@ -16,6 +16,7 @@ from envocad.model import multipole as mp
 from envocad.model.feed import FEED_SYMBOLS
 from envocad.model.project import Element, Project, Sheet, Wire, element_symbol, wire_label
 from envocad.model.symbol import GRID, Symbol, rotate_dir
+from envocad.settings import switchboard_paper
 from envocad.ui import commands
 from envocad.ui.canvas import Mode, SchematicView
 from envocad.ui.items import PORT_R, path_points, snap
@@ -588,8 +589,9 @@ class MultipoleScene(QGraphicsScene):
         self._place_sid = None
         self._place_rot = 0
         self._poles: dict[str, mp.ElementPoles] = {}
-        self.paper_size = mp.page_size(sheet)          # strana vícepólu (list rozvaděče výchozí A4 na šířku)
-        self.paper_label = mp.page_paper_label(sheet)
+        std = switchboard_paper()                      # firemní standard (model nastavení nečte)
+        self.paper_size = mp.page_size(sheet, standard_paper=std)   # strana vícepólu (list rozvaděče výchozí A4)
+        self.paper_label = mp.page_paper_label(sheet, standard_paper=std)
         self._paper = QGraphicsRectItem(QRectF(0, -self.paper_size[1], *self.paper_size))
         self._paper.setZValue(-1)
         self.addItem(self._paper)
@@ -652,8 +654,9 @@ class MultipoleScene(QGraphicsScene):
         self._pole_items.clear()
         self._tags.clear()
         self._paper.setPen(QPen(colors().paper, 0.5))
-        self.paper_size = mp.page_size(self.sheet)
-        self.paper_label = mp.page_paper_label(self.sheet)
+        std = switchboard_paper()
+        self.paper_size = mp.page_size(self.sheet, standard_paper=std)
+        self.paper_label = mp.page_paper_label(self.sheet, standard_paper=std)
         poles: dict[str, mp.ElementPoles] = {}
         self._poles = poles
         poles.update(mp.sheet_poles(self.sheet, lambda e: element_symbol(self.project, e, self.library)))
@@ -664,7 +667,7 @@ class MultipoleScene(QGraphicsScene):
         from envocad.model.multipole_geometry import multipole_geometry
         self._geo = None
         try:
-            self._geo = multipole_geometry(self.project, self.sheet, self.library)
+            self._geo = multipole_geometry(self.project, self.sheet, self.library, std)
         except Exception:
             log.exception("vícepól: rozmístění z modelu selhalo")
         bus_taps: dict[tuple[str, int], list[tuple[float, float]]] = {}
@@ -1022,14 +1025,17 @@ class MultipoleScene(QGraphicsScene):
 
     def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
         from envocad.model.frame import frame_geometry, page_label
+        from envocad.settings import company
         c = PRINT if not self.draw_grid else colors()
         w, h = self.paper_size
         n = max(1, len(self.pages))
+        firm = company()
         for k in range(n):
             painter.save()
             painter.translate(0, k * self.page_pitch)
             draw_frame(painter, frame_geometry(self.project, self.sheet, w, h, "vícepólové schéma",
-                                               page_label(self.project, self.sheet, k, n), self.paper_label), c.ink)
+                                               page_label(self.project, self.sheet, k, n), self.paper_label,
+                                               firm), c.ink)
             painter.restore()
             if k:  # dělicí čára mezi stranami i bez rámečku
                 painter.setPen(QPen(c.grid, 0, Qt.DashLine))

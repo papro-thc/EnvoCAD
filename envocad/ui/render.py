@@ -152,7 +152,7 @@ def elide_text(text: str, width: float, height: float = 2.5) -> str:
 
 def draw_frame(painter: QPainter, geom, color) -> None:
     """Rámeček a popisové pole z `model/frame.py` (geometrie v mm, Y nahoru). Nic, když je rámeček vypnutý."""
-    from envocad.model.frame import frame_enabled
+    from envocad.settings import frame_enabled
     if not frame_enabled():
         return
     painter.save()
