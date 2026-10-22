@@ -604,6 +604,23 @@ je firemní číslování ENVO a kontrola ji nehlásí; pomlčka uvnitř označe
 `Ctrl+Shift+N` (Soubor → Nový projekt z průvodce): zadej projekt a investora, modul (typ, Wp, Uoc, Umpp, Isc),
 optimizéry (typ a kusy na modul – prázdné = bez optimizérů; nebo **Z katalogu…**), střídač (typ, P AC, Umax, rozsah MPPT, Imax), stringy po střídačích (`20,20,18; 20,20`), kabely a jištění.
 
+**Kroky průvodce.** Průvodce má vlevo seznam sedmi kroků a vpravo obsah vybraného kroku (v kroku je případný posuvník,
+tlačítka dole zůstávají vidět; okno se vejde na 1366×768):
+1. **Projekt** – název, investor, místo, číslo zakázky, zpracoval, distributor;
+2. **Objekt a připojení** – druh objektu, nn / vn a trafostanice, topologie, náhled řetězce, fakturační měření, síťová ochrana, RFVE.DC na střídač;
+3. **Moduly a střídače** – modul, optimizér a střídač (i **Z katalogu…**), režim stringů, návrhové teploty;
+4. **Stringy** – celkem modulů, rozpis stringů, asistent stringů, **Navrhnout stringy**, skupiny střídačů;
+5. **Kabely a rozvaděče** – DC kabely a rozvaděče po trase, RFVE.DC, AC kabely, jistič střídače, hlavní vypínač, rozvod sběrnicí / svorky, kabel do HDS;
+6. **Stávající rozvaděče** – údaje do popisků bloků;
+7. **Souhrn** – zadání, náhled řetězce, počty střídačů, stringů a modulů, DC/AC, výsledek asistenta stringů a kontrola
+   `F7` projektu, který by vznikl (chyby červeně, varování oranžově; nález `F7` vytvoření nebrání).
+
+Mezi kroky se přechází **libovolně** – klepnutím na krok v seznamu, nebo tlačítky **‹ Zpět** a **Další ›**; pořadí
+vyplňování není vynucené. **Krok s chybou zadání** (např. text místo čísla, záporná β, pojistkový odpínač do 80 A) je
+v seznamu **červený s vykřičníkem** a tooltip ukáže hlášku; **Souhrn** je při jakékoli chybě označen také a vypíše
+chyby po krocích s odkazy, které na krok skočí. Tlačítko **Vytvořit** je zakázané, dokud je chyba zadání nebo chyba
+generátoru (Souhrn průvodcem projekt předem sestaví a chybu ukáže červeně); po opravě se povolí samo.
+
 **Modul a střídač z katalogu:** tlačítko **Z katalogu…** u modulu a střídače otevře výběr artiklu (tabulka s Voc, Isc,
 Imp, β, Usys resp. P AC, MPPT, okno MPPT, I/MPPT…, filtr „Výkon od–do“ a u střídačů „Fáze“). Vybraný artikl vyplní
 pole průvodce a uloží se k projektu (štítek „Artikl: …“); **ruční úprava pole má přednost** před artiklem, **×** vazbu
@@ -815,15 +832,15 @@ zadávají ve specifikaci, např. `"chain": {"hr": {"main_in": 250}, "re": {"mai
 "boundary": "re_main"}, "hds": {"in_": 315}}` (přehled v `docs/LIBRARY_FORMAT.md`, „Volby článků“). Totéž nabízí průvodce
 (viz níže).
 
-**Průvodce – topologie připojení.** Skupina **Objekt a připojení**: druh objektu, nn / vn (u rodinného domu je vn
+**Průvodce – topologie připojení.** Krok **Objekt a připojení**: druh objektu, nn / vn (u rodinného domu je vn
 zakázané – RD se připojuje do HDS), **Topologie** (Automaticky, nebo preset filtrovaný podle druhu objektu a úrovně,
 včetně sdílených a vlastních), živý náhled řetězce („stringy → RFVE.DC → T → RFVE.AC → HR → RE → HDS → DS“),
 fakturační měření v RE / v HR, samostatný RFVE.DC na střídač (jen při 2 a více střídačích) a síťová ochrana
-(automaticky / ano / ne; průvodce ukáže instalované kWp proti hranici 30 kWp). Skupina **Stávající rozvaděče**: hlavní
+(automaticky / ano / ne; průvodce ukáže instalované kWp proti hranici 30 kWp). Krok **Stávající rozvaděče**: hlavní
 přístroj a In RD / HR, vývod FVE (jistič, nebo pojistkový odpínač – do 80 A včetně je nedostupný, vždy jistič) a jeho In,
 HJ v RE, měření přímé / nepřímé s převodem MTP, hranice vlastnictví, In a charakteristika HDS. Údaje se propíšou do
 popisku bloků; **prázdné pole = neuvedeno** (nic se nepíše, žádná chyba). U vn se tyto údaje zadávají v poli Připojení
-k DS. Skupina **Skupiny střídačů**: u každého střídače volitelné umístění (jen nn, firma a bytový dům). Do specifikace
+k DS. Skupina **Skupiny střídačů** (v kroku Stringy): u každého střídače volitelné umístění (jen nn, firma a bytový dům). Do specifikace
 se `topology` a `chain.*` zapíšou jen při změně od výchozího. Chybu, kterou ohlásí až generátor, průvodce ukáže hned.
 Jednofázový střídač (`phases` 1) má AC kabel třížilový (L N PE) s průřezem podle proudu. Vlastní nebo firemní presety
 (`~/.envocad/topologies/`, sdílená knihovna `topologies/`) s neznámou rolí se nenačtou (záznam v logu) a platí

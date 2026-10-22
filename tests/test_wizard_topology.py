@@ -359,19 +359,18 @@ def test_wizard_screenshots(app):
     out.mkdir(parents=True, exist_ok=True)
 
     def shot(d, name):
-        d.resize(980, 1500)
+        """Snímek každého kroku průvodce (`<name>_krokN.png`) v okně 1000×640."""
+        d.resize(1000, 640)
         d.show()
-        app.processEvents()
-        body = d.findChildren(__import__("PySide6.QtWidgets", fromlist=["QScrollArea"]).QScrollArea)[0]
-        body.widget().adjustSize()
-        d.resize(980, body.widget().sizeHint().height() + 80)
-        app.processEvents()
-        d.grab().save(str(out / f"{name}.png"))
+        for i in range(d.steps.count()):
+            d.goto(i)
+            app.processEvents()
+            d.grab().save(str(out / f"{name}_krok{i + 1}.png"))
 
     d = _wizard("company", "nn")
     d.topo.main_in.setText("250")
     _pick(d.topo.fve_device, "fuse_disconnect")
-    d.topo.fve_in.setText("63")
+    d.topo.fve_in.setText("100")
     _pick(d.topo.meter_mode, "indirect")
     d.topo._group_edits[1].setText("Hala B")
     shot(d, "firma_nn")

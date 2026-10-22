@@ -1,7 +1,8 @@
 """Dialogy editoru."""
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -13,11 +14,15 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSpinBox,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -500,6 +505,19 @@ def _n_word(n: int, words: tuple[str, str, str]) -> str:
     return f"{n} {plural(n, *words)}"
 
 
+STEPS = ("Projekt", "Objekt a připojení", "Moduly a střídače", "Stringy", "Kabely a rozvaděče",
+         "Stávající rozvaděče", "Souhrn")
+
+# pole průvodce → index kroku (0 = Projekt), kde se chyba pole ukáže; ostatní číselná pole jsou v kroku 5 (kabely)
+_FIELD_STEP = {
+    "tr_sn": 1,
+    "mod_p": 2, "mod_voc": 2, "mod_vmp": 2, "mod_isc": 2, "mod_imp": 2, "mod_beta": 2, "opt_per": 2, "t_min": 2,
+    "t_max": 2, "inv_p": 2, "inv_udc": 2, "inv_mppt": 2, "inv_mppt_max": 2, "inv_imax": 2, "inv_isc_mppt": 2,
+    "inv_spm": 2,
+    "strings": 3, "mod_total": 3,
+}
+
+
 class ProjectWizard(QDialog):
     """Průvodce novým projektem FVE → specifikace pro `envocad.generate.build_project`."""
 
@@ -515,130 +533,48 @@ class ProjectWizard(QDialog):
         except Exception:  # noqa: BLE001
             std = {}
         lay = QVBoxLayout(self)
+        # kroky průvodce: seznam vlevo + zásobník stránek; každý krok má vlastní posuvník (okno se vejde na 1366×768)
+        self._pages: list[QVBoxLayout] = []
+        self._gen_errors: list[str] | None = None   # chyby generátoru zjištěné na kroku Souhrn (None = neznámé)
+        self.steps = QListWidget()
+        self.steps.setObjectName("wizardSteps")
+        self.steps.setFixedWidth(210)
+        self.steps.setIconSize(QSize(14, 14))
+        self.steps.setSpacing(2)
+        self.steps.setStyleSheet("QListWidget::item { padding: 7px 6px; }")
+        self.steps.setToolTip("Kroky průvodce – lze přeskakovat libovolně; červeně jsou kroky s chybou")
+        self.stack = QStackedWidget()
+        for i, title in enumerate(STEPS):
+            self.steps.addItem(QListWidgetItem(f"{i + 1}. {title}"))
+            self._pages.append(self._new_page(title, i))
+        P1, P2, P3, P4, P5, P6 = self._pages[:6]
+
+        # ---- 1. Projekt ----
         form = QFormLayout()
+        P1.addLayout(form)
         self.name = QLineEdit("FVE ")
         self.investor = QLineEdit()
         self.place = QLineEdit()
         self.order = QLineEdit()
         self.author = QLineEdit(str(std.get("author", "")))
+        self.dso = QLineEdit("")
         form.addRow("Název projektu", self.name)
         form.addRow("Investor", self.investor)
         form.addRow("Místo", self.place)
         form.addRow("Číslo zakázky", self.order)
         form.addRow("Zpracoval", self.author)
+        form.addRow("Distributor (DSO)", self.dso)
+
+        # ---- 2. Objekt a připojení ----
         self.grp_conn = QGroupBox("Objekt a připojení")
         cform = QFormLayout(self.grp_conn)
-        form.addRow(self.grp_conn)
+        P2.addWidget(self.grp_conn)
         self.building = QComboBox()
         self.building.addItem("firma (DC rozvaděče RFVE.DC a AC rozvaděč RFVE.AC zvlášť)", "company")
         self.building.addItem("rodinný dům (DC i AC v jednom rozvaděči RFVE)", "house")
         self.building.addItem("bytový dům (DC rozvaděče RFVE.DC a AC rozvaděč RFVE.AC zvlášť)", "apartment")
         self.building.setToolTip("Rodinný dům: pojistkové odpínače a SPD stringů jsou v rozvaděči FVE spolu s AC částí")
         cform.addRow("Druh objektu", self.building)
-        self.mod_type = QLineEdit()
-        self.mod_p = QLineEdit("450")
-        self.mod_voc = QLineEdit("49.5")
-        self.mod_vmp = QLineEdit("41.5")
-        self.mod_isc = QLineEdit("13.9")
-        self._mod_comp = None        # artikl z katalogu (Component) – id se uloží do spec, údaje navíc do asistenta
-        self._inv_comp = None
-        self._opt_comp = None        # artikl optimizéru (optimizers.csv) – `optimizer.component_id`, pravidla stringů
-        self.mod_imp = QLineEdit()
-        self.mod_beta = QLineEdit()
-        self.mod_imp.setToolTip("Nepovinné – Impp modulu (hlášení omezení výkonu při paralelních stringích)")
-        self.mod_beta.setToolTip("Nepovinné – teplotní součinitel Uoc [%/K], záporný; prázdné = −0,27 %/K")
-        self.mod_label = QLabel()
-        self.mod_label.setWordWrap(True)
-        form.addRow("FV modul – typ", self.mod_type)
-        form.addRow("", self._catalog_row("Z katalogu…", self.pick_module, self.clear_module, self.mod_label))
-        form.addRow("P modulu [Wp]", self.mod_p)
-        form.addRow("Uoc / Umpp modulu [V]", self._pair(self.mod_voc, self.mod_vmp))
-        form.addRow("Isc / Impp modulu [A]", self._pair(self.mod_isc, self.mod_imp))
-        form.addRow("β Uoc [%/K]", self.mod_beta)
-        self.opt_type = QLineEdit("")
-        self.opt_per = QLineEdit("1")
-        self.opt_type.setToolTip("Prázdné = bez optimizérů")
-        self.opt_label = QLabel()
-        self.opt_label.setWordWrap(True)
-        form.addRow("Optimizér – typ / ks na modul", self._pair(self.opt_type, self.opt_per))
-        form.addRow("", self._catalog_row("Z katalogu…", self.pick_optimizer, self.clear_optimizer, self.opt_label))
-        self.inv_type = QLineEdit()
-        self.inv_p = QLineEdit("25")
-        self.inv_udc = QLineEdit("1100")
-        self.inv_mppt = QLineEdit("200")
-        self.inv_mppt_max = QLineEdit("1000")
-        self.inv_imax = QLineEdit("30")
-        self.strings = QLineEdit("18,18,18,18; 18,18")   # Uoc 18 × 49,5 V při −20 °C ≈ 999 V < 1100 V
-        self.strings.setToolTip("Stringy po střídačích: počty modulů oddělené čárkou, střídače středníkem")
-        self.inv_isc_mppt = QLineEdit()
-        self.inv_spm = QLineEdit()
-        self.inv_isc_mppt.setToolTip("Nepovinné – max. zkratový proud na MPPT [A]")
-        self.inv_spm.setToolTip("Nepovinné – počet stringů na jeden MPPT; prázdné = podle artiklu / 2")
-        self.inv_label = QLabel()
-        self.inv_label.setWordWrap(True)
-        form.addRow("Střídač – typ", self.inv_type)
-        form.addRow("", self._catalog_row("Z katalogu…", self.pick_inverter, self.clear_inverter, self.inv_label))
-        form.addRow("P AC střídače [kW]", self.inv_p)
-        form.addRow("U DC max / MPPT min / MPPT max [V]", self._triple(self.inv_udc, self.inv_mppt, self.inv_mppt_max))
-        form.addRow("I max / Isc max na MPPT [A]", self._pair(self.inv_imax, self.inv_isc_mppt))
-        form.addRow("Stringů na MPPT", self.inv_spm)
-        self.string_mode = QComboBox()
-        for text, data in STRING_MODE_CHOICES:
-            self.string_mode.addItem(text, data)
-        self.string_mode.setToolTip("Automaticky = režim z artiklu střídače, jinak z artiklu optimizéru, jinak klasický. "
-                                    "Pevné napětí: SolarEdge – délka stringu daná počtem optimizérů, Uoc·n se nekontroluje")
-        form.addRow("Režim stringů", self.string_mode)
-        self.t_min = QLineEdit(str(std.get("pv_t_min", -20)))
-        self.t_max = QLineEdit(str(std.get("pv_t_max", 70)))
-        self.t_min.setToolTip("Návrhová teplota pro Uoc (za studena) [°C]; výchozí z firemního standardu")
-        self.t_max.setToolTip("Návrhová teplota pro Umpp (za tepla) [°C]; výchozí z firemního standardu")
-        form.addRow("Návrhové teploty min / max [°C]", self._pair(self.t_min, self.t_max))
-        self.mod_total = QLineEdit()
-        self.mod_total.setToolTip("Nepovinné – celkový počet modulů FVE; pro návrh stringů a počtu střídačů")
-        form.addRow("Celkem modulů (nepovinné)", self.mod_total)
-        form.addRow("Stringy (moduly; střídače ;)", self.strings)
-        self.assist = QLabel()
-        self.assist.setWordWrap(True)
-        self.assist.setTextFormat(Qt.RichText)
-        self.btn_propose = QPushButton("Navrhnout stringy")
-        self.btn_propose.setToolTip("Rozdělí „Celkem modulů“ (jinak součet zadaných stringů) do stringů v mezích střídače")
-        self.btn_propose.clicked.connect(self.propose_strings)
-        form.addRow("Asistent stringů", self.assist)
-        form.addRow("", self.btn_propose)
-        self.dc_cable = QLineEdit(str(std.get("dc_cable") or "H1Z2Z2-K 1x6"))
-        self.dc_cross = QLineEdit(str(std.get("dc_cross") or "6"))
-        self.dc_len = QLineEdit("30")
-        form.addRow("DC kabel / průřez / délka string → 1. DC rozvaděč [m]", self._triple(self.dc_cable, self.dc_cross, self.dc_len))
-        self.dc_route_boxes = QLineEdit("1")
-        self.dc_route_len = QLineEdit("20")
-        self.dc_route_boxes.setToolTip("DC rozvaděče po trase (jen SPD na každý string, bez odpínače); 0 = žádný")
-        form.addRow("DC rozvaděčů po trase / délka kabelu mezi nimi [m]", self._pair(self.dc_route_boxes, self.dc_route_len))
-        self.dc_tech_box = QCheckBox("DC rozvaděč u technologie RFVE.DC (pojistkové odpínače + SPD)")
-        self.dc_tech_box.setChecked(True)
-        self.dc_tech_len = QLineEdit("5")
-        self.dc_fuse_in = QLineEdit("")
-        self.dc_fuse_in.setPlaceholderText("podle stringu")
-        self.dc_fuse_in.setToolTip("Prázdné = podle stringu: gPV ≥ 1,5 × Isc modulu (do 2,4 × Isc a max. jištění "
-                                   "modulu), SolarEdge 25 A. Pojistkový odpojovač ETI EFH 10 DC 2p (max 25 A).")
-        self.dc_spd = QLineEdit("T1+T2")
-        form.addRow("", self.dc_tech_box)
-        form.addRow("Délka ke střídači [m] / In pojistek [A] / SPD DC", self._triple(self.dc_tech_len, self.dc_fuse_in, self.dc_spd))
-        self.ac_cable = QLineEdit(str(std.get("ac_cable") or "CYKY-J 5x16"))
-        self.ac_cross = QLineEdit(str(std.get("ac_cross") or "16"))
-        self.ac_len = QLineEdit("30")
-        form.addRow("AC kabel střídač–rozvaděč / průřez / délka", self._triple(self.ac_cable, self.ac_cross, self.ac_len))
-        self.ac_breaker = QLineEdit("40")
-        self.ac_main = QLineEdit("125")
-        form.addRow("In jističe střídače / hlavního vypínače [A]", self._pair(self.ac_breaker, self.ac_main))
-        self.ac_bus = QCheckBox("Rozvod v AC rozvaděči sběrnicí potenciálů (vodič jako v EPLAN); jinak svorky s můstky")
-        self.ac_bus.setChecked(True)
-        form.addRow("", self.ac_bus)
-        self.grid_cable = QLineEdit(str(std.get("grid_cable") or "CYKY-J 5x35"))
-        self.grid_cross = QLineEdit(str(std.get("grid_cross") or "35"))
-        self.grid_len = QLineEdit("20")
-        form.addRow("Kabel do HDS / průřez / délka", self._triple(self.grid_cable, self.grid_cross, self.grid_len))
-        self.dso = QLineEdit("")
-        form.addRow("Distributor (DSO)", self.dso)
         # připojení k DS: nn (AC rozvaděč FVE do HDS) nebo VN (hlavní rozvaděč nn, transformátor, rozvaděč VN)
         self.conn_level = QComboBox()
         self.conn_level.addItem("nn – AC rozvaděč FVE do HDS", "nn")
@@ -657,9 +593,128 @@ class ProjectWizard(QDialog):
         cform.addRow("Připojení k DS", self.conn_level)
         cform.addRow("Trafostanice", self.conn_station)
         cform.addRow("Měření / Sn trafa [kVA]", self._triple(self.conn_metering, self.tr_sn, self.conn_loop))
-        # topologie připojení (F5): předvolba, náhled řetězce, stávající rozvaděče, skupiny střídačů
+
+        # ---- 3. Moduly a střídače ----
+        mform = self._group(P3, "FV modul")
+        self.mod_type = QLineEdit()
+        self.mod_p = QLineEdit("450")
+        self.mod_voc = QLineEdit("49.5")
+        self.mod_vmp = QLineEdit("41.5")
+        self.mod_isc = QLineEdit("13.9")
+        self._mod_comp = None        # artikl z katalogu (Component) – id se uloží do spec, údaje navíc do asistenta
+        self._inv_comp = None
+        self._opt_comp = None        # artikl optimizéru (optimizers.csv) – `optimizer.component_id`, pravidla stringů
+        self.mod_imp = QLineEdit()
+        self.mod_beta = QLineEdit()
+        self.mod_imp.setToolTip("Nepovinné – Impp modulu (hlášení omezení výkonu při paralelních stringích)")
+        self.mod_beta.setToolTip("Nepovinné – teplotní součinitel Uoc [%/K], záporný; prázdné = −0,27 %/K")
+        self.mod_label = QLabel()
+        self.mod_label.setWordWrap(True)
+        mform.addRow("FV modul – typ", self.mod_type)
+        mform.addRow("", self._catalog_row("Z katalogu…", self.pick_module, self.clear_module, self.mod_label))
+        mform.addRow("P modulu [Wp]", self.mod_p)
+        mform.addRow("Uoc / Umpp modulu [V]", self._pair(self.mod_voc, self.mod_vmp))
+        mform.addRow("Isc / Impp modulu [A]", self._pair(self.mod_isc, self.mod_imp))
+        mform.addRow("β Uoc [%/K]", self.mod_beta)
+        oform = self._group(P3, "Optimizér")
+        self.opt_type = QLineEdit("")
+        self.opt_per = QLineEdit("1")
+        self.opt_type.setToolTip("Prázdné = bez optimizérů")
+        self.opt_label = QLabel()
+        self.opt_label.setWordWrap(True)
+        oform.addRow("Optimizér – typ / ks na modul", self._pair(self.opt_type, self.opt_per))
+        oform.addRow("", self._catalog_row("Z katalogu…", self.pick_optimizer, self.clear_optimizer, self.opt_label))
+        iform = self._group(P3, "Střídač")
+        self.inv_type = QLineEdit()
+        self.inv_p = QLineEdit("25")
+        self.inv_udc = QLineEdit("1100")
+        self.inv_mppt = QLineEdit("200")
+        self.inv_mppt_max = QLineEdit("1000")
+        self.inv_imax = QLineEdit("30")
+        self.strings = QLineEdit("18,18,18,18; 18,18")   # Uoc 18 × 49,5 V při −20 °C ≈ 999 V < 1100 V
+        self.strings.setToolTip("Stringy po střídačích: počty modulů oddělené čárkou, střídače středníkem")
+        self.inv_isc_mppt = QLineEdit()
+        self.inv_spm = QLineEdit()
+        self.inv_isc_mppt.setToolTip("Nepovinné – max. zkratový proud na MPPT [A]")
+        self.inv_spm.setToolTip("Nepovinné – počet stringů na jeden MPPT; prázdné = podle artiklu / 2")
+        self.inv_label = QLabel()
+        self.inv_label.setWordWrap(True)
+        iform.addRow("Střídač – typ", self.inv_type)
+        iform.addRow("", self._catalog_row("Z katalogu…", self.pick_inverter, self.clear_inverter, self.inv_label))
+        iform.addRow("P AC střídače [kW]", self.inv_p)
+        iform.addRow("U DC max / MPPT min / MPPT max [V]", self._triple(self.inv_udc, self.inv_mppt, self.inv_mppt_max))
+        iform.addRow("I max / Isc max na MPPT [A]", self._pair(self.inv_imax, self.inv_isc_mppt))
+        iform.addRow("Stringů na MPPT", self.inv_spm)
+        self.string_mode = QComboBox()
+        for text, data in STRING_MODE_CHOICES:
+            self.string_mode.addItem(text, data)
+        self.string_mode.setToolTip("Automaticky = režim z artiklu střídače, jinak z artiklu optimizéru, jinak klasický. "
+                                    "Pevné napětí: SolarEdge – délka stringu daná počtem optimizérů, Uoc·n se nekontroluje")
+        iform.addRow("Režim stringů", self.string_mode)
+        tform = self._group(P3, "Návrhové teploty")
+        self.t_min = QLineEdit(str(std.get("pv_t_min", -20)))
+        self.t_max = QLineEdit(str(std.get("pv_t_max", 70)))
+        self.t_min.setToolTip("Návrhová teplota pro Uoc (za studena) [°C]; výchozí z firemního standardu")
+        self.t_max.setToolTip("Návrhová teplota pro Umpp (za tepla) [°C]; výchozí z firemního standardu")
+        tform.addRow("Návrhové teploty min / max [°C]", self._pair(self.t_min, self.t_max))
+
+        # topologie připojení (F5): předvolba, náhled řetězce, stávající rozvaděče, skupiny střídačů; řádky předvolby
+        # patří do kroku 2, panel čte pole `building`, `conn_level`, `strings` a `mod_p`
         self.topo = TopologyPanel(self)
         self.topo.add_object_rows(cform)
+
+        # ---- 4. Stringy ----
+        sform = self._group(P4, "Rozpis stringů")
+        self.mod_total = QLineEdit()
+        self.mod_total.setToolTip("Nepovinné – celkový počet modulů FVE; pro návrh stringů a počtu střídačů")
+        sform.addRow("Celkem modulů (nepovinné)", self.mod_total)
+        sform.addRow("Stringy (moduly; střídače ;)", self.strings)
+        self.assist = QLabel()
+        self.assist.setWordWrap(True)
+        self.assist.setTextFormat(Qt.RichText)
+        self.btn_propose = QPushButton("Navrhnout stringy")
+        self.btn_propose.setToolTip("Rozdělí „Celkem modulů“ (jinak součet zadaných stringů) do stringů v mezích střídače")
+        self.btn_propose.clicked.connect(self.propose_strings)
+        sform.addRow("Asistent stringů", self.assist)
+        sform.addRow("", self.btn_propose)
+        P4.addWidget(self.topo.inverter_group)
+
+        # ---- 5. Kabely a rozvaděče ----
+        dform = self._group(P5, "DC strana")
+        self.dc_cable = QLineEdit(str(std.get("dc_cable") or "H1Z2Z2-K 1x6"))
+        self.dc_cross = QLineEdit(str(std.get("dc_cross") or "6"))
+        self.dc_len = QLineEdit("30")
+        dform.addRow("DC kabel / průřez / délka string → 1. DC rozvaděč [m]", self._triple(self.dc_cable, self.dc_cross, self.dc_len))
+        self.dc_route_boxes = QLineEdit("1")
+        self.dc_route_len = QLineEdit("20")
+        self.dc_route_boxes.setToolTip("DC rozvaděče po trase (jen SPD na každý string, bez odpínače); 0 = žádný")
+        dform.addRow("DC rozvaděčů po trase / délka kabelu mezi nimi [m]", self._pair(self.dc_route_boxes, self.dc_route_len))
+        self.dc_tech_box = QCheckBox("DC rozvaděč u technologie RFVE.DC (pojistkové odpínače + SPD)")
+        self.dc_tech_box.setChecked(True)
+        self.dc_tech_len = QLineEdit("5")
+        self.dc_fuse_in = QLineEdit("")
+        self.dc_fuse_in.setPlaceholderText("podle stringu")
+        self.dc_fuse_in.setToolTip("Prázdné = podle stringu: gPV ≥ 1,5 × Isc modulu (do 2,4 × Isc a max. jištění "
+                                   "modulu), SolarEdge 25 A. Pojistkový odpojovač ETI EFH 10 DC 2p (max 25 A).")
+        self.dc_spd = QLineEdit("T1+T2")
+        dform.addRow(self.dc_tech_box)
+        dform.addRow("Délka ke střídači [m] / In pojistek [A] / SPD DC", self._triple(self.dc_tech_len, self.dc_fuse_in, self.dc_spd))
+        aform = self._group(P5, "AC strana")
+        self.ac_cable = QLineEdit(str(std.get("ac_cable") or "CYKY-J 5x16"))
+        self.ac_cross = QLineEdit(str(std.get("ac_cross") or "16"))
+        self.ac_len = QLineEdit("30")
+        aform.addRow("AC kabel střídač–rozvaděč / průřez / délka", self._triple(self.ac_cable, self.ac_cross, self.ac_len))
+        self.ac_breaker = QLineEdit("40")
+        self.ac_main = QLineEdit("125")
+        aform.addRow("In jističe střídače / hlavního vypínače [A]", self._pair(self.ac_breaker, self.ac_main))
+        self.ac_bus = QCheckBox("Rozvod v AC rozvaděči sběrnicí potenciálů (vodič jako v EPLAN); jinak svorky s můstky")
+        self.ac_bus.setChecked(True)
+        aform.addRow(self.ac_bus)
+        gform = self._group(P5, "Přípojka")
+        self.grid_cable = QLineEdit(str(std.get("grid_cable") or "CYKY-J 5x35"))
+        self.grid_cross = QLineEdit(str(std.get("grid_cross") or "35"))
+        self.grid_len = QLineEdit("20")
+        gform.addRow("Kabel do HDS / průřez / délka", self._triple(self.grid_cable, self.grid_cross, self.grid_len))
 
         def _conn_enabled() -> None:
             house = self.building.currentData() == "house"   # rodinný dům: rozvaděč FVE do HDS, bez přípojky VN
@@ -678,21 +733,45 @@ class ProjectWizard(QDialog):
         self.conn_station.currentIndexChanged.connect(lambda _i: _conn_enabled())
         self.building.currentIndexChanged.connect(lambda _i: _conn_enabled())
         _conn_enabled()
-        form.addRow(self.topo.existing_group)
-        form.addRow(self.topo.inverter_group)
+
+        # ---- 6. Stávající rozvaděče, 7. Souhrn ----
+        P6.addWidget(self.topo.existing_group)
         self.topo.refresh()
-        body = QWidget()      # dlouhý formulář v posuvné oblasti, tlačítka OK / Zrušit zůstávají vidět
-        body.setLayout(form)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setWidget(body)
-        lay.addWidget(scroll, 1)
-        self.resize(920, 760)
+        self.summary = QLabel()
+        self.summary.setObjectName("wizardSummary")
+        self.summary.setWordWrap(True)
+        self.summary.setTextFormat(Qt.RichText)
+        self.summary.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        self.summary.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.summary.linkActivated.connect(self._summary_link)
+        self._pages[6].addWidget(self.summary)
+
+        for page in self._pages:
+            page.addStretch(1)       # obsah kroku drží nahoře, zbytek místa vyplní pružina
+        row = QHBoxLayout()
+        row.addWidget(self.steps)
+        row.addWidget(self.stack, 1)
+        lay.addLayout(row, 1)
+        self.resize(1000, 640)
+        self.setMinimumSize(820, 480)
         bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.btn_back = QPushButton("‹ Zpět")
+        self.btn_next = QPushButton("Další ›")
+        self.btn_ok = bb.button(QDialogButtonBox.Ok)
+        self.btn_ok.setText("Vytvořit")
+        for b in (self.btn_back, self.btn_next, self.btn_ok):
+            b.setAutoDefault(False)
+        self.btn_back.clicked.connect(lambda: self.goto(self.step() - 1))
+        self.btn_next.clicked.connect(lambda: self.goto(self.step() + 1))
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
-        lay.addWidget(bb)
+        foot = QHBoxLayout()      # vlevo navigace mezi kroky, vpravo Vytvořit / Zrušit
+        foot.addWidget(self.btn_back)
+        foot.addWidget(self.btn_next)
+        foot.addStretch(1)
+        foot.addWidget(bb)
+        lay.addLayout(foot)
+        self.steps.currentRowChanged.connect(self._step_changed)
         for w in (self.mod_p, self.mod_voc, self.mod_vmp, self.mod_isc, self.mod_imp, self.mod_beta, self.inv_p,
                   self.inv_udc, self.inv_mppt, self.inv_mppt_max, self.inv_imax, self.inv_isc_mppt, self.inv_spm,
                   self.t_min, self.t_max, self.mod_total, self.strings, self.opt_type, self.opt_per,
@@ -702,6 +781,118 @@ class ProjectWizard(QDialog):
         self.dc_tech_box.toggled.connect(self.update_assistant)
         self.opt_type.textChanged.connect(self._opt_type_changed)
         self.update_assistant()
+        # změna kteréhokoli pole přepočítá označení kroků s chybou a tlačítko Vytvořit (spojeno až po signálech
+        # panelu topologie, takže vidí už přestavěné skupiny střídačů)
+        for w in self.findChildren(QLineEdit):
+            w.textChanged.connect(self._input_changed)
+        for w in self.findChildren(QComboBox):
+            w.currentIndexChanged.connect(self._input_changed)
+        for w in self.findChildren(QCheckBox):
+            w.toggled.connect(self._input_changed)
+        self.topo.on_change = self._input_changed
+        self.goto(0)
+        self.refresh_state()
+
+    # ---- kroky průvodce -------------------------------------------------------------------------------------------
+    def _new_page(self, title: str, i: int) -> QVBoxLayout:
+        """Stránka kroku: nadpis a obsah v posuvné oblasti (posuvník jen uvnitř kroku, tlačítka zůstávají vidět)."""
+        body = QWidget()
+        v = QVBoxLayout(body)
+        head = QLabel(f"{i + 1}. {title}")
+        head.setStyleSheet("font-size: 15px; font-weight: 600;")
+        v.addWidget(head)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll.setWidget(body)
+        self.stack.addWidget(scroll)
+        return v
+
+    @staticmethod
+    def _group(page: QVBoxLayout, title: str) -> QFormLayout:
+        g = QGroupBox(title)
+        f = QFormLayout(g)
+        page.addWidget(g)
+        return f
+
+    def step(self) -> int:
+        return self.steps.currentRow()
+
+    def goto(self, i: int) -> None:
+        """Přepne na krok `i` (0 = Projekt … 6 = Souhrn); mimo rozsah se ignoruje."""
+        if 0 <= i < len(STEPS):
+            self.steps.setCurrentRow(i)
+
+    def _step_changed(self, i: int) -> None:
+        if i < 0:
+            return
+        self.stack.setCurrentIndex(i)
+        last = i == len(STEPS) - 1
+        self.btn_back.setEnabled(i > 0)
+        self.btn_next.setEnabled(not last)
+        self.btn_next.setDefault(not last)
+        self.btn_ok.setDefault(last)
+        if last:
+            self.refresh_summary()
+        self.refresh_state()
+
+    def _input_changed(self, *_a) -> None:
+        self._gen_errors = None
+        self.refresh_state()
+        if self.step() == len(STEPS) - 1:     # pole změněné programově při zobrazeném souhrnu: souhrn se přepočítá
+            self.refresh_summary()
+
+    def _summary_link(self, href: str) -> None:
+        if href.startswith("step:"):
+            self.goto(int(href[5:]) - 1)
+
+    @staticmethod
+    def _step_icon(error: bool) -> QIcon:
+        pm = QPixmap(14, 14)
+        pm.fill(Qt.transparent)
+        if error:
+            p = QPainter(pm)
+            p.setRenderHint(QPainter.Antialiasing)
+            p.setBrush(QColor(INVALID_COLOR))
+            p.setPen(Qt.NoPen)
+            p.drawEllipse(0, 0, 14, 14)
+            p.setPen(QColor("white"))
+            f = p.font()
+            f.setBold(True)
+            f.setPixelSize(10)
+            p.setFont(f)
+            p.drawText(pm.rect(), Qt.AlignCenter, "!")
+            p.end()
+        return QIcon(pm)
+
+    def step_errors(self) -> list[list[str]]:
+        """Chyby vstupu po krocích (stejné pořadí jako `STEPS`); poslední krok (Souhrn) nese chyby generátoru a je
+        označen vždy, když je chyba kdekoli."""
+        _vals, found = self._values_steps()
+        out: list[list[str]] = [[] for _ in STEPS]
+        for k, msg in found:
+            out[k].append(msg)
+        obj_errs, existing_errs = self.topo.errors_by_page()
+        out[1] += obj_errs
+        out[5] += existing_errs
+        if self._gen_errors:
+            out[6] += self._gen_errors
+        if any(out[:6]) or out[6]:
+            out[6] = out[6] or ["Zadání obsahuje chyby – viz kroky označené červeně."]
+        return out
+
+    def refresh_state(self) -> None:
+        """Označí kroky s chybou (ikona, červený text, tooltip s hláškami) a povolí „Vytvořit“ jen bez chyb."""
+        errs = self.step_errors()
+        for i, e in enumerate(errs):
+            it = self.steps.item(i)
+            it.setIcon(self._step_icon(bool(e)))
+            it.setForeground(QColor(INVALID_COLOR) if e else self.steps.palette().text())
+            it.setToolTip("\n".join(e))
+        bad = any(errs)
+        self.btn_ok.setEnabled(not bad)
+        self.btn_ok.setToolTip("Opravte chyby – kroky s chybou jsou v seznamu vlevo označeny červeně." if bad else "")
 
     # ---- katalog (docs/design/katalog_fv.md §4): pole se vyplní z artiklu, ruční úprava pole vyhrává --------------
     def _catalog_row(self, text, pick, clear, label) -> QWidget:
@@ -719,6 +910,8 @@ class ProjectWizard(QDialog):
         h.addWidget(x)
         h.addWidget(label, 1)
         self._set_catalog_label(label, None)
+        w.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)   # dlouhý popis artiklu se zalamuje, ne roztahuje řádek
         return w
 
     @staticmethod
@@ -1107,13 +1300,18 @@ class ProjectWizard(QDialog):
 
     def _values(self) -> tuple[dict, list[str]]:
         """Čísla a stringy z polí: ({pole: hodnota}, české chyby). Chybné pole v hodnotách chybí."""
+        vals, found = self._values_steps()
+        return vals, [msg for _k, msg in found]
+
+    def _values_steps(self) -> tuple[dict, list[tuple[int, str]]]:
+        """Jako `_values`, ale každá chyba nese index kroku průvodce, kde je chybné pole (výchozí krok 5 = kabely)."""
         from envocad.generate import parse_number, parse_strings
         vals: dict = {}
-        errs: list[str] = []
+        errs: list[tuple[int, str]] = []
         try:
             vals["strings"] = parse_strings(self.strings.text())
         except ValueError as ex:
-            errs.append(str(ex))
+            errs.append((3, str(ex)))
         fields = list(self._NUMBERS)
         for name, label, kw in self._OPTIONAL:
             if getattr(self, name).text().strip():
@@ -1127,12 +1325,12 @@ class ProjectWizard(QDialog):
                 else:
                     vals[name] = parse_number(getattr(self, name).text(), label, **kw)
             except ValueError as ex:
-                errs.append(str(ex))
+                errs.append((_FIELD_STEP.get(name, 4), str(ex)))
         if isinstance(vals.get("mod_beta"), (int, float)) and vals["mod_beta"] >= 0:
-            errs.append("β Uoc [%/K]: hodnota musí být záporná (typicky −0,27).")
+            errs.append((2, "β Uoc [%/K]: hodnota musí být záporná (typicky −0,27)."))
         if isinstance(vals.get("t_min"), (int, float)) and isinstance(vals.get("t_max"), (int, float)) \
                 and vals["t_min"] >= vals["t_max"]:
-            errs.append("Návrhová teplota min musí být menší než max.")
+            errs.append((2, "Návrhová teplota min musí být menší než max."))
         return vals, errs
 
     def errors(self) -> list[str]:
@@ -1151,6 +1349,98 @@ class ProjectWizard(QDialog):
         except ValueError as ex:
             return [str(ex)]
         return []
+
+    def _generate_preview(self):
+        """Sestaví projekt ze `spec()` jako generátor po „Vytvořit“ a zapamatuje chyby generátoru (`_gen_errors`)
+        – řídí tlačítko Vytvořit. Vrací projekt, nebo None při chybě."""
+        from envocad.generate import build_project
+        from envocad.settings import apply_standard_to_spec
+        try:
+            project = build_project(apply_standard_to_spec(self.spec()))
+        except ValueError as ex:
+            self._gen_errors = [str(ex)]
+            return None
+        except Exception as ex:  # noqa: BLE001 – neočekávaná chyba generátoru se ukáže, nesmí shodit průvodce
+            self._gen_errors = [f"Generátor selhal: {ex}"]
+            return None
+        self._gen_errors = []
+        return project
+
+    def refresh_summary(self) -> None:
+        """Naplní krok Souhrn: shrnutí zadání, počty, asistent stringů, chyby po krocích a nálezy kontroly F7
+        projektu, který by vznikl – chyby červeně, varování oranžově. Nález F7 vytvoření nebrání, chyba generátoru
+        a chyba zadání ano."""
+        from html import escape as esc
+        errs = self.step_errors()[:6]
+        bad = INVALID_COLOR
+
+        def table(rows: list[tuple[str, str]]) -> str:
+            body = "".join(f"<tr><td style='padding-right:14px'><i>{esc(k)}</i></td><td>{esc(v)}</td></tr>"
+                           for k, v in rows if v)
+            return f"<table>{body}</table>"
+
+        meta = [("Název", self.name.text().strip()), ("Investor", self.investor.text().strip()),
+                ("Místo", self.place.text().strip()), ("Zakázka", self.order.text().strip()),
+                ("Zpracoval", self.author.text().strip()), ("Distributor", self.dso.text().strip())]
+        conn = [("Druh objektu", self.building.currentText()), ("Připojení", self.conn_level.currentText())]
+        if self.conn_level.currentData() == "vn":
+            conn += [("Trafostanice", self.conn_station.currentText()), ("Měření", self.conn_metering.currentText()),
+                     ("Sn transformátoru", f"{self.tr_sn.text().strip()} kVA")]
+        conn += [("Topologie", self.topo.preset.currentText()), ("Řetězec", self.topo.chain_label.text())]
+        groups = self._string_groups()
+        n_inv, n_str, n_mod = len(groups), sum(len(g) for g in groups), sum(sum(g) for g in groups)
+        p_wp, p_ac = self._num(self.mod_p), self._num(self.inv_p)
+        mod_txt = f"{self.mod_type.text().strip()} {p_wp:g} Wp".strip() if p_wp else self.mod_type.text().strip()
+        inv_txt = f"{self.inv_type.text().strip()} {p_ac:g} kW".strip() if p_ac else self.inv_type.text().strip()
+        counts = (f"{_n_word(n_inv, ('střídač', 'střídače', 'střídačů'))}, "
+                  f"{_n_word(n_str, ('string', 'stringy', 'stringů'))}, {_n_word(n_mod, _MODULE_WORDS)}")
+        eq = [("Modul", mod_txt), ("Střídač", inv_txt), ("Počty", counts)]
+        if p_wp and p_ac and n_mod and n_inv:
+            p_dc = n_mod * p_wp / 1000
+            eq.append(("DC / AC", f"{p_dc:.1f} kWp / {n_inv * p_ac:g} kW = {p_dc / (n_inv * p_ac):.2f}"))
+        parts = [f"<h3>Projekt</h3>{table(meta)}", f"<h3>Objekt a připojení</h3>{table(conn)}",
+                 f"<h3>Zařízení a stringy</h3>{table(eq)}", f"<p>{self.assist.text()}</p>"]
+        if any(errs):
+            lines = [f"<li><a href='step:{i + 1}' style='color:{bad}'>Krok {i + 1} – {esc(STEPS[i])}</a>: "
+                     + "; ".join(esc(m) for m in e) + "</li>" for i, e in enumerate(errs) if e]
+            parts.append(f"<h3 style='color:{bad}'>Chyby zadání</h3><ul>{''.join(lines)}</ul>"
+                         "<p>Vytvoření projektu je zakázáno, dokud chyby neopravíte (odkazy vedou na příslušný krok).</p>")
+            self._gen_errors = None
+        else:
+            project = self._generate_preview()
+            if project is None:
+                parts.append(f"<h3 style='color:{bad}'>Chyba generátoru</h3><p style='color:{bad}'>"
+                             + "<br>".join(esc(m) for m in self._gen_errors or []) + "</p>")
+            else:
+                parts.append(self._findings_html(project))
+        self.summary.setText("".join(parts))
+        self.refresh_state()
+
+    def _findings_html(self, project) -> str:
+        """Nálezy kontroly F7 (chyby a varování) projektu z generátoru jako HTML."""
+        from html import escape as esc
+
+        from envocad.library.store import LibraryStore
+        from envocad.model.checks import ERROR, WARNING, check_project
+        from envocad.settings import switchboard_paper
+        ok, warn, bad = "#2e7d32", "#b26a00", INVALID_COLOR
+        try:
+            found = check_project(project, self.library or LibraryStore(), standard_paper=switchboard_paper())
+        except Exception as ex:  # noqa: BLE001
+            return (f"<h3>Kontrola projektu (F7)</h3><p style='color:{warn}'>Kontrolu se nepodařilo provést: "
+                    f"{esc(str(ex))}</p>")
+        errs = [f for f in found if f.severity == ERROR]
+        warns = [f for f in found if f.severity == WARNING]
+        color = bad if errs else warn if warns else ok
+        head = (f"<h3>Kontrola projektu (F7)</h3><p style='color:{color}'>"
+                f"{_n_word(len(errs), ('chyba', 'chyby', 'chyb'))}, "
+                f"{_n_word(len(warns), ('varování', 'varování', 'varování'))}"
+                + ("" if errs or warns else " – bez nálezů") + "</p>")
+        show = 12
+        rows = [f"<li style='color:{bad if f.severity == ERROR else warn}'>{esc(f.sheet_name)} {esc(f.ref)}: "
+                f"{esc(f.text)}</li>" for f in (errs + warns)[:show]]
+        more = f"<p>… a dalších {len(errs) + len(warns) - show}.</p>" if len(errs) + len(warns) > show else ""
+        return head + (f"<ul>{''.join(rows)}</ul>{more}" if rows else "")
 
     def accept(self) -> None:
         errs = self.errors() or self.generator_errors()
