@@ -272,3 +272,14 @@ def test_node_has_no_dynamic_attributes():
     assert {"anchor", "box", "meter_dx"} <= names
     src = Path(sl.__file__).read_text(encoding="utf-8")
     assert "attr-defined" not in src and not re.search(r"\bn\._(anchor|box|dx)\b", src)
+    # neměřený uzel: chyba při použití, ne tiché (0, 0)
+    from envocad.model.project import Element, Sheet
+    from envocad.model.symbol import placeholder_symbol
+    e = Element("fve.inverter", 0, 0, attrs={"ref": "T1"})
+    n = sl.Node(("s", e.id), Sheet(), e, placeholder_symbol("fve.inverter"))
+    assert n.anchor is None and n.box is None
+    import pytest
+    with pytest.raises(ValueError, match="není změřený"):
+        n.measured()
+    n.anchor, n.box = (1.0, 2.0), (0.0, 0.0, 5.0, 5.0)
+    assert n.measured() == ((1.0, 2.0), (0.0, 0.0, 5.0, 5.0))

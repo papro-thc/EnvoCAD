@@ -96,10 +96,16 @@ class Node:
     bottom: float = 0.0                  # spodek značky (absolutně)
     down: float = 0.0                    # spodek značky i popisku (absolutně)
     labels: list[str] = field(default_factory=list)
-    # rozměry otočené značky vůči vložnému bodu (`_measure`, jen kind == "symbol")
-    anchor: Point = (0.0, 0.0)           # bod vstupu (port od nadřazeného prvku, u kořene horní hrana)
-    box: Box = (0.0, 0.0, 0.0, 0.0)      # obálka značky (x0, y0, x1, y1)
+    # rozměry otočené značky vůči vložnému bodu (`_measure`, jen kind == "symbol"); None = ještě neměřeno
+    anchor: Point | None = None          # bod vstupu (port od nadřazeného prvku, u kořene horní hrana)
+    box: Box | None = None               # obálka značky (x0, y0, x1, y1)
     meter_dx: float = 0.0                # elektroměr vpravo: odstup jeho osy od osy prvku, ke kterému patří
+
+    def measured(self) -> tuple[Point, Box]:
+        """(anchor, box) značky; uzel, který neprošel `_measure` (nebo není značka), je chyba volajícího."""
+        if self.anchor is None or self.box is None:
+            raise ValueError(f"uzel {self.element.ref or self.element.id} ({self.kind}) není změřený (`_measure`)")
+        return self.anchor, self.box
 
     @property
     def segment(self) -> str:
@@ -547,8 +553,7 @@ def _place_y(root: Node, nodes: dict[Key, Node]) -> None:
         placed.add(id(n))
         n.y = y
         if n.kind == "symbol":
-            ax, ay = n.anchor
-            _bx0, by0, _bx1, by1 = n.box
+            (ax, ay), (_bx0, by0, _bx1, by1) = n.measured()
             # značka, která přesahuje nad vstupní port (DS, spotřeba s portem z boku), začíná horní hranou v y
             top = ay if n.element.symbol_id in METER_SYMBOLS else max(ay, by1)   # elektroměr: port na výšce MTP
             n.origin = (n.x - ax, y - top)
@@ -747,7 +752,7 @@ def _node_box(n: Node) -> Box:
         return (min(xs) - 2.5, n.y - 1.5, max(xs) + 2.5, n.y + 1.5)
     top = n.y
     if n.kind == "symbol":
-        top = max(n.y, n.origin[1] + n.box[3])
+        top = max(n.y, n.origin[1] + n.measured()[1][3])
     return (n.x - n.left, n.down, n.x + max(n.right, 1.5), top)
 
 
@@ -761,10 +766,11 @@ def _draw(project: Project, root: Node, nodes: dict[Key, Node], g: SingleLineGeo
         if n.kind == "symbol":
             out.append(Prim("symbol", 0, (n.origin,), rot=n.rot, symbol=n.symbol, symbol_id=n.symbol.id, layer="SYMBOLY"))
             if n.labels:
+                box = n.measured()[1]
                 if n.meters:
-                    lx, align = min(n.origin[0] + n.box[0], n.x) - 1.5, "right"
+                    lx, align = min(n.origin[0] + box[0], n.x) - 1.5, "right"
                 else:
-                    lx, align = max(n.origin[0] + n.box[2], n.x) + 1.5, "left"
+                    lx, align = max(n.origin[0] + box[2], n.x) + 1.5, "left"
                 for i, t in enumerate(n.labels):
                     out.append(_text(lx, n.y - REF_H - i * LINE_H, t, REF_H if i == 0 else LABEL_H, align))
         elif n.kind == "pass" and n.labels:
