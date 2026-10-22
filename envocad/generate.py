@@ -26,6 +26,9 @@ Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
                                                                       #  nevyhoví-li žádná, In prázdné + chyba F7)
          "disconnect_in": 32, "fuse_component": "eti-efh-10-dc-2p",   # pojistkový odpojovač ETI EFH 10 DC 2p
          "spd_component": "weidmuller-vpu-pv-i-ii-3-1000",            # artikl SPD (typ, Uc, Up, ISCPV), když typ odpovídá
+         "system_v": "",                                              # soustava DC: "" = standard dc_system_v (1000 V, automaticky
+                                                                      #  1500 V, když string > Un DC přístrojů a katalog má 2p odpojovač
+                                                                      #  a svodič 1500 V); 1500 = DC přístroje 1500 V vždy
          "disconnect": false},                                        # jen samostatný odpínač v JPS bez DC rozvaděčů (stará varianta)
   "ac": {"cable": "CYKY-J 5x16", "cross": 16, "length": 30, "breaker_in": 40, "main_in": 125,
          "grid_cable": "CYKY-J 5x35", "grid_cross": 35, "grid_length": 20, "spd": "T1+T2", "enclosure": "",

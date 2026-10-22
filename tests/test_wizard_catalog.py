@@ -211,6 +211,8 @@ def test_propose_left_plural(app, warned):
     d = ProjectWizard()
     d.set_module_component(_module())
     d.set_inverter_component(_inverter(params={"p_ac_kw": "100"}))   # jeden střídač: 6 stringů × 19 = 114 modulů
+    d.dc_tech_box.setChecked(False)     # bez DC rozvaděčů – meze jen ze střídače (ne Un DC přístrojů, dc_system)
+    d.dc_route_boxes.setText("0")
     d.t_min.setText("-20")
     d.strings.setText("19")
     d.mod_total.setText("115")

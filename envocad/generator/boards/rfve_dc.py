@@ -11,6 +11,7 @@ from envocad.generator.context import (
     _s,
     log,
 )
+from envocad.generator.dc_voltage import un_label
 from envocad.generator.spec import fuse_in_why
 from envocad.library.templates import _place_sequential, build_dc_strings
 from envocad.model.project import Element, Project, Sheet
@@ -90,7 +91,7 @@ def build_dc_sheets(ctx: ChainContext) -> None:
     for b, gens, kind, inv_no, inv_ref in ctx.dc_boxes:
         sheet = p.create_switchboard_sheet(b)
         sheet.layout.params.setdefault("network", "DC IT")
-        sheet.layout.params.setdefault("un", "max. 1000 V DC")
+        sheet.layout.params.setdefault("un", un_label(dc))
         if b is ctx.dc_common:
             build_common_sheet(ctx, sheet, macros.get("dc_tech", ""))
             continue

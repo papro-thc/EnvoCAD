@@ -310,7 +310,10 @@ DEFAULT_SPEC = {
            # pojistkový odpojovač stringu (DC-20B – nespínat pod zátěží); "" = bez artiklu
            "fuse_component": "eti-efh-10-dc-2p",
            # artikl svodiče DC (typ, Uc, Up, ISCPV do výkresu) – použije se, když typ `spd` odpovídá artiklu; "" = bez
-           "spd_component": "weidmuller-vpu-pv-i-ii-3-1000"},
+           "spd_component": "weidmuller-vpu-pv-i-ii-3-1000",
+           # soustava DC: "" = standard `dc_system_v` (výchozí 1000 V; automaticky 1500 V, když string přesáhne Un DC
+           # přístrojů a katalog má artikly 1500 V – `generator/dc_voltage.py`), 1500 = DC přístroje 1500 V
+           "system_v": ""},
     "ac": {"cable": "CYKY-J 5x16", "cross": 16, "length": 30, "breaker_in": 40, "main_in": 125,
            "grid_cable": "CYKY-J 5x35", "grid_cross": 35, "grid_length": 20, "spd": "T1+T2", "enclosure": "",
            "distribution": "bus"},
