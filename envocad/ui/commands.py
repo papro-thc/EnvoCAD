@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from PySide6.QtGui import QUndoCommand
 
-from envocad.model.project import Element, Wire
+# stav listů pro SheetsStateCommand je čistý model (sdílí ho i příkazový řádek envocad/cmd); re-export pro GUI
+from envocad.model.project import Element, Wire, restore_sheets_state, sheets_state  # noqa: F401
 
 
 class _FeedFollowups:
@@ -936,24 +937,6 @@ class AddSheetCommand(QUndoCommand):
             self.project.structures = list(self.structures[0])
         if self.on_change:
             self.on_change(self.sheet, False)
-
-
-def sheets_state(project) -> dict:
-    """Stav listů a registru struktur pro `SheetsStateCommand`: {"sheets": {id: to_dict}, "structures": [...]}.
-    Hluboká kopie – `to_dict` sdílí slovníky atributů s modelem."""
-    import copy
-    return copy.deepcopy({"sheets": {s.id: s.to_dict() for s in project.sheets},
-                          "structures": [x.to_dict() for x in project.structures]})
-
-
-def restore_sheets_state(project, state: dict) -> None:
-    """Vrátí listy (na místě, `Sheet.restore_state`) a registr struktur ze `sheets_state`."""
-    from envocad.model.project import StructureId
-    for s in project.sheets:
-        d = state["sheets"].get(s.id)
-        if d is not None and s.to_dict() != d:   # nezměněné listy zůstanou beze změny i objektově
-            s.restore_state(d)
-    project.structures = [StructureId.from_dict(x) for x in state["structures"]]
 
 
 class SheetsStateCommand(QUndoCommand):

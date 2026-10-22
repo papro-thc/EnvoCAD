@@ -972,6 +972,24 @@ class Project:
         return proj
 
 
+def sheets_state(project: Project) -> dict:
+    """Stav listů a registru struktur: {"sheets": {id: to_dict}, "structures": [...]} – snímek pro undo
+    (`ui/commands.SheetsStateCommand`) i transakce příkazového řádku (`envocad/cmd`, `ChangeSet`). Hluboká kopie –
+    `to_dict` sdílí slovníky atributů s modelem."""
+    return copy.deepcopy({"sheets": {s.id: s.to_dict() for s in project.sheets},
+                          "structures": [x.to_dict() for x in project.structures]})
+
+
+def restore_sheets_state(project: Project, state: dict) -> None:
+    """Vrátí listy (na místě, `Sheet.restore_state`) a registr struktur ze `sheets_state`. Stav může obsahovat jen
+    část listů (jen změněné) – ostatní listy zůstanou beze změny; nezměněné listy zůstanou i objektově."""
+    for s in project.sheets:
+        d = state["sheets"].get(s.id)
+        if d is not None and s.to_dict() != d:
+            s.restore_state(d)
+    project.structures = [StructureId.from_dict(x) for x in state["structures"]]
+
+
 def dangling_wires(sheet: Sheet) -> list[Wire]:
     """Vodiče listu, jejichž konec vede na prvek, který na listu není (ručně upravený / poškozený soubor)."""
     ids = {e.id for e in sheet.elements}

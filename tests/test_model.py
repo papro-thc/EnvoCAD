@@ -1,4 +1,7 @@
+import json
 from pathlib import Path
+
+import pytest
 
 from envocad.library.store import LibraryStore
 from envocad.model.project import Element, Project, Sheet, Wire, WireEnd
@@ -413,3 +416,36 @@ def test_coil_of_prefers_contact_scope():
     head, rows = reports.device_list(p, LibraryStore())
     conts = {r[head.index("List")]: r[head.index("Kontakty")] for r in rows}
     assert conts == {"A": "13/14", "B": "21/22, 43/44"}
+
+
+def test_sheets_state_roundtrip_headless():
+    """`sheets_state` / `restore_sheets_state` jsou čistý model (přesun z ui/commands.py, GUI je re-exportuje):
+    obnova vrátí `to_dict` přesně, nezměněný list i jeho prvky zůstanou stejné objekty; částečný stav (jen změněné
+    listy) ostatní listy nemění."""
+    from envocad.model.project import Element, Project, Sheet, StructureId, restore_sheets_state, sheets_state
+    p = Project()
+    p.sheets.append(Sheet(name="Druhý"))
+    e = Element("fve.breaker_mcb", 10, 20, attrs={"ref": "F1"})
+    p.sheets[0].elements.append(e)
+    before_dict = json.loads(json.dumps(p.to_dict()))
+    before = sheets_state(p)
+    e.attrs["ref"] = "F9"              # snímek je hluboká kopie
+    assert before["sheets"][p.sheets[0].id]["elements"][0]["attrs"]["ref"] == "F1"
+    p.sheets[1].elements.append(Element("fve.fuse", 0, 0))
+    p.structures.append(StructureId("+", "R1", ""))
+    second = p.sheets[1]
+    restore_sheets_state(p, before)
+    assert p.to_dict() == before_dict and p.sheets[1] is second
+    partial = {"sheets": {p.sheets[0].id: before["sheets"][p.sheets[0].id]}, "structures": []}
+    keep = p.sheets[0].elements[0]
+    p.sheets[1].name = "Jiný"
+    restore_sheets_state(p, partial)
+    assert p.sheets[1].name == "Jiný" and p.sheets[0].elements[0] is keep
+
+
+def test_ui_reexports_sheets_state():
+    pytest.importorskip("PySide6")
+    from envocad.model import project
+    from envocad.ui import commands
+    assert commands.sheets_state is project.sheets_state
+    assert commands.restore_sheets_state is project.restore_sheets_state
