@@ -8,8 +8,11 @@
   jako dialog; aliasy ZWCAD/AutoCAD a české (`cmd/aliases.json`, uživatelské `~/.envocad/aliases.json`).
   Souřadnice `x,y` s desetinnou tečkou, `@dx,dy`, `ref:port`; zaokrouhlení na mřížku. Každý příkaz běží v transakci
   (snímek listů → `ChangeSet`, chyba ani Esc nenechá nic napůl), GUI ho ve fázi 2 pushne jako `SheetsStateCommand`.
-  Skripty `.ecs` a CLI `python -m envocad.cmd projekt.ecp skript.ecs [-o | --in-place] [--dry-run] [--json]
-  [--keep-going] [--var]` – bez `-o` / `--in-place` nic neukládá, chyby s číslem řádku, žádné spouštění kódu.
+  Skripty `.ecs` a CLI `python -m envocad.cmd projekt.ecp skript.ecs [-o [--force] | --in-place] [--dry-run]
+  [--json] [--keep-going] [--no-user-aliases] [--var]` – bez `-o` / `--in-place` nic neukládá, chyby s číslem řádku,
+  žádné spouštění kódu, UTF-8 i v rouře na Windows. SAVE ve skriptu jen do cíle CLI a až po úspěšném konci, vnořený
+  `SCRIPT` jen ze složky hlavního skriptu a jako jedna transakce (jeden krok historie), rozpočet 10 000 příkazů
+  i s vnořenými, skript nejvýš 1 MB; Esc nepřepíše změny udělané mezitím jinou cestou.
   `sheets_state` / `restore_sheets_state` přesunuty do `model/project.py` (`ui/commands.py` re-exportuje), navázané
   změny přívodů sdílí `ui/commands.py` s `cmd/edits.py`. Formát projektu beze změny (v16). Testy `test_cmd_parse`,
   `test_cmd_exec`, `test_cmd_script` (CLI v podprocesu), `test_cmd_parity` (stejné `to_dict` jako QUndoCommand GUI).

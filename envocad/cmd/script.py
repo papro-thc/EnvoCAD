@@ -11,6 +11,7 @@ from envocad.cmd.parse import ParseError, substitute_vars
 from envocad.cmd.runner import CommandError, CommandRunner, Result
 
 MAX_DEPTH = 4
+MAX_SCRIPT_BYTES = 1_000_000
 
 
 @dataclass
@@ -63,18 +64,27 @@ def run_script(runner: CommandRunner, text: str, *, name: str = "", base_dir: Pa
                variables: dict[str, str] | None = None, stop_on_error: bool = True,
                on_result: Callable[[LineResult], None] | None = None) -> ScriptReport:
     """Vykoná skript řádek po řádku přes `runner.execute`. Každý řádek je samostatná transakce (a krok historie).
-    Chyba → `ScriptReport` s číslem řádku; `stop_on_error` = konec při první chybě."""
+    Chyba → `ScriptReport` s číslem řádku; `stop_on_error` = konec při první chybě. Hlavní skript (hloubka 0)
+    nastaví kořen pro vnořené `SCRIPT` (`runner.script_root`) a rozpočet řádků `runner.max_commands` i s vnořenými –
+    po jeho vyčerpání `CommandError` ukončí celý běh (i s `--keep-going`)."""
     if runner.script_depth >= MAX_DEPTH:
         raise CommandError(f"Skripty lze vnořit nejvýš {MAX_DEPTH}×")
     rep = ScriptReport()
     old_dir = runner.ctx.base_dir
     old_vars = getattr(runner, "variables", {})
+    old_root = runner.script_root
     runner.variables = {**old_vars, **(variables or {})}
     if base_dir is not None:
         runner.ctx.base_dir = base_dir
+    if runner.script_depth == 0:
+        runner.commands_run = 0
+        runner.script_root = runner.ctx.base_dir
     runner.script_depth += 1
     try:
         for no, line in script_lines(text):
+            runner.commands_run += 1
+            if runner.commands_run > runner.max_commands:
+                raise CommandError(f"Skript přesáhl {runner.max_commands} příkazů i s vnořenými – přerušeno")
             try:
                 res = runner.execute(substitute_vars(line, runner.variables))
             except (ParseError, CommandError) as ex:
@@ -89,11 +99,16 @@ def run_script(runner: CommandRunner, text: str, *, name: str = "", base_dir: Pa
         runner.script_depth -= 1
         runner.ctx.base_dir = old_dir
         runner.variables = old_vars
+        runner.script_root = old_root
     return rep
 
 
 def read_script(path: Path | str) -> str:
-    return Path(path).read_text(encoding="utf-8-sig")
+    """Text skriptu (UTF-8, BOM se zahodí); větší než `MAX_SCRIPT_BYTES` → OSError."""
+    p = Path(path)
+    if p.stat().st_size > MAX_SCRIPT_BYTES:
+        raise OSError(f"skript je větší než {MAX_SCRIPT_BYTES // 1_000_000} MB")
+    return p.read_text(encoding="utf-8-sig")
 
 
 def run_script_file(runner: CommandRunner, path: Path | str, **kw) -> ScriptReport:

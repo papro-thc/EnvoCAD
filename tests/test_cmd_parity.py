@@ -179,6 +179,36 @@ def test_erase(app, lib, ids, source):
     _both(source, lib, ids, "E T1", gui)
 
 
+def test_wire_to_switchboard_block(app, lib, ids, source):
+    """Vodič JPS na port bloku ROZVADĚČ (jako kreslení myší bez dialogu): žíly předá vodičům u přívodu."""
+    def gui(p, sc, undo):
+        from envocad.model.multipole import default_conductors
+        from envocad.model.project import WIRE_ATTRIBUTES, Wire, WireEnd
+        a, b = _el(p, "F1"), _el(p, "R1")
+        w = Wire(WireEnd(a.id, "2"), WireEnd(b.id, "X1"))
+        w.conductors = default_conductors(a, "2", b, "X1")
+        w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}
+        w.attrs["ref"] = p.next_ref("W")
+        undo.push(commands.AddWireCommand(sc, w))
+    _both(source, lib, ids, "WIRE F1:2 R1:X1", gui)
+
+
+@pytest.mark.parametrize("line, key, value", [("SET X1 dir=out", "dir", "out"), ("SET X1 wire_id=", "wire_id", "")])
+def test_set_feed_dir_and_link(app, lib, ids, source, line, key, value):
+    def gui(p, sc, undo):
+        sc.set_attr(_el(p, "X1", 1).id, False, key, value)
+    _both(source, lib, ids, line, gui, sheet=1)
+
+
+def test_erase_wire_only(app, lib, ids, source):
+    def gui(p, sc, undo):
+        sc.clearSelection()
+        w2 = next(w for w in p.sheets[0].wires if w.attrs.get("ref") == "W2")
+        sc.wire_items[w2.id].setSelected(True)
+        sc.delete_selected()
+    _both(source, lib, ids, "E W2", gui)
+
+
 def test_insert_feed_with_link(app, lib, ids, source):
     """Vývod s vazbou na vodič JPS: dialog vložení doplní odvozené atributy vazby (kam, kabel) – řádek taky;
     `wire_id` z řádku smí být označení vodiče (W1)."""

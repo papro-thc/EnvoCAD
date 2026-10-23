@@ -61,9 +61,10 @@ def _bool(key: str, v: str) -> bool:
 def _angle(v: float | str) -> int:
     try:
         a = float(v)
-    except ValueError as ex:
+        whole = int(a)
+    except (ValueError, OverflowError) as ex:                  # „x“, 1e999 (inf)
         raise CommandError(f"Úhel „{v}“ není číslo") from ex
-    if a != int(a) or int(a) % 90:
+    if a != whole or whole % 90:
         raise CommandError(f"Úhel {v} není násobek 90°")
     return int(a) % 360
 
@@ -78,13 +79,23 @@ WIRE_KEYS = {a.key for a in WIRE_ATTRIBUTES + SWITCHBOARD_WIRE_ATTRIBUTES} | {"r
 
 
 def _check_ref(ctx: Ctx, symbol_id: str, ref: str, self_id: str | None = None) -> None:
-    """Označení nesmí kolidovat v prostoru označení listu (skupiny svorek sdílejí označení svorkovnice)."""
-    if not ref or symbol_id in edits.TERMINAL_SYMBOLS:
+    """Označení nesmí kolidovat v prostoru označení listu. Sdílené označení je záměr u skupin svorek (svorkovnice),
+    kontaktů (nesou označení cívky), přerušení a u cívky se stykačem kresleným jako její silové kontakty
+    (`DUAL_ROLE`). GUI jinou duplicitu po potvrzení dovolí – řádek ji odmítne (skript nemá koho se zeptat)."""
+    from envocad.model.project import COIL_SYMBOLS, CONTACT_SYMBOLS, DUAL_ROLE, INTERRUPT_SYMBOL
+    if not ref or symbol_id in edits.TERMINAL_SYMBOLS or symbol_id in CONTACT_SYMBOLS or symbol_id == INTERRUPT_SYMBOL:
         return
     s = ctx.require_sheet()
     own = s.element(self_id).ref if self_id else None
-    if ref != own and ref in ctx.project.used_refs(s):
-        raise CommandError(f"Označení {ref} už v projektu je")
+    if ref == own or ref not in ctx.project.used_refs(s):
+        return
+    if symbol_id in COIL_SYMBOLS or symbol_id in DUAL_ROLE:
+        partner = set(DUAL_ROLE) if symbol_id in COIL_SYMBOLS else COIL_SYMBOLS
+        same = [e for sh in ctx.project.sheets for e in sh.elements if e.ref == ref and e.id != self_id]
+        wired = any(w.attrs.get("ref") == ref for sh in ctx.project.sheets for w in sh.wires)
+        if same and not wired and all(e.symbol_id in partner or e.symbol_id in CONTACT_SYMBOLS for e in same):
+            return
+    raise CommandError(f"Označení {ref} už v projektu je")
 
 
 def _validate_ref(ctx: Ctx, ref: str, element=None) -> None:
@@ -382,14 +393,16 @@ def cmd_sheet(ctx: Ctx):
 
 def cmd_undo(ctx: Ctx):
     n = yield Param("count", "number", "Počet kroků <1>:", optional=True, default=1.0)
-    k = ctx.runner.undo(max(1, int(n)))
+    ctx.require_end()
+    k = ctx.runner.undo(max(1, min(int(n), 10_000)))
     _prune_selection(ctx)
     return f"Zpět: {_n(k, 'krok', 'kroky', 'kroků')}" if k else "Není co vrátit"
 
 
 def cmd_redo(ctx: Ctx):
     n = yield Param("count", "number", "Počet kroků <1>:", optional=True, default=1.0)
-    k = ctx.runner.redo(max(1, int(n)))
+    ctx.require_end()
+    k = ctx.runner.redo(max(1, min(int(n), 10_000)))
     _prune_selection(ctx)
     return f"Znovu: {_n(k, 'krok', 'kroky', 'kroků')}" if k else "Není co zopakovat"
 
@@ -417,8 +430,13 @@ def cmd_checks(ctx: Ctx):
 
 def _script_path(ctx: Ctx, arg: str, suffix: str) -> Path:
     """Cesta ze skriptu (SAVE, SCRIPT): relativní ke složce skriptu, jen s příponou `suffix` – skript nepřepíše ani
-    nepřečte jiný druh souboru (např. `SAVE ~/.bashrc`, `SCRIPT tajne.txt` s obsahem v hláškách chyb)."""
-    p = Path(arg).expanduser()
+    nepřečte jiný druh souboru (např. `SAVE ~/.bashrc`, `SCRIPT tajne.txt` s obsahem v hláškách chyb). Síťové cesty
+    (`\\\\server\\sdílení` – přihlášení SMB) a alternativní datové proudy (`a.txt:x.ecp`) se odmítnou."""
+    if arg.startswith(("\\\\", "//")):
+        raise CommandError(f"„{arg}“: síťová cesta není povolená")
+    p = Path(arg)
+    if ":" in p.as_posix()[2 if p.drive else 0:]:
+        raise CommandError(f"„{arg}“: neplatná cesta")
     if p.suffix.lower() != suffix:
         raise CommandError(f"„{arg}“: čekám soubor {suffix}")
     return p if p.is_absolute() else (ctx.base_dir or Path.cwd()) / p
@@ -426,6 +444,7 @@ def _script_path(ctx: Ctx, arg: str, suffix: str) -> Path:
 
 def cmd_save(ctx: Ctx):
     arg = yield Param("path", "text", "Soubor (.ecp):", optional=True)
+    ctx.require_end()
     opts = ctx.runner.save
     target = opts.target
     if arg:
@@ -436,6 +455,10 @@ def cmd_save(ctx: Ctx):
         raise CommandError("Ukládání není povoleno – spusťte s -o soubor nebo --in-place")
     if target is None:
         raise CommandError("SAVE – chybí cesta (a není zadané -o)")
+    if opts.deferred:          # CLI: jen cíl zvolený operátorem, zapíše se až po úspěšném konci skriptu
+        if opts.target is None or target.resolve() != opts.target.resolve():
+            raise CommandError(f"SAVE – z CLI jen do {opts.target or 'cíle -o / --in-place'}")
+        return f"Uloží se po dokončení skriptu: {opts.target}"
     if target.is_dir():
         raise CommandError(f"SAVE – {target} je složka")
     same = opts.target is not None and target.resolve() == opts.target.resolve()
@@ -449,12 +472,24 @@ def cmd_save(ctx: Ctx):
 
 def cmd_script(ctx: Ctx):
     arg = yield Param("path", "text", "Skript (.ecs):")
+    ctx.require_end()
+    from envocad.cmd.runner import Journal
     from envocad.cmd.script import run_script_file
+    r = ctx.runner
     p = _script_path(ctx, arg, ".ecs")
-    rep = run_script_file(ctx.runner, p, stop_on_error=True)
+    root = r.script_root or ctx.base_dir
+    if root is not None and not p.resolve().is_relative_to(root.resolve()):
+        raise CommandError(f"Skript {arg}: jen ze složky hlavního skriptu ({root})")
+    # celý vnořený skript = jedna transakce a jeden krok historie (jako makro v GUI); UNDO uvnitř má vlastní
+    journal = r.journal
+    r.journal = Journal() if journal is not None else None
+    try:
+        rep = run_script_file(r, p, stop_on_error=True)
+    finally:
+        r.journal = journal
     if not rep.ok:
         raise CommandError(f"Skript {p.name}: {rep.first_error}")
-    return f"Skript {p.name}: {rep.count} příkazů"
+    return f"Skript {p.name}: {_n(rep.count, 'příkaz', 'příkazy', 'příkazů')}"
 
 
 def cmd_help(ctx: Ctx):
@@ -500,7 +535,7 @@ BUILTIN = (
                usage="CHECKS (nálezy F7)"),
     CommandDef("save", "Uložit", run=cmd_save, transaction=False, gui_fallback="save",
                usage="SAVE [soubor.ecp] (CLI jen s -o / --in-place)"),
-    CommandDef("script", "Spustit skript", run=cmd_script, transaction=False, usage="SCRIPT soubor.ecs"),
+    CommandDef("script", "Spustit skript", run=cmd_script, usage="SCRIPT soubor.ecs"),
     CommandDef("help", "Nápověda", run=cmd_help, transaction=False, usage="HELP [příkaz]"),
     CommandDef("zoom", "Zoom", needs_gui=True, gui_fallback="zoom_in"),
     CommandDef("fit", "Celý list", needs_gui=True, gui_fallback="fit"),

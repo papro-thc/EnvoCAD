@@ -33,6 +33,7 @@ from envocad.model.project import (
 
 log = logging.getLogger("envocad.cmd")
 PORT_SNAP_MM = 2.5           # bod výzvy „port“ = nejbližší port do této vzdálenosti
+MAX_COMMANDS = 10_000        # řádků skriptu celkem i s vnořenými SCRIPT (ochrana před větvením a → b → c …)
 _NOTHING = object()
 
 
@@ -108,8 +109,9 @@ class SaveOptions:
     """Kam smí příkaz SAVE zapisovat (CLI: `-o` / `--in-place`; bez nich se neukládá – rozhodnutí 4)."""
     target: Path | None = None        # SAVE bez cesty
     allow: bool = False               # zápis povolen (bez -o / --in-place ne)
-    overwrite: bool = False           # přepis existujícího jiného souboru (jen --in-place)
+    overwrite: bool = False           # přepis existujícího jiného souboru
     dry_run: bool = False
+    deferred: bool = False            # CLI: ukládá se jen na konci skriptu do `target`; SAVE uprostřed nic nezapíše
 
 
 # ---- kontext příkazu ---------------------------------------------------------------------------------------------
@@ -126,6 +128,13 @@ class Ctx:
     data: Any = None                   # strukturovaný výstup příkazu (CHECKS → nálezy) pro --json
 
     # -- pomocné dotazy pro příkazy (bez Qt) --
+    def require_end(self) -> None:
+        """Příkaz s vedlejším účinkem mimo transakci (UNDO, SAVE, SCRIPT): nadbytečné argumenty ohlásit dřív, než
+        se něco stane (jinak by se kontrolovaly až po provedení)."""
+        s = self.runner._active if self.runner is not None else None
+        if s is not None and s.tokens:
+            raise CommandError(f"{s.cmd.name.upper()} – nadbytečné argumenty: {' '.join(s.tokens)}")
+
     def require_sheet(self) -> Sheet:
         if self.sheet is None or self.sheet not in self.project.sheets:
             raise CommandError("Žádný aktivní list (SHEET)")
@@ -215,9 +224,12 @@ class Session:
         self.messages: list[str] = []
         ctx = runner.ctx
         self._before = sheets_state(runner.project) if cmd.transaction else None
+        self._waiting = False                    # čeká na vstup z GUI
+        self._clean = True                       # příkaz zatím model neměnil (mění až po poslední výzvě)
         self._sel_before = list(ctx.selection)
         self._sheet_before = ctx.sheet
         self._gen = None
+        self.parent = runner._active             # vnější příkaz (SCRIPT), jeho výstup dostane i hlášky tohoto
         runner._active = self
         ctx.data = None
         try:
@@ -241,6 +253,7 @@ class Session:
         aktuální výběr)."""
         if self.done:
             return
+        self._resume()
         try:
             toks = parse.tokenize(text)
             if not toks:
@@ -255,6 +268,7 @@ class Session:
         """Hodnota přímo (GUI: bod kliknutím (x, y) mm, výběr jako seznam id). Bod u výzvy „port“ se přichytí."""
         if self.done:
             return
+        self._resume()
         try:
             p = self.prompt
             if p is not None and p.kind == "port" and isinstance(value, tuple) and len(value) == 2 \
@@ -269,10 +283,24 @@ class Session:
             self._fail(ex)
 
     def cancel(self) -> Result:
-        """Esc: vrátí stav před příkazem (listy, výběr, aktivní list)."""
+        """Esc: vrátí výběr a aktivní list před příkazem. Model nemění – čekající příkaz ho ještě neměnil a změny
+        udělané mezitím jinou cestou (myš, Ctrl+Z, dialog) musí zůstat."""
         if not self.done:
             self._fail(Cancelled(self.cmd.name))
         return self.result
+
+    # -- čekání na vstup: snímek „před“ se při pokračování posune přes změny udělané mezitím --
+    def _pause(self) -> None:
+        self._waiting = True
+        if self._before is not None:
+            self._clean = sheets_state(self.runner.project) == self._before
+            if not self._clean:
+                log.warning("příkaz %s změnil model před výzvou – Esc ho vrátí celý", self.cmd.name)
+
+    def _resume(self) -> None:
+        if self._waiting and self._before is not None and self._clean:
+            self._before = sheets_state(self.runner.project)
+        self._waiting = False
 
     # -- průběh --
     def _step(self, value: Any) -> None:
@@ -294,6 +322,7 @@ class Session:
                     value = prompt.default
                     continue
                 raise MissingArgument(self.cmd.name, prompt)
+            self._pause()
             return                                   # čeká na vstup z GUI
 
     def _empty_value(self, p: Param | None) -> Any:
@@ -382,13 +411,13 @@ class Session:
         if self._before is not None:
             cs = ChangeSet.between(self.cmd.title, self._before, sheets_state(r.project))
             if cs is not None:
+                if r.on_change is not None:
+                    r.on_change(r.project)           # před zápisem do historie: chyba tady nenechá krok v journalu
                 if r.journal is not None:
                     r.journal.push(cs)
-                if r.on_change is not None:
-                    r.on_change(r.project)
         self.prompt = None
         self.result = Result(True, self.cmd.name, list(self.messages), cs, data=r.ctx.data)
-        r._active = None
+        r._active = self.parent
         r.last_command = self.cmd
 
     def _fail(self, ex: BaseException) -> None:
@@ -398,7 +427,7 @@ class Session:
         if self._gen is not None:
             with contextlib.suppress(Exception):      # úklid generátoru, chyba už je hlášená
                 self._gen.close()
-        if self._before is not None:
+        if self._before is not None and not (self._waiting and self._clean):
             restore_sheets_state(r.project, self._before)
         r.ctx.selection = self._sel_before
         r.ctx.sheet = self._sheet_before
@@ -406,12 +435,13 @@ class Session:
         self.messages.append(msg)
         self.prompt = None
         self.result = Result(False, self.cmd.name, list(self.messages), None, msg)
-        r._active = None
+        r._active = self.parent
 
 
 def _error_text(ex: BaseException) -> str:
     if isinstance(ex, KeyError) and ex.args:
-        return str(ex.args[0])
+        text = str(ex.args[0])
+        return text if " " in text else f"„{text}“ neexistuje"     # holé id / klíč z modelu → česká hláška
     return str(ex) or type(ex).__name__
 
 
@@ -433,6 +463,9 @@ class CommandRunner:
         self.on_message, self.on_change = on_message, on_change
         self.save = save or SaveOptions()
         self.script_depth = 0
+        self.script_root: Path | None = None     # složka hlavního skriptu – vnořené SCRIPT jen pod ní
+        self.max_commands = MAX_COMMANDS         # rozpočet řádků na jeden hlavní skript i s vnořenými
+        self.commands_run = 0
         self.variables: dict[str, str] = {}      # ${name} ve skriptech (CLI --var)
         self.last_command: CommandDef | None = None
         self._active: Session | None = None
@@ -440,8 +473,10 @@ class CommandRunner:
                        [], self._log, self, base_dir=base_dir)
 
     def _log(self, text: str) -> None:
-        if self._active is not None:
-            self._active.messages.append(text)
+        s = self._active
+        while s is not None:                     # i vnějším příkazům (SCRIPT vrátí hlášky svých řádků)
+            s.messages.append(text)
+            s = s.parent
         if self.on_message is not None:
             self.on_message(text)
         log.info("%s", text)

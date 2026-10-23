@@ -1063,14 +1063,20 @@ python -m envocad.cmd projekt.ecp - < skript.ecs             # skript ze vstupu
 | Volba | Význam |
 |---|---|
 | `-o soubor` / `--in-place` | uložit výsledek; **bez nich se nic neukládá** (bezpečný výchozí stav) |
+| `--force` | s `-o` přepsat existující soubor (jinak chyba) |
 | `--dry-run` | vykonat a vypsat, neuložit ani s `-o` |
 | `--keep-going` | po chybném řádku pokračovat (a uložit); jinak konec při první chybě bez uložení |
 | `--json` | na každý příkaz řádek JSON `{"line", "cmd", "ok", "messages", "changed_sheets"}` (u `CHECKS` navíc `data` s nálezy), nakonec `{"summary": …}` |
-| `--var jmeno=hodnota` | dosadí `${jmeno}` ve skriptu (jen text) |
+| `--var jmeno=hodnota` | dosadí `${jmeno}` ve skriptu (jen text, dosazuje se před rozdělením řádku – mezera nebo uvozovka v hodnotě přidá argument) |
+| `--no-user-aliases` | bez uživatelských aliasů `~/.envocad/aliases.json` – skript se chová stejně na každém stroji (doporučeno pro agenty) |
 
 Kód návratu: 0 = vše proběhlo, 1 = chyba příkazu (hláška s číslem řádku, např. `řádek 7: MOVE – chybí Cílový bod`),
 2 = chybné použití (argumenty, projekt nebo skript nejde načíst). Před uložením se dopočtou kabely a vazby přívodů
-(jako v GUI) a výstup dostane souhrn kontroly F7.
+(jako v GUI) a výstup dostane souhrn kontroly F7. Vstup i výstup je vždy UTF-8, i v rouře na Windows.
+
+Bezpečnost skriptů (skript může napsat agent nebo přijít s cizím projektem): žádný kód se nespouští, `SAVE` ve skriptu
+zapíše jen do cíle `-o` / `--in-place` a teprve po úspěšném konci, `SCRIPT` načte jen `.ecs` ze složky hlavního
+skriptu (ne síťové cesty), celý běh i s vnořenými skripty má nejvýš 10 000 příkazů a skript nejvýš 1 MB.
 
 ### Skript `.ecs`
 
@@ -1111,8 +1117,8 @@ poslední výběr (`SELECT`). `SELECT F1 F2 Q*` (označení prvků i vodičů, `
 | `SHEET` | LIST | `SHEET 2` nebo `SHEET "RFVE.AC"` (aktivní list; bez argumentu vypíše listy) |
 | `UNDO` / `REDO` | U, ZPET / ZNOVU | `UNDO [počet]` |
 | `CHECKS` | F7, KONTROLA | vypíše nálezy kontroly projektu |
-| `SAVE` | ULOZ, QSAVE | `SAVE [soubor.ecp]` – v CLI jen s `-o` / `--in-place`; cizí existující soubor přepíše jen `--in-place` |
-| `SCRIPT` | SCR, SKRIPT | `SCRIPT jiny.ecs` – vnoření nejvýš 4×, cesta relativně ke skriptu |
+| `SAVE` | ULOZ, QSAVE | `SAVE [soubor.ecp]` – v CLI jen potvrdí cíl `-o` / `--in-place` (uloží se po úspěšném konci skriptu), jiná cesta je chyba |
+| `SCRIPT` | SCR, SKRIPT | `SCRIPT jiny.ecs` – vnoření nejvýš 4×, cesta relativně ke skriptu a jen pod složkou hlavního skriptu; celý vnořený skript je jeden krok (chyba v něm nezmění nic) |
 | `HELP` | ?, NAPOVEDA | `HELP [příkaz]` – seznam příkazů a aliasů / syntaxe |
 | `ZOOM`, `FIT` | Z, ZE, ZA | jen v GUI |
 

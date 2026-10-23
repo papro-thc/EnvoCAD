@@ -383,6 +383,42 @@ def test_interactive_session_for_gui(run):
     assert s.done and not s.result.ok and _state(p) == before
 
 
+def test_cancel_keeps_changes_made_meanwhile(run):
+    """Esc čekajícího příkazu nevrátí změny udělané mezitím jinou cestou (tah myší, dialog); ChangeSet dokončeného
+    příkazu je obsahuje jen jako výchozí stav, ne jako svou změnu."""
+    p, r = run.p, run.r
+    s = r.start("MOVE F1")
+    restore = sheets_state(p)
+    restore["sheets"][p.sheets[0].id]["elements"][0]["x"] = 999.0           # G1 posunutý jinak
+    restore_sheets_state(p, restore)
+    s.cancel()
+    assert _el(p, "G1").x == 999.0
+    s = r.start("MOVE F1 0,0")
+    restore = sheets_state(p)
+    restore["sheets"][p.sheets[0].id]["elements"][0]["x"] = 500.0
+    restore_sheets_state(p, restore)
+    s.send("10,0")
+    assert s.result.ok and _el(p, "F1").x == 180.0
+    r.undo()
+    assert _el(p, "F1").x == 170.0 and _el(p, "G1").x == 500.0             # UNDO vrátí jen MOVE
+
+
+def test_side_effect_commands_check_extra_args_first(run):
+    run("RO T1")
+    assert "nadbytečné" in run("UNDO 1 navic", ok=False).error
+    assert _el(run.p, "T1").rotation == 90                                 # nic se nevrátilo
+    assert "není číslo" in run("INSERT fve.breaker_mcb 50,50 rot=1e999", ok=False).error
+
+
+def test_shared_refs_contacts_and_dual_role(run):
+    """Kontakt nese označení cívky, stykač kreslený jako silové kontakty cívky taky – jiná duplicita je chyba."""
+    run("INSERT ctl.coil 40,40 ref=K1")
+    run("INSERT ctl.contact_no 60,40 ref=K1")
+    run("INSERT fve.contactor 80,40 ref=K1")
+    assert "už v projektu" in run("INSERT fve.breaker_mcb 100,40 ref=K1", ok=False).error
+    assert "už v projektu" in run("INSERT ctl.coil 120,40 ref=K1", ok=False).error   # druhá cívka K1 ne
+
+
 def test_checks_output_and_data(run):
     res = run("F7")
     assert res.data and {"severity", "sheet", "ref", "text", "code"} <= set(res.data[0])

@@ -73,10 +73,47 @@ def test_nested_scripts_relative_and_depth(lib, tmp_path):
     assert "čekám soubor .ecs" in rep.first_error and "HESLO" not in json.dumps([x.to_json() for x in rep.lines], ensure_ascii=False)
 
 
+def test_nested_script_is_one_transaction_and_confined(lib, tmp_path):
+    """Neúspěšný vnořený skript nic nezmění (ani historii); úspěšný = jeden krok s hláškami řádků. Vnořené skripty
+    jen ze složky hlavního skriptu, síťové cesty ne."""
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "bad.ecs").write_text("RO F1\nMOVE F1 0,0 10,0\nRO NENI\n", encoding="utf-8")
+    (tmp_path / "sub" / "ok.ecs").write_text("RO F1\nMOVE F1 0,0 10,0\n", encoding="utf-8")
+    p = _project()
+    r = CommandRunner(p, lib, journal=Journal())
+    start = json.dumps(p.to_dict(), sort_keys=True)
+    rep = run_script(r, "SCRIPT sub/bad.ecs\n", base_dir=tmp_path)
+    assert not rep.ok and json.dumps(p.to_dict(), sort_keys=True) == start and r.journal.done == []
+    rep = run_script(r, "SCRIPT sub/ok.ecs\n", base_dir=tmp_path)
+    assert rep.ok and len(r.journal.done) == 1 and r.journal.done[0].label == "Spustit skript"
+    msgs = rep.lines[0].result.messages
+    assert any(m.startswith("Otočeno") for m in msgs) and msgs[-1] == "Skript ok.ecs: 2 příkazy"
+    (tmp_path / "venku.ecs").write_text("RO F1\n", encoding="utf-8")
+    rep = run_script_file(r, tmp_path / "sub" / "ok.ecs")                    # kořen = sub/
+    assert rep.ok
+    rep = run_script(r, "SCRIPT ../venku.ecs\n", base_dir=tmp_path / "sub")
+    assert "jen ze složky" in rep.first_error
+    rep = run_script(r, "SCRIPT \\\\server\\share\\x.ecs\n", base_dir=tmp_path)
+    assert "síťová cesta" in rep.first_error
+
+
+def test_script_command_budget_stops_fan_out(lib, tmp_path):
+    """Větvení a → b → c (každý řádek volá další skript) narazí na rozpočet řádků a ukončí celý běh."""
+    for name, nxt in (("a", "b"), ("b", "c"), ("c", None)):
+        body = f"SCRIPT {nxt}.ecs\n" if nxt else "SELECT none\n"
+        (tmp_path / f"{name}.ecs").write_text(body * 10, encoding="utf-8")
+    r = CommandRunner(_project(), lib, journal=Journal())
+    r.max_commands = 50
+    with pytest.raises(Exception, match="přesáhl 50"):
+        run_script_file(r, tmp_path / "a.ecs", stop_on_error=False)
+    assert r.script_depth == 0 and r.script_root is None
+
+
 # ---- CLI ---------------------------------------------------------------------------------------------------------
 def _cli(*args, stdin: str | None = None) -> subprocess.CompletedProcess:
     env = {**os.environ, "PYTHONPATH": str(ROOT) + os.pathsep + os.environ.get("PYTHONPATH", "")}
-    env.pop("QT_QPA_PLATFORM", None)
+    for k in ("QT_QPA_PLATFORM", "PYTHONIOENCODING", "PYTHONUTF8"):    # jako agent: roura v kódové stránce systému
+        env.pop(k, None)
     return subprocess.run([sys.executable, "-m", "envocad.cmd", *map(str, args)], capture_output=True, text=True,
                           encoding="utf-8", input=stdin, cwd=ROOT, env=env, timeout=300, check=False)
 
@@ -158,6 +195,27 @@ def test_cli_vars_stdin_and_no_code_execution(files):
     out = _load(d / "o.ecp")
     assert out.sheets[0].elements[0].attrs["desc"] == f"$(touch {marker})"     # jen text
     assert out.sheets[0].elements[1].ref == "Q5"
+
+
+def test_cli_utf8_pipes_force_and_deferred_save(files):
+    """Roura bez UTF-8 režimu: „→“ ve výstupu ani diakritika ze stdin nic nerozbijí. -o na existující soubor jen
+    s --force; SAVE ve skriptu nic nezapíše mimo cíl a uloží se až po úspěšném konci; řídicí znaky z hodnot
+    se do terminálu nedostanou."""
+    d, proj = files
+    r = _cli(proj, d / "ok.ecs")
+    assert r.returncode == 0 and "→" in r.stdout, r.stderr
+    script = 'SET F1 desc="Hlavní jistič"\nSAVE\nSET F2 desc="\x1b[31mčervená"\n'
+    r = _cli(proj, "-", "-o", d / "u.ecp", stdin=script)
+    assert r.returncode == 0, r.stderr
+    els = _load(d / "u.ecp").sheets[0].elements
+    assert els[0].attrs["desc"] == "Hlavní jistič" and els[1].attrs["desc"] == "\x1b[31mčervená"
+    assert "Uloží se po dokončení" in r.stdout and "\x1b" not in r.stdout
+    assert _cli(proj, d / "ok.ecs", "-o", d / "u.ecp").returncode == 2            # existuje, bez --force
+    assert _cli(proj, d / "ok.ecs", "-o", d / "u.ecp", "--force").returncode == 0
+    r = _cli(proj, "-", "-o", d / "v.ecp", stdin="SAVE ../jinam.ecp\n")
+    assert r.returncode == 1 and "jen do" in r.stderr and not (d.parent / "jinam.ecp").exists()
+    r = _cli(proj, "-", "-o", d / "w.ecp", stdin="RO F1\nSAVE\nRO NENI\n")
+    assert r.returncode == 1 and not (d / "w.ecp").exists()                     # chyba po SAVE → nic
 
 
 def test_cli_usage_errors(files, tmp_path):
