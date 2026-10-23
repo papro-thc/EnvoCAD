@@ -147,3 +147,5 @@ dynamický vstup u kurzoru, vícepól/rozložení z řádku (v0.1 jen JPS a sch�
 5. (výchozí orchestrátora) Desetinná tečka v souřadnicích „x,y“; počátek = počátek souřadnic listu (levý dolní roh,
    jako model); české názvy příkazů jako aliasy (VLOZIT, POSUN, OTOCIT…), výzvy česky, klíče atributů beze změny;
    rozsah v0.1: list JPS / blokové schéma a list rozvaděče (vícepól a rozložení později).
+6. (Patrik, 2026-10-23) **L = WIRE** (EnvoCAD nemá volné úsečky). **ROTATE jako v ZWCAD**: s výběrem a základním
+   bodem otáčí kolem bodu; jeden prvek bez bodu kolem svého počátku.
