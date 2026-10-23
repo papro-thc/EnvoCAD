@@ -118,6 +118,12 @@
       "label": "Jištění portů bloku bez listu (X1=63, …) [A]",
       "default": "",
       "show": false
+    },
+    {
+      "key": "ik_ka",
+      "label": "Ik v rozvaděči [kA] (výpočet / vyjádření DS)",
+      "default": "",
+      "show": false
     }
   ],
   "label_pos": {

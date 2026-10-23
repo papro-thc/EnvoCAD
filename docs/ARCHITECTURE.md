@@ -74,7 +74,8 @@ envocad/
     canvas.py       QGraphicsView – mřížka, zoom, snap
     items.py        QGraphicsItem obaly nad Element/Wire
     main_window.py  okno, panely, akce
-  export/     DXF, PDF, (později výkaz materiálu .xlsx)
+  export/     DXF, PDF, výkazy .xlsx, docx (protokol kusového ověření, TZ a DSPS ze šablony: doc_template.py engine
+              polí {{…}} / {% if/for %} / bloků, tz_data.py kontext a tabulky z modelu – docs/design/tz_dsps.md)
 ```
 
 Zásada: **model nezávisí na UI.** Vše, co lze, se testuje bez spuštění Qt.

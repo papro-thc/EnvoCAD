@@ -33,6 +33,7 @@ from envocad.generator.spec import (
     select_topology,
 )
 from envocad.library.topologies import list_topologies
+from envocad.model.project import ik_ka_error
 from envocad.model.topology import Topology
 
 FUSE_MIN_IN = 80.0     # vývod FVE do 80 A včetně vždy jistič (rozhodnutí 4; `boards.house_board.FVE_FUSE_MIN_IN`)
@@ -99,6 +100,9 @@ class TopologyPanel:
         self.metering_at.addItem("v hlavním rozvaděči HR", "hr")
         self.metering_at.setToolTip("Kde je fakturační měření distributora. V HR vznikne řetězec bez RE "
                                     "(topologie „Připojení na nn, měření v HR“).")
+        self.ik_ka = _in_edit("Maximální zkratový proud v místě připojení [kA] – z vyjádření distributora nebo výpočtu; "
+                              "prázdné = odhad z transformátoru. Zapíše se do Vlastností projektu a do bloků "
+                              "rozvaděčů (kontroly Icu / Icw).")
         self.dc_per_inv = QCheckBox("samostatný RFVE.DC pro každý střídač (jinak jeden společný)")
         self.dc_per_inv.setToolTip("Jen při 2 a více střídačích; výchozí je společný RFVE.DC")
         self.gp = QComboBox()
@@ -166,6 +170,7 @@ class TopologyPanel:
         form.addRow("", self.topo_error)
         form.addRow("Fakturační měření", self.metering_at)
         form.addRow("RFVE.DC", self.dc_per_inv)
+        form.addRow("Ik v místě připojení [kA]", self.ik_ka)
         form.addRow("Síťová ochrana", self.gp)
         form.addRow("", self.gp_info)
         form.addRow("", self.eps_note)
@@ -476,6 +481,14 @@ class TopologyPanel:
             errs.append(str(ex))
             return ""
 
+    def ik_error(self) -> str | None:
+        """Chyba pole „Ik v místě připojení“ (prázdné = v pořádku)."""
+        return ik_ka_error(self.ik_ka.text(), "Ik v místě připojení [kA]")
+
+    def ik_value(self) -> str:
+        """Ik v místě připojení [kA] jako text bez mezer (prázdné = nezadáno; neplatné = nezadáno)."""
+        return "" if self.ik_error() else self.ik_ka.text().strip()
+
     def parts(self) -> tuple[dict, list[str]]:
         """({"topology"?, "chain"?}, české chyby): jen hodnoty odlišné od výchozích."""
         out, obj_errs, existing_errs = self._parts()
@@ -487,6 +500,12 @@ class TopologyPanel:
         return obj_errs, existing_errs
 
     def _parts(self) -> tuple[dict, list[str], list[str]]:
+        out, obj_errs, existing_errs = self._parts_topology()
+        if (msg := self.ik_error()):
+            obj_errs = [*obj_errs, msg]
+        return out, obj_errs, existing_errs
+
+    def _parts_topology(self) -> tuple[dict, list[str], list[str]]:
         errs: list[str] = []
         out: dict = {}
         t = self._topo
@@ -542,4 +561,4 @@ class TopologyPanel:
 
     def has_changes(self) -> bool:
         parts, _errs = self.parts()
-        return bool(parts) or any(self.ac_group_for(i) for i in range(len(self._group_edits)))
+        return bool(parts) or bool(self.ik_value()) or any(self.ac_group_for(i) for i in range(len(self._group_edits)))

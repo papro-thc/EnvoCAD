@@ -369,7 +369,7 @@ krátké texty (DC rozvaděč) dají dva pásy na stranu A4. Export do PDF, stej
 
 ### Rozložení a skříň
 `Ctrl+L` otevře rozložení: DIN lišty podle řad, přístroje se přetahují na lišty (snap 0,5 modulu), vpravo
-panel **skříně**: označení, řady, moduly na řadu, rozměry, rozteč řad, IP/IK, montáž, materiál, dveře, Un/In/Icw,
+panel **skříně**: označení, řady, moduly na řadu, rozměry, rozteč řad, IP, IK (mechanická odolnost krytu, ne zkrat), montáž, materiál, dveře, Un/In, Icw [kA] (1 s), Ipk [kA] a Ik v rozvaděči [kA],
 síť, rezerva, teplota okolí, nejnižší teplota okolí (nepovinné), RDF (`Ctrl+Alt+K` otevře totéž jako dialog; skříň lze
 vybrat z artiklů).
 **Rozměry přístrojů z artiklů.** Přístroj s artiklem má v rozložení skutečnou šířku a výšku z katalogu (Hager MBN
@@ -498,6 +498,16 @@ při nejnižší návrhové teplotě (Vlastnosti projektu). **Jedna příčina =
 hlásí podkročení Un / Ucpv přístrojů v cestě stringu jen `calc_string` (chyba, všechny takové přístroje v jedné
 hlášce; totéž ukáže TZ i výkaz Výpočty), `un_dc` / `spd_ucpv` je znovu nehlásí. Když projekt návrhovou teplotu nemá,
 počítá se s −10 °C a `un_dc` / `spd_ucpv` jsou jen jedna informace na list.
+
+**Kde zadat zkratové údaje** (kontroly `sc_*` bez nich nic nehlásí, jen `sc_upstream` počítá z trafa):
+
+| Údaj | Kde | Klíč |
+|---|---|---|
+| Ik v místě připojení [kA] (vyjádření DS / výpočet; prázdné = odhad z transformátoru Sn, uk) | Soubor → Vlastnosti projektu; v průvodci krok „Objekt a připojení“ (zapíše se i do bloků HR, RE, RFVE.AC) | `meta["ik_ka"]` |
+| Ik v rozvaděči [kA] | panel / dialog skříně („Ik v rozvaděči“), nebo Vlastnosti bloku rozvaděče (atribut „Ik v rozvaděči“) | parametr skříně `ik_ka`, atribut bloku `ik_ka` (blok má přednost) |
+| Icw [kA] (1 s), Ipk [kA] | panel / dialog skříně | parametr skříně `icw`, `ipk` |
+
+Pozor: pole „IK“ u skříně je mechanická odolnost krytu (IK07…), se zkratovým proudem nesouvisí.
 
 | Kód | Závažnost | Význam |
 |---|---|---|
@@ -868,7 +878,8 @@ Výchozí hodnoty (kabely, zpracoval) bere průvodce z **firemního standardu** 
 | **Celá dokumentace do jednoho PDF**: titulní list, obsah, listy blokového schématu, jednopólové schéma, schéma + plán svorkovnice každého rozvaděče (kromě rozvaděče VN), výkazy, změnový list – strany schématu a plánu svorkovnice A4, ostatní A3 (smíšené formáty v jednom PDF, obsah i „n/N“ počítají skutečné strany) | Výstupy → Celá dokumentace (`Ctrl+Shift+E`) |
 | Výkazy xlsx (Data pro DS, Výpočty, Přístroje, Výkaz materiálu, Kabely, Kabelový plán, Kabely a vodiče k objednání, Zapojovací seznam, Svorkovnice, Plán svorkovnice, Štítky) | Výstupy → Výkazy listu / projektu |
 | Protokol kusového ověření rozvaděče (docx) | Výstupy → Protokol kusového ověření |
-| Technická zpráva (docx) – kostra s tabulkami z modelu a výpočty | Výstupy → Technická zpráva |
+| Technická zpráva (docx) ze šablony – údaje, tabulky a výpočty z modelu | Výstupy → Technická zpráva |
+| Dokumentace skutečného provedení – DSPS (docx): jádro TZ + změny proti projektu dle PD | Výstupy → DSPS |
 | Štítky pro tiskárnu (CSV, `;`, UTF-8 BOM) | Výstupy → Štítky pro tiskárnu |
 | Otevřené připomínky jako anotace PDF nebo vrstva `PRIPOMINKY` v DXF | Výstupy → Přidávat připomínky do exportu (sekce 9) |
 
@@ -897,6 +908,41 @@ skutečný formát listu, zmenšení nabízí jen „Export PDF na A4 (zmenšeno
 Zpracoval projektu nebo `standard.author`, datum); výkazy v technické zprávě na šířku, šířky sloupců podle obsahu.
 **xlsx**: označení začínající „=“ (=AC+RDC1-F1) jsou text, ne vzorec; průřez, délka, číslo žíly a číslo svorky
 jsou čísla.
+
+### Technická zpráva a DSPS ze šablony
+**Výstupy → Technická zpráva (docx)…** a **Výstupy → Dokumentace skutečného provedení – DSPS (docx)…** otevřou
+dialog s výběrem **šablony** (vestavěná, sdílená, vlastní nebo *Jiný soubor šablony…*), pak se zeptají na soubor.
+Zpráva obsahuje jen údaje, které projekt má: identifikaci stavby, základní údaje FVE (kWp DC, kW AC, moduly,
+střídače, optimizéry, baterie), řetězec rozvaděčů, DC část (stringy, Uoc / Umpp při návrhových teplotách, jištění
+stringů, svodiče, kabely), AC část (jištění, kabely, selektivita), připojení k DS (nn / vn, měření, hranice
+vlastnictví, HDS, transformátor), ochranu před úrazem a přepětím, síťovou ochranu (nad hranicí kWp), uzemnění,
+výpočty (kabely, úbytky, Ik''), rozvaděče s oteplením, seznam výkresů, revize a v příloze výkaz materiálu a kabely.
+**Chybějící údaj se vypíše jako „neuvedeno“** (nebo se celá sekce vynechá) – nic se nedomýšlí; doplň ho
+v projektu (Vlastnosti projektu, atributy prvků, hlavička rozvaděče) a zprávu vygeneruj znovu.
+
+**DSPS** má stejné jádro a navíc kapitoly *Údaje o provedení* (datum provedení, zhotovitel, výchozí revize – číslo
+revizní zprávy; zadávají se v dialogu a uloží do vlastností projektu, krok jde vrátit Zpět) a *Změny proti projektové
+dokumentaci*: v dialogu vyber **Porovnat s** = uložený projekt dle PD (.ecp) – tabulka změn je stejná jako
+u Porovnat s revizí (posuny ve výkresu se nevypisují); bez souboru se uvede jen změnový list projektu.
+
+**Firemní šablona:** v dialogu *Uložit šablonu jako .docx…* uloží vestavěnou šablonu jako dokument Word s poli.
+Ve Wordu uprav styly, záhlaví, logo a texty a ulož ji do složky `doc_templates` uživatelské (`~/.envocad/doc_templates/`)
+nebo sdílené knihovny; název začni `tz` nebo `dsps` (soubor `tz.docx` / `dsps.docx` nahradí vestavěnou šablonu
+jako výchozí). Pravidla šablony:
+
+| Zápis | Význam |
+|---|---|
+| `{{fve.p_dc_kwp}}` | pole z projektu; chybí-li → „neuvedeno“ (jednotka hned za polem se pak vynechá) |
+| `{{projekt.zakazka|–}}` | vlastní náhrada chybějícího údaje (`{{x|}}` = nic) |
+| `{{meta.muj_klic}}`, `{{pole.klic}}` | libovolné metadato projektu / hodnota z dialogu exportu |
+| `{% if ds.uroven == "vn" %}` … `{% else %}` … `{% endif %}` | sekce jen když platí (také `if x`, `if not x`, `!=`) |
+| `{% for s in stridace %}` … `{{s.oznaceni}}` … `{% endfor %}` | opakování odstavců a tabulek |
+| `{{tabulka.stringy}}`, `{{blok.rozvadece}}` | odstavec nahradí tabulka / kapitola z modelu |
+| `{{§}}` v nadpisu | číslo kapitoly (1, 1.1 …) – vynechaná sekce mezeru nenechá |
+
+Řídicí značky `{% … %}` a bloky musí být **samostatný odstavec**. Úplný seznam polí a bloků je v
+`docs/design/tz_dsps.md`. Dokument Word bez polí se použije jako podklad (styly, záhlaví) a doplní se vestavěnou
+osnovou. Chybná značka export nezastaví – v dokumentu zůstane text „[chyba šablony: …]“.
 
 ### Revize
 Soubor → Vlastnosti projektu: revize, datum, změnový list (řádek = `revize | datum | popis | zpracoval`).
@@ -997,7 +1043,7 @@ prvku, rozměry pro rozložení a ztrátový výkon pro oteplení.
 - **Importovat symbol z DXF…** – značka z DXF výrobce; vlastní značky také jako JSON do `~/.envocad/library/`
   (formát `docs/LIBRARY_FORMAT.md`, včetně vícepólové podoby `multipole`).
 - **Sdílená knihovna (síťová složka)…** – složka s JSON/CSV, kterou sdílí celá firma; načítá se navíc
-  k vestavěné a stejná id přebíjí.
+  k vestavěné a stejná id přebíjí. Podsložka `doc_templates` = firemní šablony technické zprávy a DSPS (sekce 8).
 - **Firemní standard…** – výchozí kabely, zpracoval, název firmy, formát stran schématu rozvaděče a plánu
   svorkovnice (výchozí A4 na šířku), největší list JPS z průvodce (`jps_max_paper`, výchozí A2) a výchozí volba
   listů JPS v PDF dokumentace (`doc_jps_page`, výchozí „Zmenšit na A3“) (`~/.envocad/settings.json`).

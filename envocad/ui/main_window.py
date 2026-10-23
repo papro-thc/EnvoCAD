@@ -326,6 +326,7 @@ class MainWindow(QMainWindow):
         act(m_out, "Výrobní data rozvaděče (xlsx)…", self.export_production, None, "production")
         act(m_out, "Protokol kusového ověření (docx)…", self.export_routine_test)
         act(m_out, "Technická zpráva (docx)…", self.export_tz)
+        act(m_out, "Dokumentace skutečného provedení – DSPS (docx)…", self.export_dsps)
         act(m_out, "Štítky pro tiskárnu (CSV)…", self.export_labels_csv, None, "labels")
         m_out.addSeparator()
         self.act_export_notes = QAction("Přidávat připomínky do exportu", self, checkable=True)
@@ -1993,12 +1994,41 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"Exportováno {len(rows)} štítků: {path}", 3000)
 
     def export_tz(self) -> None:
-        from envocad.export.tz_export import export_tz_docx
+        self.export_report("tz")
+
+    def export_dsps(self) -> None:
+        self.export_report("dsps")
+
+    def export_report(self, kind: str) -> None:
+        """TZ / DSPS ze šablony (`docs/design/tz_dsps.md`): dialog šablony a údajů, údaje DSPS do vlastností projektu
+        (jeden krok undo), pak .docx."""
+        from envocad.export.tz_export import export_report_docx
+        from envocad.ui.doc_template_dialog import DocExportDialog
+        dlg = DocExportDialog(self.project, kind, self)
+        if dlg.exec() != DocExportDialog.Accepted:
+            return
+        old = None
+        if kind == "dsps" and dlg.old_project_path():
+            try:
+                old = Project.load(dlg.old_project_path())
+            except Exception as ex:  # noqa: BLE001
+                QMessageBox.warning(self, "DSPS", f"Projekt k porovnání nejde načíst: {ex}")
+                return
         base = self.project.name.replace("/", "-") or "projekt"
-        path, _ = QFileDialog.getSaveFileName(self, "Technická zpráva", f"{base} – TZ.docx", "Word (*.docx)")
-        if path:
-            export_tz_docx(self.project, self.library, path)
-            self.statusBar().showMessage(f"Exportováno: {path}", 3000)
+        title = "Technická zpráva" if kind == "tz" else "Dokumentace skutečného provedení"
+        path, _ = QFileDialog.getSaveFileName(self, title, f"{base} – {kind.upper()}.docx", "Word (*.docx)")
+        if not path:
+            return
+        updates = dlg.meta_updates()
+        if updates:
+            self.set_project_meta(self.project.name, {**self.project.meta, **updates})
+        try:
+            export_report_docx(self.project, self.library, path, kind=kind, template=dlg.template_path(), old=old,
+                               fields=dlg.fields())
+        except Exception as ex:  # noqa: BLE001 – vadná šablona / soubor otevřený ve Wordu
+            QMessageBox.warning(self, title, f"Dokument se nepodařilo vytvořit: {ex}")
+            return
+        self.statusBar().showMessage(f"Exportováno: {path}", 3000)
 
     def export_routine_test(self) -> None:
         from envocad.export.docx_export import export_routine_test_docx

@@ -16,6 +16,25 @@
   `sheets_state` / `restore_sheets_state` přesunuty do `model/project.py` (`ui/commands.py` re-exportuje), navázané
   změny přívodů sdílí `ui/commands.py` s `cmd/edits.py`. Formát projektu beze změny (v16). Testy `test_cmd_parse`,
   `test_cmd_exec`, `test_cmd_script` (CLI v podprocesu), `test_cmd_parity` (stejné `to_dict` jako QUndoCommand GUI).
+- **Technická zpráva a DSPS ze šablony** (`export/doc_template.py`, `export/tz_data.py`, `library/doc_templates.py`,
+  `ui/doc_template_dialog.py`, návrh `docs/design/tz_dsps.md`): vlastní malý engine nad python-docx (bez nové
+  závislosti) – pole `{{cesta}}` (chybějící údaj „neuvedeno“, `|náhrada`), `{% if/else/endif %}`, `{% for %}`, bloky
+  `{{tabulka.*}}` / `{{blok.*}}` a číslování kapitol `{{§}}`, i v buňkách, záhlaví a zápatí. Vestavěné šablony
+  `builtin/doc_templates/tz.md`, `dsps.md` (+ `_jadro.md`) s kapitolami dle ČSN 33 2000-7-712: identifikace, údaje
+  FVE, řetězec rozvaděčů (`topology_chain`), DC/AC část, připojení k DS (nn/vn, měření, hranice, HDS, TR), ochrany,
+  síťová ochrana nad hranicí kWp, uzemnění, výpočty (kabely, ΔU, Ik''), oteplení rozvaděčů, seznam výkresů, revize,
+  přílohy (výkaz materiálu, kabely). Šablony i ze sdílené / uživatelské složky `doc_templates` (.docx/.md), „Uložit
+  šablonu jako .docx“ jako základ firemní šablony. DSPS: údaje o provedení (meta `dsps_date`,
+  `dsps_inspection_report`, `dsps_contractor` – formát projektu beze změny, zápis přes undo) a změny proti
+  projektu dle PD (`diff_projects`) + změnový list. Výstupy → Technická zpráva… / DSPS…; `export_tz_docx` beze
+  změny rozhraní (vestavěná šablona). Testy `test_tz_dsps.py`, `test_tz_dsps_gui.py`.
+- **Zkratové údaje pro kontroly F7** (`sc_icu`, `sc_icw`, `sc_icu_icw`, `sc_upstream`): Vlastnosti projektu mají pole
+  „Ik v místě připojení [kA]“ (`meta["ik_ka"]`, prázdné = odhad z trafa); skříň rozvaděče má „Icw [kA] (1 s)“,
+  „Ipk [kA]“ a „Ik v rozvaděči [kA]“ (`ik_ka`), pole IK je přejmenované na „IK – mechanická odolnost (ne zkrat)“;
+  blok rozvaděče má atribut `ik_ka`; průvodce (krok Objekt a připojení) zapíše `site.ik_ka` do meta a do bloků
+  HR / RE / RFVE.AC (jen když je zadáno). Čísla se kontrolují česky (číslo > 0, nejvýše 200 kA), změny jdou přes
+  `SetProjectMetaCommand` / `SetLayoutCommand` (undo). Formát projektu beze změny. Sloupce katalogu skříní
+  `icw_ka` / `ipk_ka` zatím nejsou (nejsou ověřená data se zdrojem).
 - **Průvodce novým projektem po krocích** (`ui/dialogs.py:ProjectWizard`, `ui/wizard_topology.py`): místo jednoho dlouhého
   formuláře seznam sedmi kroků vlevo a stránka kroku vpravo (Projekt, Objekt a připojení, Moduly a střídače, Stringy,
   Kabely a rozvaděče, Stávající rozvaděče, Souhrn); volná navigace (klik na krok, Zpět / Další), posuvník jen uvnitř
