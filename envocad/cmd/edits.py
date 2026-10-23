@@ -161,16 +161,28 @@ def move_elements(project: Project, sheet: Sheet, lib, element_ids, dx: float, d
     return len(ids)
 
 
-def rotate_elements(sheet: Sheet, element_ids, delta: int = 90) -> int:
-    """Otočí každý prvek kolem jeho počátku o `delta` (násobek 90°) – jako `RotateElementCommand`."""
+def rotate_elements(sheet: Sheet, element_ids, delta: int = 90, base: tuple[float, float] | None = None) -> int:
+    """Otočí prvky o `delta` (násobek 90°, proti směru hod. ručiček). Bez `base` každý kolem svého počátku – jako
+    `RotateElementCommand` (klávesa R). Se základním bodem `base` (na mřížce) se kolem něj otočí i polohy prvků
+    a ruční lomy vodičů, jejichž oba konce se otáčejí; ostatní lomy drží jako v GUI."""
+    from envocad.model.symbol import rotate_point
     if delta % 90:
         raise ValueError("úhel musí být násobek 90°")
-    n = 0
+    ids = {e.id for e in sheet.elements if e.id in set(element_ids)}
+
+    def turn(x: float, y: float) -> tuple[float, float]:
+        dx, dy = rotate_point(x - base[0], y - base[1], delta % 360)
+        return (base[0] + dx, base[1] + dy)
     for e in sheet.elements:
-        if e.id in set(element_ids):
+        if e.id in ids:
             e.rotation = (e.rotation + delta) % 360
-            n += 1
-    return n
+            if base is not None:
+                e.x, e.y = turn(e.x, e.y)
+    if base is not None:
+        for w in sheet.wires:
+            if w.points and w.a.element_id in ids and w.b.element_id in ids:
+                w.points = [turn(x, y) for x, y in w.points]
+    return len(ids)
 
 
 def mirror_elements(sheet: Sheet, element_ids) -> int:

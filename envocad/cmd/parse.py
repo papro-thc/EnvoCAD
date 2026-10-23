@@ -22,10 +22,12 @@ class ParseError(ValueError):
 
 def tokenize(line: str) -> list[str]:
     """Řádek → tokeny (shlex, uvozovky pro mezery v hodnotě: `SET desc="Hlavní jistič"`). Neuzavřené uvozovky →
-    ParseError. Komentáře `#` řeší až skript (celý řádek), uvnitř řádku je `#` obyčejný znak."""
+    ParseError. Komentáře `#` řeší až skript (celý řádek), uvnitř řádku je `#` obyčejný znak. Zpětné lomítko není
+    escape – cesty Windows (`SAVE C:\\proj\\a.ecp`) projdou beze změny."""
     lex = shlex.shlex(line, posix=True)
     lex.whitespace_split = True
     lex.commenters = ""
+    lex.escape = ""
     try:
         return list(lex)
     except ValueError as ex:
@@ -110,13 +112,8 @@ def space_submits(buffer: str, prompt_kind: str | None = None) -> bool:
     if prompt_kind == "text":
         return False
     quote = None
-    esc = False
-    for c in buffer:
-        if esc:
-            esc = False
-        elif c == "\\" and quote != "'":
-            esc = True
-        elif quote:
+    for c in buffer:                                  # jako tokenize: bez escape zpětným lomítkem
+        if quote:
             if c == quote:
                 quote = None
         elif c in "\"'":

@@ -126,6 +126,38 @@ def test_rotate_mirror_delete(run):
     run("MOVE 0,0 1,1", ok=False)                         # prázdný výběr
 
 
+def test_rotate_about_base_point(run):
+    """ROTATE jako v ZWCAD: se základním bodem se otáčí i polohy a ruční lomy mezi otáčenými prvky."""
+    p, s = run.p, run.p.sheets[0]
+    q, t, f = _el(p, "Q1"), _el(p, "T1"), _el(p, "F1")
+    bend = next(w for w in s.wires if w.points)
+    res = run("RO Q1 T1 F1 120,150 90")
+    assert [(e.x, e.y, e.rotation) for e in (q, t, f)] == [(120.0, 100.0, 90), (120.0, 150.0, 90),
+                                                           (120.0, 200.0, 90)]
+    assert bend.points == [(115.0, 125.0)] and "kolem 120,150" in res.messages[-1]
+    run("UNDO")                                           # UNDO obnoví listy ze snímku – prvky znovu podle ref
+
+    def tf():
+        return _el(p, "T1"), _el(p, "F1")
+    ac = run.r.ctx.port_position("T1", "AC")[2]
+    run("RO T1 F1 T1:AC -90")                             # bod jako ref:port; lom Q1–T1 drží (Q1 se neotáčí)
+    t, f = tf()
+    assert run.r.ctx.port_position("T1", "AC")[2] == ac and t.rotation == f.rotation == 270
+    assert next(w for w in p.sheets[0].wires if w.points).points == [(95.0, 155.0)]
+    run("UNDO")
+    res = run("RO F1 171,151 180")                         # bod mimo mřížku se zaokrouhlí
+    t, f = tf()
+    assert (f.x, f.y) == (170.0, 150.0) and any("zaokrouhlen" in m for m in res.messages)
+    run("UNDO")
+    run("RO T1 F1 180")                                    # bez bodu každý kolem svého počátku
+    t, f = tf()
+    assert (t.x, t.y, f.x, f.y) == (120.0, 150.0, 170.0, 150.0) and t.rotation == f.rotation == 180
+    s2 = run.r.start("RO F1")                              # GUI: číslo ve výzvě bodu = úhel
+    s2.send("270")
+    t, f = tf()
+    assert s2.done and s2.result.ok and f.rotation == 90 and (f.x, f.y) == (170.0, 150.0)
+
+
 def test_set_attrs_elements_and_wires(run):
     p = run.p
     run('SET F1 in_=16 desc="Hlavní jistič"')
@@ -309,9 +341,11 @@ def test_interactive_session_for_gui(run):
     # předvýběr platí bez výzvy, Enter na volitelné výzvě = výchozí hodnota
     r.execute("SELECT T1")
     s = r.start("RO")
+    assert s.prompt.kind == "point" and s.prompt.optional          # základní bod – Enter = počátek prvku
+    s.send("")
     assert s.prompt.kind == "number" and s.prompt.optional
     s.send("")
-    assert s.done and t.rotation == 90
+    assert s.done and t.rotation == 90 and (t.x, t.y) == (130.0, 150.0)
     # Esc uprostřed: nic nezůstane
     before = _state(p)
     s = r.start("WIRE T1:AC")
@@ -348,6 +382,10 @@ def test_save_policy(run, tmp_path):
     other = tmp_path / "jiny.ecp"
     other.write_text("{}", encoding="utf-8")
     assert "existuje" in run(f"SAVE {other}", ok=False).error
+    assert "čekám soubor .ecp" in run(f"SAVE {tmp_path / 'profil.txt'}", ok=False).error
+    (tmp_path / "slozka.ecp").mkdir()
+    assert "složka" in run(f'SAVE "{tmp_path / "slozka.ecp"}"', ok=False).error
+    assert not (tmp_path / "profil.txt").exists()
     run(f"SAVE {tmp_path / 'novy.ecp'}")
     r.save = SaveOptions(target=tmp_path / "out.ecp", allow=False, dry_run=True)
     assert "dry-run" in run("SAVE").messages[0]

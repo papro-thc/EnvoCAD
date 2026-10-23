@@ -68,6 +68,9 @@ def test_nested_scripts_relative_and_depth(lib, tmp_path):
     assert r.script_depth == 0 and r.ctx.base_dir is None
     rep = run_script(r, "SCRIPT neni.ecs\n", base_dir=tmp_path)
     assert "nelze načíst" in rep.first_error
+    (tmp_path / "tajne.txt").write_text("HESLO123\n", encoding="utf-8")
+    rep = run_script(r, "SCRIPT tajne.txt\n", base_dir=tmp_path)    # jen .ecs – obsah jiného souboru neprosákne
+    assert "čekám soubor .ecs" in rep.first_error and "HESLO" not in json.dumps([x.to_json() for x in rep.lines], ensure_ascii=False)
 
 
 # ---- CLI ---------------------------------------------------------------------------------------------------------

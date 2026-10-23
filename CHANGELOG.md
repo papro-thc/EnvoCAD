@@ -2,7 +2,7 @@
 
 ## Nevydáno
 - **Příkazový řádek – fáze 1: jádro a CLI** (`envocad/cmd/`, návrh `docs/design/prikazovy_radek.md`): příkazy ve
-  stylu ZWCAD bez Qt – `INSERT`, `WIRE` (porty i body, ruční lomy), `MOVE`, `COPY`, `ROTATE`, `MIRROR`,
+  stylu ZWCAD bez Qt – `INSERT`, `WIRE` (porty i body, ruční lomy), `MOVE`, `COPY`, `ROTATE` (kolem základního bodu), `MIRROR`,
   `DELETE`/`ERASE`, `SET`/`ATTR`, `SELECT` (označení, maska, okno, filtr), `SHEET`, `UNDO`/`REDO`, `CHECKS` (F7),
   `SAVE`, `SCRIPT`, `HELP`; aliasy ZWCAD/AutoCAD a české (`cmd/aliases.json`, uživatelské `~/.envocad/aliases.json`).
   Souřadnice `x,y` s desetinnou tečkou, `@dx,dy`, `ref:port`; zaokrouhlení na mřížku. Každý příkaz běží v transakci

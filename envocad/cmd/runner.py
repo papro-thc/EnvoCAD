@@ -331,6 +331,8 @@ class Session:
             if not out:
                 return self._empty_value(p)
             return out
+        if p.kind == "point" and p.optional and parse.is_number(self.tokens[0]):
+            return p.default                          # bod vynechán, číslo patří další výzvě (RO T1 90)
         tok = self.tokens.pop(0)
         if p.kind == "point":
             pr = parse.parse_port_ref(tok)

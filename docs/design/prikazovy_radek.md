@@ -85,7 +85,7 @@ Cena zvolené cesty: kopie změněných listů v undo zásobníku a přestavba s
 | `wire` | W, VODIC | port A → port B (`WIRE F1:2 Q1:1`; bod = nejbližší port do 2,5 mm) |
 | `move` | M*, POSUN | výběr → základní bod → cílový bod |
 | `copy` | CO, CP, KOPIE | výběr → základní → cílový (kopie přes `copy_fragment`, nová `ref`) |
-| `rotate` | RO, OTOCIT | výběr → úhel (násobek 90, výchozí 90) |
+| `rotate` | RO, OTOCIT | výběr → základní bod (volitelný; Enter = počátek prvku) → úhel (násobek 90, výchozí 90) |
 | `mirror` | MI, ZRCADLIT | výběr |
 | `delete` | E, DEL, SMAZAT | výběr |
 | `set` | ATTR, ATR, NASTAVIT | `key=value …` na výběr (`SET ref=F1`, `ATTR in_a=16` – klíče podle značky) |

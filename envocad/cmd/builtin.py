@@ -177,9 +177,14 @@ def cmd_rotate(ctx: Ctx):
     s = ctx.require_sheet()
     sel = yield Param("selection", "selection", "Vyberte prvky:")
     ids = _selection(ctx, sel)
-    a = yield Param("angle", "number", "Úhel (násobek 90°) <90>:", optional=True, default=90.0)
-    n = edits.rotate_elements(s, ids, _angle(a))
-    return f"Otočeno: {_els(n)} o {_fmt(a)}°"
+    base = yield Param("base", "point", "Základní bod <počátek prvku>:", optional=True)
+    if base is not None:
+        b = (snap(base[0]), snap(base[1]))
+        _snap_note(ctx, base, b)
+        base = b
+    a = yield Param("angle", "number", "Úhel (násobek 90°) <90>:", optional=True, default=90.0, base=base)
+    n = edits.rotate_elements(s, ids, _angle(a), base)
+    return f"Otočeno: {_els(n)} o {_fmt(a)}°" + (f" kolem {_pt(base)}" if base is not None else "")
 
 
 def cmd_mirror(ctx: Ctx):
@@ -355,19 +360,29 @@ def cmd_checks(ctx: Ctx):
     return "Kontrola: " + (", ".join(f"{k} {v}" for k, v in sorted(c.items())) if findings else "bez nálezů")
 
 
+def _script_path(ctx: Ctx, arg: str, suffix: str) -> Path:
+    """Cesta ze skriptu (SAVE, SCRIPT): relativní ke složce skriptu, jen s příponou `suffix` – skript nepřepíše ani
+    nepřečte jiný druh souboru (např. `SAVE ~/.bashrc`, `SCRIPT tajne.txt` s obsahem v hláškách chyb)."""
+    p = Path(arg).expanduser()
+    if p.suffix.lower() != suffix:
+        raise CommandError(f"„{arg}“: čekám soubor {suffix}")
+    return p if p.is_absolute() else (ctx.base_dir or Path.cwd()) / p
+
+
 def cmd_save(ctx: Ctx):
     arg = yield Param("path", "text", "Soubor (.ecp):", optional=True)
     opts = ctx.runner.save
     target = opts.target
     if arg:
-        p = Path(arg)
-        target = p if p.is_absolute() else (ctx.base_dir or Path.cwd()) / p
+        target = _script_path(ctx, arg, ".ecp")
     if opts.dry_run:
         return f"--dry-run: neuloženo{f' ({target})' if target else ''}"
     if not opts.allow:
         raise CommandError("Ukládání není povoleno – spusťte s -o soubor nebo --in-place")
     if target is None:
         raise CommandError("SAVE – chybí cesta (a není zadané -o)")
+    if target.is_dir():
+        raise CommandError(f"SAVE – {target} je složka")
     same = opts.target is not None and target.resolve() == opts.target.resolve()
     if target.exists() and not same and not opts.overwrite:
         raise CommandError(f"Soubor {target} existuje – přepis jen s --in-place")
@@ -380,8 +395,7 @@ def cmd_save(ctx: Ctx):
 def cmd_script(ctx: Ctx):
     arg = yield Param("path", "text", "Skript (.ecs):")
     from envocad.cmd.script import run_script_file
-    p = Path(arg)
-    p = p if p.is_absolute() else (ctx.base_dir or Path.cwd()) / p
+    p = _script_path(ctx, arg, ".ecs")
     rep = run_script_file(ctx.runner, p, stop_on_error=True)
     if not rep.ok:
         raise CommandError(f"Skript {p.name}: {rep.first_error}")
@@ -418,7 +432,7 @@ BUILTIN = (
                usage="MOVE [výběr] základní_bod cílový_bod (MOVE F1 0,0 @10,0)"),
     CommandDef("copy", "Kopírovat", run=cmd_copy,
                usage="COPY [výběr] základní_bod cílový_bod (kopie dostanou nová označení)"),
-    CommandDef("rotate", "Otočit", run=cmd_rotate, usage="ROTATE [výběr] [úhel=90]"),
+    CommandDef("rotate", "Otočit", run=cmd_rotate, usage="ROTATE [výběr] [základní bod] [úhel=90]"),
     CommandDef("mirror", "Zrcadlit", run=cmd_mirror, usage="MIRROR [výběr]"),
     CommandDef("delete", "Smazat", run=cmd_delete, usage="DELETE [výběr] (i vodiče prvků)"),
     CommandDef("set", "Nastavit atributy", run=cmd_set, usage="SET [výběr] klíč=hodnota … (SET F1 ref=F7)"),

@@ -15,6 +15,9 @@ def test_tokenize_quotes_and_errors():
     assert parse.tokenize("  MOVE   F1  0,0 @10,0 ") == ["MOVE", "F1", "0,0", "@10,0"]
     assert parse.tokenize("SET desc='a # b'") == ["SET", "desc=a # b"]      # # uvnitř řádku není komentář
     assert parse.tokenize("") == []
+    assert parse.tokenize(r"SAVE C:\proj\a.ecp") == ["SAVE", r"C:\proj\a.ecp"]          # zpětné lomítko není escape
+    assert parse.tokenize(r'SAVE "C:\Moje projekty\a.ecp"') == ["SAVE", r"C:\Moje projekty\a.ecp"]
+    assert parse.space_submits(r'SAVE "C:\x\"')                                      # uvozovky uzavřené
     with pytest.raises(ParseError, match="uvozovky"):
         parse.tokenize('SET desc="neuzavřeno')
 
