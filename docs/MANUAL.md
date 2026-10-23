@@ -1099,14 +1099,14 @@ poslední výběr (`SELECT`). `SELECT F1 F2 Q*` (označení prvků i vodičů, `
 
 | Příkaz | Aliasy | Zápis |
 |---|---|---|
-| `INSERT` | I, VLOZIT | `INSERT id_značky x,y [ref=F1 rot=90 mirror=ano klíč=hodnota …]` – nové označení podle značky, nebo zadané |
+| `INSERT` | I, VLOZIT | `INSERT id_značky x,y [ref=F1 rot=90 mirror=ano klíč=hodnota …]` – nové označení podle značky, nebo zadané; přívod/vývod listu rozvaděče `wire_id=W1` (id nebo označení vodiče JPS) doplní kam/odkud a kabel jako dialog |
 | `WIRE` | W, L, VODIC | `WIRE F1:2 Q1:1 [ref=W5 cross=10 …]`; místo `ref:port` jde bod (port do 2,5 mm), body mezi začátkem a portem = ruční lomy: `WIRE F1:2 190,150 190,100 Q1:1` |
 | `MOVE` | M, POSUN | `MOVE [výběr] základní_bod cílový_bod` (`MOVE F1 0,0 @10,0`); ruční lomy vodičů jdou s prvky |
 | `COPY` | CO, CP, KOPIE | `COPY [výběr] základní cílový` – kopie dostanou nová označení, výběr = kopie |
 | `ROTATE` | RO, OTOCIT | `ROTATE [výběr] [základní_bod] [úhel]` – násobek 90°, výchozí 90; se základním bodem (`RO F1 F2 120,150 90`, `RO T1 T1:AC`) se kolem něj otočí i polohy a ruční lomy mezi otáčenými prvky, bez bodu (`RO F1 180`) každý prvek kolem svého počátku jako klávesa R |
 | `MIRROR` | MI, ZRCADLIT | `MIRROR [výběr]` |
 | `DELETE` | E, ERASE, DEL, SMAZAT | `DELETE [výběr]` – i vodiče mazaných prvků |
-| `SET` | ATTR, ATR, ATE, NASTAVIT | `SET [výběr] klíč=hodnota …` – klíče podle značky (Vlastnosti), u vodiče `cable`, `cross`, `length`…; `SET T1 ref=T7` přejmenuje i navázané texty („od T1“), port vodiče u přívodu a umístění bloku rozvaděče jako v GUI |
+| `SET` | ATTR, ATR, ATE, NASTAVIT | `SET [výběr] klíč=hodnota …` – klíče podle značky (Vlastnosti), u vodiče `cable`, `cross`, `length`…; `SET T1 ref=T7` přejmenuje i navázané texty („od T1“), port vodiče u přívodu a umístění bloku rozvaděče jako v GUI. Označení se kontroluje jako F7: chyba zápisu příkaz odmítne, nesoulad s třídou značky (`F1 ref=K5`) jen vypíše upozornění |
 | `SELECT` | VYBER | viz výše |
 | `SHEET` | LIST | `SHEET 2` nebo `SHEET "RFVE.AC"` (aktivní list; bez argumentu vypíše listy) |
 | `UNDO` / `REDO` | U, ZPET / ZNOVU | `UNDO [počet]` |

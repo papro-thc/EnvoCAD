@@ -12,7 +12,7 @@ from envocad.cmd import edits
 from envocad.cmd.registry import ALIASES_FILE, CommandDef, Param, Registry, norm
 from envocad.cmd.runner import CommandError, Ctx
 from envocad.model.grid import GRID, snap
-from envocad.model.project import SWITCHBOARD_WIRE_ATTRIBUTES, WIRE_ATTRIBUTES
+from envocad.model.project import FEED_SYMBOLS, SWITCHBOARD_WIRE_ATTRIBUTES, WIRE_ATTRIBUTES, feed_link_attrs
 
 COMMON_ELEMENT_KEYS = {"ref", "desc", "func", "loc"}
 TRUE_WORDS = {"1", "true", "ano", "yes", "a", "y"}
@@ -70,7 +70,8 @@ def _angle(v: float | str) -> int:
 
 def _element_keys(ctx: Ctx, e) -> set[str]:
     sym = ctx.symbol_of(e)
-    return COMMON_ELEMENT_KEYS | set(e.attrs) | ({a.key for a in sym.attributes} if sym is not None else set())
+    feed = {"wire_id"} if e.symbol_id in FEED_SYMBOLS else set()     # vazba z dialogu (výběr vodiče JPS)
+    return COMMON_ELEMENT_KEYS | feed | set(e.attrs) | ({a.key for a in sym.attributes} if sym is not None else set())
 
 
 WIRE_KEYS = {a.key for a in WIRE_ATTRIBUTES + SWITCHBOARD_WIRE_ATTRIBUTES} | {"ref"}
@@ -84,6 +85,45 @@ def _check_ref(ctx: Ctx, symbol_id: str, ref: str, self_id: str | None = None) -
     own = s.element(self_id).ref if self_id else None
     if ref != own and ref in ctx.project.used_refs(s):
         raise CommandError(f"Označení {ref} už v projektu je")
+
+
+def _validate_ref(ctx: Ctx, ref: str, element=None) -> None:
+    """Označení zadané z řádku jako kontrola F7 (`validate_ref`): chyba zápisu (oddělovač, „-“ na začátku) příkaz
+    odmítne, třída podle funkce značky, znaky a délka jen upozorní – v GUI je ukáže až kontrola."""
+    from envocad.model.designation import LOCATION_SYMBOLS, validate_ref
+    from envocad.model.project import INTERRUPT_SYMBOL, is_contact
+    classes, name = None, ""
+    if element is not None:
+        if is_contact(element) or element.symbol_id == INTERRUPT_SYMBOL:
+            return                                  # kontakt nese označení cívky, přerušení vlastní číslování
+        sym = ctx.symbol_of(element)
+        if sym is not None and element.symbol_id not in LOCATION_SYMBOLS:
+            classes, name = sym.classes, sym.name
+    for issue in validate_ref(ref, classes, is_wire=element is None, name=name):
+        if issue.error:
+            raise CommandError(issue.text)
+        if not issue.info:
+            ctx.log(f"Upozornění: {issue.text}")
+
+
+def _feed_wire_id(ctx: Ctx, value: str) -> str:
+    """`wire_id` přívodu/vývodu z řádku: id nebo označení vodiče nadřazeného listu JPS (`wire_choices`, jako výběr
+    v dialogu). Prázdná hodnota = bez vazby."""
+    from envocad.model.project import parent_sheet, wire_choices
+    if not value:
+        return ""
+    s = ctx.require_sheet()
+    ids = [wid for wid, _ in wire_choices(ctx.project, s)]
+    if value in ids:
+        return value
+    ps = parent_sheet(ctx.project, s)
+    hit = [w.id for w in (ps.wires if ps is not None else []) if w.attrs.get("ref") == value]
+    if len(hit) == 1:
+        return hit[0]
+    if not ids:
+        raise CommandError("wire_id: list nemá nadřazený list JPS s vodiči (jen list rozvaděče)")
+    raise CommandError(f"wire_id={value}: vodič na nadřazeném listu „{ps.name}“ není"
+                       + (" jednoznačný" if hit else ""))
 
 
 def _snap_note(ctx: Ctx, raw: tuple[float, float], snapped: tuple[float, float]) -> None:
@@ -107,7 +147,12 @@ def cmd_insert(ctx: Ctx):
         raise CommandError(f"Značka {sid} nemá atribut {', '.join(bad)}")
     if "ref" in kv:
         _check_ref(ctx, sid, kv["ref"])
+        _validate_ref(ctx, kv["ref"], e)
+    if "wire_id" in kv:
+        kv["wire_id"] = _feed_wire_id(ctx, kv["wire_id"])
     e.attrs.update(kv)
+    if e.symbol_id in FEED_SYMBOLS:              # jako dialog vložení: odkud/kam a kabel z navázaného vodiče JPS
+        e.attrs.update(feed_link_attrs(ctx.project, s, e, e.attrs.get("wire_id", "")))
     edits.insert_element(ctx.project, s, e)
     ctx.selection = [e.id]
     ctx.last_point = (e.x, e.y)
@@ -138,6 +183,8 @@ def cmd_wire(ctx: Ctx):
         raise CommandError(f"Vodič nemá atribut {', '.join(bad)}")
     if kv and kv.get("ref") and kv["ref"] in ctx.project.used_refs(s):
         raise CommandError(f"Označení {kv['ref']} už v projektu je")
+    if kv and kv.get("ref"):
+        _validate_ref(ctx, kv["ref"])
     w.attrs.update(kv or {})
     w.points = bends
     edits.add_wire(ctx.project, s, w)
@@ -220,12 +267,20 @@ def cmd_set(ctx: Ctx):
             raise CommandError(f"{e.ref or e.symbol_id}: značka {e.symbol_id} nemá atribut {', '.join(bad)}")
         if "ref" in kv:
             _check_ref(ctx, e.symbol_id, kv["ref"], e.id)
+            if kv["ref"] != e.ref:
+                _validate_ref(ctx, kv["ref"], e)
     for w in wires:
         bad = sorted(set(kv) - WIRE_KEYS - set(w.attrs))
         if bad:
             raise CommandError(f"Vodič {w.attrs.get('ref', '')}: neznámý atribut {', '.join(bad)}")
         if kv.get("ref") and kv["ref"] != w.attrs.get("ref") and kv["ref"] in ctx.project.used_refs(s):
             raise CommandError(f"Označení {kv['ref']} už v projektu je")
+        if kv.get("ref") and kv["ref"] != w.attrs.get("ref"):
+            _validate_ref(ctx, kv["ref"])
+    if "wire_id" in kv and els:
+        kv["wire_id"] = _feed_wire_id(ctx, kv["wire_id"])
+    # vazba přívodu před označením (jako dialog): přejmenování pak přejmenuje port nově navázaného vodiče
+    kv = dict(sorted(kv.items(), key=lambda it: it[0] != "wire_id"))
     n = 0
     for e in els:
         for k, v in kv.items():

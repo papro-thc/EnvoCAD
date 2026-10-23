@@ -179,6 +179,24 @@ def test_erase(app, lib, ids, source):
     _both(source, lib, ids, "E T1", gui)
 
 
+def test_insert_feed_with_link(app, lib, ids, source):
+    """Vývod s vazbou na vodič JPS: dialog vložení doplní odvozené atributy vazby (kam, kabel) – řádek taky;
+    `wire_id` z řádku smí být označení vodiče (W1)."""
+    def gui(p, sc, undo):
+        from envocad.model.project import feed_link_attrs
+        sym = lib.get_symbol("sb.feed")
+        e = Element(symbol_id=sym.id, x=snap(120.0), y=snap(200.0))
+        e.attrs = {a.key: a.default for a in sym.attributes}
+        e.attrs["ref"] = p.next_ref(sym.iec_ref)
+        e.attrs.update({"dir": "out", "wire_id": next(w.id for w in p.sheets[0].wires if w.attrs.get("ref") == "W1")})
+        e.attrs.update(feed_link_attrs(p, sc.sheet, e, e.attrs["wire_id"]))
+        undo.push(commands.AddElementCommand(sc, e))
+    res = _both(source, lib, ids, "INSERT sb.feed 120,200 dir=out wire_id=W1", gui, sheet=1)
+    after = res.changeset.after["sheets"][Project.from_dict(source).sheets[1].id]
+    new = next(e for e in after["elements"] if e["attrs"].get("dir") == "out")
+    assert "W1" in new["attrs"]["to"]
+
+
 @pytest.mark.parametrize("sheet, old, new", [(0, "T1", "T7"), (1, "X1", "X5"), (0, "R1", "R5")])
 def test_set_ref_with_followups(app, lib, ids, source, sheet, old, new):
     def gui(p, sc, undo):

@@ -158,6 +158,22 @@ def test_rotate_about_base_point(run):
     assert s2.done and s2.result.ok and f.rotation == 90 and (f.x, f.y) == (170.0, 150.0)
 
 
+def test_ref_validation_like_checks(run):
+    """Označení z řádku jako kontrola F7: třída podle funkce značky jen upozorní, chyba zápisu příkaz odmítne."""
+    res = run("SET F1 ref=K5")                            # jistič má třídy F, Q
+    assert _el(run.p, "K5") and any(m.startswith("Upozornění:") and "F, Q" in m for m in res.messages)
+    res = run("SET K5 ref=Q9")
+    assert not any("Upozornění" in m for m in res.messages)
+    assert "bez „-“" in run("SET Q9 ref=-F2", ok=False).error
+    assert "oddělovač" in run('SET Q9 ref="F 2"', ok=False).error
+    res = run("INSERT fve.inverter 50,50 ref=F8")
+    assert any("Upozornění" in m for m in res.messages)
+    res = run("WIRE F8:AC Q9:1 ref=W9")
+    assert res.ok and not any("Upozornění" in m for m in res.messages)
+    assert "wire_id" in run("SET Q9 wire_id=W1", ok=False).error        # jistič vazbu na vodič JPS nemá
+    assert "nadřazený list" in run("INSERT sb.feed 60,60 wire_id=W1", ok=False).error   # JPS není list rozvaděče
+
+
 def test_set_attrs_elements_and_wires(run):
     p = run.p
     run('SET F1 in_=16 desc="Hlavní jistič"')
