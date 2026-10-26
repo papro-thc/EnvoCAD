@@ -115,7 +115,8 @@ def _cli(*args, stdin: str | None = None) -> subprocess.CompletedProcess:
     for k in ("QT_QPA_PLATFORM", "PYTHONIOENCODING", "PYTHONUTF8"):    # jako agent: roura v kódové stránce systému
         env.pop(k, None)
     return subprocess.run([sys.executable, "-m", "envocad.cmd", *map(str, args)], capture_output=True, text=True,
-                          encoding="utf-8", input=stdin, cwd=ROOT, env=env, timeout=300, check=False)
+                          encoding="utf-8", cwd=ROOT, env=env, timeout=300, check=False,
+                          **({"input": stdin} if stdin is not None else {"stdin": subprocess.DEVNULL}))
 
 
 @pytest.fixture

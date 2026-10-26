@@ -110,4 +110,4 @@ def test_cmd_imports_without_qt():
     import sys
     code = ("import sys, envocad.cmd, envocad.cmd.__main__; "
             "bad = [m for m in sys.modules if m.startswith(('PySide6', 'envocad.ui'))]; assert not bad, bad")
-    subprocess.run([sys.executable, "-c", code], check=True, cwd=ROOT.parent)
+    subprocess.run([sys.executable, "-c", code], check=True, cwd=ROOT.parent, stdin=subprocess.DEVNULL)

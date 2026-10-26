@@ -64,7 +64,8 @@ def _cli(*args, stdin=None):
     for k in ("QT_QPA_PLATFORM", "PYTHONIOENCODING", "PYTHONUTF8"):
         env.pop(k, None)
     return subprocess.run([sys.executable, "-m", "envocad.cmd", *map(str, args)], capture_output=True, text=True,
-                          encoding="utf-8", input=stdin, cwd=ROOT, env=env, timeout=300, check=False)
+                          encoding="utf-8", cwd=ROOT, env=env, timeout=300, check=False,
+                          **({"input": stdin} if stdin is not None else {"stdin": subprocess.DEVNULL}))
 
 
 def test_cli_exports_only_into_script_folder_and_respect_dry_run(tmp_path):
@@ -226,4 +227,5 @@ def test_plugin_cannot_take_builtin_alias_or_shadow_it(lib):
 def test_cmd_package_still_imports_without_qt():
     code = ("import sys, envocad.cmd, envocad.cmd.builtin, envocad.plugins; "
             "bad = [m for m in sys.modules if m.startswith(('PySide6', 'envocad.ui'))]; assert not bad, bad")
-    subprocess.run([sys.executable, "-c", code], check=True, cwd=ROOT, env={**os.environ, "PYTHONPATH": str(ROOT)})
+    subprocess.run([sys.executable, "-c", code], check=True, cwd=ROOT, env={**os.environ, "PYTHONPATH": str(ROOT)},
+                   stdin=subprocess.DEVNULL)
