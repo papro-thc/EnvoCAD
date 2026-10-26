@@ -482,7 +482,7 @@ def cmd_script(ctx: Ctx):
         raise CommandError(f"Skript {arg}: jen ze složky hlavního skriptu ({root})")
     # celý vnořený skript = jedna transakce a jeden krok historie (jako makro v GUI); UNDO uvnitř má vlastní
     journal = r.journal
-    r.journal = Journal() if journal is not None else None
+    r.journal = Journal()      # i v GUI (bez Journal, historii drží QUndoStack): UNDO uvnitř skriptu vrací jeho řádky
     try:
         rep = run_script_file(r, p, stop_on_error=True)
     finally:
@@ -490,6 +490,67 @@ def cmd_script(ctx: Ctx):
     if not rep.ok:
         raise CommandError(f"Skript {p.name}: {rep.first_error}")
     return f"Skript {p.name}: {_n(rep.count, 'příkaz', 'příkazy', 'příkazů')}"
+
+
+def _export_target(ctx: Ctx, arg: str, suffix: str) -> Path:
+    """Cíl exportu (EXPORT_DXF, EXPORT_PDF, DOC_PDF): jen soubor s příponou `suffix`, ne složka; ze skriptu v CLI jen
+    do složky hlavního skriptu (export nemění projekt, ale skript nesmí psát kamkoli na disk)."""
+    p = _script_path(ctx, arg, suffix)
+    r = ctx.runner
+    if r.save.deferred:
+        root = r.script_root or ctx.base_dir or Path.cwd()
+        if not p.resolve().is_relative_to(root.resolve()):
+            raise CommandError(f"Export {arg}: jen do složky skriptu ({root})")
+    if p.is_dir():
+        raise CommandError(f"Export – {p} je složka")
+    return p
+
+
+def cmd_export_dxf(ctx: Ctx):
+    arg = yield Param("path", "text", "Soubor (.dxf):")
+    ctx.require_end()
+    s = ctx.require_sheet()
+    p = _export_target(ctx, arg, ".dxf")
+    if ctx.runner.save.dry_run:
+        return f"--dry-run: neexportováno ({p})"
+    from envocad.export.dxf_export import export_multipole_dxf, export_sheet_dxf
+    if s.is_switchboard:                         # schéma rozvaděče = vícepól po stranách (jako v GUI)
+        files = [str(f) for f in export_multipole_dxf(ctx.project, s, ctx.library, p)]
+    else:
+        export_sheet_dxf(ctx.project, s, ctx.library, p)
+        files = [str(p)]
+    ctx.data = {"files": files}
+    return f"Exportováno DXF listu „{s.name}“: {files[0]}"
+
+
+def cmd_export_pdf(ctx: Ctx):
+    arg = yield Param("path", "text", "Soubor (.pdf):")
+    paper = yield Param("paper", "choice", "Formát <skutečný> (A4 / A3):", optional=True, choices=("A4", "A3"))
+    ctx.require_end()
+    s = ctx.require_sheet()
+    p = _export_target(ctx, arg, ".pdf")
+    if ctx.runner.save.dry_run:
+        return f"--dry-run: neexportováno ({p})"
+    from envocad.export.pdf_export import export_sheet_pdf
+    export_sheet_pdf(ctx.project, s, ctx.library, p, paper=paper)
+    ctx.data = {"files": [str(p)]}
+    return f"Exportováno PDF listu „{s.name}“: {p}"
+
+
+def cmd_doc_pdf(ctx: Ctx):
+    arg = yield Param("path", "text", "Soubor (.pdf):")
+    jps = yield Param("jps_page", "choice", "Listy JPS <podle standardu> (A3 / list):", optional=True,
+                      choices=("A3", "list"))
+    ctx.require_end()
+    p = _export_target(ctx, arg, ".pdf")
+    if ctx.runner.save.dry_run:
+        return f"--dry-run: neexportováno ({p})"
+    from envocad.export.doc_pdf import export_documentation_pdf
+    from envocad.export.pdf_export import ensure_qt_app
+    ensure_qt_app()
+    n = export_documentation_pdf(ctx.project, ctx.library, p, jps_page=jps)
+    ctx.data = {"files": [str(p)], "pages": n}
+    return f"Exportována dokumentace ({_n(n, 'strana', 'strany', 'stran')}): {p}"
 
 
 def cmd_help(ctx: Ctx):
@@ -536,6 +597,12 @@ BUILTIN = (
     CommandDef("save", "Uložit", run=cmd_save, transaction=False, gui_fallback="save",
                usage="SAVE [soubor.ecp] (CLI jen s -o / --in-place)"),
     CommandDef("script", "Spustit skript", run=cmd_script, usage="SCRIPT soubor.ecs"),
+    CommandDef("export_dxf", "Export DXF listu", run=cmd_export_dxf, transaction=False, gui_fallback="export_dxf",
+               usage="EXPORT_DXF soubor.dxf (aktivní list; rozvaděč jako vícepól)"),
+    CommandDef("export_pdf", "Export PDF listu", run=cmd_export_pdf, transaction=False, gui_fallback="export_pdf",
+               usage="EXPORT_PDF soubor.pdf [A4 | A3]"),
+    CommandDef("doc_pdf", "Celá dokumentace (PDF)", run=cmd_doc_pdf, transaction=False, gui_fallback="doc_pdf",
+               usage="DOC_PDF soubor.pdf [A3 | list] (listy JPS zmenšit na A3 / skutečný formát)"),
     CommandDef("help", "Nápověda", run=cmd_help, transaction=False, usage="HELP [příkaz]"),
     CommandDef("zoom", "Zoom", needs_gui=True, gui_fallback="zoom_in"),
     CommandDef("fit", "Celý list", needs_gui=True, gui_fallback="fit"),

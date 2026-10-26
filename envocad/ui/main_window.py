@@ -224,6 +224,8 @@ class MainWindow(QMainWindow):
         act(m_file, "&Uložit", self.save_project, "Ctrl+S", "save")
         act(m_file, "Uložit &jako…", self.save_project_as, "Ctrl+Shift+S")
         m_file.addSeparator()
+        act(m_file, "Spustit skript…", self.run_script, None, "run_script")
+        m_file.addSeparator()
         act(m_file, "Export &DXF…", self.export_dxf, None, "export_dxf")
         act(m_file, "Export &PDF…", self.export_pdf, None, "export_pdf")
         act(m_file, "Export PDF na A4 (zmenšeno)…", lambda: self.export_pdf("A4"))
@@ -2324,10 +2326,12 @@ class MainWindow(QMainWindow):
         řádku a jednopísmenné zkratky akcí (R, M, N, T) se vypnou."""
         from envocad.cmd import CommandDef, default_registry
         from envocad.cmd.registry import norm
+        from envocad.plugins import register_plugin_commands
         from envocad.settings import cmdline_keys
         from envocad.ui.command_line import CanvasTyping, CommandLine
         from envocad.ui.command_palette import _clean
         self.cmd_registry = default_registry()
+        register_plugin_commands(self.plugins, self.cmd_registry)
         for key, a in self.actions.items():
             if norm(key) not in self.cmd_registry.commands:
                 self.cmd_registry.add(CommandDef(key, _clean(a.text()) or key, needs_gui=True))
@@ -2350,6 +2354,16 @@ class MainWindow(QMainWindow):
                 seq = act.shortcut().toString()
                 if len(seq) == 1 and seq.isalpha():      # R otočit, M zrcadlit, N narovnat, T text → písmena do řádku
                     act.setShortcut(QKeySequence())
+
+    def run_script(self) -> None:
+        """Soubor → Spustit skript…: skript .ecs v příkazovém řádku – celý skript je jeden krok Ctrl+Z, chyba na
+        kterémkoli řádku vrátí všechno (výstup a číslo řádku v doku)."""
+        path, _ = QFileDialog.getOpenFileName(self, "Spustit skript", "", "Skript EnvoCAD (*.ecs)")
+        if not path:
+            return
+        self.cmdline_dock.show()
+        self.cmdline_dock.raise_()
+        self.cmdline.run_line(f'SCRIPT "{path}"')
 
     def sheets_changed(self, sheet_ids: list[str]) -> None:
         """Přestavba pohledů po změně listů mimo scénu (příkazový řádek, šablona)."""

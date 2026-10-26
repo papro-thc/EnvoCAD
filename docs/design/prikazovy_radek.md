@@ -1,6 +1,6 @@
 # Příkazový řádek (styl ZWCAD/CADCraft) – návrh
 
-Stav: **fáze 1 a 2 hotové** (jádro `envocad/cmd`, skripty, CLI; dok v GUI `ui/command_line.py`); fáze 3 čeká. Roadmapa v0.1: „každá akce = příkaz, ovladatelné i z agentů“. Formát projektu se
+Stav: **fáze 1–3 hotové** (jádro `envocad/cmd`, skripty, CLI; dok v GUI `ui/command_line.py`; příkazy pluginů, Spustit skript…, EXPORT_DXF / EXPORT_PDF / DOC_PDF); fáze 4 až bude třeba. Roadmapa v0.1: „každá akce = příkaz, ovladatelné i z agentů“. Formát projektu se
 **nemění** (`FORMAT_VERSION` zůstává 16); nové jsou jen soubory skriptů `.ecs` a uživatelské aliasy.
 
 ## 1. Vrstvy (rozhodnutí)

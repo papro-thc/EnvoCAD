@@ -10,6 +10,9 @@ Přes `ctx` může plugin:
 - `ctx.add_importer("Název…", callback)`     – položka v menu Knihovna → Importovat, callback(main_window)
 - `ctx.add_report("Název", fn)`              – výkaz (hlavička, řádky) do xlsx exportu (viz export/reports.py);
                                                fn(project, lib, sheet) dostane projekt bez visících vodičů
+- `ctx.add_command(CommandDef(...))`         – příkaz příkazového řádku (dok v okně, skripty .ecs, CLI s --plugins);
+                                               `run(ctx)` je generátor výzev jako vestavěné příkazy (envocad/cmd/builtin.py),
+                                               model mění přes `envocad.cmd.edits`; jméno nesmí kolidovat s vestavěným
 - `ctx.library`, `ctx.log`                   – knihovna a logger
 
 Registrace je transakční jen pro položky přes `ctx.add_*` (menu, importéry, šablony, výkazy): plugin, který
@@ -50,6 +53,7 @@ class PluginContext:
     failed: list[tuple[str, str]] = field(default_factory=list)   # (plugin, chyba) – hlásí okno po startu
     templates: list = field(default_factory=list)                 # čekající šablony / výkazy (do commit)
     reports: list[tuple[str, Callable]] = field(default_factory=list)
+    commands: list = field(default_factory=list)                  # CommandDef příkazového řádku (registruje je volající)
     live: bool = True        # False = zatím jen sbírat (plugin se právě registruje)
     log = log
 
@@ -70,6 +74,21 @@ class PluginContext:
             _apply_template(template)
         else:
             self.templates.append(template)
+
+    def add_command(self, cmd) -> None:
+        """Příkaz příkazového řádku. Kolize s vestavěným příkazem nebo s příkazem jiného pluginu = chyba registrace
+        (plugin se celý zahodí). Do registru ho přidá okno / CLI (`register_plugin_commands`)."""
+        from envocad.cmd import CommandDef
+        from envocad.cmd.builtin import BUILTIN
+        from envocad.cmd.registry import norm
+        if not isinstance(cmd, CommandDef):
+            raise TypeError("add_command čeká envocad.cmd.CommandDef")
+        if cmd.run is not None and not callable(cmd.run):
+            raise TypeError(f"příkaz {cmd.name}: run není funkce")
+        taken = {norm(c.name) for c in BUILTIN} | {norm(c.name) for c in self.commands}
+        if not norm(cmd.name) or norm(cmd.name) in taken:
+            raise ValueError(f"příkaz {cmd.name} už existuje (vestavěný nebo z jiného pluginu)")
+        self.commands.append(cmd)
 
     def add_report(self, name: str, fn: Callable) -> None:
         if not callable(fn):
@@ -154,8 +173,16 @@ def load_plugins(library) -> PluginContext:
                                 f, ", ".join(writes.ids))
                 ctx.failed.append((f.stem, f"{type(ex).__name__}: {ex}"))
                 continue
+            clash = {c.name for c in sub.commands} & {c.name for c in ctx.commands}
+            if clash:                               # stejné jméno jako příkaz dříve načteného pluginu
+                msg = f"příkaz {', '.join(sorted(clash))} už registroval jiný plugin"
+                log.error("plugin %s selhal: %s", f, msg)
+                ctx.failed.append((f.stem, msg))
+                sys.modules.pop(name, None)
+                continue
             ctx.menu_actions += sub.menu_actions
             ctx.importers += sub.importers
+            ctx.commands += sub.commands
             for t in sub.templates:
                 _apply_template(t)
             for rname, fn in sub.reports:
@@ -166,6 +193,19 @@ def load_plugins(library) -> PluginContext:
             ctx.loaded.append(f.stem)
             log.info("plugin načten: %s", f)
     return ctx
+
+
+def register_plugin_commands(ctx: PluginContext, registry) -> list[str]:
+    """Příkazy pluginů do registru příkazového řádku; vrací varování (kolize se jménem, které mezitím přibylo –
+    např. akce menu okna)."""
+    bad = []
+    for cmd in ctx.commands:
+        try:
+            registry.add(cmd)
+        except ValueError as ex:
+            bad.append(str(ex))
+            log.warning("příkaz pluginu %s: %s", cmd.name, ex)
+    return bad
 
 
 def failed_message(ctx: PluginContext) -> str:
