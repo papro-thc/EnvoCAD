@@ -11,7 +11,7 @@ BOM = b"\xef\xbb\xbf"
 @pytest.mark.parametrize("path", sorted(SCRIPTS.glob("*.ps1")), ids=lambda p: p.name)
 def test_ps1_non_ascii_has_bom(path):
     data = path.read_bytes()
-    body = data[len(BOM):] if data.startswith(BOM) else data
+    body = data.removeprefix(BOM)
     body.decode("utf-8")
     assert body.isascii() or data.startswith(BOM), f"{path.name}: ne-ASCII text bez UTF-8 BOM"
 

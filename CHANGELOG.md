@@ -1,6 +1,12 @@
 # Changelog
 
 ## Nevydáno
+- **Oprava: instalace na Windows** – `scripts\install.ps1` padal ve Windows PowerShellu 5.1 („The string is missing
+  the terminator“): soubor byl v UTF-8 bez BOM, PowerShell ho četl jako ANSI a „–“ rozbilo řetězec. `install.ps1`
+  a `build.ps1` jsou teď v UTF-8 s BOM (hlídá `tests/test_scripts_encoding.py`). Nové `scripts\install.cmd`
+  a `scripts\run.cmd` fungují i se zakázaným spouštěním skriptů .ps1 (`run.cmd` jde spustit dvojklikem a bez
+  instalace poradí `install.cmd`). Instalace najde i Python 3.14 a `python` z PATH (bez spouštěče `py`) a skončí
+  chybou, když selže pip.
 - **Příkazový řádek – fáze 1: jádro a CLI** (`envocad/cmd/`, návrh `docs/design/prikazovy_radek.md`): příkazy ve
   stylu ZWCAD bez Qt – `INSERT`, `WIRE` (porty i body, ruční lomy), `MOVE`, `COPY`, `ROTATE` (kolem základního bodu), `MIRROR`,
   `DELETE`/`ERASE`, `SET`/`ATTR`, `SELECT` (označení, maska, okno, filtr), `SHEET`, `UNDO`/`REDO`, `CHECKS` (F7),
