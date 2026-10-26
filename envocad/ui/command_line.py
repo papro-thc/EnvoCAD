@@ -12,7 +12,7 @@ from __future__ import annotations
 import html
 import logging
 
-from PySide6.QtCore import QEvent, QObject, QStringListModel, Qt, Signal
+from PySide6.QtCore import QEvent, QObject, QPoint, QStringListModel, Qt, Signal
 from PySide6.QtWidgets import (
     QApplication,
     QCompleter,
@@ -20,6 +20,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QPlainTextEdit,
     QVBoxLayout,
     QWidget,
@@ -37,6 +39,7 @@ HISTORY_FILE = "cmd_history.txt"
 PROMPT_IDLE = "Příkaz:"
 GUI_HISTORY = ("undo", "redo")      # v GUI drží historii QUndoStack – UNDO/REDO z řádku jdou přes něj
 OUTPUT_LINES = 3
+SUGGEST_ROWS = 10         # našeptávač: nejvýš řádků bez posuvníku
 
 
 class CommandInput(QLineEdit):
@@ -45,19 +48,28 @@ class CommandInput(QLineEdit):
     cancelled = Signal()
     completion = Signal()
     history_step = Signal(int)
+    focus_lost = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.prompt_kind: str | None = None          # druh aktuální výzvy (mezera v textové výzvě nepotvrzuje)
+        self.popup_keys = None                       # našeptávač: klávesa → True = zpracováno (šipky, Tab, Enter, Esc)
 
     def event(self, ev):
         if ev.type() == QEvent.KeyPress and ev.key() in (Qt.Key_Tab, Qt.Key_Backtab):
-            self.completion.emit()
+            if not (self.popup_keys and self.popup_keys(ev.key())):
+                self.completion.emit()
             return True
         return super().event(ev)
 
+    def focusOutEvent(self, ev):
+        self.focus_lost.emit()
+        super().focusOutEvent(ev)
+
     def keyPressEvent(self, ev):
         k = ev.key()
+        if self.popup_keys and self.popup_keys(k):
+            return
         if k in (Qt.Key_Return, Qt.Key_Enter):
             self.submitted.emit(self.text())
         elif k == Qt.Key_Escape:
@@ -71,6 +83,60 @@ class CommandInput(QLineEdit):
             self.history_step.emit(1)
         else:
             super().keyPressEvent(ev)
+
+
+class SuggestPopup(QListWidget):
+    """Našeptávač nad řádkem (jako ZWCAD): seznam příkazů „SLOVO  český název“. Dítě okna (ne samostatné okno),
+    takže nebere fokus psaní – klávesy řídí `CommandLine._suggest_key`, klik spustí příkaz."""
+    chosen = Signal(str)
+
+    def __init__(self, anchor: QLineEdit):
+        super().__init__(None)
+        self._anchor = anchor
+        self.setFocusPolicy(Qt.NoFocus)
+        self.setObjectName("cmd_suggest")
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setUniformItemSizes(True)
+        self.itemClicked.connect(lambda it: self.chosen.emit(it.data(Qt.UserRole)))
+        self.hide()
+
+    def show_items(self, items) -> None:
+        win = self._anchor.window()
+        if not items or win is None or win is self._anchor or not self._anchor.isVisible():
+            self.hide()
+            return
+        if self.parentWidget() is not win:
+            self.setParent(win)
+        self.clear()
+        for s in items:
+            name = s.name.upper()
+            it = QListWidgetItem(f"{s.word}\t{s.title}" if s.word == name else f"{s.word} ({name})\t{s.title}")
+            it.setData(Qt.UserRole, s.word)
+            it.setToolTip(f"{s.name.upper()} – {s.title}")
+            self.addItem(it)
+        self.setCurrentRow(-1)                   # bez výběru: Enter spustí napsaný příkaz
+        fm = self.fontMetrics()
+        rows = min(len(items), SUGGEST_ROWS)
+        h = fm.lineSpacing() * rows + 4 * rows + 2 * self.frameWidth() + 2
+        w = max(self._anchor.width(), max(fm.horizontalAdvance(f"{s.word} ({s.name})    {s.title}") for s in items) + 40)
+        top_left = self._anchor.mapTo(win, QPoint(0, 0))
+        y = top_left.y() - h if top_left.y() - h >= 0 else top_left.y() + self._anchor.height()
+        self.setGeometry(top_left.x(), y, min(w, win.width() - top_left.x()), h)
+        self.show()
+        self.raise_()
+
+    def step(self, d: int) -> None:
+        n = self.count()
+        if n:
+            row = self.currentRow()
+            self.setCurrentRow((0 if d > 0 else n - 1) if row < 0 else (row + d) % n)
+
+    def current_word(self) -> str:
+        it = self.currentItem()
+        return it.data(Qt.UserRole) if it is not None and self.currentRow() >= 0 else ""
+
+    def first_word(self) -> str:
+        return self.item(0).data(Qt.UserRole) if self.count() else ""
 
 
 class CommandLine(QWidget):
@@ -101,6 +167,12 @@ class CommandLine(QWidget):
         self._completer.setCaseSensitivity(Qt.CaseInsensitive)
         self._completer.setWidget(self.input)
         self._completer.activated.connect(self.input.setText)
+        self._suggest = SuggestPopup(self.input)
+        self._suggest.chosen.connect(self._suggestion_run)
+        self._suggest_quiet = False                    # programové setText (historie, doplnění) našeptávač neotevře
+        self.input.popup_keys = self._suggest_key
+        self.input.textChanged.connect(self._update_suggestions)
+        self.input.focus_lost.connect(self._suggest.hide)
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
         row.addWidget(self.prompt)
@@ -330,6 +402,55 @@ class CommandLine(QWidget):
         """Identita objektů prvků a vodičů listů – po chybě se přestaví jen listy obnovené ze snímku."""
         return {s.id: tuple(map(id, s.elements)) + tuple(map(id, s.wires)) for s in self.host.project.sheets}
 
+    # ---- našeptávač ---------------------------------------------------------------------------------------------
+    def _update_suggestions(self, text: str) -> None:
+        """Při psaní prvního slova ukáže nad řádkem odpovídající příkazy (jako ZWCAD); ve výzvě příkazu ne."""
+        if self._suggest_quiet or self.session is not None:
+            self._suggest.hide()
+            return
+        self._suggest.show_items(self.registry.suggest(text))
+
+    def _suggest_key(self, key: int) -> bool:
+        """Klávesy při otevřeném našeptávači: ↑/↓ vybírá, Tab doplní, Enter spustí vybraný (bez výběru napsaný
+        příkaz; neznámé slovo → první návrh), Esc zavře. Ostatní klávesy jdou do řádku."""
+        sp = self._suggest
+        if not sp.isVisible():
+            return False
+        if key in (Qt.Key_Up, Qt.Key_Down):
+            sp.step(-1 if key == Qt.Key_Up else 1)
+            return True
+        if key in (Qt.Key_Tab, Qt.Key_Backtab):
+            word = sp.current_word() or sp.first_word()
+            if word:
+                self._set_quiet(word + " ")
+            sp.hide()
+            return True
+        if key in (Qt.Key_Return, Qt.Key_Enter):
+            word = sp.current_word()
+            text = self.input.text().strip()
+            if not word and text and self.registry.resolve(text) is None:
+                word = sp.first_word()
+            sp.hide()
+            if word:
+                self._suggestion_run(word)
+                return True
+            return False                              # napsaný příkaz – běžné potvrzení
+        if key == Qt.Key_Escape:
+            sp.hide()
+            return True
+        return False
+
+    def _suggestion_run(self, word: str) -> None:
+        self._suggest.hide()
+        self.submit(word)
+
+    def _set_quiet(self, text: str) -> None:
+        self._suggest_quiet = True
+        try:
+            self.input.setText(text)
+        finally:
+            self._suggest_quiet = False
+
     # ---- doplňování a historie ----------------------------------------------------------------------------------
     def complete(self) -> None:
         if self.session is not None:
@@ -342,7 +463,7 @@ class CommandLine(QWidget):
         if not cands:
             return
         if len(cands) == 1:
-            self.input.setText(cands[0] + ("" if cands[0].endswith("=") else " "))
+            self._set_quiet(cands[0] + ("" if cands[0].endswith("=") else " "))
             return
         self._completer.setModel(QStringListModel(cands, self._completer))
         self._completer.setCompletionPrefix(text)
@@ -359,7 +480,7 @@ class CommandLine(QWidget):
         if not self.history or self.session is not None:
             return
         self._hist_pos = max(0, min(len(self.history), self._hist_pos + d))
-        self.input.setText(self.history[self._hist_pos] if self._hist_pos < len(self.history) else "")
+        self._set_quiet(self.history[self._hist_pos] if self._hist_pos < len(self.history) else "")
 
     @staticmethod
     def _history_path():

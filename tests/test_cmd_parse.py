@@ -141,3 +141,15 @@ def test_complete_commands():
     assert "ROTATE" in out and "RO" in out
     assert "ZRCADLIT" in reg.complete("zrc")
     assert reg.complete("qqq") == []
+
+
+def test_suggest_while_typing():
+    reg = default_registry(user_aliases=False)
+    out = reg.suggest("ro")
+    assert out[0].word == "RO" and out[0].name == "rotate" and out[0].title
+    assert len({s.name for s in out}) == len(out)                # každý příkaz jednou
+    assert [s.name for s in reg.suggest("li")] == [s.name for s in reg.suggest("LI")]   # bez ohledu na velikost
+    assert all(s.word.lower().startswith("li") for s in reg.suggest("li"))           # 2 znaky: jen začátek slova
+    assert "rotate" in {s.name for s in reg.suggest("otoč")}       # od 3 znaků i uvnitř / v českém názvu
+    assert reg.suggest("") == [] and reg.suggest("RO F1") == [] and reg.suggest("qqq") == []
+    assert len(reg.suggest("e", limit=3)) <= 3

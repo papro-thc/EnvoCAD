@@ -150,6 +150,52 @@ def test_history_and_tab_completion(win):
     assert inp.text() == "ROTATE "                     # Tab doplnil (nepřeskočil na další widget)
 
 
+def test_suggestions_while_typing_like_zwcad(win):
+    w = win()
+    inp, sp = w.cmdline.input, w.cmdline._suggest
+    inp.setFocus()
+    QTest.keyClicks(inp, "ro")
+    assert sp.isVisible()
+    words = [sp.item(i).data(Qt.UserRole) for i in range(sp.count())]
+    assert words[0] == "RO"                                            # přesná shoda aliasu první
+    assert "ROTATE" in sp.item(0).text() and "Otočit" in sp.item(0).text()   # alias, jméno a český název
+    assert sp.geometry().bottom() <= inp.mapTo(w, inp.rect().topLeft()).y()   # nad řádkem
+    QTest.keyClick(inp, Qt.Key_Escape)
+    assert not sp.isVisible() and inp.text() == "ro"                   # Esc jen zavře našeptávač
+    inp.clear()
+    QTest.keyClicks(inp, "otoc")                                       # bez diakritiky, i alias
+    assert sp.isVisible() and sp.first_word() == "OTOCIT"
+    inp.clear()
+    QTest.keyClicks(inp, "zrcad")
+    QTest.keyClick(inp, Qt.Key_Down)                                   # šipka vybírá v návrzích, ne historii
+    assert sp.current_word() == sp.first_word()
+    QTest.keyClick(inp, Qt.Key_Tab)
+    assert inp.text() == sp.first_word() + " " and not sp.isVisible()  # Tab doplní vybraný
+    inp.clear()
+    QTest.keyClicks(inp, "qqq")
+    assert not sp.isVisible()                                          # nic neodpovídá
+    inp.clear()
+    QTest.keyClicks(inp, "RO F1")
+    assert not sp.isVisible()                                          # argumenty: našeptávač jen u příkazu
+
+
+def test_suggestion_enter_runs_command_and_history_stays_quiet(win):
+    w = win()
+    inp, sp = w.cmdline.input, w.cmdline._suggest
+    inp.setFocus()
+    QTest.keyClicks(inp, "rotat")                                      # nedopsané slovo → Enter spustí první návrh
+    QTest.keyClick(inp, Qt.Key_Return)
+    assert w.cmdline.session is not None and "ROTATE" in _out(w)
+    assert not sp.isVisible()
+    QTest.keyClicks(inp, "ro")                                         # ve výzvě příkazu se nenašeptává
+    assert not sp.isVisible()
+    QTest.keyClick(inp, Qt.Key_Escape)
+    assert w.cmdline.session is None
+    inp.clear()
+    QTest.keyClick(inp, Qt.Key_Up)                                     # historie nenašeptává
+    assert inp.text() and not sp.isVisible()
+
+
 def test_every_action_id_is_a_command_and_palette_shows_aliases(win):
     w = win()
     assert [k for k in w.actions if norm(k) not in w.cmd_registry.commands] == []
