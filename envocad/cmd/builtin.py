@@ -428,6 +428,9 @@ def cmd_checks(ctx: Ctx):
     return "Kontrola: " + (", ".join(f"{k} {v}" for k, v in sorted(c.items())) if findings else "bez nálezů")
 
 
+WINDOWS_DEVICES = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
+
+
 def _script_path(ctx: Ctx, arg: str, suffix: str) -> Path:
     """Cesta ze skriptu (SAVE, SCRIPT): relativní ke složce skriptu, jen s příponou `suffix` – skript nepřepíše ani
     nepřečte jiný druh souboru (např. `SAVE ~/.bashrc`, `SCRIPT tajne.txt` s obsahem v hláškách chyb). Síťové cesty
@@ -437,6 +440,8 @@ def _script_path(ctx: Ctx, arg: str, suffix: str) -> Path:
     p = Path(arg)
     if ":" in p.as_posix()[2 if p.drive else 0:]:
         raise CommandError(f"„{arg}“: neplatná cesta")
+    if p.stem.split(".")[0].upper() in WINDOWS_DEVICES:
+        raise CommandError(f"„{arg}“: rezervované jméno zařízení Windows")
     if p.suffix.lower() != suffix:
         raise CommandError(f"„{arg}“: čekám soubor {suffix}")
     return p if p.is_absolute() else (ctx.base_dir or Path.cwd()) / p
@@ -493,17 +498,29 @@ def cmd_script(ctx: Ctx):
 
 
 def _export_target(ctx: Ctx, arg: str, suffix: str) -> Path:
-    """Cíl exportu (EXPORT_DXF, EXPORT_PDF, DOC_PDF): jen soubor s příponou `suffix`, ne složka; ze skriptu v CLI jen
-    do složky hlavního skriptu (export nemění projekt, ale skript nesmí psát kamkoli na disk)."""
+    """Cíl exportu (EXPORT_DXF, EXPORT_PDF, DOC_PDF): jen soubor s příponou `suffix`, ne složka. Ze skriptu (CLI i
+    Soubor → Spustit skript…) jen do složky hlavního skriptu, nejvýš `runner.max_exports` exportů za běh a existující
+    soubor jen ten, který tentýž běh vytvořil (jinak CLI `--force`) – skript nesmí přepsat cizí PDF / DXF na disku.
+    Řádek napsaný ručně v doku omezení nemá (cestu zadává uživatel)."""
     p = _script_path(ctx, arg, suffix)
     r = ctx.runner
-    if r.save.deferred:
+    if p.is_dir():
+        raise CommandError(f"Export – {p} je složka")
+    if r.script_depth > 0:
         root = r.script_root or ctx.base_dir or Path.cwd()
         if not p.resolve().is_relative_to(root.resolve()):
             raise CommandError(f"Export {arg}: jen do složky skriptu ({root})")
-    if p.is_dir():
-        raise CommandError(f"Export – {p} je složka")
+        if p.exists() and str(p.resolve()) not in r.exported and not r.save.overwrite:
+            raise CommandError(f"Export {arg}: soubor už existuje – skript ho nepřepíše (CLI --force)")
+        if r.exports_run >= r.max_exports:
+            raise CommandError(f"Skript může exportovat nejvýš {r.max_exports}×")
     return p
+
+
+def _exported(ctx: Ctx, files) -> None:
+    r = ctx.runner
+    r.exports_run += 1
+    r.exported.update(str(Path(f).resolve()) for f in files)
 
 
 def cmd_export_dxf(ctx: Ctx):
@@ -519,6 +536,7 @@ def cmd_export_dxf(ctx: Ctx):
     else:
         export_sheet_dxf(ctx.project, s, ctx.library, p)
         files = [str(p)]
+    _exported(ctx, files)
     ctx.data = {"files": files}
     return f"Exportováno DXF listu „{s.name}“: {files[0]}"
 
@@ -533,6 +551,7 @@ def cmd_export_pdf(ctx: Ctx):
         return f"--dry-run: neexportováno ({p})"
     from envocad.export.pdf_export import export_sheet_pdf
     export_sheet_pdf(ctx.project, s, ctx.library, p, paper=paper)
+    _exported(ctx, [p])
     ctx.data = {"files": [str(p)]}
     return f"Exportováno PDF listu „{s.name}“: {p}"
 
@@ -549,6 +568,7 @@ def cmd_doc_pdf(ctx: Ctx):
     from envocad.export.pdf_export import ensure_qt_app
     ensure_qt_app()
     n = export_documentation_pdf(ctx.project, ctx.library, p, jps_page=jps)
+    _exported(ctx, [p])
     ctx.data = {"files": [str(p)], "pages": n}
     return f"Exportována dokumentace ({_n(n, 'strana', 'strany', 'stran')}): {p}"
 

@@ -185,6 +185,44 @@ def test_export_from_dock_with_and_without_path(win, tmp_path, monkeypatch):
     assert asked == [1]
 
 
+# ---- nálezy bezpečnostního review fáze 3 ---------------------------------------------------------------------
+def test_script_exports_confined_in_any_mode_no_foreign_overwrite_and_budget(lib, tmp_path):
+    from envocad.cmd import run_script
+    r = CommandRunner(_project(), lib, journal=Journal())                  # bez CLI (deferred=False) – jako GUI
+    (tmp_path / "cizi.pdf").write_bytes(b"%PDF cizi")
+    rep = run_script(r, "EXPORT_DXF ../venku.dxf\n", base_dir=tmp_path / "sub")
+    assert "jen do složky skriptu" in rep.first_error and not (tmp_path / "venku.dxf").exists()
+    rep = run_script(r, "EXPORT_PDF cizi.pdf\n", base_dir=tmp_path)
+    assert "nepřepíše" in rep.first_error and (tmp_path / "cizi.pdf").read_bytes() == b"%PDF cizi"
+    rep = run_script(r, "EXPORT_DXF a.dxf\nEXPORT_DXF a.dxf\n", base_dir=tmp_path)    # vlastní soubor znovu smí
+    assert rep.ok, rep.errors
+    rep = run_script(r, "EXPORT_DXF a.dxf\n", base_dir=tmp_path)              # nový běh: už je cizí
+    assert "nepřepíše" in rep.first_error
+    r.max_exports = 2
+    rep = run_script(r, "EXPORT_DXF b.dxf\nEXPORT_DXF b.dxf\nEXPORT_DXF b.dxf\n", base_dir=tmp_path)
+    assert "nejvýš 2" in rep.first_error
+    assert "rezervované" in r.execute(f'EXPORT_DXF "{tmp_path / "nul.dxf"}"').error
+    res = r.execute(f'EXPORT_DXF "{tmp_path / "cizi_ruční.dxf"}"')          # ručně v doku (mimo skript) smí
+    assert res.ok
+
+
+def test_plugin_cannot_take_builtin_alias_or_shadow_it(lib):
+    from envocad.cmd import CommandDef
+    from envocad.plugins import PluginContext, register_plugin_commands
+    pc = PluginContext(library=lib)
+    for bad in (CommandDef("evil", "x", aliases=("i",)), CommandDef("m", "x"), CommandDef("Save", "x")):
+        with pytest.raises(ValueError, match="už existuje"):
+            pc.add_command(bad)
+    pc.add_command(CommandDef("foo", "x"))
+    with pytest.raises(ValueError):
+        pc.add_command(CommandDef("FOO", "y"))                            # jiný zápis téhož jména
+    reg = default_registry(user_aliases=False)
+    reg.add_alias("FF", "move")                                            # např. uživatelský alias
+    pc.commands.append(CommandDef("bar", "x", aliases=("FF", "BB")))
+    warn = register_plugin_commands(pc, reg)
+    assert reg.resolve("FF").name == "move" and reg.resolve("BB").name == "bar" and any("FF" in w for w in warn)
+
+
 def test_cmd_package_still_imports_without_qt():
     code = ("import sys, envocad.cmd, envocad.cmd.builtin, envocad.plugins; "
             "bad = [m for m in sys.modules if m.startswith(('PySide6', 'envocad.ui'))]; assert not bad, bad")

@@ -3,9 +3,11 @@
 ## Nevydáno
 - **Příkazový řádek – fáze 3: pluginy, skripty v okně, export** – příkazy `EXPORT_DXF` (DXFOUT; list rozvaděče jako
   vícepól), `EXPORT_PDF` (PDF; list bez okna, `export_pdf.export_sheet_pdf`, A4 / A3) a `DOC_PDF` (DOKUMENTACE; celá
-  dokumentace) – v okně bez cesty otevřou dialog jako menu, v CLI jen do složky skriptu a `--dry-run` nic nezapíše.
-  Pluginy přidají příkaz přes `ctx.add_command(CommandDef)` (transakčně; kolize s vestavěným nebo jiným pluginem =
-  chyba registrace pluginu), CLI je načte jen s `--plugins`. Soubor → Spustit skript… pošle skript do příkazového
+  dokumentace) – v okně bez cesty otevřou dialog jako menu; ze skriptu (CLI i okno) jen do složky skriptu, bez
+  přepisu cizích souborů (CLI `--force`), nejvýš 50 exportů, `--dry-run` nic nezapíše, jména zařízení Windows ne.
+  Pluginy přidají příkaz přes `ctx.add_command(CommandDef)` (transakčně; jméno ani alias nesmí obsadit vestavěný
+  příkaz, výchozí alias ani příkaz jiného pluginu – jinak chyba registrace pluginu; obsazený uživatelský alias se
+  ignoruje), CLI je načte jen s `--plugins`. Soubor → Spustit skript… pošle skript do příkazového
   řádku – celý skript je jeden krok Ctrl+Z, chyba vrátí vše, `UNDO` uvnitř skriptu funguje i v okně. Test
   `test_cmd_phase3.py`.
 - **Příkazový řádek – fáze 2: dok v okně** (`ui/command_line.py`): dok „Příkazový řádek“ dole (výstup, výzva, vstup);

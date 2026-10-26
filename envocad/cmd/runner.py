@@ -34,6 +34,7 @@ from envocad.model.project import (
 log = logging.getLogger("envocad.cmd")
 PORT_SNAP_MM = 2.5           # bod výzvy „port“ = nejbližší port do této vzdálenosti
 MAX_COMMANDS = 10_000        # řádků skriptu celkem i s vnořenými SCRIPT (ochrana před větvením a → b → c …)
+MAX_EXPORTS = 50             # exportů souborů za jeden běh skriptu (export dokumentace trvá sekundy)
 _NOTHING = object()
 
 
@@ -466,6 +467,9 @@ class CommandRunner:
         self.script_root: Path | None = None     # složka hlavního skriptu – vnořené SCRIPT jen pod ní
         self.max_commands = MAX_COMMANDS         # rozpočet řádků na jeden hlavní skript i s vnořenými
         self.commands_run = 0
+        self.max_exports = MAX_EXPORTS           # exportů (EXPORT_*, DOC_PDF) na jeden hlavní skript
+        self.exports_run = 0
+        self.exported: set[str] = set()          # soubory vytvořené exportem v tomto běhu – smí se přepsat
         self.variables: dict[str, str] = {}      # ${name} ve skriptech (CLI --var)
         self.last_command: CommandDef | None = None
         self._active: Session | None = None

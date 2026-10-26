@@ -79,15 +79,17 @@ class PluginContext:
         """Příkaz příkazového řádku. Kolize s vestavěným příkazem nebo s příkazem jiného pluginu = chyba registrace
         (plugin se celý zahodí). Do registru ho přidá okno / CLI (`register_plugin_commands`)."""
         from envocad.cmd import CommandDef
-        from envocad.cmd.builtin import BUILTIN
         from envocad.cmd.registry import norm
         if not isinstance(cmd, CommandDef):
             raise TypeError("add_command čeká envocad.cmd.CommandDef")
         if cmd.run is not None and not callable(cmd.run):
             raise TypeError(f"příkaz {cmd.name}: run není funkce")
-        taken = {norm(c.name) for c in BUILTIN} | {norm(c.name) for c in self.commands}
-        if not norm(cmd.name) or norm(cmd.name) in taken:
-            raise ValueError(f"příkaz {cmd.name} už existuje (vestavěný nebo z jiného pluginu)")
+        words = [norm(cmd.name), *(norm(a) for a in cmd.aliases)]
+        taken = _builtin_command_words() | {w for c in self.commands for w in _command_words(c)}
+        clash = [w for w in words if not w or w in taken]
+        if clash:      # ani alias: plugin nesmí přesměrovat M, I, SAVE… vestavěných příkazů na svůj kód
+            raise ValueError(f"příkaz {cmd.name}: jméno / alias {', '.join(clash) or '(prázdné)'} už existuje "
+                             "(vestavěný příkaz nebo alias)")
         self.commands.append(cmd)
 
     def add_report(self, name: str, fn: Callable) -> None:
@@ -97,6 +99,18 @@ class PluginContext:
             _apply_report(str(name), fn)
         else:
             self.reports.append((str(name), fn))
+
+
+def _command_words(cmd) -> set[str]:
+    from envocad.cmd.registry import norm
+    return {norm(cmd.name), *(norm(a) for a in cmd.aliases)}
+
+
+def _builtin_command_words() -> set[str]:
+    """Jména vestavěných příkazů a výchozí aliasy (`cmd/aliases.json`) – plugin je nesmí obsadit."""
+    from envocad.cmd import default_registry
+    reg = default_registry(user_aliases=False)
+    return set(reg.commands) | set(reg.aliases)
 
 
 def _apply_template(template) -> None:
@@ -173,7 +187,8 @@ def load_plugins(library) -> PluginContext:
                                 f, ", ".join(writes.ids))
                 ctx.failed.append((f.stem, f"{type(ex).__name__}: {ex}"))
                 continue
-            clash = {c.name for c in sub.commands} & {c.name for c in ctx.commands}
+            clash = {w for c in sub.commands for w in _command_words(c)} & \
+                {w for c in ctx.commands for w in _command_words(c)}
             if clash:                               # stejné jméno jako příkaz dříve načteného pluginu
                 msg = f"příkaz {', '.join(sorted(clash))} už registroval jiný plugin"
                 log.error("plugin %s selhal: %s", f, msg)
@@ -198,13 +213,20 @@ def load_plugins(library) -> PluginContext:
 def register_plugin_commands(ctx: PluginContext, registry) -> list[str]:
     """Příkazy pluginů do registru příkazového řádku; vrací varování (kolize se jménem, které mezitím přibylo –
     např. akce menu okna)."""
+    import dataclasses
+
+    from envocad.cmd.registry import norm
     bad = []
     for cmd in ctx.commands:
+        keep = [a for a in cmd.aliases if norm(a) not in registry.aliases and norm(a) not in registry.commands]
+        for a in set(cmd.aliases) - set(keep):            # alias už patří jinému příkazu (i uživatelský) – nepřepsat
+            bad.append(f"příkaz pluginu {cmd.name}: alias {a} už je obsazený – ignorován")
         try:
-            registry.add(cmd)
+            registry.add(dataclasses.replace(cmd, aliases=tuple(keep)))
         except ValueError as ex:
             bad.append(str(ex))
-            log.warning("příkaz pluginu %s: %s", cmd.name, ex)
+    for w in bad:
+        log.warning("%s", w)
     return bad
 
 

@@ -1195,7 +1195,10 @@ poslední výběr (`SELECT`). `SELECT F1 F2 Q*` (označení prvků i vodičů, `
 | `EXPORT_PDF` | PDF, EXPORTPDF | `EXPORT_PDF soubor.pdf [A4 \| A3]` – aktivní list (skutečný formát, nebo zmenšit/zvětšit na A4/A3) |
 | `DOC_PDF` | DOKUMENTACE | `DOC_PDF soubor.pdf [A3 \| list]` – celá dokumentace; listy JPS zmenšit na A3 / skutečný formát (výchozí podle firemního standardu) |
 
-Exporty ze skriptu v CLI jdou jen do složky skriptu (a podsložek) a `--dry-run` nic nezapíše; model nemění.
+Exporty ze skriptu (CLI i Soubor → Spustit skript…) jdou jen do složky hlavního skriptu (a podsložek), existující
+soubor přepíšou jen tehdy, když ho vytvořil tentýž běh (v CLI jinak `--force`), nejvýš 50 exportů za běh;
+`--dry-run` nic nezapíše. Export model nemění a chyba později ve skriptu už zapsané soubory nesmaže. Řádek napsaný
+ručně v doku tato omezení nemá.
 | `HELP` | ?, NAPOVEDA | `HELP [příkaz]` – seznam příkazů a aliasů / syntaxe |
 | `ZOOM`, `FIT` | Z, ZE, ZA | jen v GUI |
 

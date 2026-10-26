@@ -31,7 +31,7 @@ def _parser() -> argparse.ArgumentParser:
     ap.add_argument("--json", action="store_true", help="řádek JSON na příkaz (line, cmd, ok, messages, "
                                                          "changed_sheets) a nakonec souhrn")
     ap.add_argument("--keep-going", action="store_true", help="po chybě pokračovat dalším řádkem")
-    ap.add_argument("--force", action="store_true", help="s -o přepsat existující soubor")
+    ap.add_argument("--force", action="store_true", help="s -o přepsat existující soubor; exporty skriptu smí přepsat existující PDF / DXF")
     ap.add_argument("--no-user-aliases", action="store_true",
                     help="bez uživatelských aliasů ~/.envocad/aliases.json (stejné chování na každém stroji)")
     ap.add_argument("--plugins", action="store_true",
@@ -98,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
     if a.output and target.exists() and target.resolve() != proj_path.resolve() and not a.force:
         print(f"Soubor {target} existuje – přepis jen s --force", file=sys.stderr)
         return USAGE_ERROR
-    save = SaveOptions(target=target, allow=target is not None and not a.dry_run, overwrite=False,
+    save = SaveOptions(target=target, allow=target is not None and not a.dry_run, overwrite=a.force,
                        dry_run=a.dry_run, deferred=True)
     from envocad.cmd.builtin import default_registry
     from envocad.library.store import LibraryStore
