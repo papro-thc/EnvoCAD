@@ -12,9 +12,9 @@ všech výstupů.
 Potřebuješ Python 3.11–3.14 (Windows i Linux).
 
 ```
-# Windows (PowerShell)
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1
-scripts\run.ps1
+# Windows (cmd i PowerShell; obejde zákaz spouštění skriptů .ps1)
+scripts\install.cmd
+scripts\run.cmd           # nebo dvojklik na scripts\run.cmd
 
 # Linux
 bash scripts/install.sh
