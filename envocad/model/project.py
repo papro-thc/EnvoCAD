@@ -1605,11 +1605,12 @@ def copy_fragment(sheet: Sheet, element_ids: list[str]) -> dict:
     return detach_fragment({"elements": els, "wires": wires})
 
 
-def paste_fragment(project: Project, fragment: dict, ref_prefix_of, dx: float = 10.0, dy: float = -10.0
-                   ) -> tuple[list[Element], list[Wire]]:
+def paste_fragment(project: Project, fragment: dict, ref_prefix_of, dx: float = 10.0, dy: float = -10.0,
+                   target: Sheet | None = None) -> tuple[list[Element], list[Wire]]:
     """Vytvoří kopie s novými id a označeními (F1 → další volné; blok rozvaděče RDC1 → RDC2, `copy_prefix`),
     posunuté o (dx, dy). Skupiny svorek si nechají označení svorkovnice, čísla svorek se vymažou (doplní automatické
-    číslování). Vodiče nepřevezmou kabel originálu (`cable_id`), přívody vazbu na vodič JPS. Nic nevkládá do listu."""
+    číslování). Vodiče nepřevezmou kabel originálu (`cable_id`), přívody vazbu na vodič JPS; do listu rozvaděče
+    (`target`) vodiče přijdou bez označení W (`internal_wires`). Nic nevkládá do listu."""
     used = project.used_refs()
     idmap: dict[str, str] = {}
     els: list[Element] = []
@@ -1639,7 +1640,9 @@ def paste_fragment(project: Project, fragment: dict, ref_prefix_of, dx: float = 
         nw = Wire(WireEnd(idmap[w.a.element_id], w.a.port), WireEnd(idmap[w.b.element_id], w.b.port),
                   points=[(x + dx, y + dy) for x, y in w.points], attrs=detach_wire_attrs(w.attrs),
                   conductors=list(w.conductors))
-        if nw.attrs.get("ref"):
+        if internal_wires(target):
+            nw.attrs["ref"] = ""
+        elif nw.attrs.get("ref"):
             n = 1
             while f"W{n}" in used:
                 n += 1
@@ -1757,6 +1760,18 @@ def wire_label(attrs: dict, conductors: list[str] | None = None) -> str:
     if text:
         parts.append(text + ("" if "mm" in text or not (cross or attrs.get("cross")) else " mm²"))
     return "  ".join(x for x in parts if x)
+
+
+def internal_wires(sheet: Sheet | None) -> bool:
+    """Vodiče listu jsou vnitřní propojení rozvaděče: nedostávají označení W a nekreslí se u nich kabel ani průřez
+    (průřez a typ drátu jsou ve výrobních výkazech, kabely přívodů a vývodů nesou štítky u přívodu)."""
+    return sheet is not None and sheet.is_switchboard
+
+
+def wire_label_on(sheet: Sheet | None, w: Wire, conductors: list[str] | None = None) -> str:
+    """Popisek vodiče ve výkresu listu `sheet` (`wire_label`); vnitřní vodič rozvaděče je bez popisku – i ve starších
+    projektech, kde označení a průřez v datech má."""
+    return "" if internal_wires(sheet) else wire_label(w.attrs, conductors)
 
 
 def feed_link_index(project: Project) -> dict[str, list[tuple[Sheet, Element]]]:

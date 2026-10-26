@@ -109,6 +109,10 @@ kabelu, průřez, délka, trasa/uložení a **žíly** (např. `L1 L2 L3 N PE`, 
 seznamu). Žíly se značí podle **ČSN EN 60445**: střídavé L1, L2, L3, N, PE (PEN), stejnosměrné **L+ / L−** (střed M);
 napsané `DC+ DC-` se samo převede na `L+ L-`. Výchozí žíly se odvodí z portů a pólů (DC port → `L+ L-`,
 3pólový prvek → `L1 L2 L3 N PE`).
+Ve **schématu rozvaděče** jsou vodiče vnitřní propojení: nový vodič nedostane označení W a u vnitřních vodičů se
+ve výkresu (jednopól, vícepól, PDF, DXF) nekreslí označení, typ ani průřez – jen žíly. Průřez a typ drátu jsou ve
+výrobních výkazech (Výrobní zapojovací seznam, Kabely a vodiče k objednání), kabely přívodů a vývodů dál nesou
+štítek u přívodu (W1 od G1, typ a průřez).
 
 V blokovém schématu je každá čára jednopólová – jedna čára = jeden kabel se všemi žílami. FV string má jeden port DC,
 střídač vstupy DC1…DCn (jeden na string) a AC.

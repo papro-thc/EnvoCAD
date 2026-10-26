@@ -28,7 +28,7 @@ from dataclasses import dataclass, field, replace
 from envocad.model import multipole as mp
 from envocad.model.feed import FEED_SYMBOL, FEED_SYMBOLS
 from envocad.model.multipole_geometry import Prim
-from envocad.model.project import Element, Project, Sheet, Wire, element_symbol, wire_label
+from envocad.model.project import Element, Project, Sheet, Wire, element_symbol, internal_wires, wire_label
 from envocad.model.symbol import Symbol, place_point, rotate_dir
 from envocad.model.textlayout import CHAR_W
 
@@ -819,7 +819,8 @@ def _draw(project: Project, root: Node, nodes: dict[Key, Node], g: SingleLineGeo
     # kabely mezi částmi
     for n in nodes.values():
         for c in n.children:
-            if c.segment == n.segment or c.wire is None or not c.wire.attrs.get("ref"):
+            wire_sheet = next((s for s in (c.sheet, n.sheet) if c.wire is not None and c.wire in s.wires), None)
+            if c.segment == n.segment or c.wire is None or not c.wire.attrs.get("ref") or internal_wires(wire_sheet):
                 continue
             text = wire_label(c.wire.attrs, mp.wire_conductors(c.wire))
             length = c.wire.attrs.get("length", "")

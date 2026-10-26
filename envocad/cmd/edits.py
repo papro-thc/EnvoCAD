@@ -29,6 +29,7 @@ from envocad.model.project import (
     feed_dir_changes,
     feed_link_attrs,
     feed_port_followups,
+    internal_wires,
     paste_fragment,
     rename_followups,
     rename_structure,
@@ -202,7 +203,8 @@ def copy_elements(project: Project, sheet: Sheet, lib, element_ids, dx: float, d
     ids = [e.id for e in sheet.elements if e.id in set(element_ids)]
     if not ids:
         return [], []
-    els, wires = paste_fragment(project, copy_fragment(sheet, ids), lambda sid: lib.get_symbol(sid).iec_ref, dx, dy)
+    els, wires = paste_fragment(project, copy_fragment(sheet, ids), lambda sid: lib.get_symbol(sid).iec_ref, dx, dy,
+                                target=sheet)
     sheet.elements.extend(els)
     sheet.wires.extend(wires)
     feed_elements_followups(project, sheet, els)
@@ -223,7 +225,7 @@ def new_wire(project: Project, sheet: Sheet, a: Element, pa: str, b: Element, pb
                 w.conductors = list(src.conductors)
             break
     w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}
-    w.attrs["ref"] = project.next_ref("W")
+    w.attrs["ref"] = "" if internal_wires(sheet) else project.next_ref("W")   # vnitřní vodič rozvaděče bez W
     return w
 
 

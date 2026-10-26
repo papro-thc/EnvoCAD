@@ -29,6 +29,7 @@ from envocad.model.project import (
     WireEnd,
     element_symbol,
     feed_link_attrs,
+    internal_wires,
 )
 from envocad.model.symbol import GRID
 from envocad.ui import commands
@@ -574,7 +575,8 @@ class SchematicScene(QGraphicsScene):
                             break
                     # model-write-ok: nový vodič (ještě není v listu), vloží ho AddWireCommand
                     w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}
-                    w.attrs["ref"] = self.project.next_ref("W")  # model-write-ok: nový vodič, viz výše
+                    # model-write-ok: nový vodič, viz výše; vnitřní vodič rozvaděče bez označení W
+                    w.attrs["ref"] = "" if internal_wires(self.sheet) else self.project.next_ref("W")
                     if self.ask_attributes:
                         heading = f"<b>Vodič</b> {a.element.ref}:{pa} → {b.element.ref}:{pb}"
                         QTimer.singleShot(0, lambda: self._finish_wire(w, heading))
@@ -943,7 +945,7 @@ class SchematicScene(QGraphicsScene):
         clip["n"] += 1
         d = 10.0 * clip["n"]
         els, wires = paste_fragment(self.project, clip["fragment"],
-                                    lambda sid: self.library.get_symbol(sid).iec_ref, d, -d)
+                                    lambda sid: self.library.get_symbol(sid).iec_ref, d, -d, target=self.sheet)
         if not els:
             return 0
         self.undo.push(commands.PasteCommand(self, els, wires))
@@ -957,7 +959,8 @@ class SchematicScene(QGraphicsScene):
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
         tx, ty = at if at is not None else (self.sheet.width / 2, self.sheet.height / 2)
         dx, dy = snap(tx - cx), snap(ty - cy)
-        els, wires = paste_fragment(self.project, fragment, lambda sid: self.library.get_symbol(sid).iec_ref, dx, dy)
+        els, wires = paste_fragment(self.project, fragment, lambda sid: self.library.get_symbol(sid).iec_ref, dx, dy,
+                                    target=self.sheet)
         if not els:
             return 0
         self.undo.push(commands.PasteCommand(self, els, wires))

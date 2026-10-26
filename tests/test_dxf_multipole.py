@@ -453,7 +453,8 @@ def test_prims_of_element_above_top_edge_stay_on_its_page(lib):
     assert max(y - pitch for pr in polys for _x, y in pr.pts) > top1
     terms = [pr for pr in g.prims if pr.kind == "text" and pr.text == "1"]
     assert terms and all(pr.page == 1 for pr in terms)
-    labels = [pr for pr in g.prims if pr.kind == "text" and pr.text and "W1" in pr.text]
+    # popisek žíly (vnitřní vodič rozvaděče je bez označení W – `internal_wires`)
+    labels = [pr for pr in g.prims if pr.kind == "text" and pr.text and pr.text.strip() == "L1"]
     assert labels and all(pr.page == 1 for pr in labels)
 
 

@@ -15,7 +15,7 @@ from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QGraphicsRectIte
 from envocad.library.store import LibraryStore
 from envocad.model import multipole as mp
 from envocad.model.feed import FEED_SYMBOLS
-from envocad.model.project import Element, Project, Sheet, Wire, element_symbol, wire_label
+from envocad.model.project import Element, Project, Sheet, Wire, element_symbol, wire_label, wire_label_on
 from envocad.model.symbol import GRID, Symbol, rotate_dir
 from envocad.settings import switchboard_paper
 from envocad.ui import commands
@@ -428,7 +428,7 @@ class ConductorItem(QGraphicsPathItem):
             x, y, align, _vertical = mp.conductor_label_anchor(pts, self.staggered)
             text = self.conductor
             if self.idx == 0:
-                lbl = wire_label(self.wire.attrs)
+                lbl = wire_label_on(getattr(self.scene(), "sheet", None), self.wire)
                 text = f"{lbl}  {text}" if lbl else text
         draw_text(painter, x, y, text, 1.8, align)
         # svorky na koncích
@@ -482,7 +482,8 @@ class MultipoleScene(QGraphicsScene):
         x0, y0, x1, y1 = fragment_bounds(fragment)
         tx, ty = at if at is not None else (self.paper_size[0] / 2, self.paper_size[1] / 2)
         dx, dy = snap(tx - (x0 + x1) / 2), snap(ty - (y0 + y1) / 2)
-        els, wires = paste_fragment(self.project, fragment, lambda sid: self.library.get_symbol(sid).iec_ref, dx, dy)
+        els, wires = paste_fragment(self.project, fragment, lambda sid: self.library.get_symbol(sid).iec_ref, dx, dy,
+                                    target=self.sheet)
         for e in els:
             e.mp_pos = (e.x, e.y)  # model-write-ok: nové prvky makra, vloží je MultipoleAddCommand
         if els:
