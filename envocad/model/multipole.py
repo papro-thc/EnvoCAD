@@ -190,7 +190,16 @@ class ElementPoles:
         ox, oy = PERP[d]
         k = self.slot(conductor)
         mx, my = self.origin
-        return (mx + (px - e.x) + ox * k * POLE_PITCH, my + (py - e.y) + oy * k * POLE_PITCH)
+        return (mx + (px - e.x) + ox * k * self.pitch, my + (py - e.y) + oy * k * self.pitch)
+
+    @property
+    def pitch(self) -> float:
+        """Rozteč pólů prvku: `POLE_PITCH`, nebo vlastní ze značky (`multipole.pitch` – přepínač sítí má u každého
+        pólu dva vstupy I / II, póly po 12,5 mm, aby se dvojice sousedních pólů neslily)."""
+        try:
+            return float((self.symbol.multipole or {}).get("pitch") or POLE_PITCH)
+        except (TypeError, ValueError):
+            return POLE_PITCH
 
     @property
     def per_pole(self) -> bool:
@@ -205,7 +214,7 @@ class ElementPoles:
         d = rotate_dir(self.symbol.port(port).dir, self.element.rotation)
         ox, oy = PERP[d]
         k = self.slot(conductor)
-        return (ox * k * POLE_PITCH, oy * k * POLE_PITCH)
+        return (ox * k * self.pitch, oy * k * self.pitch)
 
 
 BUS_SYMBOL = "sb.busbar"
@@ -223,7 +232,7 @@ def perp_extent(ep: ElementPoles) -> float:
     if ep.element.rotation in (90, 270):
         base = (x1 - x0) if horizontal else (y1 - y0)
     # buňka na pól má vždy celou rozteč, aby prvky se stejným počtem žil měly stejný rozměr (zarovnání sloupců)
-    return max(base, POLE_PITCH) + max(0, len(ep.slots) - 1) * POLE_PITCH
+    return max(base, ep.pitch) + max(0, len(ep.slots) - 1) * ep.pitch
 
 
 def flow_extent(ep: ElementPoles) -> float:
@@ -753,6 +762,9 @@ def sheet_poles(sheet: Sheet, symbol_of) -> dict[str, ElementPoles]:
         e = ep.element
         flipped = dataclasses.replace(e, rotation=(e.rotation + 180) % 360)
         poles[eid] = element_poles(sheet, flipped, ep.symbol)
+    for eid, rot in upright_rotations(poles).items():
+        ep = poles[eid]
+        poles[eid] = element_poles(sheet, dataclasses.replace(ep.element, rotation=rot, mirror=False), ep.symbol)
     for eid, sym in junction_view_symbols(sheet, poles).items():
         ep = poles[eid]
         poles[eid] = element_poles(sheet, dataclasses.replace(ep.element, rotation=0, mirror=False), sym)
@@ -799,6 +811,27 @@ def live_conductors(w: Wire, poles: dict[str, ElementPoles]) -> list[str]:
 JUNCTION_SYMBOL = "sb.junction"
 JUNCTION_GAP = 7.5    # nejmenší mezera k řadě jen s uzly (odbočení žil se zkosením)
 _DIR_POS = {"N": (0.0, GRID), "E": (GRID, 0.0), "S": (0.0, -GRID), "W": (-GRID, 0.0)}
+
+
+def upright_rotations(poles: dict[str, ElementPoles]) -> dict[str, int]:
+    """Vícepól se svislým tokem (shora dolů): průchozí přístroj nakreslený v jednopólovém listu vodorovně (stykač
+    s porty vlevo / vpravo) se v pohledu otočí tak, aby vstup (první průchozí port) mířil nahoru – jinak se jeho póly
+    kreslí bokem a žíly se k nim stáčejí tam a zpět. Svorky, přívody a uzly ne (mají vlastní pravidla). {id: rotace};
+    jen pohled – model beze změny."""
+    if not poles or sum(1 for ep in poles.values() if _flow_is_horizontal_for(ep)) * 2 >= len(poles):
+        return {}
+    out: dict[str, int] = {}
+    for eid, ep in poles.items():
+        e = ep.element
+        if ep.through is None or is_terminal_block(e) or e.symbol_id in (JUNCTION_SYMBOL, BUS_SYMBOL, "sb.pe_bar"):
+            continue
+        port_in = ep.symbol.port(ep.through[0])
+        if rotate_dir(port_in.dir, e.rotation) not in ("E", "W"):
+            continue
+        rot = next((r for r in (0, 90, 180, 270) if rotate_dir(port_in.dir, r) == "N"), None)
+        if rot is not None:
+            out[eid] = rot
+    return out
 
 
 def junction_view_symbols(sheet: Sheet, poles: dict[str, ElementPoles]) -> dict[str, Symbol]:

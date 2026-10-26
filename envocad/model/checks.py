@@ -834,6 +834,35 @@ def text_findings(project: Project, lib, *, standard_paper: str) -> list[Finding
                                "text_overlap"))
         if s.is_switchboard and mp.has_multipole(s):
             out += multipole_text_findings(project, s, lib, standard_paper=standard_paper)
+            out += conductor_end_findings(project, s, lib)
+    return out
+
+
+def conductor_end_findings(project: Project, s: Sheet, lib) -> list[Finding]:
+    """Žíly, které vedou do vícepólového průchozího přístroje jen z jedné strany: na vstupu N a PE, na výstupu jen
+    L1–L3 (ve vícepólu pak končí naprázdno u přístroje). Jednopólový přístroj ne – tam se žíly navíc nekreslí
+    (`multipole.dead_conductors`). Cívky (A1 / A2 na pólu) a svorky ne."""
+    try:
+        poles = mp.sheet_poles(s, lambda e: element_symbol(project, e, lib))
+    except (KeyError, ValueError, AttributeError, StopIteration):
+        return []
+    out = []
+    for ep in poles.values():
+        e = ep.element
+        if ep.through is None or len(ep.switched) < 2 or mp.is_terminal_block(e) or e.symbol_id in FEED_SYMBOLS                 or "PE" in ep.through or "spd" in e.symbol_id:
+            continue                    # svodič (L → PE) není průchozí přístroj
+        a, b = ({c for w in s.wires if not mp.is_control_wire(w)          # ovládací žíla cívky (A1 → L) se nepočítá
+                 for end in (w.a, w.b) if end.element_id == e.id and end.port == p for c in mp.wire_conductors(w)}
+                for p in ep.through)
+        if not a or not b:
+            continue                    # přístroj zapojený jen z jedné strany hlásí jiná kontrola
+        loose = sorted((a ^ b) - set(ep.joined) - set(ep.switched), key=mp.canon_key)
+        loose += sorted(c for c in ep.switched if (c in a) != (c in b))
+        if loose:
+            out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
+                               f"Žíly {', '.join(loose)} vedou do {e.ref or 'přístroje'} jen z jedné strany – na "
+                               "druhé straně chybí (vícepól je kreslí naprázdno); doplň žíly vodiče v jednopólu",
+                               "mp_conductor_end"))
     return out
 
 
