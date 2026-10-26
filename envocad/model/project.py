@@ -58,7 +58,7 @@ SWITCHBOARD_WIRE_ATTRIBUTES = [
     Attribute("prod", "Do výrobního seznamu (0 = ne)"),
 ]
 
-FORMAT_VERSION = 16
+FORMAT_VERSION = 17
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 DEVICE_HEIGHT_MM = 45.0  # mm – výška modulového přístroje na liště (rozložení, délky vodičů)
@@ -1302,6 +1302,9 @@ def migrate(d: dict, ver: int) -> dict:
     # v16: otisk listu (`diff.sheet_fingerprint`) zahrnuje volné texty listu. Data se nemění; otisky uzavřených revizí
     # převádí `Project.from_dict` nad hotovými listy (`diff.upgrade_fingerprints`). Verze se zvedla, aby program v15
     # u listu s texty nehlásil falešné „změněno po uzavření revize“.
+    # v17: formát stran schématu rozvaděče `mp_paper` navíc „A2“, „A1“ a „volný A4“ (výška 297, šířka podle kresby),
+    # formát listu volný A4 (`paper` „A4×n“). Data se nemění; verze se zvedla, aby program v16 soubor odmítl – volbu
+    # by nepoznal a vícepól tiše vykreslil na A4.
     d["format_version"] = FORMAT_VERSION
     return d
 

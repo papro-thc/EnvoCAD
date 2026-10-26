@@ -9,7 +9,7 @@ v transakci runneru (snímek `sheets_state` před a po → `ChangeSet`). Shodu v
 from __future__ import annotations
 
 from envocad.model.grid import snap
-from envocad.model.multipole import default_conductors
+from envocad.model.multipole import branch_conductors, default_conductors
 from envocad.model.project import (
     FEED_SYMBOLS,
     WIRE_ATTRIBUTES,
@@ -219,8 +219,8 @@ def new_wire(project: Project, sheet: Sheet, a: Element, pa: str, b: Element, pb
     for j in (a, b):
         if j.symbol_id == "sb.junction":
             src = next((x for x in sheet.wires if x.touches(j.id)), None)
-            if src is not None:
-                w.conductors = list(src.conductors)
+            if src is not None:                 # na jednopólový přístroj jen jedna fáze
+                w.conductors = branch_conductors(list(src.conductors), b if j is a else a)
             break
     w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}
     w.attrs["ref"] = project.next_ref("W")

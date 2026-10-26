@@ -167,6 +167,9 @@ def title_height(title: list[str]) -> float:
 
 def _layout(sheet: Sheet, poles: dict[str, mp.ElementPoles], size: tuple[float, float], y_top: float,
             col_gap: float, info: dict, y_min: float | None = None) -> tuple[dict[str, Point], dict[str, int], int]:
+    """Rozmístění a stránkování; volný A4 bez stránkování (jedna strana, šířku dopočítá `multipole_geometry`)."""
+    if mp.paper_choice(sheet) == mp.FREE_A4:
+        size = (mp.FREE_A4_LAYOUT_W, size[1])
     layout = mp.auto_layout(sheet, poles, x0=mp.layout_x0(sheet), y_top=y_top, bridges=sheet.bridges,
                             page_w=mp.page_width(sheet, size), col_gap=col_gap, info=info, y_min=y_min,
                             merge=info.get("merge", True))
@@ -189,6 +192,8 @@ def multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: s
     from envocad.model.frame import MARGIN, TB_H
     choice = mp.paper_choice(sheet, standard_paper)
     size = mp.page_size(sheet, choice)
+    if choice == mp.FREE_A4:            # 1. průchod na široké straně změří kresbu, 2. kreslí na A4×n
+        size = (mp.FREE_A4_LAYOUT_W, mp.FREE_A4_HEIGHT)
     poles: dict[str, mp.ElementPoles] = {}
     poles.update(mp.sheet_poles(sheet, lambda e: element_symbol(project, e, lib)))
     title = switchboard_title(project, sheet)
@@ -233,6 +238,9 @@ def multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: s
     # soutok (přepínač sítí) pod nejhlubším přívodem prodlouží sloupec; když se pak kresba na výšku strany
     # nevejde ani po zhuštění, použije se mělčí rozmístění (soutok pod nejkratším přívodem), je-li na tom lépe
     g, layout, page_of, gap, deficit = fit(True)
+    if choice == mp.FREE_A4:
+        size = (_free_a4_width(g, sheet), mp.FREE_A4_HEIGHT)
+        g, layout, page_of, gap, deficit = fit(True)
     if deficit > 0.01:
         alt = fit(False)
         if alt[4] < deficit - 0.01:
@@ -243,9 +251,24 @@ def multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: s
     g.element_labels = {eid: list(ep.label_lines) for eid, ep in poles.items() if ep.label_lines is not None}
     g.page_of = dict(page_of)
     g.layout_pos = dict(layout)
-    g.paper = mp.page_paper_label(sheet, choice)
+    g.paper = mp.free_a4_label(size[0]) if choice == mp.FREE_A4 else mp.page_paper_label(sheet, choice)
     g.col_gap = gap
     return g
+
+
+def _free_a4_width(g: MultipoleGeometry, sheet: Sheet) -> float:
+    """Volný A4: nejmenší šířka v násobcích 210 mm, do které se vejde kresba přístrojů a žil z rozmístění na široké
+    straně (sběrnice a sběrné čáry vedou přes celou stranu – nepočítají se) s pravým okrajem a popisovým polem."""
+    from envocad.model.frame import MARGIN, MARGIN_LEFT, TB_W
+    spread = {e.id for e in sheet.elements if e.symbol_id == BUS}
+
+    def counts(owner: str) -> bool:
+        eid, _, part = owner.partition("#")
+        return eid not in spread and not part.startswith("rail")
+
+    right = max([box[2] for box, owner, _w in g.texts if counts(owner)]
+                + [max(a[0], b[0]) for a, b, owner, _w in g.lines if counts(owner)], default=0.0)
+    return mp.free_a4_width(max(right + MARGIN + 10.0, MARGIN_LEFT + TB_W + MARGIN + 10.0))
 
 
 def _auto_extent(g: MultipoleGeometry, poles, page_of: dict[str, int], height: float,
@@ -455,7 +478,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
             dev, ddir, kd, bus, dport = (eb, db, kb, ea, w.b.port) if ea.element.symbol_id == BUS else \
                 (ea, da, ka, eb, w.a.port)
             side = "b" if dev is eb else "a"
-            for c in mp.wire_conductors(w):
+            for c in mp.live_conductors(w, poles):
                 if c not in bus.slots:
                     continue
                 px, py = dev.pole_pos(dport, c)
@@ -464,7 +487,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
                 conductor(w, c, 0, (px, py), ddir, (px, y), "S" if y > py else "N", (t, ""), kd)
                 bus_taps.setdefault((bus.element.id, kd), []).append((px, y))
             continue
-        for i, c in enumerate(mp.wire_conductors(w)):
+        for i, c in enumerate(mp.live_conductors(w, poles)):
             pa, pb = ea.pole_pos(w.a.port, c), eb.pole_pos(w.b.port, c)
             ta = "" if mp.is_terminal_block(ea.element) else mp.terminal_text(w, c, "a")
             tb = "" if mp.is_terminal_block(eb.element) else mp.terminal_text(w, c, "b")
@@ -479,7 +502,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
                 rail_taps.setdefault(key, []).append((ks, tap))
                 continue
             if ka == kb:
-                conductor(w, c, i, pa, da, pb, db, (ta, tb), ka, len(mp.wire_conductors(w)) > 1,
+                conductor(w, c, i, pa, da, pb, db, (ta, tb), ka, len(mp.live_conductors(w, poles)) > 1,
                           branch=mp.branch_side(branches, w.id))
                 continue
             right = ka < kb
@@ -680,7 +703,7 @@ def _rail_hubs(sheet: Sheet, poles: dict[str, mp.ElementPoles], page_of: dict[st
         if not ea or not eb or BUS in (ea.element.symbol_id, eb.element.symbol_id):
             continue
         other_page = page_of.get(w.a.element_id, 0) != page_of.get(w.b.element_id, 0)
-        for c in mp.wire_conductors(w):
+        for c in mp.live_conductors(w, poles):
             ka, kb = key(w.a.element_id, w.a.port, c), key(w.b.element_id, w.b.port, c)
             ends.append((w.id, c, ka, kb))
             if other_page:

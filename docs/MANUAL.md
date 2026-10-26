@@ -312,10 +312,16 @@ prvky jdou chytit a posunout myší, `Zobrazit → Vícepól: rozmístit automat
 automatiku. Dvojklik na prvek = parametry, dvojklik na žílu = svorky, `Delete` maže.
 
 **Strany A4**: schéma rozvaděče a plán svorkovnice jsou na stranách **A4 na šířku** (297 × 210 mm) – vytisknou
-se na běžné tiskárně. Formát se volí ve `Firemní standard…` (poslední otázka: `A4`, `A4 na výšku`, `A3`; klíč
-`standard.switchboard_paper` v `settings.json`) nebo pro jeden list rozvaděče v `List → Vlastnosti listu` →
-**Formát stran schématu** (podle standardu / A4 na šířku / A4 na výšku / A3 na šířku / jako list); změna jde vrátit
-`Ctrl+Z`. Na každé straně je rámeček s popisovým polem (číslo listu a strany „2/5, str. 1/3“, formát A4); QR kód
+se na běžné tiskárně. Formát se volí ve `Firemní standard…` (poslední otázka: `A4`, `A3`, `A2`, `A1`, `volný A4`;
+klíč `standard.switchboard_paper` v `settings.json`) nebo pro jeden list rozvaděče v `List → Vlastnosti listu` →
+**Formát stran schématu** (podle standardu / A4 / A3 / A2 / A1 na šířku / **volný A4** / jako list); změna jde vrátit
+`Ctrl+Z`. **Volný A4** = jedna strana vysoká 297 mm a široká podle kresby v násobcích 210 mm (A4×2, A4×3…) – celé
+schéma rozvaděče bez přerušení na další stranu. Starší volba „A4 na výšku“ u listu zůstává platná.
+
+**Formát listu** ostatních listů (blokové schéma…) se volí tamtéž (`List → Vlastnosti listu` → **Formát listu**):
+A4, A3, A2, A1 na šířku nebo **volný A4** – výška 297 mm, šířka nejmenší násobek 210 mm, do kterého se obsah listu
+vejde mimo popisové pole (když je potřeba, obsah se posune na mřížce). Opakovaná volba volného A4 šířku přepočítá
+podle aktuálního obsahu; `Ctrl+Z` vrátí formát i polohy. Na každé straně je rámeček s popisovým polem (číslo listu a strany „2/5, str. 1/3“, formát A4); QR kód
 vlevo od popisového pole je na A4 na šířku i A3, na A4 na výšku se nevejde (popisové pole 180 mm vyplní celou
 šířku) a vynechá se. Na nízké straně A4 se rozmístění samo zhustí (posune nahoru pod nadpis, zmenší mezery mezi
 řadami), aby kresba nezasahovala do popisového pole – na obrazovce, v PDF i v kontrole F7 stejně.

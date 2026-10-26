@@ -88,6 +88,18 @@ def default_conductors(a: Element, pa: str, b: Element, pb: str) -> list[str]:
     return ["L1", "L2", "L3", "N", "PE"] if poles >= 3 else ["L1", "N", "PE"]
 
 
+PHASES = ("L1", "L2", "L3", "L")
+
+
+def branch_conductors(src: list[str], device: Element) -> list[str]:
+    """Žíly nového vodiče z uzlu k přístroji: převezme žíly vodiče uzlu, ale na jednopólový přístroj (atribut
+    `poles` = 1: jistič 1p, pojistka) vede jen jedna fáze – první fáze vodiče uzlu (většinou L1)."""
+    if str(device.attrs.get("poles") or "").strip() != "1" or device.symbol_id in TERMINAL_SYMBOLS             or device.symbol_id.startswith("ctl."):
+        return list(src)
+    phase = next((c for c in src if c in PHASES), None)
+    return [phase] if phase else list(src)
+
+
 def has_multipole(sheet) -> bool:
     """List rozvaděče má vícepól a plán svorkovnice – ne rozvaděč VN (kobky, `layout.params["voltage_level"] == "vn"`),
     ten se dokumentuje jednopólovým schématem."""
@@ -162,6 +174,8 @@ class ElementPoles:
     # popisek prvku přesunutý z výchozí polohy mimo cizí čáry (`multipole_geometry._place_element_label`):
     # [(dx, dy, text, výška, zarovnání)] relativně k `origin`; None = výchozí poloha `pole_label_lines`
     label_lines: list[tuple[float, float, str, float, str]] | None = None
+    # žíly vodičů listu, které ve vícepólu nikam nevedou (`dead_conductors`): {id vodiče: {žíla}} – společné všem pólům
+    dead: dict[str, set[str]] = field(default_factory=dict)
 
     def slot(self, conductor: str) -> int:
         conductor = self.joined.get(conductor, conductor)
@@ -625,6 +639,14 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
     cursor = y_top if horizontal else x0
     rail_pages: set[int] = set()
     holes: list[float] = []   # volné místo na konci strany, kterou předchozí strom přeskočil (začátek místa)
+    root_start: dict[str, float] = {}    # strom (kořen) → začátek jeho místa (napojený strom ho může přesunout)
+    # stromy spojené fázovým vodičem (záložní přívod → přepínač sítí) – jen ty se stránkují spolu; spoj přes PE / N
+    # (PE stringů do XPE) stromy neváže
+    phase_linked: set[tuple[str, str]] = set()
+    for w in sheet.wires:
+        ra, rb = tree_of.get(w.a.element_id), tree_of.get(w.b.element_id)
+        if ra and rb and ra != rb and set(wire_conductors(w)) - {"PE", "PEN", "N"}:
+            phase_linked |= {(ra, rb), (rb, ra)}
     for r in roots:
         tree = subtree(r)
         bus_free = not on_bus.intersection(tree)
@@ -647,7 +669,23 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
                 break
         if not filled:
             start = cursor
-            cursor = after(place(r, cursor))
+            end = place(r, cursor)
+            partner = next((q for q in linked[r] if q in root_start and paging and (r, q) in phase_linked
+                            and page_at(out[q][0]) < page_at(out[r][0])), None)
+            if partner is not None:
+                # napojený strom skočil na další stranu bez svého souseda (záložní přívod bez přepínače sítí):
+                # zkusí se přesunout oba na jeho stranu, aby spoj mezi nimi nevedl přes přerušení
+                nxt = x0 + page_at(out[r][0]) * page_w
+                e1 = place(partner, nxt)
+                e2 = place(r, after(e1))
+                if page_at(out[partner][0]) == page_at(out[r][0]) == page_at(nxt) == page_at(e2 - 1e-6):
+                    holes.append(root_start[partner])
+                    start, end = nxt, e2
+                else:
+                    place(partner, root_start[partner])
+                    end = place(r, start)
+            root_start[r] = start
+            cursor = after(end)
             if paging and page_at(out[r][0]) > page_at(start):
                 holes.append(start)
         if paging:
@@ -718,7 +756,44 @@ def sheet_poles(sheet: Sheet, symbol_of) -> dict[str, ElementPoles]:
     for eid, sym in junction_view_symbols(sheet, poles).items():
         ep = poles[eid]
         poles[eid] = element_poles(sheet, dataclasses.replace(ep.element, rotation=0, mirror=False), sym)
+    dead = dead_conductors(sheet, poles)
+    if dead:                # póly prvků bez žil, které nikam nevedou (rozestupy a sloty jen pro živé žíly)
+        touched = {end.element_id for w in sheet.wires if w.id in dead for end in (w.a, w.b)}
+        for eid in touched & poles.keys():
+            ep = poles[eid]
+            poles[eid] = element_poles(sheet, ep.element, ep.symbol, dead)
+    for ep in poles.values():
+        ep.dead = dead
     return poles
+
+
+def dead_conductors(sheet: Sheet, poles: dict[str, ElementPoles]) -> dict[str, set[str]]:
+    """Žíly vodičů, které na jednopólovém průchozím přístroji nemají pól a za ním nepokračují: vodič z uzlu s L1 L2 L3
+    N PE na jednopólový jistič – přístroj vezme L1, ostatní žíly k němu nevedou. Nekreslí se ve vícepólu
+    a nepočítají se do výrobního zapojovacího seznamu. Svorky, přívody, uzly a prvky bez průchozích portů berou
+    všechny žíly; vodiči zůstane vždy aspoň jedna žíla. {id vodiče: {žíla}}."""
+    out: dict[str, set[str]] = {}
+    for w in sheet.wires:
+        conds = wire_conductors(w)
+        for end in (w.a, w.b):
+            ep = poles.get(end.element_id)
+            if ep is None or ep.through is None or end.port not in ep.through or is_terminal_block(ep.element)                     or ep.element.symbol_id in FEED_SYMBOLS or len(ep.switched) != 1:
+                continue        # jen jednopólový přístroj (jistič 1p, zdroj): vícepólový zůstává, jak je nakreslený
+            for c in conds:
+                if c not in ep.switched and c not in ep.bypass and c not in ep.joined:
+                    out.setdefault(w.id, set()).add(c)
+        if w.id in out and out[w.id] >= set(conds):
+            out[w.id].discard(conds[0])
+            if not out[w.id]:
+                del out[w.id]
+    return out
+
+
+def live_conductors(w: Wire, poles: dict[str, ElementPoles]) -> list[str]:
+    """Žíly vodiče ve vícepólu – bez žil, které nikam nevedou (`dead_conductors`)."""
+    ep = poles.get(w.a.element_id) or poles.get(w.b.element_id)
+    dead = ep.dead.get(w.id, ()) if ep is not None else ()
+    return [c for c in wire_conductors(w) if c not in dead]
 
 
 JUNCTION_SYMBOL = "sb.junction"
@@ -843,12 +918,12 @@ def feed_cable_up(ep: ElementPoles) -> bool:
     return is_feed_in(e)
 
 
-def element_poles(sheet: Sheet, e: Element, sym: Symbol) -> ElementPoles:
+def element_poles(sheet: Sheet, e: Element, sym: Symbol, dead: dict[str, set[str]] | None = None) -> ElementPoles:
     per_port: dict[str, set[str]] = {p.name: set() for p in sym.ports}
     for w in sheet.wires:
         for end in (w.a, w.b):
             if end.element_id == e.id and end.port in per_port:
-                per_port[end.port].update(wire_conductors(w))
+                per_port[end.port].update(c for c in wire_conductors(w) if c not in (dead or {}).get(w.id, ()))
     all_c: set[str] = set().union(*per_port.values()) if per_port else set()
     slots = sorted(all_c, key=canon_key)
     thr = through_ports(sym, e.rotation)
@@ -1034,8 +1109,16 @@ MIN_COL_GAP = 10.0    # nejmenší mezera mezi sloupci při zhuštění na nízk
 
 # ---- formát stran vícepólu a plánu svorkovnice listu rozvaděče ---------------------------------------------------
 # volba („A4“ výchozí) ve firemním standardu `standard.switchboard_paper` nebo u listu `Sheet.mp_paper`
-SWITCHBOARD_PAPERS = {"A4": (297.0, 210.0), "A4 na výšku": (210.0, 297.0), "A3": (420.0, 297.0)}
+SWITCHBOARD_PAPERS = {"A4": (297.0, 210.0), "A4 na výšku": (210.0, 297.0), "A3": (420.0, 297.0),
+                      "A2": (594.0, 420.0), "A1": (841.0, 594.0)}
 DEFAULT_SWITCHBOARD_PAPER = "A4"
+# volný A4: výška 297 mm, šířka podle obsahu v násobcích 210 mm (A4×n) – vícepól na jedné straně bez přerušení
+FREE_A4 = "volný A4"
+FREE_A4_STEP = 210.0
+FREE_A4_HEIGHT = 297.0
+FREE_A4_LAYOUT_W = 40 * FREE_A4_STEP     # šířka pro první průchod rozmístění (změří se skutečná šířka kresby)
+# nabídka v GUI (vlastnosti listu, firemní standard); „A4 na výšku“ zůstává platná pro starší projekty
+PAPER_CHOICES = ("A4", "A3", "A2", "A1", FREE_A4)
 SHEET_PAPER = "list"      # strana = rozměr listu (`Sheet.width × height`, chování do 10/2026)
 _DEFAULT_SHEET_SIZE = ("A3", 420.0, 297.0)
 
@@ -1045,7 +1128,17 @@ def normalize_switchboard_paper(value: object) -> str:
     standardu (`standard.switchboard_paper`) čte `envocad.settings.switchboard_paper` – model nastavení nečte,
     funkce níže dostávají standard parametrem `standard_paper` od volajícího (GUI, export, generátor)."""
     v = str(value or "").strip()
-    return v if v in SWITCHBOARD_PAPERS else DEFAULT_SWITCHBOARD_PAPER
+    return v if v in SWITCHBOARD_PAPERS or v == FREE_A4 else DEFAULT_SWITCHBOARD_PAPER
+
+
+def free_a4_label(width: float) -> str:
+    """Popis volného A4 do popisového pole podle šířky: 420 → „A4×2“."""
+    return f"A4×{max(1, round(width / FREE_A4_STEP))}"
+
+
+def free_a4_width(needed: float) -> float:
+    """Nejmenší šířka volného A4 (násobek 210 mm), do které se vejde `needed` mm."""
+    return max(1, -(-needed // FREE_A4_STEP)) * FREE_A4_STEP
 
 
 def paper_choice(sheet: Sheet, standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) -> str:
@@ -1056,7 +1149,7 @@ def paper_choice(sheet: Sheet, standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) 
     stran původního rozměru) bez volby → „list“ (beze změny proti dřívějšku); jinak firemní standard `standard_paper`
     (výchozí A4; neplatná hodnota → A4)."""
     v = getattr(sheet, "mp_paper", "") or ""
-    if v in SWITCHBOARD_PAPERS or v == SHEET_PAPER:
+    if v in SWITCHBOARD_PAPERS or v in (SHEET_PAPER, FREE_A4):
         return v
     if not sheet.is_switchboard:
         return SHEET_PAPER
@@ -1068,14 +1161,19 @@ def paper_choice(sheet: Sheet, standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) 
 
 def page_size(sheet: Sheet, choice: str | None = None,
               standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) -> tuple[float, float]:
-    """Rozměr strany vícepólu / plánu svorkovnice (šířka, výška v mm)."""
+    """Rozměr strany vícepólu / plánu svorkovnice (šířka, výška v mm). Volný A4 = výchozí A4×2 (plán svorkovnice);
+    skutečnou šířku strany vícepólu dopočítá `multipole_geometry` podle kresby (`MultipoleGeometry.page_size`)."""
     v = choice or paper_choice(sheet, standard_paper)
+    if v == FREE_A4:
+        return (2 * FREE_A4_STEP, FREE_A4_HEIGHT)
     return (float(sheet.width), float(sheet.height)) if v == SHEET_PAPER else SWITCHBOARD_PAPERS[v]
 
 
 def page_paper_label(sheet: Sheet, choice: str | None = None, standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) -> str:
     """Formát strany do popisového pole („A4“; u rozměru listu jeho formát)."""
     v = choice or paper_choice(sheet, standard_paper)
+    if v == FREE_A4:
+        return free_a4_label(page_size(sheet, v)[0])
     return sheet.paper if v == SHEET_PAPER else v.split()[0]
 
 

@@ -737,15 +737,21 @@ class MainWindow(QMainWindow):
         dlg = SheetPropsDialog(sh, self)
         if dlg.exec() != SheetPropsDialog.Accepted:
             return
-        self.set_sheet_props(sh, *dlg.values(), mp_paper=dlg.mp_paper())
+        self.set_sheet_props(sh, *dlg.values(), mp_paper=dlg.mp_paper(), sheet_format=dlg.sheet_format())
 
-    def set_sheet_props(self, sh: Sheet, name: str, func: str, loc: str, mp_paper: str | None = None) -> bool:
-        """Název, označení listu a formát stran schématu rozvaděče (`mp_paper`, None = beze změny) jako jeden krok
-        undo (makro). False = neplatný kód, nic se nezmění."""
+    def set_sheet_props(self, sh: Sheet, name: str, func: str, loc: str, mp_paper: str | None = None,
+                        sheet_format: str | None = None) -> bool:
+        """Název, označení listu, formát stran schématu rozvaděče (`mp_paper`, None = beze změny) a formát listu
+        (`sheet_format` – A4…A1, volný A4; None = beze změny) jako jeden krok undo (makro). False = neplatný kód,
+        nic se nezmění."""
+        from envocad.model.frame import sheet_format_placement
         rename = bool(name) and name != sh.name
         designate = (func, loc) != (sh.func, sh.loc)
         repaper = mp_paper is not None and mp_paper != sh.mp_paper
-        if not (rename or designate or repaper):
+        placement = sheet_format_placement(self.project, sh, self.library, sheet_format) if sheet_format else None
+        resize = placement is not None and (placement[:3] != (sh.paper, float(sh.width), float(sh.height))
+                                            or placement[3:] != (0.0, 0.0))
+        if not (rename or designate or repaper or resize):
             return True
         if designate and not self._valid_sheet_codes(sh, func, loc):
             return False
@@ -757,6 +763,8 @@ class MainWindow(QMainWindow):
         if repaper:
             self.undo.push(commands.SetSheetPaperCommand(sh, sh.mp_paper, mp_paper,
                                                          on_change=lambda: self._rebuild_sheet_views(sh)))
+        if resize:
+            self.undo.push(commands.SetSheetSizeCommand(sh, placement, on_change=lambda: self._rebuild_sheet_views(sh)))
         self.undo.endMacro()
         return True
 
@@ -1486,9 +1494,11 @@ class MainWindow(QMainWindow):
             if not ok:
                 return
             s[key] = v.strip()
-        from envocad.model.multipole import SWITCHBOARD_PAPERS
+        from envocad.model.multipole import PAPER_CHOICES
         from envocad.settings import switchboard_paper
-        papers = list(SWITCHBOARD_PAPERS)
+        papers = list(PAPER_CHOICES)
+        if switchboard_paper() not in papers:
+            papers.append(switchboard_paper())     # starší volba („A4 na výšku“)
         v, ok = QInputDialog.getItem(self, "Firemní standard", "Formát stran schématu rozvaděče a plánu svorkovnice",
                                      papers, papers.index(switchboard_paper()), False)
         if not ok:
