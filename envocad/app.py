@@ -55,6 +55,16 @@ def main() -> None:
     sys.exit(rc)
 
 
+def _safe(fn, *args):
+    """Krok aktualizace při startu – chyba se jen zaloguje, program se spustí v běžící verzi."""
+    from envocad.logging_setup import log
+    try:
+        return fn(*args)
+    except Exception:  # noqa: BLE001
+        log.exception("aktualizace při startu selhala")
+        return None
+
+
 def load_start_project(args: list[str]):
     """Projekt z příkazové řádky: (projekt, None), bez argumentu (None, None); vadný soubor → (None, česká hláška)
     a start s prázdným projektem."""

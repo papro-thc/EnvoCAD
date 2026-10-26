@@ -30,6 +30,10 @@ DEFAULTS = {
     # klávesy ve výkresu: „zwcad“ = psaní jde do příkazového řádku (M = MOVE, RO = otočit…), „envocad“ = jednoklávesové
     # zkratky R otočit, M zrcadlit, W vodič, N narovnat, T text (rozhodnutí 1 návrhu příkazového řádku)
     "cmdline_keys": "zwcad",
+    # aktualizace při startu (`envocad/updater.py`): dotaz na novou vydanou verzi; `update_dir` = sdílená složka
+    # vydání s `latest.json` pro samostatnou aplikaci (prázdné = složka zapsaná instalátorem)
+    "auto_update": True,
+    "update_dir": "",
     "standard": {
         "author": "", "company": "ENVO s.r.o.",
         "dc_cable": "H1Z2Z2-K 1x6", "dc_cross": 6, "ac_cable": "CYKY-J 5x16", "ac_cross": 16,

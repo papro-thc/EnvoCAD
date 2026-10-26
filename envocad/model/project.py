@@ -951,7 +951,8 @@ class Project:
             raise CorruptProjectError(f"Soubor je poškozen: neplatná verze formátu {ver!r}")
         ver = int(ver)
         if ver > FORMAT_VERSION:
-            raise ValueError(f"Projekt je z novější verze programu (formát {ver})")
+            raise ValueError(f"Projekt je z novější verze programu (formát {ver}) – aktualizujte EnvoCAD "
+                             "(nová verze se nabídne při spuštění)")
         _check_shape(d)
         try:
             d = migrate(d, ver)

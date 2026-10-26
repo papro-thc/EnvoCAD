@@ -28,6 +28,12 @@ a spustí program. Ručně: `python -m venv .venv`, aktivovat, `pip install -e .
 Samostatná aplikace bez Pythonu pro kolegy: `scripts\build.ps1` / `scripts/build.sh` sestaví složku
 `dist/EnvoCAD` přes PyInstaller.
 
+**Aktualizace:** při spuštění přes `scripts\run.cmd` (nebo samostatnou aplikaci nainstalovanou ze sdílené složky) se
+EnvoCAD zeptá, když vyjde nová verze – **Aktualizovat** ji nainstaluje a spustí, **Teď ne** se zeptá zase za den.
+Nová verze se objeví při druhém spuštění po vydání (první na pozadí zjistí, že existuje). Rozpracované změny ve
+vlastním klonu repozitáře se nikdy nepřepíšou. Vypnutí: `"auto_update": false` v `settings.json`; návrat na
+předchozí verzi: `.venv\Scripts\python.exe -m envocad.updater rollback`. Podrobnosti v `docs/RELEASE.md`.
+
 Uživatelská data jsou v `~/.envocad/` (Windows `C:\Users\<jméno>\.envocad\`): knihovna (`library.db`, vlastní
 balíčky v `library/`), pluginy, nastavení (`settings.json`), logy (`log/`) a automatické zálohy (`autosave/`).
 
