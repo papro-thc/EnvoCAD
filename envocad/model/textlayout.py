@@ -12,7 +12,15 @@ from itertools import pairwise
 
 from envocad.model.designation import display_designation, element_name
 from envocad.model.geometry import Point, wire_label_anchor
-from envocad.model.project import Element, Project, Sheet, element_symbol, element_xref, wire_label, wire_xref
+from envocad.model.project import (
+    Element,
+    Project,
+    Sheet,
+    element_symbol,
+    element_xref,
+    wire_label_on,
+    wire_xref,
+)
 from envocad.model.symbol import MIRROR_ALIGN, place_point, rotate_point
 
 Box = tuple[float, float, float, float]   # x1, y1, x2, y2 (x1<x2, y1<y2)
@@ -467,7 +475,7 @@ def _compute_layout(project: Project, sheet: Sheet, lib, routes: dict[str, list[
         pts = routes.get(w.id)
         if not pts or len(pts) < 2:
             continue
-        label = wire_label(w.attrs, w.conductors)
+        label = wire_label_on(sheet, w, w.conductors)
         xref = xref_of(w)
         if not (label or xref):
             continue

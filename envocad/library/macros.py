@@ -684,6 +684,7 @@ def _expand_once(project, sheet, fragment: dict, values: dict, dx: float, dy: fl
         copy_prefix,
         detach_element_attrs,
         detach_wire_attrs,
+        internal_wires,
     )
     idmap: dict[str, str] = {}
     els: list[Element] = []
@@ -742,7 +743,9 @@ def _expand_once(project, sheet, fragment: dict, values: dict, dx: float, dy: fl
                   points=[(x + dx, y + dy) for x, y in w.points],
                   attrs={k: subst(v, values) for k, v in detach_wire_attrs(w.attrs).items() if k != "when"},
                   conductors=list(w.conductors))
-        if nw.attrs.get("ref") and "{" not in str(w.attrs.get("ref", "")):
+        if internal_wires(sheet):
+            nw.attrs.pop("ref", None)            # vnitřní vodič rozvaděče bez označení W
+        elif nw.attrs.get("ref") and "{" not in str(w.attrs.get("ref", "")):
             n = 1
             while f"W{n}" in used:
                 n += 1

@@ -14,7 +14,15 @@ from itertools import pairwise
 from envocad.model import multipole as mp
 from envocad.model.designation import element_name
 from envocad.model.feed import FEED_SYMBOLS
-from envocad.model.project import Project, Sheet, element_symbol, linked_wire, switchboard_title, wire_label
+from envocad.model.project import (
+    Project,
+    Sheet,
+    element_symbol,
+    linked_wire,
+    switchboard_title,
+    wire_label,
+    wire_label_on,
+)
 from envocad.model.symbol import rotate_dir, rotate_point
 from envocad.model.textlayout import (
     CHAR_W,
@@ -361,7 +369,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
         prim("poly", tuple(pts), page, weight="wire")
         label = c
         if idx == 0:
-            lbl = wire_label(w.attrs)
+            lbl = wire_label_on(sheet, w)
             label = f"{lbl}  {c}" if lbl else c
         pending.append(((w.id, c, part), owner, pts, label, staggered))   # rozmístí se, až budou známé všechny čáry
         label_page[(w.id, c, part)] = page

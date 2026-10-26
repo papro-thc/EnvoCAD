@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QStyleOptionGrap
 
 from envocad.model.designation import display_designation
 from envocad.model.grid import snap  # re-export: canvas, vícepól a poznámky importují `envocad.ui.items.snap`
-from envocad.model.project import Element, Wire, wire_label
+from envocad.model.project import Element, Wire, wire_label_on
 from envocad.model.symbol import GRID, Symbol, place_dir, rotate_point
 from envocad.ui.render import LINE_WIDTH, draw_text, paint_symbol, sp, symbol_path
 from envocad.ui.theme import colors
@@ -163,7 +163,7 @@ class WireItem(QGraphicsPathItem):
         sc = self.scene()
         lp = sc.wire_label_pos(self.wire) if hasattr(sc, "wire_label_pos") else None
         if lp is None:
-            label = wire_label(self.wire.attrs, self.wire.conductors)
+            label = wire_label_on(getattr(sc, "sheet", None), self.wire, self.wire.conductors)
             xref = sc.wire_xref(self.wire) if hasattr(sc, "wire_xref") else ""
             if not (label or xref):
                 return
