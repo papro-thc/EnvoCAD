@@ -198,10 +198,13 @@ def multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: s
         plain = _multipole_geometry(project, sheet, lib, standard_paper=standard_paper)
     finally:
         _REROUTE = True
-    def score(geo: MultipoleGeometry) -> int:   # překryvy textů + žíly přes cizí značky
-        return len(multipole_text_overlaps(project, sheet, lib, geo, standard_paper=standard_paper))             + symbol_crossings(sheet, geo)
+    def score(geo: MultipoleGeometry) -> tuple[int, int]:   # (překryvy textů, žíly přes cizí značky)
+        return (len(multipole_text_overlaps(project, sheet, lib, geo, standard_paper=standard_paper)),
+                symbol_crossings(sheet, geo))
 
-    return g if score(g) <= score(plain) else plain
+    # objízdné trasy jen bez nových překryvů textů (hlásí je F7) a s menším součtem
+    (t_r, s_r), (t_p, s_p) = score(g), score(plain)
+    return g if t_r <= t_p and t_r + s_r <= t_p + s_p else plain
 
 
 def symbol_crossings(sheet: Sheet, g: MultipoleGeometry) -> int:
