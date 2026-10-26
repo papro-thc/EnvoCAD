@@ -1,6 +1,8 @@
 # Changelog
 
 ## Nevydáno
+- **Oprava: popisek lišty PE/N** – lišta `sb.pe_bar` ukazuje u čáry druh z parametru **Druh** (`kind`: PE, N, PEN…);
+  dřív tam bylo vždy „PE“ i u N lišty (jednopól, vícepól, PDF, DXF). Test `test_pe_bar_label.py`.
 - **Aktualizace při spuštění** (`envocad/updater.py`, `docs/RELEASE.md`): EnvoCAD se aktualizuje jen na vydané verze
   (tagy `vX.Y.Z`) a před aktualizací se zeptá (**Aktualizovat** / **Teď ne** = znovu za 24 h, s výpisem změn).
   Klon repozitáře: `scripts\run.cmd` / `run.ps1` / `run.sh` před startem porovná lokální tagy, `git fetch` běží na

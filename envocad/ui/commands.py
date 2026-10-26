@@ -370,11 +370,12 @@ class SetAttrCommand(_FeedFollowups, QUndoCommand):
         project = getattr(self.scene, "project", None)
         if it is None or project is None or self.is_wire:
             return
-        from envocad.model.project import BLOCK_PORTS_IN, BLOCK_PORTS_OUT
+        from envocad.model.project import BLOCK_PORTS_IN, BLOCK_PORTS_OUT, PE_BAR_SYMBOL
         bus = it.element.symbol_id == BUS_SYMBOL and self.key in PARAM_KEYS
         # blok rozvaděče bez listu: porty z atributů – nová značka a vodiče k novým polohám portů
         block = it.element.symbol_id == "fve.switchboard" and self.key in (BLOCK_PORTS_IN, BLOCK_PORTS_OUT)
-        if not (bus or block) and (self.key != "dir" or not is_feed(it.element)):
+        bar = it.element.symbol_id == PE_BAR_SYMBOL and self.key == "kind"     # popisek lišty PE / N
+        if not (bus or block or bar) and (self.key != "dir" or not is_feed(it.element)):
             return
         from envocad.model.project import element_symbol
         from envocad.ui.render import symbol_path

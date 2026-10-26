@@ -1985,6 +1985,19 @@ def inverter_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
                   label_pos=(base.label_pos[0], half + 10.0))
 
 
+PE_BAR_SYMBOL = "sb.pe_bar"
+
+
+def pe_bar_symbol(e: Element, base: Symbol) -> Symbol:
+    """Lišta PE/N: popisek u lišty podle atributu `kind` (PE, N, PEN…) místo pevného „PE“ ze značky."""
+    kind = str(e.attrs.get("kind", "") or "").strip() or "PE"
+    if kind == "PE":
+        return base
+    prims = [{**pr, "text": kind} if pr.get("type") == "text" and pr.get("text") == "PE" else pr
+             for pr in base.primitives]
+    return dataclasses.replace(base, primitives=prims)
+
+
 def _used_ports(project: Project, e: Element) -> set[str]:
     """Porty prvku, na které vedou vodiče jeho listu."""
     sheet = project.sheet_of_element(e.id)
@@ -2040,6 +2053,8 @@ def _element_symbol(project: Project, e: Element, lib) -> Symbol:
         sym = feed_symbol(e, base)
     elif e.symbol_id == BUS_SYMBOL and str(e.attrs.get(TAPS_ATTR, "")).strip():
         sym = busbar_symbol(e, base, used)     # jen parametrická sběrnice (pevná = značka z knihovny)
+    elif e.symbol_id == PE_BAR_SYMBOL:
+        sym = pe_bar_symbol(e, base)
     else:
         sym = base
     if used and not used <= {p.name for p in sym.ports}:
