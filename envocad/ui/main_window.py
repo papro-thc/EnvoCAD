@@ -134,6 +134,7 @@ class MainWindow(QMainWindow):
         self.tabs.installEventFilter(self)
         self._build_actions()
         self._load_plugins()
+        self._build_command_line()
         import uuid
         self._autosave_token = uuid.uuid4().hex[:8]   # nepojmenovaný projekt: vlastní autosave pro každé okno
         # autosave patřící TOMUTO oknu: poslední zapsaná kopie a obnovená kopie (z ní okno vzniklo). Okno maže jen
@@ -243,7 +244,7 @@ class MainWindow(QMainWindow):
         m_edit.addAction(r)
         self.actions["undo"], self.actions["redo"] = u, r
         m_edit.addSeparator()
-        act(m_edit, "Kopírovat", lambda: self.scene and self.scene.copy_selected(), None, "copy")
+        act(m_edit, "Kopírovat", lambda: self.scene and self.scene.copy_selected(), None, "copy_clipboard")
         act(m_edit, "Vložit kopii", lambda: self.scene and self.scene.paste(), None, "paste")
         act(m_edit, "Uložit výběr jako makro…", self.save_macro, "Ctrl+Alt+M", "save_macro")
         act(m_edit, "Smazat makro…", self.delete_macro)
@@ -264,14 +265,14 @@ class MainWindow(QMainWindow):
         act(m_edit, "Hledat příkaz…", self.command_palette, "Ctrl+K", "palette")
 
         m_draw = mb.addMenu("&Kreslit")
-        act(m_draw, "Výběr (Esc)", lambda: self.draw_scene and self.draw_scene.set_mode(Mode.SELECT), None, "select")
+        act(m_draw, "Výběr (Esc)", lambda: self.draw_scene and self.draw_scene.set_mode(Mode.SELECT), None, "select_mode")
         act(m_draw, "Vodič (W)", lambda: self.draw_scene and self.draw_scene.start_wire(), None, "wire")
         act(m_draw, "Vložit značku z knihovny", self.insert_symbol, None, "insert_symbol")
         act(m_draw, "Přerušovací bod", lambda: self.scene and self.scene.start_place("fve.interrupt"), None, "interrupt")
         act(m_draw, "Text", lambda: self.scene and self.scene.set_mode(Mode.TEXT), "T", "text")
         self.act_note = act(m_draw, "Připomínka", self.start_note, "Ctrl+Shift+P", "note")
 
-        m_view = mb.addMenu("&Zobrazit")
+        m_view = self.m_view = mb.addMenu("&Zobrazit")
         act(m_view, "Přizpůsobit list", lambda: self.view and self.view.zoom_fit(), "Home", "fit")
         act(m_view, "Přiblížit", lambda: self.zoom(1.25), "Ctrl++", "zoom_in")
         act(m_view, "Oddálit", lambda: self.zoom(1 / 1.25), "Ctrl+-", "zoom_out")
@@ -438,6 +439,8 @@ class MainWindow(QMainWindow):
                 widget.deleteLater()
             raise
         self._clear_autosave()   # předchozí projekt byl uložen nebo zahozen (`_confirm_discard`) – jeho kopie okna pryč
+        if getattr(self, "cmdline", None) is not None:
+            self.cmdline.reset()  # rozpracovaný příkaz patří předchozímu projektu
         self.project = project
         self.nav_panel.set_project(project)
         self.notes_panel.set_project(project, self.undo)
@@ -645,6 +648,8 @@ class MainWindow(QMainWindow):
 
     def _tab_changed(self, _index: int) -> None:
         log.info("tab_changed %s", _index)
+        if getattr(self, "cmdline", None) is not None:
+            self.cmdline.view_changed()      # výzva bodu ve skryté záložce nemá smysl – příkaz se zruší
         self.props_panel.show_item(None)
         if self.current_sheet is not None:
             self.notes_panel.set_current_sheet(self.current_sheet.id)
@@ -1037,7 +1042,8 @@ class MainWindow(QMainWindow):
         txt = {Mode.SELECT: "Výběr", Mode.PLACE: "Vkládání symbolu – klik umístí, Esc/pravé tl. ukončí",
                Mode.WIRE: "Vodič – klikněte na port, pak na druhý port",
                Mode.NOTE: "Připomínka – klik = bod, tah = obdélník, Esc/pravé tl. ukončí",
-               Mode.TEXT: "Text – klik umístí text (dvojklik na text = úprava), Esc/pravé tl. ukončí"}[mode]
+               Mode.TEXT: "Text – klik umístí text (dvojklik na text = úprava), Esc/pravé tl. ukončí",
+               Mode.PICK: "Příkazový řádek – klik zadá bod, Esc/pravé tl. zruší příkaz"}[mode]
         self.statusBar().showMessage(txt)
         self._sync_tool_checks()
 
@@ -2177,29 +2183,29 @@ class MainWindow(QMainWindow):
     # (objectName, název, akce; None = oddělovač). Kreslení jen v JPS a vícepólu, Dispozice jen v rozložení.
     TOOLBARS = (
         ("tb_file", "Soubor", ("new", "open", "save", None, "export_pdf", "export_dxf")),
-        ("tb_edit", "Úpravy", ("undo", "redo", None, "copy", "paste", "delete", None, "find")),
+        ("tb_edit", "Úpravy", ("undo", "redo", None, "copy_clipboard", "paste", "delete", None, "find")),
         ("tb_view", "Pohled", ("fit", "zoom_in", "zoom_out", "focus", None, "view_singlepole", "view_multipole",
                                "view_layout", "view_terminals", None, "dark")),
-        ("tb_draw", "Kreslení", ("select", "wire", "insert_symbol", "interrupt", "text", "note", None, "rotate", "mirror",
+        ("tb_draw", "Kreslení", ("select_mode", "wire", "insert_symbol", "interrupt", "text", "note", None, "rotate", "mirror",
                                  "straighten")),
         ("tb_layout", "Dispozice", ("enclosure", "production")),
         ("tb_out", "Kontrola a výstupy", ("checks", "reports", "doc_pdf", "labels")),
     )
     ICONS: ClassVar[dict[str, str]] = {
         "new": "file-plus", "open": "folder-open", "save": "save", "export_pdf": "file-down",
-        "export_dxf": "file-output", "undo": "undo-2", "redo": "redo-2", "copy": "copy", "paste": "clipboard-paste",
+        "export_dxf": "file-output", "undo": "undo-2", "redo": "redo-2", "copy_clipboard": "copy", "paste": "clipboard-paste",
         "delete": "trash-2", "find": "search", "fit": "scan", "zoom_in": "zoom-in", "zoom_out": "zoom-out", "focus": "expand",
         "view_singlepole": "singlepole", "view_multipole": "multipole", "view_layout": "din-rail",
-        "view_terminals": "terminal-strip", "dark": "moon", "select": "mouse-pointer-2", "wire": "wire",
+        "view_terminals": "terminal-strip", "dark": "moon", "select_mode": "mouse-pointer-2", "wire": "wire",
         "insert_symbol": "component", "note": "message-square-plus", "rotate": "rotate-cw", "straighten": "straighten",
         "mirror": "flip-horizontal-2", "text": "type", "interrupt": "interrupt",
         "enclosure": "package", "production": "factory", "checks": "circle-check-big", "reports": "table",
         "doc_pdf": "book-open", "labels": "tag",
     }
     TEXT_BESIDE: ClassVar[dict[str, str]] = {"checks": "Kontrola", "doc_pdf": "Dokumentace"}   # tlačítka s popiskem
-    TOOLS: ClassVar[dict[str, Mode]] = {"select": Mode.SELECT, "wire": Mode.WIRE, "insert_symbol": Mode.PLACE, "note": Mode.NOTE,
+    TOOLS: ClassVar[dict[str, Mode]] = {"select_mode": Mode.SELECT, "wire": Mode.WIRE, "insert_symbol": Mode.PLACE, "note": Mode.NOTE,
                                         "text": Mode.TEXT}
-    JPS_ONLY = ("copy", "paste", "straighten", "mirror", "text", "interrupt")   # jen editor JPS / listu (ne vícepól)
+    JPS_ONLY = ("copy_clipboard", "paste", "straighten", "mirror", "text", "interrupt")   # jen editor JPS / listu (ne vícepól)
     VIEWS: ClassVar[dict[str, str]] = {"view_singlepole": "schematic", "view_multipole": "multipole", "view_layout": "layout",
              "view_terminals": "terminals"}
 
@@ -2303,8 +2309,51 @@ class MainWindow(QMainWindow):
     # ---- hledání příkazů ------------------------------------------------------
     def command_palette(self) -> None:
         from envocad.ui.command_palette import CommandPalette
-        self._palette = CommandPalette(self.menuBar(), self)
+        hints = {}
+        for key, a in self.actions.items():
+            cmd = self.cmd_registry.resolve(key)
+            if cmd is not None:
+                hints[a] = ", ".join([cmd.name.upper(), *self.cmd_registry.aliases_of(cmd.name)])
+        self._palette = CommandPalette(self.menuBar(), self, hints)
         self._palette.open()
+
+    # ---- příkazový řádek ------------------------------------------------------------
+    def _build_command_line(self) -> None:
+        """Dok „Příkazový řádek“ dole. Každá akce s id je i příkaz (headless příkaz se stejným jménem má přednost,
+        akce mu zůstane jako `gui_fallback`). Režim kláves „zwcad“ (nastavení `cmdline_keys`): psaní ve výkresu jde do
+        řádku a jednopísmenné zkratky akcí (R, M, N, T) se vypnou."""
+        from envocad.cmd import CommandDef, default_registry
+        from envocad.cmd.registry import norm
+        from envocad.settings import cmdline_keys
+        from envocad.ui.command_line import CanvasTyping, CommandLine
+        from envocad.ui.command_palette import _clean
+        self.cmd_registry = default_registry()
+        for key, a in self.actions.items():
+            if norm(key) not in self.cmd_registry.commands:
+                self.cmd_registry.add(CommandDef(key, _clean(a.text()) or key, needs_gui=True))
+        self.cmdline = CommandLine(self, self.cmd_registry)
+        self._dock("Příkazový řádek", self.cmdline, Qt.BottomDockWidgetArea)
+        self.cmdline_dock = self.findChild(QDockWidget, "Příkazový řádek")
+        toggle = self.cmdline_dock.toggleViewAction()      # zavřený dok jde vrátit z menu
+        toggle.setText("Příkazový řádek")
+        self.m_view.insertAction(self.m_view.actions()[-1], toggle)
+        a = QAction("Historie příkazového řádku", self)
+        a.setShortcut(QKeySequence("F2"))
+        a.triggered.connect(self.cmdline.toggle_history)
+        self.addAction(a)
+        self.actions["cmdline_history"] = a
+        self.cmd_registry.add(CommandDef("cmdline_history", a.text(), needs_gui=True))
+        self.cmdline_keys = cmdline_keys()
+        self._canvas_typing = CanvasTyping(self, self.cmdline, self.cmdline_dock, typing=self.cmdline_keys == "zwcad")
+        if self.cmdline_keys == "zwcad":
+            for act in self.actions.values():
+                seq = act.shortcut().toString()
+                if len(seq) == 1 and seq.isalpha():      # R otočit, M zrcadlit, N narovnat, T text → písmena do řádku
+                    act.setShortcut(QKeySequence())
+
+    def sheets_changed(self, sheet_ids: list[str]) -> None:
+        """Přestavba pohledů po změně listů mimo scénu (příkazový řádek, šablona)."""
+        self._sheets_changed(sheet_ids)
 
     # ---- stavový řádek ----------------------------------------------------------
     def _build_status_widgets(self) -> None:
@@ -2420,7 +2469,7 @@ class MainWindow(QMainWindow):
                 menu.addAction(self.actions["straighten"])
             menu.addSeparator()
         if hit is not None:
-            for k in ("rotate", "mirror", "copy", "delete"):
+            for k in ("rotate", "mirror", "copy_clipboard", "delete"):
                 if self.actions[k].isEnabled():
                     menu.addAction(self.actions[k])
             if self.scene is not None:
@@ -2488,6 +2537,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, ev) -> None:
         if self._confirm_discard():
+            self.cmdline.reset()
             self._save_window()
             self._clear_autosave()   # uloženo nebo zahozeno – kopie tohoto okna už není potřeba
             ev.accept()

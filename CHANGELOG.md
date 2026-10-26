@@ -1,6 +1,13 @@
 # Changelog
 
 ## Nevydáno
+- **Příkazový řádek – fáze 2: dok v okně** (`ui/command_line.py`): dok „Příkazový řádek“ dole (výstup, výzva, vstup);
+  příkaz = jeden krok Ctrl+Z (`ChangeSet` → `SheetsStateCommand`), body textem nebo klikem do výkresu (`Mode.PICK`
+  s gumovou čárou), výběr myší + Enter, Enter/mezera potvrdí, prázdný Enter opakuje, Esc zruší (model beze změny),
+  ↑/↓ historie (`~/.envocad/cmd_history.txt`), Tab doplní, F2 delší výstup. Režim kláves `cmdline_keys` (nastavení,
+  výchozí „zwcad“ – psaní ve výkresu jde do řádku, zkratky R/M/N/T vypnuté; „envocad“ = jednoklávesové zkratky).
+  Každá akce menu s id je příkaz, paleta Ctrl+K ukazuje jméno příkazu a aliasy. Id akcí `copy` → `copy_clipboard`,
+  `select` → `select_mode` (kolize s příkazy COPY / SELECT). Test `test_cmd_gui.py`.
 - **Oprava: instalace na Windows** – `scripts\install.ps1` padal ve Windows PowerShellu 5.1 („The string is missing
   the terminator“): soubor byl v UTF-8 bez BOM, PowerShell ho četl jako ANSI a „–“ rozbilo řetězec. `install.ps1`
   a `build.ps1` jsou teď v UTF-8 s BOM (hlídá `tests/test_scripts_encoding.py`). Nové `scripts\install.cmd`

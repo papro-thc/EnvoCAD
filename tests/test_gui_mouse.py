@@ -131,7 +131,9 @@ def test_draw_wire_with_mouse(app, win):
     ia, ib = sc.element_items[a.id], sc.element_items[b.id]
     port = view.viewport()
 
-    QTest.keyClick(port, Qt.Key_W)
+    QTest.keyClick(port, Qt.Key_W)                     # klávesy „zwcad“ (výchozí): W jde do příkazového řádku
+    assert sc.mode == Mode.SELECT and w.cmdline.input.text() == "w"
+    QTest.keyClick(port, Qt.Key_Return)                # W = WIRE bez argumentů → kreslení vodiče myší
     assert sc.mode == Mode.WIRE
     pa = vp_scene(w, ia.port_scene_pos("2"))
     pb = vp_scene(w, ib.port_scene_pos("1"))

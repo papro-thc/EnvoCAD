@@ -164,7 +164,8 @@ Viz `docs/LIBRARY_FORMAT.md`.
 `QUndoStack` v UI; každá změna modelu je `QUndoCommand` (přidat/smazat/posunout element, přidat vodič,
 změnit atribut). Model sám o undo neví. Příkazový řádek (`envocad/cmd`) mění model přímo přes `cmd/edits.py` v transakci runneru
 a vrací `ChangeSet` (`before`/`after` ve tvaru `model.project.sheets_state`); GUI ho pushne jako jeden
-`SheetsStateCommand` (první redo nic nemění), headless CLI drží historii v `Journal`. Shodu s QUndoCommandy GUI hlídá
+`SheetsStateCommand` (první redo nic nemění; dok `ui/command_line.py`, výzvy bodu klikem přes `Mode.PICK` scény,
+psaní ve výkresu filtr `CanvasTyping`), headless CLI drží historii v `Journal`. Shodu s QUndoCommandy GUI hlídá
 `tests/test_cmd_parity.py` (stejné `to_dict` po INSERT, MOVE, ROTATE, MIRROR, COPY, ERASE, SET ref). Operace nad projektem mají vlastní příkazy (`ui/commands.py`): přidání a
 smazání listu (`AddSheetCommand`, `DeleteSheetCommand` – vrací i odpojené listy rozvaděčů a atribut „sheet“ bloku,
 záložky listu se zavřou / obnoví), šablona rozvaděče (`SheetsStateCommand` – snímek změněných listů, `sheets_state` / `restore_sheets_state` jsou čistý

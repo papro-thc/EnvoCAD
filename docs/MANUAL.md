@@ -1060,11 +1060,11 @@ v projektu je ověř u výrobce.
 |---|---|
 | `Ctrl+N` / `Ctrl+Shift+N` | nový projekt / z průvodce |
 | `Ctrl+O`, `Ctrl+S`, `Ctrl+Shift+S` | otevřít, uložit, uložit jako |
-| `W` | kreslit vodič |
-| `Esc` | zpět do výběru |
-| `R` | otočit o 90° |
-| `M` | zrcadlit |
-| `T` | text |
+| `W` `Enter` (`L`) | kreslit vodič – v režimu kláves „envocad“ jen `W` |
+| `Esc` | zpět do výběru (a zrušit rozpracovaný příkaz řádku) |
+| `RO` `Enter` | otočit o 90° – v režimu „envocad“ `R`; při vkládání značky `R` otočí náhled vždy |
+| `MI` `Enter` | zrcadlit – v režimu „envocad“ `M`; při vkládání `M` zrcadlí náhled vždy |
+| `TEXT` `Enter` | text – v režimu „envocad“ `T` |
 | `Delete` | smazat |
 | `Ctrl+Z` / `Ctrl+Y` | zpět / znovu |
 | `Ctrl+C` / `Ctrl+V` | kopírovat / vložit kopii |
@@ -1074,7 +1074,8 @@ v projektu je ověř u výrobce.
 | `Ctrl+K` | hledat příkaz |
 | `F11` | jen výkres (skrýt panely) |
 | `Ctrl++` / `Ctrl+-` | přiblížit / oddálit |
-| `N` | narovnat vybrané vodiče |
+| `straighten` `Enter` | narovnat vybrané vodiče – v režimu „envocad“ `N` |
+| `F2` | delší výstup příkazového řádku |
 | `Ctrl+M` / `Ctrl+J` | vícepól / jednopól |
 | `Ctrl+Shift+J` | jednopólové schéma (odvozené z rozvaděčů) |
 | `Ctrl+Shift+M` | plán svorkovnice |
@@ -1093,9 +1094,32 @@ v projektu je ověř u výrobce.
 
 ## 12. Příkazový řádek a skripty
 
-Každou úpravu výkresu jde zapsat jako příkaz ve stylu ZWCAD/AutoCAD (`MOVE`, `RO`, `E`…). Zatím (fáze 1) se příkazy
-spouští ze **skriptu `.ecs`** přes příkazovou řádku systému – hodí se pro hromadné úpravy, opakované postupy
-a agenty. Dok „Příkazový řádek“ v okně programu přijde v další fázi; příkazy, aliasy i chování budou stejné.
+Každou úpravu výkresu jde zapsat jako příkaz ve stylu ZWCAD/AutoCAD (`MOVE`, `RO`, `E`…) – v okně programu
+(dok „Příkazový řádek“ dole) i ve **skriptu `.ecs`** přes příkazovou řádku systému (hromadné úpravy, agenti).
+Příkazy, aliasy i chování jsou v obou stejné.
+
+### Příkazový řádek v okně
+
+| Klávesa | Co udělá |
+|---|---|
+| psaní ve výkresu | jde rovnou do řádku (režim kláves „zwcad“, výchozí) – `M` `Enter` = posunout, `RO` = otočit, `L` / `W` = vodič |
+| Enter / mezera | potvrdí příkaz nebo hodnotu výzvy (mezera ne uvnitř uvozovek a v textové výzvě) |
+| Enter na prázdném řádku | zopakuje poslední příkaz |
+| Esc | zruší rozpracovaný příkaz – model zůstane, jak byl (i ve výkresu, i pravým tlačítkem) |
+| ↑ / ↓ | historie (posledních 200, i po restartu – `~/.envocad/cmd_history.txt`) |
+| Tab | doplní příkaz, alias, id značky u `INSERT`, klíč atributu u `SET`, název listu u `SHEET` |
+| F2 | delší výstup (historie hlášek) |
+
+- Chybějící argumenty se doptají výzvou vlevo od řádku („Základní bod:“). **Bod** jde napsat (`120,150`, `@10,0`,
+  `F1:2`) nebo **kliknout do výkresu** – od základního bodu se kreslí gumová čára. Výzvu **výběru** splní aktuální
+  výběr; když nic vybrané není, vyberte myší a potvrďte Enter.
+- Každý příkaz je jeden krok **Ctrl+Z**. `UNDO` / `REDO` z řádku jdou přes stejnou historii jako Ctrl+Z.
+- Bez argumentů spustí `L` / `W` (vodič) a `I` (vložit značku) dnešní kreslení myší, `F7` panel Kontrola.
+- Každá položka menu s vlastním id je i příkaz (napište ji nebo najděte Tabem); hledání příkazů Ctrl+K ukazuje
+  u položky i jméno příkazu a aliasy („Otočit o 90° · ROTATE, RO“).
+- `SAVE` v okně = Soubor → Uložit (bez cesty).
+- Režim kláves: v `~/.envocad/settings.json` `"cmdline_keys": "envocad"` vrátí jednoklávesové zkratky ve výkresu
+  (R otočit, M zrcadlit, W vodič, N narovnat, T text); psaní pak do řádku nejde, řádek zůstává v doku.
 
 ### Spuštění skriptu (CLI)
 

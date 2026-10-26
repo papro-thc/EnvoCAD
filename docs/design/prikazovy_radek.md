@@ -1,6 +1,6 @@
 # Příkazový řádek (styl ZWCAD/CADCraft) – návrh
 
-Stav: **fáze 1 hotová** (jádro `envocad/cmd`, skripty, CLI); fáze 2 (dok v GUI) a 3 čekají. Roadmapa v0.1: „každá akce = příkaz, ovladatelné i z agentů“. Formát projektu se
+Stav: **fáze 1 a 2 hotové** (jádro `envocad/cmd`, skripty, CLI; dok v GUI `ui/command_line.py`); fáze 3 čeká. Roadmapa v0.1: „každá akce = příkaz, ovladatelné i z agentů“. Formát projektu se
 **nemění** (`FORMAT_VERSION` zůstává 16); nové jsou jen soubory skriptů `.ecs` a uživatelské aliasy.
 
 ## 1. Vrstvy (rozhodnutí)
@@ -64,7 +64,7 @@ Cena zvolené cesty: kopie změněných listů v undo zásobníku a přestavba s
   posledních 200 i do `~/.envocad/cmd_history.txt`); **Tab** doplní (`Registry.complete(text, ctx)` bez Qt: jména,
   aliasy, české názvy, u INSERT id značek z knihovny, u SET klíče atributů výběru) – víc shod = popup `QCompleter`.
 - Psaní z canvasu: tisknutelná klávesa, kterou nezachytí zkratka, jde do řádku (fokus + znak). Jednopísmenné zkratky
-  (R, M, N, T, W) dnes vyhrají – volba v nastavení `cmdline_keys`: „envocad“ (dnešní zkratky, výchozí) / „zwcad“
+  (R, M, N, T, W) dnes vyhrají – volba v nastavení `cmdline_keys`: „zwcad“ (výchozí, rozhodnutí 1) / „envocad“ (dnešní zkratky)
   (všechna písmena do řádku, M = MOVE). Viz otázka 1.
 - Výzvy a myš: nový `Mode.PICK` v `canvas.py` – klik pošle bod (snap 2,5 mm, převod Y nahoru) do runneru, gumová
   čára od základního bodu. Výzva `selection`: platí aktuální výběr, jinak se vybírá myší a Enter potvrdí. `point`
