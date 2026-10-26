@@ -92,6 +92,9 @@ class MultipoleGeometry:
     # zdroje, 1 = úsek za přerušením. Scéna je kreslí přesně tady (rozmístěné mimo cizí čáry a texty).
     conductor_labels: dict[tuple[str, str, int], tuple[float, float, str, str]] = field(default_factory=dict)
     origins: dict[str, Point] = field(default_factory=dict)    # prvek → poloha (po stránkování a posunu)
+    # popisky prvků přesunuté mimo cizí čáry: prvek → [(dx, dy, text, výška, zarovnání)] relativně k poloze prvku
+    # (`ElementPoles.label_lines`; scéna je předá svým pólům)
+    element_labels: dict[str, list[tuple[float, float, str, float, str]]] = field(default_factory=dict)
     page_of: dict[str, int] = field(default_factory=dict)      # prvek → strana
     layout_pos: dict[str, Point] = field(default_factory=dict)  # automatické rozmístění před stránkováním
     page_size: tuple[float, float] = (420.0, 297.0)            # rozměr strany (A4 na šířku = 297 × 210)
@@ -116,6 +119,7 @@ class MultipoleGeometry:
 
 TERMINAL_NUMBER = "číslo svorky"   # popis textu čísla svorky (kontrola překryvů ho bere bez tolerance)
 TB_PAD = 2.5          # odstup kresby od popisového pole a QR kódu
+BREAK_LO = 15.0      # přerušení na okraji strany nejníž 15 mm nad spodní hranou strany (uvnitř rámečku)
 BREAK_INSET = 4.0     # hrot šipky přerušení od vnitřního rámečku (odkaz je uvnitř rámečku před šipkou)
 BREAK_TEXT_DX = 3.5   # odkaz přerušení: vodorovně od hrotu šipky (za křidélky šipky, směrem do strany)
 REF_TEXT_DY = 0.7     # odkaz přerušení / sběrnice: základna nad čarou (text 1,8 mm se vejde mezi čáry po 2,5 mm)
@@ -162,9 +166,10 @@ def title_height(title: list[str]) -> float:
 
 
 def _layout(sheet: Sheet, poles: dict[str, mp.ElementPoles], size: tuple[float, float], y_top: float,
-            col_gap: float, info: dict) -> tuple[dict[str, Point], dict[str, int], int]:
+            col_gap: float, info: dict, y_min: float | None = None) -> tuple[dict[str, Point], dict[str, int], int]:
     layout = mp.auto_layout(sheet, poles, x0=mp.layout_x0(sheet), y_top=y_top, bridges=sheet.bridges,
-                            page_w=mp.page_width(sheet, size), col_gap=col_gap, info=info)
+                            page_w=mp.page_width(sheet, size), col_gap=col_gap, info=info, y_min=y_min,
+                            merge=info.get("merge", True))
     for eid, ep in poles.items():
         ep.origin = layout.get(eid, (ep.element.x, ep.element.y))
     page_of, n_pages = mp.paginate(sheet, poles, size)
@@ -189,27 +194,53 @@ def multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: s
     title = switchboard_title(project, sheet)
     top_limit = size[1] - MARGIN - 4.0 - title_height(title) - TB_PAD
     bottom_limit = MARGIN + TB_H + TB_PAD
-    y_top, gap = size[1] - mp.MP_Y_TOP, mp.COL_GAP
-    for _attempt in range(4):
-        info: dict = {}
-        layout, page_of, n_pages = _layout(sheet, poles, size, y_top, gap, info)
-        g = _build(project, sheet, poles, page_of, n_pages, size)
-        if info.get("horizontal", True):
-            break
-        lo, hi = _auto_extent(g, poles, page_of, size[1])
-        deficit = bottom_limit - lo
-        if lo == float("inf") or deficit <= 0.01:
-            break
-        dy = max(0.0, min(deficit, top_limit - hi))
-        dy = (dy // mp.GRID) * mp.GRID
-        rest = deficit - dy
-        new_gap = gap
-        if rest > 0.01 and info.get("gaps"):
-            new_gap = max(mp.MIN_COL_GAP, gap - -(-rest / info["gaps"] // 0.5) * 0.5)   # po 0,5 mm
-        if dy <= 0 and new_gap >= gap:
-            break
-        y_top, gap = y_top + dy, new_gap
+
+    def fit(merge: bool):
+        """Rozmístění posunuté a zhuštěné na výšku strany; vrátí i zbylý přesah pod popisové pole (mm)."""
+        y_top, gap = size[1] - mp.MP_Y_TOP, mp.COL_GAP
+        lift_bars = False   # poslední možnost: řada lišt se zvedne nad popisové pole (`auto_layout(y_min=…)`)
+        deficit = 0.0
+        for _attempt in range(6):
+            info: dict = {"merge": merge}
+            layout, page_of, n_pages = _layout(sheet, poles, size, y_top, gap, info,
+                                               bottom_limit if lift_bars else None)
+            g = _build(project, sheet, poles, page_of, n_pages, size)
+            if info.get("horizontal", True):
+                break
+            if lift_bars:
+                # zvednuté lišty už pod popisové pole nesahají – přesah zbývá jen od ostatní kresby
+                lo, _hi = _auto_extent(g, poles, page_of, size[1], skip_bars=True)
+                deficit = max(0.0, bottom_limit - lo) if lo != float("inf") else 0.0
+                break
+            lo, hi = _auto_extent(g, poles, page_of, size[1])
+            deficit = bottom_limit - lo
+            if lo == float("inf") or deficit <= 0.01:
+                deficit = 0.0
+                break
+            dy = max(0.0, min(deficit, top_limit - hi))
+            dy = (dy // mp.GRID) * mp.GRID
+            rest = deficit - dy
+            new_gap = gap
+            if rest > 0.01 and info.get("gaps"):
+                new_gap = max(mp.MIN_COL_GAP, gap - -(-rest / info["gaps"] // 0.5) * 0.5)   # po 0,5 mm
+            if dy <= 0 and new_gap >= gap:
+                # posun ani zhuštění nepomohou: kresba se na stranu nevejde – aspoň lišty zůstanou na straně
+                lift_bars = True
+                continue
+            y_top, gap = y_top + dy, new_gap
+        return g, layout, page_of, gap, deficit
+
+    # soutok (přepínač sítí) pod nejhlubším přívodem prodlouží sloupec; když se pak kresba na výšku strany
+    # nevejde ani po zhuštění, použije se mělčí rozmístění (soutok pod nejkratším přívodem), je-li na tom lépe
+    g, layout, page_of, gap, deficit = fit(True)
+    if deficit > 0.01:
+        alt = fit(False)
+        if alt[4] < deficit - 0.01:
+            g, layout, page_of, gap, deficit = alt
+        else:
+            g, layout, page_of, gap, deficit = fit(True)   # stav pólů (polohy, popisky) zpět podle vybrané varianty
     g.origins = {eid: ep.origin for eid, ep in poles.items()}
+    g.element_labels = {eid: list(ep.label_lines) for eid, ep in poles.items() if ep.label_lines is not None}
     g.page_of = dict(page_of)
     g.layout_pos = dict(layout)
     g.paper = mp.page_paper_label(sheet, choice)
@@ -217,11 +248,13 @@ def multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: s
     return g
 
 
-def _auto_extent(g: MultipoleGeometry, poles, page_of: dict[str, int], height: float) -> tuple[float, float]:
+def _auto_extent(g: MultipoleGeometry, poles, page_of: dict[str, int], height: float,
+                 skip_bars: bool = False) -> tuple[float, float]:
     """Nejnižší a nejvyšší bod kresby automaticky rozmístěných prvků (souřadnice strany, přes všechny strany).
     Sběrnice a sběrné čáry se nepočítají (kreslí se i na jiných stranách a leží uvnitř rozmístění)."""
     pitch = height + mp.MP_PAGE_GAP
-    auto = {eid for eid, ep in poles.items() if not ep.element.mp_pos and ep.element.symbol_id != BUS}
+    auto = {eid for eid, ep in poles.items() if not ep.element.mp_pos and ep.element.symbol_id != BUS
+            and not (skip_bars and ep.element.symbol_id in RAIL_BAR_SYMBOLS)}
     lo, hi = float("inf"), float("-inf")
     for box, owner, _w in g.texts:
         eid, _, part = owner.partition("#")
@@ -277,7 +310,8 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
         if a != b:
             prim("line", (a, b), page, layer=layer, weight=weight)
 
-    # prvky (póly, popisky, vazby, obtoky, příčky PE svodiče)
+    # prvky (póly, popisky, vazby, obtoky, příčky PE svodiče); popisky prvků se umístí až nad hotovými čarami
+    label_pending: list[tuple[str, str, int]] = []
     for e in sheet.elements:
         ep = poles[e.id]
         e = ep.element      # rotace ve vícepólu (přívod v souřadnicích starého sb.feed_in, otočená přívodní větev)
@@ -309,8 +343,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
                 _x0, y0, x1, _y1 = sym.bounds()
                 rx, ry = rotate_point(x1 + 1.0, y0 + 1.0, e.rotation)
                 text(at.x + rx, at.y + ry, num, 2.0, "left", e.id, f"{TERMINAL_NUMBER} {name}", page=ke)
-        for x, y, s, h, align in mp.pole_label_lines(ep):
-            text(x, y, s, h, align, e.id, f"popisek {name}", page=ke)
+        label_pending.append((e.id, name, ke))
         if ep.per_pole:
             if ep.symbol.pole_link and len(ep.switched) > 1:
                 lx, ly = rotate_point(*ep.symbol.link_at, e.rotation)
@@ -456,8 +489,8 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
             nb = breaks.setdefault((kb, not right), 0)
             breaks[(ka, right)] = na + 1
             breaks[(kb, not right)] = nb + 1
-            ya = mp.break_y(pa, da, na, break_ys.setdefault((ka, right), set()))
-            yb = mp.break_y(pb, db, nb, break_ys.setdefault((kb, not right), set()))
+            ya = mp.break_y(pa, da, na, break_ys.setdefault((ka, right), set()), BREAK_LO - ka * pitch)
+            yb = mp.break_y(pb, db, nb, break_ys.setdefault((kb, not right), set()), BREAK_LO - kb * pitch)
             conductor(w, c, i, pa, da, (xa, ya), "W" if right else "E", (ta, ""), ka)
             conductor(w, c, i, (xb, yb), "E" if right else "W", pb, db, ("", tb), kb, part=1)
             ref_a = mp.page_ref(sheet_no, kb, xb, yb + kb * pitch, size)   # u zdroje: odkaz na pokračování
@@ -575,6 +608,15 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
         for k, x, y, s, align in refs:
             text(x, y, s, REF_TEXT_H, align, eid, "odkaz sběrnice", layer="ODKAZY", page=k)
     g.bus_taps = bus_taps
+
+    # popisky prvků: výchozí poloha, a když vede přes cizí čáru nebo text, volná poloha vedle prvku
+    grids = _LabelGrids(g)
+    for eid, name, ke in label_pending:
+        ep = poles[eid]
+        _place_element_label(g, ep, W, grids)
+        for x, y, s, h, align in mp.pole_label_lines(ep):
+            text(x, y, s, h, align, eid, f"popisek {name}", page=ke)
+            grids.add_text(len(g.texts) - 1)
 
     # popisky žil: výchozí poloha, a když vede přes cizí čáru nebo text, první volná z kandidátů
     _place_conductor_labels(g, pending)
@@ -706,6 +748,83 @@ def _run_candidates(run: list[Point]) -> list[tuple[float, float, str]]:
         yy = y1 + (y2 - y1) * f - 1.0
         out += [(run[0][0] + GAP, yy, "left"), (run[0][0] - GAP, yy, "right")]
     return out
+
+
+LABEL_SHIFTS = (0.0, 2.5, -2.5, 5.0, -5.0, 7.5, -7.5)   # svislé posuny kandidátů popisku prvku (mm)
+
+
+class _LabelGrids:
+    """Prostorový index čar a textů geometrie pro rozmisťování popisků prvků (čáry jsou hotové, texty přibývají)."""
+
+    def __init__(self, g: MultipoleGeometry) -> None:
+        self.g = g
+        self.lines = _IndexGrid()
+        for k, (a, b, _o, _w) in enumerate(g.lines):
+            self.lines.add((min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])), k)
+        self.texts = _IndexGrid()
+        for i in range(len(g.texts)):
+            self.add_text(i)
+
+    def add_text(self, i: int) -> None:
+        self.texts.add(self.g.texts[i][0], i)
+
+    def score(self, boxes: list[Box], owner: str) -> float:
+        """Kolize popisku prvku: cizí čára přes text 3, vlastní značka 1, cizí text 10."""
+        g, s = self.g, 0.0
+        for box in boxes:
+            for k in self.lines.near(box):
+                a, b, lo, _w = g.lines[k]
+                if segment_hits_box(a, b, box, 0.2):
+                    s += 1.0 if lo.split("#")[0] == owner else 3.0
+            for i in self.texts.near(box):
+                ob, oo, _w = g.texts[i]
+                if oo.split("#")[0] != owner and boxes_overlap(box, ob):
+                    s += 10.0
+        return s
+
+
+def _place_element_label(g: MultipoleGeometry, ep: mp.ElementPoles, page_w: float, grids: _LabelGrids) -> None:
+    """Popisek prvku (označení, parametry), který ve výchozí poloze (`multipole.default_label_lines`) leží přes
+    cizí čáru nebo text (přístroj v pásu žil sběrnice / odbočky), se přesune: celý blok vlevo nebo vpravo od
+    prvku, případně o pár kroků mřížky výš/níž – první kandidát bez kolize, jinak nejmenší kolize. Výsledek
+    (relativně k poloze prvku) do `ep.label_lines` – scéna i kontrola ho čtou přes `pole_label_lines`.
+    Přívod/vývod a svorky mají popisek vázaný na svorky a nemění se."""
+    from envocad.model.frame import MARGIN, MARGIN_LEFT
+    ep.label_lines = None
+    e = ep.element
+    lines = mp.default_label_lines(ep)
+    if not lines or e.symbol_id in FEED_SYMBOLS or mp.is_terminal_block(e) or e.symbol_id in mp.TERMINAL_SYMBOLS:
+        return
+
+    def boxes_of(ls) -> list[Box]:
+        return [text_box(x, y, s, h, align) for x, y, s, h, align in ls]
+
+    best_s = grids.score(boxes_of(lines), e.id)
+    if best_s < 0.5:
+        return
+    conds = list(ep.switched) if ep.per_pole else [None]
+    sb = [mp._rot_box(mp.pole_symbol_for(ep, c), *mp.pole_anchor(ep, c), e.rotation) for c in conds]
+    bx0, bx1 = min(b[0] for b in sb), max(b[2] for b in sb)
+    gap = mp.LABEL_GAP
+    sides = [lines,
+             [(bx0 - gap, y, s, h, "right") for _x, y, s, h, _a in lines],
+             [(bx1 + gap, y, s, h, "left") for _x, y, s, h, _a in lines]]
+    lo_x, hi_x = MARGIN_LEFT, page_w - MARGIN
+    best = None
+    for k, dy in enumerate(LABEL_SHIFTS):
+        for j, side in enumerate(sides):
+            cand = [(x, y + dy, s, h, a) for x, y, s, h, a in side]
+            bs = boxes_of(cand)
+            if min(b[0] for b in bs) < lo_x or max(b[2] for b in bs) > hi_x:
+                continue
+            sc = grids.score(bs, e.id) + 0.05 * k + 0.02 * j
+            if sc < best_s:
+                best, best_s = cand, sc
+        if best is not None and best_s < 0.5:
+            break
+    if best is not None:
+        ox, oy = ep.origin
+        ep.label_lines = [(x - ox, y - oy, s, h, a) for x, y, s, h, a in best]
 
 
 def _place_conductor_labels(g: MultipoleGeometry, pending) -> None:

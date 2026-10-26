@@ -8,6 +8,7 @@ spínanou žílu; nespínané žíly (N u 3p jističe, PE) jdou kolem prvku jako
 from __future__ import annotations
 
 import dataclasses
+import math
 from dataclasses import dataclass, field
 
 from envocad.model.designation import element_name
@@ -158,6 +159,9 @@ class ElementPoles:
     # žíla připojená na volnou svorku pólu jiné žíly: {žíla: žíla pólu} – např. cívka A1 = L1, A2 = N
     # → {"N": "L1"}: N se napojí na A2 pólu L1 (prvek spíná/napájí jedním pólem dvě různé žíly)
     joined: dict[str, str] = field(default_factory=dict)
+    # popisek prvku přesunutý z výchozí polohy mimo cizí čáry (`multipole_geometry._place_element_label`):
+    # [(dx, dy, text, výška, zarovnání)] relativně k `origin`; None = výchozí poloha `pole_label_lines`
+    label_lines: list[tuple[float, float, str, float, str]] | None = None
 
     def slot(self, conductor: str) -> int:
         conductor = self.joined.get(conductor, conductor)
@@ -166,7 +170,8 @@ class ElementPoles:
     def pole_pos(self, port: str, conductor: str) -> tuple[float, float]:
         """Pozice pólu pro danou žílu na daném portu (model mm, ve škále pohledu)."""
         e = self.element
-        px, py = e.port_pos(self.symbol, port)
+        # uzel je bod: žíly končí ve středu tečky (ne u portu o 2,5 mm vedle) a odbočky z ní vycházejí
+        px, py = (e.x, e.y) if e.symbol_id == "sb.junction" else e.port_pos(self.symbol, port)
         d = rotate_dir(self.symbol.port(port).dir, e.rotation)
         ox, oy = PERP[d]
         k = self.slot(conductor)
@@ -223,9 +228,121 @@ def _flow_is_horizontal_for(ep: ElementPoles) -> bool:
     return True
 
 
+COIL_PORTS = {"A1", "A2"}   # svorky cívky (IEC 60445) – vodič na ně je ovládací, ne silový tok
+
+
+def is_control_wire(w: Wire) -> bool:
+    """Vodič na svorku cívky (A1/A2): ovládání, neurčuje hloubku přístroje v silovém toku vícepólu."""
+    return w.a.port in COIL_PORTS or w.b.port in COIL_PORTS
+
+
+def _bfs_depth(sources: set[str], adj: dict[str, set[str]], seed: dict[str, int]) -> dict[str, int]:
+    """Hloubka uzlů od zdrojů (BFS po `adj`). `seed` = už známé hloubky (zachovají se a šíří se dál od nich)."""
+    depth = dict(seed)
+    for s in sources:
+        depth.setdefault(s, 0)
+    buckets: dict[int, list[str]] = {}
+    for n, d in depth.items():
+        buckets.setdefault(d, []).append(n)
+    d = 0
+    top = max(buckets, default=0)
+    while d <= top:
+        for c in sorted(buckets.get(d, [])):
+            if depth[c] != d:
+                continue
+            for n in sorted(adj.get(c, ())):
+                if n not in depth:
+                    depth[n] = d + 1
+                    buckets.setdefault(d + 1, []).append(n)
+                    top = max(top, d + 1)
+        d += 1
+    return depth
+
+
+def _power_depth(sheet: Sheet, poles: dict[str, ElementPoles], comp: dict[str, str], sources: set[str],
+                 bar_ids: set[str], merge: bool = True) -> dict[str, int]:
+    """Hloubka uzlů (`comp`) v silovém toku od zdrojů. Bez vodičů na cívky (A1/A2) a lišt N/PE. Tok prochází
+    přístrojem z jedné strany na druhou: do přístroje vstoupí portem jednoho směru a nepokračuje portem stejného
+    směru (přepínač sítí I-0-II: z přívodu II se nevrací do přívodu I – stykač na přívodu I by jinak dostal hloubku
+    od přepínače a kreslil se pod ním). Soutok (víc přívodů na vstupní straně) je pod nejhlubším z nich – hlavní
+    větev zůstane svislá a přístroje za soutokem se posunou s ním. Uzel (`sb.junction`) a můstkem spojené svorky
+    jsou bod (bez stran)."""
+    def side(eid: str, port: str) -> str | None:
+        ep = poles[eid]
+        if ep.element.symbol_id == JUNCTION_SYMBOL or sum(1 for v in comp.values() if v == comp[eid]) > 1:
+            return None
+        try:
+            return rotate_dir(ep.symbol.port(port).dir, ep.element.rotation)
+        except (KeyError, StopIteration, ValueError, AttributeError):
+            return None
+
+    edges: dict[str, list[tuple[str | None, str, str | None]]] = {}   # uzel -> [(strana, soused, strana souseda)]
+    for w in sheet.wires:
+        a, b = w.a.element_id, w.b.element_id
+        if a not in comp or b not in comp or comp[a] == comp[b] or is_control_wire(w) or {a, b} & bar_ids:
+            continue
+        sa, sb_ = side(a, w.a.port), side(b, w.b.port)
+        edges.setdefault(comp[a], []).append((sa, comp[b], sb_))
+        edges.setdefault(comp[b], []).append((sb_, comp[a], sa))
+    depth = dict.fromkeys(sources, 0)
+    entry: dict[str, str | None] = dict.fromkeys(sources)
+    frontier = sorted(sources)
+    while frontier:
+        nxt = []
+        for c in frontier:
+            for sc, n, sn in edges.get(c, ()):
+                if entry.get(c) is not None and sc == entry[c]:
+                    continue          # zpět na stranu, kterou tok do přístroje vstoupil
+                if n not in depth:
+                    depth[n] = depth[c] + 1
+                    entry[n] = sn
+                    nxt.append(n)
+        frontier = sorted(nxt)
+    inputs = {n: {m for sn, m, _sm in edges.get(n, ()) if sn == e and m in depth}
+              for n, e in entry.items() if e is not None}
+    if merge and any(len(v) > 1 for v in inputs.values()):
+        for _ in range(len(poles)):
+            changed = False
+            for n, ins in inputs.items():
+                for m in ins:
+                    if n in inputs.get(m, ()):
+                        continue
+                    if depth[m] + 1 > depth[n]:
+                        depth[n] = depth[m] + 1
+                        changed = True
+            if not changed:
+                break
+    return depth
+
+
+BAR_CLEAR = 2 * GRID   # nejmenší volno mezi dvěma lištami ve stejné řadě
+BAR_LABEL_ROOM = 20.0  # místo pro popisek přístroje vlevo od něj (lišta zvednutá do řady přístrojů)
+
+
+def _clear_of_bars(ep: ElementPoles, perp: float, spans: list[tuple[float, float]], horizontal: bool) -> float:
+    """Poloha lišty kolmo na tok posunutá za lišty už umístěné ve stejné řadě (N a PE lišta napájené ze stejného
+    uzlu by jinak ležely přes sebe). Posun jde ve směru řazení prvků (svislý tok doprava, vodorovný dolů).
+    Obsazený úsek přidá do `spans`."""
+    x0, y0, x1, y1 = _rot_box(ep.symbol, 0.0, 0.0, ep.element.rotation)
+    lo, hi = (y0, y1) if horizontal else (x0, x1)
+    for _ in range(len(spans) + 1):
+        hit = [s for s in spans if perp + lo < s[1] + BAR_CLEAR and s[0] - BAR_CLEAR < perp + hi]
+        if not hit:
+            break
+        if horizontal:
+            perp = min(s[0] for s in hit) - BAR_CLEAR - hi
+            perp = math.floor(perp / GRID) * GRID
+        else:
+            perp = max(s[1] for s in hit) + BAR_CLEAR - lo
+            perp = math.ceil(perp / GRID) * GRID
+    spans.append((perp + lo, perp + hi))
+    return perp
+
+
 def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, y_top: float = 250.0,
                 bridges: dict[str, list[list[str]]] | None = None, page_w: float | None = None,
-                col_gap: float = COL_GAP, info: dict | None = None) -> dict[str, tuple[float, float]]:
+                col_gap: float = COL_GAP, info: dict | None = None,
+                y_min: float | None = None, merge: bool = True) -> dict[str, tuple[float, float]]:
     """Automatické rozmístění vícepólu po sloupcích („svorkové schéma“): hloubka od zdroje (přívod, síť, FV)
     určuje sloupec ve směru toku, uvnitř sloupce se prvky řadí podle pozice v JPS a rozestupují podle počtu pólů.
     Prvky s ruční pozicí (`mp_pos`) zůstávají, kde jsou. `page_w` (svislý tok): šířka strany – strany jsou
@@ -233,7 +350,9 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
     přístroji, string = svorky X + pojistka FU + SPD), která by přesáhla hranici strany a na stranu se vejde, začne
     celá na další straně – nikdy se nerozdělí; větší podstrom se dělí až mezi svými dětmi (vývody za sběrnicí).
     `col_gap` = mezera mezi sloupci ve směru toku (svislý tok; menší na nízké straně A4). `info` (je-li zadán)
-    dostane `gaps` = počet mezer mezi sloupci a `horizontal` = směr toku."""
+    dostane `gaps` = počet mezer mezi sloupci a `horizontal` = směr toku. `y_min` (svislý tok): nejnižší místo
+    kresby na straně (horní hrana popisového pole) – řada lišt pod vývody pod ním neskončí (jinak by na vysokém
+    listu ležely lišty pod okrajem strany). `merge`: soutok pod nejhlubším přívodem (`_power_depth`)."""
     if info is not None:
         info.update(gaps=0, horizontal=True)
     if not poles:
@@ -257,27 +376,26 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
                     for k, v in comp.items():
                         if v == comp[b]:
                             comp[k] = root
+    bar_ids = {i for i in poles if poles[i].element.symbol_id == "sb.pe_bar"}
     adj: dict[str, set[str]] = {c: set() for c in comp.values()}
+    power: dict[str, set[str]] = {c: set() for c in comp.values()}   # silové vazby (bez cívek a lišt)
     for w in sheet.wires:
         if w.a.element_id in comp and w.b.element_id in comp:
             ca, cb = comp[w.a.element_id], comp[w.b.element_id]
             if ca != cb:
                 adj[ca].add(cb)
                 adj[cb].add(ca)
+                if not is_control_wire(w) and not {w.a.element_id, w.b.element_id} & bar_ids:
+                    power[ca].add(cb)
+                    power[cb].add(ca)
     sources = {comp[eid] for eid, ep in poles.items() if is_flow_source(ep.element)}
     if not sources:
         key = (lambda ep: ep.element.x) if horizontal else (lambda ep: -ep.element.y)
         sources = {comp[min(poles.values(), key=key).element.id]}
-    cdepth: dict[str, int] = dict.fromkeys(sources, 0)
-    frontier = list(sources)
-    while frontier:
-        nxt = []
-        for c in frontier:
-            for n in adj[c]:
-                if n not in cdepth:
-                    cdepth[n] = cdepth[c] + 1
-                    nxt.append(n)
-        frontier = nxt
+    cdepth = _power_depth(sheet, poles, comp, sources, bar_ids, merge)
+    # hloubku určuje silový tok; cívky (A1/A2) a lišty N/PE dostanou hloubku až od sousedů – vazba cívky na
+    # kontakty stykače ani lišta by jinak zkrátily cestu a přístroj v hlavním toku by „předběhl“ svůj přívod
+    cdepth = _bfs_depth(sources, adj, cdepth)
     last = max(cdepth.values(), default=0) + 1
     depth = {eid: cdepth.get(comp[eid], last) for eid in poles}
     # vývody vždy v dolní řadě (jako v EPLAN: přívody nahoře, rozvod, přístroje, vývody dole), PE lišta pod nimi
@@ -323,8 +441,48 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
                 anchor = parent[mates[0]]
                 parent[i] = anchor
                 children[anchor].append(i)
-    for c in children.values():
-        c.sort(key=key)
+    wires_at: dict[str, list[Wire]] = {}
+    for w in sheet.wires:
+        wires_at.setdefault(w.a.element_id, []).append(w)
+        if w.b.element_id != w.a.element_id:
+            wires_at.setdefault(w.b.element_id, []).append(w)
+
+    def continues(p: str, c: str) -> bool:
+        """Dítě vede žíly od rodiče dál (vývod, průchozí přístroj, uzel) – na rozdíl od odbočky, která je ukončí
+        (přepěťová ochrana: L+/L− dovnitř, ven jen PE)."""
+        if is_feed(poles[c].element):
+            return True
+        inc = [w for w in wires_at.get(c, ()) if p in (w.a.element_id, w.b.element_id)]
+        if not inc:
+            return True
+        conds = {x for w in inc for x in wire_conductors(w)}
+        ports = {w.a.port if w.a.element_id == c else w.b.port for w in inc}
+        for w in wires_at.get(c, ()):
+            if w in inc:
+                continue
+            port = w.a.port if w.a.element_id == c else w.b.port
+            if port not in ports and conds & set(wire_conductors(w)):
+                return True
+        return False
+
+    along = "E" if horizontal else "S"
+
+    def junction_rank(p: str, c: str) -> int:
+        """Dítě uzlu na portu po toku (hlavní větev, `junction_view_symbols`) první – přímo pod uzlem."""
+        if poles[p].element.symbol_id != JUNCTION_SYMBOL:
+            return 0
+        for w in wires_at.get(p, ()):
+            if c in (w.a.element_id, w.b.element_id):
+                port = w.a.port if w.a.element_id == p else w.b.port
+                try:
+                    return 0 if rotate_dir(poles[p].symbol.port(port).dir, poles[p].element.rotation) == along else 1
+                except KeyError:
+                    return 1
+        return 1
+
+    # pokračování toku (string → vývod) přímo pod rodičem, odbočky (SPD ze svorek odpínače) bokem za ním
+    for i, c in children.items():
+        c.sort(key=lambda ch, i=i: (not continues(i, ch), junction_rank(i, ch), key(ch)))
     roots = [i for i in sorted(poles, key=key) if i not in parent and i not in bars]
 
     def width(i: str) -> float:
@@ -338,9 +496,16 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
         info.update(gaps=max(len(columns) - 1, 0), horizontal=horizontal)
     flow_pos: dict[int, float] = {}
     pos = x0 if horizontal else y_top
+    dots = {d for d, ids in columns.items()
+            if all(poles[i].element.symbol_id == JUNCTION_SYMBOL for i in ids)}
+    prev = None
     for d in sorted(columns):
+        if prev is not None and (d in dots or prev in dots):
+            # řada jen s uzly (tečky na žílách) nepotřebuje celou mezeru – stačí místo na odbočení žil
+            pos += (gap - max(gap / 2, JUNCTION_GAP)) * (1 if not horizontal else -1)
         flow_pos[d] = pos
         pos = pos + col_w[d] + gap if horizontal else pos - col_w[d] - gap
+        prev = d
     out: dict[str, tuple[float, float]] = {}
     sign = -1.0 if horizontal else 1.0  # vodorovný tok: prvky ve sloupci jdou dolů; svislý: doprava
 
@@ -397,6 +562,14 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
             nxt = x0 + (page_at(start) + 1) * page_w
             if end - start <= page_w + 1e-6 and nxt > start:
                 end = place_tree(i, nxt)
+            elif nxt > start:
+                # šířku mohl nafouknout podstrom, který se sám přesunul na další stranu (rodič by zůstal sám na
+                # konci strany a jeho přístroje o stranu dál): zkusí celý strom od začátku další strany
+                end2 = place_tree(i, nxt)
+                if end2 - nxt <= page_w + 1e-6:
+                    end = end2
+                else:
+                    end = place_tree(i, start)
         return end
 
     def place_tree(i: str, start: float) -> float:
@@ -427,17 +600,59 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
     def subtree(i: str) -> list[str]:
         return [i, *(x for c in children[i] for x in subtree(c))]
 
+    # strom silově napojený na už umístěný (záložní přívod do přepínače sítí) jde hned za něj, ne až za
+    # nesouvisející stromy (ovládání, cívky) – spoj mezi nimi je pak krátký, ne přes celou stranu nebo na další
+    tree_of = {x: r for r in roots for x in subtree(r)}
+    linked: dict[str, set[str]] = {r: set() for r in roots}
+    for x, r in tree_of.items():
+        for n in power.get(comp[x], ()):
+            for y in (m for m in poles if comp[m] == n):
+                if y in tree_of and tree_of[y] != r:
+                    linked[r].add(tree_of[y])
+    ordered: list[str] = []
+    for r in roots:
+        if r in ordered:
+            continue
+        chain = [r]
+        while chain:
+            q = chain.pop(0)
+            if q in ordered:
+                continue
+            ordered.append(q)
+            chain += [o for o in roots if o in linked[q] and o not in ordered and o not in chain]
+    roots = ordered
+
     cursor = y_top if horizontal else x0
     rail_pages: set[int] = set()
+    holes: list[float] = []   # volné místo na konci strany, kterou předchozí strom přeskočil (začátek místa)
     for r in roots:
         tree = subtree(r)
+        bus_free = not on_bus.intersection(tree)
         # podstrom bez vazby na sběrnici (DC string rozvaděče FVE) nezačíná na straně se sběrnými čarami (vedou
         # přes celou stranu) – přístroje by ležely v jejich pásu (popisky SPD přes 1L1…1PE); začne na další straně
-        if paging and rail_pages and not on_bus.intersection(tree) and page_at(cursor) <= max(rail_pages):
+        if paging and rail_pages and bus_free and page_at(cursor) <= max(rail_pages):
             cursor = x0 + (max(rail_pages) + 1) * page_w
-        cursor = after(place(r, cursor))
+        # strom, který se vejde do místa na dřívější straně (zbylo za stromem, který skočil na další stranu),
+        # jde tam – ovládání (cívky, vypínací spouště) nezabere celou novou stranu
+        filled = False
+        for k, h in enumerate(holes):
+            if rail_pages and bus_free and page_at(h) <= max(rail_pages):
+                continue
+            if any(o in out and page_at(out[o][0]) > page_at(h) for o in linked[r]):
+                continue      # silově napojený strom zůstane u svého souseda (záložní přívod u přepínače)
+            e = place(r, h)
+            if page_at(out[r][0]) == page_at(h) and page_at(e - 1e-6) == page_at(h):
+                holes[k] = after(e)
+                filled = True
+                break
+        if not filled:
+            start = cursor
+            cursor = after(place(r, cursor))
+            if paging and page_at(out[r][0]) > page_at(start):
+                holes.append(start)
         if paging:
             rail_pages |= {page_at(out[i][0]) for i in tree if i in on_bus and i in out}
+    bar_spans: dict[int, list[tuple[float, float]]] = {}   # řada lišt -> obsazené úseky kolmo na tok
     for b in bars:
         ns = [n for n in nb[b] if n in out]
         d = max([depth[n] for n in ns] + [depth[x] for x in sinks], default=depth[b] - 1) + 1   # PE lišta dole pod vývody
@@ -454,6 +669,15 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
                 flow_pos[d] = pos + (15.0 if horizontal else -15.0)   # o kus dál, ať příčky PE nevedou přes popisky vývodů
             pos = pos + col_w[d] + gap if horizontal else pos - col_w[d] - gap
         fp = flow_pos[d]
+        if y_min is not None and not horizontal and fp - col_w[d] < y_min:
+            fp = math.ceil((y_min + col_w[d]) / GRID) * GRID   # lišta nad popisovým polem, ne pod okrajem strany
+            # zvednutá lišta padne do řady přístrojů – ty jsou pro ni obsazené úseky (i s popiskem vlevo)
+            spans = bar_spans.setdefault(d, [])
+            for i, (px, py) in out.items():
+                if i in bars:
+                    continue
+                if abs(py - (fp - col_w[d] / 2)) < (flow_extent(poles[i]) + col_w[d]) / 2 + GRID:
+                    spans.append((px - 8.0 - BAR_LABEL_ROOM, px - 8.0 + perp_extent(poles[i]) + 8.0))
         if ns:
             vals = [(out[n][1] if horizontal else out[n][0]) for n in ns]
             if page_w and not horizontal:
@@ -471,6 +695,7 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
             # lišta zůstává uvnitř své strany (střed by mohl padnout k okraji)
             k = int((vals[0] - x0) // page_w)
             perp = min(max(perp, x0 + k * page_w + 8.0), x0 + (k + 1) * page_w - perp_extent(poles[b]) - 8.0)
+        perp = _clear_of_bars(poles[b], perp, bar_spans.setdefault(d, []), horizontal)
         out[b] = (fp + col_w[d] / 2, perp) if horizontal else (perp, fp - col_w[d] / 2)
     for i, ep in poles.items():
         if ep.element.mp_pos:
@@ -490,7 +715,83 @@ def sheet_poles(sheet: Sheet, symbol_of) -> dict[str, ElementPoles]:
         e = ep.element
         flipped = dataclasses.replace(e, rotation=(e.rotation + 180) % 360)
         poles[eid] = element_poles(sheet, flipped, ep.symbol)
+    for eid, sym in junction_view_symbols(sheet, poles).items():
+        ep = poles[eid]
+        poles[eid] = element_poles(sheet, dataclasses.replace(ep.element, rotation=0, mirror=False), sym)
     return poles
+
+
+JUNCTION_SYMBOL = "sb.junction"
+JUNCTION_GAP = 7.5    # nejmenší mezera k řadě jen s uzly (odbočení žil se zkosením)
+_DIR_POS = {"N": (0.0, GRID), "E": (GRID, 0.0), "S": (0.0, -GRID), "W": (-GRID, 0.0)}
+
+
+def junction_view_symbols(sheet: Sheet, poles: dict[str, ElementPoles]) -> dict[str, Symbol]:
+    """Směry portů uzlů (`sb.junction`) ve vícepólu. Uzel je bod (všechny porty stejný potenciál), směry jeho portů
+    v jednopólovém listu vycházejí z kresby JPS (přístroj vlevo od uzlu → port W), vícepól ale uzel kreslí pod
+    jeho přívodem. Ve vícepólu proto: port k přívodu (soused nejblíž zdroji silového toku) míří proti toku
+    (svislý tok nahoru), port k hlavní větvi (nejvíc přístrojů za ní) po toku (dolů) a ostatní odbočky bokem
+    (doprava – tam je `auto_layout` staví). Vrací {id uzlu: kopie značky s novými směry a polohami portů} (prvek
+    v pohledu má rotaci 0); uzly bez přívodu nemění. Jen pohled – model beze změny."""
+    junctions = [i for i, ep in poles.items() if ep.element.symbol_id == JUNCTION_SYMBOL]
+    if not junctions:
+        return {}
+    horizontal = sum(1 for ep in poles.values() if _flow_is_horizontal_for(ep)) * 2 >= len(poles)
+    d_in, d_main, d_side = ("W", "E", "S") if horizontal else ("N", "S", "E")
+    bars = {i for i, ep in poles.items() if ep.element.symbol_id == "sb.pe_bar"}
+    power: dict[str, set[str]] = {i: set() for i in poles}
+    links: dict[str, list[tuple[str, str]]] = {}      # uzel -> [(port uzlu, soused)]
+    for w in sheet.wires:
+        a, b = w.a.element_id, w.b.element_id
+        if a not in poles or b not in poles or a == b or is_control_wire(w) or {a, b} & bars:
+            continue
+        power[a].add(b)
+        power[b].add(a)
+        links.setdefault(a, []).append((w.a.port, b))
+        links.setdefault(b, []).append((w.b.port, a))
+    sources = {i for i, ep in poles.items() if is_flow_source(ep.element)}
+    if not sources:
+        return {}
+    depth = _bfs_depth(sources, power, {})
+
+    def downstream(j: str, o: str) -> int:
+        """Počet prvků za sousedem `o` (hlouběji než uzel, bez cesty přes uzel)."""
+        seen, todo = {j, o}, [o]
+        while todo:
+            n = todo.pop()
+            for m in power[n]:
+                if m not in seen and depth.get(m, -1) > depth[j]:
+                    seen.add(m)
+                    todo.append(m)
+        return len(seen) - 1
+
+    out: dict[str, Symbol] = {}
+    for j in junctions:
+        lst = links.get(j)
+        if j not in depth or not lst:
+            continue
+        known = [(depth[o], port) for port, o in lst if o in depth and depth[o] < depth[j]]
+        if not known:
+            continue
+        p_in = min(known)[1]
+        size: dict[str, int] = {}          # port -> přístrojů za ním (pořadí vodičů zachováno)
+        for port, o in lst:
+            if port != p_in:
+                size[port] = size.get(port, 0) + downstream(j, o)
+        dirs = {p_in: d_in}
+        rest = sorted(size, key=lambda pt: -size[pt])     # stabilní: při shodě pořadí vodičů
+        for k, port in enumerate(rest):
+            dirs[port] = d_main if k == 0 else d_side
+        sym = poles[j].symbol
+        free = [d for d in ("N", "E", "S", "W") if d not in dirs.values()]
+        ports = []
+        for p in sym.ports:
+            d = dirs.get(p.name) or (free.pop(0) if free else p.dir)
+            x, y = _DIR_POS[d]
+            ports.append(dataclasses.replace(p, x=x, y=y, dir=d))
+        if any(p.dir != q.dir or p.x != q.x or p.y != q.y for p, q in zip(ports, sym.ports, strict=True))                 or poles[j].element.rotation % 360 or poles[j].element.mirror:
+            out[j] = dataclasses.replace(sym, ports=ports)
+    return out
 
 
 def flow_flipped(sheet: Sheet, poles: dict[str, ElementPoles]) -> set[str]:
@@ -928,7 +1229,15 @@ def pole_label_lines(ep: ElementPoles) -> list[tuple[float, float, str, float, s
     vždy vodorovně. Přívod/vývod: označení svorkovnice vlevo u svorek. Vícepólový přístroj se svislým tokem
     (póly vedle sebe): vlevo od prvního pólu zarovnaný doprava, horní řádek u horního okraje pólů – nepřeškrtne
     žílu prvního pólu ani nevede přes přívodní žíly nad prvkem. Skupina svorek: nad můstky. Jednopólový prvek:
-    poloha popisku značky."""
+    poloha popisku značky. Přesunutý popisek (`ep.label_lines`) má přednost."""
+    if ep.label_lines is not None:
+        ox, oy = ep.origin
+        return [(ox + dx, oy + dy, text, h, align) for dx, dy, text, h, align in ep.label_lines]
+    return default_label_lines(ep)
+
+
+def default_label_lines(ep: ElementPoles) -> list[tuple[float, float, str, float, str]]:
+    """Výchozí poloha popisku prvku (viz `pole_label_lines`)."""
     from envocad.model.symbol import rotate_point
     e = ep.element
     c0 = ep.switched[0] if ep.per_pole and ep.switched else None
@@ -990,12 +1299,13 @@ DIR_VEC = {"N": (0, 1), "E": (1, 0), "S": (0, -1), "W": (-1, 0)}
 BREAK_PITCH = 2.5      # rozteč přerušení žil na okraji strany
 
 
-def break_y(p: tuple[float, float], d: str, n: int, used: set[float]) -> float:
+def break_y(p: tuple[float, float], d: str, n: int, used: set[float], lo: float | None = None) -> float:
     """Výška (mm, Y nahoru) vodorovného úseku k přerušovacímu bodu na okraji strany; `n` = pořadí přerušení na tom
     okraji, `used` = výšky přerušení, která už na okraji jsou (doplní se o vrácenou výšku).
     Port E/W: v úrovni portu, každé další přerušení o rozteč níž (`n`). Port N/S: úsek vede za vývodem portu ven od
     přístroje (nad / pod něj) – ne v úrovni portu, kde by šel přes sousední svorky, jejich čísla a vlastní značku;
-    další přerušení dál ven, dokud nemá od ostatních na okraji aspoň rozteč (šipky a odkazy se nekryjí)."""
+    další přerušení dál ven, dokud nemá od ostatních na okraji aspoň rozteč (šipky a odkazy se nekryjí).
+    `lo` = nejnižší povolená výška (spodní okraj kresby strany): port E/W pak pokračuje nad úrovní portu."""
     if d in ("N", "S"):
         step = BREAK_PITCH if d == "N" else -BREAK_PITCH
         y = p[1] + (GRID if d == "N" else -GRID)
@@ -1003,6 +1313,11 @@ def break_y(p: tuple[float, float], d: str, n: int, used: set[float]) -> float:
             y += step
     else:
         y = p[1] - BREAK_PITCH * n
+        if lo is not None and y < lo:
+            # pod spodní okraj strany ne – další přerušení nad úrovní portu (první volná výška)
+            y = p[1] + BREAK_PITCH
+            while any(abs(y - u) < BREAK_PITCH - 1e-6 for u in used):
+                y += BREAK_PITCH
     used.add(y)
     return y
 

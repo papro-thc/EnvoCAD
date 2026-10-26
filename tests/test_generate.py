@@ -607,7 +607,8 @@ def test_generated_vn_only_known_re_meter_warning(name):
     p = build_project(F7_CASES.get(name) or _F7_RE_INDIRECT)
     fs = [f for f in check_project(p, LibraryStore(), standard_paper="A4") if f.severity in (ERROR, WARNING)]
     assert {(f.code, f.sheet_name.split(" ")[0]) for f in fs} == {("mp_text_overlap", "RE")}, [f.text for f in fs]
-    assert len(fs) == (1 if name in _F7_XFAIL else 3)
+    # nepřímé měření: popisek přístroje se od 10/2026 odsune z cizích žil (`_place_element_label`) – 2 místo 3
+    assert len(fs) == (1 if name in _F7_XFAIL else 2)
 
 
 # ---- označení rozvaděčů (docs/NAVRH_TOPOLOGIE.md, kap. 8 bod 9) -------------------------------------------------

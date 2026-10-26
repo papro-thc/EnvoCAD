@@ -221,7 +221,8 @@ Jeden model, dva pohledy nad stejnými daty:
   s navázanými změnami odkud ↔ kam (`project.feed_dir_changes`) a přestavbou položky značky.
 - Geometrie vícepólu (rozmístění `auto_layout`, stránkování `paginate`, popisky přístrojů `pole_label_lines`, trasy
   žil `conductor_route`, příčka PE svodiče `pe_join_segments`) je v `model/multipole.py`; `model/multipole_geometry.py`
-  z ní bez Qt skládá texty a čáry celého pohledu a rozmisťuje popisky žil mimo cizí čáry – stejné polohy kreslí scéna
+  z ní bez Qt skládá texty a čáry celého pohledu a rozmisťuje popisky žil a prvků (`element_labels`) mimo cizí čáry
+  – stejné polohy kreslí scéna
   (`ui/multipole_view.py`) a kontroluje F7 (`mp_text_overlap`). Scéna přebírá z modelu vše: polohy
   (`MultipoleGeometry.origins`), strany, přerušení s odkazy (`page_breaks`), sběrné čáry (`rails`, `rail_taps`),
   odkazy sběrnice (`bus_refs`), popis sběrnice (`bus_desc`) a můstky svorkovnic (`bridges` = `multipole.bridge_paths`).
