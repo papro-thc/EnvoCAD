@@ -1,6 +1,15 @@
 # Changelog
 
 ## Nevydáno
+- **Aktualizace při spuštění** (`envocad/updater.py`, `docs/RELEASE.md`): EnvoCAD se aktualizuje jen na vydané verze
+  (tagy `vX.Y.Z`) a před aktualizací se zeptá (**Aktualizovat** / **Teď ne** = znovu za 24 h, s výpisem změn).
+  Klon repozitáře: `scripts\run.cmd` / `run.ps1` / `run.sh` před startem porovná lokální tagy, `git fetch` běží na
+  pozadí (start nečeká na síť), po souhlasu `git switch` na tag a `pip install -e .` při změně `pyproject.toml`
+  (při chybě návrat); vývojová větev, lokální změny nebo commity navíc na `main` se nepřepíšou. Samostatná aplikace:
+  instalace `Instalovat EnvoCAD.cmd` ze sdílené složky do `%LOCALAPPDATA%\Programs\EnvoCAD\versions\<verze>`,
+  při startu `latest.json` (SHA-256), nová verze vedle běžící. Návrat `python -m envocad.updater rollback`,
+  vypnutí `auto_update: false`. Vydání `tools/release.py prepare | tag | publish`. Projekt z novější verze
+  programu teď radí aktualizovat. Test `test_updater.py`.
 - **Příkazový řádek – fáze 3: pluginy, skripty v okně, export** – příkazy `EXPORT_DXF` (DXFOUT; list rozvaděče jako
   vícepól), `EXPORT_PDF` (PDF; list bez okna, `export_pdf.export_sheet_pdf`, A4 / A3) a `DOC_PDF` (DOKUMENTACE; celá
   dokumentace) – v okně bez cesty otevřou dialog jako menu; ze skriptu (CLI i okno) jen do složky skriptu, bez
