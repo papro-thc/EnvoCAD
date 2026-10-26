@@ -94,6 +94,30 @@ def release_notes(changelog: str, after: str, upto: str | None = None) -> str:
     return notes if len(notes) <= MAX_NOTES else notes[:MAX_NOTES].rstrip() + "\n…"
 
 
+def fragment_files(folder: Path) -> list[Path]:
+    """Záznamy změn čekající na vydání (`changelog.d/*.md` kromě README), nejnovější první: jména začínají datem
+    `RRRR-MM-DD-…`, takže sestupné řazení podle jména = od nejnovějšího."""
+    if not folder.is_dir():
+        return []
+    return sorted((p for p in folder.glob("*.md") if p.name.lower() != "readme.md"), key=lambda p: p.name,
+                  reverse=True)
+
+
+def add_fragments(changelog: str, fragments: list[str]) -> str:
+    """Vloží záznamy z `changelog.d` na začátek sekce „## Nevydáno“ (nad dřívější záznamy psané přímo do CHANGELOG).
+    Každý záznam je odrážka „- **Název** – …“ (víc řádků s odsazením)."""
+    items = [f.strip() for f in fragments if f.strip()]
+    if not items:
+        return changelog
+    bad = [f.splitlines()[0][:60] for f in items if not f.startswith("- ")]
+    if bad:
+        raise ValueError(f"Záznam v changelog.d musí začínat odrážkou „- “: {bad[0]!r}")
+    m = _UNRELEASED_RE.search(changelog)
+    if not m:
+        raise ValueError("CHANGELOG nemá sekci „## Nevydáno“")
+    return changelog[:m.end()] + "\n" + "\n".join(items) + changelog[m.end():]
+
+
 def cut_release(changelog: str, version: str, date: str) -> str:
     """Přejmenuje sekci „## Nevydáno“ na `## <verze> – <datum>` a nad ni přidá novou prázdnou „## Nevydáno“."""
     if parse_version(version) is None:

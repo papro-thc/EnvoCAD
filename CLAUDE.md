@@ -26,3 +26,5 @@ QT_QPA_PLATFORM=offscreen pytest tests/test_gui_smoke.py
 ## Před odevzdáním
 - `pytest` zelené, `ruff check .` bez chyb.
 - Pokud jsi změnil formát projektu nebo symbolu, zvedni `FORMAT_VERSION` a doplň migraci.
+- Záznam změny **nepiš do `CHANGELOG.md`**, ale jako nový soubor `changelog.d/RRRR-MM-DD-nazev.md`
+  (jedna odrážka, viz `changelog.d/README.md`) – paralelní PR si pak nepřekážejí.

@@ -1,6 +1,7 @@
 """Vydání verze EnvoCAD (postup v docs/RELEASE.md).
 
-    python tools/release.py prepare 0.12.0      # verze v pyproject.toml + envocad/__init__.py, sekce v CHANGELOG.md
+    python tools/release.py prepare 0.12.0      # verze v pyproject.toml + envocad/__init__.py, záznamy
+                                                # z changelog.d/ do sekce 0.12.0 v CHANGELOG.md
     python tools/release.py tag                 # ověří main = origin/main, testy, vytvoří a pushne tag v0.12.0
     python tools/release.py publish \\\\server\\envocad\\release
                                                 # z tagu postaví samostatnou aplikaci a nahraje ji do sdílené složky
@@ -28,6 +29,7 @@ from envocad import updater
 PYPROJECT = ROOT / "pyproject.toml"
 INIT = ROOT / "envocad" / "__init__.py"
 CHANGELOG = ROOT / "CHANGELOG.md"
+FRAGMENTS = ROOT / "changelog.d"      # záznam změny = vlastní soubor (paralelní PR si v CHANGELOG nepřekážejí)
 
 
 def die(msg: str) -> None:
@@ -66,11 +68,17 @@ def cmd_prepare(version: str) -> None:
     cur = project_version()
     if updater.parse_version(version) <= (updater.parse_version(cur) or (0, 0, 0)):
         die(f"verze {version} není vyšší než současná {cur}")
+    fragments = updater.fragment_files(FRAGMENTS)
     try:
-        changelog = updater.cut_release(read(CHANGELOG), version, dt.date.today().isoformat())
+        changelog = updater.add_fragments(read(CHANGELOG), [read(p) for p in fragments])
+        changelog = updater.cut_release(changelog, version, dt.date.today().isoformat())
     except ValueError as ex:
         die(str(ex))
     write(CHANGELOG, changelog)
+    for p in fragments:                 # záznamy jsou teď v CHANGELOG.md (commit je smaže i z gitu: git add -A)
+        p.unlink()
+    if fragments:
+        print(f"Do CHANGELOG.md přeneseno {len(fragments)} záznamů z changelog.d/.")
     write(PYPROJECT, re.sub(r'^version = "[^"]+"', f'version = "{version}"', read(PYPROJECT), count=1,
                             flags=re.MULTILINE))
     write(INIT, re.sub(r'^__version__ = "[^"]+"', f'__version__ = "{version}"', read(INIT), count=1,
