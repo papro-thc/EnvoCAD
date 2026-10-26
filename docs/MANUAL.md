@@ -1047,7 +1047,8 @@ prvku, rozměry pro rozložení a ztrátový výkon pro oteplení.
 - **Firemní standard…** – výchozí kabely, zpracoval, název firmy, formát stran schématu rozvaděče a plánu
   svorkovnice (výchozí A4 na šířku), největší list JPS z průvodce (`jps_max_paper`, výchozí A2) a výchozí volba
   listů JPS v PDF dokumentace (`doc_jps_page`, výchozí „Zmenšit na A3“) (`~/.envocad/settings.json`).
-- Pluginy: `~/.envocad/plugins/*.py` s funkcí `register(ctx)` přidají menu, šablony, importéry nebo výkazy.
+- Pluginy: `~/.envocad/plugins/*.py` s funkcí `register(ctx)` přidají menu, šablony, importéry, výkazy nebo
+  příkazy příkazového řádku (`ctx.add_command`, viz `envocad/plugins.py`).
 
 Data artiklů jsou opsaná z veřejných katalogů (zdroj a strana je u každého řádku) – před použitím
 v projektu je ověř u výrobce.
@@ -1139,6 +1140,7 @@ python -m envocad.cmd projekt.ecp - < skript.ecs             # skript ze vstupu
 | `--json` | na každý příkaz řádek JSON `{"line", "cmd", "ok", "messages", "changed_sheets"}` (u `CHECKS` navíc `data` s nálezy), nakonec `{"summary": …}` |
 | `--var jmeno=hodnota` | dosadí `${jmeno}` ve skriptu (jen text, dosazuje se před rozdělením řádku – mezera nebo uvozovka v hodnotě přidá argument) |
 | `--no-user-aliases` | bez uživatelských aliasů `~/.envocad/aliases.json` – skript se chová stejně na každém stroji (doporučeno pro agenty) |
+| `--plugins` | načíst pluginy `~/.envocad/plugins` a jejich příkazy (plugin je kód s právy uživatele – bez volby se nenačtou) |
 
 Kód návratu: 0 = vše proběhlo, 1 = chyba příkazu (hláška s číslem řádku, např. `řádek 7: MOVE – chybí Cílový bod`),
 2 = chybné použití (argumenty, projekt nebo skript nejde načíst). Před uložením se dopočtou kabely a vazby přívodů
@@ -1188,7 +1190,15 @@ poslední výběr (`SELECT`). `SELECT F1 F2 Q*` (označení prvků i vodičů, `
 | `UNDO` / `REDO` | U, ZPET / ZNOVU | `UNDO [počet]` |
 | `CHECKS` | F7, KONTROLA | vypíše nálezy kontroly projektu |
 | `SAVE` | ULOZ, QSAVE | `SAVE [soubor.ecp]` – v CLI jen potvrdí cíl `-o` / `--in-place` (uloží se po úspěšném konci skriptu), jiná cesta je chyba |
-| `SCRIPT` | SCR, SKRIPT | `SCRIPT jiny.ecs` – vnoření nejvýš 4×, cesta relativně ke skriptu a jen pod složkou hlavního skriptu; celý vnořený skript je jeden krok (chyba v něm nezmění nic) |
+| `SCRIPT` | SCR, SKRIPT | `SCRIPT jiny.ecs` – vnoření nejvýš 4×, cesta relativně ke skriptu a jen pod složkou hlavního skriptu; celý vnořený skript je jeden krok (chyba v něm nezmění nic). V okně Soubor → Spustit skript… (jeden krok Ctrl+Z) |
+| `EXPORT_DXF` | DXFOUT, EXPORTDXF | `EXPORT_DXF soubor.dxf` – aktivní list (list rozvaděče jako vícepól po stranách); bez cesty v okně dialog |
+| `EXPORT_PDF` | PDF, EXPORTPDF | `EXPORT_PDF soubor.pdf [A4 \| A3]` – aktivní list (skutečný formát, nebo zmenšit/zvětšit na A4/A3) |
+| `DOC_PDF` | DOKUMENTACE | `DOC_PDF soubor.pdf [A3 \| list]` – celá dokumentace; listy JPS zmenšit na A3 / skutečný formát (výchozí podle firemního standardu) |
+
+Exporty ze skriptu (CLI i Soubor → Spustit skript…) jdou jen do složky hlavního skriptu (a podsložek), existující
+soubor přepíšou jen tehdy, když ho vytvořil tentýž běh (v CLI jinak `--force`), nejvýš 50 exportů za běh;
+`--dry-run` nic nezapíše. Export model nemění a chyba později ve skriptu už zapsané soubory nesmaže. Řádek napsaný
+ručně v doku tato omezení nemá.
 | `HELP` | ?, NAPOVEDA | `HELP [příkaz]` – seznam příkazů a aliasů / syntaxe |
 | `ZOOM`, `FIT` | Z, ZE, ZA | jen v GUI |
 

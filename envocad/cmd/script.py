@@ -77,7 +77,8 @@ def run_script(runner: CommandRunner, text: str, *, name: str = "", base_dir: Pa
     if base_dir is not None:
         runner.ctx.base_dir = base_dir
     if runner.script_depth == 0:
-        runner.commands_run = 0
+        runner.commands_run = runner.exports_run = 0
+        runner.exported = set()
         runner.script_root = runner.ctx.base_dir
     runner.script_depth += 1
     try:

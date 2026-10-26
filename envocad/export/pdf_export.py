@@ -9,6 +9,37 @@ from PySide6.QtGui import QPageLayout, QPageSize, QPainter, QPdfWriter
 from envocad.ui import theme
 
 PAPERS = {"A4": (297.0, 210.0), "A3": (420.0, 297.0)}
+_HEADLESS_APP: list = []        # QApplication vytvořená pro export bez okna (CLI) – žije do konce procesu
+
+
+def ensure_qt_app():
+    """QApplication pro export bez okna (příkazový řádek, CLI): stávající instance, jinak nová – bez displeje
+    platforma „offscreen“ (jen když ji uživatel nenastavil jinak). Scény listů ji potřebují i pro PDF."""
+    import os
+
+    from PySide6.QtWidgets import QApplication
+    app = QApplication.instance()
+    if app is None:
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        app = QApplication([])
+        _HEADLESS_APP.append(app)
+    return app
+
+
+def export_sheet_pdf(project, sheet, library, path: Path | str, paper: str | None = None) -> None:
+    """PDF listu bez otevřeného okna (příkaz EXPORT_PDF): scéna jako v PDF dokumentaci – list rozvaděče jako vícepól,
+    ostatní jako schéma, bez mřížky a připomínek."""
+    ensure_qt_app()
+    from PySide6.QtGui import QUndoStack
+
+    from envocad.ui.canvas import SchematicScene
+    from envocad.ui.multipole_view import MultipoleScene
+    cls = MultipoleScene if sheet.is_switchboard else SchematicScene
+    undo = QUndoStack()
+    scene = cls(project, sheet, library, undo)
+    scene.draw_grid = False
+    set_scene_notes_visible(scene, False)
+    export_scene_pdf(scene, path, paper=paper)
 
 
 def set_scene_notes_visible(scene, visible: bool | None) -> None:

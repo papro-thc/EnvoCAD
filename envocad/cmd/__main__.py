@@ -1,5 +1,6 @@
 """CLI příkazového řádku: `python -m envocad.cmd projekt.ecp skript.ecs [-o výstup.ecp [--force] | --in-place]
-[--dry-run] [--json] [--keep-going] [--no-user-aliases] [--var name=value …]`. Skript `-` = ze stdin.
+[--dry-run] [--json] [--keep-going] [--no-user-aliases] [--plugins] [--var name=value …]`. Skript `-` = ze stdin.
+Exporty (EXPORT_DXF, EXPORT_PDF, DOC_PDF) jen do složky skriptu; příkazy pluginů jen s `--plugins` (plugin je kód).
 Vstup i výstup je vždy UTF-8 (i v rouře na Windows), SAVE ve skriptu jen potvrdí cíl – zapisuje se až na konci.
 
 Bez `-o` / `--in-place` se nic neuloží (bezpečný výchozí stav pro agenty). Kód návratu 0 = vše v pořádku,
@@ -30,9 +31,11 @@ def _parser() -> argparse.ArgumentParser:
     ap.add_argument("--json", action="store_true", help="řádek JSON na příkaz (line, cmd, ok, messages, "
                                                          "changed_sheets) a nakonec souhrn")
     ap.add_argument("--keep-going", action="store_true", help="po chybě pokračovat dalším řádkem")
-    ap.add_argument("--force", action="store_true", help="s -o přepsat existující soubor")
+    ap.add_argument("--force", action="store_true", help="s -o přepsat existující soubor; exporty skriptu smí přepsat existující PDF / DXF")
     ap.add_argument("--no-user-aliases", action="store_true",
                     help="bez uživatelských aliasů ~/.envocad/aliases.json (stejné chování na každém stroji)")
+    ap.add_argument("--plugins", action="store_true",
+                    help="načíst pluginy ~/.envocad/plugins (jejich příkazy; plugin běží s právy uživatele)")
     ap.add_argument("--var", action="append", default=[], metavar="NAME=VALUE", help="proměnná ${NAME} ve skriptu")
     return ap
 
@@ -95,15 +98,22 @@ def main(argv: list[str] | None = None) -> int:
     if a.output and target.exists() and target.resolve() != proj_path.resolve() and not a.force:
         print(f"Soubor {target} existuje – přepis jen s --force", file=sys.stderr)
         return USAGE_ERROR
-    save = SaveOptions(target=target, allow=target is not None and not a.dry_run, overwrite=False,
+    save = SaveOptions(target=target, allow=target is not None and not a.dry_run, overwrite=a.force,
                        dry_run=a.dry_run, deferred=True)
     from envocad.cmd.builtin import default_registry
     from envocad.library.store import LibraryStore
     lib = LibraryStore()
     sync_feed_links(project)               # jako otevření v GUI
     sync_cables(project)
-    runner = CommandRunner(project, lib, default_registry(user_aliases=not a.no_user_aliases), journal=Journal(),
-                           on_change=sync_derived, base_dir=base, save=save)
+    registry = default_registry(user_aliases=not a.no_user_aliases)
+    if a.plugins:
+        from envocad.plugins import failed_message, load_plugins, register_plugin_commands
+        plugins = load_plugins(lib)
+        for w in [failed_message(plugins)] + register_plugin_commands(plugins, registry):
+            if w:
+                print(w, file=sys.stderr)
+    runner = CommandRunner(project, lib, registry, journal=Journal(), on_change=sync_derived, base_dir=base,
+                           save=save)
 
     def on_result(lr) -> None:
         if a.json:
