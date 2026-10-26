@@ -10,6 +10,7 @@ from __future__ import annotations
 import dataclasses
 import math
 from dataclasses import dataclass, field
+from itertools import pairwise
 
 from envocad.model.designation import element_name
 from envocad.model.feed import (
@@ -1530,12 +1531,143 @@ def branch_side(branches: set[tuple[str, str]], wire_id: str) -> str:
 
 
 def wire_route(pa: tuple[float, float], da: str, pb: tuple[float, float], db: str, stagger: float = 0.0,
-               branch: str = "") -> list[tuple[float, float]]:
-    """Trasa žíly mezi póly (`conductor_route`, `jog` 0,8); `branch` „a“/„b“ = ten konec je odbočka ze svorky
-    (`branch_ends`) – trasa se spočítá od něj a obrátí, aby body šly vždy od `pa` k `pb`."""
+               branch: str = "", jog: float = 0.8) -> list[tuple[float, float]]:
+    """Trasa žíly mezi póly (`conductor_route`, příčka Z v `jog` délky, výchozí 0,8 – blízko cíle); `branch` „a“/„b“
+    = ten konec je odbočka ze svorky (`branch_ends`) – trasa se spočítá od něj a obrátí, aby body šly vždy od `pa`
+    k `pb`."""
     if branch == "b":
-        return conductor_route(pb, db, pa, da, stagger=stagger, jog=0.8, branch=True)[::-1]
-    return conductor_route(pa, da, pb, db, stagger=stagger, jog=0.8, branch=branch == "a")
+        return conductor_route(pb, db, pa, da, stagger=stagger, jog=jog, branch=True)[::-1]
+    return conductor_route(pa, da, pb, db, stagger=stagger, jog=jog, branch=branch == "a")
+
+
+ROUTE_JOGS = (0.8, 0.5, 0.2, 0.65, 0.35, 0.9, 0.1)   # výšky příčky Z-trasy, které se zkoušejí (první = výchozí)
+# trasy se dvěma lomy (`clear_route`) se zkoušejí jen u žil přes cizí značku
+
+
+def _segment_hits_box(a, b, box, pad: float = 0.6) -> bool:
+    """Vede vodorovný / svislý úsek žíly přes vnitřek obálky značky (okraj `pad` – vývod k portu se nepočítá)?"""
+    x0, y0, x1, y1 = box[0] + pad, box[1] + pad, box[2] - pad, box[3] - pad
+    if x1 <= x0 or y1 <= y0:
+        return False
+    (ax, ay), (bx, by) = a, b
+    if abs(ay - by) < 1e-6:
+        return y0 < ay < y1 and max(ax, bx) > x0 and min(ax, bx) < x1
+    if abs(ax - bx) < 1e-6:
+        return x0 < ax < x1 and max(ay, by) > y0 and min(ay, by) < y1
+    return False
+
+
+def route_hits(pts: list[tuple[float, float]], boxes) -> int:
+    """Počet úseků trasy vedených přes obálky značek `boxes`."""
+    return sum(1 for a, b in pairwise(pts) for box in boxes if _segment_hits_box(a, b, box))
+
+
+def _route_len(pts) -> float:
+    return sum(abs(b[0] - a[0]) + abs(b[1] - a[1]) for a, b in pairwise(pts))
+
+
+def _clean_path(pts) -> bool:
+    """Trasa bez otočky o 180° a bez úseku vedeného po jiném úseku téže trasy (žíla se nevrací po sobě)."""
+    q = [p for i, p in enumerate(pts) if i == 0 or p != pts[i - 1]]
+    dirs = []
+    for a, b in pairwise(q):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        dirs.append(((dx > 0) - (dx < 0), (dy > 0) - (dy < 0)))
+    for d1, d2 in pairwise(dirs):
+        if d1[0] == -d2[0] and d1[1] == -d2[1]:
+            return False
+    segs = list(pairwise(q))
+    for i, (a, b) in enumerate(segs):
+        for c, d in segs[i + 2:]:
+            vert = abs(a[0] - b[0]) < 1e-6 and abs(c[0] - d[0]) < 1e-6 and abs(a[0] - c[0]) < 1e-6
+            horz = abs(a[1] - b[1]) < 1e-6 and abs(c[1] - d[1]) < 1e-6 and abs(a[1] - c[1]) < 1e-6
+            k = 1 if vert else 0
+            if (vert or horz) and min(max(a[k], b[k]), max(c[k], d[k])) - max(min(a[k], b[k]), min(c[k], d[k])) > 1e-6:
+                return False
+    return True
+
+
+def _crossings(pts, segs) -> int:
+    """Počet křížení úseků trasy (vodorovný × svislý, uvnitř obou) s úseky jiných žil `segs`."""
+    n = 0
+    for a, b in pairwise(pts):
+        for c, d in segs:
+            if abs(a[1] - b[1]) < 1e-6 and abs(c[0] - d[0]) < 1e-6:
+                h, v = (a, b), (c, d)
+            elif abs(a[0] - b[0]) < 1e-6 and abs(c[1] - d[1]) < 1e-6:
+                h, v = (c, d), (a, b)
+            else:
+                continue
+            x, y = v[0][0], h[0][1]
+            if min(h[0][0], h[1][0]) + 1e-6 < x < max(h[0][0], h[1][0]) - 1e-6 \
+                    and min(v[0][1], v[1][1]) + 1e-6 < y < max(v[0][1], v[1][1]) - 1e-6:
+                n += 1
+    return n
+
+
+def clear_route(pa, da, pb, db, stagger: float = 0.0, branch: str = "", boxes=(),
+                segs=(), labels=()) -> list[tuple[float, float]]:
+    """Trasa žíly, která co nejméně vede přes cizí značky (`boxes`). Výchozí trasa (`wire_route`), když nic nekříží;
+    jinak jiné výšky příčky Z (`ROUTE_JOGS`) a trasy se dvěma lomy přes volný pruh (svisle – vodorovně – svisle
+    v různých výškách, vodorovně – svisle – vodorovně v různých odstupech) – nejkratší bez přechodu, jinak s nejméně
+    přechody (při shodě výchozí). Odbočka ze svorky (`branch`) zůstává, pokud nevede přes cizí značku."""
+    base = wire_route(pa, da, pb, db, stagger=stagger, branch=branch)
+    if not boxes or route_hits(base, boxes) == 0:
+        return base                     # odbočka ze svorky jen když výchozí trasa vede přes značku
+    cands = [wire_route(pa, da, pb, db, stagger=stagger, jog=j) for j in ROUTE_JOGS[1:]]
+    va, vb = DIR_VEC[da], DIR_VEC[db]
+    sa = (pa[0] + va[0] * GRID, pa[1] + va[1] * GRID)
+    sb = (pb[0] + vb[0] * GRID, pb[1] + vb[1] * GRID)
+    lo_y, hi_y = min(sa[1], sb[1]), max(sa[1], sb[1])
+    lo_x, hi_x = min(sa[0], sb[0]), max(sa[0], sb[0])
+    ys = {_snap(lo_y + (hi_y - lo_y) * f) for f in (0.1, 0.3, 0.5, 0.7, 0.9)}
+    ys |= {_snap(lo_y - k * GRID) for k in (2, 4, 8, 12)} | {_snap(hi_y + k * GRID) for k in (2, 4, 8, 12)}
+    xs = {_snap(lo_x + (hi_x - lo_x) * f) for f in (0.1, 0.3, 0.5, 0.7, 0.9)}
+    xs |= {_snap(lo_x - k * GRID) for k in (2, 4, 8, 12)} | {_snap(hi_x + k * GRID) for k in (2, 4, 8, 12)}
+    off = stagger
+    for y in ys:            # svisle – vodorovně – svisle
+        cands.append([pa, sa, (sa[0], y - off), (sb[0], y - off), sb, pb])
+    for x in xs:            # vodorovně – svisle – vodorovně
+        cands.append([pa, sa, (x + off, sa[1]), (x + off, sb[1]), sb, pb])
+    base_x = _crossings(base, segs)
+    best = None
+    for pts in cands:
+        # objízdná trasa jen čistá: bez značky i popisku, bez otočky, nejvýš o 2 křížení víc než výchozí
+        if not _clean_path(pts) or route_hits(pts, boxes) or route_hits(pts, labels):
+            continue
+        c = (_crossings(pts, segs), _route_len(pts))
+        if c[0] <= base_x + 2 and (best is None or c < best[0]):
+            best = (c, pts)
+    if best is None:
+        return base
+    pts = best[1]
+    return [p for i, p in enumerate(pts) if i == 0 or p != pts[i - 1]]
+
+
+def label_boxes(poles: dict[str, ElementPoles]) -> dict[str, list[tuple[float, float, float, float]]]:
+    """Obálky popisků prvků (`pole_label_lines`, odhad šířky textu) – objízdná trasa žíly je nesmí přeškrtnout."""
+    out: dict[str, list[tuple[float, float, float, float]]] = {}
+    for eid, ep in poles.items():
+        if ep.element.symbol_id in (BUS_SYMBOL, JUNCTION_SYMBOL):
+            continue
+        for x, y, text, h, align in pole_label_lines(ep):
+            w = len(text) * h * 0.62
+            x0 = x - w if align == "right" else x - w / 2 if align == "center" else x
+            out.setdefault(eid, []).append((x0 - 0.6, y - 0.4, x0 + w + 0.6, y + h + 0.4))
+    return out
+
+
+def obstacle_boxes(poles: dict[str, ElementPoles]) -> dict[str, list[tuple[float, float, float, float]]]:
+    """Obálky značek prvků ve vícepólu (po pólech, souřadnice pohledu) pro vedení žil mimo cizí značky. Uzly
+    a sběrnice nejsou překážka (žíly do nich vedou)."""
+    out: dict[str, list[tuple[float, float, float, float]]] = {}
+    for eid, ep in poles.items():
+        if ep.element.symbol_id in (BUS_SYMBOL, JUNCTION_SYMBOL):
+            continue
+        for c in (list(ep.switched) if ep.per_pole else [None]):
+            x, y = pole_anchor(ep, c)
+            out.setdefault(eid, []).append(_rot_box(pole_symbol_for(ep, c), x, y, ep.element.rotation))
+    return out
 
 
 def conductor_label_anchor(pts: list[tuple[float, float]], staggered: bool) -> tuple[float, float, str, bool]:

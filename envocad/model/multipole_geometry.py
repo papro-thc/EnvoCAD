@@ -95,6 +95,9 @@ class MultipoleGeometry:
     # popisky prvků přesunuté mimo cizí čáry: prvek → [(dx, dy, text, výška, zarovnání)] relativně k poloze prvku
     # (`ElementPoles.label_lines`; scéna je předá svým pólům)
     element_labels: dict[str, list[tuple[float, float, str, float, str]]] = field(default_factory=dict)
+    # žíly vedené mimo cizí značky jinou trasou (`mp.clear_route`): (id vodiče, žíla, část) → body (souřadnice pohledu)
+    routes: dict[tuple[str, str, int], list[Point]] = field(default_factory=dict)
+    symbol_boxes: dict[str, list[tuple[float, float, float, float]]] = field(default_factory=dict)   # obálky značek
     page_of: dict[str, int] = field(default_factory=dict)      # prvek → strana
     layout_pos: dict[str, Point] = field(default_factory=dict)  # automatické rozmístění před stránkováním
     page_size: tuple[float, float] = (420.0, 297.0)            # rozměr strany (A4 na šířku = 297 × 210)
@@ -179,7 +182,43 @@ def _layout(sheet: Sheet, poles: dict[str, mp.ElementPoles], size: tuple[float, 
     return layout, page_of, n_pages
 
 
+_REROUTE = True      # vedení žil mimo cizí značky (`mp.clear_route`); `multipole_geometry` porovná s výchozím
+
+
 def multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: str) -> MultipoleGeometry:
+    """Vícepól listu (`_multipole_geometry`). Když se některé žíly vedly mimo cizí značky jinou trasou
+    (`MultipoleGeometry.routes`), spočítá se i varianta s výchozími trasami a použije se ta s méně překryvy textů
+    (objízdná trasa může zabrat místo popisku přístroje); při shodě objízdné trasy."""
+    global _REROUTE
+    g = _multipole_geometry(project, sheet, lib, standard_paper=standard_paper)
+    if not g.routes:
+        return g
+    _REROUTE = False
+    try:
+        plain = _multipole_geometry(project, sheet, lib, standard_paper=standard_paper)
+    finally:
+        _REROUTE = True
+    def score(geo: MultipoleGeometry) -> int:   # překryvy textů + žíly přes cizí značky
+        return len(multipole_text_overlaps(project, sheet, lib, geo, standard_paper=standard_paper))             + symbol_crossings(sheet, geo)
+
+    return g if score(g) <= score(plain) else plain
+
+
+def symbol_crossings(sheet: Sheet, g: MultipoleGeometry) -> int:
+    """Počet úseků žil vedených přes obálku cizí značky (`MultipoleGeometry.symbol_boxes`)."""
+    wires = {w.id: w for w in sheet.wires}
+    n = 0
+    for a, b, owner, _what in g.lines:
+        w = wires.get(owner.partition("#")[0])
+        if w is None:
+            continue
+        for eid, boxes in g.symbol_boxes.items():
+            if eid not in (w.a.element_id, w.b.element_id):
+                n += sum(1 for box in boxes if mp.route_hits([a, b], [box]))
+    return n
+
+
+def _multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: str) -> MultipoleGeometry:
     """Texty a čáry vícepólu listu rozvaděče (souřadnice pohledu, strany pod sebou).
 
     Strana má formát `multipole.paper_choice` (list rozvaděče bez volby `mp_paper` formát firemního standardu
@@ -406,10 +445,26 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
     pending: list[tuple[tuple[str, str, int], str, list[Point], str, bool]] = []
     label_page: dict[tuple[str, str, int], int] = {}     # strana popisku žíly = strana jejího úseku
 
+    obstacles = label_obstacles = None   # obálky značek a popisků – spočítají se u první žíly (polohy jsou dané)
+    wire_segs: list = []  # úseky už nakreslených žil (objízdná trasa jich má křížit co nejméně)
+
     def conductor(w, c: str, idx: int, pa: Point, da: str, pb: Point, db: str, ends: tuple[str, str],
                   page: int, staggered: bool = False, part: int = 0, branch: str = "") -> None:
         """Úsek žíly na straně `page` (strana prvku, ze kterého vede – ne podle výšky bodu)."""
-        pts = mp.wire_route(pa, da, pb, db, stagger=idx * mp.GRID, branch=branch)
+        nonlocal obstacles, label_obstacles
+        if obstacles is None:
+            obstacles, label_obstacles = mp.obstacle_boxes(poles), mp.label_boxes(poles)
+            g.symbol_boxes = obstacles
+        own = (w.a.element_id, w.b.element_id)
+        # žíla z přívodu / vývodu zůstává na výchozí trase (štítek kabelu a označení svorkovnice u ní)
+        feed_end = any(mp.is_feed(poles[x].element) for x in own if x in poles)
+        boxes = [] if not _REROUTE or feed_end else [b for eid, bs in obstacles.items() if eid not in own for b in bs]
+        labels = [b for bs in label_obstacles.values() for b in bs]          # i popisky vlastních konců
+        pts = mp.clear_route(pa, da, pb, db, stagger=idx * mp.GRID, branch=branch, boxes=boxes, segs=wire_segs,
+                             labels=labels)
+        wire_segs.extend(pairwise(pts))
+        if pts != mp.wire_route(pa, da, pb, db, stagger=idx * mp.GRID, branch=branch):
+            g.routes[(w.id, c, part)] = list(pts)     # žíla mimo cizí značky – scéna kreslí tutéž trasu
         what = f"žílu {c}" + (f" vodiče {w.attrs['ref']}" if w.attrs.get("ref") else "")
         owner = f"{w.id}#{c}"   # každá žíla zvlášť – popisek L− přes žílu L+ téhož vodiče je překryv
         for a, b in pairwise(pts):
