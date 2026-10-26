@@ -35,7 +35,8 @@ Stav: `python -m envocad.updater status`. Log: `~/.envocad/log/update.log`, stav
 ## Jak vydat verzi
 
 ```
-python tools/release.py prepare 0.12.0   # verze v pyproject.toml + envocad/__init__.py, „## Nevydáno“ → „## 0.12.0 – datum“
+python tools/release.py prepare 0.12.0   # verze v pyproject.toml + envocad/__init__.py; záznamy z changelog.d/
+                                         # + „## Nevydáno“ → „## 0.12.0 – datum“ (soubory changelog.d/ smaže)
 # zkontrolovat CHANGELOG, commit „Vydání 0.12.0“, PR do main, merge
 git switch main && git pull
 python tools/release.py tag              # ověří main = origin/main, verze, CHANGELOG, pytest + ruff; tag v0.12.0 + push
