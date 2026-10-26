@@ -744,7 +744,7 @@ def _expand_once(project, sheet, fragment: dict, values: dict, dx: float, dy: fl
                   attrs={k: subst(v, values) for k, v in detach_wire_attrs(w.attrs).items() if k != "when"},
                   conductors=list(w.conductors))
         if internal_wires(sheet):
-            nw.attrs.pop("ref", None)            # vnitřní vodič rozvaděče bez označení W
+            nw.attrs["ref"] = ""                  # vnitřní vodič rozvaděče bez označení W
         elif nw.attrs.get("ref") and "{" not in str(w.attrs.get("ref", "")):
             n = 1
             while f"W{n}" in used:

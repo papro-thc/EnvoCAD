@@ -1641,7 +1641,7 @@ def paste_fragment(project: Project, fragment: dict, ref_prefix_of, dx: float = 
                   points=[(x + dx, y + dy) for x, y in w.points], attrs=detach_wire_attrs(w.attrs),
                   conductors=list(w.conductors))
         if internal_wires(target):
-            nw.attrs.pop("ref", None)
+            nw.attrs["ref"] = ""
         elif nw.attrs.get("ref"):
             n = 1
             while f"W{n}" in used:

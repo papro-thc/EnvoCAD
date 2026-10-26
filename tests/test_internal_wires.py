@@ -35,7 +35,7 @@ def _project():
 
 
 def test_label_hidden_only_on_switchboard():
-    p, jps, sb, w, jw = _project()
+    _p, jps, sb, w, jw = _project()
     assert internal_wires(sb) and not internal_wires(jps) and not internal_wires(None)
     assert wire_label_on(sb, w) == ""
     assert "W1" in wire_label_on(jps, jw) and "16" in wire_label_on(jps, jw)
@@ -43,7 +43,7 @@ def test_label_hidden_only_on_switchboard():
 
 
 def test_new_and_pasted_wires_on_switchboard_get_no_ref():
-    p, jps, sb, w, jw = _project()
+    p, jps, sb, _w, _jw = _project()
     a, b = sb.elements
     assert new_wire(p, sb, a, "1", b, "2").attrs["ref"] == ""
     ja, jb = jps.elements
@@ -56,7 +56,7 @@ def test_new_and_pasted_wires_on_switchboard_get_no_ref():
 
 
 def test_multipole_has_no_wire_name_or_cross(tmp_path):
-    p, _jps, sb, w, _jw = _project()
+    p, _jps, sb, _w, _jw = _project()
     g = multipole_geometry(p, sb, LibraryStore(tmp_path / "l.db"), standard_paper="A3")
     texts = [pr.text for pr in g.prims if pr.kind == "text"] + [t for _x, _y, t, _a in g.conductor_labels.values()]
     assert not any("W12" in t or "mm²" in t or "H07V" in t for t in texts)
