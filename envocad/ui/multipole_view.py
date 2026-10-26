@@ -6,6 +6,7 @@ Geometrie se počítá v `model/multipole.py`; tady se jen kreslí. Prvky se v t
 from __future__ import annotations
 
 import logging
+import math
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QPainter, QPainterPath, QPainterPathStroker, QPen, QTransform, QUndoStack
@@ -260,6 +261,7 @@ class RailItem(QGraphicsPathItem):
 
 BUS = "sb.busbar"
 BUS_PITCH = 5.0   # rozteč čar potenciálů sběrnice (mm)
+DESK_DARKER = 112  # plocha mimo strany vícepólu (mezery mezi papíry) – o kus tmavší než papír, bez mřížky
 
 
 class BusItem(QGraphicsItem):
@@ -653,7 +655,7 @@ class MultipoleScene(QGraphicsScene):
         self._items.clear()
         self._pole_items.clear()
         self._tags.clear()
-        self._paper.setPen(QPen(colors().paper, 0.5))
+        self._paper.setPen(QPen(Qt.NoPen))   # obrys má každá strana zvlášť (`drawBackground`)
         std = switchboard_paper()
         self.paper_size = mp.page_size(self.sheet, standard_paper=std)
         self.paper_label = mp.page_paper_label(self.sheet, standard_paper=std)
@@ -678,6 +680,7 @@ class MultipoleScene(QGraphicsScene):
             self._paginate(poles, geo.pages, geo.page_of)
             for eid, ep in poles.items():
                 ep.origin = geo.origins.get(eid, (ep.element.x, ep.element.y))
+                ep.label_lines = geo.element_labels.get(eid)   # popisek přesunutý mimo cizí čáry (model)
         else:   # nouzově (chyba v modelu): vlastní rozmístění bez popisků žil
             self._labels = {}
             self.layout_pos = mp.auto_layout(self.sheet, poles, x0=mp.layout_x0(self.sheet),
@@ -1007,21 +1010,32 @@ class MultipoleScene(QGraphicsScene):
 
     # ---- pozadí ---------------------------------------------------------------
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
+        """Každá strana jako samostatný papír: mimo strany (mezery mezi nimi) plocha bez mřížky, strana s mřížkou
+        a obrysem – i bez rámečku (nastavení `frame`). Tisk/export (`draw_grid` vypnuto): jen bílá."""
         c = PRINT if not self.draw_grid else colors()
-        painter.fillRect(rect, c.background)
         if not self.draw_grid:
+            painter.fillRect(rect, c.background)
             return
+        painter.fillRect(rect, c.background.darker(DESK_DARKER))
         scale = painter.worldTransform().m11()
         step = GRID if scale > 2.5 else GRID * 4
-        painter.setPen(QPen(c.grid, 0))
-        x = int(rect.left() / step) * step
-        while x < rect.right():
-            painter.drawLine(QPointF(x, rect.top()), QPointF(x, rect.bottom()))
-            x += step
-        y = int(rect.top() / step) * step
-        while y < rect.bottom():
-            painter.drawLine(QPointF(rect.left(), y), QPointF(rect.right(), y))
-            y += step
+        for page in self.pages or [QRectF(0, -self.paper_size[1], *self.paper_size)]:
+            r = page.intersected(rect)
+            if r.isEmpty():
+                continue
+            painter.fillRect(r, c.background)
+            painter.setPen(QPen(c.grid, 0))
+            x = math.ceil(r.left() / step) * step
+            while x <= r.right():
+                painter.drawLine(QPointF(x, r.top()), QPointF(x, r.bottom()))
+                x += step
+            y = math.ceil(r.top() / step) * step
+            while y <= r.bottom():
+                painter.drawLine(QPointF(r.left(), y), QPointF(r.right(), y))
+                y += step
+            painter.setPen(QPen(c.paper, 0.5))
+            painter.setBrush(Qt.NoBrush)
+            painter.drawRect(page)
 
     def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
         from envocad.model.frame import frame_geometry, page_label
@@ -1037,7 +1051,7 @@ class MultipoleScene(QGraphicsScene):
                                                page_label(self.project, self.sheet, k, n), self.paper_label,
                                                firm), c.ink)
             painter.restore()
-            if k:  # dělicí čára mezi stranami i bez rámečku
+            if k and not self.draw_grid:  # tisk: dělicí čára mezi stranami (na obrazovce obrys stran v pozadí)
                 painter.setPen(QPen(c.grid, 0, Qt.DashLine))
                 y = k * self.page_pitch - h - self.PAGE_GAP / 2   # scénové y uprostřed mezery nad stranou k
                 painter.drawLine(QPointF(0, y), QPointF(w, y))
