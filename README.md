@@ -21,9 +21,9 @@ cd EnvoCAD
 Podporovaný Python 3.11–3.14 (na 3.14 ověřeno celou sadou testů s PySide6 6.12).
 
 ```
-# Windows (PowerShell)
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1
-scripts\run.ps1
+# Windows (cmd i PowerShell; obejde zákaz spouštění skriptů .ps1)
+scripts\install.cmd
+scripts\run.cmd           # nebo dvojklik na scripts\run.cmd
 
 # Linux (Fedora/Ubuntu)
 bash scripts/install.sh
