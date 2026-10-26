@@ -2052,18 +2052,36 @@ class SheetPropsDialog(QDialog):
         form.addRow("Funkce (=):", self.func)
         form.addRow("Umístění (+):", self.loc)
         self.paper: QComboBox | None = None
+        self.size: QComboBox | None = None
         if sheet.is_switchboard:
             # formát stran schématu (vícepólu) a plánu svorkovnice listu rozvaděče
-            from envocad.model.multipole import SHEET_PAPER, SWITCHBOARD_PAPERS
+            from envocad.model.multipole import PAPER_CHOICES, SHEET_PAPER
             from envocad.settings import switchboard_paper
             self.paper = QComboBox()
             self.paper.addItem(f"podle firemního standardu ({_paper_text(switchboard_paper())})", "")
-            for key in SWITCHBOARD_PAPERS:
+            keys = list(PAPER_CHOICES)
+            if sheet.mp_paper and sheet.mp_paper not in keys and sheet.mp_paper != SHEET_PAPER:
+                keys.append(sheet.mp_paper)          # starší volba („A4 na výšku“) zůstane v nabídce
+            for key in keys:
                 self.paper.addItem(_paper_text(key), key)
             self.paper.addItem(f"jako list ({sheet.paper}, {sheet.width:g} × {sheet.height:g} mm)", SHEET_PAPER)
             i = self.paper.findData(sheet.mp_paper or "")
             self.paper.setCurrentIndex(max(i, 0))
             form.addRow("Formát stran schématu:", self.paper)
+        else:
+            # formát listu (blokové schéma…): A4…A1 na šířku nebo volný A4 (šířka podle obsahu)
+            from envocad.model.frame import sheet_format
+            from envocad.model.multipole import PAPER_CHOICES
+            self.size = QComboBox()
+            for key in PAPER_CHOICES:
+                self.size.addItem(_paper_text(key), key)
+            cur = sheet_format(sheet)
+            if not cur:
+                self.size.addItem(f"současný ({sheet.paper}, {sheet.width:g} × {sheet.height:g} mm)", "")
+            self.size.setCurrentIndex(max(self.size.findData(cur), 0))
+            self._size0 = self.size.currentData()
+            self.size.setToolTip("Volný A4: výška 297 mm, šířka podle obsahu listu po 210 mm (A4×n)")
+            form.addRow("Formát listu:", self.size)
         bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
@@ -2076,9 +2094,20 @@ class SheetPropsDialog(QDialog):
         """Zvolený formát stran schématu rozvaděče („“ = standard); None = list není rozvaděč."""
         return None if self.paper is None else str(self.paper.currentData() or "")
 
+    def sheet_format(self) -> str | None:
+        """Nově zvolený formát listu (ne rozvaděč); None = beze změny. Volný A4 se vrací vždy (šířka se přepočítá)."""
+        from envocad.model.multipole import FREE_A4
+        if self.size is None:
+            return None
+        v = str(self.size.currentData() or "")
+        return v if v and (v != self._size0 or v == FREE_A4) else None
+
 
 def _paper_text(key: str) -> str:
     """Popis formátu stran pro výběr: „A4“ → „A4 na šířku“."""
+    from envocad.model.multipole import FREE_A4
+    if key == FREE_A4:
+        return "volný A4 (výška 297 mm, šířka podle obsahu)"
     return key if "výšku" in key else f"{key} na šířku"
 
 

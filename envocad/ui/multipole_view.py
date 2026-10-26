@@ -675,6 +675,9 @@ class MultipoleScene(QGraphicsScene):
         bus_taps: dict[tuple[str, int], list[tuple[float, float]]] = {}
         if self._geo is not None:
             geo = self._geo
+            # rozměr strany z modelu (volný A4: šířka A4×n podle kresby)
+            self.paper_size, self.paper_label = tuple(geo.page_size), geo.paper
+            self._paper.setRect(QRectF(0, -self.paper_size[1], *self.paper_size))
             self._labels = geo.conductor_labels
             self.layout_pos = dict(geo.layout_pos)
             self._paginate(poles, geo.pages, geo.page_of)
@@ -716,7 +719,7 @@ class MultipoleScene(QGraphicsScene):
             if ea.element.symbol_id == BUS or eb.element.symbol_id == BUS:
                 self._add_bus_taps(w, ea, da, ka, eb, db, kb, bus_taps)
                 continue
-            for i, c in enumerate(mp.wire_conductors(w)):
+            for i, c in enumerate(mp.live_conductors(w, self._poles)):
                 pa, pb = ea.pole_pos(w.a.port, c), eb.pole_pos(w.b.port, c)
                 # svorka na konci: ruční přiřazení; u svorkového prvku je číslo přímo na pólu
                 ta = "" if mp.is_terminal_block(ea.element) else mp.terminal_text(w, c, "a")
@@ -731,7 +734,7 @@ class MultipoleScene(QGraphicsScene):
                 if ka == kb:
                     it = ConductorItem(w, c, i, sp(*pa), da, sp(*pb), db, (ta, tb),
                                        branch=mp.branch_side(branches, w.id))
-                    it.staggered = len(mp.wire_conductors(w)) > 1
+                    it.staggered = len(mp.live_conductors(w, self._poles)) > 1
                     it.label = self._labels.get((w.id, c, 0))   # model-write-ok: popisek položky scény (ConductorItem), ne model
                     self._add(it)
                 else:
@@ -793,7 +796,7 @@ class MultipoleScene(QGraphicsScene):
             return
         dev, ddir, kd, bus, dport = (eb, db, kb, ea, w.b.port) if ea.element.symbol_id == BUS else (ea, da, ka, eb, w.a.port)
         side = "b" if dev is eb else "a"
-        for c in mp.wire_conductors(w):
+        for c in mp.live_conductors(w, self._poles):
             if c not in bus.slots:
                 continue
             px, py = dev.pole_pos(dport, c)
