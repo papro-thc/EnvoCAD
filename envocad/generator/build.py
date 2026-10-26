@@ -78,6 +78,10 @@ def _build_once(spec: dict) -> tuple[Project, str | None]:
     if isinstance(spec.get("module"), dict) and spec["module"].get("component_id"):
         # artikl modulu doplní jen to, co specifikace nezadala – proto před doplněním výchozích hodnot
         spec["module"] = _apply_module_component(spec["module"])
+    if isinstance(spec.get("battery"), dict) and spec["battery"].get("component_id"):
+        # artikl baterie (batteries.csv) + počet modulů → typ, kapacita a výkon věže, BMS (`library/batteries.py`)
+        from envocad.library.batteries import apply_battery_component
+        spec["battery"] = apply_battery_component(context._lib(), spec["battery"])
     opt_comp = None
     if isinstance(spec.get("optimizer"), dict) and spec["optimizer"].get("component_id"):
         spec["optimizer"], opt_comp = _apply_optimizer_component(spec["optimizer"])

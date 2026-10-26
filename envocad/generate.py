@@ -43,6 +43,7 @@ Specifikace (JSON, vše kromě `inverters` volitelné – viz `DEFAULT_SPEC`):
                                 "fve_in": ""},                        # "" = ac.main_in omezené selektivitou (F7)
                  "ct_ratio": "", "fuse_vn": "", "vn_cable": "22-AXEKVCEY 3×1×70", "tr_cable": "4× 1-AYKY 3×240+120"},
   "battery": {"e_kwh": 10, "p_kw": 5, "type": "…",        # volitelné, jen u hybridního střídače
+              "component_id": "solax-t-bat-h-5.8-v3", "modules": 3, "bms_id": "",   # nebo artikl baterie z katalogu
               "cable": "H1Z2Z2-K 1x25", "cross": 25, "length": 5},   # kabel k baterii (výchozí `BATTERY_CABLE`)
   "macros": {"dc_tech": "DC string v rozvaděči", "dc_route": "DC string po trase",   # rozvaděče se skládají z maker
              "ac_feed": "AC přívod střídače", "ac_core": "AC jádro rozvaděče"},      # (knihovna → Makra); "" = kód
@@ -58,6 +59,10 @@ za sebou DC1, DC2… (`calc.string_ports`). Neznámé `strings_per_mppt` zůstan
 paralelních stringů nesčítá); pro počet DC vstupů se počítá se 2 na MPPT.
 Artikl modulu (`module.component_id`) stejně doplní prázdné údaje modulu (p_wp, voc, vmp, isc, imp, beta_voc,
 u_sys_max, alpha_isc, gamma_pmax, typ, výrobce); zadané hodnoty specifikace vyhrávají a stringy dostanou `component_id` artiklu.
+Artikl baterie (`battery.component_id`, `batteries.csv`, `library/batteries.py`) + `modules` (počet modulů věže, v mezích
+`n_mod_min`/`n_mod_max` artiklu, jinak ValueError) doplní prázdné `type`, `e_kwh`, `p_kw` (jen když je datasheet uvádí),
+`manufacturer`, `n_modules`, `slave_type` a `bms` (`bms_id` = řídicí jednotka); prvek baterie dostane `component_id`,
+výkaz materiálu master/modul × n, slave a řídicí jednotku. Zadané hodnoty specifikace vyhrávají.
 Artikl optimizéru (`optimizer.component_id`, docs/design/optimizery.md) doplní prázdný typ (part_number) a
 `per_module` = 1 / modulů na optimizér; stringy dostanou atributy `opt_*` (`Component.optimizer_values(phases)`)
 a `n_optimizers` = ⌈n / modulů na optimizér⌉. Režim stringů střídače (`string_mode`): specifikace > artikl střídače >

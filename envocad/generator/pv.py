@@ -345,7 +345,10 @@ def build(ctx: ChainContext) -> None:
         bat_y = element_symbol(p, t0, context._lib()).port("BAT").y
         bat = Element("fve.battery", t0.x, t0.y + bat_y - 25.0, attrs={
             "ref": "G" + str(len([e for e in s.elements if e.symbol_id == "fve.pv_string"]) + 1),
-            "type": _s(b.get("type")), "e_kwh": _s(b.get("e_kwh")), "p_kw": _s(b.get("p_kw"))})
+            "type": _s(b.get("type")), "e_kwh": _s(b.get("e_kwh")), "p_kw": _s(b.get("p_kw")),
+            # katalogová baterie (`spec.battery.component_id`): výrobce, počet modulů věže, slave a BMS pro výkaz
+            **{k: _s(b.get(k)) for k in ("manufacturer", "n_modules", "slave_type", "bms") if b.get(k)}},
+            component_id=b.get("component_id") or None)
         s.elements.append(bat)
         rows[0].append(bat)
         bc = {k: b.get(k) if b.get(k) not in (None, "") else v for k, v in BATTERY_CABLE.items()}
