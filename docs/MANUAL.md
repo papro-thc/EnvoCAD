@@ -1113,7 +1113,8 @@ Příkazy, aliasy i chování jsou v obou stejné.
 | Enter / mezera | potvrdí příkaz nebo hodnotu výzvy (mezera ne uvnitř uvozovek a v textové výzvě) |
 | Enter na prázdném řádku | zopakuje poslední příkaz |
 | Esc | zruší rozpracovaný příkaz – model zůstane, jak byl (i ve výkresu, i pravým tlačítkem) |
-| ↑ / ↓ | historie (posledních 200, i po restartu – `~/.envocad/cmd_history.txt`) |
+| ↑ / ↓ | historie, když není otevřený seznam příkazů (posledních 200, i po restartu – `~/.envocad/cmd_history.txt`) |
+| psaní příkazu | nad řádkem se ukážou odpovídající příkazy (jako ZWCAD): alias, jméno a česky co dělá; od 3 znaků hledá i uvnitř jmen a v českých názvech (`otoč` → ROTATE). ↑ / ↓ vybírá, Tab doplní, Enter nebo klik spustí, Esc seznam zavře; nedopsané slovo (`rotat`) Enter spustí podle prvního návrhu |
 | Tab | doplní příkaz, alias, id značky u `INSERT`, klíč atributu u `SET`, název listu u `SHEET` |
 | F2 | delší výstup (historie hlášek) |
 

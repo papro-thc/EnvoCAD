@@ -47,6 +47,16 @@ class Param:
 
 
 Prompt = Param
+SUGGEST_LIMIT = 12
+SUGGEST_CONTAINS = 3      # od kolika znaků hledat i uvnitř jmen a českých názvů („otoc“ → ROTATE), kratší jen začátek
+
+
+@dataclass(frozen=True)
+class Suggestion:
+    """Návrh našeptávače: `word` = co se zapíše do řádku (jméno nebo alias), `name` = příkaz, `title` = česky."""
+    word: str
+    name: str
+    title: str
 
 
 @dataclass
@@ -121,6 +131,32 @@ class Registry:
 
     def names(self) -> list[str]:
         return sorted(c.name for c in self.commands.values())
+
+    def suggest(self, text: str, limit: int = SUGGEST_LIMIT) -> list[Suggestion]:
+        """Našeptávač při psaní prvního slova (jako ZWCAD): příkazy, jejichž jméno nebo alias začíná napsaným textem
+        (přesná shoda první, pak kratší), za nimi (od `SUGGEST_CONTAINS` znaků) příkazy, které text obsahují ve
+        jménu, aliasu nebo českém názvu.
+        Každý příkaz jednou – se slovem, které se zapíše (alias, když ho uživatel píše, jinak jméno)."""
+        if not text.strip() or " " in text.strip():
+            return []
+        k = norm(text)
+        if not k:
+            return []
+        words: dict[str, list[tuple[str, str]]] = {}              # příkaz → [(norm slova, slovo)]
+        for key, c in self.commands.items():
+            words.setdefault(c.name, []).append((key, c.name.upper()))
+        for a, target in self.aliases.items():
+            words.setdefault(target, []).append((a, self.alias_labels[a]))
+        ranked: list[tuple[tuple, Suggestion]] = []
+        for name, ws in words.items():
+            cmd = self.commands[norm(name)]
+            pref = [(len(n), n != k, w) for n, w in ws if n.startswith(k)]
+            if pref:
+                ln, inexact, w = min(pref, key=lambda t: (t[1], t[0]))
+                ranked.append(((0, inexact, ln, w), Suggestion(w, cmd.name, cmd.title)))
+            elif len(k) >= SUGGEST_CONTAINS and (any(k in n for n, _w in ws) or k in norm(cmd.title)):
+                ranked.append(((1, True, len(name), name), Suggestion(cmd.name.upper(), cmd.name, cmd.title)))
+        return [s for _r, s in sorted(ranked, key=lambda t: t[0])[:limit]]
 
     def complete(self, text: str, ctx=None) -> list[str]:
         """Doplňování (Tab): první slovo → jména příkazů a aliasy; INSERT → id značek knihovny; SET/ATTR → klíče
