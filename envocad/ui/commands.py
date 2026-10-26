@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from PySide6.QtGui import QUndoCommand
 
-from envocad.model.project import Element, Wire
+# stav listů pro SheetsStateCommand je čistý model (sdílí ho i příkazový řádek envocad/cmd); re-export pro GUI
+from envocad.model.project import Element, Wire, restore_sheets_state, sheets_state  # noqa: F401
 
 
 class _FeedFollowups:
@@ -52,51 +53,27 @@ class _FeedFollowups:
         if ids and sig is not None:
             sig.emit(ids)
 
+    # výpočet navázaných změn je čistý model sdílený s příkazovým řádkem (`envocad.cmd.edits`) – jedna implementace
     def _wire_conductors(self, project, wires) -> None:
-        from envocad.model.project import apply_conductor_changes, feed_conductor_followups
-        for w in wires:
-            ch = feed_conductor_followups(project, w)
-            apply_conductor_changes(project, ch)
-            self._conds += ch
+        from envocad.cmd.edits import wire_conductor_followups
+        self._conds += wire_conductor_followups(project, wires)
 
     def _feed_link_followups(self, project, sheet, feed, attrs: bool = False) -> None:
-        """Přívod/vývod `feed` listu rozvaděče s vazbou na vodič JPS: konec vodiče na bloku se přejmenuje podle
-        označení přívodu (`feed_port_followups`) a vodiče u přívodu převezmou jeho žíly (`feed_conductor_changes`).
-        S `attrs` navíc odvozené atributy vazby (odkud/kam, kabel – `feed_link_attrs`) jako navázaná změna, aby je
-        undo vrátilo (chybějící klíč = `old` None, undo ho zase odebere)."""
-        from envocad.model.project import (
-            FEED_SYMBOLS,
-            TextChange,
-            apply_conductor_changes,
-            apply_text_changes,
-            effective_feed_wire,
-            feed_conductor_changes,
-            feed_link_attrs,
-            feed_port_followups,
-        )
-        if feed.symbol_id not in FEED_SYMBOLS or not sheet.is_switchboard:
-            return
-        ports = feed_port_followups(project, sheet, feed, feed.ref)
-        if attrs:
-            for k, v in feed_link_attrs(project, sheet, feed, feed.attrs.get("wire_id", "")).items():
-                cur = feed.attrs.get(k)
-                if k != "wire_id" and cur != v and not (cur is None and v == ""):
-                    ports.append(TextChange("element", feed.id, k, cur, v))
-        apply_text_changes(project, ports)
+        """Přívod/vývod `feed` listu rozvaděče s vazbou na vodič JPS (`edits.feed_link_followups`): konec vodiče na
+        bloku se přejmenuje podle označení přívodu a vodiče u přívodu převezmou jeho žíly; s `attrs` i odvozené
+        atributy vazby (odkud/kam, kabel) jako navázaná změna, aby je undo vrátilo."""
+        from envocad.cmd.edits import feed_link_followups
+        ports, conds = feed_link_followups(project, sheet, feed, attrs)
         self._ports += ports
-        w = effective_feed_wire(project, sheet, feed)
-        if w is not None:
-            ch = feed_conductor_changes(sheet, feed, w)
-            apply_conductor_changes(project, ch)
-            self._conds += ch
+        self._conds += conds
 
     def _feed_elements(self, project, elements) -> None:
         """Vložené přívody/vývody s ruční vazbou (`wire_id`) na listu rozvaděče – follow-upy jako u `SetAttrCommand`
         (port vodiče JPS na bloku, žíly vodičů u přívodu)."""
-        sheet = self.scene.sheet
-        for e in elements:
-            if e.attrs.get("wire_id"):
-                self._feed_link_followups(project, sheet, e)
+        from envocad.cmd.edits import feed_elements_followups
+        ports, conds = feed_elements_followups(project, self.scene.sheet, elements)
+        self._ports += ports
+        self._conds += conds
 
 
 class AddElementCommand(_FeedFollowups, QUndoCommand):
@@ -380,15 +357,8 @@ class SetAttrCommand(_FeedFollowups, QUndoCommand):
     def _feed_dir_followups(self, project) -> None:
         """Směr přívodu/vývodu: odkud ↔ kam (z vazby na vodič JPS, jinak přesun ručního textu) jako navázané změny
         téhož kroku undo (`feed_dir_changes`). Port bloku ROZVADĚČ se přesune sám (porty z listu), vodič drží."""
-        from envocad.model.feed import is_feed
-        from envocad.model.project import TextChange, apply_text_changes, feed_dir_changes
-        e = self._target()
-        if not is_feed(e):
-            return
-        ch = [TextChange("element", e.id, k, e.attrs.get(k), v)
-              for k, v in feed_dir_changes(project, self.scene.sheet, e).items()]
-        apply_text_changes(project, ch)
-        self._ports += ch
+        from envocad.cmd.edits import feed_dir_followups
+        self._ports += feed_dir_followups(project, self.scene.sheet, self._target())
 
     def _refresh_symbol(self) -> None:
         """Obrázek prvku závisí na atributu (směr přívodu/vývodu – šipka, zobrazené odkud/kam; počet přívodů, vývodů
@@ -936,24 +906,6 @@ class AddSheetCommand(QUndoCommand):
             self.project.structures = list(self.structures[0])
         if self.on_change:
             self.on_change(self.sheet, False)
-
-
-def sheets_state(project) -> dict:
-    """Stav listů a registru struktur pro `SheetsStateCommand`: {"sheets": {id: to_dict}, "structures": [...]}.
-    Hluboká kopie – `to_dict` sdílí slovníky atributů s modelem."""
-    import copy
-    return copy.deepcopy({"sheets": {s.id: s.to_dict() for s in project.sheets},
-                          "structures": [x.to_dict() for x in project.structures]})
-
-
-def restore_sheets_state(project, state: dict) -> None:
-    """Vrátí listy (na místě, `Sheet.restore_state`) a registr struktur ze `sheets_state`."""
-    from envocad.model.project import StructureId
-    for s in project.sheets:
-        d = state["sheets"].get(s.id)
-        if d is not None and s.to_dict() != d:   # nezměněné listy zůstanou beze změny i objektově
-            s.restore_state(d)
-    project.structures = [StructureId.from_dict(x) for x in state["structures"]]
 
 
 class SheetsStateCommand(QUndoCommand):

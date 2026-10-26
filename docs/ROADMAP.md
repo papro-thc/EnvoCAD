@@ -11,7 +11,7 @@
 - [x] Tmavý režim
 - [x] Dialog parametrů při vložení prvku/vodiče
 - [x] Rámeček a popisové pole listu (šablona ENVO) – logo doplnit po dodání
-- [ ] Příkazový řádek (styl ZWCAD/CADCraft): každá akce = příkaz, ovladatelné i z agentů
+- [ ] Příkazový řádek (styl ZWCAD/CADCraft): každá akce = příkaz, ovladatelné i z agentů – fáze 1 hotová 10/2026 (jádro `envocad/cmd`, skripty `.ecs`, CLI `python -m envocad.cmd`), zbývá dok v GUI (fáze 2) a pluginy / „Spustit skript…“ (fáze 3), `docs/design/prikazovy_radek.md`
 - [x] Automatické číslování označení (T1, F1, Q1…) s kontrolou duplicit – nové prvky a kopie dostanou další volné číslo, F7 hlásí duplicity, Úpravy → Přečíslovat označení (podle polohy, jen chybějící/duplicitní nebo vše, kontakty s cívkou, 10/2026)
 
 ## v0.2 – Knihovna a výkazy

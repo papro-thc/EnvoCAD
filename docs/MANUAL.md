@@ -1091,7 +1091,92 @@ v projektu je ověř u výrobce.
 
 ---
 
-## 12. Když se něco pokazí
+## 12. Příkazový řádek a skripty
+
+Každou úpravu výkresu jde zapsat jako příkaz ve stylu ZWCAD/AutoCAD (`MOVE`, `RO`, `E`…). Zatím (fáze 1) se příkazy
+spouští ze **skriptu `.ecs`** přes příkazovou řádku systému – hodí se pro hromadné úpravy, opakované postupy
+a agenty. Dok „Příkazový řádek“ v okně programu přijde v další fázi; příkazy, aliasy i chování budou stejné.
+
+### Spuštění skriptu (CLI)
+
+```
+python -m envocad.cmd projekt.ecp skript.ecs                 # jen vypíše, co by se stalo – nic neuloží
+python -m envocad.cmd projekt.ecp skript.ecs -o novy.ecp     # výsledek do nového souboru
+python -m envocad.cmd projekt.ecp skript.ecs --in-place      # zpět do projektu (záloha projekt.ecp.bak)
+python -m envocad.cmd projekt.ecp - < skript.ecs             # skript ze vstupu
+```
+
+| Volba | Význam |
+|---|---|
+| `-o soubor` / `--in-place` | uložit výsledek; **bez nich se nic neukládá** (bezpečný výchozí stav) |
+| `--force` | s `-o` přepsat existující soubor (jinak chyba) |
+| `--dry-run` | vykonat a vypsat, neuložit ani s `-o` |
+| `--keep-going` | po chybném řádku pokračovat (a uložit); jinak konec při první chybě bez uložení |
+| `--json` | na každý příkaz řádek JSON `{"line", "cmd", "ok", "messages", "changed_sheets"}` (u `CHECKS` navíc `data` s nálezy), nakonec `{"summary": …}` |
+| `--var jmeno=hodnota` | dosadí `${jmeno}` ve skriptu (jen text, dosazuje se před rozdělením řádku – mezera nebo uvozovka v hodnotě přidá argument) |
+| `--no-user-aliases` | bez uživatelských aliasů `~/.envocad/aliases.json` – skript se chová stejně na každém stroji (doporučeno pro agenty) |
+
+Kód návratu: 0 = vše proběhlo, 1 = chyba příkazu (hláška s číslem řádku, např. `řádek 7: MOVE – chybí Cílový bod`),
+2 = chybné použití (argumenty, projekt nebo skript nejde načíst). Před uložením se dopočtou kabely a vazby přívodů
+(jako v GUI) a výstup dostane souhrn kontroly F7. Vstup i výstup je vždy UTF-8, i v rouře na Windows.
+
+Bezpečnost skriptů (skript může napsat agent nebo přijít s cizím projektem): žádný kód se nespouští, `SAVE` ve skriptu
+zapíše jen do cíle `-o` / `--in-place` a teprve po úspěšném konci, `SCRIPT` načte jen `.ecs` ze složky hlavního
+skriptu (ne síťové cesty), celý běh i s vnořenými skripty má nejvýš 10 000 příkazů a skript nejvýš 1 MB.
+
+### Skript `.ecs`
+
+Text v UTF-8, jeden příkaz na řádek, `#` na začátku řádku = komentář, prázdné řádky se přeskočí. Hodnoty s mezerou
+do uvozovek. Každý řádek je jeden krok (`UNDO` ho vrátí); chyba uprostřed příkazu nenechá v projektu nic napůl.
+
+```
+# jistič za střídač a propojení
+SHEET 1
+INSERT fve.breaker_mcb 200,150 ref=F5 in_=32
+WIRE T1:AC F5:1
+SET F5 desc="Vývod FVE"
+SELECT Q*
+MOVE 0,0 @0,-10
+CHECKS
+```
+
+**Souřadnice** jsou v mm na listu, počátek v levém dolním rohu listu, Y nahoru (stejně jako ve stavovém řádku).
+`x,y` absolutně s desetinnou **tečkou** (`12.5,40`; čárka odděluje souřadnice), `@dx,dy` relativně k poslednímu bodu,
+`F1:2` = poloha portu 2 prvku F1. Prvky a posuny se zaokrouhlí na mřížku 2,5 mm (výstup to oznámí).
+
+**Výběr.** Příkazy, které pracují s výběrem, berou označení hned za příkazem (`RO F1 F2`, `E Q*`) – jinak platí
+poslední výběr (`SELECT`). `SELECT F1 F2 Q*` (označení prvků i vodičů, `*` / `?` jako maska), `SELECT all`,
+`SELECT none`, `SELECT W x1,y1 x2,y2` (okno – prvky celé uvnitř a vodiče mezi nimi), filtr `klíč=maska`
+(`SELECT symbol=fve.breaker* in_=16*`, s označením se kombinuje: `SELECT F* in_=80*`).
+
+| Příkaz | Aliasy | Zápis |
+|---|---|---|
+| `INSERT` | I, VLOZIT | `INSERT id_značky x,y [ref=F1 rot=90 mirror=ano klíč=hodnota …]` – nové označení podle značky, nebo zadané; přívod/vývod listu rozvaděče `wire_id=W1` (id nebo označení vodiče JPS) doplní kam/odkud a kabel jako dialog |
+| `WIRE` | W, L, VODIC | `WIRE F1:2 Q1:1 [ref=W5 cross=10 …]`; místo `ref:port` jde bod (port do 2,5 mm), body mezi začátkem a portem = ruční lomy: `WIRE F1:2 190,150 190,100 Q1:1` |
+| `MOVE` | M, POSUN | `MOVE [výběr] základní_bod cílový_bod` (`MOVE F1 0,0 @10,0`); ruční lomy vodičů jdou s prvky |
+| `COPY` | CO, CP, KOPIE | `COPY [výběr] základní cílový` – kopie dostanou nová označení, výběr = kopie |
+| `ROTATE` | RO, OTOCIT | `ROTATE [výběr] [základní_bod] [úhel]` – násobek 90°, výchozí 90; se základním bodem (`RO F1 F2 120,150 90`, `RO T1 T1:AC`) se kolem něj otočí i polohy a ruční lomy mezi otáčenými prvky, bez bodu (`RO F1 180`) každý prvek kolem svého počátku jako klávesa R |
+| `MIRROR` | MI, ZRCADLIT | `MIRROR [výběr]` |
+| `DELETE` | E, ERASE, DEL, SMAZAT | `DELETE [výběr]` – i vodiče mazaných prvků |
+| `SET` | ATTR, ATR, ATE, NASTAVIT | `SET [výběr] klíč=hodnota …` – klíče podle značky (Vlastnosti), u vodiče `cable`, `cross`, `length`…; `SET T1 ref=T7` přejmenuje i navázané texty („od T1“), port vodiče u přívodu a umístění bloku rozvaděče jako v GUI. Označení se kontroluje jako F7: chyba zápisu příkaz odmítne, nesoulad s třídou značky (`F1 ref=K5`) jen vypíše upozornění |
+| `SELECT` | VYBER | viz výše |
+| `SHEET` | LIST | `SHEET 2` nebo `SHEET "RFVE.AC"` (aktivní list; bez argumentu vypíše listy) |
+| `UNDO` / `REDO` | U, ZPET / ZNOVU | `UNDO [počet]` |
+| `CHECKS` | F7, KONTROLA | vypíše nálezy kontroly projektu |
+| `SAVE` | ULOZ, QSAVE | `SAVE [soubor.ecp]` – v CLI jen potvrdí cíl `-o` / `--in-place` (uloží se po úspěšném konci skriptu), jiná cesta je chyba |
+| `SCRIPT` | SCR, SKRIPT | `SCRIPT jiny.ecs` – vnoření nejvýš 4×, cesta relativně ke skriptu a jen pod složkou hlavního skriptu; celý vnořený skript je jeden krok (chyba v něm nezmění nic) |
+| `HELP` | ?, NAPOVEDA | `HELP [příkaz]` – seznam příkazů a aliasů / syntaxe |
+| `ZOOM`, `FIT` | Z, ZE, ZA | jen v GUI |
+
+Velikost písmen a diakritika se u příkazů neřeší (`otočit` = `OTOCIT` = `RO`). Vlastní aliasy (obdoba `acad.pgp`):
+`~/.envocad/aliases.json` ve tvaru `{"aliases": {"PR": "move"}}` – přepíší výchozí aliasy, kanonická jména ne.
+
+Skript nespouští žádný kód: zná jen registrované příkazy a hodnoty jsou text nebo čísla. Neznámé slovo je chyba
+„Neznámý příkaz“.
+
+---
+
+## 13. Když se něco pokazí
 
 - Program ukládá rozpracovaný projekt každé 2 minuty do `~/.envocad/autosave/`; po spuštění nabídne obnovu.
 - Log každého běhu: `~/.envocad/log/envocad.log` (Nápověda → Otevřít složku s logy); neošetřená chyba se

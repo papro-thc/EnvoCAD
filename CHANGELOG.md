@@ -1,6 +1,21 @@
 # Changelog
 
 ## Nevydáno
+- **Příkazový řádek – fáze 1: jádro a CLI** (`envocad/cmd/`, návrh `docs/design/prikazovy_radek.md`): příkazy ve
+  stylu ZWCAD bez Qt – `INSERT`, `WIRE` (porty i body, ruční lomy), `MOVE`, `COPY`, `ROTATE` (kolem základního bodu), `MIRROR`,
+  `DELETE`/`ERASE`, `SET`/`ATTR`, `SELECT` (označení, maska, okno, filtr), `SHEET`, `UNDO`/`REDO`, `CHECKS` (F7),
+  `SAVE` (jen .ecp), `SCRIPT` (jen .ecs), `HELP`; označení kontrolované jako F7, přívod s `wire_id=W1` doplní vazbu
+  jako dialog; aliasy ZWCAD/AutoCAD a české (`cmd/aliases.json`, uživatelské `~/.envocad/aliases.json`).
+  Souřadnice `x,y` s desetinnou tečkou, `@dx,dy`, `ref:port`; zaokrouhlení na mřížku. Každý příkaz běží v transakci
+  (snímek listů → `ChangeSet`, chyba ani Esc nenechá nic napůl), GUI ho ve fázi 2 pushne jako `SheetsStateCommand`.
+  Skripty `.ecs` a CLI `python -m envocad.cmd projekt.ecp skript.ecs [-o [--force] | --in-place] [--dry-run]
+  [--json] [--keep-going] [--no-user-aliases] [--var]` – bez `-o` / `--in-place` nic neukládá, chyby s číslem řádku,
+  žádné spouštění kódu, UTF-8 i v rouře na Windows. SAVE ve skriptu jen do cíle CLI a až po úspěšném konci, vnořený
+  `SCRIPT` jen ze složky hlavního skriptu a jako jedna transakce (jeden krok historie), rozpočet 10 000 příkazů
+  i s vnořenými, skript nejvýš 1 MB; Esc nepřepíše změny udělané mezitím jinou cestou.
+  `sheets_state` / `restore_sheets_state` přesunuty do `model/project.py` (`ui/commands.py` re-exportuje), navázané
+  změny přívodů sdílí `ui/commands.py` s `cmd/edits.py`. Formát projektu beze změny (v16). Testy `test_cmd_parse`,
+  `test_cmd_exec`, `test_cmd_script` (CLI v podprocesu), `test_cmd_parity` (stejné `to_dict` jako QUndoCommand GUI).
 - **Technická zpráva a DSPS ze šablony** (`export/doc_template.py`, `export/tz_data.py`, `library/doc_templates.py`,
   `ui/doc_template_dialog.py`, návrh `docs/design/tz_dsps.md`): vlastní malý engine nad python-docx (bez nové
   závislosti) – pole `{{cesta}}` (chybějící údaj „neuvedeno“, `|náhrada`), `{% if/else/endif %}`, `{% for %}`, bloky

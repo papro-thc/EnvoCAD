@@ -111,6 +111,7 @@ Pokyny pro AI agenty: `CLAUDE.md`, `docs/AGENTS.md`.
 | Ovládací obvody | značky Cívka / Kontakt NO / NC / silový (Relé a stykače); kontakt dostane označení cívky, pod cívkou se kreslí zrcadlo kontaktů |
 | Výpočty | `F7` ukáže i výpočty (stringy, Iz, In ≤ Iz, úbytky, selektivita); výkaz Výpočty; uložení kabelu v atributu „Uložení dle ČSN“ nebo v textu trasy (zem, vzduch, trubka, stěna) |
 | Nový projekt | `Ctrl+Shift+N` průvodce (stringy, střídače, DC rozvaděče po trase a u technologie, kabely) nebo `Soubor → ze specifikace (JSON)`; CLI `python -m envocad.generate spec.json out.ecp` |
+| Příkazový řádek | skripty `.ecs` s příkazy ve stylu ZWCAD (`INSERT`, `MOVE`, `RO`, `E`, `SET`, `WIRE`…): `python -m envocad.cmd projekt.ecp skript.ecs -o out.ecp` (bez `-o` / `--in-place` nic neukládá, `--json` pro agenty); podrobnosti `docs/MANUAL.md` sekce 12 |
 | Revize | `Soubor → Porovnat s revizí` → změnový list; `Soubor → Vlastnosti` revize/datum |
 | Připomínky | `Ctrl+Shift+P` připomínka (klik = bod, tah = oblast); Navigátor → Připomínky (filtr, dvojklik = skok); Zobrazit → Připomínky; Výstupy → Přidávat připomínky do exportu (anotace PDF, vrstva `PRIPOMINKY` v DXF); podrobnosti `docs/MANUAL.md` sekce 9 |
 | TZ / DS | `Výstupy → Technická zpráva (docx)`, výkaz Data pro DS |

@@ -85,3 +85,29 @@ def test_grow_sheet_pins_given_standard():
         sh = p.create_switchboard_sheet(blk)
         apply_template(p, sh, "dc", {"n_strings": "9"}, lib=lib, standard_paper=std)
         assert sh.paper != "A3" and sh.mp_paper == expect
+
+
+QT_FREE = ("model", "library", "cmd")     # bez Qt – headless (CLAUDE.md; příkazový řádek envocad/cmd)
+
+
+def _imports_qt(path: Path) -> list[str]:
+    bad = []
+    for n in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        names = [a.name for a in n.names] if isinstance(n, ast.Import) else \
+            [n.module or ""] if isinstance(n, ast.ImportFrom) else []
+        bad += [m for m in names if m.split(".")[0] in ("PySide6", "PyQt5", "PyQt6", "shiboken6")
+                or m.startswith("envocad.ui") or m == "envocad.app"]
+    return bad
+
+
+def test_headless_packages_do_not_import_qt():
+    bad = {str(p.relative_to(ROOT)): _imports_qt(p) for pkg in QT_FREE for p in sorted((ROOT / pkg).rglob("*.py"))}
+    assert {k: v for k, v in bad.items() if v} == {}
+
+
+def test_cmd_imports_without_qt():
+    import subprocess
+    import sys
+    code = ("import sys, envocad.cmd, envocad.cmd.__main__; "
+            "bad = [m for m in sys.modules if m.startswith(('PySide6', 'envocad.ui'))]; assert not bad, bad")
+    subprocess.run([sys.executable, "-c", code], check=True, cwd=ROOT.parent)
