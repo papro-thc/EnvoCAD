@@ -9,7 +9,13 @@ from typing import ClassVar
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QKeyEvent, QKeySequence, QMouseEvent, QPainter, QPen, QUndoStack, QWheelEvent
-from PySide6.QtWidgets import QGraphicsPathItem, QGraphicsRectItem, QGraphicsScene, QGraphicsView
+from PySide6.QtWidgets import (
+    QGraphicsLineItem,
+    QGraphicsPathItem,
+    QGraphicsRectItem,
+    QGraphicsScene,
+    QGraphicsView,
+)
 
 from envocad.library.store import LibraryStore
 from envocad.model.multipole import default_conductors
@@ -40,6 +46,7 @@ class Mode(Enum):
     WIRE = 2
     NOTE = 3
     TEXT = 4
+    PICK = 5          # výzva příkazového řádku: klik = bod (mm listu), gumová čára od základního bodu
 
 
 class SchematicScene(QGraphicsScene):
@@ -59,6 +66,11 @@ class SchematicScene(QGraphicsScene):
         self.mode = Mode.SELECT
         self.draw_grid = True
         self.ask_attributes = True  # dialog s parametry při vložení prvku (testy vypínají)
+        self._pick_cb = None        # Mode.PICK: kam poslat kliknutý bod (x, y) mm
+        self._pick_base: tuple[float, float] | None = None
+        self._pick_line = QGraphicsLineItem()
+        self._pick_line.setPen(QPen(colors().preview, 0.3, Qt.DashLine))
+        self._pick_line.setZValue(20)
         self._ghost: ElementItem | None = None
         self._place_symbol_id: str | None = None
         self._wire_from: tuple[ElementItem, str] | None = None
@@ -415,6 +427,9 @@ class SchematicScene(QGraphicsScene):
         self._note_draw = None
         if self._note_preview.scene():
             self.removeItem(self._note_preview)
+        if self._pick_line.scene():
+            self.removeItem(self._pick_line)
+        self._pick_cb, self._pick_base = None, None
         self.mode = mode
         log.info("režim: %s", mode.name)
         self.mode_changed.emit(mode)
@@ -431,6 +446,12 @@ class SchematicScene(QGraphicsScene):
 
     def start_wire(self) -> None:
         self.set_mode(Mode.WIRE)
+
+    def start_pick(self, callback, base: tuple[float, float] | None = None) -> None:
+        """Výzva bodu příkazového řádku: levý klik pošle `callback((x, y))` v mm listu (mřížka, Y nahoru), od `base`
+        se kreslí gumová čára. Esc / pravé tlačítko vrátí `Mode.SELECT` (řádek to bere jako zrušení)."""
+        self.set_mode(Mode.PICK)
+        self._pick_cb, self._pick_base = callback, base
 
     def _element_at(self, pos: QPointF) -> ElementItem | None:
         for it in self.items(pos):
@@ -453,6 +474,13 @@ class SchematicScene(QGraphicsScene):
         p = ev.scenePos()
         if self.mode == Mode.PLACE and self._ghost:
             self._ghost.setPos(snap(p.x()), snap(p.y()))
+            return
+        if self.mode == Mode.PICK:
+            if self._pick_base is not None:
+                if not self._pick_line.scene():
+                    self.addItem(self._pick_line)
+                b = sp(*self._pick_base)
+                self._pick_line.setLine(b.x(), b.y(), snap(p.x()), snap(p.y()))
             return
         if self.mode == Mode.NOTE and self._note_draw is not None:
             a = self._note_draw[1]
@@ -488,7 +516,15 @@ class SchematicScene(QGraphicsScene):
     def mousePressEvent(self, ev):
         p = ev.scenePos()
         if ev.button() == Qt.RightButton and self.mode != Mode.SELECT:
+            if self.mode == Mode.PICK:
+                ev.accept()
             self.set_mode(Mode.SELECT)
+            return
+        if self.mode == Mode.PICK:
+            ev.accept()          # bez toho pohled spustí obdélníkový výběr a zruší výběr prvků příkazu
+            if ev.button() == Qt.LeftButton and self._pick_cb is not None:
+                cb = self._pick_cb
+                cb((snap(p.x()), -snap(p.y())))
             return
         if self.mode == Mode.PLACE and ev.button() == Qt.LeftButton and self._place_symbol_id:
             sym = self.library.get_symbol(self._place_symbol_id)

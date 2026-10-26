@@ -46,11 +46,14 @@ def matches(query: str, label: str) -> bool:
 
 
 class CommandPalette(QDialog):
-    def __init__(self, menubar: QMenuBar, parent=None):
+    """`hints` = akce → příkaz řádku a jeho aliasy („ROTATE, RO“); ukáže se u položky a hledá se i podle něj."""
+
+    def __init__(self, menubar: QMenuBar, parent=None, hints: dict[QAction, str] | None = None):
         super().__init__(parent)
         self.setWindowTitle("Hledat příkaz")
         self.resize(560, 420)
-        self.entries = collect_actions(menubar)
+        hints = hints or {}
+        self.entries = [(f"{label} · {hints[a]}" if a in hints else label, a) for label, a in collect_actions(menubar)]
         lay = QVBoxLayout(self)
         self.edit = QLineEdit(placeholderText="Napište část názvu příkazu… (Enter spustí, Esc zavře)")
         self.list = QListWidget()

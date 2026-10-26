@@ -27,6 +27,9 @@ from envocad.library.store import home_dir
 DEFAULTS = {
     "shared_library_dir": "",
     "frame": False,   # rámeček s popisovým polem a QR na listech (zatím vypnuto; Zobrazit → Rámeček a popisové pole)
+    # klávesy ve výkresu: „zwcad“ = psaní jde do příkazového řádku (M = MOVE, RO = otočit…), „envocad“ = jednoklávesové
+    # zkratky R otočit, M zrcadlit, W vodič, N narovnat, T text (rozhodnutí 1 návrhu příkazového řádku)
+    "cmdline_keys": "zwcad",
     "standard": {
         "author": "", "company": "ENVO s.r.o.",
         "dc_cable": "H1Z2Z2-K 1x6", "dc_cross": 6, "ac_cable": "CYKY-J 5x16", "ac_cross": 16,
@@ -89,6 +92,18 @@ def frame_enabled() -> bool:
         return bool(load_settings().get("frame", False))
     except Exception:  # noqa: BLE001 – poškozené nastavení nesmí shodit kreslení
         return False
+
+
+CMDLINE_KEYS = ("zwcad", "envocad")
+
+
+def cmdline_keys() -> str:
+    """Režim kláves ve výkresu (`cmdline_keys`): „zwcad“ (výchozí) nebo „envocad“; neplatná hodnota → „zwcad“."""
+    try:
+        v = str(load_settings().get("cmdline_keys") or "").strip().lower()
+    except Exception:  # noqa: BLE001
+        v = ""
+    return v if v in CMDLINE_KEYS else CMDLINE_KEYS[0]
 
 
 def company() -> str:

@@ -1,6 +1,13 @@
 # Changelog
 
 ## Nevydáno
+- **Příkazový řádek – fáze 2: dok v okně** (`ui/command_line.py`): dok „Příkazový řádek“ dole (výstup, výzva, vstup);
+  příkaz = jeden krok Ctrl+Z (`ChangeSet` → `SheetsStateCommand`), body textem nebo klikem do výkresu (`Mode.PICK`
+  s gumovou čárou), výběr myší + Enter, Enter/mezera potvrdí, prázdný Enter opakuje, Esc zruší (model beze změny),
+  ↑/↓ historie (`~/.envocad/cmd_history.txt`), Tab doplní, F2 delší výstup. Režim kláves `cmdline_keys` (nastavení,
+  výchozí „zwcad“ – psaní ve výkresu jde do řádku, zkratky R/M/N/T vypnuté; „envocad“ = jednoklávesové zkratky).
+  Každá akce menu s id je příkaz, paleta Ctrl+K ukazuje jméno příkazu a aliasy. Id akcí `copy` → `copy_clipboard`,
+  `select` → `select_mode` (kolize s příkazy COPY / SELECT). Test `test_cmd_gui.py`.
 - **Příkazový řádek – fáze 1: jádro a CLI** (`envocad/cmd/`, návrh `docs/design/prikazovy_radek.md`): příkazy ve
   stylu ZWCAD bez Qt – `INSERT`, `WIRE` (porty i body, ruční lomy), `MOVE`, `COPY`, `ROTATE` (kolem základního bodu), `MIRROR`,
   `DELETE`/`ERASE`, `SET`/`ATTR`, `SELECT` (označení, maska, okno, filtr), `SHEET`, `UNDO`/`REDO`, `CHECKS` (F7),
