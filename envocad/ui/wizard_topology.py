@@ -331,7 +331,8 @@ class TopologyPanel:
                              f"se síťová ochrana {auto_txt}.")
         self.eps_note.setText(
             "EPS: přepínač sítí a zálohovaný vývod se kreslí u hybridního střídače s baterií "
-            "(specifikace „battery“); u firmy a bytového domu se EPS nekreslí." if b == "house" else "")
+            "(volba baterie v kroku „Moduly a střídače“, specifikace „battery“); "
+            "u firmy a bytového domu se EPS nekreslí." if b == "house" else "")
         self.eps_note.setVisible(b == "house")
         self._sync_enabled()
         self._rebuild_groups()

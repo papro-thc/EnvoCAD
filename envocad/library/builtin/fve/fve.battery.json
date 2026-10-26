@@ -97,6 +97,30 @@
       "default": "",
       "show": false,
       "fmt": "{} kW"
+    },
+    {
+      "key": "manufacturer",
+      "label": "Výrobce",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "n_modules",
+      "label": "Počet modulů věže",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "slave_type",
+      "label": "Typ přídavného modulu (slave)",
+      "default": "",
+      "show": false
+    },
+    {
+      "key": "bms",
+      "label": "Řídicí jednotka (BMS)",
+      "default": "",
+      "show": false
     }
   ],
   "label_pos": {

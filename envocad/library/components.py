@@ -35,7 +35,10 @@ NUMERIC = {"price_czk", "in_", "poles", "icu_ka", "idn_ma", "un_v", "modules", "
            # držák pojistky (fuse_holder): max. In vložky – horní mez pojistky gPV stringu (`calc.string_fuse_in`)
            "in_max_a",
            # svodič DC: max. trvalé napětí Ucpv (EN 61643-31) – mez stringu a F7 (`model/dc_system.spd_ucpv`)
-           "ucpv_v"}
+           "ucpv_v",
+           # baterie (batteries.csv): počet modulů věže (master/modul + slave) – meze volby v průvodci
+           "n_mod_min", "n_mod_max"}
+BAT_ROLES = ("master", "slave", "module", "bms", "system", "accessory")   # `bat_role` baterií (docs/COMPONENTS.md)
 SOURCES = {"catalog", "datasheet", "web", "seed", "user"}
 
 # výchozí schematická značka podle kategorie (když symbol_id chybí)
@@ -341,6 +344,27 @@ def optimizer_error(row: dict) -> str | None:
     return "; ".join(errs) or None
 
 
+def battery_error(row: dict) -> str | None:
+    """Česká hláška k řádku baterie (`category=battery`), nebo None. `bat_role` (prázdné nebo z `BAT_ROLES`),
+    `n_mod_min` / `n_mod_max` celá čísla ≥ 1 (min ≤ max), kapacita `e_kwh` a výkon `p_kw` kladné; `bat_link`
+    (id artiklů oddělená čárkou) smí mít jen `master` / `module` (slave, řídicí jednotka); role `master`, `module`
+    a `system` musí mít `e_kwh`. Prázdné hodnoty se přeskočí."""
+    errs: list[str] = []
+    role = str(row.get("bat_role") or "").strip()
+    if role and role not in BAT_ROLES:
+        errs.append(f"'bat_role' musí být prázdné nebo jedno z {', '.join(BAT_ROLES)}, je '{role}'")
+    if role in ("master", "module", "system") and _row_num(row, "e_kwh") is None:
+        errs.append(f"baterie s rolí '{role}' musí mít 'e_kwh'")
+    for key in ("e_kwh", "p_kw", "u_dc_v"):
+        v = _row_num(row, key)
+        if v is not None and v <= 0:
+            errs.append(f"'{key}' musí být kladné, je {v:g}")
+    errs += _range_errors(row, "n_mod_min", "n_mod_max")
+    if str(row.get("bat_link") or "").strip() and role not in ("master", "module"):
+        errs.append("'bat_link' smí mít jen baterie s rolí master nebo module")
+    return "; ".join(errs) or None
+
+
 def validate(path: Path | str, known_symbols: set[str] | None = None) -> list[str]:
     """Vrátí seznam chyb (prázdný = OK)."""
     errors: list[str] = []
@@ -355,7 +379,9 @@ def validate(path: Path | str, known_symbols: set[str] | None = None) -> list[st
             errors.append(f"chybí sloupce: {', '.join(missing)}")
             return errors
         ids: set[str] = set()
-        for n, row in enumerate(reader, start=2):
+        rows = list(reader)
+        ids_all = {(r.get("id") or "").strip() for r in rows}   # `bat_link` smí mířit i na pozdější řádek
+        for n, row in enumerate(rows, start=2):
             rid = (row.get("id") or "").strip()
             if not rid:
                 continue
@@ -387,9 +413,14 @@ def validate(path: Path | str, known_symbols: set[str] | None = None) -> list[st
                 errors.append(f"řádek {n} ({rid}): {t_err}")
             cat_err = (pv_module_error(row) if cat == "pv_module"
                        else inverter_error(row) if cat in ("inverter", "inverter_hybrid")
-                       else optimizer_error(row) if cat == "optimizer" else None)
+                       else optimizer_error(row) if cat == "optimizer"
+                       else battery_error(row) if cat == "battery" else None)
             if cat_err:
                 errors.append(f"řádek {n} ({rid}): {cat_err}")
+            if cat == "battery":
+                for link in (row.get("bat_link") or "").replace(";", ",").split(","):
+                    if link.strip() and link.strip() not in ids_all:
+                        errors.append(f"řádek {n} ({rid}): 'bat_link' odkazuje na neznámé id '{link.strip()}'")
             contacts = (row.get("contacts") or "").strip()
             if contacts:
                 from envocad.model.xref import parse_contact_image

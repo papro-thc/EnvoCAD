@@ -646,6 +646,18 @@ podle datasheetu. Filtry „Výkon“ a „Fáze“ neskrývají artikly, které
 β Uoc, Isc max na MPPT, stringů na MPPT, návrhové teploty min/max (předvyplněné z firemního standardu, uloží se do
 projektu pro kontrolu `F7`) a „Celkem modulů“.
 
+**Baterie u hybridního střídače:** po výběru artiklu střídače s kategorií `inverter_hybrid` (**Z katalogu…**) se v kroku
+„Moduly a střídače“ objeví skupina **Baterie (hybridní střídač)**; u jiného střídače (nebo bez artiklu) je skrytá a ve
+specifikaci klíč `battery` chybí. Seznam **Baterie** nabízí artikly kategorie `battery` (stejný výrobce jako střídač jako
+první, pak ostatní; slave moduly a řídicí jednotky samostatně nejsou v nabídce) a „bez baterie“ (výchozí). **Počet modulů**
+věže je omezen podle datasheetu artiklu (např. SolaX T-BAT H 5.8 V3: 1–6, master se počítá). Je-li k věži řídicí jednotka
+(BMS), ukáže se její výběr – jediná možná je předvolená, u více variant (SigenStack BC) se volí. Pod výběrem je souhrn:
+celková kapacita (a výkon, jen když ho datasheet uvádí), složení věže a BMS. Baterie se kreslí u prvního střídače (T1),
+u rodinného domu se k ní doplní EPS (přepínač sítí a zálohovaný vývod) a ve výkazu materiálu jsou master / modul × n,
+přídavné moduly (slave) a řídicí jednotka. Kompatibilitu baterie s konkrétním střídačem průvodce nehlídá – ověřte ji
+v datasheetu (poznámka artiklu). Do specifikace: `"battery": {"component_id": "solax-t-bat-h-5.8-v3", "modules": 3}`
+(volitelně `bms_id`); `type`, `e_kwh`, `p_kw` z artiklu doplní generátor, zadané hodnoty mají přednost.
+
 **Optimizéry a režim stringů:** **Z katalogu…** u optimizéru otevře výběr (výrobce, typ, P, Uin max, Isc in, moduly na
 optimizér, kompatibilita, zdroj; neúplné a neověřené řádky šedě) a vyplní typ a kusy na modul (1 nebo 0,5 při dvou
 modulech na optimizér); **×** vazbu zruší. Artikl se uloží do specifikace (`optimizer.component_id`) a generátor z něj

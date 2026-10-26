@@ -34,6 +34,13 @@ def _sheets(project: Project, sheet: Sheet | None) -> list[Sheet]:
     return [sheet] if sheet else list(project.sheets)
 
 
+def _int(v) -> int:
+    try:
+        return int(float(str(v or 0).replace(",", ".")))
+    except ValueError:
+        return 0
+
+
 def _param_str(e: Element) -> str:
     parts = []
     for k in DEVICE_PARAMS:
@@ -213,9 +220,26 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
                     groups.setdefault(key, []).append(f"{_tag(project, s, e)} ({n})")
                     qty[key] = qty.get(key, 0) + n
                 continue
+            if e.symbol_id == "fve.battery" and _int(e.attrs.get("n_modules")) > 1:
+                # věž z katalogu: n modulů (master/modul + slave) a řídicí jednotka BMS – ne jeden kus
+                n, mfr, tag = _int(e.attrs.get("n_modules")), e.attrs.get("manufacturer", ""), _tag(project, s, e)
+                name, slave = _symbol(lib, e.symbol_id).name, e.attrs.get("slave_type", "")
+                parts = [((name, e.attrs.get("type", ""), mfr, ""), 1 if slave else n)]
+                if slave:
+                    parts.append(((name, slave, mfr, "přídavný modul"), n - 1))
+                if e.attrs.get("bms"):
+                    parts.append((("Řídicí jednotka baterie", e.attrs["bms"], mfr, ""), 1))
+                for key, k in parts:
+                    groups.setdefault(key, []).append(f"{tag} ({k})")
+                    qty[key] = qty.get(key, 0) + k
+                continue
             key = (_symbol(lib, e.symbol_id).name, e.attrs.get("type", ""), e.attrs.get("manufacturer", ""), _param_str(e))
             groups.setdefault(key, []).append(_tag(project, s, e))
             qty[key] = qty.get(key, 0) + 1
+            if e.symbol_id == "fve.battery" and e.attrs.get("bms"):   # jeden modul + BMS
+                bkey = ("Řídicí jednotka baterie", e.attrs["bms"], e.attrs.get("manufacturer", ""), "")
+                groups.setdefault(bkey, []).append(_tag(project, s, e))
+                qty[bkey] = qty.get(bkey, 0) + 1
         for (key, tag), n in strip_qty.items():
             groups.setdefault(key, []).append(f"{tag} ({n})")
         # můstky: za každou skupinu můstků jeden (vícepólový) můstek dané svorkovnice; počítají se jen svorky, které

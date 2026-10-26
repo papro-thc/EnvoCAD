@@ -652,6 +652,26 @@ class ProjectWizard(QDialog):
         self.string_mode.setToolTip("Automaticky = režim z artiklu střídače, jinak z artiklu optimizéru, jinak klasický. "
                                     "Pevné napětí: SolarEdge – délka stringu daná počtem optimizérů, Uoc·n se nekontroluje")
         iform.addRow("Režim stringů", self.string_mode)
+        # baterie: jen u hybridního střídače z katalogu (`inverter_hybrid`); výběr z artiklů `battery` (batteries.csv)
+        bform = self._group(P3, "Baterie (hybridní střídač)")
+        self.grp_battery = bform.parentWidget()
+        self.bat_combo = QComboBox()
+        self.bat_combo.setToolTip("Baterie se připojí k prvnímu střídači (T1). Artikly stejného výrobce jako střídač "
+                                  "jsou první; kompatibilitu s konkrétním střídačem ověřte v datasheetu.")
+        self.bat_modules = QSpinBox(minimum=1, maximum=99, value=1)
+        self.bat_modules.setToolTip("Počet modulů věže (u masteru včetně něj); meze podle datasheetu artiklu")
+        self.bat_bms = QComboBox()
+        self.bat_bms_label = QLabel("Řídicí jednotka (BMS)")
+        self.bat_info = QLabel()
+        self.bat_info.setWordWrap(True)
+        bform.addRow("Baterie", self.bat_combo)
+        bform.addRow("Počet modulů", self.bat_modules)
+        bform.addRow(self.bat_bms_label, self.bat_bms)
+        bform.addRow("", self.bat_info)
+        self.grp_battery.setVisible(False)
+        self.bat_combo.currentIndexChanged.connect(self._battery_article_changed)
+        self.bat_modules.valueChanged.connect(self._battery_info)
+        self.bat_bms.currentIndexChanged.connect(self._battery_info)
         tform = self._group(P3, "Návrhové teploty")
         self.t_min = QLineEdit(str(std.get("pv_t_min", -20)))
         self.t_max = QLineEdit(str(std.get("pv_t_max", 70)))
@@ -966,6 +986,92 @@ class ProjectWizard(QDialog):
             self._fill(edit, a.get(key))
         self._set_catalog_label(self.inv_label, comp)
         self.update_assistant()
+        self._refresh_battery()
+
+    # ---- baterie (hybridní střídač) ----
+    def _hybrid_selected(self) -> bool:
+        return self.library is not None and self._inv_comp is not None and self._inv_comp.category == "inverter_hybrid"
+
+    def _battery_comp(self):
+        cid = self.bat_combo.currentData()
+        return self.library.component(cid) if cid and self.library is not None else None
+
+    def _refresh_battery(self) -> None:
+        """Skupina Baterie je vidět jen u hybridního střídače z katalogu; seznam baterií (stejný výrobce první)
+        se přestaví, dřívější volba zůstane, je-li stále v nabídce. U jiného střídače se volba zahodí (bez `battery`)."""
+        from envocad.library.batteries import choices
+        hybrid = self._hybrid_selected()
+        keep = self.bat_combo.currentData() if hybrid else ""
+        self.bat_combo.blockSignals(True)
+        self.bat_combo.clear()
+        self.bat_combo.addItem("bez baterie", "")
+        if hybrid:
+            for c in choices(self.library.components(category="battery"), self._inv_comp):
+                e = c.num("e_kwh")
+                unit = "" if (c.params.get("bat_role") or "") == "system" else " / modul"
+                self.bat_combo.addItem(f"{c.manufacturer} {c.part_number} – {e:g} kWh{unit}", c.id)
+            self.bat_combo.setCurrentIndex(max(self.bat_combo.findData(keep), 0))
+        self.bat_combo.blockSignals(False)
+        self.grp_battery.setVisible(hybrid)
+        self._battery_article_changed(reset=False)
+
+    def _battery_article_changed(self, _index: int = 0, reset: bool = True) -> None:
+        """Po změně artiklu baterie: meze a výchozí počet modulů, nabídka řídicích jednotek, souhrn věže."""
+        from envocad.library.batteries import module_range, parts
+        comp = self._battery_comp()
+        for w in (self.bat_modules, self.bat_bms, self.bat_bms_label):
+            w.setEnabled(comp is not None)
+        self.bat_modules.blockSignals(True)
+        self.bat_bms.blockSignals(True)
+        keep_bms = self.bat_bms.currentData() if not reset else ""
+        self.bat_bms.clear()
+        show_bms = False
+        if comp is not None:
+            lo, hi = module_range(comp)
+            self.bat_modules.setRange(lo, hi)
+            self.bat_modules.setValue(lo if reset else min(max(self.bat_modules.value(), lo), hi))
+            _slave, bms = parts(self.library, comp)
+            show_bms = bool(bms)
+            self.bat_bms.addItem("bez řídicí jednotky" if len(bms) < 2 else "– zvolte řídicí jednotku –", "")
+            for b in bms:
+                self.bat_bms.addItem(f"{b.part_number}", b.id)
+            self.bat_bms.setCurrentIndex(max(self.bat_bms.findData(keep_bms), 1 if len(bms) == 1 else 0))
+        else:
+            self.bat_modules.setRange(1, 99)
+            self.bat_modules.setValue(1)
+        self.bat_modules.blockSignals(False)
+        self.bat_bms.blockSignals(False)
+        self.bat_bms.setVisible(show_bms)
+        self.bat_bms_label.setVisible(show_bms)
+        self._battery_info()
+
+    def _battery_info(self, *_args) -> None:
+        """Souhrn věže pod výběrem: celková kapacita a výkon (jen údaje z datasheetu) a složení."""
+        from envocad.library.batteries import parts, totals
+        comp = self._battery_comp()
+        if comp is None:
+            self.bat_info.setText("")
+            return
+        n = self.bat_modules.value()
+        slave, _bms = parts(self.library, comp)
+        tot = totals(comp, n, slave)
+        txt = [f"Celkem {tot['e_kwh']:g} kWh" + (f", {tot['p_kw']:g} kW" if tot["p_kw"] is not None else "")]
+        if n > 1 and slave is not None:
+            txt.append(f"{comp.part_number} + {n - 1}× {slave.part_number}")
+        elif n > 1:
+            txt.append(f"{n}× {comp.part_number}")
+        bms = self.bat_bms.currentText() if self.bat_bms.currentData() else ""
+        if bms:
+            txt.append(f"řídicí jednotka {bms}")
+        self.bat_info.setText(" – ".join(txt))
+
+    def battery_spec(self) -> dict | None:
+        """`spec["battery"]` z výběru, nebo None (nehybridní střídač / „bez baterie“)."""
+        from envocad.library.batteries import battery_spec
+        comp = self._battery_comp() if self._hybrid_selected() else None
+        if comp is None:
+            return None
+        return battery_spec(self.library, comp.id, self.bat_modules.value(), self.bat_bms.currentData() or "")
 
     def set_optimizer_component(self, comp) -> None:
         """Vyplní typ a ks/modul z artiklu optimizéru (1 nebo 0,5 při 2 modulech na optimizér) a zapamatuje si ho
@@ -1008,6 +1114,7 @@ class ProjectWizard(QDialog):
         self._inv_comp = None
         self._set_catalog_label(self.inv_label, None)
         self.update_assistant()
+        self._refresh_battery()
 
     # ---- asistent stringů (výpočty jen v model/calc) ---------------------------------------------------------------
     @staticmethod
@@ -1396,6 +1503,8 @@ class ProjectWizard(QDialog):
         counts = (f"{_n_word(n_inv, ('střídač', 'střídače', 'střídačů'))}, "
                   f"{_n_word(n_str, ('string', 'stringy', 'stringů'))}, {_n_word(n_mod, _MODULE_WORDS)}")
         eq = [("Modul", mod_txt), ("Střídač", inv_txt), ("Počty", counts)]
+        if self.battery_spec() is not None:
+            eq.append(("Baterie", f"{self.bat_combo.currentText()}, {self.bat_modules.value()} ks – {self.bat_info.text()}"))
         if p_wp and p_ac and n_mod and n_inv:
             p_dc = n_mod * p_wp / 1000
             eq.append(("DC / AC", f"{p_dc:.1f} kWp / {n_inv * p_ac:g} kW = {p_dc / (n_inv * p_ac):.2f}"))
@@ -1512,6 +1621,9 @@ class ProjectWizard(QDialog):
                            "loop": self.conn_loop.isChecked(), "transformer": {"sn": v.get("tr_sn") or 630}},
         }
         spec.update(topo_parts)   # topology a chain.* jen při změně od výchozího
+        battery = self.battery_spec()
+        if battery:
+            spec["battery"] = battery   # jen u hybridního střídače z katalogu; jinak klíč chybí
         return spec
 
 
