@@ -140,8 +140,8 @@ def ac_core() -> dict:
 
 
 def ac_eps() -> dict:
-    """EPS rodinného domu ({i}, {inverter}, {eps_in}): přívod XE{i} (záloha od střídače, dole) → přepínač sítí I-0-II
-    port 2 shora; síť ze sdílené sběrnice 1 vývod 5 → port 1; výstup port 3 → vývod XB{i} (zálohované okruhy)."""
+    """EPS rodinného domu ({i}, {inverter}, {eps_in}): přívod XE{i} (záloha od střídače, dole) → chránič 30 mA →
+    přepínač sítí I-0-II port 2 shora; síť ze sdílené sběrnice 1 vývod 5 → port 1; výstup port 3 → vývod XB{i} (zálohované okruhy)."""
     p, s = Project(), Sheet(kind="switchboard")
     bus = _el(p, s, "sb.busbar", *AC_BUS, "", desc="rozvod AC", in_="{main_in}", conductors=" ".join(AC_CONDUCTORS), shared="1",
               **BUS_PARAMS)
@@ -155,9 +155,13 @@ def ac_eps() -> dict:
     fe.attrs["ref"] = "XE{i}"
     fb = _feed(p, s, "out", 0, 105, "", desc="zálohované okruhy")
     fb.attrs["ref"] = "XB{i}"
+    # chránič zálohy (střídač → chránič → přepínač → vývod) nad přívodem XE{i}
+    fi = _el(p, s, "sb.rcd", 15, 122.5, "F", rot=90, in_="{eps_in}", idn="30", rcd_type="A", poles="4", modules="4")
+    fi.attrs["desc"] = "chránič zálohovaných okruhů (EPS)"
     _wire(p, s, bus, "5", fq, "1", AC_CONDUCTORS)
     _wire(p, s, fq, "2", q, "1", AC_CONDUCTORS)
-    _wire(p, s, fe, "1", q, "2", AC_CONDUCTORS).points = [(15.0, 140.0), (5.0, 140.0)]
+    _wire(p, s, fe, "1", fi, "1", AC_CONDUCTORS)
+    _wire(p, s, fi, "2", q, "2", AC_CONDUCTORS).points = [(15.0, 140.0), (5.0, 140.0)]
     _wire(p, s, q, "3", fb, "1", AC_CONDUCTORS)
     return _frag(s)
 
@@ -269,7 +273,7 @@ MACROS = [
     ("DC string po trase", "Generátor (po trase): X{k} → X{nk} (průchozí svorky, bez odpínače), SPD-DC{i}.{j} {spd} DC z přívodní svorky, PE → XPE; pojistkové odpínače jen v rozvaděči u střídače; proměnné k, nk, i, j, string, inverter, spd", dc_string_route),
     ("AC přívod střídače", "Generátor: X{k} od {inverter} (zespodu) → jistič {breaker_in} → sběrnice 1 port B{k}; proměnné k, inverter, breaker_in, main_in", ac_feed),
     ("AC jádro rozvaděče", "Generátor: sběrnice 1 → SPD {spd} → XPE (k HOP), sběrnice → hlavní vypínač {main_in} → XOUT; síťová ochrana z vývodu 4 přes jistič měřicího vstupu (when grid_protection)", ac_core),
-    ("EPS přepínač sítí", "Rodinný dům: XE{i} (EPS od {inverter}) → přepínač sítí I-0-II {eps_in} ← jistič {eps_in} ← sběrnice 1 vývod 5; výstup → XB{i} (zálohované okruhy)", ac_eps),
+    ("EPS přepínač sítí", "Rodinný dům: XE{i} (EPS od {inverter}) → chránič 30 mA → přepínač sítí I-0-II {eps_in} ← jistič {eps_in} ← sběrnice 1 vývod 5; výstup → XB{i} (zálohované okruhy)", ac_eps),
     ("String → střídač", "FV string s kabelem H1Z2Z2-K na DC vstup střídače (JPS)", jps_string_chain),
 ]
 

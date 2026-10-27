@@ -1,7 +1,7 @@
 {
  "version": 3,
  "name": "EPS přepínač sítí",
- "description": "Rodinný dům: XE{i} (EPS od {inverter}) → přepínač sítí I-0-II {eps_in} ← jistič {eps_in} ← sběrnice 1 vývod 5; výstup → XB{i} (zálohované okruhy)",
+ "description": "Rodinný dům: XE{i} (EPS od {inverter}) → chránič 30 mA → přepínač sítí I-0-II {eps_in} ← jistič {eps_in} ← sběrnice 1 vývod 5; výstup → XB{i} (zálohované okruhy)",
  "role": "ac_eps",
  "variables": [
   {
@@ -39,7 +39,7 @@
  "fragment": {
   "elements": [
    {
-    "id": "535ee2925536",
+    "id": "531810f541ce",
     "symbol_id": "sb.busbar",
     "x": 165,
     "y": 175,
@@ -57,7 +57,7 @@
     "component_id": null
    },
    {
-    "id": "51f9d9b6b855",
+    "id": "e57d03b7c494",
     "symbol_id": "fve.changeover_switch",
     "x": 0,
     "y": 125,
@@ -73,7 +73,7 @@
     "component_id": null
    },
    {
-    "id": "72f7065f08a5",
+    "id": "87b97b9634b1",
     "symbol_id": "fve.breaker_mcb",
     "x": 0,
     "y": 150,
@@ -89,7 +89,7 @@
     "component_id": null
    },
    {
-    "id": "3de0f2e9840f",
+    "id": "ff43074b9279",
     "symbol_id": "sb.feed",
     "x": 15,
     "y": 105,
@@ -102,7 +102,7 @@
     "component_id": null
    },
    {
-    "id": "fdcd81aa87cc",
+    "id": "30ecf1373daa",
     "symbol_id": "sb.feed",
     "x": 0,
     "y": 105,
@@ -113,17 +113,34 @@
      "desc": "zálohované okruhy"
     },
     "component_id": null
+   },
+   {
+    "id": "2fda0112c225",
+    "symbol_id": "sb.rcd",
+    "x": 15,
+    "y": 122.5,
+    "rotation": 90,
+    "attrs": {
+     "ref": "F1",
+     "in_": "{eps_in}",
+     "idn": "30",
+     "rcd_type": "A",
+     "poles": "4",
+     "modules": "4",
+     "desc": "chránič zálohovaných okruhů (EPS)"
+    },
+    "component_id": null
    }
   ],
   "wires": [
    {
-    "id": "5bb8209174b8",
+    "id": "450d9daeed69",
     "a": {
-     "element_id": "535ee2925536",
+     "element_id": "531810f541ce",
      "port": "5"
     },
     "b": {
-     "element_id": "72f7065f08a5",
+     "element_id": "87b97b9634b1",
      "port": "1"
     },
     "points": [],
@@ -140,13 +157,13 @@
     "terminals": {}
    },
    {
-    "id": "a35ee90d2511",
+    "id": "2d39e775218c",
     "a": {
-     "element_id": "72f7065f08a5",
+     "element_id": "87b97b9634b1",
      "port": "2"
     },
     "b": {
-     "element_id": "51f9d9b6b855",
+     "element_id": "e57d03b7c494",
      "port": "1"
     },
     "points": [],
@@ -163,13 +180,36 @@
     "terminals": {}
    },
    {
-    "id": "608a632c7b31",
+    "id": "9b3443d4d38c",
     "a": {
-     "element_id": "3de0f2e9840f",
+     "element_id": "ff43074b9279",
      "port": "1"
     },
     "b": {
-     "element_id": "51f9d9b6b855",
+     "element_id": "2fda0112c225",
+     "port": "1"
+    },
+    "points": [],
+    "attrs": {
+     "ref": ""
+    },
+    "conductors": [
+     "L1",
+     "L2",
+     "L3",
+     "N",
+     "PE"
+    ],
+    "terminals": {}
+   },
+   {
+    "id": "b3f558b124a8",
+    "a": {
+     "element_id": "2fda0112c225",
+     "port": "2"
+    },
+    "b": {
+     "element_id": "e57d03b7c494",
      "port": "2"
     },
     "points": [
@@ -195,13 +235,13 @@
     "terminals": {}
    },
    {
-    "id": "3cfd2af3fc9d",
+    "id": "81d9cff38451",
     "a": {
-     "element_id": "51f9d9b6b855",
+     "element_id": "e57d03b7c494",
      "port": "3"
     },
     "b": {
-     "element_id": "fdcd81aa87cc",
+     "element_id": "30ecf1373daa",
      "port": "1"
     },
     "points": [],

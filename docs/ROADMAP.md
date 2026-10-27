@@ -63,12 +63,16 @@
 - [x] Autosave, poslední projekty, PDF A4, štítky CSV, QR v popisovém poli, sdílená knihovna, firemní standard
 - [ ] Slovenská mutace výstupů (odloženo na přání)
 - [ ] Výpočty: tabulky Iz ověřit proti normě, seskupení kabelů, teplota půdy; selektivita podle křivek výrobců
-- [ ] Průvodce: DC rozvaděč, baterie, více AC rozvaděčů, výběr modulu/střídače z knihovny (dnes ručně)
+- [ ] Průvodce: DC rozvaděč, baterie, více AC rozvaděčů, výběr modulu/střídače z knihovny (dnes ručně) – baterie hotovo
+  10/2026: výběr z katalogu u hybridního střídače, nabídka jen kompatibilních baterií (`inv_compat` z datasheetu, jinak
+  výrobce střídače); zbývá: baterie u dalších střídačů než T1, kontrola F7 „baterie nepasuje ke střídači“, `inv_compat`
+  z datasheetů pro SolaX V3 / HS36, Sigenergy, Growatt ARK, Deye BOS-G (HV – k LV střídačům SG04LP3 / SG05LP1 v katalogu
+  nepasuje, dnes ho průvodce nabízí podle výrobce), GoodWe LX D / LX U, SolarEdge
 
 ## Proti EPLAN (analýza 10/2026) – zbývá
 - [x] Potenciály: T-odbočka vodiče do vodiče, sledování potenciálu přes svorky a můstky, kontrola N/PE (10/2026)
 - [ ] Funkční šablony artiklů (střídač → porty podle MPPT, jistič → příslušenství), přiřazení příslušenství k rámu – částečně: střídač → porty podle MPPT z artiklu (makra v2 / průvodce), jistič → příslušenství makrem
-- [x] **Bloky typů střídačů** (10/2026: pás svorek záloha/BMS/METER/RS485/LAN/DI/DRM/RSD podle profilu řady – Huawei, SolaX, GoodWe, Growatt, Sigenergy, SolarEdge; `model/inverter_io.py`, atribut `io`; zbývá: piny ověřit z návodů, katalog Sigenergy/Growatt/SolarEdge, měřicí smyčka/NA ochrana jako makra): každý typ střídače jako blok s vlastními svorkami – DC vstupy, AC, baterie, komunikace (RS485, Ethernet, CAN), DRMS / řízení výkonu (RTU, NS ochrana), měřicí smyčka – z katalogu `inverters.csv`; dnes má střídač jen DC1…DCn, AC (a BAT)
+- [x] **Bloky typů střídačů** (10/2026: pás svorek záloha/BMS/METER/RS485/LAN/DI/DRM/RSD podle profilu řady – Huawei, SolaX, GoodWe, Growatt, Sigenergy, SolarEdge; `model/inverter_io.py`, atribut `io`; hybridní střídač má vždy svorky BAT a BACKUP; zbývá: piny ověřit z návodů, katalog Sigenergy/Growatt/SolarEdge, měřicí smyčka/NA ochrana jako makra): každý typ střídače jako blok s vlastními svorkami – DC vstupy, AC, baterie, komunikace (RS485, Ethernet, CAN), DRMS / řízení výkonu (RTU, NS ochrana), měřicí smyčka – z katalogu `inverters.csv`; dnes má střídač jen DC1…DCn, AC (a BAT)
 - [ ] Rozložení jako výkres: montážní deska, žlaby a lišty podle artiklu s délkami, vrtací plán, výkaz montážního materiálu
 - [ ] Vícepatrové svorky, N-odpojovací svorky jako druh (svorkovnice přes více stran – hotovo 10/2026 stránkováním vícepólu)
 - [x] Makra (oblíbené sestavy) – hotovo 10/2026; zbývá: kopírování celého listu, hromadné přečíslování, editor značek v GUI

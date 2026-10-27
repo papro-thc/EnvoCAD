@@ -216,7 +216,7 @@ def build(ctx: ChainContext) -> None:
             prepare_inverter(t)            # rodinný dům: EPS vývod (BACKUP) vede na přepínač sítí v RFVE
         # pás svorek typu střídače (záloha, komunikace – `inverter_io`) visí pod značkou: místo v řadě
         from envocad.model.inverter_io import inverter_io
-        row_extra[i] += 5.0 * len(inverter_io(t.attrs))
+        row_extra[i] += 5.0 * len(inverter_io(t.attrs, t.symbol_id == "fve.inverter_hybrid"))
         # neznámé stringů na MPPT zůstane prázdné (kontrola pak proudy na MPPT nesčítá); výchozí 2 jen pro DC vstupy
         spm_known, mppt_known = _int_attr(t.attrs.get("strings_per_mppt")), _int_attr(t.attrs.get("mppt"))
         t.attrs["strings_per_mppt"] = str(spm_known) if spm_known else ""

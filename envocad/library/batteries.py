@@ -4,11 +4,17 @@ Věž = základ (`master` = BMS + první modul, nebo `module` = modul bez BMS) +
 `bat_link` u masteru) nebo řídicí jednotka (`bms`, odkaz `bat_link` u modulu; u více variant se vybírá). Hotové
 úložiště (`system`) je jeden kus. Role a sloupce: `docs/COMPONENTS.md`.
 
+Ke střídači pasují jen některé baterie (`compatible`): sloupec `inv_compat` základu věže = vzory typů střídačů
+z datasheetu baterie (`SUN2000-*KTL-M1`, oddělené čárkou, „-“ = k žádnému střídači, např. úložiště s vlastním PCS);
+bez `inv_compat` pasuje baterie stejného výrobce jako střídač (BMS komunikuje protokolem výrobce).
+
 Specifikace baterie pro generátor (`spec["battery"]`, `envocad/generate.py`): `component_id` (základ věže),
 `modules` (celkový počet modulů věže, u masteru včetně něj), nepovinně `bms_id` (řídicí jednotka); hodnoty `type`,
 `e_kwh`, `p_kw` zadané ve specifikaci mají přednost před artiklem (viz `apply_battery_component`).
 """
 from __future__ import annotations
+
+from fnmatch import fnmatchcase
 
 from envocad.library.components import Component
 
@@ -25,12 +31,31 @@ def link_ids(comp: Component) -> list[str]:
     return [x.strip() for x in raw.split(",") if x.strip()]
 
 
-def choices(components, inverter: Component | None = None) -> list[Component]:
-    """Baterie k výběru (kategorie `battery`, role master / module / system s kapacitou). Výrobce stejný jako
-    u střídače jde první; ostatní podle výrobce a typu. Bez střídače jen seřazené."""
+def compat_patterns(battery: Component) -> list[str]:
+    """Vzory typů střídačů z `inv_compat` (oddělené čárkou nebo středníkem); prázdné = podle výrobce."""
+    raw = (battery.params.get("inv_compat") or "").replace(";", ",")
+    return [x.strip() for x in raw.split(",") if x.strip()]
+
+
+def compatible(battery: Component, inverter: Component) -> bool:
+    """Pasuje baterie (základ věže) ke střídači? Vzory `inv_compat` na typ střídače (`part_number`, bez rozlišení
+    velikosti, `*` a `?` jako v názvech souborů), bez vzorů stejný výrobce."""
+    pats = compat_patterns(battery)
+    if pats:
+        pn = inverter.part_number.strip().upper()
+        return any(fnmatchcase(pn, p.upper()) for p in pats)
+    return battery.manufacturer.strip().lower() == inverter.manufacturer.strip().lower()
+
+
+def choices(components, inverter: Component | None = None, only_compatible: bool = True) -> list[Component]:
+    """Baterie k výběru (kategorie `battery`, role master / module / system s kapacitou). Se střídačem jen ty,
+    které k němu pasují (`compatible`); s `only_compatible=False` všechny, výrobce stejný jako u střídače první.
+    Řazení podle výrobce, kapacity a typu."""
     mfr = (inverter.manufacturer if inverter is not None else "").strip().lower()
     out = [c for c in components if c.category == "battery"
            and (c.params.get("bat_role") or "master") in BASE_ROLES and c.num("e_kwh")]
+    if inverter is not None and only_compatible:
+        out = [c for c in out if compatible(c, inverter)]
     return sorted(out, key=lambda c: (c.manufacturer.strip().lower() != mfr, c.manufacturer.lower(),
                                       c.num("e_kwh") or 0, c.part_number))
 

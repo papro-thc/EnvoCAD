@@ -656,8 +656,10 @@ class ProjectWizard(QDialog):
         bform = self._group(P3, "Baterie (hybridní střídač)")
         self.grp_battery = bform.parentWidget()
         self.bat_combo = QComboBox()
-        self.bat_combo.setToolTip("Baterie se připojí k prvnímu střídači (T1). Artikly stejného výrobce jako střídač "
-                                  "jsou první; kompatibilitu s konkrétním střídačem ověřte v datasheetu.")
+        self.bat_combo.setToolTip("Baterie se připojí k prvnímu střídači (T1) na svorku BAT. Nabízí jen baterie, "
+                                  "které ke střídači pasují (sloupec inv_compat artiklu, jinak stejný výrobce).")
+        self.bat_all = QCheckBox("i ostatní baterie (kompatibilitu ověřte v datasheetu)")
+        self.bat_all.setToolTip("Nabídne všechny baterie z katalogu – výrobce střídače první")
         self.bat_modules = QSpinBox(minimum=1, maximum=99, value=1)
         self.bat_modules.setToolTip("Počet modulů věže (u masteru včetně něj); meze podle datasheetu artiklu")
         self.bat_bms = QComboBox()
@@ -665,11 +667,13 @@ class ProjectWizard(QDialog):
         self.bat_info = QLabel()
         self.bat_info.setWordWrap(True)
         bform.addRow("Baterie", self.bat_combo)
+        bform.addRow("", self.bat_all)
         bform.addRow("Počet modulů", self.bat_modules)
         bform.addRow(self.bat_bms_label, self.bat_bms)
         bform.addRow("", self.bat_info)
         self.grp_battery.setVisible(False)
         self.bat_combo.currentIndexChanged.connect(self._battery_article_changed)
+        self.bat_all.toggled.connect(self._refresh_battery)
         self.bat_modules.valueChanged.connect(self._battery_info)
         self.bat_bms.currentIndexChanged.connect(self._battery_info)
         tform = self._group(P3, "Návrhové teploty")
@@ -996,9 +1000,10 @@ class ProjectWizard(QDialog):
         cid = self.bat_combo.currentData()
         return self.library.component(cid) if cid and self.library is not None else None
 
-    def _refresh_battery(self) -> None:
-        """Skupina Baterie je vidět jen u hybridního střídače z katalogu; seznam baterií (stejný výrobce první)
-        se přestaví, dřívější volba zůstane, je-li stále v nabídce. U jiného střídače se volba zahodí (bez `battery`)."""
+    def _refresh_battery(self, *_args) -> None:
+        """Skupina Baterie je vidět jen u hybridního střídače z katalogu; seznam baterií (jen kompatibilní se
+        střídačem, se zaškrtnutým „i ostatní“ všechny) se přestaví, dřívější volba zůstane, je-li stále v nabídce.
+        U jiného střídače se volba zahodí (bez `battery`)."""
         from envocad.library.batteries import choices
         hybrid = self._hybrid_selected()
         keep = self.bat_combo.currentData() if hybrid else ""
@@ -1006,11 +1011,14 @@ class ProjectWizard(QDialog):
         self.bat_combo.clear()
         self.bat_combo.addItem("bez baterie", "")
         if hybrid:
-            for c in choices(self.library.components(category="battery"), self._inv_comp):
+            for c in choices(self.library.components(category="battery"), self._inv_comp,
+                             only_compatible=not self.bat_all.isChecked()):
                 e = c.num("e_kwh")
                 unit = "" if (c.params.get("bat_role") or "") == "system" else " / modul"
                 self.bat_combo.addItem(f"{c.manufacturer} {c.part_number} – {e:g} kWh{unit}", c.id)
             self.bat_combo.setCurrentIndex(max(self.bat_combo.findData(keep), 0))
+            if self.bat_combo.count() == 1:
+                self.bat_combo.setItemText(0, "bez baterie (ke střídači v katalogu žádná nepasuje)")
         self.bat_combo.blockSignals(False)
         self.grp_battery.setVisible(hybrid)
         self._battery_article_changed(reset=False)

@@ -506,8 +506,11 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
         for i in sorted(columns[d], key=key):
             if i in bars:
                 continue
-            # rodič = nejbližší soused s menší hloubkou (vývod posunutý do dolní řady má rodiče o víc sloupců výš)
-            ps = sorted((p for p in nb[i] if depth.get(p, d) < d and p not in bars), key=lambda p: (-depth[p], key(p)))
+            # rodič = nejbližší soused s menší hloubkou (vývod posunutý do dolní řady má rodiče o víc sloupců výš);
+            # při stejné hloubce přístroj před sběrnicí (jistič síťové strany přepínače sítí visí pod přepínačem,
+            # i když je záložní větev k přepínači delší – chránič zálohy)
+            ps = sorted((p for p in nb[i] if depth.get(p, d) < d and p not in bars),
+                        key=lambda p: (-depth[p], poles[p].element.symbol_id == BUS_SYMBOL, key(p)))
             if ps:
                 parent[i] = ps[0]
                 children[ps[0]].append(i)

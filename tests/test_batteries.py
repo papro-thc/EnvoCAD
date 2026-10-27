@@ -74,16 +74,31 @@ def test_datasheet_values_spot_check(lib):
     assert lib.component("growatt-ark-2.5h-a2").num("u_dc_v") == 51.2
 
 
+def test_choices_only_compatible(lib):
+    bats = lib.components(category="battery")
+    ch = batteries.choices(bats, lib.component("solax-x3-hyb-10.0-p"))
+    assert ch and all(c.manufacturer == "SolaX" for c in ch)
+    assert "solax-t-bat-h-5.8-v2" not in {c.id for c in ch}          # V2 jen k X1/X3-Hybrid (inv_compat)
+    assert "solax-t-bat-h-5.8-v2" in {c.id for c in batteries.choices(bats, lib.component("solax-x3-hybrid-10.0-d"))}
+    assert {c.id for c in batteries.choices(bats, lib.component("growatt-min5000tl-xh"))} >= {"growatt-apx-5.0p-b1"}
+    assert "growatt-apx-5.0p-b1" not in {c.id for c in batteries.choices(bats, lib.component("growatt-sph5000"))}
+    luna = lib.component("huawei-luna2000-5-e0")
+    assert batteries.compatible(luna, lib.component("huawei-sun2000-3ktl-l1"))
+    assert not batteries.compatible(luna, lib.component("huawei-sun2000-12k-mb0"))
+    assert not batteries.compatible(lib.component("huawei-luna2000-241-2s1"), lib.component("huawei-sun2000-12k-mb0"))
+    assert batteries.compat_patterns(luna)[0] == "SUN2000-*KTL-L1"
+
+
 def test_choices_same_manufacturer_first_and_only_bases(lib):
     inv = lib.component("solax-x3-hyb-10.0-p")
-    ch = batteries.choices(lib.components(category="battery"), inv)
+    ch = batteries.choices(lib.components(category="battery"), inv, only_compatible=False)
     assert ch and ch[0].manufacturer == "SolaX"
     roles = {c.params["bat_role"] for c in ch}
     assert roles <= set(batteries.BASE_ROLES) and "slave" not in roles and "bms" not in roles
     first_other = next(i for i, c in enumerate(ch) if c.manufacturer != "SolaX")
     assert all(c.manufacturer == "SolaX" for c in ch[:first_other])
     assert not [c for c in ch[first_other:] if c.manufacturer == "SolaX"]
-    gw = batteries.choices(lib.components(category="battery"), lib.component("growatt-sph5000"))
+    gw = batteries.choices(lib.components(category="battery"), lib.component("growatt-sph5000"), only_compatible=False)
     assert gw[0].manufacturer == "Growatt"
 
 

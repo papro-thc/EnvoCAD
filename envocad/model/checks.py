@@ -143,7 +143,7 @@ def check_project(project: Project, lib, *, standard_paper: str) -> list[Finding
                     free = [p for p in free if not p.startswith("DC")]   # volné DC vstupy střídače jsou rezerva
                 if e.symbol_id in INVERTER_SYMBOLS:          # záloha a komunikace střídače jsou nepovinné
                     from envocad.model.inverter_io import inverter_io
-                    optional = set(inverter_io(e.attrs))
+                    optional = set(inverter_io(e.attrs, e.symbol_id == "fve.inverter_hybrid"))
                     free = [p for p in free if p not in optional]
                     if not any(p in conn for p in optional):   # zapojená jen komunikace = částečně zapojený
                         real = [p for p in real if p not in optional]

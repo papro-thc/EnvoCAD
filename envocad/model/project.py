@@ -1964,13 +1964,13 @@ IO_ATTRIBUTE = Attribute("io", "Svorky střídače (záloha, komunikace) – pr�
 def inverter_symbol(project: Project, e: Element, base: Symbol) -> Symbol:
     """Značka střídače s DC vstupem na každý string (DC1…DCn vlevo); základní značka má DC1/DC2. Svorky typu
     střídače (`inverter_io`: záložní výstup, generátor, komunikace, řízení výkonu) jsou v pásu pod značkou s porty
-    vpravo a popisem; baterie (BAT) je pak pod pásem. Atribut `io` je u střídače vždy (i bez svorek)."""
+    vpravo a popisem (hybrid vždy se zálohou BACKUP); baterie (BAT) je pak pod pásem. Atribut `io` je u střídače vždy (i bez svorek)."""
     from envocad.model.inverter_io import inverter_io
     attributes = list(base.attributes)
     if not any(a.key == "io" for a in attributes):
         attributes.append(IO_ATTRIBUTE)
     n = inverter_dc_inputs(project, e)
-    io = [p for p in inverter_io(e.attrs) if p not in {q.name for q in base.ports}]
+    io = [p for p in inverter_io(e.attrs, base.id == "fve.inverter_hybrid") if p not in {q.name for q in base.ports}]
     if n <= 2 and not io:
         return dataclasses.replace(base, attributes=attributes)
     h = max(20.0, 5.0 * n + 5.0) if n > 2 else 20.0

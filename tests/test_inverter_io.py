@@ -70,3 +70,32 @@ def test_comm_wire_conductors_and_checks(lib):
     fs = {(f.code, f.ref): f.text for f in check_project(p, lib, standard_paper="A4")}
     assert ("bad_port", "W1") not in fs
     assert fs[("free_port", "T1")] == "Nezapojené porty: DC1, DC2, AC"     # RS485-1 ani DI se nehlásí
+
+
+def test_hybrid_always_has_backup():
+    """Hybridní střídač: vždy záložní výstup BACKUP (první, když ho profil neuvádí); ruční `io` má přednost."""
+    assert inverter_io({"manufacturer": "Deye", "type": "SUN-10K-SG04LP3-EU"}, hybrid=True) == ["BACKUP"]
+    assert inverter_io({"manufacturer": "Huawei", "type": "SUN2000-5KTL-M1"}, hybrid=True) ==         ["BACKUP", "RS485-1", "RS485-2", "DI"]
+    assert inverter_io({"manufacturer": "SolaX", "type": "X3-ULT-20K"}, hybrid=True).count("BACKUP") == 1
+    assert inverter_io({"manufacturer": "Deye", "type": "X", "io": "-"}, hybrid=True) == []
+    assert inverter_io({"manufacturer": "Deye", "type": "X", "io": "RS485"}, hybrid=True) == ["RS485"]
+    assert inverter_io({"manufacturer": "Deye", "type": "SUN-10K-SG04LP3-EU"}) == []
+
+
+def test_hybrid_symbol_has_battery_and_backup_ports():
+    """Značka hybridního střídače: BAT (baterie) a BACKUP (záloha) i bez profilu řady; síťový střídač BACKUP nemá."""
+    from envocad.library.store import LibraryStore
+    from envocad.model.checks import check_project
+    from envocad.model.project import Element, Project, Sheet, element_symbol
+    lib = LibraryStore()
+    p = Project()
+    s = Sheet(name="JPS")
+    p.sheets.append(s)
+    th = Element("fve.inverter_hybrid", 0, 0, attrs={"ref": "T1", "manufacturer": "Deye", "type": "SUN-10K"})
+    tp = Element("fve.inverter", 100, 0, attrs={"ref": "T2"})
+    s.elements += [th, tp]
+    names = {pt.name for pt in element_symbol(p, th, lib).ports}
+    assert {"BAT", "BACKUP", "AC"} <= names
+    assert "BACKUP" not in {pt.name for pt in element_symbol(p, tp, lib).ports}
+    free = [f for f in check_project(p, lib, standard_paper="A4") if f.target_id == th.id and f.code == "free_port"]
+    assert not any("BACKUP" in f.text for f in free)                  # záloha je nepovinná
