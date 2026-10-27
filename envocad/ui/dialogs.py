@@ -1651,6 +1651,9 @@ class ProjectWizard(QDialog):
         return spec
 
 
+NO_POLE_PRESET_SYMBOLS = {"fve.spd", "fve.surge_arrester"}   # výběr artiklu bez přednastaveného filtru pólů
+
+
 class ElementDialog(AttrDialog):
     def __init__(self, symbol: Symbol, attrs: dict[str, str], parent=None, title: str | None = None,
                  library=None, component_id: str | None = None, wire_choices: list[tuple[str, str]] | None = None):
@@ -1698,6 +1701,10 @@ class ElementDialog(AttrDialog):
     def pick_component(self) -> None:
         from envocad.ui.component_picker import ComponentPicker
         preset = {k: self._edits[k].text() for k in ("in_", "poles", "char") if k in self._edits}
+        if self.symbol.id in NO_POLE_PRESET_SYMBOLS:
+            # svodič: póly značky (výchozí 3) neodpovídají zápisu artiklů (3+NPE = 4, DC 2 / 3) – filtr by skryl
+            # většinu katalogu (AC svodiče Eaton, OEZ)
+            preset.pop("poles", None)
         dlg = ComponentPicker(self.library, symbol_id=self.symbol.id, parent=self, preset_filters=preset)
         if dlg.exec() == ComponentPicker.Accepted and dlg.selected:
             self.apply_component(dlg.selected)

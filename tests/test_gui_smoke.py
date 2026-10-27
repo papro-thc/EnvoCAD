@@ -1636,3 +1636,20 @@ def test_wizard_defaults_f7_clean(app, building, level):
     p = build_project(d.spec())
     bad = [(f.code, f.ref, f.text) for f in check_project(p, LibraryStore(), standard_paper="A4") if f.severity in (ERROR, WARNING)]
     assert bad == []
+
+
+def test_spd_picker_shows_ac_four_pole(app, monkeypatch):
+    """Výběr artiklu u svodiče: póly značky (výchozí 3) nefiltrují – AC svodiče 3+NPE (4 póly) jsou v nabídce."""
+    from envocad.ui import component_picker
+    from envocad.ui.dialogs import ElementDialog
+    lib = LibraryStore()
+    seen = {}
+
+    def fake_exec(self):
+        seen["rows"] = list(self._rows)
+        return 0
+    monkeypatch.setattr(component_picker.ComponentPicker, "exec", fake_exec)
+    sym = lib.get_symbol("fve.spd")
+    d = ElementDialog(sym, {"ref": "F1", "poles": "3"}, library=lib)
+    d.pick_component()
+    assert any(c.manufacturer == "Eaton" and c.params.get("spd_type") == "T2" for c in seen["rows"])
