@@ -1,6 +1,6 @@
 # EnvoCAD – uživatelská příručka
 
-Verze 0.10. EnvoCAD je nástroj pro elektro-dokumentaci fotovoltaických elektráren: blokové schéma celé elektrárny (dříve nazývané jednopólové schéma, JPS; skutečné jednopólové schéma s přístroji rozvaděčů je v plánu),
+Verze 0.11. EnvoCAD je nástroj pro elektro-dokumentaci fotovoltaických elektráren: blokové schéma celé elektrárny (dříve nazývané jednopólové schéma, JPS; jednopólové schéma s přístroji rozvaděčů se odvozuje z blokového schématu a rozvaděčů),
 rozvaděče (vícepólové schéma, svorkovnice, rozložení, oteplení), kabely, výpočty, výkazy a kompletní
 dokumentace v jednom PDF. Všechno vychází z jednoho datového modelu – co nakreslíš, to se propíše do
 všech výstupů.
@@ -26,7 +26,7 @@ a spustí program. Ručně: `python -m venv .venv`, aktivovat, `pip install -e .
 `py -m envocad`, pokud `python` otevírá Microsoft Store).
 
 Samostatná aplikace bez Pythonu pro kolegy: `scripts\build.ps1` / `scripts/build.sh` sestaví složku
-`dist/EnvoCAD` přes PyInstaller.
+`dist/EnvoCAD` přes PyInstaller; instalace a aktualizace kolegů ze sdílené složky je v `docs/RELEASE.md`.
 
 **Aktualizace:** při spuštění přes `scripts\run.cmd` (nebo samostatnou aplikaci nainstalovanou ze sdílené složky) se
 EnvoCAD zeptá, když vyjde nová verze – **Aktualizovat** ji nainstaluje a spustí, **Teď ne** se zeptá zase za den.
@@ -344,6 +344,15 @@ prvky zůstávají tam, kam je dáš (i na jiné straně); první ruční posun 
 pozdější změna standardu nepřesunula. Starší list rozvaděče s ručními polohami ve vícepólu nebo s jiným rozměrem
 listu než výchozí A3 zůstává ve formátu listu (A3), dokud v Vlastnostech listu nezvolíš jiný.
 
+**Jednopólové přístroje a žíly.** Jistič nebo pojistka 1p na vodiči s L1 L2 L3 N PE dostane jen **jednu fázi** (první
+žílu); ostatní žíly k němu nevedou, ve vícepólu se nekreslí a nepočítají se do zapojovacího seznamu ani výkazu
+svorkovnice a potenciálů (mrtvé žíly). Nový vodič z uzlu na takový přístroj dostane jen první fázi. Starší projekty
+se nemění. **Přepínač sítí** (I-0-II) má póly po 12,5 mm a vstupy I a II sousedních pólů se nesléjí; průchozí přístroj
+nakreslený v jednopólu vodorovně se ve vícepólu otočí vstupem nahoru (jen pohled). **Elektroměr při nepřímém měření**
+(značka `fve.meter`) má svorky podle DIN 43856: I1 1–3, U1 2, I2 4–6, U2 5, I3 7–9, U3 8, N 11. Každá žíla vede shora
+na svou svorku a tatáž čísla svorek jsou v zapojovacím seznamu (např. `P1:3`). Sekundár MTP jde po fázích `1S1 1S2 2S1
+2S2 3S1 3S2` (svorky 1 3 4 6 7 9), napětí z MTN `1a 2a 3a n` (svorky 2 5 8 11).
+
 **Kreslit jde přímo ve schématu rozvaděče**: dvojklik na značku v knihovně → klik umístí prvek (průchozí přístroje
 se otočí svisle, `R` otočí, Esc / pravé tlačítko ukončí) a hned se otevřou jeho parametry; `W` (nebo Vodič) →
 klik na konec pólu jednoho prvku a na konec pólu druhého nakreslí žílu (převezme označení žíly L1/N/PE/L+…
@@ -500,6 +509,14 @@ Rozložení rozvaděče (rozměry z artiklu nebo ručních rozměrů prvku; př�
 | `layout_depth` | varování | hloubka přístroje je větší než hloubka skříně (jen se zadanou hloubkou skříně) |
 | `bridge_article` | varování | artikl můstku skupiny svorek není v knihovně, není můstek nebo má méně pólů než skupina můstku |
 
+Vícepól a žíly (rozvaděč):
+
+| Kód | Závažnost | Význam |
+|---|---|---|
+| `pole_count` | varování | do přístroje vede víc fází, než má pólů (u proudového chrániče fáze + N) – např. chránič 1+N na žilách L1 L2 L3 N nebo jistič 1p na vodiči s L1–L3; N kolem jističe je v pořádku |
+| `n_pe_join` | varování | v uzlu se potkává vodič jen s N a vodič jen s PE – v síti TN-S se N a PE v rozvaděči nespojují |
+| `mp_conductor_end` | varování | žíly vedou do vícepólového přístroje jen z jedné strany (do přepínače N a PE, ven jen L1–L3) – ve vícepólu končí naprázdno; doplnit žíly vodiče v jednopólu |
+
 Jištění v rozvaděčích (`protection_findings`):
 
 | Kód | Závažnost | Význam |
@@ -600,7 +617,7 @@ umístěním jeho blok.
 | Kde | Co nastavíš |
 |---|---|
 | `Projekt → Strukturní označení…` | seznam kódů funkce (`=`) a umístění (`+`) s popisem, např. `AC`, `DC`, `RDC1`; ve výkazech a štítcích se pak píše plné označení |
-| `List → Vlastnosti listu (název, =funkce, +umístění)…` | funkce a umístění listu – výchozí pro všechny prvky a vodiče listu |
+| `List → Vlastnosti listu (název, =funkce, +umístění)…` | název, strukturní označení a formát listu (**Formát listu**, u rozvaděče **Formát stran schématu**); funkce a umístění jsou výchozí pro všechny prvky a vodiče listu |
 | Panel Vlastnosti prvku, pole `Funkce (=)` a `Umístění (+)` | přepis pro jeden prvek; prázdné pole = převzít z listu |
 
 Kódy se píšou bez znaménka, jedna úroveň (`RS1`; tečka nedělí úrovně), jen A–Z, 0–9, `_` a tečka uvnitř (firemní `RFVE.AC`), nejvýš 10 znaků. Přejmenování
