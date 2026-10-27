@@ -295,17 +295,18 @@ def cables(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> t
 @over_clean
 def terminals(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Svorkovnice: každá žíla každého vodiče napojeného na svorku/přívod/vývod + ruční přiřazení z Wire.terminals."""
-    from envocad.model.multipole import wire_end_terminal
+    from envocad.model.multipole import sheet_dead_conductors, wire_end_terminal
     head = ["Svorkovnice", "Svorka", "Žíla", "Kabel", "Připojeno na", "Můstek", "Popis", "List"]
     rows = []
     groups = _interrupts(project)
     for s in _sheets(project, sheet):
+        dead = sheet_dead_conductors(project, s, lib)       # žíly, které na jističi 1p nikam nevedou
         for w in s.wires:
             a, b = s.element(w.a.element_id), s.element(w.b.element_id)
             for side, end, other, other_port in (("a", a, b, w.b.port), ("b", b, a, w.a.port)):
                 if end.symbol_id not in TERMINAL_SYMBOLS:
                     continue
-                conds = w.conductors or [""]
+                conds = [c for c in w.conductors if c not in dead.get(w.id, ())] or [""]
                 base = _aspects(s, end)
                 for i, c in enumerate(conds, start=1):
                     desig = wire_end_terminal(s, w, c, side) if c else ""

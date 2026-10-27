@@ -191,22 +191,14 @@ def _layout(sheet: Sheet, poles: dict[str, mp.ElementPoles], size: tuple[float, 
     return layout, page_of, n_pages
 
 
-_REROUTE = True      # vedení žil mimo cizí značky (`mp.clear_route`); `multipole_geometry` porovná s výchozím
-
-
 def multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: str) -> MultipoleGeometry:
     """Vícepól listu (`_multipole_geometry`). Když se některé žíly vedly mimo cizí značky jinou trasou
-    (`MultipoleGeometry.routes`), spočítá se i varianta s výchozími trasami a použije se ta s méně překryvy textů
-    (objízdná trasa může zabrat místo popisku přístroje); při shodě objízdné trasy."""
-    global _REROUTE
-    g = _multipole_geometry(project, sheet, lib, standard_paper=standard_paper)
-    if not g.routes:
+    (`MultipoleGeometry.routes`), postaví se nad stejným rozmístěním i varianta s výchozími trasami a použije se ta
+    s méně překryvy textů (objízdná trasa může zabrat místo popisku přístroje); při shodě objízdné trasy."""
+    g, plain = _multipole_geometry(project, sheet, lib, standard_paper=standard_paper)
+    if plain is None:
         return g
-    _REROUTE = False
-    try:
-        plain = _multipole_geometry(project, sheet, lib, standard_paper=standard_paper)
-    finally:
-        _REROUTE = True
+
     def score(geo: MultipoleGeometry) -> tuple[int, int]:   # (překryvy textů, žíly přes cizí značky)
         return (len(multipole_text_overlaps(project, sheet, lib, geo, standard_paper=standard_paper)),
                 symbol_crossings(sheet, geo))
@@ -230,7 +222,8 @@ def symbol_crossings(sheet: Sheet, g: MultipoleGeometry) -> int:
     return n
 
 
-def _multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: str) -> MultipoleGeometry:
+def _multipole_geometry(project: Project, sheet: Sheet, lib, *,
+                        standard_paper: str) -> tuple[MultipoleGeometry, MultipoleGeometry | None]:
     """Texty a čáry vícepólu listu rozvaděče (souřadnice pohledu, strany pod sebou).
 
     Strana má formát `multipole.paper_choice` (list rozvaděče bez volby `mp_paper` formát firemního standardu
@@ -239,7 +232,8 @@ def _multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: 
     nezávisí), posune se nejdřív celé rozmístění nahoru (nejvýš pod nadpis rozvaděče) a pak se zmenší mezery mezi
     sloupci (nejvýš na `multipole.MIN_COL_GAP`). Posun i mezery jsou stejné na všech stranách (sběrnice zůstane
     ve stejné výšce). Výsledné polohy prvků jsou v `origins` – scéna (`ui/multipole_view.py`) je převezme, takže
-    kreslí totéž."""
+    kreslí totéž. Vrací (vícepól, varianta s výchozími trasami žil nad stejným rozmístěním nebo None, když se
+    žádná žíla mimo cizí značky nevedla)."""
     from envocad.model.frame import MARGIN, TB_H
     choice = mp.paper_choice(sheet, standard_paper)
     size = mp.page_size(sheet, choice)
@@ -298,13 +292,20 @@ def _multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: 
             g, layout, page_of, gap, deficit = alt
         else:
             g, layout, page_of, gap, deficit = fit(True)   # stav pólů (polohy, popisky) zpět podle vybrané varianty
-    g.origins = {eid: ep.origin for eid, ep in poles.items()}
-    g.element_labels = {eid: list(ep.label_lines) for eid, ep in poles.items() if ep.label_lines is not None}
-    g.page_of = dict(page_of)
-    g.layout_pos = dict(layout)
-    g.paper = mp.free_a4_label(size[0]) if choice == mp.FREE_A4 else mp.page_paper_label(sheet, choice)
-    g.col_gap = gap
-    return g
+
+    def finish(geo: MultipoleGeometry) -> MultipoleGeometry:
+        geo.origins = {eid: ep.origin for eid, ep in poles.items()}
+        geo.element_labels = {eid: list(ep.label_lines) for eid, ep in poles.items() if ep.label_lines is not None}
+        geo.page_of = dict(page_of)
+        geo.layout_pos = dict(layout)
+        geo.paper = mp.free_a4_label(size[0]) if choice == mp.FREE_A4 else mp.page_paper_label(sheet, choice)
+        geo.col_gap = gap
+        return geo
+
+    g = finish(g)
+    if not g.routes:
+        return g, None
+    return g, finish(_build(project, sheet, poles, page_of, g.pages, size, reroute=False))
 
 
 def _free_a4_width(g: MultipoleGeometry, sheet: Sheet) -> float:
@@ -344,7 +345,9 @@ def _auto_extent(g: MultipoleGeometry, poles, page_of: dict[str, int], height: f
 
 
 def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], page_of: dict[str, int],
-           n_pages: int, size: tuple[float, float]) -> MultipoleGeometry:
+           n_pages: int, size: tuple[float, float], reroute: bool = True) -> MultipoleGeometry:
+    """Texty a čáry vícepólu nad daným rozmístěním; `reroute` = žíly přes cizí značky vést jinou trasou
+    (`mp.clear_route`), jinak výchozí trasy."""
     from envocad.model.frame import MARGIN, MARGIN_LEFT, sheet_number
     g = MultipoleGeometry()
     g.pages = n_pages
@@ -470,7 +473,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
         own = (w.a.element_id, w.b.element_id)
         # žíla z přívodu / vývodu zůstává na výchozí trase (štítek kabelu a označení svorkovnice u ní)
         feed_end = any(mp.is_feed(poles[x].element) for x in own if x in poles)
-        boxes = [] if not _REROUTE or feed_end else [b for eid, bs in obstacles.items() if eid not in own for b in bs]
+        boxes = [] if not reroute or feed_end else [b for eid, bs in obstacles.items() if eid not in own for b in bs]
         labels = [b for bs in label_obstacles.values() for b in bs]          # i popisky vlastních konců
         pts = mp.clear_route(pa, da, pb, db, stagger=idx * mp.GRID, branch=branch, boxes=boxes, segs=wire_segs,
                              labels=labels)
