@@ -169,9 +169,10 @@ def title_height(title: list[str]) -> float:
 
 
 def _layout(sheet: Sheet, poles: dict[str, mp.ElementPoles], size: tuple[float, float], y_top: float,
-            col_gap: float, info: dict, y_min: float | None = None) -> tuple[dict[str, Point], dict[str, int], int]:
+            col_gap: float, info: dict, y_min: float | None = None,
+            free: bool = False) -> tuple[dict[str, Point], dict[str, int], int]:
     """Rozmístění a stránkování; volný A4 bez stránkování (jedna strana, šířku dopočítá `multipole_geometry`)."""
-    if mp.paper_choice(sheet) == mp.FREE_A4:
+    if free:
         size = (mp.FREE_A4_LAYOUT_W, size[1])
     layout = mp.auto_layout(sheet, poles, x0=mp.layout_x0(sheet), y_top=y_top, bridges=sheet.bridges,
                             page_w=mp.page_width(sheet, size), col_gap=col_gap, info=info, y_min=y_min,
@@ -250,7 +251,7 @@ def _multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: 
         for _attempt in range(6):
             info: dict = {"merge": merge}
             layout, page_of, n_pages = _layout(sheet, poles, size, y_top, gap, info,
-                                               bottom_limit if lift_bars else None)
+                                               bottom_limit if lift_bars else None, free=choice == mp.FREE_A4)
             g = _build(project, sheet, poles, page_of, n_pages, size)
             if info.get("horizontal", True):
                 break

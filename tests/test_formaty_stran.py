@@ -147,3 +147,23 @@ def test_sheet_props_dialog_and_undo(lib):
     assert d2.size is None and d2.paper.findData(mp.FREE_A4) >= 0 and d2.paper.findData("A1") >= 0
     w.undo.setClean()
     w.close()
+
+
+@pytest.mark.parametrize("name", ["vn_kobky_mereni_vn", "vn_sloup_50kva", "vn_kiosk", "firma", "rd", "bez_maker_svorky"])
+def test_generated_switchboards_keep_all_conductors(lib, name):
+    """Jen jistič / pojistka s výslovně jedním pólem přichází o žíly navíc – elektroměr, MTP a MTN (napěťové cesty,
+    S1/S2) ve vygenerovaných rozvaděčích RE a VN nesmí přijít o žádnou žílu (review PR #52, nález 1)."""
+    from test_generate import F7_CASES, build_project
+    p = build_project(F7_CASES[name])
+    for s in p.switchboards():
+        poles = mp.sheet_poles(s, lambda e, p=p: element_symbol(p, e, lib))
+        assert mp.dead_conductors(s, poles) == {}, (name, s.name)
+
+
+def test_free_a4_rejects_tall_sheet(lib):
+    p = Project.load(EXAMPLE)
+    s = p.sheets[0]
+    for k, e in enumerate(s.elements):                           # obsah vyšší než 297 mm (prvky pod sebou)
+        e.y = 100.0 + 150.0 * k
+    with pytest.raises(ValueError, match="297"):
+        sheet_format_placement(p, s, lib, mp.FREE_A4)

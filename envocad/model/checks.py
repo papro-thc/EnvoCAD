@@ -894,7 +894,8 @@ def conductor_end_findings(project: Project, s: Sheet, lib) -> list[Finding]:
     out = []
     for ep in poles.values():
         e = ep.element
-        if ep.through is None or len(ep.switched) < 2 or mp.is_terminal_block(e) or e.symbol_id in FEED_SYMBOLS                 or "PE" in ep.through or "spd" in e.symbol_id:
+        if ep.through is None or len(ep.switched) < 2 or mp.is_terminal_block(e) or e.symbol_id in FEED_SYMBOLS \
+                or "PE" in ep.through or "spd" in e.symbol_id:
             continue                    # svodič (L → PE) není průchozí přístroj
         a, b = ({c for w in s.wires if not mp.is_control_wire(w)          # ovládací žíla cívky (A1 → L) se nepočítá
                  for end in (w.a, w.b) if end.element_id == e.id and end.port == p for c in mp.wire_conductors(w)}
@@ -902,7 +903,7 @@ def conductor_end_findings(project: Project, s: Sheet, lib) -> list[Finding]:
         if not a or not b:
             continue                    # přístroj zapojený jen z jedné strany hlásí jiná kontrola
         loose = sorted((a ^ b) - set(ep.joined) - set(ep.switched), key=mp.canon_key)
-        loose += sorted(c for c in ep.switched if (c in a) != (c in b))
+        loose = sorted(set(loose) | {c for c in ep.switched if (c in a) != (c in b)}, key=mp.canon_key)
         if loose:
             out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
                                f"Žíly {', '.join(loose)} vedou do {e.ref or 'přístroje'} jen z jedné strany – na "

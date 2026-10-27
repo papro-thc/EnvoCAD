@@ -90,12 +90,20 @@ def default_conductors(a: Element, pa: str, b: Element, pb: str) -> list[str]:
 
 
 PHASES = ("L1", "L2", "L3", "L")
+SINGLE_POLE_KINDS = ("breaker", "mcb", "fuse")     # jistič, pojistka – měřicí přístroje (elektroměr, MTP, MTN) ne
+
+
+def single_pole_device(e: Element) -> bool:
+    """Jistič nebo pojistka s výslovně jedním pólem (`poles` = 1): vede se na něj jen jedna fáze. Elektroměr,
+    měřicí transformátory a prvky bez atributu `poles` ne – jejich žíly (napěťové cesty, S1/S2) zůstávají."""
+    return str(e.attrs.get("poles") or "").strip() == "1" and any(k in e.symbol_id for k in SINGLE_POLE_KINDS) \
+        and e.symbol_id not in TERMINAL_SYMBOLS
 
 
 def branch_conductors(src: list[str], device: Element) -> list[str]:
     """Žíly nového vodiče z uzlu k přístroji: převezme žíly vodiče uzlu, ale na jednopólový přístroj (atribut
     `poles` = 1: jistič 1p, pojistka) vede jen jedna fáze – první fáze vodiče uzlu (většinou L1)."""
-    if str(device.attrs.get("poles") or "").strip() != "1" or device.symbol_id in TERMINAL_SYMBOLS             or device.symbol_id.startswith("ctl."):
+    if not single_pole_device(device):
         return list(src)
     phase = next((c for c in src if c in PHASES), None)
     return [phase] if phase else list(src)
@@ -781,8 +789,8 @@ def sheet_poles(sheet: Sheet, symbol_of) -> dict[str, ElementPoles]:
 
 
 def dead_conductors(sheet: Sheet, poles: dict[str, ElementPoles]) -> dict[str, set[str]]:
-    """Žíly vodičů, které na jednopólovém průchozím přístroji nemají pól a za ním nepokračují: vodič z uzlu s L1 L2 L3
-    N PE na jednopólový jistič – přístroj vezme L1, ostatní žíly k němu nevedou. Nekreslí se ve vícepólu
+    """Žíly vodičů, které na jednopólovém jističi / pojistce (`single_pole_device`) nemají pól a za ním nepokračují:
+    vodič z uzlu s L1 L2 L3 N PE na jistič 1p – přístroj vezme L1, ostatní žíly k němu nevedou. Nekreslí se ve vícepólu
     a nepočítají se do výrobního zapojovacího seznamu. Svorky, přívody, uzly a prvky bez průchozích portů berou
     všechny žíly; vodiči zůstane vždy aspoň jedna žíla. {id vodiče: {žíla}}."""
     out: dict[str, set[str]] = {}
@@ -790,7 +798,7 @@ def dead_conductors(sheet: Sheet, poles: dict[str, ElementPoles]) -> dict[str, s
         conds = wire_conductors(w)
         for end in (w.a, w.b):
             ep = poles.get(end.element_id)
-            if ep is None or ep.through is None or end.port not in ep.through or is_terminal_block(ep.element)                     or ep.element.symbol_id in FEED_SYMBOLS or len(ep.switched) != 1:
+            if ep is None or ep.through is None or end.port not in ep.through or not single_pole_device(ep.element):
                 continue        # jen jednopólový přístroj (jistič 1p, zdroj): vícepólový zůstává, jak je nakreslený
             for c in conds:
                 if c not in ep.switched and c not in ep.bypass and c not in ep.joined:

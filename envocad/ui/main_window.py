@@ -748,7 +748,11 @@ class MainWindow(QMainWindow):
         rename = bool(name) and name != sh.name
         designate = (func, loc) != (sh.func, sh.loc)
         repaper = mp_paper is not None and mp_paper != sh.mp_paper
-        placement = sheet_format_placement(self.project, sh, self.library, sheet_format) if sheet_format else None
+        try:
+            placement = sheet_format_placement(self.project, sh, self.library, sheet_format) if sheet_format else None
+        except ValueError as ex:
+            QMessageBox.warning(self, "Formát listu", str(ex))
+            return False
         resize = placement is not None and (placement[:3] != (sh.paper, float(sh.width), float(sh.height))
                                             or placement[3:] != (0.0, 0.0))
         if not (rename or designate or repaper or resize):

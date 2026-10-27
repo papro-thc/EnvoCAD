@@ -737,7 +737,8 @@ def _segments(project: Project, s: Sheet, index, params: WiringParams | None, li
     `prod_only` vynechá vodiče s `attrs["prod"] == "0"` (výrobní seznam)."""
     segs: list[_Seg] = []
     dead: dict[str, set[str]] = {}
-    if lib is not None and s.is_switchboard:      # žíly, které na jednopólovém přístroji nikam nevedou (vícepól)
+    from envocad.model.multipole import has_multipole
+    if lib is not None and s.is_switchboard and has_multipole(s):   # žíly, které na jističi 1p nikam nevedou
         from envocad.model.multipole import dead_conductors, sheet_poles
         from envocad.model.project import element_symbol
         dead = dead_conductors(s, sheet_poles(s, lambda e: element_symbol(project, e, lib)))

@@ -375,7 +375,7 @@ def sheet_format_placement(project: Project, sheet: Sheet, lib, choice: str
     """Formát listu pro volbu ve vlastnostech jako (název, šířka, výška, dx, dy) pro `apply_placement`. Pevný formát
     (A4…A1 na šířku) obsah neposouvá. Volný A4: nejmenší A4×n (výška 297, šířka n × 210 mm), do kterého se obsah
     listu vejde mimo popisové pole – bez posunu, když to jde, jinak s posunem jako `fit_placement` (na mřížku);
-    obsah vyšší než strana dostane nejširší A4×n bez posunu. Prázdný list = A4×2."""
+    obsah vyšší než strana (nevejde se ani na A4×40) → ValueError s českou hláškou. Prázdný list = A4×2."""
     from envocad.model.multipole import FREE_A4, FREE_A4_HEIGHT, FREE_A4_STEP, free_a4_label
     if choice in SHEET_FORMATS:
         return (choice, *SHEET_FORMATS[choice], 0.0, 0.0)
@@ -393,8 +393,7 @@ def sheet_format_placement(project: Project, sheet: Sheet, lib, choice: str
         name, pw, ph, dx, dy = fit_placement(boxes, [(free_a4_label(w), w, h)])
         if (pw, ph) == (w, h):
             return (name, w, h, dx, dy)
-    w = FREE_A4_MAX * FREE_A4_STEP
-    return (free_a4_label(w), w, h, 0.0, 0.0)
+    raise ValueError("Obsah listu je vyšší než 297 mm – volný A4 (výška 297 mm) nejde použít; zvol A3, A2 nebo A1")
 
 
 def sheet_format_size(project: Project, sheet: Sheet, lib, choice: str) -> tuple[str, float, float]:
