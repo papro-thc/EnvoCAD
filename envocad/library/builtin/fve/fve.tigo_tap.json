@@ -1,0 +1,85 @@
+{
+  "id": "fve.tigo_tap",
+  "name": "Tigo TAP (přístupový bod)",
+  "category": "Komunikace",
+  "iec_ref": "A",
+  "description": "Bezdrátový přístupový bod Tigo TAP – montáž na střechu k FV panelům, komunikace s optimizéry, RS485 (GW) k CCA",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -5,
+      "y": -5,
+      "w": 10,
+      "h": 10
+    },
+    {
+      "type": "text",
+      "x": 0,
+      "y": -1,
+      "text": "TAP",
+      "height": 2,
+      "align": "center"
+    },
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": 5,
+      "x2": 0,
+      "y2": 9
+    },
+    {
+      "type": "arc",
+      "cx": 0,
+      "cy": 9,
+      "r": 2,
+      "start": 30,
+      "end": 150
+    },
+    {
+      "type": "arc",
+      "cx": 0,
+      "cy": 9,
+      "r": 3.5,
+      "start": 30,
+      "end": 150
+    }
+  ],
+  "ports": [
+    {
+      "name": "GW",
+      "x": 5,
+      "y": 0,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "Tigo TAP",
+      "show": true
+    },
+    {
+      "key": "manufacturer",
+      "label": "Výrobce",
+      "default": "Tigo",
+      "show": false
+    },
+    {
+      "key": "desc",
+      "label": "Popis",
+      "default": "",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": -5,
+    "y": -8
+  }
+}

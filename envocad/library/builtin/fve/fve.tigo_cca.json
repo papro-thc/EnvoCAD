@@ -1,0 +1,82 @@
+{
+  "id": "fve.tigo_cca",
+  "name": "Tigo CCA (Cloud Connect Advanced)",
+  "category": "Komunikace",
+  "iec_ref": "A",
+  "description": "Řídicí jednotka a datalogger optimizérů Tigo – RS485 (GW) k přístupovému bodu TAP, Ethernet (LAN), napájení (PWR) ze zdroje na DIN liště",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -10,
+      "y": -7.5,
+      "w": 20,
+      "h": 15
+    },
+    {
+      "type": "text",
+      "x": 0,
+      "y": 1,
+      "text": "Tigo",
+      "height": 2,
+      "align": "center"
+    },
+    {
+      "type": "text",
+      "x": 0,
+      "y": -3,
+      "text": "CCA",
+      "height": 2.5,
+      "align": "center"
+    }
+  ],
+  "ports": [
+    {
+      "name": "GW",
+      "x": -10,
+      "y": 0,
+      "dir": "W"
+    },
+    {
+      "name": "LAN",
+      "x": 10,
+      "y": 2.5,
+      "dir": "E"
+    },
+    {
+      "name": "PWR",
+      "x": 10,
+      "y": -2.5,
+      "dir": "E"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "Tigo CCA",
+      "show": true
+    },
+    {
+      "key": "manufacturer",
+      "label": "Výrobce",
+      "default": "Tigo",
+      "show": false
+    },
+    {
+      "key": "desc",
+      "label": "Popis",
+      "default": "",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": -10,
+    "y": 11
+  }
+}

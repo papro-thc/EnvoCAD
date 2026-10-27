@@ -301,6 +301,36 @@ SYMBOLS = [
                        attr("settings", "Nastavení", "U< U> f< f>"), attr("modules", "Šířka [moduly]", "4"), *TEMP],
         "label_pos": {"x": 9, "y": 1},
     },
+    # ---- Tigo (optimizéry TS4): bez vysílače RSS nebo CCA + TAP optimizéry nepracují (kontrola `tigo_missing`) ----
+    {
+        "id": "fve.tigo_cca", "name": "Tigo CCA (Cloud Connect Advanced)", "category": "Komunikace", "iec_ref": "A",
+        "description": "Řídicí jednotka a datalogger optimizérů Tigo – RS485 (GW) k přístupovému bodu TAP, Ethernet "
+                       "(LAN), napájení (PWR) ze zdroje na DIN liště",
+        "primitives": [R(-10, -7.5, 20, 15), T(0, 1, "Tigo", 2), T(0, -3, "CCA", 2.5)],
+        "ports": [P("GW", -10, 0, "W"), P("LAN", 10, 2.5, "E"), P("PWR", 10, -2.5, "E")],
+        "attributes": [REF, attr("type", "Typ", "Tigo CCA", True), attr("manufacturer", "Výrobce", "Tigo"),
+                       attr("desc", "Popis", "")],
+        "label_pos": {"x": -10, "y": 11},
+    },
+    {
+        "id": "fve.tigo_tap", "name": "Tigo TAP (přístupový bod)", "category": "Komunikace", "iec_ref": "A",
+        "description": "Bezdrátový přístupový bod Tigo TAP – montáž na střechu k FV panelům, komunikace s optimizéry, RS485 (GW) k CCA",
+        "primitives": [R(-5, -5, 10, 10), T(0, -1, "TAP", 2), L(0, 5, 0, 9), A(0, 9, 2, 30, 150), A(0, 9, 3.5, 30, 150)],
+        "ports": [P("GW", 5, 0, "E")],
+        "attributes": [REF, attr("type", "Typ", "Tigo TAP", True), attr("manufacturer", "Výrobce", "Tigo"),
+                       attr("desc", "Popis", "")],
+        "label_pos": {"x": -5, "y": -8},
+    },
+    {
+        "id": "fve.tigo_rss", "name": "Tigo RSS vysílač (Transmitter)", "category": "Komunikace", "iec_ref": "A",
+        "description": "Vysílač signálu rychlého odpojení Tigo RSS – cívka (jádro) na vodiči stringu, napájení (PWR); "
+                       "bez signálu optimizéry odpojí moduly",
+        "primitives": [R(-7.5, -5, 15, 10), T(0, -1, "RSS", 2.5), C(0, -8, 2), L(0, -5, 0, -6)],
+        "ports": [P("PWR", -7.5, 0, "W")],
+        "attributes": [REF, attr("type", "Typ", "Tigo RSS Transmitter", True), attr("manufacturer", "Výrobce", "Tigo"),
+                       attr("strings", "Stringy (jádro na vodiči)", "", True, "na {}"), attr("desc", "Popis", "")],
+        "label_pos": {"x": 9, "y": 2},
+    },
     {
         "id": "fve.load", "name": "Spotřeba objektu", "category": "Síť a zátěž", "iec_ref": "",
         "description": "Stávající rozvod / spotřeba objektu",

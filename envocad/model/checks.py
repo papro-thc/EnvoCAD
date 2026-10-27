@@ -42,7 +42,8 @@ from envocad.model.project import (
 ERROR, WARNING, INFO = "chyba", "varování", "info"
 # prvky, u kterých nevadí nezapojený port (jde o odkazy/bloky/sběrnice s rezervou)
 OPTIONAL_PORT_SYMBOLS = {"fve.switchboard", "sb.pe_bar", "sb.busbar", "fve.terminal", "sb.terminal_block",
-                         "sb.junction"}   # uzel odbočky: počet vodičů hlídá `junction_free`
+                         "sb.junction",   # uzel odbočky: počet vodičů hlídá `junction_free`
+                         "fve.tigo_cca", "fve.tigo_tap", "fve.tigo_rss"}   # komunikace Tigo: zapojení nepovinné
 NO_REF_OK_SYMBOLS = {"fve.earth", "fve.grid", "fve.load", "sb.junction"}   # bez označení je v pořádku
 AGGREGATED_INFO = {"no_article": "Bez artiklu / typu", "ref_syntax": "Označení s firemním oddělovačem „.“ / „-“ (přípustné jako firemní číslování)"}
 NO_ARTICLE_SYMBOLS = {"fve.grid", "fve.load", "fve.earth", "fve.terminal", "fve.switchboard", FEED_SYMBOL,
@@ -672,6 +673,40 @@ def chain_findings(project: Project, lib) -> list[Finding]:
                            f"({GRID_PROTECTION_SYMBOL})", "grid_protection_missing"))
     out += _grid_protection_findings(project)
     out += _eps_findings(project)
+    out += tigo_findings(project)
+    return out
+
+
+TIGO_RSS, TIGO_CCA, TIGO_TAP = "fve.tigo_rss", "fve.tigo_cca", "fve.tigo_tap"
+
+
+def is_tigo_string(e: Element) -> bool:
+    """String s optimizéry Tigo: výrobce optimizéru z artiklu (`opt_manufacturer`), jinak typ řady TS4…"""
+    if e.symbol_id != "fve.pv_string":
+        return False
+    mfr = str(e.attrs.get("opt_manufacturer") or "").strip().lower()
+    return mfr == "tigo" or (not mfr and str(e.attrs.get("optimizer") or "").strip().upper().startswith("TS4"))
+
+
+def tigo_findings(project: Project) -> list[Finding]:
+    """Optimizéry Tigo potřebují signál: v projektu musí být vysílač RSS (`fve.tigo_rss`) nebo řídicí jednotka CCA
+    (`fve.tigo_cca`) – jinak varování `tigo_missing` u prvního stringu s Tigo. CCA bez přístupového bodu TAP
+    (`fve.tigo_tap`) nekomunikuje s optimizéry – varování `tigo_tap_missing`."""
+    els = [(s, e) for s in project.sheets for e in s.elements]
+    tigo = [(s, e) for s, e in els if is_tigo_string(e)]
+    syms = {e.symbol_id for _s, e in els}
+    out: list[Finding] = []
+    if tigo and not syms & {TIGO_RSS, TIGO_CCA}:
+        s, e = tigo[0]
+        refs = ", ".join(x.ref for _s, x in tigo[:5] if x.ref) + ("…" if len(tigo) > 5 else "")
+        out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
+                           f"Optimizéry Tigo ({refs}) bez vysílače RSS ani CCA – bez signálu optimizéry moduly "
+                           "odpojí; vložte blok Tigo RSS vysílač nebo Tigo CCA + TAP", "tigo_missing"))
+    if TIGO_CCA in syms and TIGO_TAP not in syms:
+        s, e = next((s, e) for s, e in els if e.symbol_id == TIGO_CCA)
+        out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
+                           "Tigo CCA bez přístupového bodu TAP – CCA s optimizéry komunikuje jen přes TAP",
+                           "tigo_tap_missing"))
     return out
 
 

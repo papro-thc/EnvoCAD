@@ -697,6 +697,14 @@ doplní stringům parametry optimizéru a pravidla stringu pro fáze střídače
 (SolarEdge – délku stringu určuje počet optimizérů, Uoc·n a okno MPPT se nekontrolují). Údaje, které artikl nezná,
 kontrola hlásí jako „chybí údaj“ (varování) – nic se neodhaduje.
 
+**Optimizéry Tigo** (TS4) bez signálu moduly odpojí – v projektu musí být **Tigo RSS vysílač** (`fve.tigo_rss`, jádro
+na vodičích stringů) nebo **Tigo CCA** (`fve.tigo_cca`) s přístupovým bodem **Tigo TAP** (`fve.tigo_tap`, montuje se na střechu k FV panelům, RS485
+Gateway A/B/+/GND). Kontrola F7 hlásí `tigo_missing` (string s optimizérem Tigo – výrobce z artiklu, jinak typ TS4… –
+a v projektu chybí RSS i CCA) a `tigo_tap_missing` (CCA bez TAP). Bloky jsou v knihovně v kategorii **Komunikace**
+a obě jednotky najednou vloží makro **Tigo CCA + TAP**. Generátor je doplní sám nad horní string podle
+`"optimizer": {"tigo": "cca"}` (výchozí: TAP → CCA), `"rss"` (vysílač RSS se seznamem stringů) nebo `"none"`
+(nekreslit).
+
 **Asistent stringů** pod polem Stringy se přepočítá při každé změně a ukazuje: rozsah počtu modulů ve stringu
 (n min–n max) s důvody (Uoc za studena, Umppt, Umax systému modulu, „Umpp z β_Voc – zjednodušení“), nejvýš stringů na
 MPPT, **řádek režimu stringů** (např. „pevné napětí 750 V – Uoc·n se nekontroluje; optimizérů 14–50, P stringu ≤ … W“;

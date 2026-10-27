@@ -192,6 +192,8 @@ def build(ctx: ChainContext) -> None:
     _layout(ctx)
     from envocad.generator.boards.eps import place_return
     place_return(ctx)                 # přerušení kabelu zálohy do RD / HR u portů (po rozmístění řetězce)
+    from envocad.generator import tigo
+    tigo.build(ctx)                   # optimizéry Tigo: CCA + TAP (nebo vysílač RSS) nad horním stringem
 
 
 def _place_loads(ctx: ChainContext) -> None:

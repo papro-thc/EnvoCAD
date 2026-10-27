@@ -175,6 +175,18 @@ def jps_string_chain() -> dict:
     return copy_fragment(s, [e.id for e in s.elements])
 
 
+TIGO_GW_CONDUCTORS = ["A", "B", "+", "GND"]   # sběrnice Gateway CCA ↔ TAP: RS485 A/B a napájení TAP
+
+
+def jps_tigo() -> dict:
+    """JPS: přístupový bod Tigo TAP (na střeše u panelů) → RS485 Gateway → řídicí jednotka Tigo CCA (LAN, napájení)."""
+    p, s = Project(), Sheet()
+    tap = _el(p, s, "fve.tigo_tap", 40, 200, "A", type="Tigo TAP", manufacturer="Tigo", desc="na střeše u FV panelů")
+    cca = _el(p, s, "fve.tigo_cca", 100, 200, "A", type="Tigo CCA", manufacturer="Tigo", desc="komunikace optimizérů")
+    _wire(p, s, tap, "GW", cca, "GW", TIGO_GW_CONDUCTORS, ref="W1", cable="", cross="", length="", method="")
+    return copy_fragment(s, [e.id for e in s.elements])
+
+
 # ---- proměnné a sady hodnot (formát makra v2, docs/LIBRARY_FORMAT.md „Formát makra“) ----------------------------
 def _num(name: str, label: str, default: str, unit: str = "", **kw) -> dict:
     d = {"name": name, "label": label, "type": "number", "default": default}
@@ -275,6 +287,7 @@ MACROS = [
     ("AC jádro rozvaděče", "Generátor: sběrnice 1 → SPD {spd} → XPE (k HOP), sběrnice → hlavní vypínač {main_in} → XOUT; síťová ochrana z vývodu 4 přes jistič měřicího vstupu (when grid_protection)", ac_core),
     ("EPS přepínač sítí", "Rodinný dům: XE{i} (EPS od {inverter}) → chránič 30 mA → přepínač sítí I-0-II {eps_in} ← jistič {eps_in} ← sběrnice 1 vývod 5; výstup → XB{i} (zálohované okruhy)", ac_eps),
     ("String → střídač", "FV string s kabelem H1Z2Z2-K na DC vstup střídače (JPS)", jps_string_chain),
+    ("Tigo CCA + TAP", "Optimizéry Tigo: přístupový bod TAP (na střeše u panelů) → RS485 Gateway → řídicí jednotka CCA (JPS)", jps_tigo),
 ]
 
 

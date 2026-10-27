@@ -1,0 +1,82 @@
+{
+  "id": "fve.tigo_rss",
+  "name": "Tigo RSS vysílač (Transmitter)",
+  "category": "Komunikace",
+  "iec_ref": "A",
+  "description": "Vysílač signálu rychlého odpojení Tigo RSS – cívka (jádro) na vodiči stringu, napájení (PWR); bez signálu optimizéry odpojí moduly",
+  "primitives": [
+    {
+      "type": "rect",
+      "x": -7.5,
+      "y": -5,
+      "w": 15,
+      "h": 10
+    },
+    {
+      "type": "text",
+      "x": 0,
+      "y": -1,
+      "text": "RSS",
+      "height": 2.5,
+      "align": "center"
+    },
+    {
+      "type": "circle",
+      "cx": 0,
+      "cy": -8,
+      "r": 2
+    },
+    {
+      "type": "line",
+      "x1": 0,
+      "y1": -5,
+      "x2": 0,
+      "y2": -6
+    }
+  ],
+  "ports": [
+    {
+      "name": "PWR",
+      "x": -7.5,
+      "y": 0,
+      "dir": "W"
+    }
+  ],
+  "attributes": [
+    {
+      "key": "ref",
+      "label": "Označení",
+      "default": "",
+      "show": true
+    },
+    {
+      "key": "type",
+      "label": "Typ",
+      "default": "Tigo RSS Transmitter",
+      "show": true
+    },
+    {
+      "key": "manufacturer",
+      "label": "Výrobce",
+      "default": "Tigo",
+      "show": false
+    },
+    {
+      "key": "strings",
+      "label": "Stringy (jádro na vodiči)",
+      "default": "",
+      "show": true,
+      "fmt": "na {}"
+    },
+    {
+      "key": "desc",
+      "label": "Popis",
+      "default": "",
+      "show": false
+    }
+  ],
+  "label_pos": {
+    "x": 9,
+    "y": 2
+  }
+}
