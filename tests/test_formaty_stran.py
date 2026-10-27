@@ -167,3 +167,16 @@ def test_free_a4_rejects_tall_sheet(lib):
         e.y = 100.0 + 150.0 * k
     with pytest.raises(ValueError, match="297"):
         sheet_format_placement(p, s, lib, mp.FREE_A4)
+
+
+def test_dead_conductors_left_out_of_potentials(lib):
+    """Žíly, které na jističi 1p nikam nevedou, nejsou ani v potenciálech (přístroj má jen L1)."""
+    from envocad.model.potential import nets
+    p, sb = _rfve("A3")
+    f2 = next(e for e in sb.elements if e.ref == "F2.CCA")
+    to_f2 = next(w for w in sb.wires if f2.id in (w.a.element_id, w.b.element_id) and len(w.conductors) == 5)
+    port = to_f2.a.port if to_f2.a.element_id == f2.id else to_f2.b.port
+    conds = {c for n in nets(p, lib) for s, e, prt, c in n.members if e.id == f2.id and prt == port}
+    assert conds == {"L1"}
+    assert mp.sheet_dead_conductors(p, sb, lib) == {to_f2.id: {"L2", "L3", "N", "PE"}}
+    assert mp.sheet_dead_conductors(p, sb, None) == {}

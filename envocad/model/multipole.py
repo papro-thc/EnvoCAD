@@ -810,6 +810,15 @@ def dead_conductors(sheet: Sheet, poles: dict[str, ElementPoles]) -> dict[str, s
     return out
 
 
+def sheet_dead_conductors(project, sheet: Sheet, lib) -> dict[str, set[str]]:
+    """`dead_conductors` listu rozvaděče s vícepólem (jinak prázdné) – pro výkazy (zapojovací seznam, svorkovnice,
+    potenciály), aby žíly, které na jističi 1p nikam nevedou, nebyly ani tam."""
+    if lib is None or not sheet.is_switchboard or not has_multipole(sheet):
+        return {}
+    from envocad.model.project import element_symbol
+    return dead_conductors(sheet, sheet_poles(sheet, lambda e: element_symbol(project, e, lib)))
+
+
 def live_conductors(w: Wire, poles: dict[str, ElementPoles]) -> list[str]:
     """Žíly vodiče ve vícepólu – bez žil, které nikam nevedou (`dead_conductors`)."""
     ep = poles.get(w.a.element_id) or poles.get(w.b.element_id)
