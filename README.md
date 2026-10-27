@@ -32,12 +32,18 @@ scripts/run.sh            # Wayland potíže: QT_QPA_PLATFORM=xcb scripts/run.sh
 
 Ručně: `python -m venv .venv`, aktivovat, `pip install -e .[dev]`, `python -m envocad`.
 
+**Aktualizace při startu** (klon repozitáře): `scripts\run.cmd` před spuštěním porovná lokální tagy `vX.Y.Z`
+s běžící verzí a při novější nabídne **Aktualizovat** / **Teď ne** (znovu za 24 h). Nová verze se objeví až při
+dalším startu po vydání. Vypnutí: `"auto_update": false` v `~/.envocad/settings.json` nebo `ENVOCAD_NO_UPDATE=1`.
+Log: `~/.envocad/log/update.log`. Podrobnosti a návrat na předchozí verzi: `docs/RELEASE.md`.
+
 ## Samostatná aplikace (bez Pythonu, pro kolegy)
 
 `scripts\build.ps1` (Windows) / `scripts/build.sh` (Linux) sestaví přes PyInstaller složku `dist/EnvoCAD`
-s binárkou `EnvoCAD.exe` / `EnvoCAD` (~260 MB, obsahuje Qt). Složku zabalte do ZIP a rozdejte; data
-uživatele (knihovna, pluginy, logy) jsou v `~/.envocad/`, takže aktualizace = přepsat složku aplikace.
-Build pro Windows se musí dělat na Windows, pro Linux na Linuxu.
+s binárkou `EnvoCAD.exe` / `EnvoCAD` (~260 MB, obsahuje Qt). Build pro Windows se musí dělat na Windows, pro Linux
+na Linuxu. Vydání z tagu `vX.Y.Z` do sdílené složky: `python tools/release.py publish <složka>`. Kolega nainstaluje
+`Instalovat EnvoCAD.cmd` ze sdílené složky (do `%LOCALAPPDATA%\Programs\EnvoCAD\`) a dál se aktualizuje sám při
+startu. Data uživatele (knihovna, pluginy, logy) jsou v `~/.envocad/`. Postup: `docs/RELEASE.md`.
 
 ## Stav
 
@@ -57,7 +63,8 @@ Build pro Windows se musí dělat na Windows, pro Linux na Linuxu.
   překryvy textů a souběhy vodičů, se skokem do výkresu.
 - **Výstupy** – výkazy xlsx (BOM, kabely, svorky, potenciály…), protokol kusového ověření a TZ (docx),
   PDF celé dokumentace, DXF pro ZWCAD/AutoCAD.
-- **Knihovna** – ~460 artiklů (OEZ, Eaton, Schneider, Hager, SMA, SolaX, Huawei, BMR…), 673 značek QElectroTech,
+- **Knihovna** – přes 1 300 artiklů (OEZ, Eaton, Schneider, Hager, SMA, SolaX, Huawei, BMR, baterie a střídače
+  z datasheetů), 673 značek QElectroTech,
   import DXF/EPLAN, sdílená firemní knihovna, pluginy.
 - **Rozhraní** – lišty s ikonami, které se mění podle pohledu (Kreslení v blokovém schématu a schématu rozvaděče, Dispozice
   v rozložení), hledání příkazů `Ctrl+K`, menu na pravém tlačítku, kontrola F7 jako panel pod výkresem, stavový
@@ -92,6 +99,7 @@ Pokyny pro AI agenty: `CLAUDE.md`, `docs/AGENTS.md`.
 | Undo / redo | `Ctrl+Z` / `Ctrl+Y` |
 | Tmavý / světlý režim | `Ctrl+D` |
 | Otevřít rozvaděč | dvojklik na blok ROZVADĚČ (poprvé nabídne šablonu) – otevře vícepólové schéma; `Ctrl+J` přepne na jednopólovou editaci (vkládání, vodiče) |
+| Formát listů | `List → Vlastnosti listu`: **Formát listu** A4, A3, A2, A1 na šířku, nebo **volný A4** (výška 297 mm, šířka po 210 mm podle obsahu); u rozvaděče **Formát stran schématu** (vícepól, plán svorkovnice) |
 | Rozložení rozvaděče | `Ctrl+L` na listu rozvaděče; přístroje přetáhnout na DIN lišty; parametry skříně a oteplení v panelu vpravo (`Ctrl+Alt+K`) |
 | Výkazy / protokol | menu Výstupy (xlsx, docx) |
 | Přečíslovat | Úpravy → Přečíslovat označení: doplní chybějící a opraví duplicitní označení, nebo přečísluje vše podle polohy (aktuální list / projekt, přístroje i vodiče, náhled, jeden krok undo) |
@@ -111,6 +119,7 @@ Pokyny pro AI agenty: `CLAUDE.md`, `docs/AGENTS.md`.
 | Ovládací obvody | značky Cívka / Kontakt NO / NC / silový (Relé a stykače); kontakt dostane označení cívky, pod cívkou se kreslí zrcadlo kontaktů |
 | Výpočty | `F7` ukáže i výpočty (stringy, Iz, In ≤ Iz, úbytky, selektivita); výkaz Výpočty; uložení kabelu v atributu „Uložení dle ČSN“ nebo v textu trasy (zem, vzduch, trubka, stěna) |
 | Nový projekt | `Ctrl+Shift+N` průvodce (stringy, střídače, DC rozvaděče po trase a u technologie, kabely) nebo `Soubor → ze specifikace (JSON)`; CLI `python -m envocad.generate spec.json out.ecp` |
+| Příkazový řádek v okně | dok dole; při psaní se nad řádkem ukážou odpovídající příkazy (našeptávač jako v ZWCAD), ↑ / ↓ vybere, Tab doplní, Enter spustí, Esc zavře; podrobnosti `docs/MANUAL.md` sekce 12 |
 | Příkazový řádek | skripty `.ecs` s příkazy ve stylu ZWCAD (`INSERT`, `MOVE`, `RO`, `E`, `SET`, `WIRE`…): `python -m envocad.cmd projekt.ecp skript.ecs -o out.ecp` (bez `-o` / `--in-place` nic neukládá, `--json` pro agenty); podrobnosti `docs/MANUAL.md` sekce 12 |
 | Revize | `Soubor → Porovnat s revizí` → změnový list; `Soubor → Vlastnosti` revize/datum |
 | Připomínky | `Ctrl+Shift+P` připomínka (klik = bod, tah = oblast); Navigátor → Připomínky (filtr, dvojklik = skok); Zobrazit → Připomínky; Výstupy → Přidávat připomínky do exportu (anotace PDF, vrstva `PRIPOMINKY` v DXF); podrobnosti `docs/MANUAL.md` sekce 9 |
@@ -120,11 +129,15 @@ Pokyny pro AI agenty: `CLAUDE.md`, `docs/AGENTS.md`.
 ## Vývoj
 
 ```
-pip install -e .[dev]
+pip install -e .[dev]                             # vč. pypdfium2 (test vykreslení PDF)
 pytest                                            # headless testy
 QT_QPA_PLATFORM=offscreen pytest tests/test_gui_smoke.py
 ruff check .
 ```
+
+Záznam změny se nepíše do `CHANGELOG.md`, ale jako nový soubor `changelog.d/RRRR-MM-DD-nazev.md` (jedna odrážka,
+formát v `changelog.d/README.md`, hlídá `tests/test_changelog_d.py`); při vydání ho `tools/release.py prepare`
+přenese do `CHANGELOG.md`. Testy s podprocesy nastavují `stdin=subprocess.DEVNULL`; nový test s podprocesem udělejte stejně.
 
 Model (`envocad/model`, `envocad/library`) je bez Qt a testuje se headless; GUI je PySide6 (`envocad/ui`).
 Chyby a nápady: [Issues](https://github.com/papro-thc/EnvoCAD/issues).
@@ -145,7 +158,8 @@ Kód EnvoCAD je pod licencí **MIT** (viz `LICENSE`). Součástí repozitáře j
 - značky `envocad/library/builtin/qet/` jsou převedené z kolekce QElectroTech, **CC BY 3.0**, autorství viz
   `envocad/library/builtin/qet/ATTRIBUTION.md`;
 - artikly v `envocad/library/builtin/components/*.csv` jsou technické parametry opsané z veřejných katalogů
-  výrobců (OEZ, Eaton, Schneider, Hager, Weidmüller, Elektro Bečov, ELEMAN, SMA, SolaX, Huawei, BMR) – u každého
+  výrobců (OEZ, Eaton, Schneider, Hager, Weidmüller, Elektro Bečov, ELEMAN, SMA, SolaX, Huawei, BMR) a z datasheetů
+  (Deye, Fronius, GoodWe, Growatt, Solinteg, SolarEdge, Sigenergy, Jinko, SoliTek, Trina, Canadian Solar) – u každého
   řádku je zdroj a strana; katalogy samotné v repozitáři nejsou. Hodnoty jsou bez záruky, před použitím v projektu
   je ověřte u výrobce;
 - tabulky v `envocad/model/thermal.py` a `envocad/model/calc.py` (IEC TR 60890, ČSN 33 2000-5-52) jsou orientační
