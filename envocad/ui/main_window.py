@@ -95,6 +95,9 @@ class MainWindow(QMainWindow):
         self.tabs.setMovable(True)
         self.tabs.tabCloseRequested.connect(self._close_tab)
         self.tabs.currentChanged.connect(self._tab_changed)
+        # pravé tlačítko na záložce listu: velikost papíru
+        self.tabs.tabBar().setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tabs.tabBar().customContextMenuRequested.connect(self._tab_context_menu)
         self.setCentralWidget(self.tabs)
         self._panels_wired = False
         self._scenes: list = []
@@ -481,6 +484,29 @@ class MainWindow(QMainWindow):
                                          "viz Kontrola projektu (F7)", 15_000)
 
     # ---- listy / záložky -------------------------------------------------------
+    def tab_paper_menu(self, index: int):
+        """Menu záložky listu (pravé tlačítko): velikost papíru listu, ve vícepólu / plánu svorkovnice formát stran
+        schématu. Záložka bez listu (jednopólové schéma, rozložení) → None."""
+        from PySide6.QtWidgets import QMenu
+        if index < 0:
+            return None
+        view = self._unwrap(self.tabs.widget(index))
+        kind = self._kind_of(view)
+        sheet = getattr(view.scene(), "sheet", None)
+        if sheet is None or kind in ("layout", "single_line") or sheet not in self.project.sheets:
+            return None
+        menu = QMenu(self)
+        self.add_paper_menu(menu, sheet, multipole=kind in ("multipole", "terminals"))
+        menu.addSeparator()
+        menu.addAction("Vlastnosti listu…", lambda: (self.tabs.setCurrentIndex(index), self.rename_sheet()))
+        return menu
+
+    def _tab_context_menu(self, pos) -> None:
+        bar = self.tabs.tabBar()
+        menu = self.tab_paper_menu(bar.tabAt(pos))
+        if menu is not None:
+            self._exec_menu(menu, bar.mapToGlobal(pos))
+
     def _find_tab(self, sheet: Sheet, kind: str) -> int:
         for i in range(self.tabs.count()):
             w = self._unwrap(self.tabs.widget(i))
@@ -2537,8 +2563,52 @@ class MainWindow(QMainWindow):
         menu.addAction(self.actions["insert_symbol"])
         menu.addAction(self.actions["wire"])
         menu.addSeparator()
+        if hit is None and sheet is not None:         # prázdné místo listu: velikost papíru
+            self.add_paper_menu(menu, sheet, multipole=type(sc).__name__ != "SchematicScene")
+            menu.addSeparator()
         menu.addAction(self.actions["fit"])
         return menu
+
+    def add_paper_menu(self, menu, sheet: Sheet, multipole: bool = False) -> None:
+        """Podmenu velikosti papíru (pravé tlačítko na listu nebo na záložce): formát listu (kreslicí plocha) a u listu
+        rozvaděče ve vícepólu / plánu svorkovnice formát stran schématu – A4…A0 na šířku i na výšku, volný A4,
+        vlastní šířka × výška. Změna jako ve Vlastnostech listu (krok undo)."""
+        from envocad.model.frame import sheet_format
+        from envocad.model.multipole import PAPER_CHOICES
+        from envocad.ui.dialogs import _paper_text
+
+        def fill(sub, current: str, apply) -> None:
+            for key in PAPER_CHOICES:
+                a = sub.addAction(_paper_text(key), lambda k=key: apply(k))
+                a.setCheckable(True)
+                a.setChecked(key == current)
+            sub.addSeparator()
+            sub.addAction("Vlastní…", lambda: self._ask_custom_paper(apply, current))
+
+        if multipole and sheet.is_switchboard:
+            fill(menu.addMenu("Formát stran schématu"), sheet.mp_paper,
+                 lambda k: self.set_sheet_props(sheet, sheet.name, sheet.func, sheet.loc, mp_paper=k))
+        else:
+            fill(menu.addMenu("Formát listu"), sheet_format(sheet),
+                 lambda k: self.set_sheet_props(sheet, sheet.name, sheet.func, sheet.loc, sheet_format=k))
+
+    def _ask_custom_paper(self, apply, current: str = "") -> None:
+        """Vlastní velikost papíru „šířka×výška“ v mm (210 × 148 až 5000 × 2000); neplatné zadání → hláška."""
+        from envocad.model.multipole import CUSTOM_MAX, CUSTOM_MIN, custom_paper_label, parse_custom_paper
+        size = parse_custom_paper(current)
+        text, ok = QInputDialog.getText(
+            self, "Vlastní velikost papíru",
+            f"Šířka × výška v mm (např. 500×300; {CUSTOM_MIN[0]:g}×{CUSTOM_MIN[1]:g} až "
+            f"{CUSTOM_MAX[0]:g}×{CUSTOM_MAX[1]:g}):", text=custom_paper_label(*size) if size else "")
+        if not ok or not text.strip():
+            return
+        size = parse_custom_paper(text)
+        if size is None:
+            QMessageBox.warning(self, "Vlastní velikost papíru",
+                                f"„{text}“ není platný rozměr – zadejte šířku × výšku v mm, např. 500×300, "
+                                f"v rozsahu {CUSTOM_MIN[0]:g}×{CUSTOM_MIN[1]:g} až {CUSTOM_MAX[0]:g}×{CUSTOM_MAX[1]:g}.")
+            return
+        apply(custom_paper_label(*size))
 
     # ---- úvodní obrazovka ---------------------------------------------------------
     def _update_welcome(self) -> None:

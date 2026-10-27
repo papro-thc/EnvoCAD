@@ -237,3 +237,32 @@ def test_sheet_size_change_grows_drawing_area(lib):
     for x in (w, w2):
         x.undo.setClean()
         x.close()
+
+
+def test_paper_from_right_click_menu(lib, monkeypatch):
+    """Pravé tlačítko na prázdném místě listu i na záložce: podmenu velikosti papíru (A4…A0, na výšku, vlastní)."""
+    from PySide6.QtCore import QPointF
+    from PySide6.QtWidgets import QApplication, QInputDialog
+
+    from envocad.ui.main_window import MainWindow
+    QApplication.instance() or QApplication([])
+    p = Project.load(EXAMPLE)
+    w = MainWindow(lib, p)
+    s = p.sheets[0]
+    w.open_sheet(s)
+
+    def sub(menu, title):
+        a = next(a for a in menu.actions() if a.menu() is not None and a.text() == title)
+        return {x.text(): x for x in a.menu().actions()}
+    menu = w.context_menu(QPointF(-40, 40))                          # mimo prvky
+    items = sub(menu, "Formát listu")
+    assert "A2 na šířku" in items and "A0 na výšku" in items and "Vlastní…" in items
+    items["A2 na šířku"].trigger()
+    assert (s.paper, s.width, s.height) == ("A2", 594.0, 420.0)
+    tab = w.tab_paper_menu(w.tabs.currentIndex())
+    assert sub(tab, "Formát listu")["A2 na šířku"].isChecked()
+    monkeypatch.setattr(QInputDialog, "getText", staticmethod(lambda *a, **k: ("700x450", True)))
+    sub(tab, "Formát listu")["Vlastní…"].trigger()
+    assert (s.paper, s.width, s.height) == ("700×450", 700.0, 450.0)
+    w.undo.setClean()
+    w.close()
