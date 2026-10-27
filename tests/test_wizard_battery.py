@@ -124,3 +124,25 @@ def test_battery_screenshot(app, tmp_path):
     app.processEvents()
     out = tmp_path / "wizard_baterie.png"
     assert d.grab().save(str(out)) and out.stat().st_size > 5000
+
+
+def test_battery_every_inverter_option(app):
+    d, lib = _wizard()
+    d.set_inverter_component(lib.component("solax-x3-hyb-10.0-p"))
+    d.bat_combo.setCurrentIndex(d.bat_combo.findData("solax-t-bat-h-5.8-v3"))
+    assert "inverters" not in d.spec()["battery"]                      # výchozí: jen T1
+    d.bat_every.setChecked(True)
+    assert d.spec()["battery"]["inverters"] == "all"
+    d.building.setCurrentIndex(d.building.findData("house"))          # rodinný dům: jen jeden (EPS)
+    assert not d.bat_every.isEnabled() and "inverters" not in d.spec()["battery"]
+
+
+def test_wizard_responsible_designer(app):
+    """Průvodce: zodpovědný projektant do `meta["responsible"]` (razítko)."""
+    d, _lib = _wizard()
+    assert "responsible" not in d.spec()["meta"]
+    d.responsible.setText("Ing. Jan Novák")
+    assert d.spec()["meta"]["responsible"] == "Ing. Jan Novák"
+    d.strings.setText("16,16")
+    p = build_project(d.spec())
+    assert p.meta["responsible"] == "Ing. Jan Novák"

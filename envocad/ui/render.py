@@ -162,6 +162,15 @@ def draw_frame(painter: QPainter, geom, color) -> None:
         painter.setBrush(color)
         for x, y, w, h in geom.rects:
             painter.drawRect(QRectF(x, -(y + h), w, h))
+    polys = getattr(geom, "polys", ())
+    if polys:
+        # logo v barvách firmy na světlém podkladu (tisk, světlý motiv); na tmavém podkladu jednobarevně
+        from PySide6.QtGui import QColor, QPolygonF
+        mono = QColor(color).lightness() > 128
+        painter.setPen(Qt.NoPen)
+        for pts, fill in polys:
+            painter.setBrush(color if mono else QColor(fill))
+            painter.drawPolygon(QPolygonF([sp(x, y) for x, y in pts]))
     painter.restore()
 
 

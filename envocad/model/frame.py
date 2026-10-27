@@ -1,4 +1,5 @@
-"""Rámeček listu a popisové pole ENVO – čistá geometrie (mm, Y nahoru), kreslí ji Qt i DXF export stejně."""
+"""Rámeček listu a popisové pole ENVO (razítko podle „Razítko fixed.dwg“) – čistá geometrie (mm, Y nahoru), kreslí
+ji Qt i DXF export stejně."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -40,8 +41,25 @@ def fit_text(text: str, width: float, height: float, min_height: float = MIN_TEX
     return text[:n].rstrip() + "…", h
 
 
-COLS = "ABCDEFGH"   # sloupce souřadnicové sítě (zleva doprava)
-ROWS = 6            # řádky 1…6 (shora dolů)
+COLS = "ABCDEFGH"   # sloupce souřadnicové sítě A3 (zleva doprava)
+ROWS = 6            # řádky 1…6 A3 (shora dolů)
+# Velikost pole sítě podle A3 (vnitřní rámeček 390 × 277 mm / 8 × 6). Větší list má víc polí stejné velikosti
+# (A2 12 × 8, A1 17 × 12…), menší list (A4) nejméně 8 × 6. Sloupce bez I a O (ISO 5457), za Z dvojpísmena AA, AB…
+GRID_CELL_W = (420.0 - MARGIN_LEFT - MARGIN) / len(COLS)
+GRID_CELL_H = (297.0 - 2 * MARGIN) / ROWS
+_COL_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+
+
+def grid_dims(width: float, height: float) -> tuple[int, int]:
+    """Počet sloupců a řádků souřadnicové sítě listu (šířka × výška v mm): nejméně 8 × 6, víc na větším listu."""
+    iw, ih = width - MARGIN_LEFT - MARGIN, height - 2 * MARGIN
+    return max(len(COLS), round(iw / GRID_CELL_W)), max(ROWS, round(ih / GRID_CELL_H))
+
+
+def grid_col_label(i: int) -> str:
+    """Popis sloupce sítě od 0: A…H, J…N, P…Z, pak AA, AB…"""
+    n = len(_COL_LETTERS)
+    return _COL_LETTERS[i] if i < n else grid_col_label(i // n - 1) + _COL_LETTERS[i % n]
 
 
 @dataclass
@@ -50,18 +68,21 @@ class FrameGeometry:
     texts: list[tuple[float, float, str, float, str]] = field(default_factory=list)  # x, y, text, výška, zarovnání
     inner: tuple[float, float, float, float] = (0, 0, 0, 0)                           # x0, y0, x1, y1 kreslicí plochy
     rects: list[tuple[float, float, float, float]] = field(default_factory=list)      # vyplněné obdélníky (QR): x, y, w, h
+    polys: list[tuple[list[tuple[float, float]], str]] = field(default_factory=list)  # vyplněné mnohoúhelníky (logo), barva
 
 
 def grid_coord(sheet: Sheet, x: float, y: float, width: float | None = None, height: float | None = None) -> str:
-    """Souřadnice v síti listu („B4“) pro bod (x, y) v mm – sloupce A–H zleva, řádky 1–6 shora."""
+    """Souřadnice v síti listu („B4“) pro bod (x, y) v mm – sloupce zleva (A…), řádky shora (1…), počet polí podle
+    rozměru listu (`grid_dims`)."""
     w = width or sheet.width
     h = height or sheet.height
     x0, y0, x1, y1 = MARGIN_LEFT, MARGIN, w - MARGIN, h - MARGIN
-    ci = int((x - x0) / (x1 - x0) * len(COLS)) if x1 > x0 else 0
-    ri = int((y1 - y) / (y1 - y0) * ROWS) if y1 > y0 else 0
-    ci = min(max(ci, 0), len(COLS) - 1)
-    ri = min(max(ri, 0), ROWS - 1)
-    return f"{COLS[ci]}{ri + 1}"
+    nc, nr = grid_dims(w, h)
+    ci = int((x - x0) / (x1 - x0) * nc) if x1 > x0 else 0
+    ri = int((y1 - y) / (y1 - y0) * nr) if y1 > y0 else 0
+    ci = min(max(ci, 0), nc - 1)
+    ri = min(max(ri, 0), nr - 1)
+    return f"{grid_col_label(ci)}{ri + 1}"
 
 
 def position_ref(project: Project, sheet: Sheet, x: float, y: float) -> str:
@@ -70,18 +91,8 @@ def position_ref(project: Project, sheet: Sheet, x: float, y: float) -> str:
     return f"/{n}.{grid_coord(sheet, x, y)}"
 
 
-def qr_modules(text: str) -> list[list[bool]] | None:
-    """Matice QR kódu (True = tmavý modul) přes `segno`; None, když knihovna chybí."""
-    try:
-        import segno
-    except ImportError:
-        return None
-    q = segno.make(text, error="m")
-    return [[bool(v) for v in row] for row in q.matrix]
-
-
 def sheet_revision_label(project: Project, sheet: Sheet) -> str:
-    """Revize listu do popisového pole a QR: revize listu (`revision.sheet_revision`). Nezměněný list bez výchozí
+    """Revize listu do popisového pole: revize listu (`revision.sheet_revision`). Nezměněný list bez výchozí
     revize před první revizí se značkami → prázdná (výchozí stav, ne nová revize). Projekt bez značek revizí
     (revize se po listech nesledují) → `meta["revision"]`."""
     from envocad.model.revision import revisions_marked, sheet_revision
@@ -93,17 +104,30 @@ def sheet_revision_label(project: Project, sheet: Sheet) -> str:
     return str(project.meta.get("revision", "") or "")
 
 
-def qr_text(project: Project, sheet: Sheet, view: str = "") -> str:
-    m = project.meta
-    parts = [project.name, m.get("order", ""), sheet.name + (f" – {view}" if view else ""),
-             f"rev. {sheet_revision_label(project, sheet) or '0'}"]
-    return " | ".join(x for x in parts if x)
-
-
 def sheet_number(project: Project, sheet: Sheet) -> str:
     ids = [s.id for s in project.sheets]
     i = ids.index(sheet.id) + 1 if sheet.id in ids else 0
     return f"{i}/{len(ids)}"
+
+
+DOC_PAGES_KEY = "doc_pages"   # meta: strany celé dokumentace (JSON {"total": N, "pages": {"pohled:id listu:k": n}})
+
+
+def doc_page_key(view: str, sheet_id: str, k: int = 0) -> str:
+    """Klíč strany v `meta["doc_pages"]`: pohled (schematic | multipole | terminals | single_line), id listu, strana."""
+    return f"{view}:{sheet_id}:{k}"
+
+
+def doc_page(project: Project, sheet_id: str, view: str = "schematic", k: int = 0) -> str:
+    """„Strana n/N“ celé dokumentace pro popisové pole – z čísel stran uložených při exportu dokumentace (nebo
+    příkazem Přečíslovat strany dokumentace); neznámá strana (nový list od posledního číslování) = ""."""
+    import json
+    try:
+        data = json.loads(project.meta.get(DOC_PAGES_KEY) or "{}")
+        n = data.get("pages", {}).get(doc_page_key(view, sheet_id, k))
+        return f"{int(n)}/{int(data['total'])}" if n else ""
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return ""
 
 
 def page_label(project: Project, sheet: Sheet, k: int, n: int) -> str:
@@ -113,36 +137,123 @@ def page_label(project: Project, sheet: Sheet, k: int, n: int) -> str:
     return f"{no}, str. {k + 1}/{n}" if n > 1 else no
 
 
-def title_rows(project: Project, sheet: Sheet, view: str = "", page: str = "", paper: str = ""
-               ) -> list[list[tuple[str, str]]]:
-    """Řádky popisového pole jako [(popisek, hodnota), …] – vlevo doleva, vpravo doprava. `paper` = formát strany
-    odvozeného pohledu (vícepól na A4), jinak formát listu."""
+# Razítko ENVO (podle „Razítko fixed.dwg“, blok RAZITKO_FVE 185 × 85 mm) zhuštěné do popisového pole TB_W × TB_H:
+# vlevo logo s adresou, uprostřed stavba / investor, místo / vypracoval, zodp. projektant / název výkresu, vpravo
+# údaje výkresu.
+STAMP_LOGO_W = 32.0                    # sloupec loga
+STAMP_RIGHT_W = 58.0                   # sloupec údajů výkresu (popisek | hodnota)
+STAMP_RIGHT_LABEL_W = 21.0
+STAMP_WIDE_PAD = 14.0                  # rezerva vpravo u buněk přes celý prostředek (stavba, název výkresu)
+STAMP_MID_ROWS = (8.0, 6.0, 6.0, 12.0)  # stavba | investor, místo | osoby | název výkresu (součet = TB_H)
+ENVO_ADDRESS = ("Bělehradská 858/23", "120 00 Praha 2")
+# klíče `Project.meta` údajů razítka navíc k investor / place / order / author / date (Soubor → Vlastnosti projektu)
+STAMP_META = (("responsible", "Zodpovědný projektant"), ("stage", "Stupeň"), ("archive", "Archivní číslo"),
+              ("scale", "Měřítko"))
+
+
+def stamp_fields(project: Project, sheet: Sheet, view: str = "", page: str = "", paper: str = "", doc: str = ""
+                 ) -> dict[str, list[tuple[str, str]]]:
+    """Údaje razítka po skupinách: „stavba“, „misto“ (investor, místo), „osoby“, „nazev“ (uprostřed) a „vykres“
+    (vpravo pod sebou). `paper` = formát strany odvozeného pohledu (vícepól na A4), jinak formát listu. Číslo
+    výkresu = číslo listu (sedí s křížovými odkazy „/3.B4“), s `doc` i strana celé dokumentace („3/7 · str. 5/28“)."""
     m = project.meta
     date = m.get("date") or _datetime.now().astimezone().strftime("%d.%m.%Y")   # dnešní datum v místním čase
     name = sheet.name + (f" – {view}" if view else "")
-    return [
-        [("Projekt", project.name), ("Zakázka", m.get("order", ""))],
-        [("Investor", m.get("investor", "")), ("Místo", m.get("place", ""))],
-        [("List", name), ("Číslo listu", page or sheet_number(project, sheet))],
-        [("Zpracoval", m.get("author", "")), ("Datum", date), ("Revize", sheet_revision_label(project, sheet)),
-         ("Formát", paper or sheet.paper)],
-    ]
+    number = page or sheet_number(project, sheet)
+    if doc:
+        number = f"{number} · str. {doc}"
+    return {
+        "stavba": [("Stavba", project.name)],
+        "misto": [("Investor", m.get("investor", "")), ("Místo", m.get("place", ""))],
+        "osoby": [("Vypracoval", m.get("author", "")), ("Zodpovědný projektant", m.get("responsible", ""))],
+        "nazev": [("Název", name)],
+        "vykres": [("Stupeň", m.get("stage", "")), ("Zakázkové číslo", m.get("order", "")),
+                   ("Archivní číslo", m.get("archive", "")), ("Datum", date), ("Formát", paper or sheet.paper),
+                   ("Měřítko", m.get("scale", "") or "–"), ("Revize", sheet_revision_label(project, sheet)),
+                   ("Číslo výkresu", number)],
+    }
 
 
-QR_SIZE = TB_H - 6.0   # QR kód vlevo od popisového pole (strana čtverce)
-QR_GAP = 4.0           # mezera QR kódu od popisového pole
+def title_rows(project: Project, sheet: Sheet, view: str = "", page: str = "", paper: str = "", doc: str = ""
+               ) -> list[list[tuple[str, str]]]:
+    """Údaje razítka jako řádky [(popisek, hodnota), …] (`stamp_fields` po skupinách) – pro výpisy a testy."""
+    return list(stamp_fields(project, sheet, view, page, paper, doc).values())
 
 
-def qr_fits(width: float) -> bool:
-    """Vejde se QR kód vlevo od popisového pole do vnitřního rámečku? (A4 na výšku: popisové pole 180 mm vyplní
-    celou šířku kreslicí plochy, QR se vynechá – identifikace je v popisovém poli.)"""
-    return width - MARGIN - TB_W - QR_SIZE - QR_GAP >= MARGIN_LEFT
+_LOGO: dict | None = None
+
+
+def envo_logo() -> dict | None:
+    """Logo ENVO z razítka (`resources/envo_logo.json`: šířka, výška, mnohoúhelníky s barvou), nebo None."""
+    global _LOGO
+    if _LOGO is None:
+        import json
+        from pathlib import Path
+        try:
+            _LOGO = json.loads((Path(__file__).resolve().parent.parent / "resources" / "envo_logo.json")
+                               .read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            _LOGO = {}
+    return _LOGO or None
+
+
+def _stamp(g: FrameGeometry, tx0: float, ty0: float, fields: dict, company: str) -> None:
+    """Razítko do popisového pole s levým dolním rohem (tx0, ty0)."""
+    tx1, ty1 = tx0 + TB_W, ty0 + TB_H
+    xm, xr = tx0 + STAMP_LOGO_W, tx1 - STAMP_RIGHT_W
+    g.lines += [(xm, ty0, xm, ty1), (xr, ty0, xr, ty1)]
+    # logo: ENVO s adresou (jako v razítku), jiná firma = název textem
+    short, full = company_names(company)
+    logo = envo_logo() if short.upper() == "ENVO" else None
+    cx = tx0 + STAMP_LOGO_W / 2
+    if logo:
+        sc = (STAMP_LOGO_W - 6.0) / logo["width"]
+        lx, ly = cx - logo["width"] * sc / 2, ty0 + TB_H / 2 - logo["height"] * sc / 2 + 1.0
+        for poly in logo["polygons"]:
+            g.polys.append(([(lx + x * sc, ly + y * sc) for x, y in poly["points"]], poly["color"]))
+        g.texts.append((cx, ty1 - 4.0, "Projektant profese", 1.5, "center"))
+        g.texts.append((cx, ty0 + 4.6, ENVO_ADDRESS[0], 1.5, "center"))
+        g.texts.append((cx, ty0 + 2.0, ENVO_ADDRESS[1], 1.5, "center"))
+    else:
+        g.texts.append((cx, ty0 + TB_H / 2 - 2.0, *fit_text(short, STAMP_LOGO_W - 3.0, 5.0, 2.5), "center"))
+        g.texts.append((cx, ty0 + TB_H / 2 - 6.0, *fit_text(full, STAMP_LOGO_W - 2.0, 1.8, 1.2), "center"))
+    # prostředek: řádky stavba / investor + místo / osoby / název výkresu, buňky v řádku stejně široké
+    value_h = {"stavba": 3.0, "misto": 2.2, "osoby": 2.2, "nazev": 3.2}
+    top = ty1
+    for key, rh in zip(("stavba", "misto", "osoby", "nazev"), STAMP_MID_ROWS):
+        cells = fields[key]
+        if top < ty1:
+            g.lines.append((xm, top, xr, top))
+        colw = (xr - xm) / len(cells)
+        for c, (label, value) in enumerate(cells):
+            x = xm + c * colw
+            if c:
+                g.lines.append((x, top - rh, x, top))
+            g.texts.append((x + 1.0, top - 1.8, label, 1.3, "left"))
+            # dlouhá hodnota se zmenší, případně zkrátí s „…“ – nepřetéká do sousední buňky
+            # jediná buňka v řádku (stavba, název) – rezerva vpravo, ať text nesahá k údajům výkresu ani při širším písmu
+            room = colw - 2.0 - (STAMP_WIDE_PAD if len(cells) == 1 else 0.0)
+            g.texts.append((x + 1.0, top - rh + 0.9, *fit_text(str(value or ""), room, value_h[key]), "left"))
+        top -= rh
+    # vpravo: údaje výkresu pod sebou (popisek | hodnota)
+    rows = fields["vykres"]
+    rh = TB_H / len(rows)
+    xv = xr + STAMP_RIGHT_LABEL_W
+    g.lines.append((xv, ty0, xv, ty1))
+    for r, (label, value) in enumerate(rows):
+        top = ty1 - r * rh
+        if r:
+            g.lines.append((xr, top, tx1, top))
+        g.texts.append((xr + 1.0, top - rh + 1.0, *fit_text(label, STAMP_RIGHT_LABEL_W - 2.0, 1.6, 1.2), "left"))
+        g.texts.append((xv + 1.0, top - rh + 0.9, *fit_text(str(value or ""), tx1 - xv - 2.0, 2.0), "left"))
 
 
 def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, height: float | None = None,
-                   view: str = "", page: str = "", paper: str = "", company: str = COMPANY) -> FrameGeometry:
+                   view: str = "", page: str = "", paper: str = "", company: str = COMPANY,
+                   doc: str | None = None) -> FrameGeometry:
     """Rámeček s popisovým polem vpravo dole. Pro odvozené pohledy (vícepól) lze zadat jiný rozměr listu a jeho
-    formát (`paper`) do popisového pole. QR kód jen, když se vlevo od popisového pole vejde (`qr_fits`). `company`
+    formát (`paper`) do popisového pole. `doc` = strana celé dokumentace; None = podle uložených čísel stran
+    (`doc_page`, pohled listu JPS). `company`
     = název firmy do loga (firemní standard, `envocad.settings.company`)."""
     w = width or sheet.width
     h = height or sheet.height
@@ -150,15 +261,18 @@ def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, h
     x0, y0, x1, y1 = MARGIN_LEFT, MARGIN, w - MARGIN, h - MARGIN
     g.inner = (x0, y0, x1, y1)
     g.lines += [(x0, y0, x1, y0), (x1, y0, x1, y1), (x1, y1, x0, y1), (x0, y1, x0, y0)]
-    # souřadnicová síť v okraji: sloupce A–H nahoře i dole, řádky 1–6 vlevo i vpravo
-    cw = (x1 - x0) / len(COLS)
-    for i, c in enumerate(COLS):
+    # souřadnicová síť v okraji: sloupce A… nahoře i dole, řádky 1… vlevo i vpravo; na větším listu víc polí
+    # stejné velikosti jako na A3 (`grid_dims`)
+    nc, nr = grid_dims(w, h)
+    cw = (x1 - x0) / nc
+    for i in range(nc):
+        c = grid_col_label(i)
         cx = x0 + i * cw
         if i:
             g.lines += [(cx, y1, cx, y1 + 3), (cx, y0, cx, y0 - 3)]
         g.texts += [(cx + cw / 2, y1 + 1.5, c, 2.5, "center"), (cx + cw / 2, y0 - 4.0, c, 2.5, "center")]
-    rh = (y1 - y0) / ROWS
-    for r in range(ROWS):
+    rh = (y1 - y0) / nr
+    for r in range(nr):
         ry = y1 - r * rh
         if r:
             g.lines += [(x0 - 3, ry, x0, ry), (x1, ry, x1 + 3, ry)]
@@ -167,39 +281,9 @@ def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, h
     tx0, ty0 = x1 - TB_W, y0
     tx1, ty1 = x1, y0 + TB_H
     g.lines += [(tx0, ty0, tx0, ty1), (tx0, ty1, tx1, ty1)]
-    rows = title_rows(project, sheet, view, page, paper)
-    rh = TB_H / len(rows)
-    logo_w = 34.0
-    g.lines.append((tx0 + logo_w, ty0, tx0 + logo_w, ty1))
-    short, full = company_names(company)
-    g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 2.0, *fit_text(short, logo_w - 3.0, 5.0, 2.5), "center"))
-    g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 6.0, *fit_text(full, logo_w - 2.0, 1.8, 1.2), "center"))
-    # QR kód s identifikací výkresu vlevo od popisového pole (projekt | zakázka | list | revize)
-    mods = qr_modules(qr_text(project, sheet, view)) if qr_fits(w) else None
-    if mods:
-        n = len(mods)
-        size = QR_SIZE
-        cell = size / n
-        qx0, qy0 = tx0 - size - QR_GAP, ty0 + 3.0
-        for r, row in enumerate(mods):
-            for c, dark in enumerate(row):
-                if dark:
-                    g.rects.append((qx0 + c * cell, qy0 + size - (r + 1) * cell, cell, cell))
-    cx0 = tx0 + logo_w
-    cw = TB_W - logo_w
-    for r, cells in enumerate(rows):
-        top = ty1 - r * rh
-        if r:
-            g.lines.append((cx0, top, tx1, top))
-        colw = cw / len(cells)
-        for c, (label, value) in enumerate(cells):
-            cx = cx0 + c * colw
-            if c:
-                g.lines.append((cx, top - rh, cx, top))
-            g.texts.append((cx + 1.0, top - 2.2, label, 1.5, "left"))
-            # dlouhá hodnota se zmenší, případně zkrátí s „…“ – nepřetéká do sousední buňky
-            g.texts.append((cx + 1.0, top - rh + 1.3, *fit_text(str(value or ""), colw - 2.0, 2.5 if r < 3 else 2.2),
-                            "left"))
+    if doc is None:
+        doc = doc_page(project, sheet.id) if not sheet.is_switchboard else ""
+    _stamp(g, tx0, ty0, stamp_fields(project, sheet, view, page, paper, doc), company)
     return g
 
 
@@ -214,10 +298,9 @@ def inner_box(width: float, height: float) -> tuple[float, float, float, float]:
 
 
 def title_block_box(width: float, height: float) -> tuple[float, float, float, float]:
-    """Obálka popisového pole včetně QR kódu vlevo od něj (vpravo dole uvnitř rámečku; QR jen, když se vejde)."""
+    """Obálka popisového pole (razítka) vpravo dole uvnitř rámečku."""
     del height
-    qr = QR_SIZE + QR_GAP if qr_fits(width) else 0.0
-    return (width - MARGIN - TB_W - qr, MARGIN, width - MARGIN, MARGIN + TB_H)
+    return (width - MARGIN - TB_W, MARGIN, width - MARGIN, MARGIN + TB_H)
 
 
 
@@ -354,31 +437,47 @@ def grow_sheet_long(project: Project, sheet: Sheet, lib, boxes: list | None = No
     return False
 
 
-# formát listu volený uživatelem (vlastnosti listu): pevné formáty na šířku a volný A4 (výška 297, šířka n × 210)
-SHEET_FORMATS = {"A4": (297.0, 210.0), "A3": (420.0, 297.0), "A2": (594.0, 420.0), "A1": (841.0, 594.0)}
+# formát listu volený uživatelem (vlastnosti listu): A4…A0 na šířku i na výšku, volný A4 (výška 297, šířka
+# n × 210) a vlastní „šířka×výška“ v mm (`multipole.parse_custom_paper`)
+SHEET_FORMATS = {"A4": (297.0, 210.0), "A4 na výšku": (210.0, 297.0), "A3": (420.0, 297.0),
+                 "A3 na výšku": (297.0, 420.0), "A2": (594.0, 420.0), "A2 na výšku": (420.0, 594.0),
+                 "A1": (841.0, 594.0), "A1 na výšku": (594.0, 841.0), "A0": (1189.0, 841.0),
+                 "A0 na výšku": (841.0, 1189.0)}
 FREE_A4_MAX = 40          # nejvýš A4×40 (8,4 m) – volný A4 se dál nerozšiřuje
 
 
 def sheet_format(sheet: Sheet) -> str:
-    """Formát listu pro volbu ve vlastnostech: „A4“…„A1“, „volný A4“ (výška 297, název A4×n), jinak "" (jiný)."""
-    from envocad.model.multipole import FREE_A4
+    """Formát listu pro volbu ve vlastnostech: „A4“…„A0 na výšku“, „volný A4“ (výška 297, název A4×n), vlastní
+    „šířka×výška“, jinak "" (jiný – např. formát zvolený generátorem)."""
+    from envocad.model.multipole import FREE_A4, parse_custom_paper
     size = SHEET_FORMATS.get(sheet.paper)
     if size and (float(sheet.width), float(sheet.height)) == size:
         return sheet.paper
     if float(sheet.height) == 297.0 and str(sheet.paper).startswith("A4×"):
         return FREE_A4
+    if parse_custom_paper(sheet.paper) == (float(sheet.width), float(sheet.height)):
+        return sheet.paper
     return ""
 
 
 def sheet_format_placement(project: Project, sheet: Sheet, lib, choice: str
                            ) -> tuple[str, float, float, float, float]:
     """Formát listu pro volbu ve vlastnostech jako (název, šířka, výška, dx, dy) pro `apply_placement`. Pevný formát
-    (A4…A1 na šířku) obsah neposouvá. Volný A4: nejmenší A4×n (výška 297, šířka n × 210 mm), do kterého se obsah
+    (A4…A0 na šířku i na výšku) a vlastní „šířka×výška“ obsah neposouvají. Volný A4: nejmenší A4×n (výška 297, šířka n × 210 mm), do kterého se obsah
     listu vejde mimo popisové pole – bez posunu, když to jde, jinak s posunem jako `fit_placement` (na mřížku);
     obsah vyšší než strana (nevejde se ani na A4×40) → ValueError s českou hláškou. Prázdný list = A4×2."""
-    from envocad.model.multipole import FREE_A4, FREE_A4_HEIGHT, FREE_A4_STEP, free_a4_label
+    from envocad.model.multipole import (
+        FREE_A4,
+        FREE_A4_HEIGHT,
+        FREE_A4_STEP,
+        free_a4_label,
+        parse_custom_paper,
+    )
     if choice in SHEET_FORMATS:
         return (choice, *SHEET_FORMATS[choice], 0.0, 0.0)
+    custom = parse_custom_paper(choice)
+    if custom is not None:            # vlastní formát: obsah se neposouvá (jako pevný formát)
+        return (choice, *custom, 0.0, 0.0)
     if choice != FREE_A4:
         raise ValueError(f"Neznámý formát listu {choice!r}")
     from envocad.model.textlayout import sheet_content_boxes

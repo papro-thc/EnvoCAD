@@ -546,7 +546,7 @@ class MultipoleScene(QGraphicsScene):
         QTimer.singleShot(0, lambda: self.edit_element_requested.emit(eid))   # parametry hned po vložení
 
     def _wire_click(self, pos: QPointF) -> None:
-        from envocad.model.project import WIRE_ATTRIBUTES, Wire, WireEnd
+        from envocad.model.project import Wire, WireEnd, wire_attributes
         hit = self._pole_end_at(pos)
         if hit is None:
             return
@@ -567,7 +567,7 @@ class MultipoleScene(QGraphicsScene):
         a, b = self.sheet.element(ea), self.sheet.element(eb)
         conds = [ca or cb] if (ca or cb) else mp.default_conductors(a, pa, b, pb)
         w = Wire(WireEnd(ea, pa), WireEnd(eb, pb), conductors=conds)
-        w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}  # model-write-ok: nový vodič pro MultipoleAddCommand
+        w.attrs = {at.key: at.default for at in wire_attributes(self.sheet)}  # model-write-ok: nový vodič pro MultipoleAddCommand
         self.undo.push(commands.MultipoleAddCommand(self, wire=w))
 
     def mouseMoveEvent(self, ev):
@@ -1047,7 +1047,7 @@ class MultipoleScene(QGraphicsScene):
             painter.drawRect(page)
 
     def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
-        from envocad.model.frame import frame_geometry, page_label
+        from envocad.model.frame import doc_page, frame_geometry, page_label
         from envocad.settings import company
         c = PRINT if not self.draw_grid else colors()
         w, h = self.paper_size
@@ -1058,7 +1058,7 @@ class MultipoleScene(QGraphicsScene):
             painter.translate(0, k * self.page_pitch)
             draw_frame(painter, frame_geometry(self.project, self.sheet, w, h, "vícepólové schéma",
                                                page_label(self.project, self.sheet, k, n), self.paper_label,
-                                               firm), c.ink)
+                                               firm, doc_page(self.project, self.sheet.id, "multipole", k)), c.ink)
             painter.restore()
             if k and not self.draw_grid:  # tisk: dělicí čára mezi stranami (na obrazovce obrys stran v pozadí)
                 painter.setPen(QPen(c.grid, 0, Qt.DashLine))

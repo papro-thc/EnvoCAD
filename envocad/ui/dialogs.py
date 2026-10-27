@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QFormLayout,
     QFrame,
     QGroupBox,
@@ -558,12 +559,16 @@ class ProjectWizard(QDialog):
         self.place = QLineEdit()
         self.order = QLineEdit()
         self.author = QLineEdit(str(std.get("author", "")))
+        # zodpovědný projektant do razítka (`meta["responsible"]`); výchozí z firemního standardu
+        self.responsible = QLineEdit(str(std.get("responsible", "")
+                                         or (std.get("project_meta") or {}).get("responsible", "")))
         self.dso = QLineEdit("")
         form.addRow("Název projektu", self.name)
         form.addRow("Investor", self.investor)
         form.addRow("Místo", self.place)
         form.addRow("Číslo zakázky", self.order)
         form.addRow("Zpracoval", self.author)
+        form.addRow("Zodpovědný projektant", self.responsible)
         form.addRow("Distributor (DSO)", self.dso)
 
         # ---- 2. Objekt a připojení ----
@@ -668,7 +673,11 @@ class ProjectWizard(QDialog):
         self.bat_info.setWordWrap(True)
         bform.addRow("Baterie", self.bat_combo)
         bform.addRow("", self.bat_all)
+        self.bat_every = QCheckBox("ke každému střídači (jinak jen T1)")
+        self.bat_every.setToolTip("Baterie stejného typu pod každým střídačem (všechny se kreslí jako hybridní). "
+                                  "Rodinný dům: jen u jednoho střídače – k baterii patří EPS a návrat do RD.")
         bform.addRow("Počet modulů", self.bat_modules)
+        bform.addRow("", self.bat_every)
         bform.addRow(self.bat_bms_label, self.bat_bms)
         bform.addRow("", self.bat_info)
         self.grp_battery.setVisible(False)
@@ -757,6 +766,9 @@ class ProjectWizard(QDialog):
         self.conn_level.currentIndexChanged.connect(lambda _i: _conn_enabled())
         self.conn_station.currentIndexChanged.connect(lambda _i: _conn_enabled())
         self.building.currentIndexChanged.connect(lambda _i: _conn_enabled())
+        self.building.currentIndexChanged.connect(lambda _i: self.bat_every.setEnabled(
+            self.building.currentData() != "house"))
+        self.bat_every.setEnabled(self.building.currentData() != "house")
         _conn_enabled()
 
         # ---- 6. Stávající rozvaděče, 7. Souhrn ----
@@ -1079,7 +1091,9 @@ class ProjectWizard(QDialog):
         comp = self._battery_comp() if self._hybrid_selected() else None
         if comp is None:
             return None
-        return battery_spec(self.library, comp.id, self.bat_modules.value(), self.bat_bms.currentData() or "")
+        every = self.bat_every.isChecked() and self.bat_every.isEnabled()
+        return battery_spec(self.library, comp.id, self.bat_modules.value(), self.bat_bms.currentData() or "",
+                            every_inverter=every)
 
     def set_optimizer_component(self, comp) -> None:
         """Vyplní typ a ks/modul z artiklu optimizéru (1 nebo 0,5 při 2 modulech na optimizér) a zapamatuje si ho
@@ -1497,7 +1511,8 @@ class ProjectWizard(QDialog):
 
         meta = [("Název", self.name.text().strip()), ("Investor", self.investor.text().strip()),
                 ("Místo", self.place.text().strip()), ("Zakázka", self.order.text().strip()),
-                ("Zpracoval", self.author.text().strip()), ("Distributor", self.dso.text().strip())]
+                ("Zpracoval", self.author.text().strip()),
+                ("Zodpovědný projektant", self.responsible.text().strip()), ("Distributor", self.dso.text().strip())]
         conn = [("Druh objektu", self.building.currentText()), ("Připojení", self.conn_level.currentText())]
         if self.conn_level.currentData() == "vn":
             conn += [("Trafostanice", self.conn_station.currentText()), ("Měření", self.conn_metering.currentText()),
@@ -1608,7 +1623,8 @@ class ProjectWizard(QDialog):
         spec = {
             "name": self.name.text().strip() or "Nový projekt FVE",
             "meta": {"investor": self.investor.text().strip(), "place": self.place.text().strip(),
-                     "order": self.order.text().strip(), "author": self.author.text().strip()},
+                     "order": self.order.text().strip(), "author": self.author.text().strip(),
+                     **({"responsible": self.responsible.text().strip()} if self.responsible.text().strip() else {})},
             "building": self.building.currentData(),
             "module": module,
             "site": site,
@@ -2061,6 +2077,23 @@ class SheetPropsDialog(QDialog):
         form.addRow("Umístění (+):", self.loc)
         self.paper: QComboBox | None = None
         self.size: QComboBox | None = None
+        # formát listu (kreslicí plocha listu – blokové schéma i list rozvaděče): A4…A0 na šířku i na výšku, volný
+        # A4 (šířka podle obsahu) nebo vlastní šířka × výška
+        from envocad.model.frame import sheet_format
+        from envocad.model.multipole import PAPER_CHOICES
+        self.size = QComboBox()
+        for key in PAPER_CHOICES:
+            self.size.addItem(_paper_text(key), key)
+        self.size.addItem("vlastní…", CUSTOM_CHOICE)
+        cur = sheet_format(sheet)
+        if not cur:
+            self.size.addItem(f"současný ({sheet.paper}, {sheet.width:g} × {sheet.height:g} mm)", "")
+        self.size.setCurrentIndex(max(self.size.findData(cur), 0))
+        self._size0 = cur
+        self.size.setToolTip("Velikost kreslicí plochy listu. Volný A4: výška 297 mm, šířka podle obsahu listu po "
+                             "210 mm (A4×n); vlastní = šířka a výška v mm")
+        form.addRow("Formát listu:", self.size)
+        self.custom_w, self.custom_h = self._custom_row(form, self.size, cur or f"{sheet.width:g}×{sheet.height:g}")
         if sheet.is_switchboard:
             # formát stran schématu (vícepólu) a plánu svorkovnice listu rozvaděče
             from envocad.model.multipole import PAPER_CHOICES, SHEET_PAPER
@@ -2073,42 +2106,69 @@ class SheetPropsDialog(QDialog):
             for key in keys:
                 self.paper.addItem(_paper_text(key), key)
             self.paper.addItem(f"jako list ({sheet.paper}, {sheet.width:g} × {sheet.height:g} mm)", SHEET_PAPER)
+            self.paper.addItem("vlastní…", CUSTOM_CHOICE)
             i = self.paper.findData(sheet.mp_paper or "")
             self.paper.setCurrentIndex(max(i, 0))
+            self.paper.setToolTip("Strany vícepólového schématu a plánu svorkovnice tohoto rozvaděče")
             form.addRow("Formát stran schématu:", self.paper)
-        else:
-            # formát listu (blokové schéma…): A4…A1 na šířku nebo volný A4 (šířka podle obsahu)
-            from envocad.model.frame import sheet_format
-            from envocad.model.multipole import PAPER_CHOICES
-            self.size = QComboBox()
-            for key in PAPER_CHOICES:
-                self.size.addItem(_paper_text(key), key)
-            cur = sheet_format(sheet)
-            if not cur:
-                self.size.addItem(f"současný ({sheet.paper}, {sheet.width:g} × {sheet.height:g} mm)", "")
-            self.size.setCurrentIndex(max(self.size.findData(cur), 0))
-            self._size0 = self.size.currentData()
-            self.size.setToolTip("Volný A4: výška 297 mm, šířka podle obsahu listu po 210 mm (A4×n)")
-            form.addRow("Formát listu:", self.size)
+            self.paper_custom_w, self.paper_custom_h = self._custom_row(form, self.paper, sheet.mp_paper)
         bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         form.addRow(bb)
 
+    def _custom_row(self, form, combo: QComboBox, current: str) -> tuple[QDoubleSpinBox, QDoubleSpinBox]:
+        """Šířka a výška vlastního formátu (mm) pod výběrem – povolené jen u volby „vlastní…“. Vlastní formát, který
+        už list má („500×300“), se ve výběru přepne na „vlastní…“ s jeho rozměry. Vrací (šířka, výška)."""
+        from envocad.model.multipole import CUSTOM_MAX, CUSTOM_MIN, parse_custom_paper
+        size = parse_custom_paper(current) or (420.0, 297.0)
+        w = QDoubleSpinBox(minimum=CUSTOM_MIN[0], maximum=CUSTOM_MAX[0], decimals=0, value=size[0], suffix=" mm")
+        h = QDoubleSpinBox(minimum=CUSTOM_MIN[1], maximum=CUSTOM_MAX[1], decimals=0, value=size[1], suffix=" mm")
+        row = QWidget()
+        lay = QHBoxLayout(row)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(w)
+        lay.addWidget(QLabel("×"))
+        lay.addWidget(h)
+        form.addRow("   vlastní šířka × výška:", row)
+        if parse_custom_paper(current) and combo.findData(current) < 0:
+            combo.setCurrentIndex(combo.findData(CUSTOM_CHOICE))
+
+        def sync(_i: int = 0) -> None:
+            on = combo.currentData() == CUSTOM_CHOICE
+            w.setEnabled(on)
+            h.setEnabled(on)
+        combo.currentIndexChanged.connect(sync)
+        sync()
+        return w, h
+
+    @staticmethod
+    def _custom_value(w: QDoubleSpinBox, h: QDoubleSpinBox) -> str:
+        from envocad.model.multipole import custom_paper_label
+        return custom_paper_label(w.value(), h.value())
+
     def values(self) -> tuple[str, str, str]:
         return self.name.text().strip(), self.func.text().strip().upper(), self.loc.text().strip().upper()
 
     def mp_paper(self) -> str | None:
-        """Zvolený formát stran schématu rozvaděče („“ = standard); None = list není rozvaděč."""
-        return None if self.paper is None else str(self.paper.currentData() or "")
+        """Zvolený formát stran schématu rozvaděče („“ = standard, vlastní „šířka×výška“); None = list není rozvaděč."""
+        if self.paper is None:
+            return None
+        v = str(self.paper.currentData() or "")
+        return self._custom_value(self.paper_custom_w, self.paper_custom_h) if v == CUSTOM_CHOICE else v
 
     def sheet_format(self) -> str | None:
-        """Nově zvolený formát listu (ne rozvaděč); None = beze změny. Volný A4 se vrací vždy (šířka se přepočítá)."""
+        """Nově zvolený formát listu; None = beze změny. Volný A4 se vrací vždy (šířka se přepočítá)."""
         from envocad.model.multipole import FREE_A4
         if self.size is None:
             return None
         v = str(self.size.currentData() or "")
+        if v == CUSTOM_CHOICE:
+            v = self._custom_value(self.custom_w, self.custom_h)
         return v if v and (v != self._size0 or v == FREE_A4) else None
+
+
+CUSTOM_CHOICE = "__custom__"   # položka „vlastní…“ ve výběru formátu (rozměr ze spinboxů pod ním)
 
 
 def _paper_text(key: str) -> str:
@@ -2492,8 +2552,11 @@ IK_META_HINT = ("Maximální zkratový proud v místě připojení – z vyjád�
 
 # Vlastnosti projektu: (klíč, popisek); „name“ = Project.name, ostatní Project.meta
 PROJECT_META_FIELDS = [
-    ("name", "Název projektu"), ("investor", "Investor"), ("order", "Číslo zakázky"), ("place", "Místo"),
-    ("author", "Zpracoval"), ("date", "Datum"), ("revision", "Revize"),
+    ("name", "Název projektu (stavba)"), ("investor", "Investor"), ("order", "Číslo zakázky"), ("place", "Místo"),
+    ("author", "Zpracoval (vypracoval)"), ("date", "Datum"), ("revision", "Revize"),
+    # razítko ENVO (popisové pole): osoby a údaje výkresu (`frame.STAMP_META`)
+    ("responsible", "Zodpovědný projektant"), ("stage", "Stupeň dokumentace (DSPS, DPS…)"),
+    ("archive", "Archivní číslo"), ("scale", "Měřítko (prázdné = –)"),
     # návrhové teploty kontroly stringů (`calc.design_temperatures`); prázdné = výchozí −10 / 70 °C
     ("pv_t_min", "Návrhová teplota min pro stringy [°C]"), ("pv_t_max", "Návrhová teplota max pro stringy [°C]"),
     # zkratový proud v místě připojení (kontroly Icu / Icw, `ratings.project_ik_upper`); prázdné = odhad z trafa

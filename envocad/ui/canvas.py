@@ -20,8 +20,6 @@ from PySide6.QtWidgets import (
 from envocad.library.store import LibraryStore
 from envocad.model.multipole import branch_conductors, default_conductors
 from envocad.model.project import (
-    SWITCHBOARD_WIRE_ATTRIBUTES,
-    WIRE_ATTRIBUTES,
     Element,
     Project,
     Sheet,
@@ -30,6 +28,7 @@ from envocad.model.project import (
     element_symbol,
     feed_link_attrs,
     internal_wires,
+    wire_attributes,
 )
 from envocad.model.symbol import GRID
 from envocad.ui import commands
@@ -85,8 +84,8 @@ class SchematicScene(QGraphicsScene):
         self._note_preview = QGraphicsRectItem()
         self._note_preview.setPen(QPen(colors().preview, 0.3, Qt.DashLine))
         self._note_preview.setZValue(20)
-        self.setSceneRect(QRectF(-50, -sheet.height - 50, sheet.width + 100, sheet.height + 100))
-        self._paper = QGraphicsRectItem(QRectF(0, -sheet.height, sheet.width, sheet.height))
+        self._paper = QGraphicsRectItem()
+        self.update_paper()
         self._paper.setPen(QPen(colors().paper, 0.5))
         self._paper.setZValue(-1)
         self.addItem(self._paper)
@@ -94,7 +93,14 @@ class SchematicScene(QGraphicsScene):
         self.rebuild()
 
     # ---- synchronizace s modelem ------------------------------------------
+    def update_paper(self) -> None:
+        """Plocha scény a obrys papíru podle rozměru listu (po změně formátu listu se zvětší i kreslicí plocha)."""
+        w, h = float(self.sheet.width), float(self.sheet.height)
+        self.setSceneRect(QRectF(-50, -h - 50, w + 100, h + 100))
+        self._paper.setRect(QRectF(0, -h, w, h))
+
     def rebuild(self) -> None:
+        self.update_paper()
         for it in list(self.element_items.values()) + list(self.wire_items.values()):
             self.removeItem(it)
         self.element_items.clear()
@@ -564,6 +570,9 @@ class SchematicScene(QGraphicsScene):
                 self._wire_from = None
                 self.removeItem(self._wire_preview)
                 if not (a is b and pa == pb):
+                    # odbočka z uzlu: volný port uzlu směrem k druhému konci (jinak vodič obloukem přes tečku)
+                    pa = self._junction_port_towards(a, pa, b, pb)
+                    pb = self._junction_port_towards(b, pb, a, pa)
                     w = Wire(WireEnd(a.element.id, pa), WireEnd(b.element.id, pb))
                     # model-write-ok: nový vodič (ještě není v listu), vloží ho AddWireCommand
                     w.conductors = default_conductors(a.element, pa, b.element, pb)
@@ -575,7 +584,7 @@ class SchematicScene(QGraphicsScene):
                                 w.conductors = branch_conductors(list(src.conductors), other)  # model-write-ok: nový vodič
                             break
                     # model-write-ok: nový vodič (ještě není v listu), vloží ho AddWireCommand
-                    w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}
+                    w.attrs = {at.key: at.default for at in wire_attributes(self.sheet)}
                     # model-write-ok: nový vodič, viz výše; vnitřní vodič rozvaděče bez označení W
                     w.attrs["ref"] = "" if internal_wires(self.sheet) else self.project.next_ref("W")
                     if self.ask_attributes:
@@ -616,6 +625,14 @@ class SchematicScene(QGraphicsScene):
         self._text_move_start = {it.text.id: (it.text.x, it.text.y) for it in self.selectedItems()
                                  if isinstance(it, TextItem)}
 
+    def _junction_port_towards(self, it: ElementItem, port: str, other: ElementItem, other_port: str) -> str:
+        """Port uzlu odbočky (`sb.junction`) pro nový vodič: volný port na straně k druhému konci vodiče."""
+        from envocad.model.potential import junction_free_port
+        if it.element.symbol_id != "sb.junction":
+            return port
+        pos = other.port_scene_pos(other_port)
+        return junction_free_port(self.sheet, it.element, (pos.x(), -pos.y())) or port
+
     def _branch_at(self, pos: QPointF) -> tuple[ElementItem, str] | None:
         """Klik na vodič v režimu kreslení: vodič se rozdělí uzlem odbočky a vrátí se jeho volný port."""
         from envocad.model.potential import junction_free_port, split_wire
@@ -655,7 +672,8 @@ class SchematicScene(QGraphicsScene):
         self.undo.push(commands.AddElementCommand(self, e))
 
     def _wire_dialog_extra(self, w: Wire) -> dict:
-        """Na listu rozvaděče navíc výrobní atributy vodiče (barva, koncovky, do výrobního seznamu) a jejich placeholdery."""
+        """Na listu rozvaděče jen výrobní atributy vodiče (barva, koncovky, do výrobního seznamu – bez kabelu a průřezu,
+        `wire_attributes`) a jejich placeholdery."""
         if not self.sheet.is_switchboard:
             return {}
         from dataclasses import replace
@@ -663,8 +681,7 @@ class SchematicScene(QGraphicsScene):
         from envocad.model.wiring import wire_end_labels
         from envocad.ui.dialogs import wire_auto_hints
         labels = wire_end_labels(self.sheet, w)   # „Koncovka A (F2:2)“ – u popisku konec vodiče
-        return {"attributes": WIRE_ATTRIBUTES + [replace(a, label=labels.get(a.key, a.label))
-                                                 for a in SWITCHBOARD_WIRE_ATTRIBUTES],
+        return {"attributes": [replace(a, label=labels.get(a.key, a.label)) for a in wire_attributes(self.sheet)],
                 "hints": wire_auto_hints(self.project, self.sheet, w)}
 
     def _finish_wire(self, w: Wire, heading: str) -> None:

@@ -49,7 +49,7 @@ def test_settings_helpers_and_model_defaults():
     p.sheets[0].elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
     assert settings.switchboard_paper() == "A4" and settings.company() == frame.COMPANY
-    assert settings.frame_enabled() is False
+    assert settings.frame_enabled() is True          # výchozí: rámeček s razítkem ENVO
     _save(switchboard_paper="A4 na výšku", company="Firma XY s.r.o.")
     assert settings.switchboard_paper() == "A4 na výšku" and settings.company() == "Firma XY s.r.o."
     assert settings.frame_enabled() is True
@@ -60,7 +60,9 @@ def test_settings_helpers_and_model_defaults():
     assert frame.company_names("  ") == ("ENVO", "ENVO s.r.o.")
     texts = [t[2] for t in frame.frame_geometry(p, sb, company="Firma XY s.r.o.").texts]
     assert "Firma" in texts and "ENVO" not in texts
-    assert "ENVO" in [t[2] for t in frame.frame_geometry(p, sb).texts]
+    g = frame.frame_geometry(p, sb)                  # ENVO: logo z razítka (mnohoúhelníky) a adresa místo názvu
+    assert g.polys and "Projektant profese" in [t[2] for t in g.texts]
+    assert not frame.frame_geometry(p, sb, company="Firma XY s.r.o.").polys
     _save(company="")
     assert settings.company() == frame.COMPANY
 
@@ -69,7 +71,7 @@ def test_settings_helpers_survive_broken_file():
     settings.settings_path().parent.mkdir(parents=True, exist_ok=True)
     settings.settings_path().write_text('{"standard": 5}', encoding="utf-8")
     assert settings.switchboard_paper() == mp.DEFAULT_SWITCHBOARD_PAPER
-    assert settings.company() == frame.COMPANY and settings.frame_enabled() is False
+    assert settings.company() == frame.COMPANY and settings.frame_enabled() is True
 
 
 def test_grow_sheet_pins_given_standard():
@@ -111,3 +113,17 @@ def test_cmd_imports_without_qt():
     code = ("import sys, envocad.cmd, envocad.cmd.__main__; "
             "bad = [m for m in sys.modules if m.startswith(('PySide6', 'envocad.ui'))]; assert not bad, bad")
     subprocess.run([sys.executable, "-c", code], check=True, cwd=ROOT.parent, stdin=subprocess.DEVNULL)
+
+
+def test_log_rotation_survives_locked_log(tmp_path, monkeypatch):
+    """Druhé spuštění na Windows: log drží běžící EnvoCAD – rotace se přeskočí, start nespadne."""
+    from pathlib import Path
+
+    from envocad import logging_setup
+    (tmp_path / "envocad.log").write_text("x", encoding="utf-8")
+
+    def locked(self, target):
+        raise PermissionError(32, "soubor používá jiný proces")
+    monkeypatch.setattr(Path, "replace", locked)
+    logging_setup._rotate(tmp_path)                 # nesmí vyhodit výjimku
+    assert (tmp_path / "envocad.log").exists()

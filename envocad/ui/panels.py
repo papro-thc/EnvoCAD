@@ -167,11 +167,12 @@ class PropertiesPanel(QWidget):
             w = item.wire
             self._target = (w.id, True)
             self.form.addRow(QLabel(f"<b>Vodič</b><br><small>{w.a.element_id}:{w.a.port} → {w.b.element_id}:{w.b.port}</small>"))
-            for a in WIRE_ATTRIBUTES:
-                self._add_field(a.key, a.label, w.attrs.get(a.key, ""))
             sc = item.scene()
             sheet = getattr(sc, "sheet", None)
-            if sheet is not None and sheet.is_switchboard:
+            if sheet is None or not sheet.is_switchboard:   # vnitřní vodič rozvaděče: bez kabelu a průřezu
+                for a in WIRE_ATTRIBUTES:
+                    self._add_field(a.key, a.label, w.attrs.get(a.key, ""))
+            else:
                 from envocad.model.wiring import wire_end_labels
                 from envocad.ui.dialogs import wire_auto_hints
                 hints = wire_auto_hints(sc.project, sheet, w)

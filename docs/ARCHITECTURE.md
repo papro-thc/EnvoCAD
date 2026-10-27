@@ -254,7 +254,7 @@ Jeden model, dva pohledy nad stejnými daty:
   i z výkazů (svorkovnice, potenciály, zapojovací seznam).
 - Elektroměr při nepřímém měření: pohled `multipole.meter_terminal_view` se svorkami podle `TERMINAL_SCHEMES`
   (DIN 43856), stejná čísla svorek v `device_terminal`; MTP po fázích (`multipole.stagger`, `secondary`).
-- Rámeček (`model/frame.py`): QR kód jen, když se vlevo od popisového pole vejde (`qr_fits` – na A4 na výšku ne),
+- Rámeček (`model/frame.py`): razítko ENVO v popisovém poli (`stamp_fields`, logo `resources/envo_logo.json`), bez QR kódu,
   „Číslo listu“ stran odvozených pohledů `page_label` („2/5, str. 1/3“), formát strany v popisovém poli (`paper`).
   PDF dokumentace (`export/doc_pdf.py`) má smíšené formáty stran: `QPdfWriter.setPageLayout` před každou novou
   stranou (`DocBuilder.page_sizes`).

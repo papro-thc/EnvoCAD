@@ -9,7 +9,7 @@ from PySide6.QtGui import QPainter, QPen, QUndoStack
 from PySide6.QtWidgets import QGraphicsRectItem, QGraphicsScene
 
 from envocad.library.store import LibraryStore
-from envocad.model.frame import frame_geometry, page_label
+from envocad.model.frame import doc_page, frame_geometry, page_label
 from envocad.model.multipole import MP_PAGE_GAP, page_paper_label, page_size
 from envocad.model.project import Project, Sheet
 from envocad.model.terminal_plan import (  # noqa: F401 – rozměry zůstávají dostupné i odsud (testy, nástroje)
@@ -95,7 +95,7 @@ class TerminalPlanScene(QGraphicsScene):
             painter.translate(0, k * self.page_pitch)
             draw_frame(painter, frame_geometry(self.project, self.sheet, w, h, "plán svorkovnice",
                                                page_label(self.project, self.sheet, k, n), self.paper_label,
-                                               firm), c.ink)
+                                               firm, doc_page(self.project, self.sheet.id, "terminals", k)), c.ink)
             for chunk in self.page_chunks[k] if k < len(self.page_chunks) else []:
                 self._draw_chunk(painter, chunk, c)
             painter.restore()

@@ -208,7 +208,8 @@ hodnoty v dialogu **Makro – název**. Makro bez proměnných se vloží hned j
 ### Přerušovací body
 Prvek **Přerušovací bod** (Svorky a propojení, nebo tlačítko na liště Kreslení) přenese potenciál jinam – dva body se stejným označením se
 spárují a každý ukazuje polohu protějšku (`→ /2.C3` = list 2, sloupec C, řádek 3 v síti rámečku). Rámeček
-s popisovým polem je zatím vypnutý – zapne ho `Zobrazit → Rámeček a popisové pole` (platí i pro PDF a DXF).
+s popisovým polem (razítko ENVO) je ve výchozím nastavení zapnutý – vypne ho `Zobrazit → Rámeček a popisové pole`
+(platí i pro PDF a DXF).
 
 Body se stejným označením (`ref`) v projektu tvoří skupinu. Zapojení podle stavu skupiny:
 
@@ -319,16 +320,15 @@ automatiku. Dvojklik na prvek = parametry, dvojklik na žílu = svorky, `Delete`
 **Strany A4**: schéma rozvaděče a plán svorkovnice jsou na stranách **A4 na šířku** (297 × 210 mm) – vytisknou
 se na běžné tiskárně. Formát se volí ve `Firemní standard…` (poslední otázka: `A4`, `A3`, `A2`, `A1`, `volný A4`;
 klíč `standard.switchboard_paper` v `settings.json`) nebo pro jeden list rozvaděče v `List → Vlastnosti listu` →
-**Formát stran schématu** (podle standardu / A4 / A3 / A2 / A1 na šířku / **volný A4** / jako list); změna jde vrátit
-`Ctrl+Z`. **Volný A4** = jedna strana vysoká 297 mm a široká podle kresby v násobcích 210 mm (A4×2, A4×3…) – celé
-schéma rozvaděče bez přerušení na další stranu. Starší volba „A4 na výšku“ u listu zůstává platná.
+**Formát stran schématu** (podle standardu / A4 … A0 na šířku i **na výšku** / **volný A4** / jako list / **vlastní…**
+– šířka × výška v mm, 210 × 148 až 5000 × 2000); změna jde vrátit `Ctrl+Z`. **Volný A4** = jedna strana vysoká 297 mm a široká podle kresby v násobcích 210 mm (A4×2, A4×3…) – celé
+schéma rozvaděče bez přerušení na další stranu.
 
-**Formát listu** ostatních listů (blokové schéma…) se volí tamtéž (`List → Vlastnosti listu` → **Formát listu**):
-A4, A3, A2, A1 na šířku nebo **volný A4** – výška 297 mm, šířka nejmenší násobek 210 mm, do kterého se obsah listu
+**Formát listu** (kreslicí plocha – blokové schéma i list rozvaděče) se volí tamtéž (`List → Vlastnosti listu` → **Formát listu**):
+A4 … A0 na šířku i na výšku, **vlastní…** (šířka × výška v mm, obsah se neposouvá) nebo **volný A4** – výška 297 mm, šířka nejmenší násobek 210 mm, do kterého se obsah listu
 vejde mimo popisové pole (když je potřeba, obsah se posune na mřížce). Opakovaná volba volného A4 šířku přepočítá
-podle aktuálního obsahu; `Ctrl+Z` vrátí formát i polohy. Na každé straně je rámeček s popisovým polem (číslo listu a strany „2/5, str. 1/3“, formát A4); QR kód
-vlevo od popisového pole je na A4 na šířku i A3, na A4 na výšku se nevejde (popisové pole 180 mm vyplní celou
-šířku) a vynechá se. Na nízké straně A4 se rozmístění samo zhustí (posune nahoru pod nadpis, zmenší mezery mezi
+podle aktuálního obsahu; `Ctrl+Z` vrátí formát i polohy. Na každé straně je rámeček s popisovým polem (číslo listu a strany „2/5, str. 1/3“, formát A4); na A4 na
+výšku vyplní popisové pole (180 mm) celou šířku kreslicí plochy. Na nízké straně A4 se rozmístění samo zhustí (posune nahoru pod nadpis, zmenší mezery mezi
 řadami), aby kresba nezasahovala do popisového pole – na obrazovce, v PDF i v kontrole F7 stejně.
 
 **Více stran s odkazy**: když se rozvaděč nevejde na jednu stranu, rozmístění pokračuje na dalších stranách
@@ -683,7 +683,9 @@ Když nepasuje žádná, je jen „bez baterie (ke střídači v katalogu žádn
 celý katalog (výrobce střídače první) – kompatibilitu pak ověřte v datasheetu. **Počet modulů**
 věže je omezen podle datasheetu artiklu (např. SolaX T-BAT H 5.8 V3: 1–6, master se počítá). Je-li k věži řídicí jednotka
 (BMS), ukáže se její výběr – jediná možná je předvolená, u více variant (SigenStack BC) se volí. Pod výběrem je souhrn:
-celková kapacita (a výkon, jen když ho datasheet uvádí), složení věže a BMS. Baterie se kreslí u prvního střídače (T1),
+celková kapacita (a výkon, jen když ho datasheet uvádí), složení věže a BMS. Baterie se kreslí u prvního střídače (T1), se zaškrtnutím **ke každému střídači** pod každým
+(rodinný dům jen u jednoho – kvůli EPS; ve specifikaci `battery.inverters`: „all“ nebo seznam T1, T2…); kontrola F7
+`battery_incompatible` hlásí baterii, která ke střídači podle datasheetu nepasuje;
 u rodinného domu se k ní doplní EPS (přepínač sítí a zálohovaný vývod) a ve výkazu materiálu jsou master / modul × n,
 přídavné moduly (slave) a řídicí jednotka. Do specifikace: `"battery": {"component_id": "solax-t-bat-h-5.8-v3", "modules": 3}`
 (volitelně `bms_id`); `type`, `e_kwh`, `p_kw` z artiklu doplní generátor, zadané hodnoty mají přednost.
@@ -942,12 +944,22 @@ Výchozí hodnoty (kabely, zpracoval) bere průvodce z **firemního standardu** 
 | Štítky pro tiskárnu (CSV, `;`, UTF-8 BOM) | Výstupy → Štítky pro tiskárnu |
 | Otevřené připomínky jako anotace PDF nebo vrstva `PRIPOMINKY` v DXF | Výstupy → Přidávat připomínky do exportu (sekce 9) |
 
-Rámeček listu má popisové pole (projekt, zakázka, investor, místo, list, číslo listu, zpracoval, datum,
-revize, formát), souřadnicovou síť A–H × 1–6 a QR kód s identifikací výkresu. Údaje se zadávají v
+Rámeček listu má popisové pole – **razítko ENVO** (podle `Razítko fixed.dwg`, zhuštěné na 180 × 32 mm): vlevo logo
+ENVO s adresou („Projektant profese“), uprostřed stavba (název projektu), investor, místo, vypracoval, zodpovědný
+projektant a název výkresu (list), vpravo stupeň, zakázkové a archivní číslo, datum,
+formát, měřítko, revize a číslo výkresu. Dále souřadnicová síť v okraji: na A3 a menších A–H × 1–6, na větším
+listu víc polí stejné velikosti (A2 12 × 9, A1 17 × 12, A0 24 × 18, vlastní formát obdobně; sloupce bez I a O,
+za Z dvojpísmena AA…) – křížové odkazy „/3.K7“ se řídí stejnou sítí. QR kód v rámečku není.
+Zodpovědný projektant, stupeň, archivní číslo a měřítko se zadávají v Soubor → Vlastnosti
+projektu; u jiné firmy než ENVO (`standard.company`) je místo loga název firmy. Údaje se zadávají v
 Soubor → Vlastnosti projektu, název firmy v popisovém poli v nastavení (`standard.company`) – stejný název je na
 titulní straně dokumentace a v protokolu kusového ověření. Dlouhý text se v buňce popisového pole zmenší, a když
-se nevejde ani tak, zkrátí se s „…“. Kresba vícepólu se automaticky posune nahoru, aby nezasahovala do popisového
-pole a QR kódu (ručně přesunuté přístroje zůstanou, kde jsou).
+se nevejde ani tak, zkrátí se s „…“. Vedle čísla listu (např. 3/7 – sedí s křížovými odkazy „/3.B4“) je
+**Strana** celé dokumentace (5/28) u listů JPS, vícepólů, plánů svorkovnic i jednopólového schématu, v editoru
+i v samostatných exportech PDF a DXF. Čísla stran se uloží při exportu celé dokumentace nebo příkazem
+**Projekt → Přečíslovat strany dokumentace** (krok undo); list přidaný od posledního číslování stranu nemá, dokud se
+znovu nepřečísluje. Kresba vícepólu se automaticky posune nahoru, aby nezasahovala do popisového
+pole (ručně přesunuté přístroje zůstanou, kde jsou).
 
 **Celá dokumentace (PDF)**: obsah má sloupce *Strana* (fyzická strana PDF, u víc stran rozsah „19–20“), *Název*
 a *List výkresu* (číslo listu projektu, které ukazuje popisové pole listu – např. „2/6“). Strany obsahu, výkazů

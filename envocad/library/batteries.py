@@ -98,12 +98,35 @@ def totals(base: Component, n: int, slave: Component | None) -> dict[str, float 
     return {"e_kwh": e, "p_kw": p}
 
 
-def battery_spec(lib, component_id: str, modules: int = 1, bms_id: str = "") -> dict:
-    """`spec["battery"]` z výběru v průvodci: id základu věže, počet modulů a (nepovinně) řídicí jednotka."""
+def battery_spec(lib, component_id: str, modules: int = 1, bms_id: str = "", every_inverter: bool = False) -> dict:
+    """`spec["battery"]` z výběru v průvodci: id základu věže, počet modulů, (nepovinně) řídicí jednotka a baterie
+    u každého střídače (`inverters: "all"`, jinak jen u prvního)."""
     out: dict = {"component_id": component_id, "modules": int(modules)}
     if bms_id:
         out["bms_id"] = bms_id
+    if every_inverter:
+        out["inverters"] = "all"
     return out
+
+
+def battery_targets(spec: dict) -> list[int]:
+    """Pořadí střídačů (od 0) s baterií podle `spec["battery"]["inverters"]`: „all“ = všechny, seznam označení
+    (`["T1", "T3"]` nebo „T1 T3“) = ty, jinak (chybí) jen první. Bez baterie prázdné. Neznámé označení → ValueError."""
+    b = spec.get("battery")
+    invs = spec.get("inverters") or []
+    if not b or not invs:
+        return []
+    which = b.get("inverters") if isinstance(b, dict) else None
+    if which in (None, "", []):
+        return [0]
+    if isinstance(which, str) and which.strip().lower() == "all":
+        return list(range(len(invs)))
+    refs = which.replace(",", " ").split() if isinstance(which, str) else [str(x) for x in which]
+    names = [inv.get("ref") or f"T{i + 1}" for i, inv in enumerate(invs)]
+    bad = [r for r in refs if r not in names]
+    if bad:
+        raise ValueError(f"Baterie: neznámý střídač {', '.join(bad)} v battery.inverters (jsou {', '.join(names)}).")
+    return [names.index(r) for r in dict.fromkeys(refs)]
 
 
 def apply_battery_component(lib, battery: dict) -> dict:

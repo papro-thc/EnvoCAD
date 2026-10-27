@@ -29,13 +29,18 @@ def log_dir() -> Path:
 
 
 def _rotate(d: Path) -> None:
+    """Posune staré logy (envocad.log → .1 → .2 …). Když log drží jiný běžící EnvoCAD (Windows: soubor otevřený
+    jiným procesem nejde přejmenovat), rotace se přeskočí – druhá instance pak zapisuje do téhož logu, nespadne."""
     cur = d / "envocad.log"
-    for i in range(KEEP - 1, 0, -1):
-        src, dst = d / f"envocad.log.{i}", d / f"envocad.log.{i + 1}"
-        if src.exists():
-            src.replace(dst)
-    if cur.exists():
-        cur.replace(d / "envocad.log.1")
+    try:
+        for i in range(KEEP - 1, 0, -1):
+            src, dst = d / f"envocad.log.{i}", d / f"envocad.log.{i + 1}"
+            if src.exists():
+                src.replace(dst)
+        if cur.exists():
+            cur.replace(d / "envocad.log.1")
+    except PermissionError:
+        pass
 
 
 def setup(show_dialog: bool = True) -> Path:

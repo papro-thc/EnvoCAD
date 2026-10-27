@@ -193,3 +193,48 @@ def test_generator_without_battery_and_manual_spec_unchanged(lib):
 def test_generator_battery_out_of_range_is_valueerror():
     with pytest.raises(ValueError, match="mimo rozsah"):
         _house({"component_id": "solax-t-bat-h-5.8-v3", "modules": 9})
+
+
+def test_battery_targets():
+    invs = [{"ref": "T1"}, {"ref": "T2"}, {"ref": "T3"}]
+    assert batteries.battery_targets({"inverters": invs}) == []
+    assert batteries.battery_targets({"inverters": invs, "battery": {"e_kwh": 10}}) == [0]
+    assert batteries.battery_targets({"inverters": invs, "battery": {"inverters": "all"}}) == [0, 1, 2]
+    assert batteries.battery_targets({"inverters": invs, "battery": {"inverters": ["T3", "T1"]}}) == [2, 0]
+    assert batteries.battery_targets({"inverters": invs, "battery": {"inverters": "T2, T3"}}) == [1, 2]
+    with pytest.raises(ValueError, match="T9"):
+        batteries.battery_targets({"inverters": invs, "battery": {"inverters": ["T9"]}})
+    assert batteries.battery_spec(None, "x", 2, every_inverter=True)["inverters"] == "all"
+
+
+_INV2 = {"p_ac": 10, "u_dc_max": 1100, "u_mppt_min": 200, "u_mppt_max": 1000, "i_mppt_max": 30, "strings": [16, 16]}
+
+
+def test_generator_battery_on_more_inverters():
+    from envocad.generate import build_project
+    bat = {"e_kwh": 10, "p_kw": 5, "type": "BYD HVS 10.2"}
+    spec = {"inverters": [{"ref": "T1", **_INV2}, {"ref": "T2", **_INV2}], "battery": {**bat, "inverters": "all"}}
+    s = build_project(spec).sheets[0]
+    hyb = {e.ref for e in s.elements if e.symbol_id == "fve.inverter_hybrid"}
+    bats = [e for e in s.elements if e.symbol_id == "fve.battery"]
+    assert hyb == {"T1", "T2"} and len(bats) == 2 and len({b.ref for b in bats}) == 2
+    for b in bats:                        # každá baterie na svorce BAT svého střídače
+        assert any(w.touches(b.id) and "BAT" in (w.a.port, w.b.port) for w in s.wires)
+    spec["battery"] = {**bat, "inverters": ["T2"]}
+    s = build_project(spec).sheets[0]
+    assert {e.ref for e in s.elements if e.symbol_id == "fve.inverter_hybrid"} == {"T2"}
+    spec.update(building="house", battery={**bat, "inverters": "all"})
+    with pytest.raises(ValueError, match="jednoho hybridního"):
+        build_project(spec)
+
+
+def test_f7_battery_incompatible(lib):
+    from envocad.generate import build_project
+    from envocad.model.checks import check_project
+    spec = {"inverters": [{"ref": "T1", **_INV2, "component_id": "huawei-sun2000-5ktl-m1"}],
+            "battery": {"component_id": "solax-t-bat-h-5.8-v3", "modules": 2}}
+    codes = {f.code for f in check_project(build_project(spec), lib, standard_paper="A4")}
+    assert "battery_incompatible" in codes
+    spec["battery"] = {"component_id": "huawei-luna2000-5-e0", "modules": 2, "bms_id": "huawei-luna2000-5kw-c0"}
+    codes = {f.code for f in check_project(build_project(spec), lib, standard_paper="A4")}
+    assert "battery_incompatible" not in codes

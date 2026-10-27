@@ -8,7 +8,6 @@ dependencies = [
     "ezdxf>=1.1",
     "openpyxl>=3.1",
     "python-docx>=1.1",
-    "segno>=1.6",
     "pypdf>=5.0",   # připomínky jako anotace PDF (QPdfWriter anotace neumí); čistý Python, BSD-3, bez závislostí
 ]
 
@@ -26,7 +25,7 @@ build-backend = "setuptools.build_meta"
 include = ["envocad*"]
 
 [tool.setuptools.package-data]
-envocad = ["library/builtin/**/*.json", "library/builtin/**/*.csv", "library/builtin/doc_templates/*.md", "cmd/aliases.json", "resources/icons/*.svg",
+envocad = ["library/builtin/**/*.json", "library/builtin/**/*.csv", "library/builtin/doc_templates/*.md", "cmd/aliases.json", "resources/icons/*.svg", "resources/*.json",
            "resources/icons/*.txt"]
 
 [tool.ruff]

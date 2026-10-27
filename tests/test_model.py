@@ -169,7 +169,7 @@ def test_frame_geometry_and_copy_paste():
     g = frame_geometry(p, s)
     assert g.inner == (20.0, 10.0, s.width - 10.0, s.height - 10.0)
     texts = {t[2] for t in g.texts}
-    assert {"Test", "2026-001", "PR", "ENVO", "1/1", "A3"} <= texts
+    assert {"Test", "2026-001", "PR", "Projektant profese", "1/1", "A3"} <= texts   # ENVO = logo z razítka
     assert sheet_number(p, s) == "1/1"
     a = Element("fve.breaker_mcb", 50, 100, attrs={"ref": "F1", "in_": "16"})
     b = Element("fve.load", 100, 100, attrs={"ref": "M1"})
@@ -449,3 +449,41 @@ def test_ui_reexports_sheets_state():
     from envocad.ui import commands
     assert commands.sheets_state is project.sheets_state
     assert commands.restore_sheets_state is project.restore_sheets_state
+
+
+def test_junction_wires_leave_from_dot():
+    """Uzel odbočky: porty ve středu tečky – vodiče i odbočka vycházejí přímo z tečky; odbočka z portu ke svému
+    cíli nevede obloukem zpět přes tečku."""
+    from envocad.library.store import LibraryStore
+    from envocad.model.potential import junction_free_port, split_wire
+    from envocad.model.routing import route_sheet
+    lib = LibraryStore()
+    p = Project()
+    s = Sheet(name="JPS")
+    p.sheets[:] = [s]
+    a = Element("fve.breaker_mcb", 0, 0, attrs={"ref": "F1"})
+    b = Element("fve.breaker_mcb", 100, 0, attrs={"ref": "F2"})
+    c = Element("fve.breaker_mcb", 60, -40, rotation=90, attrs={"ref": "F3"})
+    s.elements += [a, b, c]
+    w = Wire(WireEnd(a.id, "2"), WireEnd(b.id, "1"))
+    j, w1, w2 = split_wire(s, w, 50, 0)
+    s.elements.append(j)
+    s.wires += [w1, w2]
+    port = junction_free_port(s, j, (60, -32.5))
+    assert port == "S"
+    w3 = Wire(WireEnd(j.id, port), WireEnd(c.id, "2"))
+    s.wires.append(w3)
+    routes = route_sheet(p, s, lib)
+    assert routes[w1.id][-1] == (50, 0) and routes[w2.id][0] == (50, 0)
+    branch = routes[w3.id]
+    assert branch[0] == (50, 0) and all(y <= 0 for _x, y in branch)    # z tečky rovnou dolů, ne nahoru a zpět
+
+
+def test_switchboard_wire_attributes_without_cross():
+    """Vnitřní vodič rozvaděče: v GUI bez označení, kabelu a průřezu (jen výroba); v blokovém schématu kabel i průřez."""
+    from envocad.model.project import wire_attributes
+    keys_sb = {a.key for a in wire_attributes(Sheet(name="R", kind="switchboard"))}
+    keys_jps = {a.key for a in wire_attributes(Sheet(name="JPS"))}
+    assert not keys_sb & {"ref", "cable", "cross", "length", "method"}
+    assert keys_sb == {"color", "end_a", "end_b", "prod"}
+    assert {"ref", "cable", "cross", "length"} <= keys_jps

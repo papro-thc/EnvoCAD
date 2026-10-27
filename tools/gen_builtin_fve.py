@@ -451,7 +451,8 @@ SYMBOLS = [
         "id": "fve.terminal", "name": "Uzel / svorka", "category": "Svorky a propojení", "iec_ref": "X",
         "description": "Spojovací uzel – větvení vodičů",
         "primitives": [C(0, 0, 1)],
-        "ports": [P("N", 0, 2.5, "N"), P("E", 2.5, 0, "E"), P("S", 0, -2.5, "S"), P("W", -2.5, 0, "W")],
+        # porty ve středu tečky (směr = strana, kam vodič odchází) – vodiče vycházejí přímo z tečky
+        "ports": [P("N", 0, 0, "N"), P("E", 0, 0, "E"), P("S", 0, 0, "S"), P("W", 0, 0, "W")],
         "attributes": [REF],
         "label_pos": {"x": 2, "y": 2},
     },
@@ -581,7 +582,8 @@ SYMBOLS = [
         "id": "sb.junction", "name": "Odbočka (uzel)", "category": "Svorky a propojení", "iec_ref": "",
         "description": "T-odbočka: uzel na vodiči, všechny porty mají stejný potenciál (vodič z vodiče)",
         "primitives": [{"type": "circle", "cx": 0, "cy": 0, "r": 0.8, "filled": True}],
-        "ports": [P("N", 0, 2.5, "N"), P("E", 2.5, 0, "E"), P("S", 0, -2.5, "S"), P("W", -2.5, 0, "W")],
+        # porty ve středu tečky (směr = strana, kam vodič odchází) – vodiče vycházejí přímo z tečky
+        "ports": [P("N", 0, 0, "N"), P("E", 0, 0, "E"), P("S", 0, 0, "S"), P("W", 0, 0, "W")],
         "attributes": [attr("ref", "Označení", "", False)],
         "label_pos": {"x": 2, "y": 2},
     },

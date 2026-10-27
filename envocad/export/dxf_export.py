@@ -99,7 +99,8 @@ def _text(msp, x, y, text, height, align, rot, layer="SYMBOLY"):
 
 def _draw_geometry(msp, g, layer: str, dx: float = 0.0) -> None:
     """Geometrie z modelu (rámeček `FrameGeometry`, revize `RevisionGeometry`, zrcadlo `MirrorGeometry`) do vrstvy:
-    `lines` → LINE, `texts` → TEXT, `rects` → SOLID (QR kód), `polylines` → uzavřená LWPOLYLINE. `dx` = posun
+    `lines` → LINE, `texts` → TEXT, `rects` → SOLID, `polys` → HATCH v barvě (logo), `polylines` →
+    uzavřená LWPOLYLINE. `dx` = posun
     v ose X (strana vícepólu vedle ostatních v modelspace)."""
     if g is None:
         return
@@ -111,6 +112,10 @@ def _draw_geometry(msp, g, layer: str, dx: float = 0.0) -> None:
     for x, y, w, h in getattr(g, "rects", ()):
         x += dx
         msp.add_solid([(x, y), (x + w, y), (x, y + h), (x + w, y + h)], dxfattribs=a)
+    for pts, fill in getattr(g, "polys", ()):          # logo v popisovém poli: šrafa plnou barvou (true color)
+        hatch = msp.add_hatch(dxfattribs=a)
+        hatch.rgb = tuple(int(fill.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4))
+        hatch.paths.add_polyline_path([(x + dx, y) for x, y in pts], is_closed=True)
     for x, y, text, h, align in getattr(g, "texts", ()):
         if text:
             _text(msp, x + dx, y, text, h, align, 0, layer=layer)
@@ -221,13 +226,14 @@ def _draw_prim(msp, p, dx: float = 0.0) -> None:
 
 def _draw_mp_page(msp, project: Project, sheet: Sheet, g, k: int, dx: float) -> None:
     """Strana k vícepólu do modelspace posunutá o `dx`: rámeček (jinak obrys strany) a primitiva strany."""
-    from envocad.model.frame import frame_geometry, page_label
+    from envocad.model.frame import doc_page, frame_geometry, page_label
     from envocad.model.multipole_geometry import page_prims
     from envocad.settings import company, frame_enabled
     w, h = g.page_size
     if frame_enabled():
         _draw_geometry(msp, frame_geometry(project, sheet, w, h, "vícepólové schéma",
-                                           page_label(project, sheet, k, g.pages), g.paper, company()), "RAMECEK", dx)
+                                           page_label(project, sheet, k, g.pages), g.paper, company(),
+                                           doc_page(project, sheet.id, "multipole", k)), "RAMECEK", dx)
     else:      # obrys strany, aby byly strany vedle sebe rozlišitelné i bez rámečku
         msp.add_lwpolyline([(dx, 0), (dx + w, 0), (dx + w, h), (dx, h)], close=True, dxfattribs={"layer": "RAMECEK"})
     for p in page_prims(g, k):
@@ -244,7 +250,7 @@ def _page_layout(doc, name: str, w: float, h: float, cx: float) -> None:
 def export_single_line_dxf(project: Project, lib: LibraryStore, path: Path | str) -> Path:
     """DXF jednopólového schématu (`single_line.single_line_geometry`): strana v počátku modelspace, rámeček
     s popisovým polem a paperspace layout 1 : 1. Vrací cestu zapsaného souboru."""
-    from envocad.model.frame import frame_geometry
+    from envocad.model.frame import doc_page, frame_geometry
     from envocad.model.project import without_dangling
     from envocad.model.single_line import TITLE, page_label, single_line_geometry
     from envocad.settings import company, frame_enabled
@@ -259,8 +265,8 @@ def export_single_line_dxf(project: Project, lib: LibraryStore, path: Path | str
     msp = doc.modelspace()
     sheet = Sheet(name=TITLE, paper=g.paper, width=w, height=h)
     if frame_enabled():
-        _draw_geometry(msp, frame_geometry(project, sheet, w, h, "", page_label(project), g.paper, company()),
-                       "RAMECEK")
+        _draw_geometry(msp, frame_geometry(project, sheet, w, h, "", page_label(project), g.paper, company(),
+                                           doc_page(project, "", "single_line")), "RAMECEK")
     else:
         msp.add_lwpolyline([(0, 0), (w, 0), (w, h), (0, h)], close=True, dxfattribs={"layer": "RAMECEK"})
     for p in g.prims:

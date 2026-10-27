@@ -368,7 +368,9 @@ def test_title_block_text_fits_cell(proj):
     s.name = "Velmi dlouhý název listu rozvaděče, který by přetekl do sousední buňky"
     g = frame_geometry(proj, s, view="vícepólové schéma")
     lst = next(x for x in g.texts if x[2].startswith("Velmi"))
-    assert lst[2].endswith("…") and lst[0] + TEXT_CHAR_W * lst[3] * len(lst[2]) <= lst[0] + (TB_W - 34) / 2 - 2 + 1e-6
+    from envocad.model.frame import STAMP_LOGO_W, STAMP_RIGHT_W
+    cell = TB_W - STAMP_LOGO_W - STAMP_RIGHT_W - 2          # název výkresu: celá šířka prostředku razítka
+    assert lst[2].endswith("…") and TEXT_CHAR_W * lst[3] * len(lst[2]) <= cell + 1e-6
 
 
 def test_multipole_drawing_clear_of_title_block_and_qr(lib, proj):

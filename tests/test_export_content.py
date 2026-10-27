@@ -59,7 +59,8 @@ def _check_dxf(p, s, lib, path):
 def test_dxf_schematic_content(proj, lib, tmp_path):
     s = proj.sheets[0]
     doc = _check_dxf(proj, s, lib, tmp_path / "jps.dxf")
-    assert not doc.modelspace().query('*[layer=="RAMECEK"]')   # rámeček je ve výchozím nastavení vypnutý
+    msp = doc.modelspace()                                     # rámeček s razítkem je ve výchozím nastavení zapnutý
+    assert msp.query('*[layer=="RAMECEK"]') and msp.query('HATCH[layer=="RAMECEK"]')   # vč. loga ENVO
 
 
 def test_dxf_switchboard_header(proj, lib, tmp_path):
@@ -71,8 +72,7 @@ def test_dxf_switchboard_header(proj, lib, tmp_path):
         assert k in texts and v in texts
 
 
-def test_dxf_with_frame_and_qr(proj, lib, tmp_path):
-    pytest.importorskip("segno")
+def test_dxf_with_frame_and_stamp(proj, lib, tmp_path):
     from envocad.model.frame import frame_geometry
     from envocad.settings import load_settings, save_settings
     save_settings({**load_settings(), "frame": True})
@@ -82,7 +82,7 @@ def test_dxf_with_frame_and_qr(proj, lib, tmp_path):
     g = frame_geometry(proj, s)
     frame_lines = [e for e in msp.query("LINE") if e.dxf.layer == "RAMECEK"]
     assert len(frame_lines) == len(g.lines)
-    assert len(msp.query("SOLID")) == len(g.rects) > 0            # QR kód
+    assert not msp.query("SOLID") and len(msp.query("HATCH")) == len(g.polys) > 0   # bez QR, logo ENVO šrafami
     frame_texts = _texts(doc, "RAMECEK")
     assert proj.name in frame_texts or any(proj.name in t for t in frame_texts)
     assert {"A", "B", "1", "2"} <= set(frame_texts)                 # souřadnicová síť
