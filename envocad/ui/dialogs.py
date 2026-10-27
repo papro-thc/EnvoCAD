@@ -559,12 +559,16 @@ class ProjectWizard(QDialog):
         self.place = QLineEdit()
         self.order = QLineEdit()
         self.author = QLineEdit(str(std.get("author", "")))
+        # zodpovědný projektant do razítka (`meta["responsible"]`); výchozí z firemního standardu
+        self.responsible = QLineEdit(str(std.get("responsible", "")
+                                         or (std.get("project_meta") or {}).get("responsible", "")))
         self.dso = QLineEdit("")
         form.addRow("Název projektu", self.name)
         form.addRow("Investor", self.investor)
         form.addRow("Místo", self.place)
         form.addRow("Číslo zakázky", self.order)
         form.addRow("Zpracoval", self.author)
+        form.addRow("Zodpovědný projektant", self.responsible)
         form.addRow("Distributor (DSO)", self.dso)
 
         # ---- 2. Objekt a připojení ----
@@ -1507,7 +1511,8 @@ class ProjectWizard(QDialog):
 
         meta = [("Název", self.name.text().strip()), ("Investor", self.investor.text().strip()),
                 ("Místo", self.place.text().strip()), ("Zakázka", self.order.text().strip()),
-                ("Zpracoval", self.author.text().strip()), ("Distributor", self.dso.text().strip())]
+                ("Zpracoval", self.author.text().strip()),
+                ("Zodpovědný projektant", self.responsible.text().strip()), ("Distributor", self.dso.text().strip())]
         conn = [("Druh objektu", self.building.currentText()), ("Připojení", self.conn_level.currentText())]
         if self.conn_level.currentData() == "vn":
             conn += [("Trafostanice", self.conn_station.currentText()), ("Měření", self.conn_metering.currentText()),
@@ -1618,7 +1623,8 @@ class ProjectWizard(QDialog):
         spec = {
             "name": self.name.text().strip() or "Nový projekt FVE",
             "meta": {"investor": self.investor.text().strip(), "place": self.place.text().strip(),
-                     "order": self.order.text().strip(), "author": self.author.text().strip()},
+                     "order": self.order.text().strip(), "author": self.author.text().strip(),
+                     **({"responsible": self.responsible.text().strip()} if self.responsible.text().strip() else {})},
             "building": self.building.currentData(),
             "module": module,
             "site": site,

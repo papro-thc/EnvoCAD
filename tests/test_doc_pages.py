@@ -60,3 +60,19 @@ def test_documentation_page_numbers_match_pdf_plan(app, tmp_path):
     out: list[str] = []
     n = export_documentation_pdf(p, lib, tmp_path / "doc.pdf", page_numbers=out)
     assert n == data["total"] and json.loads(out[0]) == data
+
+
+def test_coordinate_grid_grows_with_sheet():
+    """Souřadnicová síť rámečku: A3 a menší 8 × 6, větší list víc polí stejné velikosti (bez I a O)."""
+    from envocad.model.frame import grid_col_label, grid_coord, grid_dims
+    from envocad.model.project import Sheet
+    assert grid_dims(420, 297) == (8, 6) and grid_dims(297, 210) == (8, 6)
+    assert grid_dims(594, 420) == (12, 9) and grid_dims(1189, 841) == (24, 18)
+    assert [grid_col_label(i) for i in (7, 8, 12, 13, 23, 24)] == ["H", "J", "N", "P", "Z", "AA"]
+    a0 = Sheet(name="A0", paper="A0", width=1189, height=841)
+    assert grid_coord(a0, 1170, 20) == "Z18" and grid_coord(a0, 25, 820) == "A1"
+    p = _project()
+    s = p.sheets[0]
+    s.paper, s.width, s.height = "A1", 841.0, 594.0
+    texts = {t[2] for t in frame_geometry(p, s).texts}
+    assert {"S", "12"} <= texts and "I" not in texts and "O" not in texts

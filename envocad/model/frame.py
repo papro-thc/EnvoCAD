@@ -41,8 +41,25 @@ def fit_text(text: str, width: float, height: float, min_height: float = MIN_TEX
     return text[:n].rstrip() + "…", h
 
 
-COLS = "ABCDEFGH"   # sloupce souřadnicové sítě (zleva doprava)
-ROWS = 6            # řádky 1…6 (shora dolů)
+COLS = "ABCDEFGH"   # sloupce souřadnicové sítě A3 (zleva doprava)
+ROWS = 6            # řádky 1…6 A3 (shora dolů)
+# Velikost pole sítě podle A3 (vnitřní rámeček 390 × 277 mm / 8 × 6). Větší list má víc polí stejné velikosti
+# (A2 12 × 8, A1 17 × 12…), menší list (A4) nejméně 8 × 6. Sloupce bez I a O (ISO 5457), za Z dvojpísmena AA, AB…
+GRID_CELL_W = (420.0 - MARGIN_LEFT - MARGIN) / len(COLS)
+GRID_CELL_H = (297.0 - 2 * MARGIN) / ROWS
+_COL_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+
+
+def grid_dims(width: float, height: float) -> tuple[int, int]:
+    """Počet sloupců a řádků souřadnicové sítě listu (šířka × výška v mm): nejméně 8 × 6, víc na větším listu."""
+    iw, ih = width - MARGIN_LEFT - MARGIN, height - 2 * MARGIN
+    return max(len(COLS), round(iw / GRID_CELL_W)), max(ROWS, round(ih / GRID_CELL_H))
+
+
+def grid_col_label(i: int) -> str:
+    """Popis sloupce sítě od 0: A…H, J…N, P…Z, pak AA, AB…"""
+    n = len(_COL_LETTERS)
+    return _COL_LETTERS[i] if i < n else grid_col_label(i // n - 1) + _COL_LETTERS[i % n]
 
 
 @dataclass
@@ -55,15 +72,17 @@ class FrameGeometry:
 
 
 def grid_coord(sheet: Sheet, x: float, y: float, width: float | None = None, height: float | None = None) -> str:
-    """Souřadnice v síti listu („B4“) pro bod (x, y) v mm – sloupce A–H zleva, řádky 1–6 shora."""
+    """Souřadnice v síti listu („B4“) pro bod (x, y) v mm – sloupce zleva (A…), řádky shora (1…), počet polí podle
+    rozměru listu (`grid_dims`)."""
     w = width or sheet.width
     h = height or sheet.height
     x0, y0, x1, y1 = MARGIN_LEFT, MARGIN, w - MARGIN, h - MARGIN
-    ci = int((x - x0) / (x1 - x0) * len(COLS)) if x1 > x0 else 0
-    ri = int((y1 - y) / (y1 - y0) * ROWS) if y1 > y0 else 0
-    ci = min(max(ci, 0), len(COLS) - 1)
-    ri = min(max(ri, 0), ROWS - 1)
-    return f"{COLS[ci]}{ri + 1}"
+    nc, nr = grid_dims(w, h)
+    ci = int((x - x0) / (x1 - x0) * nc) if x1 > x0 else 0
+    ri = int((y1 - y) / (y1 - y0) * nr) if y1 > y0 else 0
+    ci = min(max(ci, 0), nc - 1)
+    ri = min(max(ri, 0), nr - 1)
+    return f"{grid_col_label(ci)}{ri + 1}"
 
 
 def position_ref(project: Project, sheet: Sheet, x: float, y: float) -> str:
@@ -242,15 +261,18 @@ def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, h
     x0, y0, x1, y1 = MARGIN_LEFT, MARGIN, w - MARGIN, h - MARGIN
     g.inner = (x0, y0, x1, y1)
     g.lines += [(x0, y0, x1, y0), (x1, y0, x1, y1), (x1, y1, x0, y1), (x0, y1, x0, y0)]
-    # souřadnicová síť v okraji: sloupce A–H nahoře i dole, řádky 1–6 vlevo i vpravo
-    cw = (x1 - x0) / len(COLS)
-    for i, c in enumerate(COLS):
+    # souřadnicová síť v okraji: sloupce A… nahoře i dole, řádky 1… vlevo i vpravo; na větším listu víc polí
+    # stejné velikosti jako na A3 (`grid_dims`)
+    nc, nr = grid_dims(w, h)
+    cw = (x1 - x0) / nc
+    for i in range(nc):
+        c = grid_col_label(i)
         cx = x0 + i * cw
         if i:
             g.lines += [(cx, y1, cx, y1 + 3), (cx, y0, cx, y0 - 3)]
         g.texts += [(cx + cw / 2, y1 + 1.5, c, 2.5, "center"), (cx + cw / 2, y0 - 4.0, c, 2.5, "center")]
-    rh = (y1 - y0) / ROWS
-    for r in range(ROWS):
+    rh = (y1 - y0) / nr
+    for r in range(nr):
         ry = y1 - r * rh
         if r:
             g.lines += [(x0 - 3, ry, x0, ry), (x1, ry, x1 + 3, ry)]

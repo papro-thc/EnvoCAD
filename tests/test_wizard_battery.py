@@ -135,3 +135,14 @@ def test_battery_every_inverter_option(app):
     assert d.spec()["battery"]["inverters"] == "all"
     d.building.setCurrentIndex(d.building.findData("house"))          # rodinný dům: jen jeden (EPS)
     assert not d.bat_every.isEnabled() and "inverters" not in d.spec()["battery"]
+
+
+def test_wizard_responsible_designer(app):
+    """Průvodce: zodpovědný projektant do `meta["responsible"]` (razítko)."""
+    d, _lib = _wizard()
+    assert "responsible" not in d.spec()["meta"]
+    d.responsible.setText("Ing. Jan Novák")
+    assert d.spec()["meta"]["responsible"] == "Ing. Jan Novák"
+    d.strings.setText("16,16")
+    p = build_project(d.spec())
+    assert p.meta["responsible"] == "Ing. Jan Novák"

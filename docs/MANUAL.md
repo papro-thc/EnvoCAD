@@ -947,7 +947,9 @@ Výchozí hodnoty (kabely, zpracoval) bere průvodce z **firemního standardu** 
 Rámeček listu má popisové pole – **razítko ENVO** (podle `Razítko fixed.dwg`, zhuštěné na 180 × 32 mm): vlevo logo
 ENVO s adresou („Projektant profese“), uprostřed stavba (název projektu), investor, místo, vypracoval, zodpovědný
 projektant a název výkresu (list), vpravo stupeň, zakázkové a archivní číslo, datum,
-formát, měřítko, revize a číslo výkresu. Dále souřadnicová síť A–H × 1–6 (QR kód v rámečku není).
+formát, měřítko, revize a číslo výkresu. Dále souřadnicová síť v okraji: na A3 a menších A–H × 1–6, na větším
+listu víc polí stejné velikosti (A2 12 × 9, A1 17 × 12, A0 24 × 18, vlastní formát obdobně; sloupce bez I a O,
+za Z dvojpísmena AA…) – křížové odkazy „/3.K7“ se řídí stejnou sítí. QR kód v rámečku není.
 Zodpovědný projektant, stupeň, archivní číslo a měřítko se zadávají v Soubor → Vlastnosti
 projektu; u jiné firmy než ENVO (`standard.company`) je místo loga název firmy. Údaje se zadávají v
 Soubor → Vlastnosti projektu, název firmy v popisovém poli v nastavení (`standard.company`) – stejný název je na

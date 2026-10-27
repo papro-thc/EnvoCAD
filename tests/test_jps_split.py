@@ -177,12 +177,12 @@ def test_interrupt_xrefs_and_feed_link(big):
     for i in interrupts(ac):
         inv_sheet = next(s for s in js[1:] if any(e.ref == i.ref for e in interrupts(s)))
         no = big.sheets.index(inv_sheet) + 1
-        assert re.fullmatch(rf"→ /{no}\.[A-H]\d", interrupt_xref(big, ac, i)), i.ref
+        assert re.fullmatch(rf"→ /{no}\.[A-HJ-NP-Z]+\d+", interrupt_xref(big, ac, i)), i.ref
         partner = next(e for e in interrupts(inv_sheet) if e.ref == i.ref)
-        assert re.fullmatch(r"→ /1\.[A-H]\d", interrupt_xref(big, inv_sheet, partner))
+        assert re.fullmatch(r"→ /1\.[A-HJ-NP-Z]+\d+", interrupt_xref(big, inv_sheet, partner))
     sb = next(s for s in big.sheets if s.is_switchboard and s.loc == "RFVE.AC")
     x1 = next(e for e in sb.elements if is_feed_in(e) and e.ref == "X1")
-    assert re.fullmatch(r"W13 T1:AC /2\.[A-H]\d", x1.attrs["from"]) and x1.attrs["cable"] == "CYKY-J 5x16 16"
+    assert re.fullmatch(r"W13 T1:AC /2\.[A-HJ-NP-Z]+\d+", x1.attrs["from"]) and x1.attrs["cable"] == "CYKY-J 5x16 16"
 
 
 def test_potential_joins_inverter_with_switchboard_block(big, lib):
