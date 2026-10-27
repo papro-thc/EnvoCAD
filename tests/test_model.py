@@ -477,3 +477,13 @@ def test_junction_wires_leave_from_dot():
     assert routes[w1.id][-1] == (50, 0) and routes[w2.id][0] == (50, 0)
     branch = routes[w3.id]
     assert branch[0] == (50, 0) and all(y <= 0 for _x, y in branch)    # z tečky rovnou dolů, ne nahoru a zpět
+
+
+def test_switchboard_wire_attributes_without_cross():
+    """Vnitřní vodič rozvaděče: v GUI bez označení, kabelu a průřezu (jen výroba); v blokovém schématu kabel i průřez."""
+    from envocad.model.project import wire_attributes
+    keys_sb = {a.key for a in wire_attributes(Sheet(name="R", kind="switchboard"))}
+    keys_jps = {a.key for a in wire_attributes(Sheet(name="JPS"))}
+    assert not keys_sb & {"ref", "cable", "cross", "length", "method"}
+    assert keys_sb == {"color", "end_a", "end_b", "prod"}
+    assert {"ref", "cable", "cross", "length"} <= keys_jps

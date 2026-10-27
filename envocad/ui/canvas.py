@@ -20,8 +20,6 @@ from PySide6.QtWidgets import (
 from envocad.library.store import LibraryStore
 from envocad.model.multipole import branch_conductors, default_conductors
 from envocad.model.project import (
-    SWITCHBOARD_WIRE_ATTRIBUTES,
-    WIRE_ATTRIBUTES,
     Element,
     Project,
     Sheet,
@@ -30,6 +28,7 @@ from envocad.model.project import (
     element_symbol,
     feed_link_attrs,
     internal_wires,
+    wire_attributes,
 )
 from envocad.model.symbol import GRID
 from envocad.ui import commands
@@ -578,7 +577,7 @@ class SchematicScene(QGraphicsScene):
                                 w.conductors = branch_conductors(list(src.conductors), other)  # model-write-ok: nový vodič
                             break
                     # model-write-ok: nový vodič (ještě není v listu), vloží ho AddWireCommand
-                    w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}
+                    w.attrs = {at.key: at.default for at in wire_attributes(self.sheet)}
                     # model-write-ok: nový vodič, viz výše; vnitřní vodič rozvaděče bez označení W
                     w.attrs["ref"] = "" if internal_wires(self.sheet) else self.project.next_ref("W")
                     if self.ask_attributes:
@@ -666,7 +665,8 @@ class SchematicScene(QGraphicsScene):
         self.undo.push(commands.AddElementCommand(self, e))
 
     def _wire_dialog_extra(self, w: Wire) -> dict:
-        """Na listu rozvaděče navíc výrobní atributy vodiče (barva, koncovky, do výrobního seznamu) a jejich placeholdery."""
+        """Na listu rozvaděče jen výrobní atributy vodiče (barva, koncovky, do výrobního seznamu – bez kabelu a průřezu,
+        `wire_attributes`) a jejich placeholdery."""
         if not self.sheet.is_switchboard:
             return {}
         from dataclasses import replace
@@ -674,8 +674,7 @@ class SchematicScene(QGraphicsScene):
         from envocad.model.wiring import wire_end_labels
         from envocad.ui.dialogs import wire_auto_hints
         labels = wire_end_labels(self.sheet, w)   # „Koncovka A (F2:2)“ – u popisku konec vodiče
-        return {"attributes": WIRE_ATTRIBUTES + [replace(a, label=labels.get(a.key, a.label))
-                                                 for a in SWITCHBOARD_WIRE_ATTRIBUTES],
+        return {"attributes": [replace(a, label=labels.get(a.key, a.label)) for a in wire_attributes(self.sheet)],
                 "hints": wire_auto_hints(self.project, self.sheet, w)}
 
     def _finish_wire(self, w: Wire, heading: str) -> None:

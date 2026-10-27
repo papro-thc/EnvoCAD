@@ -58,6 +58,15 @@ SWITCHBOARD_WIRE_ATTRIBUTES = [
     Attribute("prod", "Do výrobního seznamu (0 = ne)"),
 ]
 
+
+
+def wire_attributes(sheet: Sheet | None) -> list[Attribute]:
+    """Atributy vodiče k zadání v GUI: v listu rozvaděče jen výrobní (barva, koncovky, výrobní seznam) – vnitřní
+    propojení nemá označení, kabel ani průřez (průřez dopočte výrobní seznam podle jištění, `model/wiring.py`);
+    kabel s průřezem se zadává jen u propojení mezi rozvaděči, technologií a panely (blokové schéma)."""
+    return list(SWITCHBOARD_WIRE_ATTRIBUTES) if sheet is not None and sheet.is_switchboard else list(WIRE_ATTRIBUTES)
+
+
 FORMAT_VERSION = 17
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
