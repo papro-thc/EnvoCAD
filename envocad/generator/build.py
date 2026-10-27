@@ -95,6 +95,11 @@ def _build_once(spec: dict) -> tuple[Project, str | None]:
     invs = spec.get("inverters") or []
     if not invs:
         raise ValueError("Specifikace musí obsahovat alespoň jeden střídač (`inverters`).")
+    from envocad.library.batteries import battery_targets
+    if building == "house" and len(battery_targets(spec)) > 1:
+        # rodinný dům: k baterii patří EPS (chránič, přepínač sítí, návrat do RD) – zatím jen u jednoho střídače
+        raise ValueError("Rodinný dům: baterie (a EPS) zatím jen u jednoho hybridního střídače – zadejte "
+                         "battery.inverters s jedním střídačem.")
     if not _s((raw.get("ac") or {}).get("breaker_in")).strip():
         # jistič přívodu střídače nezadaný: podle proudu střídače (`currents.inverter_breaker`, dosadí
         # `rfve_ac.mark_chain_devices` / blok bez listu `rfve_ac.block_attrs`)

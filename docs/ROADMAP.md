@@ -65,7 +65,8 @@
 - [ ] Výpočty: tabulky Iz ověřit proti normě, seskupení kabelů, teplota půdy; selektivita podle křivek výrobců
 - [ ] Průvodce: DC rozvaděč, baterie, více AC rozvaděčů, výběr modulu/střídače z knihovny (dnes ručně) – baterie hotovo
   10/2026: výběr z katalogu u hybridního střídače, nabídka jen kompatibilních baterií (`inv_compat` z datasheetu, jinak
-  výrobce střídače); zbývá: baterie u dalších střídačů než T1, kontrola F7 „baterie nepasuje ke střídači“, `inv_compat`
+  výrobce střídače), baterie i u dalších střídačů (`battery.inverters`, v průvodci „ke každému střídači“) a kontrola F7
+  `battery_incompatible`; zbývá: EPS u víc hybridních střídačů rodinného domu (dnes baterie jen u jednoho), `inv_compat`
   z datasheetů pro SolaX V3 / HS36, Sigenergy, Growatt ARK, Deye BOS-G (HV – k LV střídačům SG04LP3 / SG05LP1 v katalogu
   nepasuje, dnes ho průvodce nabízí podle výrobce), GoodWe LX D / LX U, SolarEdge
 

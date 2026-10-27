@@ -39,7 +39,9 @@ def plan(spec: dict, combined: bool, per_inverter: bool = True) -> PvGeometry:
     # vnitřní rámeček, popisové pole) se obsah rozmístí až na konci (`frame.fit_sheet_to_content`)
     row_h = [max(60.0, 45.0 * max(len(inv.get("strings") or [1]), 1) + 15.0) for inv in invs]   # 45 mm na string (popisek nad ním)
     # hybridní střídač: baterie pod ním, v řadě se pro ni přidá místo (kabel jde krátce dolů, přes nic jiného)
-    row_extra = [BATTERY_ROW_EXTRA if spec.get("battery") and i == 0 else 0.0 for i in range(len(invs))]
+    from envocad.library.batteries import battery_targets
+    bats = set(battery_targets(spec))
+    row_extra = [BATTERY_ROW_EXTRA if i in bats else 0.0 for i in range(len(invs))]
     total_h = sum(row_h) + sum(row_extra)
     y_top = 150.0 + total_h / 2
     n_route = max(0, int(dc.get("route_boxes") or 0))
@@ -168,7 +170,7 @@ def ac_cable_of(t: Element, ac: dict) -> tuple[list[str], str, str]:
 
 def build(ctx: ChainContext) -> None:
     """Střídače, stringy, DC rozvaděče a vodiče až po přívody X1…Xn hlavního AC článku (`ctx.main`, vznikl dřív –
-    `chain.create_main_block`), baterie pod prvním (hybridním) střídačem. Výsledek v `ctx` (inverters, strings, rows,
+    `chain.create_main_block`), baterie pod hybridními střídači (`battery.inverters`, výchozí první). Výsledek v `ctx` (inverters, strings, rows,
     ac_wires, dc_boxes, kwp)."""
     spec, p, s, geo, combined = ctx.spec, ctx.project, ctx.sheet, ctx.geo, ctx.combined
     blk = ctx.main
@@ -176,6 +178,8 @@ def build(ctx: ChainContext) -> None:
     mod, dc, ac = spec["module"], spec["dc"], spec["ac"]
     opt = spec.get("optimizer") or {}
     opt_per = float(opt.get("per_module") or 1) if opt.get("type") else 0.0
+    from envocad.library.batteries import battery_targets
+    bat_idx = battery_targets(spec)      # střídače s baterií (hybridní značka, baterie pod nimi)
     opt_comp = ctx.opt_comp
     row_h, row_extra = geo.row_h, geo.row_extra
     n_route, n_boxes, x_boxes, dc_first, n_all = geo.n_route, geo.n_boxes, geo.x_boxes, geo.dc_first, geo.n_all
@@ -198,7 +202,7 @@ def build(ctx: ChainContext) -> None:
         strings = inv.get("strings") or [1]
         y_mid = y - row_h[i] / 2
         ref_t = inv.get("ref") or f"T{i + 1}"
-        t = Element("fve.inverter_hybrid" if spec.get("battery") and i == 0 else "fve.inverter", x_inv, y_mid, attrs={
+        t = Element("fve.inverter_hybrid" if i in bat_idx else "fve.inverter", x_inv, y_mid, attrs={
             "ref": ref_t, "type": _s(inv.get("type")), "p_ac": _s(inv.get("p_ac")), "phases": _s(inv.get("phases", 3)),
             "mppt": _s(inv.get("mppt")), "strings_per_mppt": _s(inv.get("strings_per_mppt")),
             "u_dc_max": _s(inv.get("u_dc_max")), "u_mppt_min": _s(inv.get("u_mppt_min")),
@@ -337,20 +341,20 @@ def build(ctx: ChainContext) -> None:
         y -= row_h[i] + row_extra[i]
     if ctx.dc_common is not None:   # list společného RFVE.DC za listy rozvaděčů po trase
         dc_boxes.append((ctx.dc_common, common_gens, "tech", 0, ""))
-    if spec.get("battery"):
-        b = spec["battery"]
-        t0 = inverter_elements[0]
+    b = spec.get("battery") or {}
+    for k_bat, i_bat in enumerate(bat_idx):
+        t0 = inverter_elements[i_bat]
         # baterie přímo pod svým (hybridním) střídačem: port BAT dole (pod pásem svorek, je-li) → port DC baterie
         # nahoře, svisle 15 mm
         bat_y = element_symbol(p, t0, context._lib()).port("BAT").y
         bat = Element("fve.battery", t0.x, t0.y + bat_y - 25.0, attrs={
-            "ref": "G" + str(len([e for e in s.elements if e.symbol_id == "fve.pv_string"]) + 1),
+            "ref": "G" + str(len([e for e in s.elements if e.symbol_id == "fve.pv_string"]) + 1 + k_bat),
             "type": _s(b.get("type")), "e_kwh": _s(b.get("e_kwh")), "p_kw": _s(b.get("p_kw")),
             # katalogová baterie (`spec.battery.component_id`): výrobce, počet modulů věže, slave a BMS pro výkaz
             **{k: _s(b.get(k)) for k in ("manufacturer", "n_modules", "slave_type", "bms") if b.get(k)}},
             component_id=b.get("component_id") or None)
         s.elements.append(bat)
-        rows[0].append(bat)
+        rows[i_bat].append(bat)
         bc = {k: b.get(k) if b.get(k) not in (None, "") else v for k, v in BATTERY_CABLE.items()}
         s.wires.append(Wire(WireEnd(t0.id, "BAT"), WireEnd(bat.id, "DC"), conductors=list(DC_CONDUCTORS),
                             attrs={"ref": p.next_ref("W"), "cable": _s(bc["cable"]), "cross": _s(bc["cross"]),

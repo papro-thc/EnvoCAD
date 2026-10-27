@@ -78,6 +78,7 @@ def eps_in(t: Element) -> str:
 
 EPS_Q_Y = 125.0               # přepínač sítí (porty 1, 2 nahoře v y 132,5, výstup 3 dole)
 EPS_BREAKER_Y = 150.0          # jistič před přepínačem (síťová strana, port 1) nad přepínačem
+EPS_PITCH = 45.0               # další přepínač sítí (2. hybridní střídač) – přívod XE a vývod XB mají místo na popisky
 EPS_RCD_Y = 122.5              # chránič zálohy nad přívodem XE{i} (porty 115 / 130, vodič dál nahoru do EPS_TOP_Y)
 
 
@@ -100,7 +101,7 @@ def build_sheet_part(ctx, sb: Sheet, entry="", builtin: bool = True) -> list[Ele
         return out
     x_max = max((e.x for e in sb.elements), default=0.0)
     for j, (i, t) in enumerate(invs):
-        x = x_max + 30.0 * (j + 1)
+        x = x_max + 30.0 + EPS_PITCH * j
         if m is not None:
             from envocad.generator import context
             lib = context._lib()

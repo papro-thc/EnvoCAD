@@ -240,6 +240,7 @@ def check_project(project: Project, lib, *, standard_paper: str) -> list[Finding
     out += cable_findings(full)
     out += calc_findings(project, lib)
     out += rating_findings(project, lib)
+    out += battery_findings(project, lib)
     out += thermal_findings(project, lib)
     out += potential_findings(project, lib)
     out += text_findings(project, lib, standard_paper=standard_paper)
@@ -674,6 +675,32 @@ def chain_findings(project: Project, lib) -> list[Finding]:
     out += _grid_protection_findings(project)
     out += _eps_findings(project)
     out += tigo_findings(project)
+    return out
+
+
+def battery_findings(project: Project, lib) -> list[Finding]:
+    """Katalogová baterie na svorce BAT střídače z katalogu, která k němu podle datasheetu baterie nepasuje
+    (`library.batteries.compatible`: vzory `inv_compat`, bez nich stejný výrobce) – varování `battery_incompatible`."""
+    from envocad.library.batteries import compatible
+    out: list[Finding] = []
+    comp = getattr(lib, "component", None)
+    if comp is None:
+        return out
+    for s in project.sheets:
+        by_id = {e.id: e for e in s.elements}
+        for w in s.wires:
+            for bat_end, inv_end in ((w.a, w.b), (w.b, w.a)):
+                bat, inv = by_id.get(bat_end.element_id), by_id.get(inv_end.element_id)
+                if bat is None or inv is None or bat.symbol_id != "fve.battery" or inv_end.port != "BAT":
+                    continue
+                cb = comp(bat.component_id) if bat.component_id else None
+                ci = comp(inv.component_id) if inv.component_id else None
+                if cb is None or ci is None or cb.category != "battery" or not ci.category.startswith("inverter"):
+                    continue
+                if not compatible(cb, ci):
+                    out.append(Finding(WARNING, s.id, s.name, bat.id, False, bat.ref,
+                                       f"Baterie {cb.part_number} nepasuje ke střídači {inv.ref} ({ci.part_number}) "
+                                       "podle datasheetu baterie – ověřte kompatibilitu", "battery_incompatible"))
     return out
 
 

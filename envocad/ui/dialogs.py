@@ -668,7 +668,11 @@ class ProjectWizard(QDialog):
         self.bat_info.setWordWrap(True)
         bform.addRow("Baterie", self.bat_combo)
         bform.addRow("", self.bat_all)
+        self.bat_every = QCheckBox("ke každému střídači (jinak jen T1)")
+        self.bat_every.setToolTip("Baterie stejného typu pod každým střídačem (všechny se kreslí jako hybridní). "
+                                  "Rodinný dům: jen u jednoho střídače – k baterii patří EPS a návrat do RD.")
         bform.addRow("Počet modulů", self.bat_modules)
+        bform.addRow("", self.bat_every)
         bform.addRow(self.bat_bms_label, self.bat_bms)
         bform.addRow("", self.bat_info)
         self.grp_battery.setVisible(False)
@@ -757,6 +761,9 @@ class ProjectWizard(QDialog):
         self.conn_level.currentIndexChanged.connect(lambda _i: _conn_enabled())
         self.conn_station.currentIndexChanged.connect(lambda _i: _conn_enabled())
         self.building.currentIndexChanged.connect(lambda _i: _conn_enabled())
+        self.building.currentIndexChanged.connect(lambda _i: self.bat_every.setEnabled(
+            self.building.currentData() != "house"))
+        self.bat_every.setEnabled(self.building.currentData() != "house")
         _conn_enabled()
 
         # ---- 6. Stávající rozvaděče, 7. Souhrn ----
@@ -1079,7 +1086,9 @@ class ProjectWizard(QDialog):
         comp = self._battery_comp() if self._hybrid_selected() else None
         if comp is None:
             return None
-        return battery_spec(self.library, comp.id, self.bat_modules.value(), self.bat_bms.currentData() or "")
+        every = self.bat_every.isChecked() and self.bat_every.isEnabled()
+        return battery_spec(self.library, comp.id, self.bat_modules.value(), self.bat_bms.currentData() or "",
+                            every_inverter=every)
 
     def set_optimizer_component(self, comp) -> None:
         """Vyplní typ a ks/modul z artiklu optimizéru (1 nebo 0,5 při 2 modulech na optimizér) a zapamatuje si ho

@@ -683,7 +683,9 @@ Když nepasuje žádná, je jen „bez baterie (ke střídači v katalogu žádn
 celý katalog (výrobce střídače první) – kompatibilitu pak ověřte v datasheetu. **Počet modulů**
 věže je omezen podle datasheetu artiklu (např. SolaX T-BAT H 5.8 V3: 1–6, master se počítá). Je-li k věži řídicí jednotka
 (BMS), ukáže se její výběr – jediná možná je předvolená, u více variant (SigenStack BC) se volí. Pod výběrem je souhrn:
-celková kapacita (a výkon, jen když ho datasheet uvádí), složení věže a BMS. Baterie se kreslí u prvního střídače (T1),
+celková kapacita (a výkon, jen když ho datasheet uvádí), složení věže a BMS. Baterie se kreslí u prvního střídače (T1), se zaškrtnutím **ke každému střídači** pod každým
+(rodinný dům jen u jednoho – kvůli EPS; ve specifikaci `battery.inverters`: „all“ nebo seznam T1, T2…); kontrola F7
+`battery_incompatible` hlásí baterii, která ke střídači podle datasheetu nepasuje;
 u rodinného domu se k ní doplní EPS (přepínač sítí a zálohovaný vývod) a ve výkazu materiálu jsou master / modul × n,
 přídavné moduly (slave) a řídicí jednotka. Do specifikace: `"battery": {"component_id": "solax-t-bat-h-5.8-v3", "modules": 3}`
 (volitelně `bms_id`); `type`, `e_kwh`, `p_kw` z artiklu doplní generátor, zadané hodnoty mají přednost.
