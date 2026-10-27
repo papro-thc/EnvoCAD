@@ -3,4 +3,6 @@
   šrafy) s adresou, stavba, investor, místo, vypracoval, schválil, zodpovědný projektant, koordinátor, název výkresu,
   stupeň, zakázkové a archivní číslo, datum, formát, měřítko, revize a číslo výkresu se stranou dokumentace. Nová
   pole ve Vlastnostech projektu (`approved`, `responsible`, `coordinator`, `stage`, `archive`, `scale`). Logo
-  `resources/envo_logo.json`. `model/frame.py`, `ui/render.py`, `export/dxf_export.py`, `ui/dialogs.py`.
+  `resources/envo_logo.json`. Rámeček s razítkem je nově **ve výchozím nastavení zapnutý** (export bez razítka jen
+  po vypnutí v Zobrazit → Rámeček a popisové pole). `model/frame.py`, `settings.py`, `ui/render.py`,
+  `export/dxf_export.py`, `ui/dialogs.py`.

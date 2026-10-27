@@ -208,7 +208,8 @@ hodnoty v dialogu **Makro – název**. Makro bez proměnných se vloží hned j
 ### Přerušovací body
 Prvek **Přerušovací bod** (Svorky a propojení, nebo tlačítko na liště Kreslení) přenese potenciál jinam – dva body se stejným označením se
 spárují a každý ukazuje polohu protějšku (`→ /2.C3` = list 2, sloupec C, řádek 3 v síti rámečku). Rámeček
-s popisovým polem je zatím vypnutý – zapne ho `Zobrazit → Rámeček a popisové pole` (platí i pro PDF a DXF).
+s popisovým polem (razítko ENVO) je ve výchozím nastavení zapnutý – vypne ho `Zobrazit → Rámeček a popisové pole`
+(platí i pro PDF a DXF).
 
 Body se stejným označením (`ref`) v projektu tvoří skupinu. Zapojení podle stavu skupiny:
 

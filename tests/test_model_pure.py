@@ -49,7 +49,7 @@ def test_settings_helpers_and_model_defaults():
     p.sheets[0].elements.append(blk)
     sb = p.create_switchboard_sheet(blk)
     assert settings.switchboard_paper() == "A4" and settings.company() == frame.COMPANY
-    assert settings.frame_enabled() is False
+    assert settings.frame_enabled() is True          # výchozí: rámeček s razítkem ENVO
     _save(switchboard_paper="A4 na výšku", company="Firma XY s.r.o.")
     assert settings.switchboard_paper() == "A4 na výšku" and settings.company() == "Firma XY s.r.o."
     assert settings.frame_enabled() is True
@@ -71,7 +71,7 @@ def test_settings_helpers_survive_broken_file():
     settings.settings_path().parent.mkdir(parents=True, exist_ok=True)
     settings.settings_path().write_text('{"standard": 5}', encoding="utf-8")
     assert settings.switchboard_paper() == mp.DEFAULT_SWITCHBOARD_PAPER
-    assert settings.company() == frame.COMPANY and settings.frame_enabled() is False
+    assert settings.company() == frame.COMPANY and settings.frame_enabled() is True
 
 
 def test_grow_sheet_pins_given_standard():

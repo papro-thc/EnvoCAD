@@ -59,7 +59,8 @@ def _check_dxf(p, s, lib, path):
 def test_dxf_schematic_content(proj, lib, tmp_path):
     s = proj.sheets[0]
     doc = _check_dxf(proj, s, lib, tmp_path / "jps.dxf")
-    assert not doc.modelspace().query('*[layer=="RAMECEK"]')   # rámeček je ve výchozím nastavení vypnutý
+    msp = doc.modelspace()                                     # rámeček s razítkem je ve výchozím nastavení zapnutý
+    assert msp.query('*[layer=="RAMECEK"]') and msp.query('HATCH[layer=="RAMECEK"]')   # vč. loga ENVO
 
 
 def test_dxf_switchboard_header(proj, lib, tmp_path):
