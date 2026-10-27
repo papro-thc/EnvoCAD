@@ -27,7 +27,9 @@ METERING = {"direct": "direct", "přímé": "direct", "primé": "direct", "prime
 BOUNDARIES = ("hds", "re_main", "re_meter")
 BOUNDARY_TEXT = "hranice vlastnictví DS / odběratel"
 MCB_MAX_IN = 125.0           # HJ do 125 A jistič MCB, nad výkonový jistič MCCB
-CT_CONDUCTORS = ["S1", "S2"]
+# sekundár MTP po fázích (S1 / S2 transformátoru fáze L1 = 1S1 / 1S2 …) – ve vícepólu na svorky elektroměru
+# 1 3 / 4 6 / 7 9 (DIN 43856, `fve.meter` `multipole.terminals`) a k pólům MTP (`fve.ct` `multipole.secondary`)
+CT_CONDUCTORS = ["1S1", "1S2", "2S1", "2S2", "3S1", "3S2"]
 MEAS_PITCH = 30.0            # svislý rozestup přístrojů funkce měření
 
 

@@ -262,9 +262,13 @@ def test_break_y_outward_and_spaced():
     from envocad.model.multipole import GRID, break_y
     used: set[float] = set()
     assert break_y((0.0, 100.0), "N", 0, used) == 100.0 + GRID
-    assert break_y((0.0, 100.0), "N", 1, used) == 100.0 + GRID + 2.5
+    assert break_y((0.0, 100.0), "N", 1, used) == 100.0 + GRID + 5.0      # souběžné úseky po 2 roztečích (popisek)
     assert break_y((0.0, 100.0), "S", 2, set()) == 100.0 - GRID
-    assert break_y((0.0, 100.0), "E", 2, set()) == 95.0
+    assert break_y((0.0, 100.0), "E", 2, set()) == 100.0               # v úrovni portu, je-li volná
+    assert break_y((0.0, 100.0), "E", 3, {100.0}) == 97.5
+    # port S u spodního okraje: dvojí rozteč by sjela pod `lo` → po jedné rozteči
+    low = {100.0 - GRID}
+    assert break_y((0.0, 100.0), "S", 1, low, lo=95.0) == 100.0 - GRID - 2.5
 
 
 # ---- 9. sběrnice: 12 střídačů, nad limit česká hláška ----------------------------------------------------------

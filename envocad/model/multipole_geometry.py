@@ -105,6 +105,7 @@ class MultipoleGeometry:
     element_labels: dict[str, list[tuple[float, float, str, float, str]]] = field(default_factory=dict)
     # žíly vedené mimo cizí značky jinou trasou (`mp.clear_route`): (id vodiče, žíla, část) → body (souřadnice pohledu)
     routes: dict[tuple[str, str, int], list[Point]] = field(default_factory=dict)
+    rerouted: bool = False      # některá žíla vedena objízdnou trasou mimo cizí značky (`mp.clear_route`)
     symbol_boxes: dict[str, list[tuple[float, float, float, float]]] = field(default_factory=dict)   # obálky značek
     page_of: dict[str, int] = field(default_factory=dict)      # prvek → strana
     layout_pos: dict[str, Point] = field(default_factory=dict)  # automatické rozmístění před stránkováním
@@ -193,8 +194,8 @@ def _layout(sheet: Sheet, poles: dict[str, mp.ElementPoles], size: tuple[float, 
 
 def multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: str) -> MultipoleGeometry:
     """Vícepól listu (`_multipole_geometry`). Když se některé žíly vedly mimo cizí značky jinou trasou
-    (`MultipoleGeometry.routes`), postaví se nad stejným rozmístěním i varianta s výchozími trasami a použije se ta
-    s méně překryvy textů (objízdná trasa může zabrat místo popisku přístroje); při shodě objízdné trasy."""
+    (`MultipoleGeometry.rerouted`), postaví se nad stejným rozmístěním i varianta s výchozími trasami a použije se
+    ta s méně překryvy textů (objízdná trasa může zabrat místo popisku přístroje); při shodě objízdné trasy."""
     g, plain = _multipole_geometry(project, sheet, lib, standard_paper=standard_paper)
     if plain is None:
         return g
@@ -303,7 +304,7 @@ def _multipole_geometry(project: Project, sheet: Sheet, lib, *,
         return geo
 
     g = finish(g)
-    if not g.routes:
+    if not g.rerouted:           # jen společná příčka vodiče (`mp.wire_jog`) – objízdné trasy žádné
         return g, None
     return g, finish(_build(project, sheet, poles, page_of, g.pages, size, reroute=False))
 
@@ -432,7 +433,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
                 line(ep.pole_pos(a, c), ep.pole_pos(b, c), e.id, f"žílu {c} kolem {name}", weight="wire", page=ke)
             for a, b in mp.pe_join_segments(ep):
                 line(a, b, e.id, f"spojení PE {name}", weight="wire", page=ke)
-        else:
+        elif not ep.terminals:      # elektroměr se svorkami: každá žíla na svou svorku, bez sběrné čáry
             for port, cs in ep.per_port.items():
                 if len(cs) >= 2:
                     last = max(cs, key=ep.slot)
@@ -464,8 +465,11 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
     wire_segs: list = []  # úseky už nakreslených žil (objízdná trasa jich má křížit co nejméně)
 
     def conductor(w, c: str, idx: int, pa: Point, da: str, pb: Point, db: str, ends: tuple[str, str],
-                  page: int, staggered: bool = False, part: int = 0, branch: str = "") -> None:
-        """Úsek žíly na straně `page` (strana prvku, ze kterého vede – ne podle výšky bodu)."""
+                  page: int, staggered: bool = False, part: int = 0, branch: str = "",
+                  jog: float = mp.ROUTE_JOGS[0], shift: int | None = None) -> None:
+        """Úsek žíly na straně `page` (strana prvku, ze kterého vede – ne podle výšky bodu); `jog` a `shift` (pořadí
+        posunu příčky, výchozí `idx`) společné pro žíly vodiče (`mp.wire_jog`)."""
+        stagger = (idx if shift is None else shift) * mp.GRID
         nonlocal obstacles, label_obstacles
         if obstacles is None:
             obstacles, label_obstacles = mp.obstacle_boxes(poles), mp.label_boxes(poles)
@@ -475,9 +479,11 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
         feed_end = any(mp.is_feed(poles[x].element) for x in own if x in poles)
         boxes = [] if not reroute or feed_end else [b for eid, bs in obstacles.items() if eid not in own for b in bs]
         labels = [b for bs in label_obstacles.values() for b in bs]          # i popisky vlastních konců
-        pts = mp.clear_route(pa, da, pb, db, stagger=idx * mp.GRID, branch=branch, boxes=boxes, segs=wire_segs,
-                             labels=labels)
+        pts = mp.clear_route(pa, da, pb, db, stagger=stagger, branch=branch, boxes=boxes, segs=wire_segs,
+                             labels=labels, jog=jog)
         wire_segs.extend(pairwise(pts))
+        if pts != mp.wire_route(pa, da, pb, db, stagger=stagger, branch=branch, jog=jog):
+            g.rerouted = True
         if pts != mp.wire_route(pa, da, pb, db, stagger=idx * mp.GRID, branch=branch):
             g.routes[(w.id, c, part)] = list(pts)     # žíla mimo cizí značky – scéna kreslí tutéž trasu
         what = f"žílu {c}" + (f" vodiče {w.attrs['ref']}" if w.attrs.get("ref") else "")
@@ -557,7 +563,11 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
                 conductor(w, c, 0, (px, py), ddir, (px, y), "S" if y > py else "N", (t, ""), kd)
                 bus_taps.setdefault((bus.element.id, kd), []).append((px, y))
             continue
-        for i, c in enumerate(mp.live_conductors(w, poles)):
+        live = mp.live_conductors(w, poles)
+        jog, rev = mp.wire_jog([(ea.pole_pos(w.a.port, c), da, eb.pole_pos(w.b.port, c), db) for c in live
+                                if (w.id, c) not in rail_of],
+                               mp.branch_side(branches, w.id), wire_segs) if ka == kb else (mp.ROUTE_JOGS[0], False)
+        for i, c in enumerate(live):
             pa, pb = ea.pole_pos(w.a.port, c), eb.pole_pos(w.b.port, c)
             ta = "" if mp.is_terminal_block(ea.element) else mp.terminal_text(w, c, "a")
             tb = "" if mp.is_terminal_block(eb.element) else mp.terminal_text(w, c, "b")
@@ -572,8 +582,8 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
                 rail_taps.setdefault(key, []).append((ks, tap))
                 continue
             if ka == kb:
-                conductor(w, c, i, pa, da, pb, db, (ta, tb), ka, len(mp.live_conductors(w, poles)) > 1,
-                          branch=mp.branch_side(branches, w.id))
+                conductor(w, c, i, pa, da, pb, db, (ta, tb), ka, len(live) > 1,
+                          branch=mp.branch_side(branches, w.id), jog=jog, shift=len(live) - 1 - i if rev else i)
                 continue
             right = ka < kb
             xa = (W - MARGIN - BREAK_INSET) if right else (MARGIN_LEFT + BREAK_INSET)

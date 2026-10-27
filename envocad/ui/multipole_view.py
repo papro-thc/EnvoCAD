@@ -37,7 +37,7 @@ class PoleItem(QGraphicsItem):
         self.element: Element = ep.element
         self.full_symbol: Symbol = ep.symbol
         # průchozí prvek ve vícepólu: značka jednoho pólu (+ společná část u prvního pólu)
-        self.symbol: Symbol = ep.symbol.pole_symbol() if conductor else ep.symbol
+        self.symbol: Symbol = mp.pole_symbol_for(ep, conductor)
         self.common: Symbol | None = ep.symbol.common_symbol() if (conductor and first) else None
         # texty společné části („DC“) u posledního pólu – u prvního by ležely přes další póly
         self.common_text: Symbol | None = ep.symbol.common_symbol(texts=True) if (conductor and last) else None
@@ -708,7 +708,8 @@ class MultipoleScene(QGraphicsScene):
                     self._add(PeJoinItem(a, b))
             else:
                 self._add(PoleItem(ep, None, first=True))
-                self._add_fan(ep)
+                if not ep.terminals:       # elektroměr se svorkami: každá žíla na svou svorku
+                    self._add_fan(ep)
         branches = mp.branch_ends(self.sheet, poles)    # druhé vodiče ze svorky (dvojitá dutinka) – jako model
         for w in self.sheet.wires:
             ea, eb = poles.get(w.a.element_id), poles.get(w.b.element_id)
