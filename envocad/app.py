@@ -34,6 +34,9 @@ def main() -> None:
     app.setApplicationName("EnvoCAD")
     app.setOrganizationName("ENVO")
     install_qt_translations(app)
+    if startup_update(sys.argv[1:]):     # nová verze samostatné aplikace spuštěna → tento proces končí
+        log.info("Spuštěna nová verze, konec")
+        sys.exit(0)
     from envocad.ui import theme
     from envocad.ui.main_window import MainWindow
 
@@ -43,6 +46,7 @@ def main() -> None:
     win = MainWindow(project=project)
     win.statusBar().showMessage(f"Log: {log_path}", 5000)
     win.show()
+    report_update(win)
     if error:
         from PySide6.QtWidgets import QMessageBox
         QMessageBox.critical(win, "Projekt nelze otevřít", error)
@@ -53,6 +57,20 @@ def main() -> None:
     logging_setup.SHUTTING_DOWN = True  # chyby při likvidaci objektů už jen do logu, bez dialogu
     del win
     sys.exit(rc)
+
+
+def startup_update(args: list[str]) -> bool:
+    """Před otevřením okna: samostatná aplikace (PyInstaller) nabídne novou verzi ze sdílené složky
+    (`ui.update_prompt.startup_exe_update`). True = nová verze byla spuštěna a tento proces má skončit. Klon
+    repozitáře aktualizují spouštěče `scripts/run.*` ještě před startem Qt (`python -m envocad.updater`)."""
+    from envocad.ui.update_prompt import startup_exe_update
+    return bool(_safe(startup_exe_update, args))
+
+
+def report_update(win) -> None:
+    """Po zobrazení okna oznámí výsledek aktualizace provedené před startem (stavový řádek, při chybě dialog)."""
+    from envocad.ui.update_prompt import show_update_result
+    _safe(show_update_result, win)
 
 
 def _safe(fn, *args):

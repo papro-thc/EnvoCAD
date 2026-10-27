@@ -25,3 +25,6 @@ htmlcov/
 
 # záloha značek QET (lokální, nepublikovat)
 envocad/library/builtin/qet-symbols.zip
+
+# lokální podklady z EPLAN Data Portal (obchodní data a DXF montáže, bez rozměrů a Pv)
+EPLAN/

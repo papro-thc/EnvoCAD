@@ -11,7 +11,7 @@
 - [x] Tmavý režim
 - [x] Dialog parametrů při vložení prvku/vodiče
 - [x] Rámeček a popisové pole listu (šablona ENVO) – logo doplnit po dodání
-- [ ] Příkazový řádek (styl ZWCAD/CADCraft): každá akce = příkaz, ovladatelné i z agentů – fáze 1 hotová 10/2026 (jádro `envocad/cmd`, skripty `.ecs`, CLI `python -m envocad.cmd`), zbývá dok v GUI (fáze 2) a pluginy / „Spustit skript…“ (fáze 3), `docs/design/prikazovy_radek.md`
+- [x] Příkazový řádek (styl ZWCAD/CADCraft): každá akce = příkaz, ovladatelné i z agentů – hotovo 10/2026: jádro `envocad/cmd`, skripty `.ecs`, CLI `python -m envocad.cmd` (fáze 1), dok v okně (fáze 2, PR #41), pluginy / „Spustit skript…“ / export (fáze 3, PR #42), našeptávač jako v ZWCAD (PR #45); `docs/design/prikazovy_radek.md`
 - [x] Aktualizace při spuštění na vydané verze (tagy), klon repozitáře i samostatná aplikace ze sdílené složky – hotovo 10/2026, `docs/RELEASE.md`; zbývá: první vydání (`tools/release.py`), sdílená složka vydání a ikona aplikace
 - [x] Automatické číslování označení (T1, F1, Q1…) s kontrolou duplicit – nové prvky a kopie dostanou další volné číslo, F7 hlásí duplicity, Úpravy → Přečíslovat označení (podle polohy, jen chybějící/duplicitní nebo vše, kontakty s cívkou, 10/2026)
 
@@ -49,7 +49,7 @@
 - [x] Vlastní rozmístění ve vícepólu: automatické svorkové schéma + posun myší
 - [ ] Ruční lomy žil ve vícepólu, zalomení dlouhých řad svorek na další list
 - [ ] Vícepólové značky z knihovny (QET `qet.ap.*`) místo opakování jednopólové značky; společná spoušť/vazba pólů
-- [ ] Export DXF vícepólu (PDF už funguje)
+- [x] Export DXF vícepólu – hotovo 10/2026: `export/dxf_export.py` `export_multipole_dxf`
 
 ## v0.4 – Vícelistové projekty a dokumentace
 - [x] Vazba přívod/vývod rozvaděče ↔ vodič JPS (křížový odkaz, kabel jen jednou)
@@ -112,7 +112,6 @@ Pořadí = priorita. Body 1, 2 a 5 jsou nejlevnější start.
     odstraněn, `Node.anchor` / `box` / `meter_dx` deklarované v dataclass
 
 ## Odloženo (analýza 10/2026 – nebrzdí práci)
-- Příkazový řádek (styl ZWCAD/CADCraft) – až bude potřeba ovládat program z agentů
 - BMEcat/ETIM importér – až budou soubory od výrobců
 - Vlastní vícepólové značky z QET (`qet.ap.*`) – opakovaná jednopólová značka je čitelná a EPLAN to kreslí podobně
 - Rust – ne

@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-cov", "hypothesis", "ruff", "pyinstaller"]
+dev = ["pytest", "pytest-cov", "hypothesis", "ruff", "pyinstaller", "pypdfium2"]   # pypdfium2: test vykreslení PDF
 
 [project.scripts]
 envocad = "envocad.app:main"
