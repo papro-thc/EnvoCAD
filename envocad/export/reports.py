@@ -271,6 +271,41 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
     return head, rows
 
 
+def prices_path():
+    """Ceník firmy `~/.envocad/ceny.csv` (`library/prices.py`)."""
+    from envocad.library.prices import PRICES_FILE
+    from envocad.settings import settings_path
+    return settings_path().parent / PRICES_FILE
+
+
+def _money(v: float) -> str:
+    return f"{v:,.2f}".replace(",", " ").replace(".", ",")
+
+
+@over_clean
+def priced_bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
+    """Výkaz materiálu s cenami (interní podklad, ne do PDF dokumentace): položky `bom` + cena za kus z ceníku
+    (`~/.envocad/ceny.csv`), jinak z artiklu, a cena celkem; poslední řádek součet bez DPH a počet položek bez ceny."""
+    from envocad.library.prices import PriceBook, read_prices
+    head, rows = bom(project, lib, sheet)
+    head = head + ["Cena/ks [Kč]", "Celkem [Kč]"]
+    if not rows:
+        return head, []
+    book = PriceBook(lib, read_prices(prices_path())[0])
+    total, missing, out = 0.0, 0, []
+    for r in rows:
+        p = book.price(r[3], r[2])
+        if p is None:
+            missing += 1
+            out.append([*r, "", ""])
+            continue
+        total += p * r[5]
+        out.append([*r, _money(p), _money(p * r[5])])
+    note = f"bez ceny {missing} položek" if missing else ""
+    out.append(["", "Celkem bez DPH", "", "", note, "", "", "", _money(total)])
+    return head, out
+
+
 @over_clean
 def cables(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Seznam kabelů / vodičů s označením nebo typem kabelu."""
@@ -706,14 +741,16 @@ def marking(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> 
     return head, rows
 
 
-ALL_REPORTS = [("Data pro DS", dso_report), ("Výpočty", calculations), ("Přístroje", device_list), ("Výkaz materiálu", bom), ("Kabely", cables),
+ALL_REPORTS = [("Data pro DS", dso_report), ("Výpočty", calculations), ("Přístroje", device_list), ("Výkaz materiálu", bom),
+               ("Výkaz materiálu s cenami", priced_bom), ("Kabely", cables),
                ("Kabelový plán", cable_plan), ("Kabely a vodiče k objednání", cable_material),
                ("Zapojovací seznam", wiring_list),
                ("Výrobní zapojovací seznam", production_wiring_list), ("Značení vodičů a kabelů", marking),
                ("Svorkovnice", terminals), ("Plán svorkovnice", terminal_plan_report), ("Potenciály", potentials), ("Štítky", labels)]
 
 # výkazy, které nejsou součástí PDF dokumentace (výrobní podklad pro dílnu) – `doc_pdf.DocBuilder.plan` je přeskočí
-NOT_IN_DOC = {"Výrobní zapojovací seznam", "Kabely a vodiče k objednání", "Značení vodičů a kabelů"}
+NOT_IN_DOC = {"Výrobní zapojovací seznam", "Kabely a vodiče k objednání", "Značení vodičů a kabelů",
+              "Výkaz materiálu s cenami"}   # ceny jsou interní – ne do dokumentace pro investora / DS
 
 # doplňkové řádky podnadpisu výkazu v xlsx: název → fn(project, sheet) -> list[str]
 REPORT_SUBTITLES = {"Výrobní zapojovací seznam": production_subtitle}

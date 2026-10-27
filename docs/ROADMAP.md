@@ -28,7 +28,9 @@
 - [x] Značky z QElectroTech (673), importéry EPLAN CSV/XML/DXF, pluginy a uživatelské balíčky
 - [ ] BMEcat/ETIM importér (volná data výrobců)
 - [ ] Footprinty z DXF výrobců (OEZ, Hager) a editor portů importovaných symbolů
-- [ ] Ceny v artiklech + výkaz s cenami
+- [x] Ceny v artiklech + výkaz s cenami – hotovo 10/2026: ceník firmy `~/.envocad/ceny.csv` (Knihovna → Načíst ceník
+  artiklů; id nebo výrobce + typ, `price_czk`), jinak cena artiklu; výkaz „Výkaz materiálu s cenami“ (xlsx, ne do PDF
+  dokumentace) s cenou za kus, celkem a součtem bez DPH; zbývá: ceny v katalogu (data od dodavatelů)
 - [x] Výkaz materiálu (.xlsx) a seznam kabelů z modelu – Výkaz materiálu, Kabely, Kabelový plán; nově Kabely a vodiče k objednání (metry kabelů podle typu, vodiče rozvaděče, dutinky; 10/2026)
 - [ ] Hromadný import DXF knihoven výrobců (SMA, Huawei, SolarEdge, Eaton, Schneider, OEZ…)
 
