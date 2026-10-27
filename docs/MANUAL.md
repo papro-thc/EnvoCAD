@@ -324,7 +324,7 @@ klíč `standard.switchboard_paper` v `settings.json`) nebo pro jeden list rozva
 – šířka × výška v mm, 210 × 148 až 5000 × 2000); změna jde vrátit `Ctrl+Z`. **Volný A4** = jedna strana vysoká 297 mm a široká podle kresby v násobcích 210 mm (A4×2, A4×3…) – celé
 schéma rozvaděče bez přerušení na další stranu.
 
-**Formát listu** ostatních listů (blokové schéma…) se volí tamtéž (`List → Vlastnosti listu` → **Formát listu**):
+**Formát listu** (kreslicí plocha – blokové schéma i list rozvaděče) se volí tamtéž (`List → Vlastnosti listu` → **Formát listu**):
 A4 … A0 na šířku i na výšku, **vlastní…** (šířka × výška v mm, obsah se neposouvá) nebo **volný A4** – výška 297 mm, šířka nejmenší násobek 210 mm, do kterého se obsah listu
 vejde mimo popisové pole (když je potřeba, obsah se posune na mřížce). Opakovaná volba volného A4 šířku přepočítá
 podle aktuálního obsahu; `Ctrl+Z` vrátí formát i polohy. Na každé straně je rámeček s popisovým polem (číslo listu a strany „2/5, str. 1/3“, formát A4); na A4 na
