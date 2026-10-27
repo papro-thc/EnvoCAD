@@ -36,7 +36,9 @@ VN_FUSE_FACTOR = 1.8          # pojistka VN transformátoru ≈ 1,8 × In VN (ta
 VN_BREAKER_FROM_KVA = 1000.0  # nad 1000 kVA transformátorové pole s vypínačem a ochranou místo pojistek
 U_LV, U_MV_DEFAULT = 400.0, 22000.0
 VN_CONDUCTORS = ["L1", "L2", "L3"]
-CT_CONDUCTORS, VT_CONDUCTORS = ["S1", "S2"], ["a", "n"]   # sekundár MTP / MTN k elektroměru
+# sekundár MTP / MTN k elektroměru po fázích – napětí na svorky 2 5 8 a n na 11 (`fve.meter` `multipole.terminals`)
+CT_CONDUCTORS = ["1S1", "1S2", "2S1", "2S2", "3S1", "3S2"]
+VT_CONDUCTORS = ["1a", "2a", "3a", "n"]
 
 
 def _next_size(value: float, sizes) -> float:

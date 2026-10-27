@@ -129,7 +129,64 @@
     "through": [
       "1",
       "2"
-    ]
+    ],
+    "secondary": {
+      "_": "sekundár MTP po fázích: žíla → [fáze pólu, svorka z `at`] – S1 / S2 na konci příčky `draw` nad kroužkem, mimo kroužky sousedních pólů; příčka i posun `stagger` jen když na port S vedou žíly ze `conductors`",
+      "port": "S",
+      "conductors": {
+        "1S1": [
+          "L1",
+          -1
+        ],
+        "1S2": [
+          "L1",
+          1
+        ],
+        "2S1": [
+          "L2",
+          -1
+        ],
+        "2S2": [
+          "L2",
+          1
+        ],
+        "3S1": [
+          "L3",
+          -1
+        ],
+        "3S2": [
+          "L3",
+          1
+        ]
+      },
+      "at": {
+        "-1": [
+          -5,
+          4
+        ],
+        "1": [
+          5,
+          4
+        ]
+      },
+      "draw": [
+        {
+          "type": "line",
+          "x1": 0,
+          "y1": 3,
+          "x2": 0,
+          "y2": 4
+        },
+        {
+          "type": "line",
+          "x1": -5,
+          "y1": 4,
+          "x2": 5,
+          "y2": 4
+        }
+      ]
+    },
+    "stagger": 12.5
   },
   "label_pos": {
     "x": -5,

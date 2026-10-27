@@ -185,6 +185,36 @@ class ElementPoles:
     label_lines: list[tuple[float, float, str, float, str]] | None = None
     # žíly vodičů listu, které ve vícepólu nikam nevedou (`dead_conductors`): {id vodiče: {žíla}} – společné všem pólům
     dead: dict[str, set[str]] = field(default_factory=dict)
+    # žíla → bod svorky relativně k `origin` (elektroměr při nepřímém měření: `meter_terminal_view`)
+    terminals: dict[str, tuple[float, float]] = field(default_factory=dict)
+    # sekundár MTP po fázích (`multipole.secondary` značky): žíla → (fáze pólu, bod svorky v souřadnicích značky
+    # pólu) na portu `secondary_port`
+    secondary: dict[str, tuple[str, tuple[float, float]]] = field(default_factory=dict)
+    secondary_port: str = ""
+
+    def flow_shift(self, conductor: str | None) -> tuple[float, float]:
+        """Posun pólu žíly po směru toku u prvku s `multipole.stagger` (MTP: transformátory fází pod sebou, aby
+        sekundáry S1 / S2 vedly každý v jiné výšce): pól k o (k − (n − 1) / 2) · stagger, prvek zůstává na středu."""
+        st = self.stagger
+        if not st or not self.secondary_used or conductor not in self.switched or not self.through                 or len(self.switched) < 2:
+            return (0.0, 0.0)
+        vx, vy = DIR_VEC[rotate_dir(self.symbol.port(self.through[0]).dir, self.element.rotation)]
+        k = self.switched.index(conductor) - (len(self.switched) - 1) / 2
+        return (-vx * k * st, -vy * k * st)
+
+    @property
+    def secondary_used(self) -> bool:
+        """Na port sekundáru vedou žíly sekundáru po fázích (`multipole.secondary`) – jen pak se póly posouvají po
+        toku a kreslí příčka sekundáru; starý projekt (žíly S1 / S2) zůstává jako dřív."""
+        return bool(self.secondary_port) and any(c in self.secondary
+                                                 for c in self.per_port.get(self.secondary_port, ()))
+
+    @property
+    def stagger(self) -> float:
+        try:
+            return float((self.symbol.multipole or {}).get("stagger") or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
 
     def slot(self, conductor: str) -> int:
         conductor = self.joined.get(conductor, conductor)
@@ -193,12 +223,25 @@ class ElementPoles:
     def pole_pos(self, port: str, conductor: str) -> tuple[float, float]:
         """Pozice pólu pro danou žílu na daném portu (model mm, ve škále pohledu)."""
         e = self.element
+        if conductor in self.terminals:            # svorka elektroměru (každá žíla na svou)
+            tx, ty = self.terminals[conductor]
+            return (self.origin[0] + tx, self.origin[1] + ty)
+        sec = self.secondary.get(conductor) if port == self.secondary_port else None
+        if sec is not None and sec[0] in self.switched:
+            # sekundár MTP u pólu své fáze: svorka S1 / S2 na příčce u kroužku (`multipole.secondary.at`)
+            from envocad.model.symbol import place_point
+            ax, ay = pole_anchor(self, sec[0])
+            dx, dy = place_point(*sec[1], e.rotation, e.mirror)
+            return (ax + dx, ay + dy)
         # uzel je bod: žíly končí ve středu tečky (ne u portu o 2,5 mm vedle) a odbočky z ní vycházejí
         px, py = (e.x, e.y) if e.symbol_id == "sb.junction" else e.port_pos(self.symbol, port)
         d = rotate_dir(self.symbol.port(port).dir, e.rotation)
         ox, oy = PERP[d]
         k = self.slot(conductor)
         mx, my = self.origin
+        if self.through and port in self.through:
+            fx, fy = self.flow_shift(self.joined.get(conductor, conductor))
+            mx, my = mx + fx, my + fy
         return (mx + (px - e.x) + ox * k * self.pitch, my + (py - e.y) + oy * k * self.pitch)
 
     @property
@@ -223,7 +266,8 @@ class ElementPoles:
         d = rotate_dir(self.symbol.port(port).dir, self.element.rotation)
         ox, oy = PERP[d]
         k = self.slot(conductor)
-        return (ox * k * self.pitch, oy * k * self.pitch)
+        fx, fy = self.flow_shift(conductor)
+        return (ox * k * self.pitch + fx, oy * k * self.pitch + fy)
 
 
 BUS_SYMBOL = "sb.busbar"
@@ -234,6 +278,8 @@ def perp_extent(ep: ElementPoles) -> float:
     if ep.element.symbol_id == BUS_SYMBOL:
         return POLE_PITCH   # sběrnice se kreslí přes celou stranu, v rozmístění nezabírá místo
     x0, y0, x1, y1 = ep.symbol.bounds()
+    if ep.terminals:        # elektroměr se svorkami: žíly končí na svorkách obdélníku, žádné sloty navíc
+        return x1 - x0
     horizontal = ep.through is None or rotate_dir(ep.symbol.port(ep.through[0]).dir, ep.element.rotation) in ("E", "W")
     if ep.through is None and ep.symbol.ports:
         horizontal = rotate_dir(ep.symbol.ports[0].dir, ep.element.rotation) in ("E", "W")
@@ -249,7 +295,8 @@ def flow_extent(ep: ElementPoles) -> float:
         return 5.0 * max(len(ep.slots), 1) + 5.0   # čáry potenciálů pod sebou
     x0, y0, x1, y1 = ep.symbol.bounds()
     w, h = (x1 - x0, y1 - y0) if ep.element.rotation in (0, 180) else (y1 - y0, x1 - x0)
-    return w if _flow_is_horizontal_for(ep) else h
+    extra = ep.stagger * (len(ep.switched) - 1) if ep.through and ep.secondary_used else 0.0   # MTP po fázích
+    return (w if _flow_is_horizontal_for(ep) else h) + extra
 
 
 def _flow_is_horizontal_for(ep: ElementPoles) -> bool:
@@ -733,6 +780,10 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
                 if i in bars:
                     continue
                 if abs(py - (fp - col_w[d] / 2)) < (flow_extent(poles[i]) + col_w[d]) / 2 + GRID:
+                    if poles[i].element.symbol_id == BUS_SYMBOL and page_w:
+                        k = int((px - x0) // page_w)       # sběrnice vede přes celou stranu
+                        spans.append((x0 + k * page_w - 8.0, x0 + (k + 1) * page_w - 8.0))
+                        continue
                     spans.append((px - 8.0 - BAR_LABEL_ROOM, px - 8.0 + perp_extent(poles[i]) + 8.0))
         if ns:
             vals = [(out[n][1] if horizontal else out[n][0]) for n in ns]
@@ -777,6 +828,10 @@ def sheet_poles(sheet: Sheet, symbol_of) -> dict[str, ElementPoles]:
     for eid, sym in junction_view_symbols(sheet, poles).items():
         ep = poles[eid]
         poles[eid] = element_poles(sheet, dataclasses.replace(ep.element, rotation=0, mirror=False), sym)
+    for eid, ep in list(poles.items()):
+        view = meter_terminal_view(ep)
+        if view is not None:
+            poles[eid] = element_poles(sheet, dataclasses.replace(ep.element, rotation=0, mirror=False), view)
     dead = dead_conductors(sheet, poles)
     if dead:                # póly prvků bez žil, které nikam nevedou (rozestupy a sloty jen pro živé žíly)
         touched = {end.element_id for w in sheet.wires if w.id in dead for end in (w.a, w.b)}
@@ -911,6 +966,62 @@ def junction_view_symbols(sheet: Sheet, poles: dict[str, ElementPoles]) -> dict[
     return out
 
 
+# schémata svorek přístrojů s očíslovanými svorkami (elektroměr při nepřímém měření): pořadí svorek, žíla → svorka,
+# žíly, podle kterých se schéma použije (sekundár MTP) – `multipole.terminals.scheme` značky
+TERMINAL_SCHEMES = {
+    "DIN 43856": {      # elektroměr 3f 4vodičový na MTP: I1 1–3, U1 2, I2 4–6, U2 5, I3 7–9, U3 8, N 11
+        "order": ("1", "2", "3", "4", "5", "6", "7", "8", "9", "11"),
+        "conductors": {"1S1": "1", "1S2": "3", "2S1": "4", "2S2": "6", "3S1": "7", "3S2": "9",
+                       "L1": "2", "L2": "5", "L3": "8", "N": "11", "1a": "2", "2a": "5", "3a": "8", "n": "11"},
+        "require": ("1S1", "2S1", "3S1"),
+    },
+}
+TERMINAL_SCHEME_SYMBOLS = {"fve.meter": "DIN 43856"}   # pro výkazy bez knihovny (`device_terminal`)
+
+
+def terminal_scheme(conds: set[str], scheme: str | None) -> dict | None:
+    """Schéma svorek (`TERMINAL_SCHEMES`), když na přístroj vede žíla z `require` a všechny jeho žíly mají svorku."""
+    spec = TERMINAL_SCHEMES.get(scheme or "")
+    if spec is None or not conds & set(spec["require"]) or not conds <= spec["conductors"].keys():
+        return None
+    return spec
+
+
+METER_TERMINAL_PITCH = 2 * GRID     # rozteč svorek elektroměru ve vícepólu (jiná než rozteč žil přívodu)
+METER_BOX_H = 15.0                  # výška obdélníku elektroměru
+
+
+def meter_terminal_view(ep: ElementPoles) -> Symbol | None:
+    """Elektroměr při nepřímém měření (`multipole.terminals` značky): ve vícepólu obdélník se svorkami nahoře
+    podle DIN 43856 (1 2 3 | 4 5 6 | 7 8 9 | 11 – proud I1, napětí U1, …, N) a čísly svorek uvnitř; každá žíla
+    vede na svou svorku shora (`ElementPoles.terminals`). Jen když na elektroměr vede žíla sekundáru MTP
+    (`require`) a všechny jeho žíly mají svorku – přímé měření (průchozí L1–L3 N) zůstává. Jinak None.
+    Porty značky zůstávají (stejná jména, směr nahoru) – vodiče listu se nemění; jen pohled."""
+    view = (ep.symbol.multipole or {}).get("terminals") or {}
+    conds = set().union(*ep.per_port.values()) if ep.per_port else set()
+    spec = terminal_scheme(conds, view.get("scheme"))
+    if spec is None:
+        return None
+    cmap, order = spec["conductors"], list(spec["order"])
+    p, h = METER_TERMINAL_PITCH, METER_BOX_H
+    xs = {num: i * p for i, num in enumerate(order)}
+    x0, x1 = -p / 2, (len(order) - 1) * p + p / 2
+    prims: list[dict] = [{"type": "rect", "x": x0, "y": -h, "w": x1 - x0, "h": h}]
+    for num, x in xs.items():
+        prims.append({"type": "line", "x1": x, "y1": 0.0, "x2": x, "y2": -1.5})
+        prims.append({"type": "text", "x": x, "y": -4.0, "text": num, "height": 2.0, "align": "center"})
+    if view.get("text"):
+        prims.append({"type": "text", "x": (x0 + x1) / 2, "y": -h + 3.0, "text": str(view["text"]), "height": 2.5,
+                      "align": "center"})
+    at = {c: (xs[cmap[c]], 0.0) for c in sorted(conds, key=canon_key) if cmap[c] in xs}
+    ports = []
+    for port in ep.symbol.ports:      # port v pohledu u první své svorky, směr nahoru (žíly přicházejí shora)
+        mine = [at[c][0] for c in ep.per_port.get(port.name, ()) if c in at]
+        ports.append(dataclasses.replace(port, x=min(mine) if mine else 0.0, y=0.0, dir="N"))
+    return dataclasses.replace(ep.symbol, primitives=prims, ports=ports, label_pos=(x1 + 2.0, -h / 2),
+                               multipole={"terminal_at": {c: list(xy) for c, xy in at.items()}})
+
+
 def flow_flipped(sheet: Sheet, poles: dict[str, ElementPoles]) -> set[str]:
     """Prvky, které vícepól (svislý tok) kreslí pootočené o 180°: vývod (`dir=out`) s portem dole, přívod (`dir=in`)
     s portem nahoře a průchozí
@@ -985,7 +1096,13 @@ def element_poles(sheet: Sheet, e: Element, sym: Symbol, dead: dict[str, set[str
     joined = _join_single_port(per_port, thr, switched, bypass, slots) if thr else {}
     if joined:
         slots = [c for c in slots if c not in joined]
-    return ElementPoles(e, sym, slots, switched, bypass, thr, per_port, joined=joined)
+    mpd = sym.multipole or {}
+    terminals = {c: (float(x), float(y)) for c, (x, y) in (mpd.get("terminal_at") or {}).items()}
+    sec = mpd.get("secondary") or {}
+    at = {int(k): (float(x), float(y)) for k, (x, y) in (sec.get("at") or {}).items()}
+    secondary = {c: (str(ph), at[int(k)]) for c, (ph, k) in (sec.get("conductors") or {}).items() if int(k) in at}
+    return ElementPoles(e, sym, slots, switched, bypass, thr, per_port, joined=joined, terminals=terminals,
+                        secondary=secondary, secondary_port=str(sec.get("port") or "") if secondary else "")
 
 
 def _join_single_port(per_port: dict[str, set[str]], thr: tuple[str, str], switched: list[str], bypass: list[str],
@@ -1127,6 +1244,11 @@ def device_terminal(sheet: Sheet, w: Wire, conductor: str, side: str) -> tuple[s
     if is_terminal_block(e):
         t = wire_end_terminal(sheet, w, conductor, side)
         return (t or f"{name}:{end.port}"), False
+    if e.symbol_id in TERMINAL_SCHEME_SYMBOLS:       # elektroměr na MTP: svorka podle DIN 43856 („P1:3“)
+        conds = {c for x in sheet.wires for p in (x.a, x.b) if p.element_id == e.id for c in wire_conductors(x)}
+        spec = terminal_scheme(conds, TERMINAL_SCHEME_SYMBOLS[e.symbol_id])
+        if spec is not None:
+            return f"{name}:{spec['conductors'][conductor]}", True
     if e.symbol_id not in NOT_POLE_NUMBERED and end.port in POLE_NUMBERED_PORTS:
         phases = [c for c in port_conductors(sheet, e.id, end.port) if c not in UNSWITCHED_POLES]
         if conductor in NEVER_SWITCHED or (conductor == "N" and len(phases) >= e.poles):
@@ -1346,7 +1468,14 @@ def _rot_box(sym: Symbol, x: float, y: float, rotation: int) -> tuple[float, flo
 
 
 def pole_symbol_for(ep: ElementPoles, conductor: str | None) -> Symbol:
-    return ep.symbol.pole_symbol() if conductor else ep.symbol
+    """Značka pólu (`Symbol.pole_symbol`) – u MTP se sekundárem po fázích s příčkou sekundáru (`secondary.draw`)."""
+    if not conductor:
+        return ep.symbol
+    sym = ep.symbol.pole_symbol()
+    draw = ((ep.symbol.multipole or {}).get("secondary") or {}).get("draw")
+    if draw and ep.secondary_used:
+        sym = dataclasses.replace(sym, primitives=[*sym.primitives, *draw])
+    return sym
 
 
 def pole_anchor(ep: ElementPoles, conductor: str | None) -> tuple[float, float]:
@@ -1440,19 +1569,26 @@ BREAK_PITCH = 2.5      # rozteč přerušení žil na okraji strany
 
 
 def break_y(p: tuple[float, float], d: str, n: int, used: set[float], lo: float | None = None) -> float:
-    """Výška (mm, Y nahoru) vodorovného úseku k přerušovacímu bodu na okraji strany; `n` = pořadí přerušení na tom
-    okraji, `used` = výšky přerušení, která už na okraji jsou (doplní se o vrácenou výšku).
-    Port E/W: v úrovni portu, každé další přerušení o rozteč níž (`n`). Port N/S: úsek vede za vývodem portu ven od
-    přístroje (nad / pod něj) – ne v úrovni portu, kde by šel přes sousední svorky, jejich čísla a vlastní značku;
-    další přerušení dál ven, dokud nemá od ostatních na okraji aspoň rozteč (šipky a odkazy se nekryjí).
+    """Výška (mm, Y nahoru) vodorovného úseku k přerušovacímu bodu na okraji strany; `used` = výšky přerušení, která
+    už na okraji jsou (doplní se o vrácenou výšku); `n` (pořadí přerušení na okraji) se už nepoužívá.
+    Port E/W: v úrovni portu, je-li volná (žíly v různých výškách – sekundár MTP), jinak první volná níž.
+    Port N/S: úsek vede za vývodem portu ven od přístroje (nad / pod něj) – ne v úrovni portu, kde by šel přes
+    sousední svorky, jejich čísla a vlastní značku; další přerušení dál ven po dvou roztečích (souběžné úseky
+    k pólům – mezi ně se vejde popisek žíly), u portu S po jedné, kdyby dvojí rozteč sjela pod `lo`.
     `lo` = nejnižší povolená výška (spodní okraj kresby strany): port E/W pak pokračuje nad úrovní portu."""
     if d in ("N", "S"):
-        step = BREAK_PITCH if d == "N" else -BREAK_PITCH
-        y = p[1] + (GRID if d == "N" else -GRID)
-        while any(abs(y - u) < BREAK_PITCH - 1e-6 for u in used):
-            y += step
+        out = 1.0 if d == "N" else -1.0
+        for k in (2, 1):
+            step = k * BREAK_PITCH
+            y = p[1] + out * GRID
+            while any(abs(y - u) < step - 1e-6 for u in used):
+                y += out * step
+            if d == "N" or lo is None or y >= lo:
+                break
     else:
-        y = p[1] - BREAK_PITCH * n
+        y = p[1]
+        while any(abs(y - u) < BREAK_PITCH - 1e-6 for u in used):
+            y -= BREAK_PITCH
         if lo is not None and y < lo:
             # pod spodní okraj strany ne – další přerušení nad úrovní portu (první volná výška)
             y = p[1] + BREAK_PITCH
@@ -1549,6 +1685,8 @@ def wire_route(pa: tuple[float, float], da: str, pb: tuple[float, float], db: st
 
 
 ROUTE_JOGS = (0.8, 0.5, 0.2, 0.65, 0.35, 0.9, 0.1)   # výšky příčky Z-trasy, které se zkoušejí (první = výchozí)
+# výšky pro společnou příčku žil vodiče (`wire_jog`): nejdřív `ROUTE_JOGS`, pak jemněji po 5 %
+WIRE_JOGS = ROUTE_JOGS + tuple(j / 20 for j in range(1, 20) if j / 20 not in ROUTE_JOGS)
 # trasy se dvěma lomy (`clear_route`) se zkoušejí jen u žil přes cizí značku
 
 
@@ -1613,16 +1751,61 @@ def _crossings(pts, segs) -> int:
     return n
 
 
+def _overlaps(pts, segs) -> int:
+    """Počet úseků trasy, které leží na úseku jiné žíly `segs` (stejná přímka, společná délka > 0) – vypadalo by
+    to jako spojení žil."""
+    n = 0
+    for a, b in pairwise(pts):
+        for c, d in segs:
+            if abs(a[1] - b[1]) < 1e-6 and abs(c[1] - d[1]) < 1e-6 and abs(a[1] - c[1]) < 1e-6:
+                lo, hi = max(min(a[0], b[0]), min(c[0], d[0])), min(max(a[0], b[0]), max(c[0], d[0]))
+            elif abs(a[0] - b[0]) < 1e-6 and abs(c[0] - d[0]) < 1e-6 and abs(a[0] - c[0]) < 1e-6:
+                lo, hi = max(min(a[1], b[1]), min(c[1], d[1])), min(max(a[1], b[1]), max(c[1], d[1]))
+            else:
+                continue
+            if hi - lo > 1e-6:
+                n += 1
+    return n
+
+
+def wire_jog(ends, branch: str = "", segs=()) -> tuple[float, bool]:
+    """Společná výška příčky Z-trasy žil jednoho vodiče a pořadí posunu příček: `ends` = [(pa, da, pb, db)] po
+    žilách. Výchozí `ROUTE_JOGS[0]` (blízko cíle), posun `i · GRID`. Když by příčka posledních žil přejela za cíl
+    a žíla se vracela po svorkách (krátký úsek, mnoho žil – elektroměr se svorkami), nebo se žíly vodiče navzájem
+    kříží (žíly se rozbíhají na svorky v jiném rozestupu), nebo by ležely na úsecích už nakreslených žil `segs`
+    (dva vodiče na svorky jednoho přístroje), vybere výšku a obrácené pořadí posunu (`(n − 1 − i) · GRID`), kde
+    jsou všechny žíly čisté, nic se nepřekrývá a křížení mezi nimi je nejméně. (jog, obráceně)"""
+    if branch or len(ends) < 2:
+        return ROUTE_JOGS[0], False
+    n = len(ends)
+    best = None
+    for k, jog in enumerate(WIRE_JOGS):
+        for rev in (False, True):
+            routes = [wire_route(pa, da, pb, db, stagger=((n - 1 - i) if rev else i) * GRID, jog=jog)
+                      for i, (pa, da, pb, db) in enumerate(ends)]
+            if not all(_clean_path(r) for r in routes):
+                continue
+            own = [list(pairwise(r)) for r in routes]
+            cross = sum(_crossings(r, s) for i, r in enumerate(routes) for s in own[i + 1:])
+            over = sum(_overlaps(r, segs) for r in routes)
+            key = (over, cross + sum(_crossings(r, segs) for r in routes), k, rev)
+            if best is None or key < best[0]:
+                best = (key, jog, rev)
+            if over == 0 and cross == 0 and k == 0 and not rev:
+                return jog, rev          # výchozí trasa je v pořádku
+    return (best[1], best[2]) if best else (ROUTE_JOGS[0], False)
+
+
 def clear_route(pa, da, pb, db, stagger: float = 0.0, branch: str = "", boxes=(),
-                segs=(), labels=()) -> list[tuple[float, float]]:
+                segs=(), labels=(), jog: float = ROUTE_JOGS[0]) -> list[tuple[float, float]]:
     """Trasa žíly, která co nejméně vede přes cizí značky (`boxes`). Výchozí trasa (`wire_route`), když nic nekříží;
     jinak jiné výšky příčky Z (`ROUTE_JOGS`) a trasy se dvěma lomy přes volný pruh (svisle – vodorovně – svisle
     v různých výškách, vodorovně – svisle – vodorovně v různých odstupech) – nejkratší bez přechodu, jinak s nejméně
     přechody (při shodě výchozí). Odbočka ze svorky (`branch`) zůstává, pokud nevede přes cizí značku."""
-    base = wire_route(pa, da, pb, db, stagger=stagger, branch=branch)
+    base = wire_route(pa, da, pb, db, stagger=stagger, branch=branch, jog=jog)
     if not boxes or route_hits(base, boxes) == 0:
         return base                     # odbočka ze svorky jen když výchozí trasa vede přes značku
-    cands = [wire_route(pa, da, pb, db, stagger=stagger, jog=j) for j in ROUTE_JOGS[1:]]
+    cands = [wire_route(pa, da, pb, db, stagger=stagger, jog=j) for j in ROUTE_JOGS if j != jog]
     va, vb = DIR_VEC[da], DIR_VEC[db]
     sa = (pa[0] + va[0] * GRID, pa[1] + va[1] * GRID)
     sb = (pb[0] + vb[0] * GRID, pb[1] + vb[1] * GRID)

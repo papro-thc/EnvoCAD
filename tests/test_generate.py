@@ -550,9 +550,6 @@ def test_protection_without_in_is_f7_error():
 
 
 # výstup generátoru bez chyb a varování F7 – topologie z docs/NAVRH_TOPOLOGIE.md (kap. 5) a cesta bez maker
-_KNOWN_RE_METER = pytest.mark.xfail(
-    strict=True, reason="známé (i v main): vícepól elektroměrového rozvaděče RE – text elektroměru P přes žílu "
-                        "napěťových obvodů (mp_text_overlap); rozmístění vícepólu `multipole.auto_layout`, mimo F0")
 # stávající články řetězce (F2): In stávajících přístrojů projektant zadá (průvodce je vyžaduje) – neznámé = chyba F7
 _EXIST_NN = {"hr": {"main_in": 250}, "re": {"main_in": 250}, "hds": {"in_": 315}}
 # RD: HJ před elektroměrem ≥ 1,6 × vývod FVE (2 střídače 10 kW → 32 A) – selektivita v řetězci (F7 `chain_selectivity`)
@@ -586,10 +583,7 @@ F7_CASES = {
                                  "inverters": [{"ref": "T1", **_HOUSE_INV, "strings": [12, 12, 12]},
                                                {"ref": "T2", **_HOUSE_INV, "strings": [12]}]},
 }
-_F7_XFAIL = {"vn_kiosk", "vn_kobky_mereni_vn", "vn_sloup_50kva"}
-
-
-@pytest.mark.parametrize("name", [pytest.param(n, marks=_KNOWN_RE_METER) if n in _F7_XFAIL else n for n in F7_CASES])
+@pytest.mark.parametrize("name", list(F7_CASES))
 def test_generated_project_f7_clean(name):
     p = build_project(F7_CASES[name])
     fs = [f for f in check_project(p, LibraryStore(), standard_paper="A4") if f.severity in (ERROR, WARNING)]
@@ -600,15 +594,12 @@ _F7_RE_INDIRECT = {"inverters": [{"ref": "T1", **_INV25, "strings": [20, 20]}],
                    "chain": {**_EXIST_NN, "re": {"main_in": 250, "metering": "indirect"}}}
 
 
-@pytest.mark.parametrize("name", [*sorted(_F7_XFAIL), "nn_re_nepřímé"])
-def test_generated_vn_only_known_re_meter_warning(name):
-    """Přípojka VN a nepřímé měření v RE na nn (elektroměr na MTP): kromě známého překryvu ve vícepólu RE (viz
-    `_KNOWN_RE_METER` – elektroměr bez vícepólové podoby) bez chyb a varování."""
-    p = build_project(F7_CASES.get(name) or _F7_RE_INDIRECT)
+def test_generated_indirect_metering_re_f7_clean():
+    """Nepřímé měření v RE na nn (MTP v RE, elektroměr na sekundáru): ve vícepólu elektroměr se svorkami (DIN 43856)
+    a MTP po fázích pod sebou – bez chyb a varování F7 (dřív text elektroměru přes žílu napěťových obvodů)."""
+    p = build_project(_F7_RE_INDIRECT)
     fs = [f for f in check_project(p, LibraryStore(), standard_paper="A4") if f.severity in (ERROR, WARNING)]
-    assert {(f.code, f.sheet_name.split(" ")[0]) for f in fs} == {("mp_text_overlap", "RE")}, [f.text for f in fs]
-    # nepřímé měření: popisek přístroje se od 10/2026 odsune z cizích žil (`_place_element_label`) – 2 místo 3
-    assert len(fs) == (1 if name in _F7_XFAIL else 2)
+    assert not fs, [(f.sheet_name, f.ref, f.text) for f in fs]
 
 
 # ---- označení rozvaděčů (docs/NAVRH_TOPOLOGIE.md, kap. 8 bod 9) -------------------------------------------------

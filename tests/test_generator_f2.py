@@ -226,7 +226,7 @@ def test_re_big_main_breaker_and_indirect():
     ct = next(e for e in sh.elements if e.symbol_id == "fve.ct")
     assert ct.attrs["ratio"] == "200/5 A"
     meter = next(e for e in sh.elements if e.symbol_id == "fve.meter")
-    assert any(w.touches(ct.id) and w.touches(meter.id) and w.conductors == ["S1", "S2"] for w in sh.wires)
+    assert any(w.touches(ct.id) and w.touches(meter.id) and w.conductors == ["1S1", "1S2", "2S1", "2S2", "3S1", "3S2"] for w in sh.wires)
     assert next(e for e in sh.elements if e.symbol_id == "sb.main_switch").attrs["in_"] == "250"
     p = build_project({**_NN1, "chain": {"re": {"main_in": 200, "metering": "indirect", "ct_ratio": "300/5 A"}}})
     assert next(e for e in _re(p).elements if e.symbol_id == "fve.ct").attrs["ratio"] == "300/5 A"

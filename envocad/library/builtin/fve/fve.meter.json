@@ -95,5 +95,12 @@
   "label_pos": {
     "x": -5,
     "y": 6.5
+  },
+  "multipole": {
+    "terminals": {
+      "_": "nepřímé měření (elektroměr na sekundáru MTP): ve vícepólu obdélník se svorkami podle schématu `scheme` (`multipole.TERMINAL_SCHEMES`), každá žíla na svou svorku; i čísla svorek v zapojovacím seznamu",
+      "scheme": "DIN 43856",
+      "text": "kWh"
+    }
   }
 }

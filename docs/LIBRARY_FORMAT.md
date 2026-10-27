@@ -38,7 +38,15 @@ a při startu se nahrají do SQLite (`~/.envocad/library.db`), kde přibývají 
     "link": true,                     // čárkovaná mechanická vazba pólů
     "link_at": [0, 2],                // bod pólu, kterým vazba prochází
     "through": ["1", "2"],            // nepovinné: průchozí porty u značky s dalšími porty (MTP: primár 1–2, sekundár S)
-    "pitch": 12.5                     // nepovinné: rozteč pólů ve vícepólu [mm], výchozí 7,5 (přepínač sítí: vstupy I / II)
+    "pitch": 12.5,                    // nepovinné: rozteč pólů ve vícepólu [mm], výchozí 7,5 (přepínač sítí: vstupy I / II)
+    "stagger": 12.5,                  // nepovinné: posun pólů po toku [mm] – jen se sekundárem po fázích (níže)
+    "secondary": {                    // nepovinné: sekundár po fázích (MTP) – žíla na port `port` u pólu své fáze
+      "port": "S",
+      "at": {"-1": [-5, 4], "1": [5, 4]},             // svorky S1 / S2 v souřadnicích značky pólu
+      "draw": [ ...primitiva příčky sekundáru... ],   // kreslí se k pólu, jen když na `port` vedou žíly z `conductors`
+      "conductors": {"1S1": ["L1", -1], "1S2": ["L1", 1]}   // žíla → [fáze pólu, svorka z `at`]
+    },
+    "terminals": {"scheme": "DIN 43856", "text": "kWh"}  // nepovinné: přístroj s očíslovanými svorkami
   }
 }
 ```
@@ -48,6 +56,12 @@ Kategorie (`category`) je druh prvku: `Zdroje`, `Střídače a měniče`, `Jišt
 `Konektory`, `Instalace`, `Elektronika`. Tvar `Druh/QET` zařadí značku do sbalené podsložky cizí knihovny.
 Pól se v knihovně nerozlišuje: v JPS je každá značka jednopólová (jedna čára = kabel se všemi žílami) a ve
 vícepólu se rozkreslí podle `multipole` (bez něj se opakuje celá značka).
+
+`multipole.terminals` (elektroměr při nepřímém měření): když na přístroj vede žíla sekundáru MTP, kreslí se ve
+vícepólu jako obdélník se svorkami nahoře podle schématu `scheme` (`multipole.TERMINAL_SCHEMES`; DIN 43856:
+I1 1–3, U1 2, I2 4–6, U2 5, I3 7–9, U3 8, N 11) a každá žíla vede na svou svorku; tatáž čísla svorek uvádí
+zapojovací seznam („P1:3“). Žíly sekundáru MTP po fázích jsou `1S1 1S2 2S1 2S2 3S1 3S2`, napětí z MTN
+`1a 2a 3a n`. Přímé měření (elektroměr průchozí L1–L3 N) se kreslí jako dřív.
 
 Pravidla:
 
