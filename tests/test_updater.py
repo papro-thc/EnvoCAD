@@ -304,3 +304,96 @@ def test_versions_in_sync():
     root = Path(updater.__file__).resolve().parents[1]
     m = re.search(r'^version = "([^"]+)"', (root / "pyproject.toml").read_text(encoding="utf-8"), re.MULTILINE)
     assert m and m[1] == updater.__version__
+
+
+class _FakeApp:
+    def __init__(self, argv):
+        self.argv = argv
+
+    def setApplicationName(self, name):
+        pass
+
+    def setOrganizationName(self, name):
+        pass
+
+
+def _fake_start(monkeypatch, tmp_path):
+    """`app.main` bez Qt a bez logu: QApplication, překlady a log nahrazené – zbude jen zapojení startu."""
+    from envocad import app, logging_setup
+    monkeypatch.setattr(app, "QApplication", _FakeApp)
+    monkeypatch.setattr(app, "install_qt_translations", lambda a: [])
+    monkeypatch.setattr(logging_setup, "setup", lambda *a, **k: tmp_path / "envocad.log")
+    return app
+
+
+def test_main_runs_startup_update_and_exits_when_new_version_launched(monkeypatch, tmp_path):
+    """Start aplikace volá aktualizaci samostatné aplikace; spuštěná nová verze = tento proces skončí dřív,
+    než otevře okno."""
+    from envocad.ui import update_prompt
+    app = _fake_start(monkeypatch, tmp_path)
+    calls = []
+    monkeypatch.setattr(update_prompt, "startup_exe_update", lambda args: calls.append(args) or True)
+    monkeypatch.setattr(app.sys, "argv", ["envocad", "projekt.ecp"])
+    with pytest.raises(SystemExit) as ex:
+        app.main()
+    assert ex.value.code == 0
+    assert calls == [["projekt.ecp"]]
+
+
+def test_startup_update_failure_starts_running_version(monkeypatch):
+    """Chyba aktualizace při startu se jen zaloguje – program běží dál v nainstalované verzi."""
+    from envocad import app
+    from envocad.ui import update_prompt
+
+    def broken(args):
+        raise OSError("sdílená složka nedostupná")
+    monkeypatch.setattr(update_prompt, "startup_exe_update", broken)
+    assert app.startup_update([]) is False
+    monkeypatch.setattr(update_prompt, "startup_exe_update", lambda args: False)
+    assert app.startup_update([]) is False
+
+
+def test_report_update_shows_result_once(monkeypatch):
+    """Po startu okna se výsledek aktualizace (spouštěč klonu / předchozí verze) oznámí ve stavovém řádku – jednou."""
+    from envocad import app
+    shown = []
+
+    class Bar:
+        def showMessage(self, text, ms=0):
+            shown.append(text)
+
+    class Win:
+        def statusBar(self):
+            return Bar()
+
+    updater.save_state({"result": {"ok": True, "version": "0.9.0"}})
+    app.report_update(Win())
+    app.report_update(Win())
+    assert shown == ["EnvoCAD aktualizován na verzi 0.9.0"]
+
+
+def test_main_window_opens_after_update_check(monkeypatch, tmp_path):
+    """Bez nové verze start pokračuje: okno se otevře a pak se oznámí výsledek aktualizace."""
+    from envocad.ui import main_window, theme, update_prompt
+    app = _fake_start(monkeypatch, tmp_path)
+    order = []
+    monkeypatch.setattr(update_prompt, "startup_exe_update", lambda args: order.append("update") or False)
+    monkeypatch.setattr(update_prompt, "show_update_result", lambda win: order.append("result"))
+    monkeypatch.setattr(theme, "apply", lambda *a: None)
+
+    class Win:
+        def __init__(self, project=None):
+            order.append("window")
+
+        def statusBar(self):
+            return type("B", (), {"showMessage": lambda *a: None})()
+
+        def show(self):
+            order.append("show")
+
+    monkeypatch.setattr(main_window, "MainWindow", Win)
+    monkeypatch.setattr(_FakeApp, "exec", lambda self: 0, raising=False)
+    monkeypatch.setattr(app.sys, "argv", ["envocad"])
+    with pytest.raises(SystemExit):
+        app.main()
+    assert order == ["update", "window", "show", "result"]
