@@ -56,6 +56,7 @@ režim optimizer `_uoc_capped`, fixed_voltage `u_string` střídače. Na prvku m
 - Pojistkové vložky gPV 1500 V generátor jako artikl nedává (prvek nese jen In, vložka není samostatný prvek).
 - Katalog má jen 1p držáky 1500 V (ETI EFH 10/14, Eaton CHPV15L85) – rozhodnutí: 1500 V jen s 2p držákem, generátor
   zůstává na 1000 V a F7 hlásí `dc_1500_missing`.
-- Sloupce `ucpv_v` (DC SPD), `uw_kv` (střídače), `icw_ka`/`ipk_ka` (skříně) v katalogu chybí; Ik rozvaděče a
-  `ik_ka` nejsou v dialogu skříně ani ve Vlastnostech projektu (jen atribut / parametr).
+- Data: `ucpv_v` má jen část svodičů DC (bez něj se `spd_ucpv` nehodnotí), `uw_kv` (střídače) a `icw_ka`/`ipk_ka`
+  (skříně) v katalogu chybí. Ik se zadává ve Vlastnostech projektu (`meta["ik_ka"]`), v průvodci (Ik v místě
+  připojení) a u bloku rozvaděče (atributy `ik_ka`, `icw` v dialogu prvku).
 - Kaskáda (záložní jištění) a Ipk vs. ip se nehodnotí; umístění SPD (vstup do objektu) neznáme.
