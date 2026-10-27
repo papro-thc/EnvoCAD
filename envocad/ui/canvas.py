@@ -564,6 +564,9 @@ class SchematicScene(QGraphicsScene):
                 self._wire_from = None
                 self.removeItem(self._wire_preview)
                 if not (a is b and pa == pb):
+                    # odbočka z uzlu: volný port uzlu směrem k druhému konci (jinak vodič obloukem přes tečku)
+                    pa = self._junction_port_towards(a, pa, b, pb)
+                    pb = self._junction_port_towards(b, pb, a, pa)
                     w = Wire(WireEnd(a.element.id, pa), WireEnd(b.element.id, pb))
                     # model-write-ok: nový vodič (ještě není v listu), vloží ho AddWireCommand
                     w.conductors = default_conductors(a.element, pa, b.element, pb)
@@ -615,6 +618,14 @@ class SchematicScene(QGraphicsScene):
                                  if isinstance(it, NoteItem)}
         self._text_move_start = {it.text.id: (it.text.x, it.text.y) for it in self.selectedItems()
                                  if isinstance(it, TextItem)}
+
+    def _junction_port_towards(self, it: ElementItem, port: str, other: ElementItem, other_port: str) -> str:
+        """Port uzlu odbočky (`sb.junction`) pro nový vodič: volný port na straně k druhému konci vodiče."""
+        from envocad.model.potential import junction_free_port
+        if it.element.symbol_id != "sb.junction":
+            return port
+        pos = other.port_scene_pos(other_port)
+        return junction_free_port(self.sheet, it.element, (pos.x(), -pos.y())) or port
 
     def _branch_at(self, pos: QPointF) -> tuple[ElementItem, str] | None:
         """Klik na vodič v režimu kreslení: vodič se rozdělí uzlem odbočky a vrátí se jeho volný port."""
