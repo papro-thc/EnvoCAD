@@ -197,15 +197,19 @@ def _align_chain(project: Project, links: list[tuple[Element, str, Element, str,
         w.points = []
 
 
-def place_load(project: Project, blk: Element, port: str, load: Element, w: Wire) -> None:
+LOAD_ROW = 25.0              # další spotřeba pod týmž blokem (popisek značky mezi řadami)
+
+
+def place_load(project: Project, blk: Element, port: str, load: Element, w: Wire, k: int = 0) -> None:
     """Spotřeba objektu pod zrcadleným blokem (stávající RD / HR, vývod X2 vlevo): z vývodu kousek vlevo, svisle
-    dolů pod blok a vpravo do značky (jako `_align_connection` u přípojky VN)."""
+    dolů pod blok a vpravo do značky (jako `_align_connection` u přípojky VN). Další spotřeba téhož bloku (`k`,
+    zálohované okruhy EPS) o řadu níž."""
     lib = context._lib()
     sym = element_symbol(project, blk, lib)
     if not any(pt.name == port for pt in sym.ports):
         return
     xs = blk.port_pos(sym, port)
-    low = blk.y - max(abs(pt.y) for pt in sym.ports) - 25.0
+    low = blk.y - max(abs(pt.y) for pt in sym.ports) - 25.0 - LOAD_ROW * k
     lp = load.port_pos(element_symbol(project, load, lib), "1")
     load.x += xs[0] + 7.5 - lp[0]
     load.y += low - lp[1]

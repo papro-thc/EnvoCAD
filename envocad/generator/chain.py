@@ -188,16 +188,31 @@ def build(ctx: ChainContext) -> None:
         if ctx.combined:
             rfve.build_dc_part(ctx, sb)
     from envocad.generator.boards.eps import build_jps
-    build_jps(ctx)                    # EPS rodinného domu: BACKUP → RFVE.XE{i}, XB{i} → zálohované okruhy
+    build_jps(ctx)                    # EPS rodinného domu: BACKUP → RFVE.XE{i}, XB{i} → (RD / HR →) zálohované okruhy
     _layout(ctx)
+    from envocad.generator.boards.eps import place_return
+    place_return(ctx)                 # přerušení kabelu zálohy do RD / HR u portů (po rozmístění řetězce)
+    from envocad.generator import tigo
+    tigo.build(ctx)                   # optimizéry Tigo: CCA + TAP (nebo vysílač RSS) nad horním stringem
 
 
 def _place_loads(ctx: ChainContext) -> None:
     """Spotřeba objektu (`fve.load` na vývodu X2 stávajícího RD / HR) pod blokem – builder ji registruje
     v `ctx.loads` (blok, port, značka, vodič); vodič z X2 vlevo (blok je zrcadlený), svisle dolů pod blok a do značky."""
+    from envocad.generator import context
     from envocad.generator.layout import place_load
-    for blk, port, load, w in ctx.loads:
-        place_load(ctx.project, blk, port, load, w)
+    from envocad.model.project import element_symbol
+
+    def port_y(blk: Element, port: str) -> float:
+        sym = element_symbol(ctx.project, blk, context._lib())
+        return blk.port_pos(sym, port)[1] if any(pt.name == port for pt in sym.ports) else 0.0
+    # víc spotřeb pod jedním blokem (stávající rozvody + zálohované okruhy): nižší vývod do vyšší řady a blíž
+    # k bloku – vodiče se nekříží
+    rank = {id(entry): k for blk in {e[0].id: e[0] for e in ctx.loads}.values()
+            for k, entry in enumerate(sorted((e for e in ctx.loads if e[0] is blk), key=lambda e: port_y(blk, e[1])))}
+    for entry in ctx.loads:
+        blk, port, load, w = entry
+        place_load(ctx.project, blk, port, load, w, rank[id(entry)])
 
 
 def _boundary_text(ctx: ChainContext) -> None:

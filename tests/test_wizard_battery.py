@@ -74,8 +74,25 @@ def test_battery_choice_survives_inverter_change_within_hybrids(app):
     d.bat_modules.setValue(4)
     d.set_inverter_component(lib.component("solax-x3-hyb-12.0-p"))      # jiný hybrid: volba zůstane
     assert d.bat_combo.currentData() == "solax-t-bat-h-5.8-v3" and d.bat_modules.value() == 4
-    d.set_inverter_component(lib.component("growatt-sph5000"))          # jiný výrobce: Growatt první
-    assert d.bat_combo.itemText(1).startswith("Growatt") and d.bat_combo.currentData() == "solax-t-bat-h-5.8-v3"
+    d.set_inverter_component(lib.component("growatt-sph5000"))          # jiný výrobce: SolaX nepasuje, volba zmizí
+    assert d.bat_combo.findData("solax-t-bat-h-5.8-v3") == -1 and d.bat_combo.currentData() == ""
+    assert d.bat_combo.findData("growatt-apx-5.0p-b1") == -1            # APX jen k MIN …TL-XH (inv_compat)
+    d.bat_all.setChecked(True)                                          # i ostatní: výrobce střídače první
+    assert d.bat_combo.itemText(1).startswith("Growatt") and d.bat_combo.findData("solax-t-bat-h-5.8-v3") > 0
+
+
+def test_battery_only_compatible_with_inverter(app):
+    """Nabídka baterií podle střídače: vzory `inv_compat` z datasheetu baterie, jinak stejný výrobce."""
+    d, lib = _wizard()
+    d.set_inverter_component(lib.component("huawei-sun2000-5ktl-m1"))
+    ids = [d.bat_combo.itemData(i) for i in range(1, d.bat_combo.count())]
+    assert "huawei-luna2000-5-e0" in ids                                 # LUNA2000 S0 k SUN2000-…KTL-M1
+    assert "huawei-luna2000-241-2s1" not in ids                          # úložiště s vlastním PCS („-“)
+    assert all(lib.component(i).manufacturer == "Huawei" for i in ids)
+    d.set_inverter_component(lib.component("huawei-sun2000-10k-map0"))
+    assert d.bat_combo.findData("huawei-luna2000-5-e0") == -1            # MAP0 v seznamu LUNA2000 S0 není
+    d.set_inverter_component(lib.component("goodwe-gw10k-et-20"))
+    assert d.bat_combo.findData("goodwe-lx-f9.8-h") > 0
 
 
 def test_battery_bms_selection(app):
@@ -85,6 +102,8 @@ def test_battery_bms_selection(app):
     assert (d.bat_modules.minimum(), d.bat_modules.value()) == (2, 2)          # HS36: od 2 modulů
     assert not d.bat_bms.isHidden() and d.bat_bms.currentData() == "solax-tbms-mcs0800"     # jediná BMS = předvolba
     assert d.spec()["battery"] == {"component_id": "solax-tp-hs36", "modules": 2, "bms_id": "solax-tbms-mcs0800"}
+    assert d.bat_combo.findData("sigenergy-sigenstack-bat-12.0") == -1     # jiný výrobce ke střídači nepasuje
+    d.bat_all.setChecked(True)                                              # „i ostatní baterie“
     d.bat_combo.setCurrentIndex(d.bat_combo.findData("sigenergy-sigenstack-bat-12.0"))
     assert d.bat_bms.count() == 6 and d.bat_bms.currentData() == ""            # 5 variant BC: volí uživatel
     assert "bms_id" not in d.spec()["battery"]

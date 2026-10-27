@@ -707,8 +707,9 @@ _EXIST_RD63 = {"rd": {"main_in": 63}, "re": {"main_in": 63}, "hds": {"in_": 80}}
 @pytest.mark.parametrize("extra", [{}, {"macros": {"ac_eps": "EPS přepínač sítí"}}, {"dc": {"tech_box": False}},
                                    {"macros": {"dc_tech": "", "dc_route": "", "ac_feed": "", "ac_core": ""}}])
 def test_eps_changeover_in_house(extra):
-    """RD s hybridním střídačem a baterií: BACKUP → přerušení EPS-T1 → RFVE.XE1 → přepínač sítí (port 2), síť ze
-    sběrnice (port 1), výstup → XB1 → „zálohované okruhy“; makro `ac_eps` i kód; F7 čisté, bez křížení."""
+    """RD s hybridním střídačem a baterií: BACKUP → přerušení EPS-T1 → RFVE.XE1 → chránič → přepínač sítí (port 2),
+    síť ze sběrnice (port 1), výstup → XB1 → přerušení EPS-RD → RD.XE1 … RD.XB1 → „zálohované okruhy“; makro
+    `ac_eps` i kód; F7 čisté, bez křížení."""
     from test_feed_review import _crossings
 
     from envocad.model.checks import ERROR, WARNING, check_project
@@ -717,20 +718,34 @@ def test_eps_changeover_in_house(extra):
                        "battery": _BAT, "chain": _EXIST_RD63, **extra})
     s = p.sheets[0]
     t = next(e for e in s.elements if e.symbol_id == "fve.inverter_hybrid")
-    assert t.attrs["eps"] == "1" and "BACKUP" in inverter_io(t.attrs)
+    assert t.attrs["eps"] == "1" and "BACKUP" in inverter_io(t.attrs, hybrid=True)
     sb = _board(p, "RFVE")
     q = next(e for e in sb.elements if e.symbol_id == "fve.changeover_switch")
     by_id = {e.id: e for e in sb.elements}
     ends = {(w.a.port if w.a.element_id == q.id else w.b.port):
             by_id[w.b.element_id if w.a.element_id == q.id else w.a.element_id] for w in sb.wires if w.touches(q.id)}
-    assert ends["1"].symbol_id == "fve.breaker_mcb" and ends["2"].ref == "XE1" and ends["3"].ref == "XB1"
+    assert ends["1"].symbol_id == "fve.breaker_mcb" and ends["2"].symbol_id == "sb.rcd" and ends["3"].ref == "XB1"
+    # záloha: přívod XE1 → chránič 30 mA → přepínač (port 2)
+    rcd = ends["2"]
+    assert rcd.attrs["idn"] == "30" and any(
+        w.touches(rcd.id) and sb.element(w.a.element_id if w.b.element_id == rcd.id else w.b.element_id).ref == "XE1"
+        for w in sb.wires)
     # jistič před síťovou stranou přepínače (D4) ze sběrnice
     fq = ends["1"]
     assert any(w.touches(fq.id) and sb.element(w.a.element_id if w.b.element_id == fq.id else w.b.element_id)
                .symbol_id == "sb.busbar" for w in sb.wires)
     assert float(q.attrs["in_"]) >= float(fq.attrs["in_"])
     load = next(e for e in s.elements if e.symbol_id == "fve.load" and e.attrs.get("desc") == "zálohované okruhy")
-    assert any(w.touches(load.id) and "XB1" in (w.a.port, w.b.port) for w in s.wires)
+    # záloha zpět do RD: RFVE.XB1 → přerušení „EPS-RD“ … → RD.XE1 (kabel), RD.XB1 → zálohované okruhy
+    rd = next(e for e in s.elements if e.symbol_id == "fve.switchboard" and e.ref == "RD")
+    rfve = next(e for e in s.elements if e.symbol_id == "fve.switchboard" and e.ref == "RFVE")
+    assert any(w.touches(load.id) and w.touches(rd.id) and "XB1" in (w.a.port, w.b.port) for w in s.wires)
+    ret = [e for e in s.elements if e.symbol_id == "fve.interrupt" and e.ref == "EPS-RD"]
+    assert len(ret) == 2
+    assert any(w.touches(rfve.id) and "XB1" in (w.a.port, w.b.port) and any(w.touches(r.id) for r in ret)
+               for w in s.wires)
+    w_rd = next(w for w in s.wires if w.touches(rd.id) and "XE1" in (w.a.port, w.b.port))
+    assert any(w_rd.touches(r.id) for r in ret) and w_rd.attrs.get("cable")
     assert len([e for e in s.elements if e.symbol_id == "fve.interrupt" and e.ref == "EPS-T1"]) == 2
     lib = _lib()
     bad = [(f.code, f.ref, f.text) for f in check_project(p, lib, standard_paper="A4") if f.severity in (ERROR, WARNING)]

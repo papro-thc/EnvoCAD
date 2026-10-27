@@ -119,7 +119,8 @@ střídač vstupy DC1…DCn (jeden na string) a AC.
 
 **Svorky typu střídače**: střídač s výrobcem a typem z artiklu dostane pod značkou pás svorek své řady – záložní
 výstup (BACKUP), komunikace s baterií (BMS, CAN), elektroměr (METER), RS485, Ethernet (LAN), řízení výkonu (DI,
-DRM, DIDO) a dálkové vypnutí (RSD); hybridní střídač má baterii (BAT) až pod pásem. Profily řad: Huawei SUN2000
+DRM, DIDO) a dálkové vypnutí (RSD); hybridní střídač má baterii (BAT) až pod pásem. **Hybridní střídač má vždy dvě
+výkonové svorky navíc: baterii (BAT) a záložní výstup (BACKUP)** – BACKUP i u řady bez profilu (pak první v pásu). Profily řad: Huawei SUN2000
 KTL-M1/M2/M3 a MAP0, SolaX X3-Ultra a X1/X3-Hybrid G4, GoodWe ET a DT/SDT G2, Growatt MOD, Sigenergy Sigen
 Hybrid / SigenStor, SolarEdge Home Hub a třífázové SetApp. Jsou podle datasheetů a návodů výrobce – čísla pinů
 a varianty trhu ověř v návodu konkrétního modelu. Atribut **Svorky střídače** (`io`) profil přepíše (např.
@@ -675,14 +676,16 @@ projektu pro kontrolu `F7`) a „Celkem modulů“.
 
 **Baterie u hybridního střídače:** po výběru artiklu střídače s kategorií `inverter_hybrid` (**Z katalogu…**) se v kroku
 „Moduly a střídače“ objeví skupina **Baterie (hybridní střídač)**; u jiného střídače (nebo bez artiklu) je skrytá a ve
-specifikaci klíč `battery` chybí. Seznam **Baterie** nabízí artikly kategorie `battery` (stejný výrobce jako střídač jako
-první, pak ostatní; slave moduly a řídicí jednotky samostatně nejsou v nabídce) a „bez baterie“ (výchozí). **Počet modulů**
+specifikaci klíč `battery` chybí. Seznam **Baterie** nabízí jen artikly kategorie `battery`, **které ke střídači pasují**:
+podle vzorů typů střídačů z datasheetu baterie (sloupec `inv_compat`, např. LUNA2000 S0 k `SUN2000-*KTL-M1`), u baterie
+bez vzorů podle stejného výrobce (slave moduly a řídicí jednotky samostatně nejsou v nabídce), a „bez baterie“ (výchozí).
+Když nepasuje žádná, je jen „bez baterie (ke střídači v katalogu žádná nepasuje)“. Zaškrtnutí **i ostatní baterie** nabídne
+celý katalog (výrobce střídače první) – kompatibilitu pak ověřte v datasheetu. **Počet modulů**
 věže je omezen podle datasheetu artiklu (např. SolaX T-BAT H 5.8 V3: 1–6, master se počítá). Je-li k věži řídicí jednotka
 (BMS), ukáže se její výběr – jediná možná je předvolená, u více variant (SigenStack BC) se volí. Pod výběrem je souhrn:
 celková kapacita (a výkon, jen když ho datasheet uvádí), složení věže a BMS. Baterie se kreslí u prvního střídače (T1),
 u rodinného domu se k ní doplní EPS (přepínač sítí a zálohovaný vývod) a ve výkazu materiálu jsou master / modul × n,
-přídavné moduly (slave) a řídicí jednotka. Kompatibilitu baterie s konkrétním střídačem průvodce nehlídá – ověřte ji
-v datasheetu (poznámka artiklu). Do specifikace: `"battery": {"component_id": "solax-t-bat-h-5.8-v3", "modules": 3}`
+přídavné moduly (slave) a řídicí jednotka. Do specifikace: `"battery": {"component_id": "solax-t-bat-h-5.8-v3", "modules": 3}`
 (volitelně `bms_id`); `type`, `e_kwh`, `p_kw` z artiklu doplní generátor, zadané hodnoty mají přednost.
 
 **Optimizéry a režim stringů:** **Z katalogu…** u optimizéru otevře výběr (výrobce, typ, P, Uin max, Isc in, moduly na
@@ -693,6 +696,14 @@ doplní stringům parametry optimizéru a pravidla stringu pro fáze střídače
 *S optimizéry* (klasické meze Uoc a MPPT, navíc počet optimizérů, výkon stringu a vstup optimizéru) a *Pevné napětí*
 (SolarEdge – délku stringu určuje počet optimizérů, Uoc·n a okno MPPT se nekontrolují). Údaje, které artikl nezná,
 kontrola hlásí jako „chybí údaj“ (varování) – nic se neodhaduje.
+
+**Optimizéry Tigo** (TS4) bez signálu moduly odpojí – v projektu musí být **Tigo RSS vysílač** (`fve.tigo_rss`, jádro
+na vodičích stringů) nebo **Tigo CCA** (`fve.tigo_cca`) s přístupovým bodem **Tigo TAP** (`fve.tigo_tap`, montuje se na střechu k FV panelům, RS485
+Gateway A/B/+/GND). Kontrola F7 hlásí `tigo_missing` (string s optimizérem Tigo – výrobce z artiklu, jinak typ TS4… –
+a v projektu chybí RSS i CCA) a `tigo_tap_missing` (CCA bez TAP). Bloky jsou v knihovně v kategorii **Komunikace**
+a obě jednotky najednou vloží makro **Tigo CCA + TAP**. Generátor je doplní sám nad horní string podle
+`"optimizer": {"tigo": "cca"}` (výchozí: TAP → CCA), `"rss"` (vysílač RSS se seznamem stringů) nebo `"none"`
+(nekreslit).
 
 **Asistent stringů** pod polem Stringy se přepočítá při každé změně a ukazuje: rozsah počtu modulů ve stringu
 (n min–n max) s důvody (Uoc za studena, Umppt, Umax systému modulu, „Umpp z β_Voc – zjednodušení“), nejvýš stringů na
@@ -878,8 +889,11 @@ a působí na hlavní (vazební) vypínač s **vypínací spouští**; přepis `
 "0" | "auto"}}` (u RD `rfve`). Bez AC listu je ochrana požadavkem v popisku bloku.
 
 **EPS a přepínač sítí** jen u rodinného domu, u střídače s připojenou baterií: EPS vývod (BACKUP) vede přes pár
-přerušení „EPS-T1“ na přívod XE1 RFVE → přepínač sítí I-0-II (síť z přípojnice **přes jistič**) → vývod XB1
-„zálohované okruhy“. U firmy a bytového domu se nekreslí.
+přerušení „EPS-T1“ na přívod XE1 RFVE → **chránič 30 mA** → přepínač sítí I-0-II (síť z přípojnice **přes jistič**)
+→ vývod XB1. Je-li v řetězci stávající domovní / hlavní rozvaděč (RD / HR), vede vývod XB1 kabelem přes pár přerušení
+„EPS-RD“ zpět do RD (přívod XE1 → vývod XB1, v listu RD průchod svorkami) a teprve odtud na „zálohované okruhy“ –
+pod blokem RD vedle stávajících rozvodů; bez RD / HR visí „zálohované okruhy“ přímo na RFVE. U firmy a bytového domu
+se EPS nekreslí.
 
 **Střídače na jiném místě**: `"inverters": [{…, "ac_group": "hala B"}]` – skupina má vlastní RFVE.AC2 (hlavní
 RFVE.AC1) a vlastní vývod FVE v HR (X3…; kabel přes pár přerušení „AC2-HR“). Jen nn s HR (firma, bytový dům). Volby se

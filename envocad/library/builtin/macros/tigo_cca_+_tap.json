@@ -1,0 +1,67 @@
+{
+ "version": 3,
+ "name": "Tigo CCA + TAP",
+ "description": "Optimizéry Tigo: přístupový bod TAP (na střeše u panelů) → RS485 Gateway → řídicí jednotka CCA (JPS)",
+ "role": "",
+ "variables": [],
+ "fragment": {
+  "elements": [
+   {
+    "id": "3eb5682008ef",
+    "symbol_id": "fve.tigo_tap",
+    "x": 40,
+    "y": 200,
+    "rotation": 0,
+    "attrs": {
+     "ref": "A1",
+     "type": "Tigo TAP",
+     "manufacturer": "Tigo",
+     "desc": "na střeše u FV panelů"
+    },
+    "component_id": null
+   },
+   {
+    "id": "b818f3a9f7f4",
+    "symbol_id": "fve.tigo_cca",
+    "x": 100,
+    "y": 200,
+    "rotation": 0,
+    "attrs": {
+     "ref": "A1",
+     "type": "Tigo CCA",
+     "manufacturer": "Tigo",
+     "desc": "komunikace optimizérů"
+    },
+    "component_id": null
+   }
+  ],
+  "wires": [
+   {
+    "id": "dd3bb42ddd6c",
+    "a": {
+     "element_id": "3eb5682008ef",
+     "port": "GW"
+    },
+    "b": {
+     "element_id": "b818f3a9f7f4",
+     "port": "GW"
+    },
+    "points": [],
+    "attrs": {
+     "ref": "W1",
+     "cable": "",
+     "cross": "",
+     "length": "",
+     "method": ""
+    },
+    "conductors": [
+     "A",
+     "B",
+     "+",
+     "GND"
+    ],
+    "terminals": {}
+   }
+  ]
+ }
+}

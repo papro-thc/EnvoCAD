@@ -1,7 +1,8 @@
 """Svorky střídače mimo DC/AC: záložní výstup, generátor, komunikace a řízení výkonu (blok typu střídače).
 
 Značka střídače (`project.inverter_symbol`) přidá vpravo pod AC port pro každou svorku z atributu `io` prvku
-(„BACKUP BMS METER RS485 DRM“), a když atribut chybí, z profilu řady podle výrobce a typu (`PROFILES`).
+(„BACKUP BMS METER RS485 DRM“), a když atribut chybí, z profilu řady podle výrobce a typu (`PROFILES`); hybridní
+střídač má pak vždy i záložní výstup BACKUP (vedle baterie BAT ze značky `fve.inverter_hybrid`).
 Profily jsou orientační – podle datasheetů a instalačních návodů výrobce (`source`), čísla pinů a varianty trhu
 (DRED jen AU/NZ, dálkové vypnutí jen EU…) je nutné ověřit v návodu konkrétního modelu. Ručně zadaný `io` má
 přednost, prázdná mezera „-“ svorky vypne. Komunikační svorky jsou nepovinné (kontrola je nehlásí jako
@@ -92,12 +93,16 @@ def parse_io(text: str) -> list[str]:
     return out
 
 
-def inverter_io(attrs: dict) -> list[str]:
-    """Svorky střídače: atribut `io` (i „-“ = žádné), jinak profil podle výrobce a typu, jinak žádné."""
+def inverter_io(attrs: dict, hybrid: bool = False) -> list[str]:
+    """Svorky střídače: atribut `io` (i „-“ = žádné), jinak profil podle výrobce a typu, jinak žádné. Hybridní
+    střídač (`hybrid`) má bez ručního `io` vždy záložní výstup BACKUP – první, když ho profil řady neuvádí."""
     if (attrs.get("io") or "").strip():
         return parse_io(attrs["io"])
     p = profile_for(attrs.get("manufacturer", ""), attrs.get("type", ""))
-    return parse_io(p.io) if p else []
+    io = parse_io(p.io) if p else []
+    if hybrid and "BACKUP" not in io:
+        io.insert(0, "BACKUP")
+    return io
 
 
 def io_conductors(port: str) -> list[str] | None:
