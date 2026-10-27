@@ -113,3 +113,17 @@ def test_cmd_imports_without_qt():
     code = ("import sys, envocad.cmd, envocad.cmd.__main__; "
             "bad = [m for m in sys.modules if m.startswith(('PySide6', 'envocad.ui'))]; assert not bad, bad")
     subprocess.run([sys.executable, "-c", code], check=True, cwd=ROOT.parent, stdin=subprocess.DEVNULL)
+
+
+def test_log_rotation_survives_locked_log(tmp_path, monkeypatch):
+    """Druhé spuštění na Windows: log drží běžící EnvoCAD – rotace se přeskočí, start nespadne."""
+    from pathlib import Path
+
+    from envocad import logging_setup
+    (tmp_path / "envocad.log").write_text("x", encoding="utf-8")
+
+    def locked(self, target):
+        raise PermissionError(32, "soubor používá jiný proces")
+    monkeypatch.setattr(Path, "replace", locked)
+    logging_setup._rotate(tmp_path)                 # nesmí vyhodit výjimku
+    assert (tmp_path / "envocad.log").exists()
