@@ -757,6 +757,13 @@ class MainWindow(QMainWindow):
             return False
         resize = placement is not None and (placement[:3] != (sh.paper, float(sh.width), float(sh.height))
                                             or placement[3:] != (0.0, 0.0))
+        if resize and sh.is_switchboard and not (mp_paper or sh.mp_paper):
+            # list rozvaděče s jiným rozměrem by bez volby kreslil vícepól na rozměr listu (`paper_choice`) – strany
+            # schématu zůstanou podle firemního standardu
+            from envocad.model.multipole import normalize_switchboard_paper
+            from envocad.settings import switchboard_paper
+            mp_paper = normalize_switchboard_paper(switchboard_paper())
+            repaper = mp_paper != sh.mp_paper
         if not (rename or designate or repaper or resize):
             return True
         if designate and not self._valid_sheet_codes(sh, func, loc):

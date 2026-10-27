@@ -84,8 +84,8 @@ class SchematicScene(QGraphicsScene):
         self._note_preview = QGraphicsRectItem()
         self._note_preview.setPen(QPen(colors().preview, 0.3, Qt.DashLine))
         self._note_preview.setZValue(20)
-        self.setSceneRect(QRectF(-50, -sheet.height - 50, sheet.width + 100, sheet.height + 100))
-        self._paper = QGraphicsRectItem(QRectF(0, -sheet.height, sheet.width, sheet.height))
+        self._paper = QGraphicsRectItem()
+        self.update_paper()
         self._paper.setPen(QPen(colors().paper, 0.5))
         self._paper.setZValue(-1)
         self.addItem(self._paper)
@@ -93,7 +93,14 @@ class SchematicScene(QGraphicsScene):
         self.rebuild()
 
     # ---- synchronizace s modelem ------------------------------------------
+    def update_paper(self) -> None:
+        """Plocha scény a obrys papíru podle rozměru listu (po změně formátu listu se zvětší i kreslicí plocha)."""
+        w, h = float(self.sheet.width), float(self.sheet.height)
+        self.setSceneRect(QRectF(-50, -h - 50, w + 100, h + 100))
+        self._paper.setRect(QRectF(0, -h, w, h))
+
     def rebuild(self) -> None:
+        self.update_paper()
         for it in list(self.element_items.values()) + list(self.wire_items.values()):
             self.removeItem(it)
         self.element_items.clear()

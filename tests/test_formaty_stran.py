@@ -135,7 +135,7 @@ def test_sheet_props_dialog_and_undo(lib):
     w = MainWindow(lib, p)
     s = p.sheets[0]
     dlg = SheetPropsDialog(s)
-    assert dlg.size is not None and dlg.paper is None
+    assert dlg.size is not None and dlg.paper is None      # formát stran schématu jen u rozvaděče
     n = len(mp.PAPER_CHOICES)
     assert [dlg.size.itemData(i) for i in range(n)] == list(mp.PAPER_CHOICES)
     dlg.size.setCurrentIndex(dlg.size.findData("__custom__"))      # vlastní formát ze šířky a výšky
@@ -152,7 +152,8 @@ def test_sheet_props_dialog_and_undo(lib):
     p2 = Project.load(DATA)
     sb = next(x for x in p2.sheets if x.is_switchboard)
     d2 = SheetPropsDialog(sb)
-    assert d2.size is None and d2.paper.findData(mp.FREE_A4) >= 0 and d2.paper.findData("A1") >= 0
+    assert d2.size is not None and d2.paper.findData(mp.FREE_A4) >= 0 and d2.paper.findData("A1") >= 0
+    assert d2.sheet_format() is None                        # rozvaděč: formát listu i stran schématu
     w.undo.setClean()
     w.close()
 
@@ -210,3 +211,29 @@ def test_portrait_a0_and_custom_formats(lib):
     assert mp.page_paper_label(sb) == "500×300"
     g = multipole_geometry(_p, sb, lib, standard_paper="A4")
     assert g.page_size == (500.0, 300.0)
+
+
+def test_sheet_size_change_grows_drawing_area(lib):
+    """Změna formátu listu zvětší kreslicí plochu editoru (scéna, obrys papíru), i u listu rozvaděče; strany
+    schématu rozvaděče bez volby zůstanou podle standardu (ne „jako list“)."""
+    from PySide6.QtWidgets import QApplication
+
+    from envocad.ui.main_window import MainWindow
+    QApplication.instance() or QApplication([])
+    p = Project.load(EXAMPLE)
+    w = MainWindow(lib, p)
+    s = p.sheets[0]
+    w.open_sheet(s)
+    sc = next(x for x in w._scenes if getattr(x, "sheet", None) is s and type(x).__name__ == "SchematicScene")
+    assert w.set_sheet_props(s, s.name, s.func, s.loc, sheet_format="A1")
+    assert sc.sceneRect().width() == 841 + 100 and sc._paper.rect().height() == 594
+    w.undo.undo()
+    assert sc.sceneRect().width() == s.width + 100
+    p2 = Project.load(DATA)
+    w2 = MainWindow(lib, p2)
+    sb = next(x for x in p2.sheets if x.is_switchboard)
+    assert w2.set_sheet_props(sb, sb.name, sb.func, sb.loc, sheet_format="800×500")
+    assert (sb.paper, sb.width, sb.height) == ("800×500", 800.0, 500.0) and sb.mp_paper == "A4"
+    for x in (w, w2):
+        x.undo.setClean()
+        x.close()

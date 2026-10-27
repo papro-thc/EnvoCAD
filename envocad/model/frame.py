@@ -119,21 +119,22 @@ def page_label(project: Project, sheet: Sheet, k: int, n: int) -> str:
 
 
 # Razítko ENVO (podle „Razítko fixed.dwg“, blok RAZITKO_FVE 185 × 85 mm) zhuštěné do popisového pole TB_W × TB_H:
-# vlevo logo s adresou, uprostřed stavba / investor, místo / 2 řádky osob / název výkresu, vpravo údaje výkresu.
+# vlevo logo s adresou, uprostřed stavba / investor, místo / vypracoval, zodp. projektant / název výkresu, vpravo
+# údaje výkresu.
 STAMP_LOGO_W = 32.0                    # sloupec loga
 STAMP_RIGHT_W = 58.0                   # sloupec údajů výkresu (popisek | hodnota)
 STAMP_RIGHT_LABEL_W = 21.0
 STAMP_WIDE_PAD = 14.0                  # rezerva vpravo u buněk přes celý prostředek (stavba, název výkresu)
-STAMP_MID_ROWS = (7.0, 6.0, 5.0, 5.0, 9.0)  # stavba | investor, místo | 2 × osoby | název výkresu (součet = TB_H)
+STAMP_MID_ROWS = (8.0, 6.0, 6.0, 12.0)  # stavba | investor, místo | osoby | název výkresu (součet = TB_H)
 ENVO_ADDRESS = ("Bělehradská 858/23", "120 00 Praha 2")
 # klíče `Project.meta` údajů razítka navíc k investor / place / order / author / date (Soubor → Vlastnosti projektu)
-STAMP_META = (("approved", "Schválil"), ("responsible", "Zodp. projektant"), ("coordinator", "Koordinátor"),
-              ("stage", "Stupeň"), ("archive", "Archivní číslo"), ("scale", "Měřítko"))
+STAMP_META = (("responsible", "Zodpovědný projektant"), ("stage", "Stupeň"), ("archive", "Archivní číslo"),
+              ("scale", "Měřítko"))
 
 
 def stamp_fields(project: Project, sheet: Sheet, view: str = "", page: str = "", paper: str = "", doc: str = ""
                  ) -> dict[str, list[tuple[str, str]]]:
-    """Údaje razítka po skupinách: „stavba“, „misto“ (investor, místo), „osoby“, „osoby2“, „nazev“ (uprostřed) a „vykres“
+    """Údaje razítka po skupinách: „stavba“, „misto“ (investor, místo), „osoby“, „nazev“ (uprostřed) a „vykres“
     (vpravo pod sebou). `paper` = formát strany odvozeného pohledu (vícepól na A4), jinak formát listu. Číslo
     výkresu = číslo listu (sedí s křížovými odkazy „/3.B4“), s `doc` i strana celé dokumentace („3/7 · str. 5/28“)."""
     m = project.meta
@@ -145,8 +146,7 @@ def stamp_fields(project: Project, sheet: Sheet, view: str = "", page: str = "",
     return {
         "stavba": [("Stavba", project.name)],
         "misto": [("Investor", m.get("investor", "")), ("Místo", m.get("place", ""))],
-        "osoby": [("Vypracoval", m.get("author", "")), ("Schválil", m.get("approved", ""))],
-        "osoby2": [("Zodpovědný projektant", m.get("responsible", "")), ("Koordinátor projektu", m.get("coordinator", ""))],
+        "osoby": [("Vypracoval", m.get("author", "")), ("Zodpovědný projektant", m.get("responsible", ""))],
         "nazev": [("Název", name)],
         "vykres": [("Stupeň", m.get("stage", "")), ("Zakázkové číslo", m.get("order", "")),
                    ("Archivní číslo", m.get("archive", "")), ("Datum", date), ("Formát", paper or sheet.paper),
@@ -199,9 +199,9 @@ def _stamp(g: FrameGeometry, tx0: float, ty0: float, fields: dict, company: str)
         g.texts.append((cx, ty0 + TB_H / 2 - 2.0, *fit_text(short, STAMP_LOGO_W - 3.0, 5.0, 2.5), "center"))
         g.texts.append((cx, ty0 + TB_H / 2 - 6.0, *fit_text(full, STAMP_LOGO_W - 2.0, 1.8, 1.2), "center"))
     # prostředek: řádky stavba / investor + místo / osoby / název výkresu, buňky v řádku stejně široké
-    value_h = {"stavba": 3.0, "misto": 2.2, "osoby": 1.9, "osoby2": 1.9, "nazev": 3.2}
+    value_h = {"stavba": 3.0, "misto": 2.2, "osoby": 2.2, "nazev": 3.2}
     top = ty1
-    for key, rh in zip(("stavba", "misto", "osoby", "osoby2", "nazev"), STAMP_MID_ROWS):
+    for key, rh in zip(("stavba", "misto", "osoby", "nazev"), STAMP_MID_ROWS):
         cells = fields[key]
         if top < ty1:
             g.lines.append((xm, top, xr, top))
