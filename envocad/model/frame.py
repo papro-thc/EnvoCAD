@@ -1,4 +1,5 @@
-"""Rámeček listu a popisové pole ENVO – čistá geometrie (mm, Y nahoru), kreslí ji Qt i DXF export stejně."""
+"""Rámeček listu a popisové pole ENVO (razítko podle „Razítko fixed.dwg“) – čistá geometrie (mm, Y nahoru), kreslí
+ji Qt i DXF export stejně."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -50,6 +51,7 @@ class FrameGeometry:
     texts: list[tuple[float, float, str, float, str]] = field(default_factory=list)  # x, y, text, výška, zarovnání
     inner: tuple[float, float, float, float] = (0, 0, 0, 0)                           # x0, y0, x1, y1 kreslicí plochy
     rects: list[tuple[float, float, float, float]] = field(default_factory=list)      # vyplněné obdélníky (QR): x, y, w, h
+    polys: list[tuple[list[tuple[float, float]], str]] = field(default_factory=list)  # vyplněné mnohoúhelníky (logo), barva
 
 
 def grid_coord(sheet: Sheet, x: float, y: float, width: float | None = None, height: float | None = None) -> str:
@@ -133,22 +135,115 @@ def page_label(project: Project, sheet: Sheet, k: int, n: int) -> str:
     return f"{no}, str. {k + 1}/{n}" if n > 1 else no
 
 
-def title_rows(project: Project, sheet: Sheet, view: str = "", page: str = "", paper: str = "", doc: str = ""
-               ) -> list[list[tuple[str, str]]]:
-    """Řádky popisového pole jako [(popisek, hodnota), …] – vlevo doleva, vpravo doprava. `paper` = formát strany
-    odvozeného pohledu (vícepól na A4), jinak formát listu. `doc` = strana celé dokumentace („5/28“, `doc_page`) –
-    vedle čísla listu (to sedí s křížovými odkazy „/3.B4“)."""
+# Razítko ENVO (podle „Razítko fixed.dwg“, blok RAZITKO_FVE 185 × 85 mm) zhuštěné do popisového pole TB_W × TB_H:
+# vlevo logo s adresou, uprostřed stavba / investor, místo / 2 řádky osob / název výkresu, vpravo údaje výkresu.
+STAMP_LOGO_W = 32.0                    # sloupec loga
+STAMP_RIGHT_W = 58.0                   # sloupec údajů výkresu (popisek | hodnota)
+STAMP_RIGHT_LABEL_W = 21.0
+STAMP_WIDE_PAD = 14.0                  # rezerva vpravo u buněk přes celý prostředek (stavba, název výkresu)
+STAMP_MID_ROWS = (7.0, 6.0, 5.0, 5.0, 9.0)  # stavba | investor, místo | 2 × osoby | název výkresu (součet = TB_H)
+ENVO_ADDRESS = ("Bělehradská 858/23", "120 00 Praha 2")
+# klíče `Project.meta` údajů razítka navíc k investor / place / order / author / date (Soubor → Vlastnosti projektu)
+STAMP_META = (("approved", "Schválil"), ("responsible", "Zodp. projektant"), ("coordinator", "Koordinátor"),
+              ("stage", "Stupeň"), ("archive", "Archivní číslo"), ("scale", "Měřítko"))
+
+
+def stamp_fields(project: Project, sheet: Sheet, view: str = "", page: str = "", paper: str = "", doc: str = ""
+                 ) -> dict[str, list[tuple[str, str]]]:
+    """Údaje razítka po skupinách: „stavba“, „misto“ (investor, místo), „osoby“, „osoby2“, „nazev“ (uprostřed) a „vykres“
+    (vpravo pod sebou). `paper` = formát strany odvozeného pohledu (vícepól na A4), jinak formát listu. Číslo
+    výkresu = číslo listu (sedí s křížovými odkazy „/3.B4“), s `doc` i strana celé dokumentace („3/7 · str. 5/28“)."""
     m = project.meta
     date = m.get("date") or _datetime.now().astimezone().strftime("%d.%m.%Y")   # dnešní datum v místním čase
     name = sheet.name + (f" – {view}" if view else "")
-    return [
-        [("Projekt", project.name), ("Zakázka", m.get("order", ""))],
-        [("Investor", m.get("investor", "")), ("Místo", m.get("place", ""))],
-        [("List", name), ("Číslo listu", page or sheet_number(project, sheet)),
-         *([("Strana", doc)] if doc else [])],
-        [("Zpracoval", m.get("author", "")), ("Datum", date), ("Revize", sheet_revision_label(project, sheet)),
-         ("Formát", paper or sheet.paper)],
-    ]
+    number = page or sheet_number(project, sheet)
+    if doc:
+        number = f"{number} · str. {doc}"
+    return {
+        "stavba": [("Stavba", project.name)],
+        "misto": [("Investor", m.get("investor", "")), ("Místo", m.get("place", ""))],
+        "osoby": [("Vypracoval", m.get("author", "")), ("Schválil", m.get("approved", ""))],
+        "osoby2": [("Zodpovědný projektant", m.get("responsible", "")), ("Koordinátor projektu", m.get("coordinator", ""))],
+        "nazev": [("Název", name)],
+        "vykres": [("Stupeň", m.get("stage", "")), ("Zakázkové číslo", m.get("order", "")),
+                   ("Archivní číslo", m.get("archive", "")), ("Datum", date), ("Formát", paper or sheet.paper),
+                   ("Měřítko", m.get("scale", "") or "–"), ("Revize", sheet_revision_label(project, sheet)),
+                   ("Číslo výkresu", number)],
+    }
+
+
+def title_rows(project: Project, sheet: Sheet, view: str = "", page: str = "", paper: str = "", doc: str = ""
+               ) -> list[list[tuple[str, str]]]:
+    """Údaje razítka jako řádky [(popisek, hodnota), …] (`stamp_fields` po skupinách) – pro výpisy a testy."""
+    return list(stamp_fields(project, sheet, view, page, paper, doc).values())
+
+
+_LOGO: dict | None = None
+
+
+def envo_logo() -> dict | None:
+    """Logo ENVO z razítka (`resources/envo_logo.json`: šířka, výška, mnohoúhelníky s barvou), nebo None."""
+    global _LOGO
+    if _LOGO is None:
+        import json
+        from pathlib import Path
+        try:
+            _LOGO = json.loads((Path(__file__).resolve().parent.parent / "resources" / "envo_logo.json")
+                               .read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            _LOGO = {}
+    return _LOGO or None
+
+
+def _stamp(g: FrameGeometry, tx0: float, ty0: float, fields: dict, company: str) -> None:
+    """Razítko do popisového pole s levým dolním rohem (tx0, ty0)."""
+    tx1, ty1 = tx0 + TB_W, ty0 + TB_H
+    xm, xr = tx0 + STAMP_LOGO_W, tx1 - STAMP_RIGHT_W
+    g.lines += [(xm, ty0, xm, ty1), (xr, ty0, xr, ty1)]
+    # logo: ENVO s adresou (jako v razítku), jiná firma = název textem
+    short, full = company_names(company)
+    logo = envo_logo() if short.upper() == "ENVO" else None
+    cx = tx0 + STAMP_LOGO_W / 2
+    if logo:
+        sc = (STAMP_LOGO_W - 6.0) / logo["width"]
+        lx, ly = cx - logo["width"] * sc / 2, ty0 + TB_H / 2 - logo["height"] * sc / 2 + 1.0
+        for poly in logo["polygons"]:
+            g.polys.append(([(lx + x * sc, ly + y * sc) for x, y in poly["points"]], poly["color"]))
+        g.texts.append((cx, ty1 - 4.0, "Projektant profese", 1.5, "center"))
+        g.texts.append((cx, ty0 + 4.6, ENVO_ADDRESS[0], 1.5, "center"))
+        g.texts.append((cx, ty0 + 2.0, ENVO_ADDRESS[1], 1.5, "center"))
+    else:
+        g.texts.append((cx, ty0 + TB_H / 2 - 2.0, *fit_text(short, STAMP_LOGO_W - 3.0, 5.0, 2.5), "center"))
+        g.texts.append((cx, ty0 + TB_H / 2 - 6.0, *fit_text(full, STAMP_LOGO_W - 2.0, 1.8, 1.2), "center"))
+    # prostředek: řádky stavba / investor + místo / osoby / název výkresu, buňky v řádku stejně široké
+    value_h = {"stavba": 3.0, "misto": 2.2, "osoby": 1.9, "osoby2": 1.9, "nazev": 3.2}
+    top = ty1
+    for key, rh in zip(("stavba", "misto", "osoby", "osoby2", "nazev"), STAMP_MID_ROWS):
+        cells = fields[key]
+        if top < ty1:
+            g.lines.append((xm, top, xr, top))
+        colw = (xr - xm) / len(cells)
+        for c, (label, value) in enumerate(cells):
+            x = xm + c * colw
+            if c:
+                g.lines.append((x, top - rh, x, top))
+            g.texts.append((x + 1.0, top - 1.8, label, 1.3, "left"))
+            # dlouhá hodnota se zmenší, případně zkrátí s „…“ – nepřetéká do sousední buňky
+            # jediná buňka v řádku (stavba, název) – rezerva vpravo, ať text nesahá k údajům výkresu ani při širším písmu
+            room = colw - 2.0 - (STAMP_WIDE_PAD if len(cells) == 1 else 0.0)
+            g.texts.append((x + 1.0, top - rh + 0.9, *fit_text(str(value or ""), room, value_h[key]), "left"))
+        top -= rh
+    # vpravo: údaje výkresu pod sebou (popisek | hodnota)
+    rows = fields["vykres"]
+    rh = TB_H / len(rows)
+    xv = xr + STAMP_RIGHT_LABEL_W
+    g.lines.append((xv, ty0, xv, ty1))
+    for r, (label, value) in enumerate(rows):
+        top = ty1 - r * rh
+        if r:
+            g.lines.append((xr, top, tx1, top))
+        g.texts.append((xr + 1.0, top - rh + 1.0, *fit_text(label, STAMP_RIGHT_LABEL_W - 2.0, 1.6, 1.2), "left"))
+        g.texts.append((xv + 1.0, top - rh + 0.9, *fit_text(str(value or ""), tx1 - xv - 2.0, 2.0), "left"))
 
 
 QR_SIZE = TB_H - 6.0   # QR kód vlevo od popisového pole (strana čtverce)
@@ -193,13 +288,7 @@ def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, h
     g.lines += [(tx0, ty0, tx0, ty1), (tx0, ty1, tx1, ty1)]
     if doc is None:
         doc = doc_page(project, sheet.id) if not sheet.is_switchboard else ""
-    rows = title_rows(project, sheet, view, page, paper, doc)
-    rh = TB_H / len(rows)
-    logo_w = 34.0
-    g.lines.append((tx0 + logo_w, ty0, tx0 + logo_w, ty1))
-    short, full = company_names(company)
-    g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 2.0, *fit_text(short, logo_w - 3.0, 5.0, 2.5), "center"))
-    g.texts.append((tx0 + logo_w / 2, ty0 + TB_H / 2 - 6.0, *fit_text(full, logo_w - 2.0, 1.8, 1.2), "center"))
+    _stamp(g, tx0, ty0, stamp_fields(project, sheet, view, page, paper, doc), company)
     # QR kód s identifikací výkresu vlevo od popisového pole (projekt | zakázka | list | revize)
     mods = qr_modules(qr_text(project, sheet, view)) if qr_fits(w) else None
     if mods:
@@ -211,21 +300,6 @@ def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, h
             for c, dark in enumerate(row):
                 if dark:
                     g.rects.append((qx0 + c * cell, qy0 + size - (r + 1) * cell, cell, cell))
-    cx0 = tx0 + logo_w
-    cw = TB_W - logo_w
-    for r, cells in enumerate(rows):
-        top = ty1 - r * rh
-        if r:
-            g.lines.append((cx0, top, tx1, top))
-        colw = cw / len(cells)
-        for c, (label, value) in enumerate(cells):
-            cx = cx0 + c * colw
-            if c:
-                g.lines.append((cx, top - rh, cx, top))
-            g.texts.append((cx + 1.0, top - 2.2, label, 1.5, "left"))
-            # dlouhá hodnota se zmenší, případně zkrátí s „…“ – nepřetéká do sousední buňky
-            g.texts.append((cx + 1.0, top - rh + 1.3, *fit_text(str(value or ""), colw - 2.0, 2.5 if r < 3 else 2.2),
-                            "left"))
     return g
 
 

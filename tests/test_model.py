@@ -169,7 +169,7 @@ def test_frame_geometry_and_copy_paste():
     g = frame_geometry(p, s)
     assert g.inner == (20.0, 10.0, s.width - 10.0, s.height - 10.0)
     texts = {t[2] for t in g.texts}
-    assert {"Test", "2026-001", "PR", "ENVO", "1/1", "A3"} <= texts
+    assert {"Test", "2026-001", "PR", "Projektant profese", "1/1", "A3"} <= texts   # ENVO = logo z razítka
     assert sheet_number(p, s) == "1/1"
     a = Element("fve.breaker_mcb", 50, 100, attrs={"ref": "F1", "in_": "16"})
     b = Element("fve.load", 100, 100, attrs={"ref": "M1"})

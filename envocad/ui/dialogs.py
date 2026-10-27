@@ -2501,8 +2501,12 @@ IK_META_HINT = ("Maximální zkratový proud v místě připojení – z vyjád�
 
 # Vlastnosti projektu: (klíč, popisek); „name“ = Project.name, ostatní Project.meta
 PROJECT_META_FIELDS = [
-    ("name", "Název projektu"), ("investor", "Investor"), ("order", "Číslo zakázky"), ("place", "Místo"),
-    ("author", "Zpracoval"), ("date", "Datum"), ("revision", "Revize"),
+    ("name", "Název projektu (stavba)"), ("investor", "Investor"), ("order", "Číslo zakázky"), ("place", "Místo"),
+    ("author", "Zpracoval (vypracoval)"), ("date", "Datum"), ("revision", "Revize"),
+    # razítko ENVO (popisové pole): osoby a údaje výkresu (`frame.STAMP_META`)
+    ("approved", "Schválil (vedoucí projektant)"), ("responsible", "Zodpovědný projektant"),
+    ("coordinator", "Koordinátor projektu"), ("stage", "Stupeň dokumentace (DSPS, DPS…)"),
+    ("archive", "Archivní číslo"), ("scale", "Měřítko (prázdné = –)"),
     # návrhové teploty kontroly stringů (`calc.design_temperatures`); prázdné = výchozí −10 / 70 °C
     ("pv_t_min", "Návrhová teplota min pro stringy [°C]"), ("pv_t_max", "Návrhová teplota max pro stringy [°C]"),
     # zkratový proud v místě připojení (kontroly Icu / Icw, `ratings.project_ik_upper`); prázdné = odhad z trafa

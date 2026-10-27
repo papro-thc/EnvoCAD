@@ -29,14 +29,14 @@ def test_doc_page_lookup_and_title_rows():
     s = p.sheets[0]
     assert doc_page(p, s.id) == ""                                   # bez číslování: jen číslo listu
     rows = title_rows(p, s)
-    assert [c[0] for c in rows[2]] == ["List", "Číslo listu"]
+    assert ("Číslo výkresu", "1/3") in rows[-1] or rows[-1][-1][0] == "Číslo výkresu"
     p.meta[DOC_PAGES_KEY] = json.dumps({"total": 28, "pages": {doc_page_key("schematic", s.id): 3,
                                                                  doc_page_key("multipole", "x", 1): 9}})
     assert doc_page(p, s.id) == "3/28" and doc_page(p, "x", "multipole", 1) == "9/28"
     assert doc_page(p, "x", "multipole", 2) == ""
     g = frame_geometry(p, s)                                         # JPS: strana podle uložených čísel
     texts = [t[2] for t in g.texts]
-    assert "Strana" in texts and "3/28" in texts and "Číslo listu" in texts
+    assert "Číslo výkresu" in texts and any(t.endswith("· str. 3/28") for t in texts)
     p.meta[DOC_PAGES_KEY] = "{rozbité"
     assert doc_page(p, s.id) == ""                                   # poškozená hodnota nevadí
 

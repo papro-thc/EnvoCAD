@@ -944,8 +944,12 @@ Výchozí hodnoty (kabely, zpracoval) bere průvodce z **firemního standardu** 
 | Štítky pro tiskárnu (CSV, `;`, UTF-8 BOM) | Výstupy → Štítky pro tiskárnu |
 | Otevřené připomínky jako anotace PDF nebo vrstva `PRIPOMINKY` v DXF | Výstupy → Přidávat připomínky do exportu (sekce 9) |
 
-Rámeček listu má popisové pole (projekt, zakázka, investor, místo, list, číslo listu, zpracoval, datum,
-revize, formát), souřadnicovou síť A–H × 1–6 a QR kód s identifikací výkresu. Údaje se zadávají v
+Rámeček listu má popisové pole – **razítko ENVO** (podle `Razítko fixed.dwg`, zhuštěné na 180 × 32 mm): vlevo logo
+ENVO s adresou („Projektant profese“), uprostřed stavba (název projektu), investor, místo, vypracoval, schválil,
+zodpovědný projektant, koordinátor projektu a název výkresu (list), vpravo stupeň, zakázkové a archivní číslo, datum,
+formát, měřítko, revize a číslo výkresu. Dále souřadnicová síť A–H × 1–6 a QR kód s identifikací výkresu.
+Schválil, zodpovědný projektant, koordinátor, stupeň, archivní číslo a měřítko se zadávají v Soubor → Vlastnosti
+projektu; u jiné firmy než ENVO (`standard.company`) je místo loga název firmy. Údaje se zadávají v
 Soubor → Vlastnosti projektu, název firmy v popisovém poli v nastavení (`standard.company`) – stejný název je na
 titulní straně dokumentace a v protokolu kusového ověření. Dlouhý text se v buňce popisového pole zmenší, a když
 se nevejde ani tak, zkrátí se s „…“. Vedle čísla listu (např. 3/7 – sedí s křížovými odkazy „/3.B4“) je

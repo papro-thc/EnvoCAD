@@ -99,7 +99,8 @@ def _text(msp, x, y, text, height, align, rot, layer="SYMBOLY"):
 
 def _draw_geometry(msp, g, layer: str, dx: float = 0.0) -> None:
     """Geometrie z modelu (rámeček `FrameGeometry`, revize `RevisionGeometry`, zrcadlo `MirrorGeometry`) do vrstvy:
-    `lines` → LINE, `texts` → TEXT, `rects` → SOLID (QR kód), `polylines` → uzavřená LWPOLYLINE. `dx` = posun
+    `lines` → LINE, `texts` → TEXT, `rects` → SOLID (QR kód), `polys` → HATCH v barvě (logo), `polylines` →
+    uzavřená LWPOLYLINE. `dx` = posun
     v ose X (strana vícepólu vedle ostatních v modelspace)."""
     if g is None:
         return
@@ -111,6 +112,10 @@ def _draw_geometry(msp, g, layer: str, dx: float = 0.0) -> None:
     for x, y, w, h in getattr(g, "rects", ()):
         x += dx
         msp.add_solid([(x, y), (x + w, y), (x, y + h), (x + w, y + h)], dxfattribs=a)
+    for pts, fill in getattr(g, "polys", ()):          # logo v popisovém poli: šrafa plnou barvou (true color)
+        hatch = msp.add_hatch(dxfattribs=a)
+        hatch.rgb = tuple(int(fill.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4))
+        hatch.paths.add_polyline_path([(x + dx, y) for x, y in pts], is_closed=True)
     for x, y, text, h, align in getattr(g, "texts", ()):
         if text:
             _text(msp, x + dx, y, text, h, align, 0, layer=layer)

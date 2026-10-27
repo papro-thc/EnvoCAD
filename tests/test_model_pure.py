@@ -60,7 +60,9 @@ def test_settings_helpers_and_model_defaults():
     assert frame.company_names("  ") == ("ENVO", "ENVO s.r.o.")
     texts = [t[2] for t in frame.frame_geometry(p, sb, company="Firma XY s.r.o.").texts]
     assert "Firma" in texts and "ENVO" not in texts
-    assert "ENVO" in [t[2] for t in frame.frame_geometry(p, sb).texts]
+    g = frame.frame_geometry(p, sb)                  # ENVO: logo z razítka (mnohoúhelníky) a adresa místo názvu
+    assert g.polys and "Projektant profese" in [t[2] for t in g.texts]
+    assert not frame.frame_geometry(p, sb, company="Firma XY s.r.o.").polys
     _save(company="")
     assert settings.company() == frame.COMPANY
 
