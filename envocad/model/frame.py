@@ -106,6 +106,26 @@ def sheet_number(project: Project, sheet: Sheet) -> str:
     return f"{i}/{len(ids)}"
 
 
+DOC_PAGES_KEY = "doc_pages"   # meta: strany celé dokumentace (JSON {"total": N, "pages": {"pohled:id listu:k": n}})
+
+
+def doc_page_key(view: str, sheet_id: str, k: int = 0) -> str:
+    """Klíč strany v `meta["doc_pages"]`: pohled (schematic | multipole | terminals | single_line), id listu, strana."""
+    return f"{view}:{sheet_id}:{k}"
+
+
+def doc_page(project: Project, sheet_id: str, view: str = "schematic", k: int = 0) -> str:
+    """„Strana n/N“ celé dokumentace pro popisové pole – z čísel stran uložených při exportu dokumentace (nebo
+    příkazem Přečíslovat strany dokumentace); neznámá strana (nový list od posledního číslování) = ""."""
+    import json
+    try:
+        data = json.loads(project.meta.get(DOC_PAGES_KEY) or "{}")
+        n = data.get("pages", {}).get(doc_page_key(view, sheet_id, k))
+        return f"{int(n)}/{int(data['total'])}" if n else ""
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return ""
+
+
 def page_label(project: Project, sheet: Sheet, k: int, n: int) -> str:
     """„Číslo listu“ strany odvozeného pohledu (vícepól, plán svorkovnice): číslo listu projektu a u více stran
     „str. k/n“ v rámci listu („3/7, str. 2/4“)."""
@@ -113,17 +133,19 @@ def page_label(project: Project, sheet: Sheet, k: int, n: int) -> str:
     return f"{no}, str. {k + 1}/{n}" if n > 1 else no
 
 
-def title_rows(project: Project, sheet: Sheet, view: str = "", page: str = "", paper: str = ""
+def title_rows(project: Project, sheet: Sheet, view: str = "", page: str = "", paper: str = "", doc: str = ""
                ) -> list[list[tuple[str, str]]]:
     """Řádky popisového pole jako [(popisek, hodnota), …] – vlevo doleva, vpravo doprava. `paper` = formát strany
-    odvozeného pohledu (vícepól na A4), jinak formát listu."""
+    odvozeného pohledu (vícepól na A4), jinak formát listu. `doc` = strana celé dokumentace („5/28“, `doc_page`) –
+    vedle čísla listu (to sedí s křížovými odkazy „/3.B4“)."""
     m = project.meta
     date = m.get("date") or _datetime.now().astimezone().strftime("%d.%m.%Y")   # dnešní datum v místním čase
     name = sheet.name + (f" – {view}" if view else "")
     return [
         [("Projekt", project.name), ("Zakázka", m.get("order", ""))],
         [("Investor", m.get("investor", "")), ("Místo", m.get("place", ""))],
-        [("List", name), ("Číslo listu", page or sheet_number(project, sheet))],
+        [("List", name), ("Číslo listu", page or sheet_number(project, sheet)),
+         *([("Strana", doc)] if doc else [])],
         [("Zpracoval", m.get("author", "")), ("Datum", date), ("Revize", sheet_revision_label(project, sheet)),
          ("Formát", paper or sheet.paper)],
     ]
@@ -140,9 +162,11 @@ def qr_fits(width: float) -> bool:
 
 
 def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, height: float | None = None,
-                   view: str = "", page: str = "", paper: str = "", company: str = COMPANY) -> FrameGeometry:
+                   view: str = "", page: str = "", paper: str = "", company: str = COMPANY,
+                   doc: str | None = None) -> FrameGeometry:
     """Rámeček s popisovým polem vpravo dole. Pro odvozené pohledy (vícepól) lze zadat jiný rozměr listu a jeho
-    formát (`paper`) do popisového pole. QR kód jen, když se vlevo od popisového pole vejde (`qr_fits`). `company`
+    formát (`paper`) do popisového pole. `doc` = strana celé dokumentace; None = podle uložených čísel stran
+    (`doc_page`, pohled listu JPS). QR kód jen, když se vlevo od popisového pole vejde (`qr_fits`). `company`
     = název firmy do loga (firemní standard, `envocad.settings.company`)."""
     w = width or sheet.width
     h = height or sheet.height
@@ -167,7 +191,9 @@ def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, h
     tx0, ty0 = x1 - TB_W, y0
     tx1, ty1 = x1, y0 + TB_H
     g.lines += [(tx0, ty0, tx0, ty1), (tx0, ty1, tx1, ty1)]
-    rows = title_rows(project, sheet, view, page, paper)
+    if doc is None:
+        doc = doc_page(project, sheet.id) if not sheet.is_switchboard else ""
+    rows = title_rows(project, sheet, view, page, paper, doc)
     rh = TB_H / len(rows)
     logo_w = 34.0
     g.lines.append((tx0 + logo_w, ty0, tx0 + logo_w, ty1))

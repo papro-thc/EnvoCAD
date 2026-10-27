@@ -78,7 +78,9 @@
 - [ ] Vícepatrové svorky, N-odpojovací svorky jako druh (svorkovnice přes více stran – hotovo 10/2026 stránkováním vícepólu)
 - [x] Makra (oblíbené sestavy) – hotovo 10/2026; zbývá: kopírování celého listu, hromadné přečíslování, editor značek v GUI
 - [ ] Štítky ve formátu tiskáren (Brady/Partex), výkaz artiklů po dodavatelích s objednacími čísly
-- [ ] Číslování stran celé dokumentace i v rámečku listů (dnes list x/y projektu), logo ENVO v popisovém poli
+- [ ] Číslování stran celé dokumentace i v rámečku listů – hotovo 10/2026: popisové pole „Strana n/N“ vedle čísla
+  listu (`meta["doc_pages"]` z exportu dokumentace / Projekt → Přečíslovat strany dokumentace); zbývá: logo ENVO
+  v popisovém poli (po dodání)
 - [ ] Přerušovací body v zapojovacím seznamu jako průchod (potenciál pokračuje), vodič z vodiče
 
 ## Z rešerše EPLAN 2026 (10/2026)

@@ -11,6 +11,7 @@ import shiboken6
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction, QKeySequence, QUndoStack
 from PySide6.QtWidgets import (
+    QApplication,
     QDockWidget,
     QFileDialog,
     QInputDialog,
@@ -310,6 +311,7 @@ class MainWindow(QMainWindow):
 
         m_proj = mb.addMenu("&Projekt")
         act(m_proj, "Strukturní označení…", self.edit_structures)
+        act(m_proj, "Přečíslovat strany dokumentace", self.renumber_doc_pages)
 
         m_sheet = mb.addMenu("&List")
         act(m_sheet, "Nový list schématu", self.new_schematic_sheet)
@@ -1987,8 +1989,29 @@ class MainWindow(QMainWindow):
         jps_page = self._ask_doc_jps_page()
         if jps_page is None:
             return
-        n = export_documentation_pdf(self.project, self.library, path, notes=self._export_notes(), jps_page=jps_page)
+        numbers: list[str] = []
+        n = export_documentation_pdf(self.project, self.library, path, notes=self._export_notes(), jps_page=jps_page,
+                                     page_numbers=numbers)
+        self._set_doc_pages(numbers[0] if numbers else "")
         self.statusBar().showMessage(f"Exportováno {n} stran: {path}", 5000)
+
+    def _set_doc_pages(self, numbers: str) -> None:
+        """Čísla stran celé dokumentace do projektu (`meta["doc_pages"]`, popisové pole „Strana n/N“) – krokem undo."""
+        from envocad.model.frame import DOC_PAGES_KEY
+        if numbers and numbers != self.project.meta.get(DOC_PAGES_KEY):
+            self.set_project_meta(self.project.name, {**self.project.meta, DOC_PAGES_KEY: numbers})
+
+    def renumber_doc_pages(self) -> None:
+        """Projekt → Přečíslovat strany dokumentace: čísla stran jako v PDF dokumentaci (bez exportu)."""
+        from envocad.export.doc_pdf import documentation_page_numbers
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            numbers = documentation_page_numbers(self.project, self.library)
+        finally:
+            QApplication.restoreOverrideCursor()
+        self._set_doc_pages(numbers)
+        import json
+        self.statusBar().showMessage(f"Strany dokumentace přečíslovány ({json.loads(numbers)['total']} stran)", 5000)
 
     def _ask_doc_jps_page(self) -> str | None:
         """Volba při exportu PDF dokumentace: listy JPS „Zmenšit na A3“ / „Skutečný formát listu“ (výchozí podle

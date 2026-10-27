@@ -948,7 +948,11 @@ Rámeček listu má popisové pole (projekt, zakázka, investor, místo, list, �
 revize, formát), souřadnicovou síť A–H × 1–6 a QR kód s identifikací výkresu. Údaje se zadávají v
 Soubor → Vlastnosti projektu, název firmy v popisovém poli v nastavení (`standard.company`) – stejný název je na
 titulní straně dokumentace a v protokolu kusového ověření. Dlouhý text se v buňce popisového pole zmenší, a když
-se nevejde ani tak, zkrátí se s „…“. Kresba vícepólu se automaticky posune nahoru, aby nezasahovala do popisového
+se nevejde ani tak, zkrátí se s „…“. Vedle čísla listu (např. 3/7 – sedí s křížovými odkazy „/3.B4“) je
+**Strana** celé dokumentace (5/28) u listů JPS, vícepólů, plánů svorkovnic i jednopólového schématu, v editoru
+i v samostatných exportech PDF a DXF. Čísla stran se uloží při exportu celé dokumentace nebo příkazem
+**Projekt → Přečíslovat strany dokumentace** (krok undo); list přidaný od posledního číslování stranu nemá, dokud se
+znovu nepřečísluje. Kresba vícepólu se automaticky posune nahoru, aby nezasahovala do popisového
 pole a QR kódu (ručně přesunuté přístroje zůstanou, kde jsou).
 
 **Celá dokumentace (PDF)**: obsah má sloupce *Strana* (fyzická strana PDF, u víc stran rozsah „19–20“), *Název*

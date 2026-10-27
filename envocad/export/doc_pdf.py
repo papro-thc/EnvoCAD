@@ -19,7 +19,7 @@ from PySide6.QtGui import QPageLayout, QPageSize, QPainter, QPdfWriter, QPen, QU
 from envocad.export import reports
 from envocad.export.pdf_export import set_scene_notes_visible
 from envocad.model import multipole as mp
-from envocad.model.frame import TB_H, frame_geometry, sheet_number
+from envocad.model.frame import DOC_PAGES_KEY, TB_H, doc_page_key, frame_geometry, sheet_number
 from envocad.model.project import Project, Sheet
 from envocad.settings import company, frame_enabled, switchboard_paper
 from envocad.ui import theme
@@ -160,8 +160,12 @@ class DocBuilder:
     """Sestaví seznam stran (pro obsah) a pak je vykreslí."""
 
     def __init__(self, project: Project, library, jps_page: str | None = None):
+        import dataclasses
+
         from envocad.model.project import without_dangling
-        self.project, self.library = without_dangling(project), library   # bez vodičů na neexistující prvek
+        # bez vodičů na neexistující prvek; vlastní meta – čísla stran dokumentace (`doc_pages`) jen pro tento export
+        self.project = dataclasses.replace(without_dangling(project), meta=dict(project.meta))
+        self.library = library
         # listy JPS: „A3“ = zmenšit na A3, „list“ = strana ve skutečném formátu listu; None = firemní standard
         self.jps_page = jps_page if jps_page in JPS_PAGE_LABELS else standard_jps_page()
         self.pages: list[tuple[str, str, object]] = []  # (druh, název, data)
@@ -446,6 +450,21 @@ class DocBuilder:
             self.page_counts.append(cnt)
             total += cnt
         self._total = total
+        self.project.meta[DOC_PAGES_KEY] = self.page_numbers()   # popisová pole listů: „Strana n/N“
+
+    def page_numbers(self) -> str:
+        """Čísla stran listů v dokumentaci jako JSON pro `meta["doc_pages"]` (`frame.doc_page`): list JPS, vícepól,
+        plán svorkovnice a jednopólové schéma – každá jejich strana."""
+        import json
+        pages: dict[str, int] = {}
+        for idx, (kind, _name, data) in enumerate(self.pages):
+            if kind != "sheet":
+                continue
+            sheet, view = data
+            sid = "" if view == "single_line" else sheet.id
+            for k in range(self.page_counts[idx]):
+                pages[doc_page_key(view, sid, k)] = self.page_starts[idx] + k
+        return json.dumps({"total": self._total, "pages": pages}, separators=(",", ":"))
 
     def _table_kind(self, painter, writer, idx: int) -> None:
         kind, name, data = self.pages[idx]
@@ -510,7 +529,20 @@ class DocBuilder:
 
 
 def export_documentation_pdf(project: Project, library, path: Path | str, notes: bool = False,
-                             jps_page: str | None = None) -> int:
+                             jps_page: str | None = None, page_numbers: list | None = None) -> int:
     """Vrátí počet stran. `notes=True` = otevřené připomínky jako anotace PDF. `jps_page` = „A3“ (listy JPS zmenšit
-    na A3) / „list“ (strana ve skutečném formátu listu); None = firemní standard `doc_jps_page`."""
-    return DocBuilder(project, library, jps_page).export(path, notes=notes)
+    na A3) / „list“ (strana ve skutečném formátu listu); None = firemní standard `doc_jps_page`. Do `page_numbers`
+    (seznam) se připojí čísla stran listů (JSON pro `meta["doc_pages"]`) – projekt sám se nemění."""
+    b = DocBuilder(project, library, jps_page)
+    n = b.export(path, notes=notes)
+    if page_numbers is not None:
+        page_numbers.append(b.project.meta[DOC_PAGES_KEY])
+    return n
+
+
+def documentation_page_numbers(project: Project, library, jps_page: str | None = None) -> str:
+    """Čísla stran listů celé dokumentace bez exportu (JSON pro `meta["doc_pages"]`, příkaz Přečíslovat strany)."""
+    b = DocBuilder(project, library, jps_page)
+    b.plan()
+    b._count_pages()
+    return b.project.meta[DOC_PAGES_KEY]

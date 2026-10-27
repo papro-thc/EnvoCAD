@@ -1047,7 +1047,7 @@ class MultipoleScene(QGraphicsScene):
             painter.drawRect(page)
 
     def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
-        from envocad.model.frame import frame_geometry, page_label
+        from envocad.model.frame import doc_page, frame_geometry, page_label
         from envocad.settings import company
         c = PRINT if not self.draw_grid else colors()
         w, h = self.paper_size
@@ -1058,7 +1058,7 @@ class MultipoleScene(QGraphicsScene):
             painter.translate(0, k * self.page_pitch)
             draw_frame(painter, frame_geometry(self.project, self.sheet, w, h, "vícepólové schéma",
                                                page_label(self.project, self.sheet, k, n), self.paper_label,
-                                               firm), c.ink)
+                                               firm, doc_page(self.project, self.sheet.id, "multipole", k)), c.ink)
             painter.restore()
             if k and not self.draw_grid:  # tisk: dělicí čára mezi stranami (na obrazovce obrys stran v pozadí)
                 painter.setPen(QPen(c.grid, 0, Qt.DashLine))
