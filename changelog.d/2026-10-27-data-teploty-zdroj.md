@@ -1,0 +1,1 @@
+- **Data panelů: zdroj rozsahu teplot** – 33 panelů (Trina, Canadian Solar, SoliTek, Jinko) z datasheetů má v poznámce citovaný zdroj provozních teplot (`t: … °C dle <URL datasheetu>`), jak vyžaduje kontrola vestavěných artiklů.
