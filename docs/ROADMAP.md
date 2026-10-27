@@ -24,7 +24,7 @@
   - [ ] rozměry a Pv z Katalogu Minia a „3VA Parametry“ (PDF od uživatele), rozměry svorek Bečov z technických listů
   - [x] svorkovnice v rozložení: šířka = `width_mm` artiklu × počet svorek (+ koncové desky `end_mm`), místo ručních modulů – hotovo 10/2026 (`model/device_size.py`); šířka koncových desek / zarážek a rozměry svorek Bečov / ELEMAN v katalogu chybí
   - [x] generické footprinty podle kategorie a rozměrů (kompaktní jistič = obdélník š×v, svorka = úzký obdélník), ne jen moduly – hotovo 10/2026
-  - [ ] kontroly z artiklů: In jističe vs. průřez vodiče (základní tabulka), Icu vs. Icw rozvaděče, Uc svodiče vs. síť
+  - [x] kontroly z artiklů: In jističe vs. průřez vodiče (základní tabulka), Icu vs. Icw rozvaděče, Uc svodiče vs. síť – hotovo 10/2026: `model/ratings.py` (`sc_*`, `spd_*`, `terminal_*`, `un_*`), I2 a In ≤ Iz v `calc.check_cables`, `docs/design/kontroly_artiklu.md`; zbývají data (Ucpv části svodičů DC, Uw střídačů, Icw skříní)
 - [x] Značky z QElectroTech (673), importéry EPLAN CSV/XML/DXF, pluginy a uživatelské balíčky
 - [ ] BMEcat/ETIM importér (volná data výrobců)
 - [ ] Footprinty z DXF výrobců (OEZ, Hager) a editor portů importovaných symbolů

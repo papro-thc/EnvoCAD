@@ -86,8 +86,11 @@ def nets(project: Project, lib) -> list[Net]:
     uf = _UF()
     wire_nodes: list[tuple[Sheet, Wire, str, tuple]] = []
     for s in project.sheets:
+        dead = mp.sheet_dead_conductors(project, s, lib)   # žíly, které na jističi 1p nikam nevedou
         for w in s.wires:
             for c in mp.wire_conductors(w):
+                if c in dead.get(w.id, ()):
+                    continue
                 a, b = (s.id, w.a.element_id, w.a.port, c), (s.id, w.b.element_id, w.b.port, c)
                 uf.union(a, b)
                 wire_nodes.append((s, w, c, a))
