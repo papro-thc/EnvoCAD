@@ -99,7 +99,7 @@ def _text(msp, x, y, text, height, align, rot, layer="SYMBOLY"):
 
 def _draw_geometry(msp, g, layer: str, dx: float = 0.0) -> None:
     """Geometrie z modelu (rámeček `FrameGeometry`, revize `RevisionGeometry`, zrcadlo `MirrorGeometry`) do vrstvy:
-    `lines` → LINE, `texts` → TEXT, `rects` → SOLID (QR kód), `polys` → HATCH v barvě (logo), `polylines` →
+    `lines` → LINE, `texts` → TEXT, `rects` → SOLID, `polys` → HATCH v barvě (logo), `polylines` →
     uzavřená LWPOLYLINE. `dx` = posun
     v ose X (strana vícepólu vedle ostatních v modelspace)."""
     if g is None:

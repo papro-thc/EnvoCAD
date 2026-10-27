@@ -327,9 +327,8 @@ schéma rozvaděče bez přerušení na další stranu. Starší volba „A4 na 
 **Formát listu** ostatních listů (blokové schéma…) se volí tamtéž (`List → Vlastnosti listu` → **Formát listu**):
 A4, A3, A2, A1 na šířku nebo **volný A4** – výška 297 mm, šířka nejmenší násobek 210 mm, do kterého se obsah listu
 vejde mimo popisové pole (když je potřeba, obsah se posune na mřížce). Opakovaná volba volného A4 šířku přepočítá
-podle aktuálního obsahu; `Ctrl+Z` vrátí formát i polohy. Na každé straně je rámeček s popisovým polem (číslo listu a strany „2/5, str. 1/3“, formát A4); QR kód
-vlevo od popisového pole je na A4 na šířku i A3, na A4 na výšku se nevejde (popisové pole 180 mm vyplní celou
-šířku) a vynechá se. Na nízké straně A4 se rozmístění samo zhustí (posune nahoru pod nadpis, zmenší mezery mezi
+podle aktuálního obsahu; `Ctrl+Z` vrátí formát i polohy. Na každé straně je rámeček s popisovým polem (číslo listu a strany „2/5, str. 1/3“, formát A4); na A4 na
+výšku vyplní popisové pole (180 mm) celou šířku kreslicí plochy. Na nízké straně A4 se rozmístění samo zhustí (posune nahoru pod nadpis, zmenší mezery mezi
 řadami), aby kresba nezasahovala do popisového pole – na obrazovce, v PDF i v kontrole F7 stejně.
 
 **Více stran s odkazy**: když se rozvaděč nevejde na jednu stranu, rozmístění pokračuje na dalších stranách
@@ -948,7 +947,7 @@ Výchozí hodnoty (kabely, zpracoval) bere průvodce z **firemního standardu** 
 Rámeček listu má popisové pole – **razítko ENVO** (podle `Razítko fixed.dwg`, zhuštěné na 180 × 32 mm): vlevo logo
 ENVO s adresou („Projektant profese“), uprostřed stavba (název projektu), investor, místo, vypracoval, schválil,
 zodpovědný projektant, koordinátor projektu a název výkresu (list), vpravo stupeň, zakázkové a archivní číslo, datum,
-formát, měřítko, revize a číslo výkresu. Dále souřadnicová síť A–H × 1–6 a QR kód s identifikací výkresu.
+formát, měřítko, revize a číslo výkresu. Dále souřadnicová síť A–H × 1–6 (QR kód v rámečku není).
 Schválil, zodpovědný projektant, koordinátor, stupeň, archivní číslo a měřítko se zadávají v Soubor → Vlastnosti
 projektu; u jiné firmy než ENVO (`standard.company`) je místo loga název firmy. Údaje se zadávají v
 Soubor → Vlastnosti projektu, název firmy v popisovém poli v nastavení (`standard.company`) – stejný název je na
@@ -958,7 +957,7 @@ se nevejde ani tak, zkrátí se s „…“. Vedle čísla listu (např. 3/7 –
 i v samostatných exportech PDF a DXF. Čísla stran se uloží při exportu celé dokumentace nebo příkazem
 **Projekt → Přečíslovat strany dokumentace** (krok undo); list přidaný od posledního číslování stranu nemá, dokud se
 znovu nepřečísluje. Kresba vícepólu se automaticky posune nahoru, aby nezasahovala do popisového
-pole a QR kódu (ručně přesunuté přístroje zůstanou, kde jsou).
+pole (ručně přesunuté přístroje zůstanou, kde jsou).
 
 **Celá dokumentace (PDF)**: obsah má sloupce *Strana* (fyzická strana PDF, u víc stran rozsah „19–20“), *Název*
 a *List výkresu* (číslo listu projektu, které ukazuje popisové pole listu – např. „2/6“). Strany obsahu, výkazů

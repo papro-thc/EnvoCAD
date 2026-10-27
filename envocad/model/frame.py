@@ -72,18 +72,8 @@ def position_ref(project: Project, sheet: Sheet, x: float, y: float) -> str:
     return f"/{n}.{grid_coord(sheet, x, y)}"
 
 
-def qr_modules(text: str) -> list[list[bool]] | None:
-    """Matice QR kódu (True = tmavý modul) přes `segno`; None, když knihovna chybí."""
-    try:
-        import segno
-    except ImportError:
-        return None
-    q = segno.make(text, error="m")
-    return [[bool(v) for v in row] for row in q.matrix]
-
-
 def sheet_revision_label(project: Project, sheet: Sheet) -> str:
-    """Revize listu do popisového pole a QR: revize listu (`revision.sheet_revision`). Nezměněný list bez výchozí
+    """Revize listu do popisového pole: revize listu (`revision.sheet_revision`). Nezměněný list bez výchozí
     revize před první revizí se značkami → prázdná (výchozí stav, ne nová revize). Projekt bez značek revizí
     (revize se po listech nesledují) → `meta["revision"]`."""
     from envocad.model.revision import revisions_marked, sheet_revision
@@ -93,13 +83,6 @@ def sheet_revision_label(project: Project, sheet: Sheet) -> str:
     if revisions_marked(project):
         return ""
     return str(project.meta.get("revision", "") or "")
-
-
-def qr_text(project: Project, sheet: Sheet, view: str = "") -> str:
-    m = project.meta
-    parts = [project.name, m.get("order", ""), sheet.name + (f" – {view}" if view else ""),
-             f"rev. {sheet_revision_label(project, sheet) or '0'}"]
-    return " | ".join(x for x in parts if x)
 
 
 def sheet_number(project: Project, sheet: Sheet) -> str:
@@ -246,22 +229,12 @@ def _stamp(g: FrameGeometry, tx0: float, ty0: float, fields: dict, company: str)
         g.texts.append((xv + 1.0, top - rh + 0.9, *fit_text(str(value or ""), tx1 - xv - 2.0, 2.0), "left"))
 
 
-QR_SIZE = TB_H - 6.0   # QR kód vlevo od popisového pole (strana čtverce)
-QR_GAP = 4.0           # mezera QR kódu od popisového pole
-
-
-def qr_fits(width: float) -> bool:
-    """Vejde se QR kód vlevo od popisového pole do vnitřního rámečku? (A4 na výšku: popisové pole 180 mm vyplní
-    celou šířku kreslicí plochy, QR se vynechá – identifikace je v popisovém poli.)"""
-    return width - MARGIN - TB_W - QR_SIZE - QR_GAP >= MARGIN_LEFT
-
-
 def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, height: float | None = None,
                    view: str = "", page: str = "", paper: str = "", company: str = COMPANY,
                    doc: str | None = None) -> FrameGeometry:
     """Rámeček s popisovým polem vpravo dole. Pro odvozené pohledy (vícepól) lze zadat jiný rozměr listu a jeho
     formát (`paper`) do popisového pole. `doc` = strana celé dokumentace; None = podle uložených čísel stran
-    (`doc_page`, pohled listu JPS). QR kód jen, když se vlevo od popisového pole vejde (`qr_fits`). `company`
+    (`doc_page`, pohled listu JPS). `company`
     = název firmy do loga (firemní standard, `envocad.settings.company`)."""
     w = width or sheet.width
     h = height or sheet.height
@@ -289,17 +262,6 @@ def frame_geometry(project: Project, sheet: Sheet, width: float | None = None, h
     if doc is None:
         doc = doc_page(project, sheet.id) if not sheet.is_switchboard else ""
     _stamp(g, tx0, ty0, stamp_fields(project, sheet, view, page, paper, doc), company)
-    # QR kód s identifikací výkresu vlevo od popisového pole (projekt | zakázka | list | revize)
-    mods = qr_modules(qr_text(project, sheet, view)) if qr_fits(w) else None
-    if mods:
-        n = len(mods)
-        size = QR_SIZE
-        cell = size / n
-        qx0, qy0 = tx0 - size - QR_GAP, ty0 + 3.0
-        for r, row in enumerate(mods):
-            for c, dark in enumerate(row):
-                if dark:
-                    g.rects.append((qx0 + c * cell, qy0 + size - (r + 1) * cell, cell, cell))
     return g
 
 
@@ -314,10 +276,9 @@ def inner_box(width: float, height: float) -> tuple[float, float, float, float]:
 
 
 def title_block_box(width: float, height: float) -> tuple[float, float, float, float]:
-    """Obálka popisového pole včetně QR kódu vlevo od něj (vpravo dole uvnitř rámečku; QR jen, když se vejde)."""
+    """Obálka popisového pole (razítka) vpravo dole uvnitř rámečku."""
     del height
-    qr = QR_SIZE + QR_GAP if qr_fits(width) else 0.0
-    return (width - MARGIN - TB_W - qr, MARGIN, width - MARGIN, MARGIN + TB_H)
+    return (width - MARGIN - TB_W, MARGIN, width - MARGIN, MARGIN + TB_H)
 
 
 

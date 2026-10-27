@@ -501,9 +501,10 @@ def test_autosave_recent_and_a4(app, tmp_path, monkeypatch):
     out = tmp_path / "a4.pdf"
     export_scene_pdf(w.scene, out, paper="A4")
     assert out.stat().st_size > 500
-    # QR v rámečku
+    # razítko ENVO v rámečku (logo), QR kód už ne
     from envocad.model.frame import frame_geometry
-    assert frame_geometry(p, p.sheets[0]).rects
+    g = frame_geometry(p, p.sheets[0])
+    assert g.polys and not g.rects
     w.undo.setClean()
     w.close()
     os.environ.pop("ENVOCAD_HOME", None)

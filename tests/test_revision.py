@@ -8,7 +8,7 @@ from envocad.generate import build_project
 from envocad.library.store import LibraryStore
 from envocad.model.checks import check_project
 from envocad.model.diff import MOVE_DETAIL, Change, diff_projects
-from envocad.model.frame import qr_text, title_rows
+from envocad.model.frame import title_rows
 from envocad.model.project import Element, Project, Revision, RevisionMark, Sheet
 from envocad.model.revision import (
     MARK_MOVES,
@@ -135,14 +135,13 @@ def test_sheet_revision_and_title_rows():
     s1, s2 = p.sheets[0], Sheet(name="Druhý")
     p.sheets.append(s2)
     assert sheet_revision(p, s1) is None
-    assert _revision_label(title_rows(p, s1)) == "X" and "rev. X" in qr_text(p, s1)
+    assert _revision_label(title_rows(p, s1)) == "X"
     p.revisions = [Revision("A", closed=True), Revision("B", closed=True), Revision("C")]
     assert sheet_revision(p, s1) is None                          # bez značek (migrovaný projekt) → meta
     p.revisions[2].marks.append(RevisionMark(s1.id, "e1"))
     assert sheet_revision(p, s1).label == "C"
     assert sheet_revision(p, s2).label == "B"                     # stav před první revizí se značkami
     assert _revision_label(title_rows(p, s1)) == "C" and _revision_label(title_rows(p, s2)) == "B"
-    assert "rev. C" in qr_text(p, s1) and "rev. B" in qr_text(p, s2)
     p.revisions[0].marks.append(RevisionMark(s2.id))
     assert sheet_revision(p, s2).label == "A"
 

@@ -16,7 +16,6 @@ from envocad.model.frame import (
     frame_geometry,
     inner_box,
     page_label,
-    qr_fits,
     title_block_box,
 )
 from envocad.model.project import Element, Project, Sheet
@@ -126,12 +125,11 @@ def test_sheet_mp_paper_optional_key_roundtrip():
     assert Project.from_dict(old).sheets[0].mp_paper == ""
 
 
-def test_frame_qr_only_when_it_fits_and_page_label():
+def test_frame_without_qr_and_page_label():
     p, sb = _tpl("dc", {"n_strings": "2"})
-    assert qr_fits(297.0) and qr_fits(420.0) and not qr_fits(210.0)
     land = frame_geometry(p, sb, 297.0, 210.0, "vícepólové schéma", "x", "A4")
     port = frame_geometry(p, sb, 210.0, 297.0, "vícepólové schéma", "x", "A4")
-    assert land.rects and not port.rects                     # A4 na výšku: popisové pole přes celou šířku, bez QR
+    assert not land.rects and not port.rects                 # QR kód v rámečku není
     assert title_block_box(210.0, 297.0)[0] >= MARGIN_LEFT
     assert title_block_box(297.0, 210.0)[0] >= MARGIN_LEFT
     assert any(t[2] == "A4" for t in land.texts)             # formát strany v popisovém poli
