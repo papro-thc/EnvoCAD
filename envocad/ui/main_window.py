@@ -349,6 +349,7 @@ class MainWindow(QMainWindow):
         act(m_lib, "Importovat značku z QElectroTech (.elmt)…", self.import_qet_symbol)
         act(m_lib, "Prohlížet artikly…", self.browse_components)
         act(m_lib, "Importovat artikly z CSV…", self.import_components_csv)
+        act(m_lib, "Načíst ceník artiklů (CSV)…", self.import_prices_csv)
         act(m_lib, "Importovat artikly z EPLAN (XML / CSV / ZIP)…", self.import_eplan)
         m_lib.addSeparator()
         act(m_lib, "Sdílená knihovna (síťová složka)…", self.set_shared_library)
@@ -2138,6 +2139,28 @@ class MainWindow(QMainWindow):
             return
         n = self.library.import_components_csv_v2(path)
         QMessageBox.information(self, "Import artiklů", f"Načteno {n} artiklů.")
+
+    def import_prices_csv(self) -> None:
+        """Knihovna → Načíst ceník artiklů: CSV (id nebo výrobce + typ, price_czk) se zkontroluje a uloží jako
+        `~/.envocad/ceny.csv` – výkaz materiálu s cenami z něj bere ceny (katalog ceník nepřepíše)."""
+        import shutil
+
+        from envocad.export.reports import prices_path
+        from envocad.library.prices import read_prices
+        path, _ = QFileDialog.getOpenFileName(self, "Ceník artiklů", "", "CSV (*.csv)")
+        if not path:
+            return
+        prices, errs = read_prices(path)
+        if errs or not prices:
+            QMessageBox.warning(self, "Ceník artiklů", "Ceník se nenačetl:\n\n" + "\n".join(
+                (errs or ["žádný řádek s cenou"])[:20]) + "\n\nSloupce: price_czk a id, nebo manufacturer + "
+                "part_number (oddělovač ; nebo ,).")
+            return
+        dst = prices_path()
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, dst)
+        QMessageBox.information(self, "Ceník artiklů", f"Načteno {len(prices)} cen – Výstupy → Výkazy (xlsx), "
+                                                       f"list „Výkaz materiálu s cenami“.\n\nCeník: {dst}")
 
     def import_qet_symbol(self) -> None:
         """Značka QElectroTech (.elmt, XML) → knihovna. Poškozené XML → česká hláška, knihovna beze změny."""
