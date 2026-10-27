@@ -40,10 +40,11 @@ def _rfve(paper: str, clear: bool = True):
 
 
 def test_paper_choices():
-    assert mp.PAPER_CHOICES == ("A4", "A3", "A2", "A1", mp.FREE_A4)
-    for v in ("A2", "A1", mp.FREE_A4, "A4 na výšku"):
+    assert mp.PAPER_CHOICES == ("A4", "A4 na výšku", "A3", "A3 na výšku", "A2", "A2 na výšku", "A1", "A1 na výšku",
+                                "A0", "A0 na výšku", mp.FREE_A4)
+    for v in ("A2", "A1", "A0", "A3 na výšku", mp.FREE_A4, "A4 na výšku", "500×300"):
         assert mp.normalize_switchboard_paper(v) == v
-    assert mp.normalize_switchboard_paper("A0") == "A4"
+    assert mp.normalize_switchboard_paper("A5") == "A4" and mp.normalize_switchboard_paper("100×100") == "A4"
     assert mp.free_a4_width(1) == 210 and mp.free_a4_width(420) == 420 and mp.free_a4_width(421) == 630
     assert mp.free_a4_label(630) == "A4×3"
 
@@ -88,7 +89,9 @@ def test_sheet_format_size_fixed_and_free(lib):
     s.paper, s.width, s.height = "A3", 420.0, 297.0
     assert sheet_format(s) == "A3"
     s.paper, s.width, s.height = "A0", 1189.0, 841.0
-    assert sheet_format(s) == ""
+    assert sheet_format(s) == "A0"                                     # A0 je ve výběru
+    s.paper, s.width, s.height = "A3", 400.0, 297.0
+    assert sheet_format(s) == ""                                       # nestandardní rozměr = „současný“
     with pytest.raises(ValueError):
         sheet_format_size(p, s, lib, "A7")
 
@@ -133,7 +136,12 @@ def test_sheet_props_dialog_and_undo(lib):
     s = p.sheets[0]
     dlg = SheetPropsDialog(s)
     assert dlg.size is not None and dlg.paper is None
-    assert [dlg.size.itemData(i) for i in range(5)] == list(mp.PAPER_CHOICES)
+    n = len(mp.PAPER_CHOICES)
+    assert [dlg.size.itemData(i) for i in range(n)] == list(mp.PAPER_CHOICES)
+    dlg.size.setCurrentIndex(dlg.size.findData("__custom__"))      # vlastní formát ze šířky a výšky
+    dlg.custom_w.setValue(500)
+    dlg.custom_h.setValue(300)
+    assert dlg.sheet_format() == "500×300"
     dlg.size.setCurrentIndex(dlg.size.findData(mp.FREE_A4))
     assert dlg.sheet_format() == mp.FREE_A4
     old = (s.paper, s.width, s.height, [(e.x, e.y) for e in s.elements])
@@ -180,3 +188,25 @@ def test_dead_conductors_left_out_of_potentials(lib):
     assert conds == {"L1"}
     assert mp.sheet_dead_conductors(p, sb, lib) == {to_f2.id: {"L2", "L3", "N", "PE"}}
     assert mp.sheet_dead_conductors(p, sb, None) == {}
+
+
+def test_portrait_a0_and_custom_formats(lib):
+    """A0, formáty na výšku a vlastní „šířka×výška“: formát listu (bez posunu obsahu) i strany schématu rozvaděče."""
+    p = Project.load(EXAMPLE)
+    s = p.sheets[0]
+    assert sheet_format_placement(p, s, lib, "A3 na výšku") == ("A3 na výšku", 297.0, 420.0, 0.0, 0.0)
+    assert sheet_format_placement(p, s, lib, "A0") == ("A0", 1189.0, 841.0, 0.0, 0.0)
+    assert sheet_format_placement(p, s, lib, "650×400") == ("650×400", 650.0, 400.0, 0.0, 0.0)
+    with pytest.raises(ValueError):
+        sheet_format_placement(p, s, lib, "50×50")                  # pod nejmenším rozměrem
+    s.paper, s.width, s.height = "650×400", 650.0, 400.0
+    assert sheet_format(s) == "650×400"
+    s.paper, s.width, s.height = "A2 na výšku", 420.0, 594.0
+    assert sheet_format(s) == "A2 na výšku"
+    _p, sb = _rfve("A3 na výšku")
+    assert mp.page_size(sb) == (297.0, 420.0) and mp.page_paper_label(sb) == "A3"
+    sb.mp_paper = "500×300"
+    assert mp.paper_choice(sb) == "500×300" and mp.page_size(sb) == (500.0, 300.0)
+    assert mp.page_paper_label(sb) == "500×300"
+    g = multipole_geometry(_p, sb, lib, standard_paper="A4")
+    assert g.page_size == (500.0, 300.0)

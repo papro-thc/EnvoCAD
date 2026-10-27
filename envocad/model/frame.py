@@ -415,31 +415,47 @@ def grow_sheet_long(project: Project, sheet: Sheet, lib, boxes: list | None = No
     return False
 
 
-# formát listu volený uživatelem (vlastnosti listu): pevné formáty na šířku a volný A4 (výška 297, šířka n × 210)
-SHEET_FORMATS = {"A4": (297.0, 210.0), "A3": (420.0, 297.0), "A2": (594.0, 420.0), "A1": (841.0, 594.0)}
+# formát listu volený uživatelem (vlastnosti listu): A4…A0 na šířku i na výšku, volný A4 (výška 297, šířka
+# n × 210) a vlastní „šířka×výška“ v mm (`multipole.parse_custom_paper`)
+SHEET_FORMATS = {"A4": (297.0, 210.0), "A4 na výšku": (210.0, 297.0), "A3": (420.0, 297.0),
+                 "A3 na výšku": (297.0, 420.0), "A2": (594.0, 420.0), "A2 na výšku": (420.0, 594.0),
+                 "A1": (841.0, 594.0), "A1 na výšku": (594.0, 841.0), "A0": (1189.0, 841.0),
+                 "A0 na výšku": (841.0, 1189.0)}
 FREE_A4_MAX = 40          # nejvýš A4×40 (8,4 m) – volný A4 se dál nerozšiřuje
 
 
 def sheet_format(sheet: Sheet) -> str:
-    """Formát listu pro volbu ve vlastnostech: „A4“…„A1“, „volný A4“ (výška 297, název A4×n), jinak "" (jiný)."""
-    from envocad.model.multipole import FREE_A4
+    """Formát listu pro volbu ve vlastnostech: „A4“…„A0 na výšku“, „volný A4“ (výška 297, název A4×n), vlastní
+    „šířka×výška“, jinak "" (jiný – např. formát zvolený generátorem)."""
+    from envocad.model.multipole import FREE_A4, parse_custom_paper
     size = SHEET_FORMATS.get(sheet.paper)
     if size and (float(sheet.width), float(sheet.height)) == size:
         return sheet.paper
     if float(sheet.height) == 297.0 and str(sheet.paper).startswith("A4×"):
         return FREE_A4
+    if parse_custom_paper(sheet.paper) == (float(sheet.width), float(sheet.height)):
+        return sheet.paper
     return ""
 
 
 def sheet_format_placement(project: Project, sheet: Sheet, lib, choice: str
                            ) -> tuple[str, float, float, float, float]:
     """Formát listu pro volbu ve vlastnostech jako (název, šířka, výška, dx, dy) pro `apply_placement`. Pevný formát
-    (A4…A1 na šířku) obsah neposouvá. Volný A4: nejmenší A4×n (výška 297, šířka n × 210 mm), do kterého se obsah
+    (A4…A0 na šířku i na výšku) a vlastní „šířka×výška“ obsah neposouvají. Volný A4: nejmenší A4×n (výška 297, šířka n × 210 mm), do kterého se obsah
     listu vejde mimo popisové pole – bez posunu, když to jde, jinak s posunem jako `fit_placement` (na mřížku);
     obsah vyšší než strana (nevejde se ani na A4×40) → ValueError s českou hláškou. Prázdný list = A4×2."""
-    from envocad.model.multipole import FREE_A4, FREE_A4_HEIGHT, FREE_A4_STEP, free_a4_label
+    from envocad.model.multipole import (
+        FREE_A4,
+        FREE_A4_HEIGHT,
+        FREE_A4_STEP,
+        free_a4_label,
+        parse_custom_paper,
+    )
     if choice in SHEET_FORMATS:
         return (choice, *SHEET_FORMATS[choice], 0.0, 0.0)
+    custom = parse_custom_paper(choice)
+    if custom is not None:            # vlastní formát: obsah se neposouvá (jako pevný formát)
+        return (choice, *custom, 0.0, 0.0)
     if choice != FREE_A4:
         raise ValueError(f"Neznámý formát listu {choice!r}")
     from envocad.model.textlayout import sheet_content_boxes

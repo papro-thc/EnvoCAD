@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QFormLayout,
     QFrame,
     QGroupBox,
@@ -2082,9 +2083,11 @@ class SheetPropsDialog(QDialog):
             for key in keys:
                 self.paper.addItem(_paper_text(key), key)
             self.paper.addItem(f"jako list ({sheet.paper}, {sheet.width:g} × {sheet.height:g} mm)", SHEET_PAPER)
+            self.paper.addItem("vlastní…", CUSTOM_CHOICE)
             i = self.paper.findData(sheet.mp_paper or "")
             self.paper.setCurrentIndex(max(i, 0))
             form.addRow("Formát stran schématu:", self.paper)
+            self._custom_row(form, self.paper, sheet.mp_paper)
         else:
             # formát listu (blokové schéma…): A4…A1 na šířku nebo volný A4 (šířka podle obsahu)
             from envocad.model.frame import sheet_format
@@ -2092,24 +2095,61 @@ class SheetPropsDialog(QDialog):
             self.size = QComboBox()
             for key in PAPER_CHOICES:
                 self.size.addItem(_paper_text(key), key)
+            self.size.addItem("vlastní…", CUSTOM_CHOICE)
             cur = sheet_format(sheet)
             if not cur:
                 self.size.addItem(f"současný ({sheet.paper}, {sheet.width:g} × {sheet.height:g} mm)", "")
             self.size.setCurrentIndex(max(self.size.findData(cur), 0))
-            self._size0 = self.size.currentData()
-            self.size.setToolTip("Volný A4: výška 297 mm, šířka podle obsahu listu po 210 mm (A4×n)")
+            self._size0 = cur
+            self.size.setToolTip("Volný A4: výška 297 mm, šířka podle obsahu listu po 210 mm (A4×n); vlastní = "
+                                 "šířka a výška v mm")
             form.addRow("Formát listu:", self.size)
+            self._custom_row(form, self.size, cur or f"{sheet.width:g}×{sheet.height:g}")
         bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         form.addRow(bb)
 
+    def _custom_row(self, form, combo: QComboBox, current: str) -> None:
+        """Šířka a výška vlastního formátu (mm) pod výběrem – povolené jen u volby „vlastní…“. Výběr vlastního
+        formátu, který už list má („500×300“), se přepne na „vlastní…“ s jeho rozměry."""
+        from envocad.model.multipole import CUSTOM_MAX, CUSTOM_MIN, parse_custom_paper
+        size = parse_custom_paper(current) or (420.0, 297.0)
+        self.custom_w = QDoubleSpinBox(minimum=CUSTOM_MIN[0], maximum=CUSTOM_MAX[0], decimals=0, value=size[0],
+                                       suffix=" mm")
+        self.custom_h = QDoubleSpinBox(minimum=CUSTOM_MIN[1], maximum=CUSTOM_MAX[1], decimals=0, value=size[1],
+                                       suffix=" mm")
+        row = QWidget()
+        lay = QHBoxLayout(row)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(self.custom_w)
+        lay.addWidget(QLabel("×"))
+        lay.addWidget(self.custom_h)
+        form.addRow("Vlastní šířka × výška:", row)
+        if parse_custom_paper(current) and combo.findData(current) < 0:
+            combo.setCurrentIndex(combo.findData(CUSTOM_CHOICE))
+        self._custom_combo = combo
+
+        def sync(_i: int = 0) -> None:
+            on = combo.currentData() == CUSTOM_CHOICE
+            self.custom_w.setEnabled(on)
+            self.custom_h.setEnabled(on)
+        combo.currentIndexChanged.connect(sync)
+        sync()
+
+    def _custom_value(self) -> str:
+        from envocad.model.multipole import custom_paper_label
+        return custom_paper_label(self.custom_w.value(), self.custom_h.value())
+
     def values(self) -> tuple[str, str, str]:
         return self.name.text().strip(), self.func.text().strip().upper(), self.loc.text().strip().upper()
 
     def mp_paper(self) -> str | None:
-        """Zvolený formát stran schématu rozvaděče („“ = standard); None = list není rozvaděč."""
-        return None if self.paper is None else str(self.paper.currentData() or "")
+        """Zvolený formát stran schématu rozvaděče („“ = standard, vlastní „šířka×výška“); None = list není rozvaděč."""
+        if self.paper is None:
+            return None
+        v = str(self.paper.currentData() or "")
+        return self._custom_value() if v == CUSTOM_CHOICE else v
 
     def sheet_format(self) -> str | None:
         """Nově zvolený formát listu (ne rozvaděč); None = beze změny. Volný A4 se vrací vždy (šířka se přepočítá)."""
@@ -2117,7 +2157,12 @@ class SheetPropsDialog(QDialog):
         if self.size is None:
             return None
         v = str(self.size.currentData() or "")
+        if v == CUSTOM_CHOICE:
+            v = self._custom_value()
         return v if v and (v != self._size0 or v == FREE_A4) else None
+
+
+CUSTOM_CHOICE = "__custom__"   # položka „vlastní…“ ve výběru formátu (rozměr ze spinboxů pod ním)
 
 
 def _paper_text(key: str) -> str:

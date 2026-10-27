@@ -67,7 +67,7 @@ def wire_attributes(sheet: Sheet | None) -> list[Attribute]:
     return list(SWITCHBOARD_WIRE_ATTRIBUTES) if sheet is not None and sheet.is_switchboard else list(WIRE_ATTRIBUTES)
 
 
-FORMAT_VERSION = 17
+FORMAT_VERSION = 18
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 DEVICE_HEIGHT_MM = 45.0  # mm – výška modulového přístroje na liště (rozložení, délky vodičů)
@@ -722,7 +722,8 @@ class Sheet:
     # strukturní označení listu (IEC 81346) – výchozí aspekty prvků a vodičů listu; kódy bez znaménka
     func: str = ""                        # "=" funkce
     loc: str = ""                         # "+" umístění (list rozvaděče = označení bloku)
-    # formát stran vícepólu a plánu svorkovnice listu rozvaděče („A4“, „A4 na výšku“, „A3“, „list“ = rozměr listu);
+    # formát stran vícepólu a plánu svorkovnice listu rozvaděče („A4“…„A0 na výšku“, „volný A4“, vlastní „500×300“,
+    # „list“ = rozměr listu);
     # prázdné = podle firemního standardu (`multipole.paper_choice`). Nepovinný klíč – ukládá se, jen když je zadaný.
     mp_paper: str = ""
     id: str = field(default_factory=_uid)
@@ -1314,6 +1315,8 @@ def migrate(d: dict, ver: int) -> dict:
     # v17: formát stran schématu rozvaděče `mp_paper` navíc „A2“, „A1“ a „volný A4“ (výška 297, šířka podle kresby),
     # formát listu volný A4 (`paper` „A4×n“). Data se nemění; verze se zvedla, aby program v16 soubor odmítl – volbu
     # by nepoznal a vícepól tiše vykreslil na A4.
+    # v18: formát listu a stran schématu rozvaděče navíc A0, formáty na výšku („A3 na výšku“…) a vlastní „šířka×výška“
+    # v mm. Data se nemění; verze se zvedla, aby program v17 soubor odmítl – formát stran by nepoznal (A4).
     d["format_version"] = FORMAT_VERSION
     return d
 

@@ -1286,15 +1286,38 @@ MIN_COL_GAP = 10.0    # nejmenší mezera mezi sloupci při zhuštění na nízk
 # ---- formát stran vícepólu a plánu svorkovnice listu rozvaděče ---------------------------------------------------
 # volba („A4“ výchozí) ve firemním standardu `standard.switchboard_paper` nebo u listu `Sheet.mp_paper`
 SWITCHBOARD_PAPERS = {"A4": (297.0, 210.0), "A4 na výšku": (210.0, 297.0), "A3": (420.0, 297.0),
-                      "A2": (594.0, 420.0), "A1": (841.0, 594.0)}
+                      "A3 na výšku": (297.0, 420.0), "A2": (594.0, 420.0), "A2 na výšku": (420.0, 594.0),
+                      "A1": (841.0, 594.0), "A1 na výšku": (594.0, 841.0), "A0": (1189.0, 841.0),
+                      "A0 na výšku": (841.0, 1189.0)}
 DEFAULT_SWITCHBOARD_PAPER = "A4"
 # volný A4: výška 297 mm, šířka podle obsahu v násobcích 210 mm (A4×n) – vícepól na jedné straně bez přerušení
 FREE_A4 = "volný A4"
 FREE_A4_STEP = 210.0
 FREE_A4_HEIGHT = 297.0
 FREE_A4_LAYOUT_W = 40 * FREE_A4_STEP     # šířka pro první průchod rozmístění (změří se skutečná šířka kresby)
-# nabídka v GUI (vlastnosti listu, firemní standard); „A4 na výšku“ zůstává platná pro starší projekty
-PAPER_CHOICES = ("A4", "A3", "A2", "A1", FREE_A4)
+# nabídka v GUI (vlastnosti listu, firemní standard): A4…A0 na šířku i na výšku a volný A4
+PAPER_CHOICES = ("A4", "A4 na výšku", "A3", "A3 na výšku", "A2", "A2 na výšku", "A1", "A1 na výšku", "A0",
+                 "A0 na výšku", FREE_A4)
+# vlastní formát listu / stran schématu: „šířka×výška“ v mm (např. „500×300“), meze níže
+CUSTOM_MIN = (210.0, 148.0)     # vejde se popisové pole (180 mm + okraje) a aspoň řádek kresby nad ním
+CUSTOM_MAX = (5000.0, 2000.0)
+
+
+def parse_custom_paper(value: object) -> tuple[float, float] | None:
+    """„500×300“ / „500x300“ / „500 × 300“ → (500.0, 300.0) v mezích `CUSTOM_MIN`–`CUSTOM_MAX`, jinak None."""
+    import re
+    m = re.fullmatch(r"\s*(\d+(?:[.,]\d+)?)\s*[×xX*]\s*(\d+(?:[.,]\d+)?)\s*(?:mm)?\s*", str(value or ""))
+    if not m:
+        return None
+    w, h = (float(g.replace(",", ".")) for g in m.groups())
+    if not (CUSTOM_MIN[0] <= w <= CUSTOM_MAX[0] and CUSTOM_MIN[1] <= h <= CUSTOM_MAX[1]):
+        return None
+    return w, h
+
+
+def custom_paper_label(width: float, height: float) -> str:
+    """Název vlastního formátu: (500, 300) → „500×300“."""
+    return f"{width:g}×{height:g}"
 SHEET_PAPER = "list"      # strana = rozměr listu (`Sheet.width × height`, chování do 10/2026)
 _DEFAULT_SHEET_SIZE = ("A3", 420.0, 297.0)
 
@@ -1304,7 +1327,7 @@ def normalize_switchboard_paper(value: object) -> str:
     standardu (`standard.switchboard_paper`) čte `envocad.settings.switchboard_paper` – model nastavení nečte,
     funkce níže dostávají standard parametrem `standard_paper` od volajícího (GUI, export, generátor)."""
     v = str(value or "").strip()
-    return v if v in SWITCHBOARD_PAPERS or v == FREE_A4 else DEFAULT_SWITCHBOARD_PAPER
+    return v if v in SWITCHBOARD_PAPERS or v == FREE_A4 or parse_custom_paper(v) else DEFAULT_SWITCHBOARD_PAPER
 
 
 def free_a4_label(width: float) -> str:
@@ -1325,7 +1348,7 @@ def paper_choice(sheet: Sheet, standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) 
     stran původního rozměru) bez volby → „list“ (beze změny proti dřívějšku); jinak firemní standard `standard_paper`
     (výchozí A4; neplatná hodnota → A4)."""
     v = getattr(sheet, "mp_paper", "") or ""
-    if v in SWITCHBOARD_PAPERS or v in (SHEET_PAPER, FREE_A4):
+    if v in SWITCHBOARD_PAPERS or v in (SHEET_PAPER, FREE_A4) or parse_custom_paper(v):
         return v
     if not sheet.is_switchboard:
         return SHEET_PAPER
@@ -1342,7 +1365,9 @@ def page_size(sheet: Sheet, choice: str | None = None,
     v = choice or paper_choice(sheet, standard_paper)
     if v == FREE_A4:
         return (2 * FREE_A4_STEP, FREE_A4_HEIGHT)
-    return (float(sheet.width), float(sheet.height)) if v == SHEET_PAPER else SWITCHBOARD_PAPERS[v]
+    if v == SHEET_PAPER:
+        return (float(sheet.width), float(sheet.height))
+    return SWITCHBOARD_PAPERS.get(v) or parse_custom_paper(v) or SWITCHBOARD_PAPERS[DEFAULT_SWITCHBOARD_PAPER]
 
 
 def page_paper_label(sheet: Sheet, choice: str | None = None, standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) -> str:
@@ -1350,7 +1375,9 @@ def page_paper_label(sheet: Sheet, choice: str | None = None, standard_paper: st
     v = choice or paper_choice(sheet, standard_paper)
     if v == FREE_A4:
         return free_a4_label(page_size(sheet, v)[0])
-    return sheet.paper if v == SHEET_PAPER else v.split()[0]
+    if v == SHEET_PAPER:
+        return sheet.paper
+    return v if parse_custom_paper(v) else v.split()[0]
 
 
 def layout_x0(sheet: Sheet, choice: str | None = None) -> float:

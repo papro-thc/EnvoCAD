@@ -320,12 +320,12 @@ automatiku. Dvojklik na prvek = parametry, dvojklik na žílu = svorky, `Delete`
 **Strany A4**: schéma rozvaděče a plán svorkovnice jsou na stranách **A4 na šířku** (297 × 210 mm) – vytisknou
 se na běžné tiskárně. Formát se volí ve `Firemní standard…` (poslední otázka: `A4`, `A3`, `A2`, `A1`, `volný A4`;
 klíč `standard.switchboard_paper` v `settings.json`) nebo pro jeden list rozvaděče v `List → Vlastnosti listu` →
-**Formát stran schématu** (podle standardu / A4 / A3 / A2 / A1 na šířku / **volný A4** / jako list); změna jde vrátit
-`Ctrl+Z`. **Volný A4** = jedna strana vysoká 297 mm a široká podle kresby v násobcích 210 mm (A4×2, A4×3…) – celé
-schéma rozvaděče bez přerušení na další stranu. Starší volba „A4 na výšku“ u listu zůstává platná.
+**Formát stran schématu** (podle standardu / A4 … A0 na šířku i **na výšku** / **volný A4** / jako list / **vlastní…**
+– šířka × výška v mm, 210 × 148 až 5000 × 2000); změna jde vrátit `Ctrl+Z`. **Volný A4** = jedna strana vysoká 297 mm a široká podle kresby v násobcích 210 mm (A4×2, A4×3…) – celé
+schéma rozvaděče bez přerušení na další stranu.
 
 **Formát listu** ostatních listů (blokové schéma…) se volí tamtéž (`List → Vlastnosti listu` → **Formát listu**):
-A4, A3, A2, A1 na šířku nebo **volný A4** – výška 297 mm, šířka nejmenší násobek 210 mm, do kterého se obsah listu
+A4 … A0 na šířku i na výšku, **vlastní…** (šířka × výška v mm, obsah se neposouvá) nebo **volný A4** – výška 297 mm, šířka nejmenší násobek 210 mm, do kterého se obsah listu
 vejde mimo popisové pole (když je potřeba, obsah se posune na mřížce). Opakovaná volba volného A4 šířku přepočítá
 podle aktuálního obsahu; `Ctrl+Z` vrátí formát i polohy. Na každé straně je rámeček s popisovým polem (číslo listu a strany „2/5, str. 1/3“, formát A4); na A4 na
 výšku vyplní popisové pole (180 mm) celou šířku kreslicí plochy. Na nízké straně A4 se rozmístění samo zhustí (posune nahoru pod nadpis, zmenší mezery mezi

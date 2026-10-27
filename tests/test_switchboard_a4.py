@@ -393,7 +393,11 @@ def test_sheet_props_dialog_offers_paper_only_for_switchboard(qapp):
     p, sb = _dc(2)
     d = SheetPropsDialog(sb)
     assert d.mp_paper() == ""
-    assert d.paper.findData("A4 na výšku") < 0              # nová nabídka: A4, A3, A2, A1, volný A4
+    assert d.paper.findData("A4 na výšku") >= 0 and d.paper.findData("A0 na výšku") >= 0   # A4…A0 i na výšku
+    d.paper.setCurrentIndex(d.paper.findData("__custom__"))   # vlastní rozměr stran schématu
+    d.custom_w.setValue(600)
+    d.custom_h.setValue(400)
+    assert d.mp_paper() == "600×400"
     d.paper.setCurrentIndex(d.paper.findData("A2"))
     assert d.mp_paper() == "A2"
     sb.mp_paper = "A4 na výšku"                              # starší volba listu zůstane v nabídce
