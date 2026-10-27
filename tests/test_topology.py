@@ -119,7 +119,7 @@ def test_model_has_no_qt():
     code = ("import sys, envocad.model.topology, envocad.library.topologies, envocad.generator.spec; "
             "bad = [m for m in sys.modules if m.startswith('PySide6') or m == 'envocad.generate']; "
             "assert not bad, bad")
-    subprocess.run([sys.executable, "-c", code], check=True)
+    subprocess.run([sys.executable, "-c", code], check=True, stdin=subprocess.DEVNULL)
 
 
 # ---- knihovna -------------------------------------------------------------------------------------------------------

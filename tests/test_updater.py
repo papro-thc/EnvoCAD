@@ -29,7 +29,8 @@ def home(tmp_path, monkeypatch):
 
 
 def run(repo: Path, *args: str) -> str:
-    return subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, text=True).stdout.strip()
+    return subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, text=True,
+                          stdin=subprocess.DEVNULL).stdout.strip()
 
 
 def commit(repo: Path, version: str, deps: str = "a", tag: bool = False) -> None:

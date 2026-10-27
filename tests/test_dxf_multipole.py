@@ -280,7 +280,7 @@ out = export_multipole_dxf(p, sb, LibraryStore(Path({str(tmp_path)!r}) / "l.db")
 assert not [m for m in sys.modules if m.startswith("PySide6") and sys.modules[m] is not None]
 print(len(out))
 """
-    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=str(tmp_path),
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=str(tmp_path), stdin=subprocess.DEVNULL,
                        timeout=120, check=False)
     assert r.returncode == 0, r.stderr
     assert r.stdout.strip() == "1" and (tmp_path / "x.dxf").exists()
