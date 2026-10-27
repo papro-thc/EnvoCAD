@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from envocad.library.store import LibraryStore
-from envocad.model.multipole import default_conductors
+from envocad.model.multipole import branch_conductors, default_conductors
 from envocad.model.project import (
     SWITCHBOARD_WIRE_ATTRIBUTES,
     WIRE_ATTRIBUTES,
@@ -570,8 +570,9 @@ class SchematicScene(QGraphicsScene):
                     for j in (a.element, b.element):   # odbočka z uzlu: žíly a kabel podle vodiče, na kterém uzel je
                         if j.symbol_id == "sb.junction":
                             src = next((x for x in self.sheet.wires if x.touches(j.id)), None)
-                            if src is not None:
-                                w.conductors = list(src.conductors)  # model-write-ok: nový vodič, viz výše
+                            if src is not None:   # na jednopólový přístroj jen jedna fáze
+                                other = b.element if j is a.element else a.element
+                                w.conductors = branch_conductors(list(src.conductors), other)  # model-write-ok: nový vodič
                             break
                     # model-write-ok: nový vodič (ještě není v listu), vloží ho AddWireCommand
                     w.attrs = {at.key: at.default for at in WIRE_ATTRIBUTES}

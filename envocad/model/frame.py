@@ -354,6 +354,53 @@ def grow_sheet_long(project: Project, sheet: Sheet, lib, boxes: list | None = No
     return False
 
 
+# formát listu volený uživatelem (vlastnosti listu): pevné formáty na šířku a volný A4 (výška 297, šířka n × 210)
+SHEET_FORMATS = {"A4": (297.0, 210.0), "A3": (420.0, 297.0), "A2": (594.0, 420.0), "A1": (841.0, 594.0)}
+FREE_A4_MAX = 40          # nejvýš A4×40 (8,4 m) – volný A4 se dál nerozšiřuje
+
+
+def sheet_format(sheet: Sheet) -> str:
+    """Formát listu pro volbu ve vlastnostech: „A4“…„A1“, „volný A4“ (výška 297, název A4×n), jinak "" (jiný)."""
+    from envocad.model.multipole import FREE_A4
+    size = SHEET_FORMATS.get(sheet.paper)
+    if size and (float(sheet.width), float(sheet.height)) == size:
+        return sheet.paper
+    if float(sheet.height) == 297.0 and str(sheet.paper).startswith("A4×"):
+        return FREE_A4
+    return ""
+
+
+def sheet_format_placement(project: Project, sheet: Sheet, lib, choice: str
+                           ) -> tuple[str, float, float, float, float]:
+    """Formát listu pro volbu ve vlastnostech jako (název, šířka, výška, dx, dy) pro `apply_placement`. Pevný formát
+    (A4…A1 na šířku) obsah neposouvá. Volný A4: nejmenší A4×n (výška 297, šířka n × 210 mm), do kterého se obsah
+    listu vejde mimo popisové pole – bez posunu, když to jde, jinak s posunem jako `fit_placement` (na mřížku);
+    obsah vyšší než strana (nevejde se ani na A4×40) → ValueError s českou hláškou. Prázdný list = A4×2."""
+    from envocad.model.multipole import FREE_A4, FREE_A4_HEIGHT, FREE_A4_STEP, free_a4_label
+    if choice in SHEET_FORMATS:
+        return (choice, *SHEET_FORMATS[choice], 0.0, 0.0)
+    if choice != FREE_A4:
+        raise ValueError(f"Neznámý formát listu {choice!r}")
+    from envocad.model.textlayout import sheet_content_boxes
+    boxes = sheet_content_boxes(project, sheet, lib)
+    h = FREE_A4_HEIGHT
+    if not boxes:
+        return (free_a4_label(2 * FREE_A4_STEP), 2 * FREE_A4_STEP, h, 0.0, 0.0)
+    for k in range(1, FREE_A4_MAX + 1):
+        w = k * FREE_A4_STEP
+        if _fits_unmoved(boxes, w, h):
+            return (free_a4_label(w), w, h, 0.0, 0.0)
+        name, pw, ph, dx, dy = fit_placement(boxes, [(free_a4_label(w), w, h)])
+        if (pw, ph) == (w, h):
+            return (name, w, h, dx, dy)
+    raise ValueError("Obsah listu je vyšší než 297 mm – volný A4 (výška 297 mm) nejde použít; zvol A3, A2 nebo A1")
+
+
+def sheet_format_size(project: Project, sheet: Sheet, lib, choice: str) -> tuple[str, float, float]:
+    """(název, šířka, výška) listu pro zvolený formát (`sheet_format_placement` bez posunu)."""
+    return sheet_format_placement(project, sheet, lib, choice)[:3]
+
+
 def paper_exceeds(name: str, limit: str) -> bool:
     """Je formát `name` (z `fit_placement`) větší než `limit` („A2“)? Vlastní formát je větší vždy; neznámý limit = A2."""
     order = [n for n, _, _ in PAPER_SIZES]

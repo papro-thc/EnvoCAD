@@ -834,6 +834,81 @@ def text_findings(project: Project, lib, *, standard_paper: str) -> list[Finding
                                "text_overlap"))
         if s.is_switchboard and mp.has_multipole(s):
             out += multipole_text_findings(project, s, lib, standard_paper=standard_paper)
+            out += conductor_end_findings(project, s, lib)
+        if s.is_switchboard:
+            out += pole_count_findings(s) + n_pe_join_findings(s)
+    return out
+
+
+def pole_count_findings(s: Sheet) -> list[Finding]:
+    """Do přístroje s udaným počtem pólů (`poles`) vede na jeden port víc fází než pólů (u proudového chrániče fáze
+    + N): chránič 1+N (2 póly) zapojený žilami L1 L2 L3 N, jistič 1p s L1 L2 L3 – buď je přístroj špatně zvolený,
+    nebo vodiče nesou žíly navíc. N kolem jističe (nespínaný) je v pořádku."""
+    out = []
+    for e in s.elements:
+        raw = str(e.attrs.get("poles") or "").strip()
+        if not raw.isdigit() or mp.is_terminal_block(e) or e.symbol_id in FEED_SYMBOLS                 or e.symbol_id.startswith(("ctl.", "sb.")) and e.symbol_id not in ("sb.rcbo",) or "spd" in e.symbol_id:
+            continue
+        n = int(raw)
+        for port in sorted({end.port for w in s.wires for end in (w.a, w.b) if end.element_id == e.id}):
+            conds = sorted({c for w in s.wires if not mp.is_control_wire(w) for end in (w.a, w.b)
+                            if end.element_id == e.id and end.port == port for c in mp.wire_conductors(w)}
+                           - {"PE", "PEN"}, key=mp.canon_key)
+            # fáze na póly; N jde u jističe kolem (nespínaný), u proudového chrániče přes pól (1+N, 3+N)
+            rcd = any(k in e.symbol_id for k in ("rcbo", "rcd"))
+            need = sum(1 for c in conds if c in ("L1", "L2", "L3", "L")) + (1 if rcd and "N" in conds else 0)
+            if need > n:
+                out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
+                                   f"{e.ref or 'Přístroj'} má {n} pól(y), na svorku {port} vedou žíly {' '.join(conds)} – "
+                                   "zvol přístroj s odpovídajícím počtem pólů nebo oprav žíly vodičů", "pole_count"))
+                break
+    return out
+
+
+def n_pe_join_findings(s: Sheet) -> list[Finding]:
+    """Uzel, ve kterém se potkávají vodiče jen s N a vodiče jen s PE: v síti TN-S (oddělené N a PE) se N a PE
+    v rozvaděči nespojují – PEN se rozděluje jen jednou (hlavní rozvaděč)."""
+    from envocad.model.potential import JUNCTION
+    out = []
+    for e in s.elements:
+        if e.symbol_id != JUNCTION:
+            continue
+        sets = [set(mp.wire_conductors(w)) for w in s.wires if w.touches(e.id)]
+        if any("PEN" in c for c in sets):
+            continue
+        if any("N" in c and "PE" not in c for c in sets) and any("PE" in c and "N" not in c for c in sets):
+            out.append(Finding(WARNING, s.id, s.name, e.id, False, "uzel",
+                               "V uzlu se spojuje N s PE (vodič jen s N a vodič jen s PE) – v síti TN-S se N a PE "
+                               "v rozvaděči nespojují; oprav žíly vodiče", "n_pe_join"))
+    return out
+
+
+def conductor_end_findings(project: Project, s: Sheet, lib) -> list[Finding]:
+    """Žíly, které vedou do vícepólového průchozího přístroje jen z jedné strany: na vstupu N a PE, na výstupu jen
+    L1–L3 (ve vícepólu pak končí naprázdno u přístroje). Jednopólový přístroj ne – tam se žíly navíc nekreslí
+    (`multipole.dead_conductors`). Cívky (A1 / A2 na pólu) a svorky ne."""
+    try:
+        poles = mp.sheet_poles(s, lambda e: element_symbol(project, e, lib))
+    except (KeyError, ValueError, AttributeError, StopIteration):
+        return []
+    out = []
+    for ep in poles.values():
+        e = ep.element
+        if ep.through is None or len(ep.switched) < 2 or mp.is_terminal_block(e) or e.symbol_id in FEED_SYMBOLS \
+                or "PE" in ep.through or "spd" in e.symbol_id:
+            continue                    # svodič (L → PE) není průchozí přístroj
+        a, b = ({c for w in s.wires if not mp.is_control_wire(w)          # ovládací žíla cívky (A1 → L) se nepočítá
+                 for end in (w.a, w.b) if end.element_id == e.id and end.port == p for c in mp.wire_conductors(w)}
+                for p in ep.through)
+        if not a or not b:
+            continue                    # přístroj zapojený jen z jedné strany hlásí jiná kontrola
+        loose = sorted((a ^ b) - set(ep.joined) - set(ep.switched), key=mp.canon_key)
+        loose = sorted(set(loose) | {c for c in ep.switched if (c in a) != (c in b)}, key=mp.canon_key)
+        if loose:
+            out.append(Finding(WARNING, s.id, s.name, e.id, False, e.ref,
+                               f"Žíly {', '.join(loose)} vedou do {e.ref or 'přístroje'} jen z jedné strany – na "
+                               "druhé straně chybí (vícepól je kreslí naprázdno); doplň žíly vodiče v jednopólu",
+                               "mp_conductor_end"))
     return out
 
 

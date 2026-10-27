@@ -395,9 +395,13 @@ def test_sheet_props_dialog_offers_paper_only_for_switchboard(qapp):
     p, sb = _dc(2)
     d = SheetPropsDialog(sb)
     assert d.mp_paper() == ""
-    d.paper.setCurrentIndex(d.paper.findData("A4 na výšku"))
-    assert d.mp_paper() == "A4 na výšku"
-    assert SheetPropsDialog(p.sheets[0]).mp_paper() is None
+    assert d.paper.findData("A4 na výšku") < 0              # nová nabídka: A4, A3, A2, A1, volný A4
+    d.paper.setCurrentIndex(d.paper.findData("A2"))
+    assert d.mp_paper() == "A2"
+    sb.mp_paper = "A4 na výšku"                              # starší volba listu zůstane v nabídce
+    assert SheetPropsDialog(sb).mp_paper() == "A4 na výšku"
+    jps = SheetPropsDialog(p.sheets[0])
+    assert jps.mp_paper() is None and jps.size is not None   # ostatní listy: formát listu
 
 
 def test_break_texts_inside_frame_constants():

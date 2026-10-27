@@ -390,7 +390,7 @@ class ConductorItem(QGraphicsPathItem):
     Type = QGraphicsItem.UserType + 12
 
     def __init__(self, wire: Wire, conductor: str, idx: int, pa: QPointF, da: str, pb: QPointF, db: str,
-                 end_text: tuple[str, str] = ("", ""), branch: str = ""):
+                 end_text: tuple[str, str] = ("", ""), branch: str = "", route: list | None = None):
         super().__init__()
         self.wire, self.conductor, self.idx = wire, conductor, idx
         self.end_text = end_text
@@ -399,7 +399,7 @@ class ConductorItem(QGraphicsPathItem):
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.setZValue(5)
         self.setPen(QPen(colors().wire, LINE_WIDTH * 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
-        pts = mp.wire_route((pa.x(), -pa.y()), da, (pb.x(), -pb.y()), db, stagger=idx * GRID, branch=branch)
+        pts = route or mp.wire_route((pa.x(), -pa.y()), da, (pb.x(), -pb.y()), db, stagger=idx * GRID, branch=branch)
         path = QPainterPath(sp(*pts[0]))
         for q in pts[1:]:
             path.lineTo(sp(*q))
@@ -676,6 +676,9 @@ class MultipoleScene(QGraphicsScene):
         bus_taps: dict[tuple[str, int], list[tuple[float, float]]] = {}
         if self._geo is not None:
             geo = self._geo
+            # rozměr strany z modelu (volný A4: šířka A4×n podle kresby)
+            self.paper_size, self.paper_label = tuple(geo.page_size), geo.paper
+            self._paper.setRect(QRectF(0, -self.paper_size[1], *self.paper_size))
             self._labels = geo.conductor_labels
             self.layout_pos = dict(geo.layout_pos)
             self._paginate(poles, geo.pages, geo.page_of)
@@ -717,7 +720,7 @@ class MultipoleScene(QGraphicsScene):
             if ea.element.symbol_id == BUS or eb.element.symbol_id == BUS:
                 self._add_bus_taps(w, ea, da, ka, eb, db, kb, bus_taps)
                 continue
-            for i, c in enumerate(mp.wire_conductors(w)):
+            for i, c in enumerate(mp.live_conductors(w, self._poles)):
                 pa, pb = ea.pole_pos(w.a.port, c), eb.pole_pos(w.b.port, c)
                 # svorka na konci: ruční přiřazení; u svorkového prvku je číslo přímo na pólu
                 ta = "" if mp.is_terminal_block(ea.element) else mp.terminal_text(w, c, "a")
@@ -731,8 +734,8 @@ class MultipoleScene(QGraphicsScene):
                     continue
                 if ka == kb:
                     it = ConductorItem(w, c, i, sp(*pa), da, sp(*pb), db, (ta, tb),
-                                       branch=mp.branch_side(branches, w.id))
-                    it.staggered = len(mp.wire_conductors(w)) > 1
+                                       branch=mp.branch_side(branches, w.id), route=self._route(w, c, 0))
+                    it.staggered = len(mp.live_conductors(w, self._poles)) > 1
                     it.label = self._labels.get((w.id, c, 0))   # model-write-ok: popisek položky scény (ConductorItem), ne model
                     self._add(it)
                 else:
@@ -788,13 +791,17 @@ class MultipoleScene(QGraphicsScene):
         base = ep.origin[1] + k0 * self.page_pitch   # výška v „nestránkovaných“ souřadnicích
         return base - ep.slot(c) * BUS_PITCH - page * self.page_pitch
 
+    def _route(self, w, c: str, part: int) -> list | None:
+        """Trasa žíly z modelu (`MultipoleGeometry.routes` – žíla vedená mimo cizí značky), jinak None (výchozí)."""
+        return self._geo.routes.get((w.id, c, part)) if self._geo is not None else None
+
     def _add_bus_taps(self, w, ea, da, ka, eb, db, kb, bus_taps) -> None:
         """Vodič mezi přístrojem a sběrnicí: každá žíla svisle od pólu přístroje k čáře potenciálu na téže straně."""
         if ea.element.symbol_id == BUS and eb.element.symbol_id == BUS:
             return
         dev, ddir, kd, bus, dport = (eb, db, kb, ea, w.b.port) if ea.element.symbol_id == BUS else (ea, da, ka, eb, w.a.port)
         side = "b" if dev is eb else "a"
-        for c in mp.wire_conductors(w):
+        for c in mp.live_conductors(w, self._poles):
             if c not in bus.slots:
                 continue
             px, py = dev.pole_pos(dport, c)
@@ -851,7 +858,7 @@ class MultipoleScene(QGraphicsScene):
         eb_pt = (xb, yb)
         for part, (a_, da_, b_, db_, ends_) in enumerate(((pa, da, ea_pt, "W" if right else "E", (texts[0], "")),
                                                            (eb_pt, "E" if right else "W", pb, db, ("", texts[1])))):
-            it = ConductorItem(w, c, i, sp(*a_), da_, sp(*b_), db_, ends_)
+            it = ConductorItem(w, c, i, sp(*a_), da_, sp(*b_), db_, ends_, route=self._route(w, c, part))
             it.label = self._labels.get((w.id, c, part))   # model-write-ok: popisek položky scény (ConductorItem), ne model
             self._add(it)
         self._add(PageBreakItem(xa, ya, right, ref_a))

@@ -103,6 +103,9 @@ class MultipoleGeometry:
     # popisky prvků přesunuté mimo cizí čáry: prvek → [(dx, dy, text, výška, zarovnání)] relativně k poloze prvku
     # (`ElementPoles.label_lines`; scéna je předá svým pólům)
     element_labels: dict[str, list[tuple[float, float, str, float, str]]] = field(default_factory=dict)
+    # žíly vedené mimo cizí značky jinou trasou (`mp.clear_route`): (id vodiče, žíla, část) → body (souřadnice pohledu)
+    routes: dict[tuple[str, str, int], list[Point]] = field(default_factory=dict)
+    symbol_boxes: dict[str, list[tuple[float, float, float, float]]] = field(default_factory=dict)   # obálky značek
     page_of: dict[str, int] = field(default_factory=dict)      # prvek → strana
     layout_pos: dict[str, Point] = field(default_factory=dict)  # automatické rozmístění před stránkováním
     page_size: tuple[float, float] = (420.0, 297.0)            # rozměr strany (A4 na šířku = 297 × 210)
@@ -174,7 +177,11 @@ def title_height(title: list[str]) -> float:
 
 
 def _layout(sheet: Sheet, poles: dict[str, mp.ElementPoles], size: tuple[float, float], y_top: float,
-            col_gap: float, info: dict, y_min: float | None = None) -> tuple[dict[str, Point], dict[str, int], int]:
+            col_gap: float, info: dict, y_min: float | None = None,
+            free: bool = False) -> tuple[dict[str, Point], dict[str, int], int]:
+    """Rozmístění a stránkování; volný A4 bez stránkování (jedna strana, šířku dopočítá `multipole_geometry`)."""
+    if free:
+        size = (mp.FREE_A4_LAYOUT_W, size[1])
     layout = mp.auto_layout(sheet, poles, x0=mp.layout_x0(sheet), y_top=y_top, bridges=sheet.bridges,
                             page_w=mp.page_width(sheet, size), col_gap=col_gap, info=info, y_min=y_min,
                             merge=info.get("merge", True))
@@ -184,7 +191,46 @@ def _layout(sheet: Sheet, poles: dict[str, mp.ElementPoles], size: tuple[float, 
     return layout, page_of, n_pages
 
 
+_REROUTE = True      # vedení žil mimo cizí značky (`mp.clear_route`); `multipole_geometry` porovná s výchozím
+
+
 def multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: str) -> MultipoleGeometry:
+    """Vícepól listu (`_multipole_geometry`). Když se některé žíly vedly mimo cizí značky jinou trasou
+    (`MultipoleGeometry.routes`), spočítá se i varianta s výchozími trasami a použije se ta s méně překryvy textů
+    (objízdná trasa může zabrat místo popisku přístroje); při shodě objízdné trasy."""
+    global _REROUTE
+    g = _multipole_geometry(project, sheet, lib, standard_paper=standard_paper)
+    if not g.routes:
+        return g
+    _REROUTE = False
+    try:
+        plain = _multipole_geometry(project, sheet, lib, standard_paper=standard_paper)
+    finally:
+        _REROUTE = True
+    def score(geo: MultipoleGeometry) -> tuple[int, int]:   # (překryvy textů, žíly přes cizí značky)
+        return (len(multipole_text_overlaps(project, sheet, lib, geo, standard_paper=standard_paper)),
+                symbol_crossings(sheet, geo))
+
+    # objízdné trasy jen bez nových překryvů textů (hlásí je F7) a s menším součtem
+    (t_r, s_r), (t_p, s_p) = score(g), score(plain)
+    return g if t_r <= t_p and t_r + s_r <= t_p + s_p else plain
+
+
+def symbol_crossings(sheet: Sheet, g: MultipoleGeometry) -> int:
+    """Počet úseků žil vedených přes obálku cizí značky (`MultipoleGeometry.symbol_boxes`)."""
+    wires = {w.id: w for w in sheet.wires}
+    n = 0
+    for a, b, owner, _what in g.lines:
+        w = wires.get(owner.partition("#")[0])
+        if w is None:
+            continue
+        for eid, boxes in g.symbol_boxes.items():
+            if eid not in (w.a.element_id, w.b.element_id):
+                n += sum(1 for box in boxes if mp.route_hits([a, b], [box]))
+    return n
+
+
+def _multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: str) -> MultipoleGeometry:
     """Texty a čáry vícepólu listu rozvaděče (souřadnice pohledu, strany pod sebou).
 
     Strana má formát `multipole.paper_choice` (list rozvaděče bez volby `mp_paper` formát firemního standardu
@@ -197,6 +243,8 @@ def multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: s
     from envocad.model.frame import MARGIN, TB_H
     choice = mp.paper_choice(sheet, standard_paper)
     size = mp.page_size(sheet, choice)
+    if choice == mp.FREE_A4:            # 1. průchod na široké straně změří kresbu, 2. kreslí na A4×n
+        size = (mp.FREE_A4_LAYOUT_W, mp.FREE_A4_HEIGHT)
     poles: dict[str, mp.ElementPoles] = {}
     poles.update(mp.sheet_poles(sheet, lambda e: element_symbol(project, e, lib)))
     title = switchboard_title(project, sheet)
@@ -211,7 +259,7 @@ def multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: s
         for _attempt in range(6):
             info: dict = {"merge": merge}
             layout, page_of, n_pages = _layout(sheet, poles, size, y_top, gap, info,
-                                               bottom_limit if lift_bars else None)
+                                               bottom_limit if lift_bars else None, free=choice == mp.FREE_A4)
             g = _build(project, sheet, poles, page_of, n_pages, size)
             if info.get("horizontal", True):
                 break
@@ -241,6 +289,9 @@ def multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: s
     # soutok (přepínač sítí) pod nejhlubším přívodem prodlouží sloupec; když se pak kresba na výšku strany
     # nevejde ani po zhuštění, použije se mělčí rozmístění (soutok pod nejkratším přívodem), je-li na tom lépe
     g, layout, page_of, gap, deficit = fit(True)
+    if choice == mp.FREE_A4:
+        size = (_free_a4_width(g, sheet), mp.FREE_A4_HEIGHT)
+        g, layout, page_of, gap, deficit = fit(True)
     if deficit > 0.01:
         alt = fit(False)
         if alt[4] < deficit - 0.01:
@@ -251,9 +302,24 @@ def multipole_geometry(project: Project, sheet: Sheet, lib, *, standard_paper: s
     g.element_labels = {eid: list(ep.label_lines) for eid, ep in poles.items() if ep.label_lines is not None}
     g.page_of = dict(page_of)
     g.layout_pos = dict(layout)
-    g.paper = mp.page_paper_label(sheet, choice)
+    g.paper = mp.free_a4_label(size[0]) if choice == mp.FREE_A4 else mp.page_paper_label(sheet, choice)
     g.col_gap = gap
     return g
+
+
+def _free_a4_width(g: MultipoleGeometry, sheet: Sheet) -> float:
+    """Volný A4: nejmenší šířka v násobcích 210 mm, do které se vejde kresba přístrojů a žil z rozmístění na široké
+    straně (sběrnice a sběrné čáry vedou přes celou stranu – nepočítají se) s pravým okrajem a popisovým polem."""
+    from envocad.model.frame import MARGIN, MARGIN_LEFT, TB_W
+    spread = {e.id for e in sheet.elements if e.symbol_id == BUS}
+
+    def counts(owner: str) -> bool:
+        eid, _, part = owner.partition("#")
+        return eid not in spread and not part.startswith("rail")
+
+    right = max([box[2] for box, owner, _w in g.texts if counts(owner)]
+                + [max(a[0], b[0]) for a, b, owner, _w in g.lines if counts(owner)], default=0.0)
+    return mp.free_a4_width(max(right + MARGIN + 10.0, MARGIN_LEFT + TB_W + MARGIN + 10.0))
 
 
 def _auto_extent(g: MultipoleGeometry, poles, page_of: dict[str, int], height: float,
@@ -391,10 +457,26 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
     pending: list[tuple[tuple[str, str, int], str, list[Point], str, bool]] = []
     label_page: dict[tuple[str, str, int], int] = {}     # strana popisku žíly = strana jejího úseku
 
+    obstacles = label_obstacles = None   # obálky značek a popisků – spočítají se u první žíly (polohy jsou dané)
+    wire_segs: list = []  # úseky už nakreslených žil (objízdná trasa jich má křížit co nejméně)
+
     def conductor(w, c: str, idx: int, pa: Point, da: str, pb: Point, db: str, ends: tuple[str, str],
                   page: int, staggered: bool = False, part: int = 0, branch: str = "") -> None:
         """Úsek žíly na straně `page` (strana prvku, ze kterého vede – ne podle výšky bodu)."""
-        pts = mp.wire_route(pa, da, pb, db, stagger=idx * mp.GRID, branch=branch)
+        nonlocal obstacles, label_obstacles
+        if obstacles is None:
+            obstacles, label_obstacles = mp.obstacle_boxes(poles), mp.label_boxes(poles)
+            g.symbol_boxes = obstacles
+        own = (w.a.element_id, w.b.element_id)
+        # žíla z přívodu / vývodu zůstává na výchozí trase (štítek kabelu a označení svorkovnice u ní)
+        feed_end = any(mp.is_feed(poles[x].element) for x in own if x in poles)
+        boxes = [] if not _REROUTE or feed_end else [b for eid, bs in obstacles.items() if eid not in own for b in bs]
+        labels = [b for bs in label_obstacles.values() for b in bs]          # i popisky vlastních konců
+        pts = mp.clear_route(pa, da, pb, db, stagger=idx * mp.GRID, branch=branch, boxes=boxes, segs=wire_segs,
+                             labels=labels)
+        wire_segs.extend(pairwise(pts))
+        if pts != mp.wire_route(pa, da, pb, db, stagger=idx * mp.GRID, branch=branch):
+            g.routes[(w.id, c, part)] = list(pts)     # žíla mimo cizí značky – scéna kreslí tutéž trasu
         what = f"žílu {c}" + (f" vodiče {w.attrs['ref']}" if w.attrs.get("ref") else "")
         owner = f"{w.id}#{c}"   # každá žíla zvlášť – popisek L− přes žílu L+ téhož vodiče je překryv
         for a, b in pairwise(pts):
@@ -463,7 +545,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
             dev, ddir, kd, bus, dport = (eb, db, kb, ea, w.b.port) if ea.element.symbol_id == BUS else \
                 (ea, da, ka, eb, w.a.port)
             side = "b" if dev is eb else "a"
-            for c in mp.wire_conductors(w):
+            for c in mp.live_conductors(w, poles):
                 if c not in bus.slots:
                     continue
                 px, py = dev.pole_pos(dport, c)
@@ -472,7 +554,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
                 conductor(w, c, 0, (px, py), ddir, (px, y), "S" if y > py else "N", (t, ""), kd)
                 bus_taps.setdefault((bus.element.id, kd), []).append((px, y))
             continue
-        for i, c in enumerate(mp.wire_conductors(w)):
+        for i, c in enumerate(mp.live_conductors(w, poles)):
             pa, pb = ea.pole_pos(w.a.port, c), eb.pole_pos(w.b.port, c)
             ta = "" if mp.is_terminal_block(ea.element) else mp.terminal_text(w, c, "a")
             tb = "" if mp.is_terminal_block(eb.element) else mp.terminal_text(w, c, "b")
@@ -487,7 +569,7 @@ def _build(project: Project, sheet: Sheet, poles: dict[str, mp.ElementPoles], pa
                 rail_taps.setdefault(key, []).append((ks, tap))
                 continue
             if ka == kb:
-                conductor(w, c, i, pa, da, pb, db, (ta, tb), ka, len(mp.wire_conductors(w)) > 1,
+                conductor(w, c, i, pa, da, pb, db, (ta, tb), ka, len(mp.live_conductors(w, poles)) > 1,
                           branch=mp.branch_side(branches, w.id))
                 continue
             right = ka < kb
@@ -688,7 +770,7 @@ def _rail_hubs(sheet: Sheet, poles: dict[str, mp.ElementPoles], page_of: dict[st
         if not ea or not eb or BUS in (ea.element.symbol_id, eb.element.symbol_id):
             continue
         other_page = page_of.get(w.a.element_id, 0) != page_of.get(w.b.element_id, 0)
-        for c in mp.wire_conductors(w):
+        for c in mp.live_conductors(w, poles):
             ka, kb = key(w.a.element_id, w.a.port, c), key(w.b.element_id, w.b.port, c)
             ends.append((w.id, c, ka, kb))
             if other_page:

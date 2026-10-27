@@ -10,6 +10,7 @@ from __future__ import annotations
 import dataclasses
 import math
 from dataclasses import dataclass, field
+from itertools import pairwise
 
 from envocad.model.designation import element_name
 from envocad.model.feed import (
@@ -88,6 +89,26 @@ def default_conductors(a: Element, pa: str, b: Element, pb: str) -> list[str]:
     return ["L1", "L2", "L3", "N", "PE"] if poles >= 3 else ["L1", "N", "PE"]
 
 
+PHASES = ("L1", "L2", "L3", "L")
+SINGLE_POLE_KINDS = ("breaker", "mcb", "fuse")     # jistič, pojistka – měřicí přístroje (elektroměr, MTP, MTN) ne
+
+
+def single_pole_device(e: Element) -> bool:
+    """Jistič nebo pojistka s výslovně jedním pólem (`poles` = 1): vede se na něj jen jedna fáze. Elektroměr,
+    měřicí transformátory a prvky bez atributu `poles` ne – jejich žíly (napěťové cesty, S1/S2) zůstávají."""
+    return str(e.attrs.get("poles") or "").strip() == "1" and any(k in e.symbol_id for k in SINGLE_POLE_KINDS) \
+        and e.symbol_id not in TERMINAL_SYMBOLS
+
+
+def branch_conductors(src: list[str], device: Element) -> list[str]:
+    """Žíly nového vodiče z uzlu k přístroji: převezme žíly vodiče uzlu, ale na jednopólový přístroj (atribut
+    `poles` = 1: jistič 1p, pojistka) vede jen jedna fáze – první fáze vodiče uzlu (většinou L1)."""
+    if not single_pole_device(device):
+        return list(src)
+    phase = next((c for c in src if c in PHASES), None)
+    return [phase] if phase else list(src)
+
+
 def has_multipole(sheet) -> bool:
     """List rozvaděče má vícepól a plán svorkovnice – ne rozvaděč VN (kobky, `layout.params["voltage_level"] == "vn"`),
     ten se dokumentuje jednopólovým schématem."""
@@ -162,6 +183,8 @@ class ElementPoles:
     # popisek prvku přesunutý z výchozí polohy mimo cizí čáry (`multipole_geometry._place_element_label`):
     # [(dx, dy, text, výška, zarovnání)] relativně k `origin`; None = výchozí poloha `pole_label_lines`
     label_lines: list[tuple[float, float, str, float, str]] | None = None
+    # žíly vodičů listu, které ve vícepólu nikam nevedou (`dead_conductors`): {id vodiče: {žíla}} – společné všem pólům
+    dead: dict[str, set[str]] = field(default_factory=dict)
 
     def slot(self, conductor: str) -> int:
         conductor = self.joined.get(conductor, conductor)
@@ -176,7 +199,16 @@ class ElementPoles:
         ox, oy = PERP[d]
         k = self.slot(conductor)
         mx, my = self.origin
-        return (mx + (px - e.x) + ox * k * POLE_PITCH, my + (py - e.y) + oy * k * POLE_PITCH)
+        return (mx + (px - e.x) + ox * k * self.pitch, my + (py - e.y) + oy * k * self.pitch)
+
+    @property
+    def pitch(self) -> float:
+        """Rozteč pólů prvku: `POLE_PITCH`, nebo vlastní ze značky (`multipole.pitch` – přepínač sítí má u každého
+        pólu dva vstupy I / II, póly po 12,5 mm, aby se dvojice sousedních pólů neslily)."""
+        try:
+            return float((self.symbol.multipole or {}).get("pitch") or POLE_PITCH)
+        except (TypeError, ValueError):
+            return POLE_PITCH
 
     @property
     def per_pole(self) -> bool:
@@ -191,7 +223,7 @@ class ElementPoles:
         d = rotate_dir(self.symbol.port(port).dir, self.element.rotation)
         ox, oy = PERP[d]
         k = self.slot(conductor)
-        return (ox * k * POLE_PITCH, oy * k * POLE_PITCH)
+        return (ox * k * self.pitch, oy * k * self.pitch)
 
 
 BUS_SYMBOL = "sb.busbar"
@@ -209,7 +241,7 @@ def perp_extent(ep: ElementPoles) -> float:
     if ep.element.rotation in (90, 270):
         base = (x1 - x0) if horizontal else (y1 - y0)
     # buňka na pól má vždy celou rozteč, aby prvky se stejným počtem žil měly stejný rozměr (zarovnání sloupců)
-    return max(base, POLE_PITCH) + max(0, len(ep.slots) - 1) * POLE_PITCH
+    return max(base, ep.pitch) + max(0, len(ep.slots) - 1) * ep.pitch
 
 
 def flow_extent(ep: ElementPoles) -> float:
@@ -625,6 +657,14 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
     cursor = y_top if horizontal else x0
     rail_pages: set[int] = set()
     holes: list[float] = []   # volné místo na konci strany, kterou předchozí strom přeskočil (začátek místa)
+    root_start: dict[str, float] = {}    # strom (kořen) → začátek jeho místa (napojený strom ho může přesunout)
+    # stromy spojené fázovým vodičem (záložní přívod → přepínač sítí) – jen ty se stránkují spolu; spoj přes PE / N
+    # (PE stringů do XPE) stromy neváže
+    phase_linked: set[tuple[str, str]] = set()
+    for w in sheet.wires:
+        ra, rb = tree_of.get(w.a.element_id), tree_of.get(w.b.element_id)
+        if ra and rb and ra != rb and set(wire_conductors(w)) - {"PE", "PEN", "N"}:
+            phase_linked |= {(ra, rb), (rb, ra)}
     for r in roots:
         tree = subtree(r)
         bus_free = not on_bus.intersection(tree)
@@ -647,7 +687,23 @@ def auto_layout(sheet: Sheet, poles: dict[str, ElementPoles], x0: float = 40.0, 
                 break
         if not filled:
             start = cursor
-            cursor = after(place(r, cursor))
+            end = place(r, cursor)
+            partner = next((q for q in linked[r] if q in root_start and paging and (r, q) in phase_linked
+                            and page_at(out[q][0]) < page_at(out[r][0])), None)
+            if partner is not None:
+                # napojený strom skočil na další stranu bez svého souseda (záložní přívod bez přepínače sítí):
+                # zkusí se přesunout oba na jeho stranu, aby spoj mezi nimi nevedl přes přerušení
+                nxt = x0 + page_at(out[r][0]) * page_w
+                e1 = place(partner, nxt)
+                e2 = place(r, after(e1))
+                if page_at(out[partner][0]) == page_at(out[r][0]) == page_at(nxt) == page_at(e2 - 1e-6):
+                    holes.append(root_start[partner])
+                    start, end = nxt, e2
+                else:
+                    place(partner, root_start[partner])
+                    end = place(r, start)
+            root_start[r] = start
+            cursor = after(end)
             if paging and page_at(out[r][0]) > page_at(start):
                 holes.append(start)
         if paging:
@@ -715,15 +771,76 @@ def sheet_poles(sheet: Sheet, symbol_of) -> dict[str, ElementPoles]:
         e = ep.element
         flipped = dataclasses.replace(e, rotation=(e.rotation + 180) % 360)
         poles[eid] = element_poles(sheet, flipped, ep.symbol)
+    for eid, rot in upright_rotations(poles).items():
+        ep = poles[eid]
+        poles[eid] = element_poles(sheet, dataclasses.replace(ep.element, rotation=rot, mirror=False), ep.symbol)
     for eid, sym in junction_view_symbols(sheet, poles).items():
         ep = poles[eid]
         poles[eid] = element_poles(sheet, dataclasses.replace(ep.element, rotation=0, mirror=False), sym)
+    dead = dead_conductors(sheet, poles)
+    if dead:                # póly prvků bez žil, které nikam nevedou (rozestupy a sloty jen pro živé žíly)
+        touched = {end.element_id for w in sheet.wires if w.id in dead for end in (w.a, w.b)}
+        for eid in touched & poles.keys():
+            ep = poles[eid]
+            poles[eid] = element_poles(sheet, ep.element, ep.symbol, dead)
+    for ep in poles.values():
+        ep.dead = dead
     return poles
+
+
+def dead_conductors(sheet: Sheet, poles: dict[str, ElementPoles]) -> dict[str, set[str]]:
+    """Žíly vodičů, které na jednopólovém jističi / pojistce (`single_pole_device`) nemají pól a za ním nepokračují:
+    vodič z uzlu s L1 L2 L3 N PE na jistič 1p – přístroj vezme L1, ostatní žíly k němu nevedou. Nekreslí se ve vícepólu
+    a nepočítají se do výrobního zapojovacího seznamu. Svorky, přívody, uzly a prvky bez průchozích portů berou
+    všechny žíly; vodiči zůstane vždy aspoň jedna žíla. {id vodiče: {žíla}}."""
+    out: dict[str, set[str]] = {}
+    for w in sheet.wires:
+        conds = wire_conductors(w)
+        for end in (w.a, w.b):
+            ep = poles.get(end.element_id)
+            if ep is None or ep.through is None or end.port not in ep.through or not single_pole_device(ep.element):
+                continue        # jen jednopólový přístroj (jistič 1p, zdroj): vícepólový zůstává, jak je nakreslený
+            for c in conds:
+                if c not in ep.switched and c not in ep.bypass and c not in ep.joined:
+                    out.setdefault(w.id, set()).add(c)
+        if w.id in out and out[w.id] >= set(conds):
+            out[w.id].discard(conds[0])
+            if not out[w.id]:
+                del out[w.id]
+    return out
+
+
+def live_conductors(w: Wire, poles: dict[str, ElementPoles]) -> list[str]:
+    """Žíly vodiče ve vícepólu – bez žil, které nikam nevedou (`dead_conductors`)."""
+    ep = poles.get(w.a.element_id) or poles.get(w.b.element_id)
+    dead = ep.dead.get(w.id, ()) if ep is not None else ()
+    return [c for c in wire_conductors(w) if c not in dead]
 
 
 JUNCTION_SYMBOL = "sb.junction"
 JUNCTION_GAP = 7.5    # nejmenší mezera k řadě jen s uzly (odbočení žil se zkosením)
 _DIR_POS = {"N": (0.0, GRID), "E": (GRID, 0.0), "S": (0.0, -GRID), "W": (-GRID, 0.0)}
+
+
+def upright_rotations(poles: dict[str, ElementPoles]) -> dict[str, int]:
+    """Vícepól se svislým tokem (shora dolů): průchozí přístroj nakreslený v jednopólovém listu vodorovně (stykač
+    s porty vlevo / vpravo) se v pohledu otočí tak, aby vstup (první průchozí port) mířil nahoru – jinak se jeho póly
+    kreslí bokem a žíly se k nim stáčejí tam a zpět. Svorky, přívody a uzly ne (mají vlastní pravidla). {id: rotace};
+    jen pohled – model beze změny."""
+    if not poles or sum(1 for ep in poles.values() if _flow_is_horizontal_for(ep)) * 2 >= len(poles):
+        return {}
+    out: dict[str, int] = {}
+    for eid, ep in poles.items():
+        e = ep.element
+        if ep.through is None or is_terminal_block(e) or e.symbol_id in (JUNCTION_SYMBOL, BUS_SYMBOL, "sb.pe_bar"):
+            continue
+        port_in = ep.symbol.port(ep.through[0])
+        if rotate_dir(port_in.dir, e.rotation) not in ("E", "W"):
+            continue
+        rot = next((r for r in (0, 90, 180, 270) if rotate_dir(port_in.dir, r) == "N"), None)
+        if rot is not None:
+            out[eid] = rot
+    return out
 
 
 def junction_view_symbols(sheet: Sheet, poles: dict[str, ElementPoles]) -> dict[str, Symbol]:
@@ -843,12 +960,12 @@ def feed_cable_up(ep: ElementPoles) -> bool:
     return is_feed_in(e)
 
 
-def element_poles(sheet: Sheet, e: Element, sym: Symbol) -> ElementPoles:
+def element_poles(sheet: Sheet, e: Element, sym: Symbol, dead: dict[str, set[str]] | None = None) -> ElementPoles:
     per_port: dict[str, set[str]] = {p.name: set() for p in sym.ports}
     for w in sheet.wires:
         for end in (w.a, w.b):
             if end.element_id == e.id and end.port in per_port:
-                per_port[end.port].update(wire_conductors(w))
+                per_port[end.port].update(c for c in wire_conductors(w) if c not in (dead or {}).get(w.id, ()))
     all_c: set[str] = set().union(*per_port.values()) if per_port else set()
     slots = sorted(all_c, key=canon_key)
     thr = through_ports(sym, e.rotation)
@@ -1034,8 +1151,16 @@ MIN_COL_GAP = 10.0    # nejmenší mezera mezi sloupci při zhuštění na nízk
 
 # ---- formát stran vícepólu a plánu svorkovnice listu rozvaděče ---------------------------------------------------
 # volba („A4“ výchozí) ve firemním standardu `standard.switchboard_paper` nebo u listu `Sheet.mp_paper`
-SWITCHBOARD_PAPERS = {"A4": (297.0, 210.0), "A4 na výšku": (210.0, 297.0), "A3": (420.0, 297.0)}
+SWITCHBOARD_PAPERS = {"A4": (297.0, 210.0), "A4 na výšku": (210.0, 297.0), "A3": (420.0, 297.0),
+                      "A2": (594.0, 420.0), "A1": (841.0, 594.0)}
 DEFAULT_SWITCHBOARD_PAPER = "A4"
+# volný A4: výška 297 mm, šířka podle obsahu v násobcích 210 mm (A4×n) – vícepól na jedné straně bez přerušení
+FREE_A4 = "volný A4"
+FREE_A4_STEP = 210.0
+FREE_A4_HEIGHT = 297.0
+FREE_A4_LAYOUT_W = 40 * FREE_A4_STEP     # šířka pro první průchod rozmístění (změří se skutečná šířka kresby)
+# nabídka v GUI (vlastnosti listu, firemní standard); „A4 na výšku“ zůstává platná pro starší projekty
+PAPER_CHOICES = ("A4", "A3", "A2", "A1", FREE_A4)
 SHEET_PAPER = "list"      # strana = rozměr listu (`Sheet.width × height`, chování do 10/2026)
 _DEFAULT_SHEET_SIZE = ("A3", 420.0, 297.0)
 
@@ -1045,7 +1170,17 @@ def normalize_switchboard_paper(value: object) -> str:
     standardu (`standard.switchboard_paper`) čte `envocad.settings.switchboard_paper` – model nastavení nečte,
     funkce níže dostávají standard parametrem `standard_paper` od volajícího (GUI, export, generátor)."""
     v = str(value or "").strip()
-    return v if v in SWITCHBOARD_PAPERS else DEFAULT_SWITCHBOARD_PAPER
+    return v if v in SWITCHBOARD_PAPERS or v == FREE_A4 else DEFAULT_SWITCHBOARD_PAPER
+
+
+def free_a4_label(width: float) -> str:
+    """Popis volného A4 do popisového pole podle šířky: 420 → „A4×2“."""
+    return f"A4×{max(1, round(width / FREE_A4_STEP))}"
+
+
+def free_a4_width(needed: float) -> float:
+    """Nejmenší šířka volného A4 (násobek 210 mm), do které se vejde `needed` mm."""
+    return max(1, -(-needed // FREE_A4_STEP)) * FREE_A4_STEP
 
 
 def paper_choice(sheet: Sheet, standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) -> str:
@@ -1056,7 +1191,7 @@ def paper_choice(sheet: Sheet, standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) 
     stran původního rozměru) bez volby → „list“ (beze změny proti dřívějšku); jinak firemní standard `standard_paper`
     (výchozí A4; neplatná hodnota → A4)."""
     v = getattr(sheet, "mp_paper", "") or ""
-    if v in SWITCHBOARD_PAPERS or v == SHEET_PAPER:
+    if v in SWITCHBOARD_PAPERS or v in (SHEET_PAPER, FREE_A4):
         return v
     if not sheet.is_switchboard:
         return SHEET_PAPER
@@ -1068,14 +1203,19 @@ def paper_choice(sheet: Sheet, standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) 
 
 def page_size(sheet: Sheet, choice: str | None = None,
               standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) -> tuple[float, float]:
-    """Rozměr strany vícepólu / plánu svorkovnice (šířka, výška v mm)."""
+    """Rozměr strany vícepólu / plánu svorkovnice (šířka, výška v mm). Volný A4 = výchozí A4×2 (plán svorkovnice);
+    skutečnou šířku strany vícepólu dopočítá `multipole_geometry` podle kresby (`MultipoleGeometry.page_size`)."""
     v = choice or paper_choice(sheet, standard_paper)
+    if v == FREE_A4:
+        return (2 * FREE_A4_STEP, FREE_A4_HEIGHT)
     return (float(sheet.width), float(sheet.height)) if v == SHEET_PAPER else SWITCHBOARD_PAPERS[v]
 
 
 def page_paper_label(sheet: Sheet, choice: str | None = None, standard_paper: str = DEFAULT_SWITCHBOARD_PAPER) -> str:
     """Formát strany do popisového pole („A4“; u rozměru listu jeho formát)."""
     v = choice or paper_choice(sheet, standard_paper)
+    if v == FREE_A4:
+        return free_a4_label(page_size(sheet, v)[0])
     return sheet.paper if v == SHEET_PAPER else v.split()[0]
 
 
@@ -1399,12 +1539,143 @@ def branch_side(branches: set[tuple[str, str]], wire_id: str) -> str:
 
 
 def wire_route(pa: tuple[float, float], da: str, pb: tuple[float, float], db: str, stagger: float = 0.0,
-               branch: str = "") -> list[tuple[float, float]]:
-    """Trasa žíly mezi póly (`conductor_route`, `jog` 0,8); `branch` „a“/„b“ = ten konec je odbočka ze svorky
-    (`branch_ends`) – trasa se spočítá od něj a obrátí, aby body šly vždy od `pa` k `pb`."""
+               branch: str = "", jog: float = 0.8) -> list[tuple[float, float]]:
+    """Trasa žíly mezi póly (`conductor_route`, příčka Z v `jog` délky, výchozí 0,8 – blízko cíle); `branch` „a“/„b“
+    = ten konec je odbočka ze svorky (`branch_ends`) – trasa se spočítá od něj a obrátí, aby body šly vždy od `pa`
+    k `pb`."""
     if branch == "b":
-        return conductor_route(pb, db, pa, da, stagger=stagger, jog=0.8, branch=True)[::-1]
-    return conductor_route(pa, da, pb, db, stagger=stagger, jog=0.8, branch=branch == "a")
+        return conductor_route(pb, db, pa, da, stagger=stagger, jog=jog, branch=True)[::-1]
+    return conductor_route(pa, da, pb, db, stagger=stagger, jog=jog, branch=branch == "a")
+
+
+ROUTE_JOGS = (0.8, 0.5, 0.2, 0.65, 0.35, 0.9, 0.1)   # výšky příčky Z-trasy, které se zkoušejí (první = výchozí)
+# trasy se dvěma lomy (`clear_route`) se zkoušejí jen u žil přes cizí značku
+
+
+def _segment_hits_box(a, b, box, pad: float = 0.6) -> bool:
+    """Vede vodorovný / svislý úsek žíly přes vnitřek obálky značky (okraj `pad` – vývod k portu se nepočítá)?"""
+    x0, y0, x1, y1 = box[0] + pad, box[1] + pad, box[2] - pad, box[3] - pad
+    if x1 <= x0 or y1 <= y0:
+        return False
+    (ax, ay), (bx, by) = a, b
+    if abs(ay - by) < 1e-6:
+        return y0 < ay < y1 and max(ax, bx) > x0 and min(ax, bx) < x1
+    if abs(ax - bx) < 1e-6:
+        return x0 < ax < x1 and max(ay, by) > y0 and min(ay, by) < y1
+    return False
+
+
+def route_hits(pts: list[tuple[float, float]], boxes) -> int:
+    """Počet úseků trasy vedených přes obálky značek `boxes`."""
+    return sum(1 for a, b in pairwise(pts) for box in boxes if _segment_hits_box(a, b, box))
+
+
+def _route_len(pts) -> float:
+    return sum(abs(b[0] - a[0]) + abs(b[1] - a[1]) for a, b in pairwise(pts))
+
+
+def _clean_path(pts) -> bool:
+    """Trasa bez otočky o 180° a bez úseku vedeného po jiném úseku téže trasy (žíla se nevrací po sobě)."""
+    q = [p for i, p in enumerate(pts) if i == 0 or p != pts[i - 1]]
+    dirs = []
+    for a, b in pairwise(q):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        dirs.append(((dx > 0) - (dx < 0), (dy > 0) - (dy < 0)))
+    for d1, d2 in pairwise(dirs):
+        if d1[0] == -d2[0] and d1[1] == -d2[1]:
+            return False
+    segs = list(pairwise(q))
+    for i, (a, b) in enumerate(segs):
+        for c, d in segs[i + 2:]:
+            vert = abs(a[0] - b[0]) < 1e-6 and abs(c[0] - d[0]) < 1e-6 and abs(a[0] - c[0]) < 1e-6
+            horz = abs(a[1] - b[1]) < 1e-6 and abs(c[1] - d[1]) < 1e-6 and abs(a[1] - c[1]) < 1e-6
+            k = 1 if vert else 0
+            if (vert or horz) and min(max(a[k], b[k]), max(c[k], d[k])) - max(min(a[k], b[k]), min(c[k], d[k])) > 1e-6:
+                return False
+    return True
+
+
+def _crossings(pts, segs) -> int:
+    """Počet křížení úseků trasy (vodorovný × svislý, uvnitř obou) s úseky jiných žil `segs`."""
+    n = 0
+    for a, b in pairwise(pts):
+        for c, d in segs:
+            if abs(a[1] - b[1]) < 1e-6 and abs(c[0] - d[0]) < 1e-6:
+                h, v = (a, b), (c, d)
+            elif abs(a[0] - b[0]) < 1e-6 and abs(c[1] - d[1]) < 1e-6:
+                h, v = (c, d), (a, b)
+            else:
+                continue
+            x, y = v[0][0], h[0][1]
+            if min(h[0][0], h[1][0]) + 1e-6 < x < max(h[0][0], h[1][0]) - 1e-6 \
+                    and min(v[0][1], v[1][1]) + 1e-6 < y < max(v[0][1], v[1][1]) - 1e-6:
+                n += 1
+    return n
+
+
+def clear_route(pa, da, pb, db, stagger: float = 0.0, branch: str = "", boxes=(),
+                segs=(), labels=()) -> list[tuple[float, float]]:
+    """Trasa žíly, která co nejméně vede přes cizí značky (`boxes`). Výchozí trasa (`wire_route`), když nic nekříží;
+    jinak jiné výšky příčky Z (`ROUTE_JOGS`) a trasy se dvěma lomy přes volný pruh (svisle – vodorovně – svisle
+    v různých výškách, vodorovně – svisle – vodorovně v různých odstupech) – nejkratší bez přechodu, jinak s nejméně
+    přechody (při shodě výchozí). Odbočka ze svorky (`branch`) zůstává, pokud nevede přes cizí značku."""
+    base = wire_route(pa, da, pb, db, stagger=stagger, branch=branch)
+    if not boxes or route_hits(base, boxes) == 0:
+        return base                     # odbočka ze svorky jen když výchozí trasa vede přes značku
+    cands = [wire_route(pa, da, pb, db, stagger=stagger, jog=j) for j in ROUTE_JOGS[1:]]
+    va, vb = DIR_VEC[da], DIR_VEC[db]
+    sa = (pa[0] + va[0] * GRID, pa[1] + va[1] * GRID)
+    sb = (pb[0] + vb[0] * GRID, pb[1] + vb[1] * GRID)
+    lo_y, hi_y = min(sa[1], sb[1]), max(sa[1], sb[1])
+    lo_x, hi_x = min(sa[0], sb[0]), max(sa[0], sb[0])
+    ys = {_snap(lo_y + (hi_y - lo_y) * f) for f in (0.1, 0.3, 0.5, 0.7, 0.9)}
+    ys |= {_snap(lo_y - k * GRID) for k in (2, 4, 8, 12)} | {_snap(hi_y + k * GRID) for k in (2, 4, 8, 12)}
+    xs = {_snap(lo_x + (hi_x - lo_x) * f) for f in (0.1, 0.3, 0.5, 0.7, 0.9)}
+    xs |= {_snap(lo_x - k * GRID) for k in (2, 4, 8, 12)} | {_snap(hi_x + k * GRID) for k in (2, 4, 8, 12)}
+    off = stagger
+    for y in ys:            # svisle – vodorovně – svisle
+        cands.append([pa, sa, (sa[0], y - off), (sb[0], y - off), sb, pb])
+    for x in xs:            # vodorovně – svisle – vodorovně
+        cands.append([pa, sa, (x + off, sa[1]), (x + off, sb[1]), sb, pb])
+    base_x = _crossings(base, segs)
+    best = None
+    for pts in cands:
+        # objízdná trasa jen čistá: bez značky i popisku, bez otočky, nejvýš o 2 křížení víc než výchozí
+        if not _clean_path(pts) or route_hits(pts, boxes) or route_hits(pts, labels):
+            continue
+        c = (_crossings(pts, segs), _route_len(pts))
+        if c[0] <= base_x + 2 and (best is None or c < best[0]):
+            best = (c, pts)
+    if best is None:
+        return base
+    pts = best[1]
+    return [p for i, p in enumerate(pts) if i == 0 or p != pts[i - 1]]
+
+
+def label_boxes(poles: dict[str, ElementPoles]) -> dict[str, list[tuple[float, float, float, float]]]:
+    """Obálky popisků prvků (`pole_label_lines`, odhad šířky textu) – objízdná trasa žíly je nesmí přeškrtnout."""
+    out: dict[str, list[tuple[float, float, float, float]]] = {}
+    for eid, ep in poles.items():
+        if ep.element.symbol_id in (BUS_SYMBOL, JUNCTION_SYMBOL):
+            continue
+        for x, y, text, h, align in pole_label_lines(ep):
+            w = len(text) * h * 0.62
+            x0 = x - w if align == "right" else x - w / 2 if align == "center" else x
+            out.setdefault(eid, []).append((x0 - 0.6, y - 0.4, x0 + w + 0.6, y + h + 0.4))
+    return out
+
+
+def obstacle_boxes(poles: dict[str, ElementPoles]) -> dict[str, list[tuple[float, float, float, float]]]:
+    """Obálky značek prvků ve vícepólu (po pólech, souřadnice pohledu) pro vedení žil mimo cizí značky. Uzly
+    a sběrnice nejsou překážka (žíly do nich vedou)."""
+    out: dict[str, list[tuple[float, float, float, float]]] = {}
+    for eid, ep in poles.items():
+        if ep.element.symbol_id in (BUS_SYMBOL, JUNCTION_SYMBOL):
+            continue
+        for c in (list(ep.switched) if ep.per_pole else [None]):
+            x, y = pole_anchor(ep, c)
+            out.setdefault(eid, []).append(_rot_box(pole_symbol_for(ep, c), x, y, ep.element.rotation))
+    return out
 
 
 def conductor_label_anchor(pts: list[tuple[float, float]], staggered: bool) -> tuple[float, float, str, bool]:

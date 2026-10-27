@@ -613,6 +613,37 @@ class MultipoleAddCommand(_FeedFollowups, QUndoCommand):
             self.scene.after_edit()
 
 
+class SetSheetSizeCommand(QUndoCommand):
+    """Formát listu (`frame.sheet_format_placement`: název, šířka, výška, dx, dy) – posun obsahu (prvky, lomy
+    vodičů, volné texty) o (dx, dy) jako `frame.apply_placement`; undo vrátí formát i polohy. `on_change` přestaví
+    pohledy."""
+
+    def __init__(self, sheet, placement: tuple[str, float, float, float, float], on_change=None):
+        super().__init__("Formát listu")
+        self.sheet, self.placement, self.on_change = sheet, placement, on_change
+        s = sheet
+        self.old = (s.paper, s.width, s.height, [(e.x, e.y) for e in s.elements], [list(w.points) for w in s.wires],
+                    [(t.x, t.y) for t in s.texts])
+
+    def redo(self):
+        from envocad.model.frame import apply_placement
+        apply_placement(self.sheet, self.placement)
+        if self.on_change:
+            self.on_change()
+
+    def undo(self):
+        s = self.sheet
+        s.paper, s.width, s.height, els, wires, texts = self.old
+        for e, (x, y) in zip(s.elements, els, strict=False):
+            e.x, e.y = x, y
+        for w, pts in zip(s.wires, wires, strict=False):
+            w.points = list(pts)
+        for t, (x, y) in zip(s.texts, texts, strict=False):
+            t.x, t.y = x, y
+        if self.on_change:
+            self.on_change()
+
+
 class SetSheetPaperCommand(QUndoCommand):
     """Formát stran vícepólu a plánu svorkovnice listu rozvaděče (`Sheet.mp_paper`; "" = firemní standard).
     `on_change` přestaví pohledy listu."""
