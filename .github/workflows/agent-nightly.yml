@@ -1,0 +1,178 @@
+# Noční agent: vezme JEDNU issue se štítkem agent-ready, orchestrátor (Fable) ji zpracuje a workflow otevře PR.
+#
+# Claude běží přes OmniRoute (ANTHROPIC_BASE_URL) a NEMÁ právo pushovat (contents: read, checkout bez credentials).
+# Větev a PR vytvoří až krok „Push a PR“ tokenem AGENT_GH_TOKEN, a jen pro větev agent/issue-<N>-*.
+#
+# Secrets:   OMNIROUTE_BASE_URL  veřejná HTTPS adresa OmniRoute (ne localhost – runner běží v cloudu GitHubu)
+#            OMNIROUTE_API_KEY   klíč OmniRoute
+#            AGENT_GH_TOKEN      fine-grained PAT jen na toto repo: Contents RW, Pull requests RW, Issues RW
+#                                (PR založený GITHUB_TOKENem by nespustil CI)
+# Variables (volitelné, když OmniRoute používá jiná jména modelů):
+#            AGENT_MODEL_ORCHESTRATOR (claude-fable-5-2), AGENT_MODEL_OPUS, AGENT_MODEL_SONNET, AGENT_MODEL_HAIKU
+#            AGENT_MAX_TURNS (150)
+name: Agent – noční issue
+
+on:
+  schedule:
+    - cron: "0 1 * * *"   # 01:00 UTC = 02:00 SEČ / 03:00 SELČ
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: "Číslo issue (prázdné = nejstarší agent-ready)"
+        required: false
+
+concurrency:
+  group: agent
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  pick:
+    runs-on: ubuntu-latest
+    outputs:
+      issue: ${{ steps.pick.outputs.issue }}
+    steps:
+      - id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          WANTED: ${{ inputs.issue }}
+        run: |
+          set -euo pipefail
+          # issue, které už mají otevřený agentní PR, přeskočit
+          busy=$(gh pr list -R "$REPO" --state open --limit 200 --json headRefName \
+                 --jq '.[].headRefName | capture("^agent/issue-(?<n>[0-9]+)-").n' || true)
+          candidates=$(gh issue list -R "$REPO" --state open --label agent-ready --limit 100 \
+                 --json number,labels,createdAt \
+                 --jq 'map(select([.labels[].name] | index("agent-in-progress") or index("agent-question") or index("agent-failed") | not))
+                       | sort_by(.createdAt) | .[].number')
+          pick=""
+          for n in $candidates; do
+            if [ -n "$WANTED" ] && [ "$n" != "$WANTED" ]; then continue; fi
+            if echo "$busy" | grep -qx "$n"; then continue; fi
+            pick=$n; break
+          done
+          echo "issue=$pick" >> "$GITHUB_OUTPUT"
+          if [ -z "$pick" ]; then echo "::notice::Žádná volná issue se štítkem agent-ready."; else echo "::notice::Beru issue #$pick"; fi
+
+  work:
+    needs: pick
+    if: needs.pick.outputs.issue != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 150          # strop spotřeby: jedna issue, max 2,5 h
+    env:
+      ISSUE: ${{ needs.pick.outputs.issue }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false   # Claude nemá čím pushnout
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Prostředí pro testy
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 libdbus-1-3
+          python -m pip install -e ".[dev]"
+          git config user.name "envocad-agent"
+          git config user.email "envocad-agent@users.noreply.github.com"
+          {
+            echo "QT_QPA_PLATFORM=offscreen"
+            echo "PYTHONUTF8=1"
+            echo "GH_TOKEN=${{ github.token }}"     # gh pro Claude: číst repo, komentovat issue, nic víc
+            echo "AGENT_OUT=$RUNNER_TEMP/agent"
+          } >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/agent"
+
+      - name: Štítek agent-in-progress
+        run: gh issue edit "$ISSUE" -R "$REPO" --add-label agent-in-progress
+
+      - name: Orchestrátor (Fable přes OmniRoute)
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        env:
+          ANTHROPIC_BASE_URL: ${{ secrets.OMNIROUTE_BASE_URL }}
+          ANTHROPIC_DEFAULT_OPUS_MODEL: ${{ vars.AGENT_MODEL_OPUS || 'claude-opus-5-5' }}
+          ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ vars.AGENT_MODEL_SONNET || 'claude-sonnet-5-5' }}
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ vars.AGENT_MODEL_HAIKU || 'claude-haiku-5-5' }}
+        with:
+          anthropic_api_key: ${{ secrets.OMNIROUTE_API_KEY }}
+          github_token: ${{ github.token }}
+          plugin_marketplaces: https://github.com/affaan-m/ECC.git
+          plugins: ecc@ecc
+          # GateGuard z ECC by v neinteraktivním běhu blokoval první Bash/Write
+          settings: |
+            {"env": {"ECC_GATEGUARD": "off", "QT_QPA_PLATFORM": "offscreen", "PYTHONUTF8": "1"}}
+          claude_args: >-
+            --model ${{ vars.AGENT_MODEL_ORCHESTRATOR || 'claude-fable-5-2' }}
+            --max-turns ${{ vars.AGENT_MAX_TURNS || '150' }}
+            --allowedTools "Read,Write,Edit,Glob,Grep,Agent,Task,Skill,TodoWrite,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git switch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git restore:*),Bash(git rm:*),Bash(git mv:*),Bash(python:*),Bash(python3:*),Bash(pytest:*),Bash(ruff:*),Bash(QT_QPA_PLATFORM=offscreen pytest:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh issue edit:*),Bash(gh issue list:*),Bash(gh pr list:*),Bash(gh pr view:*),Bash(ls:*),Bash(cat:*),Bash(grep:*),Bash(find:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(mkdir:*)"
+            --disallowedTools "Bash(git push:*),Bash(gh pr merge:*),Bash(gh pr create:*),Bash(gh api:*),Bash(curl:*),Bash(wget:*)"
+          prompt: |
+            Jsi orchestrátor EnvoCAD – postupuj přesně podle `.claude/agents/orchestrator.md` a `CLAUDE.md`.
+            Repo: ${{ github.repository }}. Tvoje issue: #${{ env.ISSUE }}. Jen tahle jedna.
+
+            Rozdíly proti orchestrator.md v tomto cloudovém běhu:
+            - NEpushuješ a NEzakládáš PR (nemáš práva). Pracuj na větvi `agent/issue-${{ env.ISSUE }}-<kratky-nazev>`
+              (malá písmena, číslice, pomlčky) a vše commitni. Push a PR udělá workflow po tobě.
+            - Místo `gh pr create` zapiš:
+                `${{ runner.temp }}/agent/pr-title.txt`  – jeden řádek, česky
+                `${{ runner.temp }}/agent/pr-body.md`    – tělo PR: `Closes #${{ env.ISSUE }}`, shrnutí, jak ověřit,
+                                                           výsledek pytest/ruff, nálezy review, „Mimo rozsah“.
+              Tyto soubory do gitu nedávej.
+            - Když potřebuješ oborové rozhodnutí nebo je issue moc velká: `gh issue comment ${{ env.ISSUE }}` s otázkou,
+              `gh issue edit ${{ env.ISSUE }} --add-label agent-question --remove-label agent-in-progress`,
+              nic necommituj a skonči.
+            - Subagenty: `tester`, `implementer`, `reviewer` (+ `core-dev`, `gui-dev`, `symbol-author`, `data-entry`,
+              `architekt` dle potřeby) a z pluginu ECC `ecc:python-reviewer`, `ecc:security-reviewer`, `ecc:code-explorer`.
+
+      - name: Push a PR
+        env:
+          AGENT_GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
+        run: |
+          set -euo pipefail
+          branch=$(git rev-parse --abbrev-ref HEAD)
+          ahead=$(git rev-list --count origin/main..HEAD || echo 0)
+          labels=$(gh issue view "$ISSUE" -R "$REPO" --json labels --jq '[.labels[].name] | join(",")')
+          if [[ ",$labels," == *",agent-question,"* ]]; then
+            echo "::notice::Agent položil otázku v issue #$ISSUE – bez PR."; exit 0
+          fi
+          if [ "$ahead" -eq 0 ]; then
+            echo "::warning::Agent nic necommitoval."; echo "NO_PR=1" >> "$GITHUB_ENV"; exit 0
+          fi
+          if ! [[ "$branch" =~ ^agent/issue-${ISSUE}-[a-z0-9-]+$ ]]; then
+            echo "::error::Nepovolená větev '$branch' (čekám agent/issue-$ISSUE-*)."; echo "NO_PR=1" >> "$GITHUB_ENV"; exit 1
+          fi
+          if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+            echo "::warning::Necommitované změny agenta se zahazují:"; git status --short
+          fi
+          python tools/check_licensed_data.py
+          git push "https://x-access-token:${AGENT_GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/${branch}"
+          title=$(head -n1 "$AGENT_OUT/pr-title.txt" 2>/dev/null || true)
+          [ -n "$title" ] || title="Agent: issue #$ISSUE"
+          body="$AGENT_OUT/pr-body.md"
+          [ -s "$body" ] || printf 'Closes #%s\n\n(Agent nezapsal popis PR.)\n' "$ISSUE" > "$body"
+          grep -q "Closes #$ISSUE" "$body" || printf '\nCloses #%s\n' "$ISSUE" >> "$body"
+          gh pr create -R "$REPO" --base main --head "$branch" --title "$title" --body-file "$body" --label agent
+          gh issue edit "$ISSUE" -R "$REPO" --remove-label agent-in-progress
+
+      - name: Neúspěch → štítek agent-failed
+        if: failure() || env.NO_PR == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          labels=$(gh issue view "$ISSUE" -R "$REPO" --json labels --jq '[.labels[].name] | join(",")')
+          [[ ",$labels," == *",agent-question,"* ]] && exit 0
+          gh issue edit "$ISSUE" -R "$REPO" --add-label agent-failed --remove-label agent-in-progress
+          gh issue comment "$ISSUE" -R "$REPO" --body "Noční agent issue nedokončil. Log: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} — po úpravě zadání odeber štítek \`agent-failed\`."
