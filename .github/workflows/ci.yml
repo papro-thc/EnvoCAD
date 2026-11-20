@@ -43,7 +43,7 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         python: ["3.12", "3.14"]   # 3.14 = lokální prostředí vývoje
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

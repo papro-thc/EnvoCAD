@@ -35,6 +35,22 @@ def _isolated_home(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _stop_leftover_autosave():
+    """Po testu zastaví autosave časovač (120 s) oken `MainWindow`, která test nezavřel. Jinak na pomalém stroji
+    (CI) okno z dřívějšího testu zapíše kopii do `ENVOCAD_HOME` pozdějšího testu, nové okno ji nabídne modálním
+    dialogem obnovy a sada se zasekne. Okna se nezavírají – zavření okna se změnami by se ptalo na uložení."""
+    yield
+    import sys
+    mw = sys.modules.get("envocad.ui.main_window")
+    if mw is None:               # test GUI nepoužil
+        return
+    from PySide6.QtWidgets import QApplication
+    for w in QApplication.topLevelWidgets():
+        if isinstance(w, mw.MainWindow):
+            w._autosave_timer.stop()
+
+
+@pytest.fixture(autouse=True)
 def _isolated_qsettings(tmp_path_factory, monkeypatch):
     """Každý test má vlastní úložiště QSettings – `QSettings("ENVO", "EnvoCAD")` (poslední projekty, zobrazení
     a export připomínek, tmavý motiv) nepíše do `~/.config/ENVO/EnvoCAD.conf` uživatele a testy se navzájem
