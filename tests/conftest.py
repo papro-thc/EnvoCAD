@@ -1,5 +1,6 @@
 """Společné nastavení testů."""
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -74,6 +75,10 @@ def _qt_czech():
     """Jedna QApplication pro celou sadu (offscreen) s českými překlady Qt jako v `envocad.app.main` – testy GUI
     vidí stejná tlačítka (Ano/Ne/Storno) jako uživatel. Bez PySide6 (headless modelové testy) se přeskočí."""
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    if sys.platform == "win32" and os.environ["QT_QPA_PLATFORM"] == "offscreen":
+        # offscreen na Windows hledá písma (FreeType) ve složce Qt, kterou kola PySide6 nemají → text se do PDF
+        # vůbec nevykreslí; systémová písma (Arial) jako v běžném okně
+        os.environ.setdefault("QT_QPA_FONTDIR", os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts"))
     try:
         from PySide6.QtWidgets import QApplication
     except ImportError:

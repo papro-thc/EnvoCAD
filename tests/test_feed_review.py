@@ -9,6 +9,7 @@ rozložení (verze 2, přívod shora do portu T{k} sběrnice).
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from itertools import pairwise
 from pathlib import Path
@@ -252,7 +253,8 @@ def test_sync_builtin_removes_legacy_builtin_files(tmp_path):
     store = LibraryStore(db)
     left = {r[0] for r in store.conn.execute("SELECT path FROM builtin_files")}
     assert not left & LEGACY_BUILTIN_FILES
-    assert "builtin:switchboard/jiny.json" in left and "builtin:switchboard/sb.feed.json" in left
+    # skutečné klíče knihovny mají oddělovač systému (`_rel`), na Windows „\\“
+    assert "builtin:switchboard/jiny.json" in left and f"builtin:switchboard{os.sep}sb.feed.json" in left
     store.close()
 
 
