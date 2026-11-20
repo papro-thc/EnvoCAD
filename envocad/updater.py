@@ -377,7 +377,9 @@ def read_manifest(source: Path) -> dict:
     if not isinstance(data, dict) or parse_version(str(data.get("version"))) is None:
         raise UpdateError(f"{MANIFEST}: chybí platná verze")
     name = str(data.get("zip") or "")
-    if not name or Path(name).name != name or name in (".", ".."):
+    # jen holé jméno souboru – oddělovače i disk („C:“) odmítnout na všech systémech (Path na Linuxu bere
+    # zpětné lomítko jako znak jména)
+    if not name or Path(name).name != name or name in (".", "..") or any(c in name for c in "/\\:"):
         raise UpdateError(f"{MANIFEST}: neplatné jméno ZIPu {name!r}")
     if not re.fullmatch(r"[0-9a-f]{64}", str(data.get("sha256") or "")):
         raise UpdateError(f"{MANIFEST}: chybí SHA-256")

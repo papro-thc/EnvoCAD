@@ -202,14 +202,32 @@ def __dir__() -> list[str]:
     return sorted({*globals(), *_MOVED})
 
 
+# původní hodnoty přesunutých jmen přepsaných přes `envocad.generate` – `del generate.<jméno>` je vrátí
+_ORIGINALS: dict[str, object] = {}
+
+
 class _DeprecatedModule(types.ModuleType):
-    """Zápis přesunutého jména (`generate._lib = …`, `monkeypatch.setattr`) jde do nového modulu s varováním."""
+    """Zápis přesunutého jména (`generate._lib = …`, `monkeypatch.setattr`) jde do nového modulu s varováním.
+
+    Smazání (`del generate._lib`) vrátí v novém modulu původní hodnotu: pytest ≥ 9.2 bere starou hodnotu
+    z `__dict__` modulu, přesunuté jméno tam nenajde a při úklidu `monkeypatch` volá `delattr` – bez toho by
+    patch zůstal v `generator.context` pro všechny další testy."""
 
     def __setattr__(self, name: str, value) -> None:
         if name in _MOVED and name not in self.__dict__:
-            setattr(_moved_module(name), name, value)
+            target = _moved_module(name)
+            _ORIGINALS.setdefault(name, getattr(target, name))
+            setattr(target, name, value)
             return
         super().__setattr__(name, value)
+
+    def __delattr__(self, name: str) -> None:
+        if name in _MOVED and name not in self.__dict__:
+            if name not in _ORIGINALS:
+                raise AttributeError(f"module {self.__name__!r}: {name!r} nebylo přepsáno, není co vrátit")
+            setattr(_moved_module(name), name, _ORIGINALS.pop(name))
+            return
+        super().__delattr__(name)
 
 
 sys.modules[__name__].__class__ = _DeprecatedModule
