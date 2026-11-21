@@ -1,5 +1,28 @@
 # Roadmap
 
+## Silné stránky EnvoCADu (srovnání 11/2026, `docs/research/03_srovnani.md`)
+- **Specializace na FVE**: žádný z 8 srovnávaných nástrojů (EPLAN, WSCAD, SEE Electrical, Zuken E3, AutoCAD Electrical,
+  ProfiCAD, QElectroTech, PV nástroje) nespojuje výpočty stringů (Uoc/Isc za teploty, gPV, SPD DC, Icu/Icw) s kreslením
+  rozvaděčů, svorkovnic a generátorem projektu z jedné specifikace. PV nástroje (PVsyst, PVcase, SurgePV) končí u
+  návrhu pole, elektro-CADy FVE výpočty nemají.
+- **Linux**: kromě QElectroTechu žádný z nich na Linuxu neběží; EnvoCAD běží na Linuxu i Windows ze stejného kódu.
+- Tuto výhodu držet: nové funkce posuzovat podle toho, zda posilují tok „specifikace → výpočty → výkresy → výkazy“ pro FVE.
+
+## Top 10 (review 11/2026)
+Pořadí = priorita, velikost S/M/L. Nejdřív důvěryhodnost výpočtů a licence, pak data a funkce.
+1. [ ] Označit výpočty jako orientační a oddělit oteplení od protokolu kusového ověření (S) – #80
+2. [ ] Ověřit tabulky Iz a konstanty oteplení proti normě (M) – soupis údajů #79, ověření #82 (čeká na data z norem)
+3. [ ] Opravit atribuci značek z QET (odkaz, oznámení úprav, výjimka v LICENSE) (S) – #81
+4. [ ] Doplnit data knihovny (222 artiklů bez rozměrů, 138 jističů bez Pv) a import BMEcat/ETIM (L) – report #83, parser #84
+5. [ ] Editor symbolů v GUI (M) – fáze 1 #85
+6. [ ] První vydání s podepsaným buildem pro Windows (M) – #90 (způsob podpisu rozhodne člověk)
+7. [ ] Import PVsyst .PAN/.OND (S) – #86
+8. [ ] Ceny ve výkazech (S) – #87 (otázka DPH)
+9. [ ] DXF export rozložení rozvaděče a plánu svorkovnice (M) – #88
+10. [ ] Vícepatrové svorky (M) – #89 (otázky číslování a kresby)
+
+Mimo top 10: anglické rozhraní (výstupy zůstávají česky) – fáze 1 #91.
+
 ## v0.1 – MVP: jednopólové schéma FVE  ← tento repozitář
 - [x] Datový model (symbol, element, vodič, list, projekt), JSON projekt
 - [x] Startovní knihovna symbolů FVE (~12 symbolů)
