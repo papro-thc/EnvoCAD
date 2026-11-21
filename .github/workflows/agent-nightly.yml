@@ -96,6 +96,23 @@ jobs:
           } >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/agent"
 
+      - name: Test spojení s OmniRoute
+        # claude-code-action chybu API neukáže (jen is_error) – krátký dotaz vypíše HTTP stav a odpověď serveru
+        env:
+          BASE: ${{ secrets.OMNIROUTE_BASE_URL }}
+          KEY: ${{ secrets.OMNIROUTE_API_KEY }}
+          MODEL: ${{ vars.AGENT_MODEL_ORCHESTRATOR || 'claude-fable-5-2' }}
+        run: |
+          set -u
+          [ -n "$BASE" ] || { echo "::error::Secret OMNIROUTE_BASE_URL je prázdný"; exit 1; }
+          body=$(printf '{"model":"%s","max_tokens":8,"messages":[{"role":"user","content":"ping"}]}' "$MODEL")
+          code=$(curl -sS -m 60 -o "$RUNNER_TEMP/ping.json" -w '%{http_code}' "${BASE%/}/v1/messages" \
+                 -H "x-api-key: $KEY" -H "authorization: Bearer $KEY" -H "anthropic-version: 2023-06-01" \
+                 -H "content-type: application/json" -d "$body") || code="curl-chyba"
+          echo "OmniRoute ${BASE%%://*}://… model $MODEL → HTTP $code"
+          head -c 600 "$RUNNER_TEMP/ping.json" 2>/dev/null; echo
+          [ "$code" = "200" ] || { echo "::error::OmniRoute neodpověděl 200 (HTTP $code) – viz výstup kroku"; exit 1; }
+
       - name: Štítek agent-in-progress
         run: gh issue edit "$ISSUE" -R "$REPO" --add-label agent-in-progress
 
