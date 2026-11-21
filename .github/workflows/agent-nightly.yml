@@ -101,6 +101,15 @@ jobs:
         run: |
           [ -n "$TOKEN" ] || { echo "::error::Chybí secret CLAUDE_CODE_OAUTH_TOKEN (claude setup-token → gh secret set CLAUDE_CODE_OAUTH_TOKEN)"; exit 1; }
 
+      # PAT ověřit PŘED během Clauda – jinak agent odpracuje issue a práce se na konci ztratí při push
+      - name: Kontrola AGENT_GH_TOKEN
+        env:
+          GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
+        run: |
+          [ -n "$GH_TOKEN" ] || { echo "::error::Chybí secret AGENT_GH_TOKEN"; exit 1; }
+          perm=$(gh api "repos/$REPO" --jq '.permissions.push' 2>/dev/null) || perm=""
+          [ "$perm" = "true" ] || { echo "::error::AGENT_GH_TOKEN nemá přístup k $REPO s právem zápisu (fine-grained PAT: Resource owner = vlastník repa, Repository access → $REPO, Contents/Pull requests/Issues: Read and write)"; exit 1; }
+
       - name: Štítek agent-in-progress
         run: gh issue edit "$ISSUE" -R "$REPO" --add-label agent-in-progress
 
@@ -142,6 +151,24 @@ jobs:
             - Subagenty: `tester`, `implementer`, `reviewer` (+ `core-dev`, `gui-dev`, `symbol-author`, `data-entry`,
               `architekt` dle potřeby) a z pluginu ECC `ecc:python-reviewer`, `ecc:security-reviewer`, `ecc:code-explorer`.
 
+      # commity agenta jako artefakt (git bundle) – když push nebo PR selže, práce se neztratí:
+      #   gh run download <run> -n agent-issue-<N> && git fetch agent.bundle '+refs/heads/*:refs/remotes/agent/*'
+      - name: Záloha commitů agenta
+        if: always() && steps.claude.conclusion != 'skipped'
+        run: |
+          [ "$(git rev-list --count origin/main..HEAD 2>/dev/null || echo 0)" -gt 0 ] || exit 0
+          git bundle create "$RUNNER_TEMP/agent/agent.bundle" "$(git rev-parse --abbrev-ref HEAD)" ^origin/main
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.claude.conclusion != 'skipped'
+        with:
+          name: agent-issue-${{ env.ISSUE }}
+          path: |
+            ${{ runner.temp }}/agent/agent.bundle
+            ${{ runner.temp }}/agent/pr-title.txt
+            ${{ runner.temp }}/agent/pr-body.md
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Push a PR
         env:
           AGENT_GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
@@ -150,7 +177,7 @@ jobs:
           set -euo pipefail
           branch=$(git rev-parse --abbrev-ref HEAD)
           ahead=$(git rev-list --count origin/main..HEAD || echo 0)
-          labels=$(gh issue view "$ISSUE" -R "$REPO" --json labels --jq '[.labels[].name] | join(",")')
+          labels=$(GH_TOKEN="${{ github.token }}" gh issue view "$ISSUE" -R "$REPO" --json labels --jq '[.labels[].name] | join(",")')
           if [[ ",$labels," == *",agent-question,"* ]]; then
             echo "::notice::Agent položil otázku v issue #$ISSUE – bez PR."; exit 0
           fi

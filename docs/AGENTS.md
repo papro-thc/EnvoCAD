@@ -83,5 +83,14 @@ ráno: projdeš PR, stáhneš build z artefaktů, sloučíš – nebo napíšeš
 4. Ruční zkouška: Actions → „Agent – noční issue“ → Run workflow (lze zadat číslo issue).
 
 ### Limity spotřeby
-Jedna issue za noc (`concurrency: agent`), `--max-turns 150`, timeout 150 min; oprava CI max 2 pokusy po 60 turnech;
-`@claude` jen od vlastníka repa, max 80 turnů.
+Noční cron bere jednu issue (`concurrency: agent-auto`); ruční spuštění s číslem issue běží paralelně (každá issue
+zvlášť). `--max-turns 150`, timeout 150 min; oprava CI max 2 pokusy po 60 turnech; `@claude` jen od vlastníka repa,
+max 80 turnů.
+
+### Když push nebo PR selže
+Běh nejdřív ověří, že `AGENT_GH_TOKEN` má do repa právo zápisu (jinak skončí dřív, než Claude začne). Commity agenta
+se vždy uloží jako artefakt `agent-issue-<N>` (14 dní) a jdou obnovit:
+```
+gh run download <run-id> -n agent-issue-<N> -D /tmp/agent-<N>
+git fetch /tmp/agent-<N>/agent.bundle '+refs/heads/*:refs/remotes/agent/*'
+```
