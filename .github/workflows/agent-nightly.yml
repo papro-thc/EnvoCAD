@@ -21,8 +21,10 @@ on:
         description: "Číslo issue (prázdné = nejstarší agent-ready)"
         required: false
 
+# Ruční spuštění s číslem issue má vlastní skupinu → víc issue může běžet paralelně (každá zvlášť, stejná issue
+# nikdy dvakrát). Noční cron a ruční spuštění bez čísla sdílejí skupinu „agent-auto“ (jedna za druhou).
 concurrency:
-  group: agent
+  group: agent-${{ inputs.issue || 'auto' }}
   cancel-in-progress: false
 
 permissions:

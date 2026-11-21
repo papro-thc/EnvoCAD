@@ -1,0 +1,1 @@
+- Agent: ruční spuštění nočního workflow s číslem issue běží ve vlastní skupině concurrency, víc issue tak může běžet paralelně.
