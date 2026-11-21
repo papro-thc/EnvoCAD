@@ -1,1 +1,1 @@
-- Agent: ruční spuštění nočního workflow s číslem issue běží ve vlastní skupině concurrency, víc issue tak může běžet paralelně.
+- **Agent: paralelní ruční běhy** – ruční spuštění nočního workflow s číslem issue běží ve vlastní skupině concurrency (`agent-<issue>`), víc issue tak může běžet najednou; cron a spuštění bez čísla sdílí `agent-auto`.
