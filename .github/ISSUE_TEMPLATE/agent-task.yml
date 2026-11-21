@@ -1,0 +1,62 @@
+name: Úkol pro agenta
+description: Malý úkol (pár hodin práce) s jasnou podmínkou hotovo. Agent ho vezme až po přidání štítku agent-ready.
+title: "[agent] "
+labels: ["agent-task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Malé zadání.** Co se nevejde do pár hodin, rozděl na víc issue (např. ne „udělej vícepól“, ale
+        „vícepól: svorkovnice exportuje artikly svorek do BOM“). Až je zadání hotové, přidej štítek **`agent-ready`**.
+        Agent se může doptat komentářem a štítkem `agent-question` – po odpovědi štítek odeber.
+  - type: textarea
+    id: goal
+    attributes:
+      label: Cíl
+      description: Co má po změně fungovat, z pohledu uživatele EnvoCAD.
+      placeholder: Svorkovnice exportuje artikly svorek do výkazu materiálu (BOM).
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Podmínka hotovo
+      description: Ověřitelně – který test má projít (nový nebo existující), co má být ve výstupu. Bez toho agent issue nevezme.
+      placeholder: |
+        - nový test `tests/test_bom_terminals.py::test_terminal_articles_in_bom` projde
+        - export xlsx ukázky `examples/ukazka_fve.ecp` má ve výkazu řádky svorek s počtem kusů
+        - `pytest` a `ruff check .` zelené
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Kde v kódu / podklady
+      description: Dotčené moduly, související issue/PR, odkaz na veřejný datasheet. Nevkládej data z EPLAN Data Portalu ani PDF.
+      placeholder: envocad/export/reports.py, envocad/model/…; viz #12
+  - type: textarea
+    id: domain
+    attributes:
+      label: Oborová rozhodnutí
+      description: Vše, co agent nesmí domýšlet (jištění, průřezy, značení, výběr artiklu, vzhled výkresu). Napiš rozhodnutí, nebo „žádná“.
+      placeholder: Svorky se počítají po kusech, propojky jako samostatný artikl.
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Mimo rozsah
+      description: Co agent dělat nemá.
+  - type: dropdown
+    id: role
+    attributes:
+      label: Hlavní oblast
+      options:
+        - jádro (model, knihovna, generátor, export)
+        - GUI
+        - symboly
+        - data artiklů
+        - testy (pokrytí existujícího kódu)
+        - dokumentace
+    validations:
+      required: true

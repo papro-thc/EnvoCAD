@@ -28,3 +28,10 @@ envocad/library/builtin/qet-symbols.zip
 
 # lokální podklady z EPLAN Data Portal (obchodní data a DXF montáže, bez rozměrů a Pv)
 EPLAN/
+
+# licencovaná data výrobců – nikdy do gitu (CLAUDE.md, tools/check_licensed_data.py)
+datasheets/
+*.edz
+*.ema
+*.epdz
+*.e3d

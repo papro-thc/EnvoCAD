@@ -1,0 +1,131 @@
+# Když CI selže na agentním PR (větev agent/*), agent (Sonnet) se ho pokusí opravit. Nejvýš 2 pokusy na PR,
+# pak štítek agent-failed a rozhoduje člověk. Pokusy se počítají podle commitů „[ci-fix]“ ve větvi.
+# Secrets a variables stejné jako agent-nightly.yml.
+name: Agent – oprava CI
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+concurrency:
+  group: agent-fix-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  fix:
+    if: >-
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      startsWith(github.event.workflow_run.head_branch, 'agent/') &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+      REPO: ${{ github.repository }}
+      MAX_ATTEMPTS: 2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Počet pokusů a PR
+        id: state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # běh CI patří k poslednímu commitu větve? (jinak už je novější běh)
+          if [ "$(git rev-parse HEAD)" != "${{ github.event.workflow_run.head_sha }}" ]; then
+            echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          pr=$(gh pr list -R "$REPO" --head "$BRANCH" --state open --json number --jq '.[0].number')
+          attempts=$(git log origin/main..HEAD --oneline | grep -c '\[ci-fix\]' || true)
+          echo "pr=$pr" >> "$GITHUB_OUTPUT"
+          echo "attempts=$attempts" >> "$GITHUB_OUTPUT"
+          [ -n "$pr" ] || { echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; }
+          if [ "$attempts" -ge "$MAX_ATTEMPTS" ]; then
+            gh pr edit "$pr" -R "$REPO" --add-label agent-failed
+            gh pr comment "$pr" -R "$REPO" --body "CI stále neprochází ani po $attempts opravách agenta. Potřebuje člověka (log: ${{ github.event.workflow_run.html_url }})."
+            echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          mkdir -p "$RUNNER_TEMP/agent"
+          gh run view "$RUN_ID" -R "$REPO" --log-failed | tail -n 400 > "$RUNNER_TEMP/agent/ci-failed.log" || true
+
+      - uses: actions/setup-python@v5
+        if: steps.state.outputs.skip != '1'
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Prostředí pro testy
+        if: steps.state.outputs.skip != '1'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 libdbus-1-3
+          python -m pip install -e ".[dev]"
+          git config user.name "envocad-agent"
+          git config user.email "envocad-agent@users.noreply.github.com"
+          { echo "QT_QPA_PLATFORM=offscreen"; echo "PYTHONUTF8=1"; echo "GH_TOKEN=${{ github.token }}"; } >> "$GITHUB_ENV"
+
+      - name: Oprava (Sonnet přes OmniRoute)
+        if: steps.state.outputs.skip != '1'
+        uses: anthropics/claude-code-action@v1
+        env:
+          ANTHROPIC_BASE_URL: ${{ secrets.OMNIROUTE_BASE_URL }}
+          ANTHROPIC_DEFAULT_OPUS_MODEL: ${{ vars.AGENT_MODEL_OPUS || 'claude-opus-5-5' }}
+          ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ vars.AGENT_MODEL_SONNET || 'claude-sonnet-5-5' }}
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ vars.AGENT_MODEL_HAIKU || 'claude-haiku-5-5' }}
+        with:
+          anthropic_api_key: ${{ secrets.OMNIROUTE_API_KEY }}
+          github_token: ${{ github.token }}
+          plugin_marketplaces: https://github.com/affaan-m/ECC.git
+          plugins: ecc@ecc
+          settings: |
+            {"env": {"ECC_GATEGUARD": "off", "QT_QPA_PLATFORM": "offscreen", "PYTHONUTF8": "1"}}
+          claude_args: >-
+            --model ${{ vars.AGENT_MODEL_SONNET || 'claude-sonnet-5-5' }}
+            --max-turns 60
+            --allowedTools "Read,Write,Edit,Glob,Grep,Agent,Task,Skill,TodoWrite,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(git restore:*),Bash(python:*),Bash(python3:*),Bash(pytest:*),Bash(ruff:*),Bash(QT_QPA_PLATFORM=offscreen pytest:*),Bash(gh pr view:*),Bash(gh issue view:*),Bash(ls:*),Bash(cat:*),Bash(grep:*),Bash(head:*),Bash(tail:*)"
+            --disallowedTools "Bash(git push:*),Bash(git switch:*),Bash(git checkout:*),Bash(gh pr merge:*),Bash(gh api:*),Bash(curl:*)"
+          prompt: |
+            Na PR #${{ steps.state.outputs.pr }} (větev `${{ env.BRANCH }}`) selhalo CI. Pokus o opravu ${{ steps.state.outputs.attempts }}+1 z ${{ env.MAX_ATTEMPTS }}.
+            Výpis selhaných kroků: `${{ runner.temp }}/agent/ci-failed.log`. Zadání je v PR (`gh pr view ${{ steps.state.outputs.pr }}`)
+            a v issue, na kterou odkazuje „Closes #…“. Pravidla: `CLAUDE.md`.
+
+            1. Najdi příčinu, reprodukuj lokálně (`QT_QPA_PLATFORM=offscreen pytest -q …`, `ruff check .`,
+               `python tools/check_licensed_data.py`). Selhání jen na Windows (cesty, kódování, \r\n) oprav taky.
+            2. Oprav kód, ne testy – test smíš změnit jen, když je prokazatelně chybný, a vysvětli proč.
+            3. Spusť celé `pytest -q` a `ruff check .`.
+            4. Commitni na aktuální větev se zprávou začínající `[ci-fix] `. Nepushuj (udělá to workflow).
+            Když příčinu nenajdeš nebo vyžaduje oborové rozhodnutí, nic necommituj a napiš proč do posledního řádku výstupu.
+
+      - name: Push opravy
+        if: steps.state.outputs.skip != '1'
+        env:
+          AGENT_GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$BRANCH" == agent/* ]] || { echo "::error::Nepovolená větev $BRANCH"; exit 1; }
+          if [ "$(git rev-parse HEAD)" = "${{ github.event.workflow_run.head_sha }}" ]; then
+            gh pr comment "${{ steps.state.outputs.pr }}" -R "$REPO" --body "Agent selhání CI neopravil (pokus $(( ${{ steps.state.outputs.attempts }} + 1 ))). Log: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            gh pr edit "${{ steps.state.outputs.pr }}" -R "$REPO" --add-label agent-failed
+            exit 0
+          fi
+          # počítadlo pokusů musí sedět, i když agent prefix zapomene
+          msg=$(git log -1 --format=%B)
+          [[ "$msg" == "[ci-fix]"* ]] || git commit --amend -q -m "[ci-fix] $msg"
+          python tools/check_licensed_data.py
+          git push "https://x-access-token:${AGENT_GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/${BRANCH}"

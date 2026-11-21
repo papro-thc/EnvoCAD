@@ -1,5 +1,6 @@
 """Společné nastavení testů."""
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -35,6 +36,22 @@ def _isolated_home(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _stop_leftover_autosave():
+    """Po testu zastaví autosave časovač (120 s) oken `MainWindow`, která test nezavřel. Jinak na pomalém stroji
+    (CI) okno z dřívějšího testu zapíše kopii do `ENVOCAD_HOME` pozdějšího testu, nové okno ji nabídne modálním
+    dialogem obnovy a sada se zasekne. Okna se nezavírají – zavření okna se změnami by se ptalo na uložení."""
+    yield
+    import sys
+    mw = sys.modules.get("envocad.ui.main_window")
+    if mw is None:               # test GUI nepoužil
+        return
+    from PySide6.QtWidgets import QApplication
+    for w in QApplication.topLevelWidgets():
+        if isinstance(w, mw.MainWindow):
+            w._autosave_timer.stop()
+
+
+@pytest.fixture(autouse=True)
 def _isolated_qsettings(tmp_path_factory, monkeypatch):
     """Každý test má vlastní úložiště QSettings – `QSettings("ENVO", "EnvoCAD")` (poslední projekty, zobrazení
     a export připomínek, tmavý motiv) nepíše do `~/.config/ENVO/EnvoCAD.conf` uživatele a testy se navzájem
@@ -58,6 +75,10 @@ def _qt_czech():
     """Jedna QApplication pro celou sadu (offscreen) s českými překlady Qt jako v `envocad.app.main` – testy GUI
     vidí stejná tlačítka (Ano/Ne/Storno) jako uživatel. Bez PySide6 (headless modelové testy) se přeskočí."""
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    if sys.platform == "win32" and os.environ["QT_QPA_PLATFORM"] == "offscreen":
+        # offscreen na Windows hledá písma (FreeType) ve složce Qt, kterou kola PySide6 nemají → text se do PDF
+        # vůbec nevykreslí; systémová písma (Arial) jako v běžném okně
+        os.environ.setdefault("QT_QPA_FONTDIR", os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts"))
     try:
         from PySide6.QtWidgets import QApplication
     except ImportError:

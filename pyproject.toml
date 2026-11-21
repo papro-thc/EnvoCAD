@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-cov", "hypothesis", "ruff", "pyinstaller", "pypdfium2"]   # pypdfium2: test vykreslení PDF
+dev = ["pytest", "pytest-cov", "hypothesis", "ruff", "pyinstaller", "pypdfium2", "pillow"]   # pypdfium2 + pillow: test vykreslení PDF
 
 [project.scripts]
 envocad = "envocad.app:main"
@@ -34,3 +34,4 @@ target-version = "py311"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+faulthandler_timeout = 300   # zaseknutý test (např. modální dialog) vypíše zásobník místo tichého timeoutu CI
