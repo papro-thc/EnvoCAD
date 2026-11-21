@@ -108,8 +108,11 @@ jobs:
           body=$(printf '{"model":"%s","max_tokens":8,"messages":[{"role":"user","content":"ping"}]}' "$MODEL")
           code=$(curl -sS -m 60 -o "$RUNNER_TEMP/ping.json" -w '%{http_code}' "${BASE%/}/v1/messages" \
                  -H "x-api-key: $KEY" -H "authorization: Bearer $KEY" -H "anthropic-version: 2023-06-01" \
-                 -H "content-type: application/json" -d "$body") || code="curl-chyba"
-          echo "OmniRoute ${BASE%%://*}://… model $MODEL → HTTP $code"
+                 -H "content-type: application/json" -d "$body" 2>"$RUNNER_TEMP/curl.err") || code="curl-chyba"
+          host=${BASE#*://}; host=${host%%/*}
+          # adresa je secret – v hlášce curl ji nahradit
+          [ -s "$RUNNER_TEMP/curl.err" ] && sed "s/$host/<OMNIROUTE_BASE_URL>/g" "$RUNNER_TEMP/curl.err"
+          echo "OmniRoute model $MODEL → HTTP $code"
           head -c 600 "$RUNNER_TEMP/ping.json" 2>/dev/null; echo
           [ "$code" = "200" ] || { echo "::error::OmniRoute neodpověděl 200 (HTTP $code) – viz výstup kroku"; exit 1; }
 
