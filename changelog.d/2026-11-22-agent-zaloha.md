@@ -1,0 +1,1 @@
+- **Agent: kontrola AGENT_GH_TOKEN a záloha commitů** – noční běh ověří právo zápisu PAT před spuštěním Clauda a commity agenta uloží jako artefakt, aby se práce při selhání push neztratila
