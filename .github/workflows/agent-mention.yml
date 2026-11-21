@@ -50,12 +50,11 @@ jobs:
 
       - uses: anthropics/claude-code-action@v1
         env:
-          ANTHROPIC_BASE_URL: ${{ secrets.OMNIROUTE_BASE_URL }}
           ANTHROPIC_DEFAULT_OPUS_MODEL: ${{ vars.AGENT_MODEL_OPUS || 'claude-opus-5-5' }}
           ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ vars.AGENT_MODEL_SONNET || 'claude-sonnet-5-5' }}
           ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ vars.AGENT_MODEL_HAIKU || 'claude-haiku-5-5' }}
         with:
-          anthropic_api_key: ${{ secrets.OMNIROUTE_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}   # předplatné Claude (claude setup-token)
           github_token: ${{ secrets.AGENT_GH_TOKEN }}   # PAT, aby push opravy spustil CI
           branch_prefix: "claude/"
           plugin_marketplaces: https://github.com/affaan-m/ECC.git

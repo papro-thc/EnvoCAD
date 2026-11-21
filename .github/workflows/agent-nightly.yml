@@ -1,13 +1,12 @@
 # Noční agent: vezme JEDNU issue se štítkem agent-ready, orchestrátor (Fable) ji zpracuje a workflow otevře PR.
 #
-# Claude běží přes OmniRoute (ANTHROPIC_BASE_URL) a NEMÁ právo pushovat (contents: read, checkout bez credentials).
+# Claude běží na předplatném Claude (CLAUDE_CODE_OAUTH_TOKEN) a NEMÁ právo pushovat (contents: read, checkout bez credentials).
 # Větev a PR vytvoří až krok „Push a PR“ tokenem AGENT_GH_TOKEN, a jen pro větev agent/issue-<N>-*.
 #
-# Secrets:   OMNIROUTE_BASE_URL  veřejná HTTPS adresa OmniRoute (ne localhost – runner běží v cloudu GitHubu)
-#            OMNIROUTE_API_KEY   klíč OmniRoute
+# Secrets:   CLAUDE_CODE_OAUTH_TOKEN  token předplatného Claude z `claude setup-token`
 #            AGENT_GH_TOKEN      fine-grained PAT jen na toto repo: Contents RW, Pull requests RW, Issues RW
 #                                (PR založený GITHUB_TOKENem by nespustil CI)
-# Variables (volitelné, když OmniRoute používá jiná jména modelů):
+# Variables (volitelné, jiné modely než výchozí):
 #            AGENT_MODEL_ORCHESTRATOR (claude-fable-5-2), AGENT_MODEL_OPUS, AGENT_MODEL_SONNET, AGENT_MODEL_HAIKU
 #            AGENT_MAX_TURNS (150)
 name: Agent – noční issue
@@ -21,8 +20,10 @@ on:
         description: "Číslo issue (prázdné = nejstarší agent-ready)"
         required: false
 
+# Ruční spuštění s číslem issue má vlastní skupinu → víc issue může běžet paralelně (každá zvlášť, stejná issue
+# nikdy dvakrát). Noční cron a ruční spuštění bez čísla sdílejí skupinu „agent-auto“ (jedna za druhou).
 concurrency:
-  group: agent
+  group: agent-${{ inputs.issue || 'auto' }}
   cancel-in-progress: false
 
 permissions:
@@ -94,19 +95,24 @@ jobs:
           } >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/agent"
 
+      - name: Kontrola tokenu Claude
+        env:
+          TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          [ -n "$TOKEN" ] || { echo "::error::Chybí secret CLAUDE_CODE_OAUTH_TOKEN (claude setup-token → gh secret set CLAUDE_CODE_OAUTH_TOKEN)"; exit 1; }
+
       - name: Štítek agent-in-progress
         run: gh issue edit "$ISSUE" -R "$REPO" --add-label agent-in-progress
 
-      - name: Orchestrátor (Fable přes OmniRoute)
+      - name: Orchestrátor (Fable)
         id: claude
         uses: anthropics/claude-code-action@v1
         env:
-          ANTHROPIC_BASE_URL: ${{ secrets.OMNIROUTE_BASE_URL }}
           ANTHROPIC_DEFAULT_OPUS_MODEL: ${{ vars.AGENT_MODEL_OPUS || 'claude-opus-5-5' }}
           ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ vars.AGENT_MODEL_SONNET || 'claude-sonnet-5-5' }}
           ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ vars.AGENT_MODEL_HAIKU || 'claude-haiku-5-5' }}
         with:
-          anthropic_api_key: ${{ secrets.OMNIROUTE_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}   # předplatné Claude (claude setup-token)
           github_token: ${{ github.token }}
           plugin_marketplaces: https://github.com/affaan-m/ECC.git
           plugins: ecc@ecc

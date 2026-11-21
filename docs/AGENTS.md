@@ -71,12 +71,12 @@ ráno: projdeš PR, stáhneš build z artefaktů, sloučíš – nebo napíšeš
 ### Jednorázové nastavení
 1. Štítky: `tools/setup_agent_labels.sh`
 2. Secrets (Settings → Secrets and variables → Actions):
-   - `OMNIROUTE_BASE_URL` – **veřejná** HTTPS adresa OmniRoute. `http://localhost:20128` z cloudu GitHubu nefunguje,
-     OmniRoute musí být vystavený (např. Cloudflare Tunnel / Tailscale Funnel) s vlastním API klíčem.
-   - `OMNIROUTE_API_KEY` – klíč OmniRoute (posílá se jako `x-api-key`).
+   - `CLAUDE_CODE_OAUTH_TOKEN` – token předplatného Claude (Pro/Max): lokálně `claude setup-token`, výsledek
+     `gh secret set CLAUDE_CODE_OAUTH_TOKEN` (nikdy do chatu ani do souboru). Agenti čerpají limity předplatného,
+     sdílené s vlastní prací – noční běh v 01:00 UTC.
    - `AGENT_GH_TOKEN` – fine-grained PAT jen na `papro-thc/EnvoCAD`: Contents RW, Pull requests RW, Issues RW.
      (PR založený výchozím `GITHUB_TOKEN` by nespustil CI.)
-3. Variables (volitelné, když OmniRoute pojmenovává modely jinak): `AGENT_MODEL_ORCHESTRATOR` (výchozí
+3. Variables (volitelné, jiné modely než výchozí): `AGENT_MODEL_ORCHESTRATOR` (výchozí
    `claude-fable-5-2`), `AGENT_MODEL_OPUS` (`claude-opus-5-5`), `AGENT_MODEL_SONNET` (`claude-sonnet-5-5`),
    `AGENT_MODEL_HAIKU` (`claude-haiku-5-5`), `AGENT_MAX_TURNS` (150). Pole `model:` v `.claude/agents/*.md`
    (`opus`/`sonnet`/`haiku`) se na ně mapují přes `ANTHROPIC_DEFAULT_*_MODEL`.
