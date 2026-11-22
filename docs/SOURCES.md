@@ -4,7 +4,7 @@
 
 | Zdroj | Co | Licence | Stav v EnvoCAD |
 |---|---|---|---|
-| [QElectroTech elements](https://github.com/qelectrotech/qelectrotech-elements) | 8 800+ značek IEC 60617 (.elmt XML), vč. výrobců (ABB, Eaton, Schneider, Siemens) | použití ve schématech bez podmínek; šíření CC BY 3.0 | **importováno 673** (jednopól + vybrané vícepólové skupiny), `library/qet_import.py`, `builtin/qet/ATTRIBUTION.md` |
+| [QElectroTech elements](https://github.com/qelectrotech/qelectrotech-elements) | 8 800+ značek IEC 60617 (.elmt XML), vč. výrobců (ABB, Eaton, Schneider, Siemens) | použití ve schématech bez podmínek; šíření CC BY 3.0, úpravy nutno označit; zákaz použití pro trénink ML ([ELEMENTS.LICENSE](https://github.com/qelectrotech/qelectrotech-elements/blob/main/ELEMENTS.LICENSE)) | **importováno 673** (jednopól + vybrané vícepólové skupiny), `library/qet_import.py`, `builtin/qet/ATTRIBUTION.md` |
 | KiCad symbol libs | elektronika, ne silnoproud | CC BY-SA 4.0 | nepoužito |
 
 ## EPLAN – formáty a komunitní nástroje
