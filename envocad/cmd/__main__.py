@@ -1,10 +1,12 @@
 """CLI příkazového řádku: `python -m envocad.cmd projekt.ecp skript.ecs [-o výstup.ecp [--force] | --in-place]
-[--dry-run] [--json] [--keep-going] [--no-user-aliases] [--plugins] [--var name=value …]`. Skript `-` = ze stdin.
+[--dry-run] [--json] [--keep-going] [--no-user-aliases] [--plugins] [--fail-on chyba|varování]
+[--var name=value …]`. Skript `-` = ze stdin.
 Exporty (EXPORT_DXF, EXPORT_PDF, DOC_PDF) jen do složky skriptu; příkazy pluginů jen s `--plugins` (plugin je kód).
 Vstup i výstup je vždy UTF-8 (i v rouře na Windows), SAVE ve skriptu jen potvrdí cíl – zapisuje se až na konci.
 
 Bez `-o` / `--in-place` se nic neuloží (bezpečný výchozí stav pro agenty). Kód návratu 0 = vše v pořádku,
-1 = chyba příkazu, 2 = chybné použití (argumenty, soubor projektu / skriptu). Při první chybě konec bez uložení,
+1 = chyba příkazu, 2 = chybné použití (argumenty, soubor projektu / skriptu), 3 = jen s `--fail-on`: skript proběhl,
+ale kontrola F7 má nález dané nebo vyšší závažnosti (chyba příkazu má přednost). Při první chybě konec bez uložení,
 `--keep-going` pokračuje (a uloží). Před uložením se dopočtou odvozená data (kabely, vazby přívodů) a výstup
 dostane souhrn kontroly F7.
 """
@@ -16,7 +18,10 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-USAGE_ERROR, COMMAND_ERROR = 2, 1
+from envocad.model.checks import ERROR, WARNING
+
+CHECKS_FAILED, USAGE_ERROR, COMMAND_ERROR = 3, 2, 1
+FAIL_ON = {ERROR: (ERROR,), WARNING: (WARNING, ERROR)}     # hodnota --fail-on → závažnosti, které dají kód 3
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -36,6 +41,9 @@ def _parser() -> argparse.ArgumentParser:
                     help="bez uživatelských aliasů ~/.envocad/aliases.json (stejné chování na každém stroji)")
     ap.add_argument("--plugins", action="store_true",
                     help="načíst pluginy ~/.envocad/plugins (jejich příkazy; plugin běží s právy uživatele)")
+    ap.add_argument("--fail-on", choices=list(FAIL_ON), metavar="|".join(FAIL_ON),
+                    help=f"kód návratu {CHECKS_FAILED}, když kontrola F7 najde nález této nebo vyšší závažnosti "
+                         f"({ERROR} = jen chyby, {WARNING} = varování i chyby; info nikdy); bez volby se kód nemění")
     ap.add_argument("--var", action="append", default=[], metavar="NAME=VALUE", help="proměnná ${NAME} ve skriptu")
     return ap
 
@@ -159,7 +167,11 @@ def main(argv: list[str] | None = None) -> int:
             _emit("Neuloženo (bez -o / --in-place)", False)
         elif a.dry_run:
             _emit(f"--dry-run: neuloženo ({target})", False)
-    return COMMAND_ERROR if failed else 0
+    if failed:
+        return COMMAND_ERROR
+    if a.fail_on and any(counts[s] for s in FAIL_ON[a.fail_on]):
+        return CHECKS_FAILED
+    return 0
 
 
 if __name__ == "__main__":
