@@ -71,6 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.repository.default_branch }}   # agent vždy od main, i při spuštění workflow z jiné větve
           fetch-depth: 0
           persist-credentials: false   # Claude nemá čím pushnout
 
