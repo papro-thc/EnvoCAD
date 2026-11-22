@@ -1768,7 +1768,7 @@ class BulkElementDialog(QDialog):
         self.comp_button = QPushButton("Vybrat artikl z knihovny…")
         self.comp_button.clicked.connect(self.pick_component)
         self.comp_clear = QPushButton("Zrušit artikl")
-        self.comp_clear.clicked.connect(lambda: self.set_component(None))
+        self.comp_clear.clicked.connect(self._clear_component)
         row.addWidget(self.comp_label, 1)
         row.addWidget(self.comp_button)
         row.addWidget(self.comp_clear)
@@ -1832,6 +1832,9 @@ class BulkElementDialog(QDialog):
         else:
             text = f"Artikl: <i>{self.MIXED}</i>"
         self.comp_label.setText(text)
+
+    def _clear_component(self) -> None:
+        self.set_component(None)
 
     def set_component(self, component_id: str | None) -> None:
         """Nový artikl pro všechny prvky (None = artikl odebrat všem)."""
