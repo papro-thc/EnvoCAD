@@ -1,0 +1,1 @@
+- **Agent v popředí** – noční orchestrátor nespouští subagenty na pozadí a končí až po commitu nebo otázce v issue; souhrn běhu (nástroje, poslední odpověď) v Actions, název PR z issue, když ho agent nezapíše.

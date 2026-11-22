@@ -126,6 +126,8 @@ jobs:
           ANTHROPIC_DEFAULT_OPUS_MODEL: ${{ vars.AGENT_MODEL_OPUS || 'claude-opus-5-5' }}
           ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ vars.AGENT_MODEL_SONNET || 'claude-sonnet-5-5' }}
           ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ vars.AGENT_MODEL_HAIKU || 'claude-haiku-5-5' }}
+          # subagenti na pozadí by v neinteraktivním běhu skončili s koncem session – práce by se ztratila
+          CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1"
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}   # předplatné Claude (claude setup-token)
           github_token: ${{ github.token }}
@@ -133,7 +135,7 @@ jobs:
           plugins: ecc@ecc
           # GateGuard z ECC by v neinteraktivním běhu blokoval první Bash/Write
           settings: |
-            {"env": {"ECC_GATEGUARD": "off", "QT_QPA_PLATFORM": "offscreen", "PYTHONUTF8": "1"}}
+            {"env": {"ECC_GATEGUARD": "off", "QT_QPA_PLATFORM": "offscreen", "PYTHONUTF8": "1", "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"}}
           claude_args: >-
             --model ${{ vars.AGENT_MODEL_ORCHESTRATOR || 'claude-fable-5-2' }}
             --max-turns ${{ vars.AGENT_MAX_TURNS || '150' }}
@@ -156,6 +158,33 @@ jobs:
               nic necommituj a skonči.
             - Subagenty: `tester`, `implementer`, `reviewer` (+ `core-dev`, `gui-dev`, `symbol-author`, `data-entry`,
               `architekt` dle potřeby) a z pluginu ECC `ecc:python-reviewer`, `ecc:security-reviewer`, `ecc:code-explorer`.
+            - Běh je neinteraktivní: session končí tvou poslední odpovědí a nikdo ti neodpoví. Subagenty spouštěj
+              v popředí (nikdy `run_in_background`) a na výsledek každého počkej. Neodpovídej „pracuji na tom“ ani
+              neplánuj „pokračování“ – skonči až ve chvíli, kdy je hotovo jedno z:
+                a) commit(y) na větvi `agent/issue-${{ env.ISSUE }}-…` + zapsané `pr-title.txt` a `pr-body.md`
+                   (ověř `git log origin/main..HEAD --oneline` a `ls ${{ runner.temp }}/agent`), nebo
+                b) otázka v issue + štítek `agent-question`.
+            - Poslední odpověď: 2–5 řádků česky – co je hotovo, výsledek pytest/ruff, případně proč ne.
+
+      # výsledek orchestrátora (poslední odpověď, počty nástrojů a subagentů) do souhrnu běhu – plný výstup akce
+      # skrývá (veřejné repo), tohle stačí na diagnózu „agent nic necommitoval“
+      - name: Shrnutí běhu agenta
+        if: always() && steps.claude.conclusion != 'skipped'
+        env:
+          OUT: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          [ -s "$OUT" ] || exit 0
+          {
+            echo "### Orchestrátor – issue #$ISSUE"
+            jq -r '[.[] | select(.type=="result")][-1] | "turns: \(.num_turns), \(.duration_ms/60000|floor) min, $\(.total_cost_usd)"' "$OUT"
+            echo; echo "**Nástroje:**"
+            jq -r '[.[] | select(.type=="assistant") | .message.content[]? | select(.type=="tool_use")
+                    | if .name=="Agent" or .name=="Task" then "\(.name)(\(.input.subagent_type // "?")\(if .input.run_in_background then ", bg" else "" end))" else .name end]
+                   | group_by(.) | map("\(.[0]) ×\(length)") | join(", ")' "$OUT"
+            echo; echo "**Poslední odpověď:**"; echo '```'
+            jq -r '[.[] | select(.type=="result")][-1].result // "—"' "$OUT" | head -c 3000
+            echo; echo '```'
+          } >> "$GITHUB_STEP_SUMMARY" || true
 
       # commity agenta jako artefakt (git bundle) – když push nebo PR selže, práce se neztratí:
       #   gh run download <run> -n agent-issue-<N> && git fetch agent.bundle '+refs/heads/*:refs/remotes/agent/*'
@@ -199,9 +228,13 @@ jobs:
           python tools/check_licensed_data.py
           git push "https://x-access-token:${AGENT_GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/${branch}"
           title=$(head -n1 "$AGENT_OUT/pr-title.txt" 2>/dev/null || true)
+          [ -n "$title" ] || title=$(GH_TOKEN="${{ github.token }}" gh issue view "$ISSUE" -R "$REPO" --json title --jq .title)
           [ -n "$title" ] || title="Agent: issue #$ISSUE"
           body="$AGENT_OUT/pr-body.md"
-          [ -s "$body" ] || printf 'Closes #%s\n\n(Agent nezapsal popis PR.)\n' "$ISSUE" > "$body"
+          if [ ! -s "$body" ]; then
+            { printf 'Closes #%s\n\n(Agent nezapsal popis PR – commity:)\n\n' "$ISSUE"
+              git log origin/main..HEAD --format='- %s'; } > "$body"
+          fi
           grep -q "Closes #$ISSUE" "$body" || printf '\nCloses #%s\n' "$ISSUE" >> "$body"
           gh pr create -R "$REPO" --base main --head "$branch" --title "$title" --body-file "$body" --label agent
           gh issue edit "$ISSUE" -R "$REPO" --remove-label agent-in-progress
