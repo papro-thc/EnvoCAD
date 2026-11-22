@@ -651,7 +651,7 @@ def test_small_formatting_helpers():
 
 # ---------------------------------------------------------------- podezřelé chování (xfail)
 
-@pytest.mark.xfail(strict=True, reason="reports.py:313-315 – ruční svorka bez názvu svorkovnice („7“ místo „X1:7“) se "
+@pytest.mark.xfail(strict=True, reason="reports.terminals (rozklad desig.partition) – ruční svorka bez názvu svorkovnice („7“ místo „X1:7“) se "
                                        "parsuje jako strip=„7“, num=„“, takže sloupec Svorka dostane pořadí žíly (1), ne 7")
 def test_xfail_terminals_bare_manual_terminal_number(lib):
     p, s = _proj()
@@ -661,7 +661,7 @@ def test_xfail_terminals_bare_manual_terminal_number(lib):
     assert l1[1] == "7"
 
 
-@pytest.mark.xfail(strict=True, reason="reports.py:313-318 – bez prefixu svorkovnice se můstek hledá pod názvem „1“ "
+@pytest.mark.xfail(strict=True, reason="reports.terminals (stejná příčina) – bez prefixu svorkovnice se můstek hledá pod názvem „1“ "
                                        "(číslo svorky), ne „X1“, takže ruční svorka 1 z můstku 1-2-3 má prázdný sloupec "
                                        "Můstek, zatímco odvozená svorka 3 ho má")
 def test_xfail_terminals_bridge_for_manual_bare_terminal(lib):
