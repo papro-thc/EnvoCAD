@@ -27,6 +27,8 @@ envocad/
   library/    knihovna prvků
     store.py       SQLite úložiště symbolů a komponent (artiklů)
     dxf_import.py  DXF → Symbol
+    symbol_edit.py Úpravy portů a atributů značky pro editor symbolů (`ui/symbol_editor.py`); vestavěnou značku
+                   nepřepisuje, uloží kopii `<id>_N` (bez Qt)
     topologies.py  presety topologií (builtin/topologies, sdílená, ~/.envocad/topologies) – jako makra
     builtin/       startovní symboly (JSON), verzované v gitu
   generate.py   tenký re-export generátoru (build_project, DEFAULT_SPEC…) + CLI `python -m envocad.generate`

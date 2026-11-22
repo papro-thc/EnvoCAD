@@ -14,7 +14,7 @@ Pořadí = priorita, velikost S/M/L. Nejdřív důvěryhodnost výpočtů a lice
 2. [ ] Ověřit tabulky Iz a konstanty oteplení proti normě (M) – soupis údajů #79, ověření #82 (čeká na data z norem)
 3. [ ] Opravit atribuci značek z QET (odkaz, oznámení úprav, výjimka v LICENSE) (S) – #81
 4. [ ] Doplnit data knihovny (222 artiklů bez rozměrů, 138 jističů bez Pv) a import BMEcat/ETIM (L) – report #83, parser #84
-5. [ ] Editor symbolů v GUI (M) – fáze 1 #85
+5. [ ] Editor symbolů v GUI (M) – fáze 1 #85 (fáze 1 hotová: porty a atributy; zbývá fáze 2 – kreslení geometrie)
 6. [ ] První vydání s podepsaným buildem pro Windows (M) – #90 (způsob podpisu rozhodne člověk)
 7. [ ] Import PVsyst .PAN/.OND (S) – #86
 8. [ ] Ceny ve výkazech (S) – #87 (otázka DPH)
