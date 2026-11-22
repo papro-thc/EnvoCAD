@@ -12,6 +12,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction, QKeySequence, QUndoStack
 from PySide6.QtWidgets import (
     QApplication,
+    QDialog,
     QDockWidget,
     QFileDialog,
     QInputDialog,
@@ -321,6 +322,8 @@ class MainWindow(QMainWindow):
 
         m_sheet = mb.addMenu("&List")
         act(m_sheet, "Nový list schématu", self.new_schematic_sheet)
+        act(m_sheet, "Duplikovat list", lambda: self.duplicate_sheet(edit_refs=True))
+        act(m_sheet, "Přepsat označení listu…", lambda: self.edit_sheet_refs())
         act(m_sheet, "Vlastnosti listu (název, =funkce, +umístění)…", self.rename_sheet)
         act(m_sheet, "Odstranit list", self.delete_sheet)
         m_sheet.addSeparator()
@@ -699,6 +702,40 @@ class MainWindow(QMainWindow):
         sheet = Sheet(name=name)
         self.undo.push(commands.AddSheetCommand(self.project, sheet, on_change=self._sheet_presence_changed))
         self.open_sheet(sheet)
+
+    def duplicate_sheet(self, sheet: Sheet | None = None, edit_refs: bool = False) -> Sheet | None:
+        """List → Duplikovat list: kopie za originálem jedním krokem undo (u rozvaděče i blok, umístění, název), otevře
+        se její záložka. S `edit_refs` se hned nabídne přepsání označení kopie."""
+        sheet = sheet or self.current_sheet
+        if sheet is None:
+            return None
+        def changed(sh: Sheet, present: bool) -> None:
+            self._sheet_presence_changed(sh, present)
+            if cmd.result.block is not None:      # blok ROZVADĚČ přibyl / zmizel na nadřazeném listu (redo i undo)
+                self._rebuild_sheet_views(cmd.result.parent)
+        cmd = commands.DuplicateSheetCommand(self.project, sheet, self.library, on_change=changed)
+        self.undo.push(cmd)
+        res = cmd.result
+        if res is None:
+            return None
+        self.open_sheet(res.sheet)
+        self.statusBar().showMessage(f"Vytvořena kopie listu: {res.sheet.name}", 5000)
+        if edit_refs:
+            self.edit_sheet_refs(res.sheet)
+        return res.sheet
+
+    def edit_sheet_refs(self, sheet: Sheet | None = None) -> None:
+        """List → Přepsat označení listu: všechna označení prvků a vodičů listu najednou, jeden krok undo."""
+        sheet = sheet or self.current_sheet
+        if sheet is None:
+            return
+        from envocad.ui.sheet_refs_dialog import SheetRefsDialog
+        dlg = SheetRefsDialog(self.project, sheet, self, library=self.library)
+        if dlg.exec() != QDialog.Accepted or not dlg.changes():
+            return
+        changes = dlg.all_changes()
+        self.undo.push(commands.TextChangesCommand(self.project, changes, self._refs_changed, "Přepsat označení listu"))
+        self.statusBar().showMessage(f"Přepsáno označení: {len(dlg.changes())}", 5000)
 
     def _close_sheet_tabs(self, sheet: Sheet) -> list[str]:
         """Zavře všechny záložky listu (i poslední – smazaný list nesmí zůstat zobrazený); vrátí jejich druhy."""
