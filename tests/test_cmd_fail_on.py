@@ -9,18 +9,13 @@ from pathlib import Path
 
 import pytest
 
-from envocad.cmd.__main__ import COMMAND_ERROR, USAGE_ERROR, main
+from envocad.cmd.__main__ import CHECKS_FAILED, COMMAND_ERROR, USAGE_ERROR, main
 from envocad.library.store import LibraryStore
 from envocad.model.checks import ERROR, INFO, WARNING, check_project
 from envocad.model.project import Element, Note, Project
 from envocad.settings import switchboard_paper
 
 ROOT = Path(__file__).resolve().parent.parent
-
-
-def _checks_failed() -> int:
-    from envocad.cmd import __main__ as m
-    return m.CHECKS_FAILED
 
 
 def _breaker(ref: str, x: float) -> Element:
@@ -83,7 +78,7 @@ def test_premise_project_severities(state, has_error, has_warning, has_info, lib
 
 
 def test_constant_checks_failed():
-    assert _checks_failed() == 3 and len({_checks_failed(), USAGE_ERROR, COMMAND_ERROR}) == 3
+    assert CHECKS_FAILED == 3 and len({CHECKS_FAILED, USAGE_ERROR, COMMAND_ERROR}) == 3
 
 
 @pytest.mark.parametrize("state", list(BUILDERS))
@@ -95,18 +90,18 @@ def test_without_switch_exit_code_unchanged(make, state):
 @pytest.mark.parametrize("state, fails", [("clean", False), ("info", False), ("warning", False), ("error", True)])
 def test_fail_on_error(make, state, fails):
     proj, scr = make(state)
-    assert main([str(proj), str(scr), "--fail-on", ERROR]) == (_checks_failed() if fails else 0)
+    assert main([str(proj), str(scr), "--fail-on", ERROR]) == (CHECKS_FAILED if fails else 0)
 
 
 @pytest.mark.parametrize("state, fails", [("clean", False), ("info", False), ("warning", True), ("error", True)])
 def test_fail_on_warning(make, state, fails):
     proj, scr = make(state)
-    assert main([str(proj), str(scr), "--fail-on", WARNING]) == (_checks_failed() if fails else 0)
+    assert main([str(proj), str(scr), "--fail-on", WARNING]) == (CHECKS_FAILED if fails else 0)
 
 
 def test_fail_on_equals_form(make):
     proj, scr = make("error")
-    assert main([str(proj), str(scr), f"--fail-on={ERROR}"]) == _checks_failed()
+    assert main([str(proj), str(scr), f"--fail-on={ERROR}"]) == CHECKS_FAILED
 
 
 @pytest.mark.parametrize("level", [ERROR, WARNING])
@@ -133,7 +128,7 @@ def test_help_mentions_fail_on(capsys):
 
 
 @pytest.mark.parametrize("level, state, code", [
-    (ERROR, "error", 3), (ERROR, "warning", 0), (WARNING, "warning", 3), (WARNING, "info", 0)])
+    (ERROR, "error", CHECKS_FAILED), (ERROR, "warning", 0), (WARNING, "warning", CHECKS_FAILED), (WARNING, "info", 0)])
 def test_json_summary_kept_and_code_follows(make, capsys, level, state, code):
     proj, scr = make(state)
     assert main([str(proj), str(scr), "--json", "--fail-on", level]) == code
@@ -144,14 +139,14 @@ def test_json_summary_kept_and_code_follows(make, capsys, level, state, code):
 
 def test_text_summary_still_printed(make, capsys):
     proj, scr = make("error")
-    assert main([str(proj), str(scr), "--fail-on", ERROR]) == _checks_failed()
+    assert main([str(proj), str(scr), "--fail-on", ERROR]) == CHECKS_FAILED
     assert "Kontrola F7" in capsys.readouterr().out
 
 
 def test_fail_on_does_not_block_saving(make, tmp_path):
     proj, scr = make("error")
     out = tmp_path / "out.ecp"
-    assert main([str(proj), str(scr), "-o", str(out), "--fail-on", ERROR]) == _checks_failed()
+    assert main([str(proj), str(scr), "-o", str(out), "--fail-on", ERROR]) == CHECKS_FAILED
     assert out.exists()
 
 
@@ -165,5 +160,5 @@ def _cli(*args) -> subprocess.CompletedProcess:
 def test_subprocess_exit_codes(make):
     proj, scr = make("error")
     assert _cli(proj, scr).returncode == 0
-    assert _cli(proj, scr, "--fail-on", ERROR).returncode == _checks_failed()
+    assert _cli(proj, scr, "--fail-on", ERROR).returncode == CHECKS_FAILED
     assert _cli(proj, scr, "--fail-on", INFO).returncode == USAGE_ERROR

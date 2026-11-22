@@ -18,7 +18,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from envocad.model.checks import ERROR, WARNING
+from envocad.model.checks import ERROR, WARNING, check_project
 
 CHECKS_FAILED, USAGE_ERROR, COMMAND_ERROR = 3, 2, 1
 FAIL_ON = {ERROR: (ERROR,), WARNING: (WARNING, ERROR)}     # hodnota --fail-on → závažnosti, které dají kód 3
@@ -141,7 +141,6 @@ def main(argv: list[str] | None = None) -> int:
         return COMMAND_ERROR
     failed = not rep.ok
     saved = None
-    from envocad.model.checks import check_project
     from envocad.settings import switchboard_paper
     if not failed or a.keep_going:
         sync_derived(project)
