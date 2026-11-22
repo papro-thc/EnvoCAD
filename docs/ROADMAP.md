@@ -1,6 +1,6 @@
 # Roadmap
 
-## Silné stránky EnvoCADu (srovnání 11/2026, `docs/research/03_srovnani.md`)
+## Silné stránky EnvoCADu (srovnání 11/2026, `docs/research/03_doporuceni.md`)
 - **Specializace na FVE**: žádný z 8 srovnávaných nástrojů (EPLAN, WSCAD, SEE Electrical, Zuken E3, AutoCAD Electrical,
   ProfiCAD, QElectroTech, PV nástroje) nespojuje výpočty stringů (Uoc/Isc za teploty, gPV, SPD DC, Icu/Icw) s kreslením
   rozvaděčů, svorkovnic a generátorem projektu z jedné specifikace. PV nástroje (PVsyst, PVcase, SurgePV) končí u
@@ -33,7 +33,7 @@ Mimo top 10: anglické rozhraní (výstupy zůstávají česky) – fáze 1 #91.
 - [x] Export DXF, PDF
 - [x] Tmavý režim
 - [x] Dialog parametrů při vložení prvku/vodiče
-- [x] Rámeček a popisové pole listu (šablona ENVO) – logo doplnit po dodání
+- [x] Rámeček a popisové pole listu (šablona ENVO) – logo ENVO doplněno 10/2026 (`envocad/resources/envo_logo.json`)
 - [x] Příkazový řádek (styl ZWCAD/CADCraft): každá akce = příkaz, ovladatelné i z agentů – hotovo 10/2026: jádro `envocad/cmd`, skripty `.ecs`, CLI `python -m envocad.cmd` (fáze 1), dok v okně (fáze 2, PR #41), pluginy / „Spustit skript…“ / export (fáze 3, PR #42), našeptávač jako v ZWCAD (PR #45); `docs/design/prikazovy_radek.md`
 - [x] Aktualizace při spuštění na vydané verze (tagy), klon repozitáře i samostatná aplikace ze sdílené složky – hotovo 10/2026, `docs/RELEASE.md`; zbývá: první vydání (`tools/release.py`), sdílená složka vydání a ikona aplikace
 - [x] Automatické číslování označení (T1, F1, Q1…) s kontrolou duplicit – nové prvky a kopie dostanou další volné číslo, F7 hlásí duplicity, Úpravy → Přečíslovat označení (podle polohy, jen chybějící/duplicitní nebo vše, kontakty s cívkou, 10/2026)
@@ -83,7 +83,7 @@ Mimo top 10: anglické rozhraní (výstupy zůstávají česky) – fáze 1 #91.
 ## Nad rámec EPLAN – hotovo 10/2026
 - [x] Výpočty z modelu (stringy, Iz, In ≤ Iz, úbytky, selektivita) v kontrole a výkazu
 - [x] Průvodce / specifikace JSON → projekt (rozhraní pro agenty), porovnání revizí → změnový list, TZ docx, data pro DS
-- [x] Autosave, poslední projekty, PDF A4, štítky CSV, QR v popisovém poli, sdílená knihovna, firemní standard
+- [x] Autosave, poslední projekty, PDF A4, štítky CSV, sdílená knihovna, firemní standard
 - [ ] Slovenská mutace výstupů (odloženo na přání)
 - [ ] Výpočty: tabulky Iz ověřit proti normě, seskupení kabelů, teplota půdy; selektivita podle křivek výrobců
 - [ ] Průvodce: DC rozvaděč, baterie, více AC rozvaděčů, výběr modulu/střídače z knihovny (dnes ručně) – baterie hotovo
@@ -101,9 +101,9 @@ Mimo top 10: anglické rozhraní (výstupy zůstávají česky) – fáze 1 #91.
 - [ ] Vícepatrové svorky, N-odpojovací svorky jako druh (svorkovnice přes více stran – hotovo 10/2026 stránkováním vícepólu)
 - [x] Makra (oblíbené sestavy) – hotovo 10/2026; zbývá: kopírování celého listu, hromadné přečíslování, editor značek v GUI
 - [ ] Štítky ve formátu tiskáren (Brady/Partex), výkaz artiklů po dodavatelích s objednacími čísly
-- [ ] Číslování stran celé dokumentace i v rámečku listů – hotovo 10/2026: popisové pole „Strana n/N“ vedle čísla
-  listu (`meta["doc_pages"]` z exportu dokumentace / Projekt → Přečíslovat strany dokumentace); zbývá: logo ENVO
-  v popisovém poli (po dodání)
+- [x] Číslování stran celé dokumentace i v rámečku listů – hotovo 10/2026: popisové pole „Strana n/N“ vedle čísla
+  listu (`meta["doc_pages"]` z exportu dokumentace / Projekt → Přečíslovat strany dokumentace); logo ENVO
+  v popisovém poli doplněno 10/2026 (`envocad/resources/envo_logo.json`)
 - [ ] Přerušovací body v zapojovacím seznamu jako průchod (potenciál pokračuje), vodič z vodiče
 
 ## Z rešerše EPLAN 2026 (10/2026)
