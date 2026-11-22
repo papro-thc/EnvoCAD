@@ -8,21 +8,33 @@ v transakci runneru (snímek `sheets_state` před a po → `ChangeSet`). Shodu v
 """
 from __future__ import annotations
 
+import copy
+import re
+from dataclasses import dataclass, field
+
 from envocad.model.grid import snap
 from envocad.model.multipole import branch_conductors, default_conductors
 from envocad.model.project import (
     FEED_SYMBOLS,
+    INTERRUPT_SYMBOL,
+    LOC,
     WIRE_ATTRIBUTES,
     ConductorChange,
     Element,
+    Layout,
     Project,
     Sheet,
+    SheetText,
+    StructureId,
     TextChange,
     Wire,
     WireEnd,
+    _uid,
     apply_conductor_changes,
     apply_text_changes,
     copy_fragment,
+    detach_element_attrs,
+    detach_wire_attrs,
     effective_feed_wire,
     feed_conductor_changes,
     feed_conductor_followups,
@@ -30,6 +42,7 @@ from envocad.model.project import (
     feed_link_attrs,
     feed_port_followups,
     internal_wires,
+    is_contact,
     paste_fragment,
     rename_followups,
     rename_structure,
@@ -260,3 +273,147 @@ def set_attr(project: Project, sheet: Sheet, target_id: str, is_wire: bool, key:
     if texts:
         apply_text_changes(project, texts)
     return True
+
+
+# ---- listy -------------------------------------------------------------------------------------------------------
+@dataclass
+class SheetCopy:
+    """Výsledek `duplicate_sheet`: nový list (už vložený do `project.sheets`), u listu rozvaděče s blokem nový blok
+    ROZVADĚČ (vložený do nadřazeného listu `parent`) a zobrazení id originálu → kopie."""
+    sheet: Sheet
+    block: Element | None = None
+    parent: Sheet | None = None
+    element_ids: dict[str, str] = field(default_factory=dict)
+    wire_ids: dict[str, str] = field(default_factory=dict)
+
+
+def _ref_prefix_of(lib):
+    """Předpona označení značky pro `paste_fragment`; značka, kterou knihovna nezná, je bez předpony (označení
+    kopie zůstane) – duplikace listu kvůli ní nesmí spadnout."""
+    def prefix(symbol_id: str) -> str:
+        try:
+            return lib.get_symbol(symbol_id).iec_ref
+        except KeyError:
+            return ""
+    return prefix
+
+
+def _copy_name(project: Project, name: str) -> str:
+    """„<název> – kopie“, při kolizi „– kopie 2“…"""
+    taken = {s.name for s in project.sheets}
+    cand, n = f"{name} – kopie", 1
+    while cand in taken:
+        n += 1
+        cand = f"{name} – kopie {n}"
+    return cand
+
+
+def _free_designation(project: Project, ref: str) -> str:
+    """Nejbližší volné označení tvaru předpona + číslo od `ref` výš (vůči označením prvků, `loc` listů a kódům „+“
+    v registru); `ref` jiného tvaru → "". Volné `ref` zůstane."""
+    m = re.fullmatch(r"([^\d\s]+)(\d+)", ref or "")
+    if not m:
+        return ""
+    taken = (project.used_refs() | {s.loc for s in project.sheets}
+             | {x.code for x in project.structures if x.aspect == LOC})
+    n = int(m.group(2))
+    while f"{m.group(1)}{n}" in taken:
+        n += 1
+    return f"{m.group(1)}{n}"
+
+
+def _duplicate_schematic(project: Project, sheet: Sheet, lib, new: Sheet) -> tuple[dict[str, str], dict[str, str]]:
+    """Prvky a vodiče schématu přečíslované jako kopie přes schránku (`copy_fragment` + `paste_fragment`)."""
+    ids = [e.id for e in sheet.elements]
+    els, wires = paste_fragment(project, copy_fragment(sheet, ids), _ref_prefix_of(lib), 0.0, 0.0,
+                                target=new)
+    idmap = {e.id: ne.id for e, ne in zip(sheet.elements, els)}
+    kept = [w for w in sheet.wires if w.a.element_id in idmap and w.b.element_id in idmap]
+    for e, ne in zip(sheet.elements, els):
+        ne.mp_pos, ne.sl_pos = e.mp_pos, e.sl_pos          # ruční polohy jsou geometrie, ne číslování
+    # přerušovací body párují protějšky označením – kopie ho nemá; kontakt jde s cívkou / přístrojem, který se
+    # přečísloval (K1 → K2), kontakt bez přístroje na listu si nechá své označení
+    device_ref: dict[str, str] = {}
+    for e, ne in zip(sheet.elements, els):
+        if e.ref and not is_contact(e) and e.symbol_id != INTERRUPT_SYMBOL:
+            device_ref.setdefault(e.ref, ne.ref)
+    for e, ne in zip(sheet.elements, els):
+        if e.symbol_id == INTERRUPT_SYMBOL:
+            ne.attrs["ref"] = ""
+        elif is_contact(e) and e.ref in device_ref:
+            ne.attrs["ref"] = device_ref[e.ref]
+    new.elements, new.wires = els, wires
+    return idmap, {w.id: nw.id for w, nw in zip(kept, wires)}
+
+
+def _duplicate_switchboard(sheet: Sheet, new: Sheet) -> tuple[dict[str, str], dict[str, str]]:
+    """List rozvaděče: označení prvků (i `terminal`) a vodičů zůstanou, vazby na originál se odpojí (přívod bez
+    `wire_id`, vodič bez `cable_id`); můstky a rozložení se zkopírují s přemapovanými id prvků."""
+    idmap: dict[str, str] = {}
+    for e in sheet.elements:
+        ne = copy.deepcopy(e)
+        ne.id = _uid()
+        ne.attrs = detach_element_attrs(e.symbol_id, e.attrs)
+        if "sheet" in ne.attrs:
+            ne.attrs["sheet"] = ""            # vnořený blok ROZVADĚČ: kopie nemá list (jako `paste_fragment`)
+        idmap[e.id] = ne.id
+        new.elements.append(ne)
+    wire_ids: dict[str, str] = {}
+    for w in sheet.wires:
+        nw = copy.deepcopy(w)
+        nw.id = _uid()
+        nw.a, nw.b = WireEnd(idmap.get(w.a.element_id, w.a.element_id), w.a.port), \
+            WireEnd(idmap.get(w.b.element_id, w.b.element_id), w.b.port)
+        nw.attrs = detach_wire_attrs(w.attrs)
+        wire_ids[w.id] = nw.id
+        new.wires.append(nw)
+    new.bridges = copy.deepcopy(sheet.bridges)
+    d = sheet.layout.to_dict()
+    for pl in d["placements"]:
+        pl["element_id"] = idmap.get(pl["element_id"], pl["element_id"])
+    new.layout = Layout.from_dict(d)
+    return idmap, wire_ids
+
+
+def duplicate_sheet(project: Project, sheet: Sheet, lib) -> SheetCopy:
+    """Zduplikuje list a vloží kopii hned za originál (`Project.sheets`); originál se nemění, revizní značky a
+    připomínky se nekopírují.
+
+    Schéma: prvky a vodiče se přečíslují jako při kopii (`paste_fragment`), přerušovací body v kopii nemají
+    označení, kontakty sledují přečíslovanou cívku. List rozvaděče: označení prvků zůstanou a kopie se přeznačí –
+    blok ROZVADĚČ na nadřazeném listu se zkopíruje (nové označení = umístění kopie, záznam „+“ v registru, název
+    listu); bez bloku dostane kopie další volné umístění. Při vložení do listu mění jen `project.sheets`,
+    `project.structures` a nadřazený list (undo: `ui.commands.DuplicateSheetCommand`)."""
+    new = Sheet(name=_copy_name(project, sheet.name), paper=sheet.paper, width=sheet.width, height=sheet.height,
+                kind=sheet.kind, func=sheet.func, loc=sheet.loc, mp_paper=sheet.mp_paper)
+    new.texts = [SheetText(t.x, t.y, t.text, t.height) for t in sheet.texts]
+    if not sheet.is_switchboard:
+        idmap, wire_ids = _duplicate_schematic(project, sheet, lib, new)
+        project.sheets.insert(project.sheets.index(sheet) + 1, new)
+        return SheetCopy(new, element_ids=idmap, wire_ids=wire_ids)
+    idmap, wire_ids = _duplicate_switchboard(sheet, new)
+    parent = project.sheet_of_element(sheet.parent_element_id) if sheet.parent_element_id else None
+    block = parent.element(sheet.parent_element_id) if parent is not None else None
+    if block is None:
+        new.parent_element_id, new.loc = None, _free_designation(project, sheet.loc)
+        project.sheets.insert(project.sheets.index(sheet) + 1, new)
+        return SheetCopy(new, element_ids=idmap, wire_ids=wire_ids)
+    # blok existující logikou kopie prvků (označení RDC1 → RDC2); kolize s `loc` listů a kódy „+“ → další volné číslo
+    els, _ = paste_fragment(project, copy_fragment(parent, [block.id]), _ref_prefix_of(lib),
+                            target=parent)
+    nb = els[0]
+    free = _free_designation(project, nb.ref)
+    if free:
+        nb.attrs["ref"] = free
+    old = block.ref
+    if old and (sheet.name == old or sheet.name.startswith(old + " ")) and nb.ref:
+        new.name = nb.ref + sheet.name[len(old):]
+        if new.name in {s.name for s in project.sheets}:
+            new.name = _copy_name(project, sheet.name)
+    new.parent_element_id, new.loc = nb.id, nb.ref
+    nb.attrs["sheet"] = new.name
+    parent.elements.append(nb)
+    if nb.ref and project.structure(LOC, nb.ref) is None:
+        project.structures.append(StructureId(LOC, nb.ref, nb.attrs.get("desc", "")))
+    project.sheets.insert(project.sheets.index(sheet) + 1, new)
+    return SheetCopy(new, nb, parent, idmap, wire_ids)
