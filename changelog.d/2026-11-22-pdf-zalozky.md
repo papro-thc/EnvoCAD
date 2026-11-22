@@ -1,0 +1,1 @@
+- **PDF „Celá dokumentace“ má záložky** – osnova PDF s jednou záložkou na každý řádek obsahu (titulní list, listy, výkazy…), `export/pdf_outline.py`
