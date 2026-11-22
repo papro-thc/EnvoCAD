@@ -1,5 +1,5 @@
-"""Připomínky jako anotace PDF (komentáře v Acrobatu / prohlížečích) – post-processing hotového PDF přes pypdf.
-Bez Qt. QPdfWriter anotace neumí, proto se doplní do souboru až po vykreslení (`pdf_export`, `doc_pdf`).
+"""Anotace hotového PDF přes pypdf: připomínky (komentáře v Acrobatu / prohlížečích) a klikací křížové odkazy
+(`/Link` na stranu cílového listu, `add_link_annotations`). Bez Qt. QPdfWriter anotace neumí, proto se doplní do souboru až po vykreslení (`pdf_export`, `doc_pdf`).
 
 Bod → `/Text` (ikona komentáře), obdélník → `/Square`; každá má `/Popup` a `/NM envocad:<id>` (pro budoucí
 import odpovědí). Vyřešená připomínka dostane odpověď (`/IRT`) se stavem `/StateModel /Review /State /Completed`.
@@ -155,6 +155,52 @@ def add_note_annotations(path: Path | str, pages: list[tuple[int, PageMap, list[
                 if rdate:
                     reply[name("/M")] = text(rdate)
                 writer.add_annotation(page_idx, reply)
+            count += 1
+    buf = io.BytesIO()
+    writer.write(buf)
+    p.write_bytes(buf.getvalue())
+    return count
+
+
+def add_link_annotations(path: Path | str, pages: list[tuple[int, PageMap, list[tuple[tuple[float, float, float, float], int]]]]) -> int:
+    """Doplní do hotového PDF `path` klikací odkazy (`/Link`). `pages` = (index zdrojové strany od 0, převod,
+    [(obdélník v mm listu, Y nahoru; index cílové strany od 0)]). Odkaz je bez rámečku a nemění vzhled strany; míří
+    na začátek cílové strany. Soubor se přepíše jen pokud je co přidat. Vrací počet odkazů; neplatný index
+    strany → `IndexError`."""
+    items = [(i, pm, ls) for i, pm, ls in pages if ls]
+    if not items:
+        return 0
+    from pypdf import PdfReader, PdfWriter
+    from pypdf.generic import ArrayObject, DictionaryObject, FloatObject, NameObject, NullObject, NumberObject
+
+    p = Path(path)
+    writer = PdfWriter(clone_from=PdfReader(io.BytesIO(p.read_bytes())))
+    n_pages = len(writer.pages)
+    count = 0
+    for page_idx, pm, links in items:
+        if not 0 <= page_idx < n_pages:
+            raise IndexError(f"PDF nemá stranu {page_idx + 1}")
+        mb = writer.pages[page_idx].mediabox
+        page_h_pt, left, bottom = float(mb.height), float(mb.left), float(mb.bottom)
+        for (bx0, by0, bx1, by1), target in links:
+            if not 0 <= target < n_pages:
+                raise IndexError(f"PDF nemá stranu {target + 1}")
+            x0, y0 = _pt(pm, bx0, by0, page_h_pt)
+            x1, y1 = _pt(pm, bx1, by1, page_h_pt)
+            rect = (min(x0, x1) + left, min(y0, y1) + bottom, max(x0, x1) + left, max(y0, y1) + bottom)
+            tmb = writer.pages[target].mediabox
+            dest = ArrayObject([writer.pages[target].indirect_reference, NameObject("/XYZ"),
+                                FloatObject(float(tmb.left)), FloatObject(float(tmb.top)), NullObject()])
+            annot = DictionaryObject({
+                NameObject("/Type"): NameObject("/Annot"),
+                NameObject("/Subtype"): NameObject("/Link"),
+                NameObject("/Rect"): _rect(rect),
+                NameObject("/Border"): ArrayObject([NumberObject(0), NumberObject(0), NumberObject(0)]),
+                NameObject("/H"): NameObject("/I"),
+                NameObject("/F"): NumberObject(4),
+                NameObject("/Dest"): dest,
+            })
+            writer.add_annotation(page_idx, annot)
             count += 1
     buf = io.BytesIO()
     writer.write(buf)

@@ -14,7 +14,7 @@ Pořadí = priorita, velikost S/M/L. Nejdřív důvěryhodnost výpočtů a lice
 2. [ ] Ověřit tabulky Iz a konstanty oteplení proti normě (M) – soupis údajů #79, ověření #82 (čeká na data z norem)
 3. [ ] Opravit atribuci značek z QET (odkaz, oznámení úprav, výjimka v LICENSE) (S) – #81
 4. [ ] Doplnit data knihovny (222 artiklů bez rozměrů, 138 jističů bez Pv) a import BMEcat/ETIM (L) – report #83, parser #84
-5. [ ] Editor symbolů v GUI (M) – fáze 1 #85
+5. [ ] Editor symbolů v GUI (M) – fáze 1 #85 (fáze 1 hotová: porty a atributy; zbývá fáze 2 – kreslení geometrie)
 6. [ ] První vydání s podepsaným buildem pro Windows (M) – #90 (způsob podpisu rozhodne člověk)
 7. [ ] Import PVsyst .PAN/.OND (S) – #86
 8. [ ] Ceny ve výkazech (S) – #87 (otázka DPH)
@@ -153,7 +153,7 @@ Pořadí = priorita. Body 1, 2 a 5 jsou nejlevnější start.
   - **Bytový dům** – zatím se generuje stejně jako firma (liší se jen `meta["building"]`); od ENVO zjistit, čím se má lišit (rozvaděče, měření, označení)
   - **Výchozí stringy v průvodci** `18,18,18,18; 18,18` (od 10/2026, dřív `20,20,18,18; 20,20` – Uoc 1110 V > 1100 V) dávají 2 střídače – zvážit jeden střídač (aspoň u rodinného domu)
   - [x] **Překryvy popisků** u rodinného domu s víc střídači a rozvodem svorkami a ve variantě bez maker – opraveno 10/2026 (F0 `docs/NAVRH_TOPOLOGIE.md`): DC rozvaděč bez makra po 50 mm jako makra, SPD RFVE na XPE, místo pro popisky před RFVE; test `test_generated_project_f7_clean`
-  - **Uživatelské kopie makra „DC string po trase“** (`~/.envocad/macros/`) mají dál odpínač – vestavěné makro je upravené; zvážit upozornění nebo migraci
+  - **Uživatelské kopie makra „DC string po trase“** (`~/.envocad/macros/`) mají dál odpínač – vestavěné makro je upravené; upozornění je hotové (log + připomínka na listu prvního rozvaděče po trase), migrace se nedělá – kopii upraví nebo smaže uživatel
 
 ## Později
 - Další obory (HVAC, MaR, silnoproud budov)

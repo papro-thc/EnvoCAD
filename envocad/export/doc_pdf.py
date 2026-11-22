@@ -7,7 +7,9 @@ formátu listu (A2, A1…) – volba `jps_page` při exportu, výchozí z firemn
 Obsah, výkazy i změnový list jsou tabulky (`_TableLayout`): šířky sloupců podle obsahu a šířky strany, dlouhý
 text se v buňce zalomí, tabulka pokračuje na dalších stranách. Počet stran se spočítá předem (obsah ukazuje
 skutečná čísla stran, popisové pole „n/N“). Bez rámečku má každá strana malé „strana n/N“ v pravém dolním rohu.
-PDF má záložky (osnovu): jedna na každý řádek obsahu, doplněné po vykreslení (`pdf_outline`).
+PDF má záložky (osnovu): jedna na každý řádek obsahu, doplněné po vykreslení (`pdf_outline`). Křížové odkazy na
+listech schématu (přerušovací body, odkaz kontaktu na hostitele, řádky zrcadla kontaktů) jsou klikací: anotace
+`/Link` na stranu cílového listu (`pdf_annots.add_link_annotations`), vzhled stran se nemění.
 Volitelně (`legend=True`) přibude před změnový list „Přehled použitých značek“: tabulka obrázek značky / název /
 počet použití (`reports.symbol_legend`); řádky jsou vyšší (`LEGEND_ROW_H`), aby se do nich značka vešla.
 """
@@ -182,6 +184,7 @@ class DocBuilder:
         self.page_starts: list[int] = []  # první fyzická strana (od 1) každé položky self.pages – pro obsah
         self.page_counts: list[int] = []  # počet fyzických stran každé položky self.pages
         self.note_pages: list[tuple[int, object, list]] = []  # (fyzická strana od 0, PageMap, připomínky)
+        self.link_pages: list[tuple[int, object, list]] = []  # (fyzická strana od 0, PageMap, [(box mm, cílová strana od 0)])
         self._layouts: dict[int, _TableLayout] = {}   # index položky → rozvržení tabulky (obsah, výkazy, změny)
         self._scenes: dict[tuple[str, str], tuple[object, QUndoStack]] = {}
         self._size: tuple[float, float] = (PAGE_W, PAGE_H)   # rozměr aktuální strany PDF (mm)
@@ -440,11 +443,13 @@ class DocBuilder:
             return
         from envocad.export.pdf_annots import PageMap
         from envocad.model.notes import notes_on_sheet
+        r = writer.pageLayout().fullRect(QPageLayout.Millimeter)
+        pm = PageMap.fit(pw, ph, r.width(), r.height(), center=False)   # list u levého horního rohu strany
+        if kind == "schematic":
+            self._collect_links(scene, sheet, first, pm)
         notes = notes_on_sheet(self.project, sheet.id, ("open",))
         if not notes:
             return
-        r = writer.pageLayout().fullRect(QPageLayout.Millimeter)
-        pm = PageMap.fit(pw, ph, r.width(), r.height(), center=False)   # list u levého horního rohu strany
         if kind == "schematic":
             self.note_pages.append((self._pdf_page, pm, notes))
             return
@@ -457,6 +462,29 @@ class DocBuilder:
             by_page.setdefault(k, []).append(replace(n, x=x, y=y, w=0.0, h=0.0, text=text))
         for k, ns in sorted(by_page.items()):
             self.note_pages.append((first + k, pm, ns))
+
+    def _collect_links(self, scene, sheet: Sheet, page: int, pm) -> None:
+        """Klikací křížové odkazy listu schématu (`xref.sheet_xref_links`) s cílem převedeným na stranu PDF; musí
+        běžet při vykreslení (scény vícepólu se po exportu ruší)."""
+        from envocad.model.xref import sheet_xref_links
+        links = sheet_xref_links(self.project, sheet, self.library, scene.text_layout(), scene.device_index())
+        resolved = [(lk.box, t) for lk in links if (t := self._link_target_page(lk.sheet_id, lk.element_id)) is not None]
+        if resolved:
+            self.link_pages.append((page, pm, resolved))
+
+    def _link_target_page(self, sheet_id: str, element_id: str) -> int | None:
+        """Index cílové strany PDF (od 0) listu `sheet_id`: schéma listu; list rozvaděče → strana vícepólu, kde je
+        prvek (jinak první strana vícepólu); None = list v dokumentaci není."""
+        for kind in ("schematic", "multipole"):
+            for idx, (k, _name, data) in enumerate(self.pages):
+                if k != "sheet" or data[1] != kind or data[0].id != sheet_id:
+                    continue
+                first = self.page_starts[idx] - 1
+                if kind == "multipole":
+                    sub = getattr(self._scene(data[0], kind), "page_of", {}).get(element_id, 0)
+                    return first + min(sub, self.page_counts[idx] - 1)
+                return first
+        return None
 
     @staticmethod
     def _multipole_anchor(scene, sheet: Sheet, note, i: int) -> tuple[int, float, float, bool]:
@@ -530,6 +558,7 @@ class DocBuilder:
         self.plan()
         self._pdf_page = 0
         self.note_pages = []
+        self.link_pages = []
         self._size = (PAGE_W, PAGE_H)      # titulní list je vždy první a A3
         writer = QPdfWriter(str(path))
         writer.setPageSize(QPageSize(QSizeF(PAGE_W, PAGE_H), QPageSize.Millimeter))
@@ -565,6 +594,9 @@ class DocBuilder:
         count = self._pdf_page + 1
         from envocad.export.pdf_outline import add_bookmarks  # záložky = řádky obsahu; před anotacemi
         add_bookmarks(path, [(name, self.page_starts[i] - 1) for i, (_k, name, _d) in enumerate(self.pages)])
+        if self.link_pages:
+            from envocad.export.pdf_annots import add_link_annotations
+            add_link_annotations(path, self.link_pages)
         if notes and self.note_pages:
             from envocad.export.pdf_annots import add_note_annotations
             add_note_annotations(path, self.note_pages, self.project.name)
