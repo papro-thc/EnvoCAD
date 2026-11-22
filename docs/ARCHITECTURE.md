@@ -164,6 +164,15 @@ přidaná hodnota oproti ručnímu kreslení v ZWCAD.
 
 Viz `docs/LIBRARY_FORMAT.md`.
 
+## Archiv projektu `.ecpz` (`library/archive.py`)
+Zip s plochými členy `manifest.json` (`{"format": 1, "app": verze}`), `project.ecp` (stejný JSON jako `Project.save`,
+formát `.ecp` se nemění), `symbols.json` (`Symbol.to_dict()`) a `components.json` (tvar `LibraryStore.get_component`).
+Balí se jen **nevestavěné** značky a artikly použité v projektu (`symbol_id`, `component_id` prvků i kabelů, značky
+artiklu a `params["footprint_id"]`); vestavěné zůstávají jen odkazem. Čtení nic nerozbaluje na disk, odmítá členy se
+jménem obsahujícím `/`, `\\`, `:`, zip bomby a vadný obsah (`ArchiveError`). Import doplní chybějící položky;
+rozdílný obsah pod stejným id je konflikt a bez výslovného `overwrite=True` se nepřepíše, vestavěná značka nikdy.
+Archiv může obsahovat data výrobců, proto je `*.ecpz` v `.gitignore` i v `tools/check_licensed_data.py`.
+
 ## Undo/redo
 
 `QUndoStack` v UI; každá změna modelu je `QUndoCommand` (přidat/smazat/posunout element, přidat vodič,

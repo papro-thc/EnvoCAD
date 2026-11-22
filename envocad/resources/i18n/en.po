@@ -34,6 +34,12 @@ msgstr "&Save"
 msgid "Uložit &jako…"
 msgstr "Save &As…"
 
+msgid "Archiv projektu…"
+msgstr "Project Archive…"
+
+msgid "Otevřít archiv projektu…"
+msgstr "Open Project Archive…"
+
 msgid "Spustit skript…"
 msgstr "Run Script…"
 

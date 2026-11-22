@@ -39,6 +39,7 @@ DERIVED_VIEWS = (MultipoleView, TerminalPlanView, SingleLineView)  # odvozené z
 from envocad.ui.panels import LibraryPanel, PropertiesPanel
 
 FILE_FILTER = "Projekt EnvoCAD (*.ecp)"
+ARCHIVE_FILTER = "Archiv projektu EnvoCAD (*.ecpz)"
 REJECTED_AUTOSAVE_DIR = "odmitnute"   # podsložka autosave pro kopie, které uživatel při startu odmítl obnovit
 REJECTED_KEEP_DAYS = 30
 log = logging.getLogger("envocad.ui")
@@ -226,6 +227,8 @@ class MainWindow(QMainWindow):
         self._refresh_recent_menu()
         act(m_file, tr("&Uložit"), self.save_project, "Ctrl+S", "save")
         act(m_file, tr("Uložit &jako…"), self.save_project_as, "Ctrl+Shift+S")
+        act(m_file, tr("Archiv projektu…"), self.export_archive)
+        act(m_file, tr("Otevřít archiv projektu…"), self.open_archive)
         m_file.addSeparator()
         act(m_file, tr("Spustit skript…"), self.run_script, None, "run_script")
         m_file.addSeparator()
@@ -1908,6 +1911,104 @@ class MainWindow(QMainWindow):
         if not path.endswith(".ecp"):
             path += ".ecp"
         return self._save_to(Path(path))
+
+    # ---- archiv projektu (.ecpz) ----------------------------------------------
+    def export_archive(self) -> bool:
+        """Zabalí aktuální stav projektu (i neuložený) s použitými uživatelskými značkami a artikly do `.ecpz`."""
+        from envocad.library.archive import ARCHIVE_SUFFIX, pack_project
+        path, _ = QFileDialog.getSaveFileName(self, "Archiv projektu", "", ARCHIVE_FILTER)
+        if not path:
+            return False
+        if not path.endswith(ARCHIVE_SUFFIX):
+            path += ARCHIVE_SUFFIX
+        try:
+            arch = pack_project(self.project, self.library, path)
+        except Exception as ex:  # noqa: BLE001
+            log.warning("archiv %s selhal: %s", path, ex)
+            QMessageBox.critical(self, "Archiv projektu", f"Archiv se nepodařilo vytvořit:\n{path}\n\n{error_text(ex)}")
+            return False
+        QMessageBox.information(
+            self, "Archiv projektu",
+            f"Archiv uložen do\n{path}\n\nZabaleno: {len(arch.symbols)} značek, {len(arch.components)} artiklů.\n\n"
+            "Pozor: archiv může obsahovat licencovaná data výrobců. Nepatří do gitu ani k veřejnému sdílení.")
+        return True
+
+    def open_archive(self) -> bool:
+        if not self._confirm_discard():
+            return False
+        path, _ = QFileDialog.getOpenFileName(self, "Otevřít archiv projektu", "", ARCHIVE_FILTER)
+        if not path:
+            return False
+        return self._open_archive_file(path)
+
+    @staticmethod
+    def _ids_text(title: str, ids: list[str], limit: int = 15) -> str:
+        if not ids:
+            return ""
+        more = f", … (+{len(ids) - limit})" if len(ids) > limit else ""
+        return f"{title} ({len(ids)}): " + ", ".join(ids[:limit]) + more + "\n"
+
+    def _ask_archive_import(self, report) -> str | None:
+        """Zeptá se na import z archivu. Vrací \"import\" (bez konfliktů), \"keep\" (ponechat knihovnu),
+        \"overwrite\" nebo None (zrušit)."""
+        text = (self._ids_text("Nové značky", report.new_symbols) + self._ids_text("Nové artikly", report.new_components)
+                + self._ids_text("Konfliktní značky", report.conflict_symbols)
+                + self._ids_text("Konfliktní artikly", report.conflict_components))
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Question)
+        box.setWindowTitle("Otevřít archiv projektu")
+        if not report.conflicts:
+            box.setText("Archiv obsahuje značky a artikly, které knihovna nemá. Doplnit je do knihovny?")
+            box.setInformativeText(text)
+            ok = box.addButton("Importovat a otevřít", QMessageBox.AcceptRole)
+            box.addButton("Zrušit", QMessageBox.RejectRole)
+            box.setDefaultButton(ok)
+            box.exec()
+            return "import" if box.clickedButton() is ok else None
+        box.setText("Některé značky nebo artikly z archivu mají stejné id, ale jiný obsah než ve vaší knihovně.")
+        box.setInformativeText(
+            text + "\nPři ponechání knihovny se projekt zobrazí se značkami a artikly z této knihovny (importují se jen "
+            "chybějící). Přepsáním se nahradí položky v knihovně; vestavěné značky přepsat nejde.")
+        keep = box.addButton("Ponechat knihovnu", QMessageBox.AcceptRole)
+        over = box.addButton("Přepsat z archivu", QMessageBox.DestructiveRole)
+        box.addButton("Zrušit", QMessageBox.RejectRole)
+        box.setDefaultButton(keep)
+        box.exec()
+        return "keep" if box.clickedButton() is keep else "overwrite" if box.clickedButton() is over else None
+
+    def _open_archive_file(self, path) -> bool:
+        """Načte archiv, doplní knihovnu (po potvrzení) a otevře projekt bez cesty. Chyba → okno beze změny."""
+        from envocad.library.archive import compare_with_library, import_missing, load_project, read_archive
+        try:
+            arch = read_archive(path)
+            report = compare_with_library(arch, self.library)
+        except Exception as ex:  # noqa: BLE001 – ArchiveError i cokoli neočekávaného
+            log.warning("archiv %s nejde otevřít: %s", path, ex)
+            QMessageBox.critical(self, "Archiv projektu", f"Archiv nelze otevřít:\n{path}\n\n{error_text(ex)}")
+            return False
+        overwrite = False
+        if report.new_symbols or report.new_components or report.conflicts:
+            choice = self._ask_archive_import(report)
+            if choice is None:
+                return False
+            overwrite = choice == "overwrite"
+        try:
+            left = import_missing(arch, self.library, overwrite=overwrite)
+            self.lib_panel.refresh()
+            project = load_project(arch)
+            self._load_project(project)
+        except Exception as ex:  # noqa: BLE001
+            log.warning("archiv %s nejde otevřít: %s", path, ex)
+            self.lib_panel.refresh()
+            QMessageBox.critical(self, "Archiv projektu", f"Archiv nelze otevřít:\n{path}\n\n{error_text(ex)}")
+            return False
+        if overwrite and left.conflicts:
+            QMessageBox.information(
+                self, "Archiv projektu",
+                "Tyto položky zůstaly z knihovny (vestavěné značky přepsat nejde):\n"
+                + (self._ids_text("Značky", left.conflict_symbols) + self._ids_text("Artikly", left.conflict_components)))
+        self.statusBar().showMessage("Archiv otevřen jako nový projekt bez cesty – Uložit se zeptá, kam.", 8000)
+        return True
 
     def edit_project_meta(self) -> None:
         """Vlastnosti projektu: jeden formulář; OK = jeden krok undo, Zrušit = žádná změna."""
