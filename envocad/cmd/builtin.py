@@ -391,6 +391,21 @@ def cmd_sheet(ctx: Ctx):
     return f"Aktivní list {sheets.index(target) + 1}: {target.name}"
 
 
+def cmd_replace(ctx: Ctx):
+    find = yield Param("find", "text", "Hledaný text:")
+    new = yield Param("replace", "text", "Nahradit za:")
+    scope = yield Param("scope", "choice", "Rozsah <projekt> (projekt / list):", optional=True, default="projekt",
+                        choices=("projekt", "list"))
+    case = yield Param("case", "choice", "Velikost písmen <ignorovat> (rozlišit):", optional=True,
+                       default="ignorovat", choices=("ignorovat", "rozlišit"))
+    sheet = ctx.require_sheet() if scope == "list" else None
+    try:
+        n = edits.replace_text(ctx.project, ctx.library, find, new, sheet=sheet, match_case=case == "rozlišit")
+    except ValueError as ex:
+        raise CommandError(str(ex)) from ex
+    return f"Nahrazeno {_n(n, 'výskyt', 'výskyty', 'výskytů')}" if n else f"„{find}“ nenalezeno"
+
+
 def cmd_undo(ctx: Ctx):
     n = yield Param("count", "number", "Počet kroků <1>:", optional=True, default=1.0)
     ctx.require_end()
@@ -610,6 +625,9 @@ BUILTIN = (
     CommandDef("select", "Vybrat", run=cmd_select, transaction=False,
                usage="SELECT F1 Q* | all | none | W x1,y1 x2,y2 | symbol=fve.breaker* in_=16*"),
     CommandDef("sheet", "Aktivní list", run=cmd_sheet, transaction=False, usage="SHEET [název | pořadí]"),
+    CommandDef("replace", "Najít a nahradit text", run=cmd_replace, gui_fallback="replace",
+               usage='REPLACE hledaný náhrada [projekt|list] [ignorovat|rozlišit]  (REPLACE kabel vodič list; '
+                     'text s mezerou v uvozovkách, prázdná náhrada "")'),
     CommandDef("undo", "Zpět", run=cmd_undo, transaction=False, gui_fallback="undo", usage="UNDO [počet]"),
     CommandDef("redo", "Znovu", run=cmd_redo, transaction=False, gui_fallback="redo", usage="REDO [počet]"),
     CommandDef("checks", "Kontrola projektu", run=cmd_checks, transaction=False, gui_fallback="checks",
