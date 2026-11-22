@@ -631,3 +631,96 @@ def split_cable_partner(project: Project, sheet: Sheet, w, groups: dict | None =
 def interrupt_chains(groups: dict[str, list[Placed]]) -> list[tuple[str, list[Placed]]]:
     """Skupiny přerušení se stejným označením ve 3+ bodech bez zdroje hvězdy (řetěz) – (označení, body)."""
     return [(ref, ms) for ref, ms in groups.items() if len(ms) > 2 and not any(is_star_source(e) for _, e in ms)]
+
+
+# ---- klikací křížové odkazy (PDF) ----------------------------------------------------------------------------
+@dataclass(frozen=True)
+class XrefLink:
+    """Oblast textového křížového odkazu na listu (mm listu, Y nahoru) a jeho cíl (list + prvek)."""
+    box: Box
+    sheet_id: str
+    element_id: str
+    text: str
+
+
+def _split_box(box: Box, text: str, start: int, end: int) -> Box:
+    """Část obálky řádku `text` odpovídající znakům `start:end` (šířka přibližně úměrná počtu znaků)."""
+    n = max(len(text), 1)
+    w = box[2] - box[0]
+    return (box[0] + w * start / n, box[1], box[0] + w * end / n, box[3])
+
+
+def _line_targets(project: Project, sheet: Sheet, e: Element, lines: list[str], idx: DeviceIndex
+                  ) -> list[list[tuple[Placed, str]]]:
+    """Cíle každého řádku odkazu prvku: seznam (cíl, text odkazu k vyhledání na řádku); prázdný = bez cíle."""
+    if e.symbol_id == INTERRUPT_SYMBOL:
+        link = interrupt_link(project, sheet, e, idx.interrupts)
+
+        def one(m: Placed | None) -> list[tuple[Placed, str]]:
+            return [(m, place_ref(project, sheet, e, m[0], m[1]))] if m is not None else []
+
+        if link.mode == "pair":
+            return [one(link.next or link.prev)]
+        if link.mode == "chain":
+            return [one(m) for m in (link.prev, link.next) if m is not None]
+        if link.mode == "star_target":
+            return [one(link.source)]
+        if link.mode == "star_source":
+            chunks = [link.targets[i:i + STAR_PER_LINE] for i in range(0, len(link.targets), STAR_PER_LINE)]
+            return [[(m, place_ref(project, sheet, e, m[0], m[1])) for m in c] for c in chunks]
+        return [[] for _ in lines]
+    g = idx.group_of(e)
+    if g is None and is_contact(e):
+        g = idx.resolve(sheet, e)
+    if g is None or (not is_contact(e) and not idx.is_secondary(e)):
+        return [[] for _ in lines]
+    hs, h = g.host
+    return [[((hs, h), place_ref(project, sheet, e, hs, h))] for _ in lines]
+
+
+def sheet_xref_links(project: Project, sheet: Sheet, lib, layout=None, index: DeviceIndex | None = None) -> list[XrefLink]:
+    """Oblasti všech textových křížových odkazů na listu (přerušovací body, odkaz kontaktu na hostitele, řádky
+    zrcadla kontaktů) s cílem – pro klikací odkazy v PDF. Polohy jsou z rozmístění popisků (`textlayout`), tedy
+    tam, kde se text opravdu kreslí. Odkaz bez cíle („→ ?“, rezerva kontaktního obrazu) se nevrací; u zdroje
+    hvězdy se box řádku rozdělí na části podle pozic odkazů v textu."""
+    from envocad.model.project import element_xref
+    from envocad.model.textlayout import compute_layout
+    idx = index or DeviceIndex.build(project)
+    if layout is None:
+        layout = compute_layout(project, sheet, lib, index=idx)
+    out: list[XrefLink] = []
+    for e in sheet.elements:
+        lab = layout.elements.get(e.id)
+        if lab is None:
+            continue
+        try:
+            text = element_xref(project, sheet, e, idx)
+        except Exception:  # noqa: BLE001
+            text = ""
+        lines = text.splitlines()
+        if not lines or len(lab.boxes) < len(lines):     # rozmístění bez řádků odkazu – nehádat polohu
+            continue
+        targets = _line_targets(project, sheet, e, lines, idx)
+        n = len(lines)
+        for line, box, tg in zip(lines, lab.boxes[-n:], targets, strict=False):
+            cursor = 0
+            for (ts, te), ref in tg:
+                pos = line.find(ref, cursor) if ref else -1
+                if pos < 0:
+                    continue
+                cursor = pos + len(ref)
+                if len(tg) == 1:
+                    part = box
+                else:
+                    part = _split_box(box, line, pos, cursor)
+                out.append(XrefLink(part, ts.id, te.id, line.strip() if len(tg) == 1 else ref))
+    for hid, geom in layout.mirrors.items():
+        host = next((x for x in sheet.elements if x.id == hid), None)
+        if host is None:
+            continue
+        table = contact_table(project, sheet, host, idx)
+        rows = [r for rows in table.columns.values() for r in rows]
+        for r, box in zip(rows, geom.boxes, strict=False):
+            if r.ref and r.sheet_id and r.element_id:
+                out.append(XrefLink(box, r.sheet_id, r.element_id, r.text))
+    return out
