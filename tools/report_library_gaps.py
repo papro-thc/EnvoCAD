@@ -39,7 +39,7 @@ FIELD_RULES: dict[str, tuple[frozenset[str], str]] = {
     "depth_mm": (LAYOUT, ("model/device_size.py (size_problems – hloubka vs. skříň); skříň → parametry "
                           "rozložení / oteplení")),
     "p_loss_w": (frozenset({"mcb", "mccb", "rcd", "rcbo", "fuse", "fuse_holder", "spd"}),
-                 "model/thermal.py (ΣPv; bez údaje odhad z In)"),
+                 "model/thermal.py (ΣPv; bez údaje orientační odhad programu)"),
     "footprint_id": (DIN | {"mccb"}, "ui/layout_view.py (kresba přístroje v rozložení; bez něj generický tvar)"),
 }
 DEFAULT_DIR = ROOT / "envocad" / "library" / "builtin" / "components"
@@ -94,7 +94,9 @@ def _csv_files(paths: Iterable[Path | str]) -> list[Path]:
 def scan(paths: Iterable[Path | str]) -> Report:
     """Načte artikly ze souborů .csv / složek a vrátí počet všech a seznam těch s mezerou."""
     paths = list(paths)
-    files = sorted(_csv_files(paths), key=lambda f: f.name)
+    # stejný soubor zadaný dvakrát (složka + soubor z ní) se počítá jednou
+    unique = {f.resolve(): f for f in _csv_files(paths)}
+    files = sorted(unique.values(), key=lambda f: (f.name, str(f)))
     report = Report(total=0)
     for f in files:
         for comp in read_csv(f):
@@ -132,6 +134,9 @@ def format_report(report: Report) -> str:
         lines.append(f"      čte: {where}")
     lines.append("  Poznámka: u DIN přístrojů stačí `modules` nebo `width_mm`; hlásí se jen, když chybí obojí.")
     lines += ["", f"Artiklů celkem: {report.total}, s chybějícím údajem: {len(report.gaps)}"]
+    # footprint je nepovinný (bez něj generický tvar) a obvykle chybí všude – zvlášť počet mezer v ostatních polích
+    core = sum(1 for g in report.gaps if set(g.missing) - {"footprint_id"})
+    lines.append(f"  z toho s mezerou i mimo footprint_id (rozměry, moduly, Pv): {core}")
     if not report.gaps:
         lines += ["", "Žádné mezery."]
         return "\n".join(lines)
