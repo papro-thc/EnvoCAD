@@ -7,6 +7,7 @@ formátu listu (A2, A1…) – volba `jps_page` při exportu, výchozí z firemn
 Obsah, výkazy i změnový list jsou tabulky (`_TableLayout`): šířky sloupců podle obsahu a šířky strany, dlouhý
 text se v buňce zalomí, tabulka pokračuje na dalších stranách. Počet stran se spočítá předem (obsah ukazuje
 skutečná čísla stran, popisové pole „n/N“). Bez rámečku má každá strana malé „strana n/N“ v pravém dolním rohu.
+PDF má záložky (osnovu): jedna na každý řádek obsahu, doplněné po vykreslení (`pdf_outline`).
 """
 from __future__ import annotations
 
@@ -522,6 +523,8 @@ class DocBuilder:
                 scene.deleteLater()
             self._scenes.clear()
         count = self._pdf_page + 1
+        from envocad.export.pdf_outline import add_bookmarks  # záložky = řádky obsahu; před anotacemi
+        add_bookmarks(path, [(name, self.page_starts[i] - 1) for i, (_k, name, _d) in enumerate(self.pages)])
         if notes and self.note_pages:
             from envocad.export.pdf_annots import add_note_annotations
             add_note_annotations(path, self.note_pages, self.project.name)
