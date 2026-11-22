@@ -937,7 +937,7 @@ Výchozí hodnoty (kabely, zpracoval) bere průvodce z **firemního standardu** 
 | PDF listu (skutečný formát / zmenšený na A4) – z blokového schématu, schématu (vícepólu) i plánu svorkovnice rozvaděče (strany A4); z rozložení celý pohled zmenšený na A3 (A4) | Soubor → Export PDF / Export PDF na A4 |
 | DXF listu – z blokového schématu, listu rozvaděče v editoru, vícepólu a jednopólového schématu (z plánu svorkovnice a rozložení program upozorní, ať se použije PDF) | Soubor → Export DXF |
 | **Celá dokumentace do jednoho PDF**: titulní list, obsah, listy blokového schématu, jednopólové schéma, schéma + plán svorkovnice každého rozvaděče (kromě rozvaděče VN), výkazy, změnový list – strany schématu a plánu svorkovnice A4, ostatní A3 (smíšené formáty v jednom PDF, obsah i „n/N“ počítají skutečné strany) | Výstupy → Celá dokumentace (`Ctrl+Shift+E`) |
-| Výkazy xlsx (Data pro DS, Výpočty, Přístroje, Výkaz materiálu, Kabely, Kabelový plán, Kabely a vodiče k objednání, Zapojovací seznam, Svorkovnice, Plán svorkovnice, Štítky) | Výstupy → Výkazy listu / projektu |
+| Výkazy xlsx (Data pro DS, Výpočty, Přístroje, Výkaz materiálu, Výkaz po výrobcích, Kabely, Kabelový plán, Kabely a vodiče k objednání, Zapojovací seznam, Svorkovnice, Plán svorkovnice, Štítky) | Výstupy → Výkazy listu / projektu |
 | Protokol kusového ověření rozvaděče (docx) | Výstupy → Protokol kusového ověření |
 | Technická zpráva (docx) ze šablony – údaje, tabulky a výpočty z modelu | Výstupy → Technická zpráva |
 | Dokumentace skutečného provedení – DSPS (docx): jádro TZ + změny proti projektu dle PD | Výstupy → DSPS |
