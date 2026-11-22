@@ -1,8 +1,9 @@
 """Import prvků QElectroTech (.elmt, XML) → symboly EnvoCAD. Bez Qt.
 
 QElectroTech má přes 8 000 elektrotechnických značek (IEC 60617) pod licencí CC BY 3.0
-(https://qelectrotech.org/wiki/doc/elements_license). Při šíření je nutné uvést autora – importér
-zapíše do popisu symbolu „Zdroj: QElectroTech (CC BY 3.0)“ + autora z <informations>.
+(viz https://github.com/qelectrotech/qelectrotech-elements/blob/main/ELEMENTS.LICENSE).
+Při šíření je nutné uvést autora – importér zapíše do popisu symbolu „Zdroj: QElectroTech (CC BY 3.0)“
++ autora z <informations>.
 
 Formát .elmt: <definition width height hotspot_x hotspot_y> → <description> s primitivy
 line / rect / ellipse / circle / arc / polygon / text / dynamic_text / terminal. Jednotky px, Y dolů,
