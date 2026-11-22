@@ -550,7 +550,7 @@ def fixed_voltage_text(sc) -> str:
 
 @over_clean
 def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
-    """Výkaz výpočtů: stringy vs. střídač, kabely (I, Iz, In, ΔU), selektivita."""
+    """Výkaz výpočtů: stringy vs. střídač, kabely (I, Iz, In, ΔU), selektivita, oteplení rozvaděčů."""
     from envocad.model import calc
     head = ["Část", "Prvek", "Hodnoty", "Mez / porovnání", "Výsledek"]
     rows = []

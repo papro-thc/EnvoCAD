@@ -141,4 +141,5 @@ def test_tz_cables_section_has_note(lib, tmp_path):
     tz = _docx_text(tmp_path / "tz.docx")
     assert "Zatížitelnost Iz" in tz
     para = next(line for line in tz.splitlines() if line.startswith("Zatížitelnost Iz"))
-    assert _note() in para or any(_note() in line for line in tz.splitlines() if "W1" in line), para
+    assert _note() in para, para
+    assert f"Výsledek ({_note()})" in tz      # hlavička sloupce výsledku tabulky kabelů
