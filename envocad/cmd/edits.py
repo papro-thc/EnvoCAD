@@ -12,9 +12,13 @@ import copy
 import re
 from dataclasses import dataclass, field
 
+from envocad.model.busbar import PARAM_KEYS as BUSBAR_PARAM_KEYS
 from envocad.model.grid import snap
 from envocad.model.multipole import branch_conductors, default_conductors
 from envocad.model.project import (
+    BLOCK_PORTS_IN,
+    BLOCK_PORTS_OUT,
+    BLOCK_PROTECT,
     FEED_SYMBOLS,
     INTERRUPT_SYMBOL,
     LOC,
@@ -46,6 +50,7 @@ from envocad.model.project import (
     paste_fragment,
     rename_followups,
     rename_structure,
+    wire_attributes,
 )
 
 TERMINAL_SYMBOLS = ("sb.terminal_block", "fve.terminal")   # skupiny svorek sdílejí označení svorkovnice
@@ -417,3 +422,105 @@ def duplicate_sheet(project: Project, sheet: Sheet, lib) -> SheetCopy:
         project.structures.append(StructureId(LOC, nb.ref, nb.attrs.get("desc", "")))
     project.sheets.insert(project.sheets.index(sheet) + 1, new)
     return SheetCopy(new, nb, parent, idmap, wire_ids)
+
+
+# ---- najít a nahradit text (issue #74) ---------------------------------------------------------------------------
+# Atributy, které se nikdy nenahrazují – nejsou to texty, ale označení a technické vazby (změna by je rozpojila):
+# - označení (`ref`, přejmenování řeší `set_attr` s navázanými změnami), funkce a umístění (`func`, `loc`),
+# - vazba přívodu/vývodu na vodič (`wire_id`, `dir`),
+# - čísla svorek a kontaktů (`terminal`, `terminals`, `contacts`) – chráněná stejně jako `ref` (rozhodnutí vlastníka),
+# - blok rozvaděče: porty z atributů (`ports_in`, `ports_out` – vedou na ně vodiče), jištění těchto portů (`protect`,
+#   klíčem je název portu) a `sheet` (zrcadlo názvu listu, udržuje `rename_followups`),
+# - síťová ochrana: `acts_on` (odkaz na označení vazebního prvku),
+# - parametry sběrnice (`busbar.PARAM_KEYS` – počet a rozteč odboček = porty sběrnice).
+# Skryté atributy (`show: false`) se obecně nevynechávají: patří mezi ně i běžné texty (trasa vodiče, popis kontaktu,
+# výrobce, „kam“ u vývodu), které se nahrazovat mají.
+REPLACE_PROTECTED_KEYS = frozenset({
+    "ref", "func", "loc", "wire_id", "dir",
+    "terminal", "terminals", "contacts",
+    BLOCK_PORTS_IN, BLOCK_PORTS_OUT, BLOCK_PROTECT, "sheet",
+    "acts_on",
+    *BUSBAR_PARAM_KEYS,
+})
+# U přívodu/vývodu s vazbou na vodič jsou tyto atributy odvozené (`sync_feed_link_attrs`) – přepsaly by se zpět.
+REPLACE_DERIVED_FEED_KEYS = frozenset({"from", "to", "cable"})
+
+
+@dataclass(frozen=True)
+class TextMatch:
+    """Jedna hodnota s nalezeným textem: `old` celá hodnota před, `new` po, `count` výskytů v hodnotě."""
+    sheet_id: str
+    kind: str          # "text" (Sheet.texts) | "element" | "wire"
+    target_id: str
+    key: str           # "text" u volného textu, jinak klíč atributu
+    old: str
+    new: str
+    count: int
+
+
+def _replace_in(value: str, find: str, replace: str, match_case: bool) -> tuple[str, int]:
+    """Doslovné nahrazení zleva bez překryvu; `replace` se vkládá doslova (funkce místo řetězce – žádné `\\1`)."""
+    flags = 0 if match_case else re.IGNORECASE
+    return re.subn(re.escape(find), lambda _m: replace, value, flags=flags)
+
+
+def _iter_text_targets(project: Project, lib, sheets):
+    """(list, druh, objekt, slovník/klíč, klíč) všech nahraditelných hodnot."""
+    for s in sheets:
+        for t in s.texts:
+            yield s, "text", t, "text"
+        for e in s.elements:
+            try:
+                sym = lib.get_symbol(e.symbol_id)
+            except KeyError:
+                continue                                  # neznámá značka – nevíme, které atributy jsou text
+            linked = e.symbol_id in FEED_SYMBOLS and bool(e.attrs.get("wire_id"))
+            for a in sym.attributes:
+                if a.choices or a.key in REPLACE_PROTECTED_KEYS or (linked and a.key in REPLACE_DERIVED_FEED_KEYS):
+                    continue
+                yield s, "element", e, a.key
+        for w in s.wires:
+            for a in wire_attributes(s):
+                if a.choices or a.key in REPLACE_PROTECTED_KEYS:
+                    continue
+                yield s, "wire", w, a.key
+
+
+def find_text(project: Project, lib, find: str, replace: str = "", sheet: Sheet | None = None,
+              match_case: bool = False) -> list[TextMatch]:
+    """Nalezené hodnoty s textem `find` (celý projekt, nebo jen `sheet`); nic nemění."""
+    if not find:
+        raise ValueError("Hledaný text nesmí být prázdný")
+    out: list[TextMatch] = []
+    for s, kind, obj, key in _iter_text_targets(project, lib, [sheet] if sheet is not None else project.sheets):
+        old = obj.text if kind == "text" else obj.attrs.get(key, "")
+        if not isinstance(old, str) or not old:
+            continue
+        new, n = _replace_in(old, find, replace, match_case)
+        if n:
+            out.append(TextMatch(s.id, kind, obj.id, key, old, new, n))
+    return out
+
+
+def apply_text_matches(project: Project, matches: list[TextMatch], redo: bool = True) -> list[str]:
+    """Zapíše `new` (nebo `old` při `redo=False`) do hodnot z `find_text`; vrací id změněných listů. Sdílí s příkazem
+    `replace` i GUI (undo = zápis `old`), takže vrácení je přesné."""
+    by_id = {s.id: s for s in project.sheets}
+    for m in matches:
+        s = by_id[m.sheet_id]
+        v = m.new if redo else m.old
+        if m.kind == "text":
+            next(t for t in s.texts if t.id == m.target_id).text = v
+        elif m.kind == "element":
+            s.element(m.target_id).attrs[m.key] = v
+        else:
+            next(w for w in s.wires if w.id == m.target_id).attrs[m.key] = v
+    return list(dict.fromkeys(m.sheet_id for m in matches))
+
+
+def replace_text(project: Project, lib, find: str, replace: str, sheet: Sheet | None = None,
+                 match_case: bool = False) -> int:
+    """Nahradí `find` za `replace` v nalezených hodnotách (`find_text`); vrací počet výskytů."""
+    matches = find_text(project, lib, find, replace, sheet, match_case)
+    apply_text_matches(project, matches)
+    return sum(m.count for m in matches)

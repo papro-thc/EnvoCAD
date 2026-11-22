@@ -35,3 +35,6 @@ datasheets/
 *.ema
 *.epdz
 *.e3d
+
+# archivy projektu EnvoCAD (.ecpz) mohou obsahovat licencovaná data výrobců (artikly, značky)
+*.ecpz

@@ -347,10 +347,8 @@ def test_exports_from_derived_views(qapp, lib, proj, tmp_path, monkeypatch):
             n0 = len(msgs)
             monkeypatch.setattr(w, "_ask_multipole_dxf_split", lambda: False)
             w.export_dxf()
-            if kind == "multipole":      # vícepól jde do DXF (jeden soubor, layout na stranu)
-                assert dxf.exists() and len(msgs) == n0, kind
-                continue
-            assert not dxf.exists() and len(msgs) == n0 + 1 and "PDF" in msgs[-1][1], kind
+            # vícepól, rozložení i plán svorkovnice jdou do DXF (rozložení a plán od #88)
+            assert dxf.exists() and len(msgs) == n0, kind
     finally:
         w.undo.setClean()
         w.close()

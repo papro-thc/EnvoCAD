@@ -19,3 +19,13 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+Exception: the files in `envocad/library/builtin/qet/` are not covered by
+the MIT License above. They are modified works derived from the QElectroTech
+elements collection and are distributed under CC BY 3.0
+(https://creativecommons.org/licenses/by/3.0/) with the restrictions of the
+collection's ELEMENTS.LICENSE, including the ban on using the collection as
+sample data for training machine learning models. See
+`envocad/library/builtin/qet/ATTRIBUTION.md`.

@@ -207,12 +207,25 @@ def bridge_candidates(components, terminal: Component | None = None) -> list[Com
     return sorted(out, key=lambda c: (c.manufacturer, c.part_number))
 
 
+def _csv_delimiter(head: str) -> str:
+    """Oddělovač CSV podle hlavičky: středník, pokud ho je aspoň tolik co čárek."""
+    return ";" if head.count(";") >= head.count(",") else ","
+
+
 def read_csv(path: Path | str) -> list[Component]:
     with open(path, encoding="utf-8-sig", newline="") as f:
-        head = f.readline()
-        delim = ";" if head.count(";") >= head.count(",") else ","
+        delim = _csv_delimiter(f.readline())
         f.seek(0)
         return [Component.from_row(r) for r in csv.DictReader(f, delimiter=delim) if r.get("id", "").strip()]
+
+
+def read_header(path: Path | str) -> list[str]:
+    """Názvy sloupců CSV artiklů (stejná detekce oddělovače jako `read_csv`); prázdný soubor = []."""
+    with open(path, encoding="utf-8-sig", newline="") as f:
+        head = f.readline()
+    if not head.strip():
+        return []
+    return [h.strip() for h in next(csv.reader([head], delimiter=_csv_delimiter(head)))]
 
 
 T_RANGE_C = (-60.0, 150.0)   # věrohodný rozsah provozní teploty okolí přístroje z datasheetu [°C]

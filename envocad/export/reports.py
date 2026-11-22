@@ -271,6 +271,22 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
     return head, rows
 
 
+NO_MANUFACTURER = "bez výrobce"
+
+
+@over_clean
+def bom_by_manufacturer(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
+    """Výkaz artiklů po výrobcích – řádky `bom()` sloučené podle (výrobce, objednací číslo, název), parametry se
+    nerozlišují. Výrobci abecedně, „bez výrobce“ na konci; uvnitř výrobce podle objednacího čísla. Bez cen a dodavatelů."""
+    head = ["Výrobce", "Objednací číslo", "Název", "Ks"]
+    qty: dict[tuple[str, str, str], int] = {}
+    for _pol, name, typ, mfr, _params, ks, _refs in bom(project, lib, sheet)[1]:
+        key = ((mfr or "").strip() or NO_MANUFACTURER, typ, name)
+        qty[key] = qty.get(key, 0) + ks
+    order = sorted(qty, key=lambda k: (k[0] == NO_MANUFACTURER, k[0].casefold(), natural_key(k[1]), k[2]))
+    return head, [[m, typ, name, qty[(m, typ, name)]] for m, typ, name in order]
+
+
 @over_clean
 def cables(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
     """Seznam kabelů / vodičů s označením nebo typem kabelu."""
@@ -706,14 +722,15 @@ def marking(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> 
     return head, rows
 
 
-ALL_REPORTS = [("Data pro DS", dso_report), ("Výpočty", calculations), ("Přístroje", device_list), ("Výkaz materiálu", bom), ("Kabely", cables),
+ALL_REPORTS = [("Data pro DS", dso_report), ("Výpočty", calculations), ("Přístroje", device_list), ("Výkaz materiálu", bom),
+               ("Výkaz po výrobcích", bom_by_manufacturer), ("Kabely", cables),
                ("Kabelový plán", cable_plan), ("Kabely a vodiče k objednání", cable_material),
                ("Zapojovací seznam", wiring_list),
                ("Výrobní zapojovací seznam", production_wiring_list), ("Značení vodičů a kabelů", marking),
                ("Svorkovnice", terminals), ("Plán svorkovnice", terminal_plan_report), ("Potenciály", potentials), ("Štítky", labels)]
 
-# výkazy, které nejsou součástí PDF dokumentace (výrobní podklad pro dílnu) – `doc_pdf.DocBuilder.plan` je přeskočí
-NOT_IN_DOC = {"Výrobní zapojovací seznam", "Kabely a vodiče k objednání", "Značení vodičů a kabelů"}
+# výkazy, které nejsou součástí PDF dokumentace (výrobní podklad pro dílnu, nákupní podklad) – `doc_pdf.DocBuilder.plan` je přeskočí
+NOT_IN_DOC = {"Výrobní zapojovací seznam", "Kabely a vodiče k objednání", "Značení vodičů a kabelů", "Výkaz po výrobcích"}
 
 # doplňkové řádky podnadpisu výkazu v xlsx: název → fn(project, sheet) -> list[str]
 REPORT_SUBTITLES = {"Výrobní zapojovací seznam": production_subtitle}

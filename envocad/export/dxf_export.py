@@ -25,6 +25,21 @@ MP_LAYERS = {
     "ODKAZY": (7, "CONTINUOUS"),     # šipky přerušení a křížové odkazy „/3.2.B4“
     "STITKY": (7, "CONTINUOUS"),     # štítky kabelů
 }
+# vrstvy rozložení rozvaděče: (barva, typ čáry); TEXTY jsou společné s `LAYERS`
+LAYOUT_LAYERS = {
+    "SKRIN": (7, "CONTINUOUS"),          # obrys skříně
+    "LISTY": (8, "CONTINUOUS"),          # DIN lišty a značky modulů
+    "PRISTROJE": (7, "CONTINUOUS"),      # obrysy a kresba rozmístěných přístrojů
+    "NEROZMISTENE": (7, "DASHED"),       # nerozmístěné přístroje vedle skříně
+    "TEXTY": (7, "CONTINUOUS"),
+}
+# vrstvy plánu svorkovnice (RAMECEK je v `LAYERS`)
+TERMINAL_LAYERS = {
+    "SVORKY": (7, "CONTINUOUS"),         # obdélníky svorek
+    "PRIPOJENI": (7, "CONTINUOUS"),      # vývody vnějšího / vnitřního připojení
+    "MUSTKY": (7, "DASHED"),             # můstky (čára + tečky)
+    "TEXTY": (7, "CONTINUOUS"),
+}
 LINEWEIGHT = {"thin": 18, "wire": 35, "bus": 50, "fan": 50}   # setiny mm
 DASH_SCALE = 2.0      # DASHED z `ezdxf.new(setup=True)` má čárku 1,27 mm – ×2 odpovídá čárkování ve scéně
 MP_PAGE_GAP = 20.0    # mezera mezi stranami vedle sebe v modelspace
@@ -61,14 +76,14 @@ def _draw_symbol(msp, e: Element, sym: Symbol, label=None) -> None:
         line -= 3.0
 
 
-def _draw_symbol_at(msp, e, sym: Symbol) -> None:
+def _draw_symbol_at(msp, e, sym: Symbol, layer: str = "SYMBOLY") -> None:
     """Grafika značky (bez portů a popisků) v počátku `e.x, e.y` natočená o `e.rotation` – prvek listu nebo pól
     ve vícepólu (`_At`). Oblouky a kružnice zůstanou přesné."""
     rot = e.rotation
     mirror = getattr(e, "mirror", False)
     for p in sym.primitives:
         t = p["type"]
-        a = {"layer": "SYMBOLY"}
+        a = {"layer": layer}
         if t == "line":
             msp.add_line(_tr(e, p["x1"], p["y1"]), _tr(e, p["x2"], p["y2"]), dxfattribs=a)
         elif t == "rect":
@@ -88,7 +103,7 @@ def _draw_symbol_at(msp, e, sym: Symbol) -> None:
         elif t == "text":
             align = p.get("align", "center")
             _text(msp, *_tr(e, p["x"], p["y"]), p["text"], p.get("height", 2.5),
-                  MIRROR_ALIGN.get(align, align) if mirror else align, rot)
+                  MIRROR_ALIGN.get(align, align) if mirror else align, rot, layer=layer)
 
 
 def _text(msp, x, y, text, height, align, rot, layer="SYMBOLY"):
@@ -198,6 +213,18 @@ def _new_doc():
     for name, (color, ltype) in MP_LAYERS.items():
         doc.layers.add(name, color=color, linetype=ltype)
     return doc
+
+
+def _add_layers(doc, layers: dict) -> None:
+    """Přidá vrstvy slovníku `název → (barva, typ čáry)`, které dokument ještě nemá (TEXTY, MUSTKY jsou už z `_new_doc`)."""
+    for name, (color, ltype) in layers.items():
+        if name not in doc.layers:
+            doc.layers.add(name, color=color, linetype=ltype)
+
+
+def _dxf_path(path: Path | str) -> Path:
+    path = Path(path)
+    return path if path.suffix.lower() == ".dxf" else path.with_name(path.name + ".dxf")
 
 
 def _draw_prim(msp, p, dx: float = 0.0) -> None:
@@ -316,3 +343,123 @@ def export_multipole_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path
     doc.layouts.delete("Layout1")
     doc.saveas(str(path))
     return [path]
+
+
+# ---- rozložení rozvaděče --------------------------------------------------------------------------------------
+def _rect_pts(x: float, y: float, w: float, h: float) -> list[tuple[float, float]]:
+    return [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
+
+
+def export_layout_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Path | str) -> Path:
+    """DXF rozložení rozvaděče (výstup pro výrobu skříně) z `layout_geometry.layout_geometry`: modelspace v mm 1 : 1,
+    skříň (SKRIN), DIN lišty a značky modulů (LISTY), rozmístěné přístroje (PRISTROJE) a nerozmístěné čárkovaně
+    (NEROZMISTENE), texty přístrojů a hlavička (TEXTY). Kreslí se totéž, co ukazuje editor rozložení.
+    Vrací cestu zapsaného souboru (přípona `.dxf` se doplní)."""
+    from envocad.model.layout_geometry import layout_geometry
+    g = layout_geometry(project, sheet, lib)
+    path = _dxf_path(path)
+    doc = _new_doc()
+    _add_layers(doc, LAYOUT_LAYERS)
+    msp = doc.modelspace()
+    msp.add_lwpolyline(_rect_pts(*g.enclosure), close=True, dxfattribs={"layer": "SKRIN"})
+    for r in g.rails:
+        msp.add_lwpolyline(_rect_pts(*r), close=True, dxfattribs={"layer": "LISTY"})
+    for x1, y1, x2, y2 in g.ticks:
+        msp.add_line((x1, y1), (x2, y2), dxfattribs={"layer": "LISTY"})
+    for d in g.devices:
+        layer = "PRISTROJE" if d.placed else "NEROZMISTENE"
+        a: dict = {"layer": layer}
+        if not d.placed:
+            a["ltscale"] = DASH_SCALE
+        msp.add_lwpolyline(_rect_pts(d.x, d.y, d.w, d.h), close=True, dxfattribs=a)
+        if d.footprint_id:       # footprint: symbol v mm s počátkem v levém horním rohu přístroje
+            _draw_symbol_at(msp, _At(d.x, d.y + d.h, 0.0), lib.get_symbol(d.footprint_id), layer=layer)
+        inner = {"layer": layer, "linetype": "CONTINUOUS"}     # čárkovaný je jen obrys nerozmístěného (jako v editoru)
+        for x1, y1, x2, y2 in d.lines:
+            msp.add_line((x1, y1), (x2, y2), dxfattribs=inner)
+        for r in d.rects:
+            msp.add_lwpolyline(_rect_pts(*r), close=True, dxfattribs=inner)
+        for cx, cy, rad in d.circles:
+            msp.add_circle((cx, cy), rad, dxfattribs=inner)
+        for x, y, text, h, align in d.texts:
+            _text(msp, x, y, text, h, align, 0, layer="TEXTY")
+    for x, y, text, h, align in g.texts:
+        _text(msp, x, y, text, h, align, 0, layer="TEXTY")
+    doc.saveas(str(path))
+    return path
+
+
+# ---- plán svorkovnice -----------------------------------------------------------------------------------------
+def _vtext(msp, x: float, y: float, text: str, h: float, up: bool = True) -> None:
+    """Svislý text čtený zdola nahoru; up = roste od (x, y) nahoru, jinak končí v (x, y) a roste dolů."""
+    if text:
+        _text(msp, x, y, text, h, "left" if up else "right", 90, layer="TEXTY")
+
+
+def _draw_terminal_chunk(msp, chunk, dx: float) -> None:
+    from envocad.model.terminal_plan import T_H, T_W, TITLE_H
+    tx, ty = chunk.title_pos
+    _text(msp, tx + dx, ty, chunk.title, TITLE_H, "left", 0, layer="TEXTY")
+    top = chunk.top
+    xs: dict[str, float] = {}
+    for i, r in enumerate(chunk.rows):
+        x = chunk.x + i * T_W + dx
+        cx = x + T_W / 2
+        xs[r.number] = cx
+        msp.add_lwpolyline(_rect_pts(x, top - T_H, T_W, T_H), close=True, dxfattribs={"layer": "SVORKY"})
+        _text(msp, cx, top - 4.0, r.number, 2.2, "center", 0, layer="TEXTY")
+        if r.conductor:
+            _text(msp, cx, top - T_H + 1.2, r.conductor, 1.5, "center", 0, layer="TEXTY")
+        if r.external or r.ext_cable:
+            msp.add_line((cx, top), (cx, top + 6), dxfattribs={"layer": "PRIPOJENI"})
+            _vtext(msp, cx + 0.8, top + 7, r.external, 2.0)
+            _vtext(msp, cx - 2.0, top + 7, r.ext_cable, 1.6)
+        if r.internal or r.int_cable:
+            msp.add_line((cx, top - T_H), (cx, top - T_H - 6), dxfattribs={"layer": "PRIPOJENI"})
+            _vtext(msp, cx + 0.8, top - T_H - 7, r.internal, 2.0, up=False)
+            _vtext(msp, cx - 2.0, top - T_H - 7, r.int_cable, 1.6, up=False)
+    for gi, grp in enumerate(chunk.bridges):        # můstky: čára pod čísly, každá skupina v jiné výšce
+        pts = sorted(xs[n] for n in grp if n in xs)
+        if len(pts) < 2:
+            continue
+        by = top - 6.0 - 0.9 * (gi % 6)
+        a = {"layer": "MUSTKY", "linetype": "CONTINUOUS"}   # plná čára jako v editoru (vrstva MUSTKY je čárkovaná)
+        msp.add_line((pts[0], by), (pts[-1], by), dxfattribs=a)
+        for px in pts:
+            msp.add_circle((px, by), 0.6, dxfattribs=a)
+            msp.add_hatch(color=7, dxfattribs=a).paths.add_edge_path().add_arc((px, by), 0.6, 0, 360)
+
+
+def export_terminal_plan_dxf(project: Project, sheet: Sheet, lib: LibraryStore, path: Path | str) -> Path:
+    """DXF plánu svorkovnice listu rozvaděče – totéž, co kreslí `TerminalPlanScene` (`terminal_plan`,
+    `sheet_plan_pages`): strany vedle sebe v modelspace (krok šířka + `MP_PAGE_GAP`), každá s rámečkem a paperspace
+    layoutem „Strana k“ 1 : 1. Na svorku obdélník (SVORKY), číslo a žíla, vývody (PRIPOJENI) a svislé texty připojení,
+    můstky (MUSTKY). Vrací cestu zapsaného souboru (přípona `.dxf` se doplní)."""
+    from envocad.model.frame import doc_page, frame_geometry, page_label
+    from envocad.model.multipole import page_paper_label
+    from envocad.model.project import clean_view
+    from envocad.model.terminal_plan import sheet_plan_pages, terminal_plan
+    from envocad.settings import company, frame_enabled, switchboard_paper
+    std = switchboard_paper()
+    plans = terminal_plan(*clean_view(project, sheet))
+    (w, h), pages = sheet_plan_pages(project, sheet, plans, standard_paper=std)
+    paper = page_paper_label(sheet, standard_paper=std)
+    path = _dxf_path(path)
+    doc = _new_doc()
+    _add_layers(doc, TERMINAL_LAYERS)
+    msp = doc.modelspace()
+    n = max(1, len(pages))
+    for k in range(n):
+        dx = k * (w + MP_PAGE_GAP)
+        if frame_enabled():
+            _draw_geometry(msp, frame_geometry(project, sheet, w, h, "plán svorkovnice", page_label(project, sheet, k, n),
+                                               paper, company(), doc_page(project, sheet.id, "terminals", k)),
+                           "RAMECEK", dx)
+        else:
+            msp.add_lwpolyline(_rect_pts(dx, 0, w, h), close=True, dxfattribs={"layer": "RAMECEK"})
+        for chunk in pages[k] if k < len(pages) else []:
+            _draw_terminal_chunk(msp, chunk, dx)
+        _page_layout(doc, f"Strana {k + 1}", w, h, dx + w / 2)
+    doc.layouts.delete("Layout1")
+    doc.saveas(str(path))
+    return path
