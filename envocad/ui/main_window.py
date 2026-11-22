@@ -9,7 +9,7 @@ from typing import ClassVar
 
 import shiboken6
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QAction, QKeySequence, QUndoStack
+from PySide6.QtGui import QAction, QActionGroup, QKeySequence, QUndoStack
 from PySide6.QtWidgets import (
     QApplication,
     QDockWidget,
@@ -23,7 +23,8 @@ from PySide6.QtWidgets import (
     QToolBar,
 )
 
-from envocad import __version__
+from envocad import __version__, i18n
+from envocad.i18n import tr
 from envocad.library.store import LibraryStore
 from envocad.model.project import Project, Sheet
 from envocad.ui import commands, theme
@@ -215,28 +216,29 @@ class MainWindow(QMainWindow):
                 self.actions[key] = a
             return a
 
-        m_file = mb.addMenu("&Soubor")
-        act(m_file, "&Nový", self.new_project, "Ctrl+N", "new")
-        act(m_file, "Nový projekt z průvodce…", self.new_project_wizard, "Ctrl+Shift+N")
-        act(m_file, "Nový projekt ze specifikace (JSON)…", self.new_project_from_spec)
-        act(m_file, "&Otevřít…", self.open_project, "Ctrl+O", "open")
-        self.m_recent = m_file.addMenu("Poslední projekty")
+        m_file = mb.addMenu(tr("&Soubor"))
+        m_file.setProperty("source_title", "Soubor")   # pluginy hledají menu podle českého názvu (i v angličtině)
+        act(m_file, tr("&Nový"), self.new_project, "Ctrl+N", "new")
+        act(m_file, tr("Nový projekt z průvodce…"), self.new_project_wizard, "Ctrl+Shift+N")
+        act(m_file, tr("Nový projekt ze specifikace (JSON)…"), self.new_project_from_spec)
+        act(m_file, tr("&Otevřít…"), self.open_project, "Ctrl+O", "open")
+        self.m_recent = m_file.addMenu(tr("Poslední projekty"))
         self._refresh_recent_menu()
-        act(m_file, "&Uložit", self.save_project, "Ctrl+S", "save")
-        act(m_file, "Uložit &jako…", self.save_project_as, "Ctrl+Shift+S")
+        act(m_file, tr("&Uložit"), self.save_project, "Ctrl+S", "save")
+        act(m_file, tr("Uložit &jako…"), self.save_project_as, "Ctrl+Shift+S")
         m_file.addSeparator()
-        act(m_file, "Spustit skript…", self.run_script, None, "run_script")
+        act(m_file, tr("Spustit skript…"), self.run_script, None, "run_script")
         m_file.addSeparator()
-        act(m_file, "Export &DXF…", self.export_dxf, None, "export_dxf")
-        act(m_file, "Export &PDF…", self.export_pdf, None, "export_pdf")
-        act(m_file, "Export PDF na A4 (zmenšeno)…", lambda: self.export_pdf("A4"))
+        act(m_file, tr("Export &DXF…"), self.export_dxf, None, "export_dxf")
+        act(m_file, tr("Export &PDF…"), self.export_pdf, None, "export_pdf")
+        act(m_file, tr("Export PDF na A4 (zmenšeno)…"), lambda: self.export_pdf("A4"))
         m_file.addSeparator()
-        act(m_file, "Vlastnosti projektu…", self.edit_project_meta)
-        act(m_file, "Porovnat s revizí (.ecp)…", self.compare_revision)
-        act(m_file, "Uzavřít revizi", self.close_revision_all)
-        act(m_file, "Uzavřít revizi listu", self.close_revision_sheet)
+        act(m_file, tr("Vlastnosti projektu…"), self.edit_project_meta)
+        act(m_file, tr("Porovnat s revizí (.ecp)…"), self.compare_revision)
+        act(m_file, tr("Uzavřít revizi"), self.close_revision_all)
+        act(m_file, tr("Uzavřít revizi listu"), self.close_revision_sheet)
         m_file.addSeparator()
-        act(m_file, "Konec", self.close, "Ctrl+Q")
+        act(m_file, tr("Konec"), self.close, "Ctrl+Q")
 
         m_edit = mb.addMenu("&Úpravy")
         u = self.undo.createUndoAction(self, "Zpět")
@@ -306,6 +308,20 @@ class MainWindow(QMainWindow):
         self.act_notes.setChecked(self._notes_visible_setting())
         self.act_notes.toggled.connect(self.set_notes_visible)
         m_view.addAction(self.act_notes)
+        # před oddělovačem: poslední položkou menu musí zůstat „Obnovit rozložení…“ (před ni se vkládá Příkazový řádek)
+        m_lang = m_view.addMenu(tr("Jazyk rozhraní"))
+        group = QActionGroup(self)
+        group.setExclusive(True)
+        self.language_actions: dict[str, QAction] = {}
+        from envocad import settings as envo_settings
+        current = envo_settings.language()
+        for code, name in i18n.LANGUAGES.items():
+            la = QAction(name, self, checkable=True)
+            la.setChecked(code == current)
+            la.triggered.connect(lambda _c=False, code=code: self.set_ui_language(code))
+            group.addAction(la)
+            m_lang.addAction(la)
+            self.language_actions[code] = la
         m_view.addSeparator()
         act(m_view, "Obnovit rozložení panelů a lišt", self.reset_layout)
 
@@ -358,6 +374,15 @@ class MainWindow(QMainWindow):
         self._build_toolbars()
         self._shortcut_tooltips()
 
+    def set_ui_language(self, code: str) -> None:
+        """Uloží jazyk rozhraní do nastavení; platí po restartu (běžící okno se nepřekládá). Nejde o změnu projektu."""
+        from envocad import settings as envo_settings
+        code = code if code in i18n.LANGUAGES else i18n.DEFAULT_LANGUAGE
+        data = envo_settings.load_settings()
+        data["language"] = code
+        envo_settings.save_settings(data)
+        self.statusBar().showMessage(tr("Jazyk rozhraní se změní po restartu EnvoCAD."))
+
     # ---- pluginy ---------------------------------------------------------------
     def _load_plugins(self) -> None:
         from envocad.plugins import load_plugins
@@ -368,6 +393,9 @@ class MainWindow(QMainWindow):
             log.warning(msg)
             QTimer.singleShot(0, lambda: self.statusBar().showMessage(msg, 20_000))
         menus = {m.title().replace("&", ""): m for m in self.menuBar().findChildren(QMenu) if m.title()}
+        for m in self.menuBar().findChildren(QMenu):     # i podle českého zdrojového názvu (menu přeložené tr())
+            if m.property("source_title"):
+                menus[m.property("source_title")] = m
         for menu_name, text, cb in self.plugins.menu_actions:
             menu = menus.get(menu_name)
             if menu is None:
@@ -1748,7 +1776,7 @@ class MainWindow(QMainWindow):
             a = self.m_recent.addAction(p)
             a.triggered.connect(lambda _c=False, p=p: self.open_path(p))
         if self.m_recent.isEmpty():
-            self.m_recent.addAction("(zatím nic)").setEnabled(False)
+            self.m_recent.addAction(tr("(zatím nic)")).setEnabled(False)
 
     def open_path(self, path: str) -> None:
         if not self._confirm_discard():

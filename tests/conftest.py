@@ -36,6 +36,17 @@ def _isolated_home(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _reset_ui_language():
+    """Jazyk rozhraní je globální stav procesu – test, který přepne na angličtinu, nesmí ovlivnit zbytek sady."""
+    yield
+    try:
+        from envocad import i18n
+        i18n.set_language("cs")
+    except (ImportError, AttributeError):    # modul i18n ještě neexistuje
+        pass
+
+
+@pytest.fixture(autouse=True)
 def _stop_leftover_autosave():
     """Po testu zastaví autosave časovač (120 s) oken `MainWindow`, která test nezavřel. Jinak na pomalém stroji
     (CI) okno z dřívějšího testu zapíše kopii do `ENVOCAD_HOME` pozdějšího testu, nové okno ji nabídne modálním
