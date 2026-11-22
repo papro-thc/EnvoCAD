@@ -155,7 +155,9 @@ Kód EnvoCAD je pod licencí **MIT** (viz `LICENSE`). Součástí repozitáře j
 - ikony lišt v `envocad/resources/icons/` jsou z [Lucide](https://lucide.dev) 0.460, licence **ISC**
   (`LICENSE-lucide.txt`); elektro ikony (vodič, vícepól, DIN lišta, svorkovnice…) jsou vlastní ve stejném stylu;
 
-- značky `envocad/library/builtin/qet/` jsou převedené z kolekce QElectroTech, **CC BY 3.0**, autorství viz
+- značky `envocad/library/builtin/qet/` jsou **výjimka z MIT**: jsou upravené (převedené) z kolekce QElectroTech
+  a šířené pod [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/); licence kolekce navíc zakazuje
+  použití jako dat pro trénink modelů strojového učení; autorství a úpravy viz
   `envocad/library/builtin/qet/ATTRIBUTION.md`;
 - artikly v `envocad/library/builtin/components/*.csv` jsou technické parametry opsané z veřejných katalogů
   výrobců (OEZ, Eaton, Schneider, Hager, Weidmüller, Elektro Bečov, ELEMAN, SMA, SolaX, Huawei, BMR) a z datasheetů
