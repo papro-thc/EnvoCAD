@@ -91,6 +91,11 @@ Noční cron bere jednu issue (`concurrency: agent-auto`); ruční spuštění s
 zvlášť). `--max-turns 150`, timeout 150 min; oprava CI max 2 pokusy po 60 turnech; `@claude` jen od vlastníka repa,
 max 80 turnů.
 
+### Když agent nic necommitoval
+V souhrnu běhu (Actions → běh → Summary) je počet turnů, použité nástroje a subagenti a poslední odpověď
+orchestrátora. Subagenti na pozadí jsou vypnutí (`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`) – v neinteraktivním
+běhu by session skončila dřív než oni.
+
 ### Když push nebo PR selže
 Běh nejdřív ověří, že `AGENT_GH_TOKEN` má do repa právo zápisu (jinak skončí dřív, než Claude začne). Commity agenta
 se vždy uloží jako artefakt `agent-issue-<N>` (14 dní) a jdou obnovit:
