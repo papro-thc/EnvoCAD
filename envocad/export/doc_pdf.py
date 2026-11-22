@@ -8,6 +8,8 @@ Obsah, výkazy i změnový list jsou tabulky (`_TableLayout`): šířky sloupců
 text se v buňce zalomí, tabulka pokračuje na dalších stranách. Počet stran se spočítá předem (obsah ukazuje
 skutečná čísla stran, popisové pole „n/N“). Bez rámečku má každá strana malé „strana n/N“ v pravém dolním rohu.
 PDF má záložky (osnovu): jedna na každý řádek obsahu, doplněné po vykreslení (`pdf_outline`).
+Volitelně (`legend=True`) přibude před změnový list „Přehled použitých značek“: tabulka obrázek značky / název /
+počet použití (`reports.symbol_legend`); řádky jsou vyšší (`LEGEND_ROW_H`), aby se do nich značka vešla.
 """
 from __future__ import annotations
 
@@ -24,7 +26,7 @@ from envocad.model.frame import DOC_PAGES_KEY, TB_H, doc_page_key, frame_geometr
 from envocad.model.project import Project, Sheet
 from envocad.settings import company, frame_enabled, switchboard_paper
 from envocad.ui import theme
-from envocad.ui.render import draw_frame, draw_text, sp, text_width, wrap_text
+from envocad.ui.render import draw_frame, draw_text, paint_symbol, sp, symbol_path, text_width, wrap_text
 
 PAGE_W, PAGE_H = 420.0, 297.0
 ROW_H = 5.0               # nejmenší výška řádku tabulky
@@ -34,6 +36,8 @@ CELL_PAD = 1.0            # vnitřní okraj buňky vlevo/vpravo
 TABLE_TOP = 18.0          # začátek tabulky pod horním okrajem kreslicí plochy (nad ní název)
 MIN_COL = 8.0             # nejužší sloupec
 MAX_WORD = 30.0           # delší slovo se smí lámat po znacích (nesnižuje min. šířku sloupce víc)
+LEGEND_ROW_H = 14.0       # výška řádku legendy značek (vejde se do ní obrázek značky)
+LEGEND_SYM_W = 30.0       # šířka sloupce s obrázkem značky
 FOOTER_H = 2.5            # „strana n/N“ bez rámečku
 # listy JPS v dokumentaci: zmenšit na stranu A3 (dosavadní chování) / strana ve skutečném formátu listu
 JPS_PAGE_A3, JPS_PAGE_SHEET = "A3", "list"
@@ -126,9 +130,10 @@ def _row_height(lines: list[list[str]]) -> float:
     return max(ROW_H, max(len(c) for c in lines) * LINE_PITCH + 1.8)
 
 
-def table_layout(project: Project, head: list[str], rows: list[list], widths: list[float] | None = None
-                 ) -> _TableLayout:
-    """Rozvrhne tabulku na strany dokumentace. `widths` = pevné šířky (obsah: spočítané s nejdelšími čísly)."""
+def table_layout(project: Project, head: list[str], rows: list[list], widths: list[float] | None = None,
+                 min_row_h: float = ROW_H) -> _TableLayout:
+    """Rozvrhne tabulku na strany dokumentace. `widths` = pevné šířky (obsah: spočítané s nejdelšími čísly),
+    `min_row_h` = nejmenší výška řádku (legenda značek ji zvyšuje pro obrázek)."""
     x0, bottom, x1, top = _table_area(project)
     widths = widths or _col_widths(head, rows, x1 - x0)
     n = len(head)
@@ -146,7 +151,7 @@ def table_layout(project: Project, head: list[str], rows: list[list], widths: li
                 lines = lines[:max_lines - 1] + [lines[max_lines - 1] + " …"]
             cells.append(lines)
         lay.cells.append(cells)
-        lay.heights.append(_row_height(cells))
+        lay.heights.append(max(min_row_h, _row_height(cells)))
     start, used = 0, 0.0
     for i, h in enumerate(lay.heights):
         if used + h > room and i > start:
@@ -160,13 +165,14 @@ def table_layout(project: Project, head: list[str], rows: list[list], widths: li
 class DocBuilder:
     """Sestaví seznam stran (pro obsah) a pak je vykreslí."""
 
-    def __init__(self, project: Project, library, jps_page: str | None = None):
+    def __init__(self, project: Project, library, jps_page: str | None = None, legend: bool = False):
         import dataclasses
 
         from envocad.model.project import without_dangling
         # bez vodičů na neexistující prvek; vlastní meta – čísla stran dokumentace (`doc_pages`) jen pro tento export
         self.project = dataclasses.replace(without_dangling(project), meta=dict(project.meta))
         self.library = library
+        self.legend = legend      # přidat před změnový list „Přehled použitých značek“
         # listy JPS: „A3“ = zmenšit na A3, „list“ = strana ve skutečném formátu listu; None = firemní standard
         self.jps_page = jps_page if jps_page in JPS_PAGE_LABELS else standard_jps_page()
         self.pages: list[tuple[str, str, object]] = []  # (druh, název, data)
@@ -200,6 +206,10 @@ class DocBuilder:
             head, rows = fn(p, self.library, None)
             if rows:
                 self.pages.append(("table", name, (head, rows)))
+        if self.legend:
+            head, rows = reports.symbol_legend(p, self.library)
+            if rows:
+                self.pages.append(("legend", reports.SYMBOL_LEGEND_NAME, (head, rows)))
         self.pages.append(("changes", "Změnový list", None))
         self._layouts = {}
 
@@ -256,15 +266,41 @@ class DocBuilder:
                 lay = table_layout(self.project, list(self.TOC_HEAD), ph)
             elif kind == "changes":
                 lay = table_layout(self.project, list(self.CHANGES_HEAD), self._change_rows())
+            elif kind == "legend":
+                lay = self._legend_layout(*data)
             else:
                 head, rows = data
                 lay = table_layout(self.project, head, rows)
             self._layouts[idx] = lay
         return lay
 
+    def _legend_layout(self, head: list[str], rows: list[list]) -> _TableLayout:
+        """Legenda značek: první sloupec (obrázek značky) má pevnou šířku a prázdné buňky, řádky jsou vyšší."""
+        x0, _bottom, x1, _top = _table_area(self.project)
+        rest = _col_widths(head[1:], [r[1:] for r in rows], x1 - x0 - LEGEND_SYM_W)
+        return table_layout(self.project, head, [["", *r[1:]] for r in rows], [LEGEND_SYM_W, *rest],
+                            min_row_h=LEGEND_ROW_H)
+
+    def _draw_legend_symbol(self, painter, symbol_id: str, x: float, y: float, w: float, h: float) -> None:
+        """Obrázek značky zmenšený (nejvýš 1:1) a vystředěný do buňky (levý horní roh x, y; šířka w, výška h; mm)."""
+        sym = reports._symbol(self.library, symbol_id)
+        box = symbol_path(sym).boundingRect()
+        if box.width() <= 0 and box.height() <= 0:
+            return
+        k = min(1.0, (w - 2 * CELL_PAD) / box.width() if box.width() > 0 else 1.0,
+                (h - 3.0) / box.height() if box.height() > 0 else 1.0)
+        painter.save()
+        painter.setClipRect(QRectF(x + 0.3, -y + 0.3, w - 0.6, h - 0.6))   # popisky značky mimo čáry nepřetečou
+        painter.translate(sp(x + w / 2, y - h / 2))       # střed buňky (scéna: Y dolů)
+        painter.scale(k, k)
+        painter.translate(-box.center())
+        paint_symbol(painter, sym, QPen(theme.PRINT.ink, 0.25 / k))
+        painter.restore()
+
     def _draw_table(self, painter, name: str, head: list[str], rows: list[list], lay: _TableLayout,
-                    page_no: int) -> None:
-        """Jedna strana tabulky (`page_no` = index strany v rozvržení)."""
+                    page_no: int, symbols: bool = False) -> None:
+        """Jedna strana tabulky (`page_no` = index strany v rozvržení). `symbols` = legenda: v prvním sloupci
+        se místo textu kreslí značka podle `rows[r][0]` a text ostatních buněk je svisle uprostřed řádku."""
         p = self.project
         title = name + (" (pokračování)" if page_no else "")
         _draw_frame_page(painter, p, _pseudo_sheet(title, p), page=self._page)
@@ -288,9 +324,13 @@ class DocBuilder:
         for r in range(a, b):
             painter.setPen(QPen(theme.PRINT.ink, 0.2))
             x = x0
+            dy = (lay.heights[r] - _row_height(lay.cells[r])) / 2 if symbols else 0.0
+            if symbols:
+                self._draw_legend_symbol(painter, str(rows[r][0]), x0, y, lay.widths[0], lay.heights[r])
+                painter.setPen(QPen(theme.PRINT.ink, 0.2))
             for i, lines in enumerate(lay.cells[r]):
                 for j, t in enumerate(lines):
-                    draw_text(painter, x + CELL_PAD, y - 3.5 - j * LINE_PITCH, t, FONT_H, "left")
+                    draw_text(painter, x + CELL_PAD, y - dy - 3.5 - j * LINE_PITCH, t, FONT_H, "left")
                 x += lay.widths[i]
             y -= lay.heights[r]
             painter.setPen(QPen(theme.PRINT.ink, 0.08))
@@ -444,7 +484,7 @@ class DocBuilder:
             self.page_sizes.append(self._item_size(idx))
             if kind == "sheet":
                 cnt = self._sheet_pages(*data)
-            elif kind in ("table", "toc", "changes"):
+            elif kind in ("table", "toc", "changes", "legend"):
                 cnt = self._layout(idx).page_count
             else:
                 cnt = 1
@@ -481,7 +521,7 @@ class DocBuilder:
         for k in range(lay.page_count):
             if k:
                 self._new_page(painter, writer, (PAGE_W, PAGE_H))
-            self._draw_table(painter, name, head, rows, lay, k)
+            self._draw_table(painter, name, head, rows, lay, k, symbols=kind == "legend")
 
     # ---- export --------------------------------------------------------------------
     def export(self, path: Path | str, notes: bool = False) -> int:
@@ -532,11 +572,13 @@ class DocBuilder:
 
 
 def export_documentation_pdf(project: Project, library, path: Path | str, notes: bool = False,
-                             jps_page: str | None = None, page_numbers: list | None = None) -> int:
+                             jps_page: str | None = None, page_numbers: list | None = None,
+                             legend: bool = False) -> int:
     """Vrátí počet stran. `notes=True` = otevřené připomínky jako anotace PDF. `jps_page` = „A3“ (listy JPS zmenšit
     na A3) / „list“ (strana ve skutečném formátu listu); None = firemní standard `doc_jps_page`. Do `page_numbers`
-    (seznam) se připojí čísla stran listů (JSON pro `meta["doc_pages"]`) – projekt sám se nemění."""
-    b = DocBuilder(project, library, jps_page)
+    (seznam) se připojí čísla stran listů (JSON pro `meta["doc_pages"]`) – projekt sám se nemění. `legend=True` =
+    před změnový list přibude strana „Přehled použitých značek“."""
+    b = DocBuilder(project, library, jps_page, legend=legend)
     n = b.export(path, notes=notes)
     if page_numbers is not None:
         page_numbers.append(b.project.meta[DOC_PAGES_KEY])
