@@ -64,9 +64,13 @@ CI (ci.yml): licence + ruff → pytest Linux/Windows → PyInstaller build Linux
 ráno: projdeš PR, stáhneš build z artefaktů, sloučíš – nebo napíšeš „@claude …“ (agent-mention.yml) a agent přepracuje
 ```
 
-**Proč Claude v nočním běhu nemá právo pushovat:** repo je soukromé na plánu Free, kde nejde zapnout ochrana větve
-`main`. Proto má Claude jen token pro čtení, commituje lokálně a větev pushne až krok workflow, který ověří,
-že se jmenuje `agent/issue-<N>-…`. Do `main` se tak agent nedostane, ani kdyby chtěl.
+**Proč Claude v nočním běhu nemá právo pushovat:** Claude má jen token pro čtení, commituje lokálně a větev pushne
+až krok workflow, který ověří, že se jmenuje `agent/issue-<N>-…`. Navíc je `main` chráněná (repo je veřejné, od
+11/2026): jen přes PR, bez force push a mazání. Do `main` se agent nedostane ani jednou z cest.
+
+**Veřejné repo:** minuty Actions jsou neomezené. Workflow z PR z cizích forků nedostanou secrets a agentní workflow
+se spouští jen pro vlastníka (`@claude`) nebo pro větve v tomto repu – vlastní (self-hosted) runner u veřejného repa
+nepoužívat.
 
 ### Jednorázové nastavení
 1. Štítky: `tools/setup_agent_labels.sh`
