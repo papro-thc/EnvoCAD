@@ -23,7 +23,7 @@ for _name in ("qtbase_cs.qm", "qt_cs.qm"):
     if (_tr_src / _name).exists():
         datas.append((str(_tr_src / _name), str(_tr_dest)))
 # pypdf se importuje lokálně ve funkci (export/pdf_annots.py) → PyInstaller ho sám nemusí najít
-hidden = ["envocad.plugins_builtin.example_counts", "PySide6.QtSvg", "openpyxl", "docx", "ezdxf", "pypdf"]
+hidden = ["envocad.plugins_builtin.example_counts", "PySide6.QtSvg", "openpyxl", "docx", "ezdxf", "pypdf", "defusedxml"]
 
 a = Analysis(
     ["envocad/__main__.py"],

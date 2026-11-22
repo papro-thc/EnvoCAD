@@ -12,12 +12,14 @@ from envocad.ui.main_window import MainWindow
 
 FILE_CS = ["&Nový", "Nový projekt z průvodce…", "Nový projekt ze specifikace (JSON)…", "&Otevřít…",
            "Poslední projekty", "&Uložit", "Uložit &jako…", "Archiv projektu…",
-           "Otevřít archiv projektu…", "Spustit skript…", "Export &DXF…", "Export &PDF…",
+           "Otevřít archiv projektu…", "Spustit skript…", "Export &DXF…", "Export DXF rozložení rozvaděče…",
+           "Export DXF plánu svorkovnice…", "Export &PDF…",
            "Export PDF na A4 (zmenšeno)…", "Vlastnosti projektu…", "Porovnat s revizí (.ecp)…", "Uzavřít revizi",
            "Uzavřít revizi listu", "Konec"]
 FILE_EN = ["&New", "New Project from Wizard…", "New Project from Specification (JSON)…", "&Open…",
            "Recent Projects", "&Save", "Save &As…", "Project Archive…",
-           "Open Project Archive…", "Run Script…", "Export &DXF…", "Export &PDF…",
+           "Open Project Archive…", "Run Script…", "Export &DXF…", "Export Switchboard Layout DXF…",
+           "Export Terminal Plan DXF…", "Export &PDF…",
            "Export PDF to A4 (scaled down)…", "Project Properties…", "Compare with Revision (.ecp)…",
            "Close Revision", "Close Sheet Revision", "Exit"]
 

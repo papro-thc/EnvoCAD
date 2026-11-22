@@ -46,6 +46,12 @@ msgstr "Run Script…"
 msgid "Export &DXF…"
 msgstr "Export &DXF…"
 
+msgid "Export DXF rozložení rozvaděče…"
+msgstr "Export Switchboard Layout DXF…"
+
+msgid "Export DXF plánu svorkovnice…"
+msgstr "Export Terminal Plan DXF…"
+
 msgid "Export &PDF…"
 msgstr "Export &PDF…"
 

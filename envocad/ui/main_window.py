@@ -12,6 +12,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction, QActionGroup, QKeySequence, QUndoStack
 from PySide6.QtWidgets import (
     QApplication,
+    QDialog,
     QDockWidget,
     QFileDialog,
     QInputDialog,
@@ -233,6 +234,8 @@ class MainWindow(QMainWindow):
         act(m_file, tr("Spustit skript…"), self.run_script, None, "run_script")
         m_file.addSeparator()
         act(m_file, tr("Export &DXF…"), self.export_dxf, None, "export_dxf")
+        act(m_file, tr("Export DXF rozložení rozvaděče…"), self.export_layout_dxf, None, "export_layout_dxf")
+        act(m_file, tr("Export DXF plánu svorkovnice…"), self.export_terminal_plan_dxf, None, "export_terminal_plan_dxf")
         act(m_file, tr("Export &PDF…"), self.export_pdf, None, "export_pdf")
         act(m_file, tr("Export PDF na A4 (zmenšeno)…"), lambda: self.export_pdf("A4"))
         m_file.addSeparator()
@@ -269,6 +272,7 @@ class MainWindow(QMainWindow):
         act(m_edit, "Kabel vybraného vodiče (žíly, barvy, stínění)…", self.edit_cable, "Ctrl+Shift+K", "cable")
         m_edit.addSeparator()
         act(m_edit, "Najít označení…", self.find_ref, "Ctrl+F", "find")
+        act(m_edit, "Najít a nahradit…", self.find_replace, "Ctrl+H", "replace")
         act(m_edit, "Kontrola projektu…", self.run_checks, "F7", "checks")
         act(m_edit, "Hledat příkaz…", self.command_palette, "Ctrl+K", "palette")
 
@@ -334,6 +338,8 @@ class MainWindow(QMainWindow):
 
         m_sheet = mb.addMenu("&List")
         act(m_sheet, "Nový list schématu", self.new_schematic_sheet)
+        act(m_sheet, "Duplikovat list", lambda: self.duplicate_sheet(edit_refs=True))
+        act(m_sheet, "Přepsat označení listu…", lambda: self.edit_sheet_refs())
         act(m_sheet, "Vlastnosti listu (název, =funkce, +umístění)…", self.rename_sheet)
         act(m_sheet, "Odstranit list", self.delete_sheet)
         m_sheet.addSeparator()
@@ -366,6 +372,7 @@ class MainWindow(QMainWindow):
         act(m_lib, "Prohlížet artikly…", self.browse_components)
         act(m_lib, "Importovat artikly z CSV…", self.import_components_csv)
         act(m_lib, "Importovat artikly z EPLAN (XML / CSV / ZIP)…", self.import_eplan)
+        act(m_lib, "Importovat artikly z BMEcat (XML)…", self.import_bmecat)
         m_lib.addSeparator()
         act(m_lib, "Sdílená knihovna (síťová složka)…", self.set_shared_library)
         act(m_lib, "Firemní standard (výchozí kabely, zpracoval)…", self.edit_standard)
@@ -724,6 +731,40 @@ class MainWindow(QMainWindow):
         sheet = Sheet(name=name)
         self.undo.push(commands.AddSheetCommand(self.project, sheet, on_change=self._sheet_presence_changed))
         self.open_sheet(sheet)
+
+    def duplicate_sheet(self, sheet: Sheet | None = None, edit_refs: bool = False) -> Sheet | None:
+        """List → Duplikovat list: kopie za originálem jedním krokem undo (u rozvaděče i blok, umístění, název), otevře
+        se její záložka. S `edit_refs` se hned nabídne přepsání označení kopie."""
+        sheet = sheet or self.current_sheet
+        if sheet is None:
+            return None
+        def changed(sh: Sheet, present: bool) -> None:
+            self._sheet_presence_changed(sh, present)
+            if cmd.result.block is not None:      # blok ROZVADĚČ přibyl / zmizel na nadřazeném listu (redo i undo)
+                self._rebuild_sheet_views(cmd.result.parent)
+        cmd = commands.DuplicateSheetCommand(self.project, sheet, self.library, on_change=changed)
+        self.undo.push(cmd)
+        res = cmd.result
+        if res is None:
+            return None
+        self.open_sheet(res.sheet)
+        self.statusBar().showMessage(f"Vytvořena kopie listu: {res.sheet.name}", 5000)
+        if edit_refs:
+            self.edit_sheet_refs(res.sheet)
+        return res.sheet
+
+    def edit_sheet_refs(self, sheet: Sheet | None = None) -> None:
+        """List → Přepsat označení listu: všechna označení prvků a vodičů listu najednou, jeden krok undo."""
+        sheet = sheet or self.current_sheet
+        if sheet is None:
+            return
+        from envocad.ui.sheet_refs_dialog import SheetRefsDialog
+        dlg = SheetRefsDialog(self.project, sheet, self, library=self.library)
+        if dlg.exec() != QDialog.Accepted or not dlg.changes():
+            return
+        changes = dlg.all_changes()
+        self.undo.push(commands.TextChangesCommand(self.project, changes, self._refs_changed, "Přepsat označení listu"))
+        self.statusBar().showMessage(f"Přepsáno označení: {len(dlg.changes())}", 5000)
 
     def _close_sheet_tabs(self, sheet: Sheet) -> list[str]:
         """Zavře všechny záložky listu (i poslední – smazaný list nesmí zůstat zobrazený); vrátí jejich druhy."""
@@ -1181,6 +1222,31 @@ class MainWindow(QMainWindow):
         for sc in self._scenes:
             if hasattr(sc, "set_notes_visible"):
                 sc.set_notes_visible(bool(on))
+
+    def find_replace(self) -> None:
+        from envocad.ui.replace_dialog import ReplaceDialog
+        ReplaceDialog(self, self.project, self.library, lambda: self.current_sheet, self.apply_replace).exec()
+
+    def apply_replace(self, find: str, replace: str, scope: str = "project", match_case: bool = False) -> int:
+        """Najít a nahradit text jako jeden krok undo (`ReplaceTextCommand`). Vrací počet náhrad; 0 = nic se nezměnilo."""
+        from envocad.cmd import edits
+        sheet = self.current_sheet if scope == "sheet" else None
+        if scope == "sheet" and sheet is None:     # např. karta jednopólového schématu – nenahrazovat celý projekt
+            self.statusBar().showMessage("Žádný aktivní list", 4000)
+            return 0
+        try:
+            matches = edits.find_text(self.project, self.library, find, replace, sheet, match_case)
+        except ValueError as ex:
+            self.statusBar().showMessage(str(ex), 4000)
+            return 0
+        if not matches:
+            self.statusBar().showMessage(f"„{find}“ nenalezeno", 4000)
+            return 0
+        n = sum(m.count for m in matches)
+        self.undo.push(commands.ReplaceTextCommand(self.project, matches, "Najít a nahradit",
+                                                   on_change=self._sheets_changed))
+        self.statusBar().showMessage(f"Nahrazeno výskytů: {n}", 4000)
+        return n
 
     def find_ref(self) -> None:
         text, ok = QInputDialog.getText(self, "Najít", "Označení prvku nebo vodiče (např. F2, X1, W3):")
@@ -2032,9 +2098,40 @@ class MainWindow(QMainWindow):
             sc.update()
 
     # ---- export / import -------------------------------------------------------
-    DXF_ONLY_SCHEMATIC = ("DXF se exportuje z blokového schématu, z listu rozvaděče v editoru nebo "
-                          "z vícepólového schématu. Plán svorkovnice a rozložení rozvaděče exportuj do PDF "
-                          "(Soubor → Export PDF nebo Výstupy → Celá dokumentace).")
+    DXF_ONLY_SCHEMATIC = ("DXF se exportuje z blokového schématu, z listu rozvaděče v editoru, z vícepólového "
+                          "schématu, z rozložení rozvaděče nebo z plánu svorkovnice.")
+    DXF_NEEDS_SWITCHBOARD = "Otevřete list rozvaděče (jeho rozložení, plán svorkovnice nebo vícepól)."
+
+    def _active_switchboard_sheet(self) -> Sheet | None:
+        """List rozvaděče z aktivního pohledu (schéma, rozložení, vícepól, plán svorkovnice), jinak None."""
+        v = self.view
+        sc = v.scene() if v is not None and not isinstance(v, SingleLineView) else None
+        sh = getattr(sc, "sheet", None)
+        return sh if sh is not None and sh.is_switchboard else None
+
+    def export_layout_dxf(self) -> None:
+        """Export DXF rozložení rozvaděče aktuálního listu rozvaděče (i z jiného pohledu téhož listu)."""
+        from envocad.export.dxf_export import export_layout_dxf
+        sh = self._active_switchboard_sheet()
+        if sh is None:
+            QMessageBox.information(self, "Export DXF rozložení rozvaděče", self.DXF_NEEDS_SWITCHBOARD)
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "Export DXF rozložení rozvaděče", "", "DXF (*.dxf)")
+        if path:
+            out = export_layout_dxf(self.project, sh, self.library, path)
+            self.statusBar().showMessage(f"Exportováno: {out}", 3000)
+
+    def export_terminal_plan_dxf(self) -> None:
+        """Export DXF plánu svorkovnice aktuálního listu rozvaděče (i z jiného pohledu téhož listu)."""
+        from envocad.export.dxf_export import export_terminal_plan_dxf
+        sh = self._active_switchboard_sheet()
+        if sh is None:
+            QMessageBox.information(self, "Export DXF plánu svorkovnice", self.DXF_NEEDS_SWITCHBOARD)
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "Export DXF plánu svorkovnice", "", "DXF (*.dxf)")
+        if path:
+            out = export_terminal_plan_dxf(self.project, sh, self.library, path)
+            self.statusBar().showMessage(f"Exportováno: {out}", 3000)
 
     def _ask_multipole_dxf_split(self) -> bool | None:
         """Volba stránkování DXF vícepólu: False = jeden soubor (layout na stranu), True = soubor na stranu,
@@ -2065,6 +2162,12 @@ class MainWindow(QMainWindow):
                 files = export_multipole_dxf(self.project, self.view.scene().sheet, self.library, path,
                                              split_pages=split)
                 self.statusBar().showMessage(export_files_message(files), 3000)
+            return
+        if isinstance(self.view, LayoutView):
+            self.export_layout_dxf()
+            return
+        if isinstance(self.view, TerminalPlanView):
+            self.export_terminal_plan_dxf()
             return
         if not self.scene:
             QMessageBox.information(self, "Export DXF", self.DXF_ONLY_SCHEMATIC if self.view is not None
@@ -2304,6 +2407,28 @@ class MainWindow(QMainWindow):
             self.lib_panel.refresh()
         QMessageBox.information(self, "Import z EPLAN", f"Načteno {n} artiklů" + (f" a {n_fp} footprintů" if n_fp else "")
                                 + f".\nUloženo do {out_dir}.")
+
+    def import_bmecat(self) -> None:
+        """BMEcat (XML 1.2 / 2005) → artikly v uživatelské knihovně (`~/.envocad/library/bmecat/`). Logika je
+        v `library/bmecat_import.py`; neplatný soubor → česká hláška, knihovna se nezmění."""
+        from envocad.library.bmecat_import import import_bmecat
+        from envocad.library.store import user_library_dir
+        path, _ = QFileDialog.getOpenFileName(self, "Import artiklů z BMEcat", "", "BMEcat (*.xml)")
+        if not path:
+            return
+        out_dir = user_library_dir() / "bmecat"
+        try:
+            res = import_bmecat(self.library, path, out_dir)
+        except Exception as ex:  # noqa: BLE001 – ValueError z parseru, OSError, chyba zápisu…
+            log.warning("import BMEcat %s selhal: %s", path, ex)
+            QMessageBox.warning(self, "Import z BMEcat", f"Soubor nejde načíst:\n{path}\n\n{error_text(ex)}")
+            return
+        text = f"Načteno {res.imported} artiklů, přeskočeno {res.skipped} duplicit, varování: {len(res.warnings)}."
+        if res.warnings:
+            text += "\n\n" + "\n".join(res.warnings[:5]) + ("\n…" if len(res.warnings) > 5 else "")
+        if res.csv_path:
+            text += f"\n\nUloženo do {res.csv_path}."
+        QMessageBox.information(self, "Import z BMEcat", text)
 
     def import_dxf_symbol(self) -> None:
         from envocad.library.dxf_import import import_dxf, list_blocks

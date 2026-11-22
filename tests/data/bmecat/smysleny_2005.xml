@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SMYŠLENÁ data pro testy EnvoCAD: výrobce, čísla, GTIN i odkazy neexistují (doména example.com). Není to katalog žádného výrobce. -->
+<BMECAT version="2005" xmlns="http://www.bmecat.org/bmecat/2005">
+  <HEADER>
+    <CATALOG>
+      <LANGUAGE>deu</LANGUAGE>
+      <CATALOG_ID>FIKTIV-2005</CATALOG_ID>
+      <CATALOG_VERSION>1.0</CATALOG_VERSION>
+    </CATALOG>
+    <SUPPLIER>
+      <SUPPLIER_NAME>Fiktiv GmbH</SUPPLIER_NAME>
+    </SUPPLIER>
+  </HEADER>
+  <T_NEW_CATALOG>
+    <PRODUCT mode="new">
+      <SUPPLIER_PID>FK-RCD-40-30</SUPPLIER_PID>
+      <PRODUCT_DETAILS>
+        <DESCRIPTION_SHORT>Proudový chránič 4P 40A 30mA smyšlený</DESCRIPTION_SHORT>
+        <INTERNATIONAL_PID type="gtin">04000000000079</INTERNATIONAL_PID>
+        <MANUFACTURER_PID>FK-RCD-40-30</MANUFACTURER_PID>
+        <MANUFACTURER_NAME>Fiktiv GmbH</MANUFACTURER_NAME>
+      </PRODUCT_DETAILS>
+      <PRODUCT_FEATURES>
+        <REFERENCE_FEATURE_SYSTEM_NAME>ETIM-8.0</REFERENCE_FEATURE_SYSTEM_NAME>
+        <REFERENCE_FEATURE_GROUP_ID>EC001234</REFERENCE_FEATURE_GROUP_ID>
+        <FEATURE>
+          <FNAME>EF000003</FNAME>
+          <FVALUE>30</FVALUE>
+          <FUNIT>mA</FUNIT>
+        </FEATURE>
+      </PRODUCT_FEATURES>
+      <MIME_INFO>
+        <MIME>
+          <MIME_SOURCE>https://example.com/ds/fk-rcd-40-30.pdf</MIME_SOURCE>
+          <MIME_PURPOSE>data_sheet</MIME_PURPOSE>
+        </MIME>
+      </MIME_INFO>
+    </PRODUCT>
+    <PRODUCT mode="new">
+      <SUPPLIER_PID>FK-CASE-2</SUPPLIER_PID>
+      <PRODUCT_DETAILS>
+        <DESCRIPTION_SHORT>Rozvodnice 2 řady smyšlená</DESCRIPTION_SHORT>
+        <INTERNATIONAL_PID type="ean">4000000000086</INTERNATIONAL_PID>
+      </PRODUCT_DETAILS>
+      <PRODUCT_FEATURES>
+        <FEATURE>
+          <FNAME>Width</FNAME>
+          <FVALUE>45</FVALUE>
+          <FUNIT>MMT</FUNIT>
+        </FEATURE>
+        <FEATURE>
+          <FNAME>Height</FNAME>
+          <FVALUE>0.09</FVALUE>
+          <FUNIT>MTR</FUNIT>
+        </FEATURE>
+        <FEATURE>
+          <FNAME>Weight</FNAME>
+          <FVALUE>250</FVALUE>
+          <FUNIT>GRM</FUNIT>
+        </FEATURE>
+      </PRODUCT_FEATURES>
+    </PRODUCT>
+  </T_NEW_CATALOG>
+</BMECAT>

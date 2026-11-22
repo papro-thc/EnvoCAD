@@ -66,3 +66,5 @@ na víc než pár hodin práce – navrhni rozdělení na menší issue.
 - Do knihovny smí jen **fakta** (parametry: V, A, kW, rozměry, Pv…) zapsaná vlastním formátem + odkaz `url` na zdroj.
   Nekopíruj texty, tabulky ani grafiku 1:1. Licence zdrojů: `docs/SOURCES.md`.
 - CI to hlídá skriptem `tools/check_licensed_data.py`; pokud ho tvá změna rozbije, data do gitu nepatří.
+- Značky `envocad/library/builtin/qet/` (QElectroTech, CC BY 3.0): licence kolekce zakazuje použití jako dat pro trénink
+  modelů strojového učení; při přidávání dalších značek zachovat atribuci (`ATTRIBUTION.md`).

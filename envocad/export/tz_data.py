@@ -14,6 +14,7 @@ from envocad.export import reports
 from envocad.export.docx_export import _table, set_landscape
 from envocad.library.store import LibraryStore
 from envocad.model import calc
+from envocad.model.advisory import ADVISORY_NOTE
 from envocad.model.project import Element, Project, Sheet
 
 INVERTERS = ("fve.inverter", "fve.inverter_hybrid")
@@ -527,11 +528,11 @@ def block_cables(doc, ctx) -> None:
     cc = ctx["_cache"]["cables"]
     if not cc:
         return _none_paragraph(doc, "Kabely s údaji pro výpočet v projektu nejsou.")
-    _table(doc, ["Kabel", "I [A]", "S [mm²]", "L [m]", "Uložení", "Iz [A]", "Jistič In [A]", "ΔU [%]", "Výsledek"],
+    _table(doc, ["Kabel", "I [A]", "S [mm²]", "L [m]", "Uložení", "Iz [A]", "Jistič In [A]", "ΔU [%]", f"Výsledek ({ADVISORY_NOTE})"],
            [[c.ref, c.i_a or "", c.cross or "", c.length or "", c.method, c.iz or "",
              f"{c.breaker_ref} {c.in_breaker:g}" if c.in_breaker else "",
              c.du_pct if c.du_pct is not None else "", "vyhovuje" if not c.issues else "; ".join(c.issues)] for c in cc])
-    doc.add_paragraph("Zatížitelnost Iz dle ČSN 33 2000-5-52 (Cu, PVC, 30 °C) – tabulkové hodnoty orientační; "
+    doc.add_paragraph(f"Zatížitelnost Iz dle ČSN 33 2000-5-52 (Cu, PVC, 30 °C) – {ADVISORY_NOTE}; "
                       "úbytek napětí činný, mez 3 % od rozvaděče k výrobně.")
 
 
