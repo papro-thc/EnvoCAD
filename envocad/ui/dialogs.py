@@ -121,6 +121,7 @@ class AttrDialog(QDialog):
         if heading:
             lay.addWidget(QLabel(heading))
         form = QFormLayout()
+        self._form = form
         for a in attributes:
             items = a.choice_items() if hasattr(a, "choice_items") else []
             if items:                      # nabídka hodnot (směr přívodu/vývodu)
@@ -1662,7 +1663,7 @@ class ElementDialog(AttrDialog):
         self._had_note = "note" in attrs
         self.note_edit = QLineEdit(attrs.get("note", ""))
         self.note_edit.setToolTip("Interní poznámka – do výkresu ani výkazů se nepropisuje")
-        self.layout().itemAt(1).layout().addRow("Poznámka", self.note_edit)
+        self._form.addRow("Poznámka", self.note_edit)
         self.wire_combo: QComboBox | None = None
         if wire_choices is not None:
             # přívod/vývod rozvaděče: vazba na vodič nadřazeného JPS (přebere kabel, žíly, křížový odkaz)
@@ -1673,8 +1674,7 @@ class ElementDialog(AttrDialog):
             cur = attrs.get("wire_id", "")
             idx = self.wire_combo.findData(cur)
             self.wire_combo.setCurrentIndex(max(idx, 0))
-            form = self.layout().itemAt(1).layout()
-            form.addRow("Vodič v blokovém schématu", self.wire_combo)
+            self._form.addRow("Vodič v blokovém schématu", self.wire_combo)
         if library is not None:
             row = QHBoxLayout()
             self.comp_label = QLabel(self._comp_text())
@@ -1729,6 +1729,11 @@ class ElementDialog(AttrDialog):
         self.comp_label.setText(self._comp_text())
 
 
+def prvku_text(n: int) -> str:
+    """„2 prvky“, „5 prvků“ (české skloňování)."""
+    return f"{n} prvky" if 2 <= n <= 4 else f"{n} prvků"
+
+
 INVALID_COLOR = "#d32f2f"   # zvýraznění neplatného pole a varování (čitelné ve světlém i tmavém motivu)
 
 
@@ -1744,12 +1749,12 @@ class BulkElementDialog(QDialog):
         from envocad.cmd.edits import BULK_ATTR_KEYS
         self.library = library
         self.elements = list(elements)
-        self.setWindowTitle(f"Upravit {len(self.elements)} prvků")
+        self.setWindowTitle(f"Upravit {prvku_text(len(self.elements))}")
         self.setMinimumWidth(420)
         common = self._common(sheet)
         self._common_fields = common
         lay = QVBoxLayout(self)
-        lay.addWidget(QLabel(f"<b>Upravit {len(self.elements)} prvků</b><br>"
+        lay.addWidget(QLabel(f"<b>Upravit {prvku_text(len(self.elements))}</b><br>"
                              "<small>Pole „(různé)“ zůstane beze změny, dokud do něj něco nezapíšeš.</small>"))
         # artikl
         comp = common["component"]
@@ -1793,7 +1798,7 @@ class BulkElementDialog(QDialog):
             elif not f.value and key in ("func", "loc"):
                 inherited = getattr(sheet, key, "") if sheet is not None else ""
                 ed.setPlaceholderText(inherited or "(z listu)")
-            ed.setToolTip(tips[key])
+            ed.setToolTip(tips[key] + ("\nPrázdné pole = ponechat rozdílné hodnoty" if f.mixed else ""))
             ed.setEnabled(f.enabled)
             self.edits[key] = ed
             form.addRow(labels[key], ed)
@@ -1853,8 +1858,12 @@ class BulkElementDialog(QDialog):
     def accept(self) -> None:
         from envocad.model.designation import validate_code
         problems: list[str] = []
+        changed = self.values()
         for key, aspect in (("func", "="), ("loc", "+")):
             ed = self.edits[key]
+            if key not in changed:      # nezměněné pole (i starý neplatný společný kód) se nevaliduje
+                ed.setStyleSheet("")
+                continue
             issues = validate_code(ed.text().strip().upper(), aspect)
             ed.setStyleSheet(f"border: 1px solid {INVALID_COLOR};" if issues else "")
             problems += [i.text for i in issues]

@@ -60,6 +60,7 @@ class SchematicScene(QGraphicsScene):
         super().__init__()
         self.project, self.sheet, self.library, self.undo = project, sheet, library, undo
         self.element_items: dict[str, ElementItem] = {}
+        self._press_selection: list[str] | None = None   # id vybraných prvků před posledním stiskem (dvojklik)
         self.wire_items: dict[str, WireItem] = {}
         self.note_items: dict[str, NoteItem] = {}
         self.text_items: dict[str, TextItem] = {}
@@ -608,6 +609,10 @@ class SchematicScene(QGraphicsScene):
                 idx = nearest_segment(pts, p.x(), -p.y(), tol=2.5)
                 if idx is not None and 0 < idx < len(pts) - 2:
                     self._seg = (top, idx, (p.x(), -p.y()), pts, [tuple(x) for x in top.wire.points])
+        # snímek výběru před stiskem: první klik dvojkliku bez Ctrl zruší výběr ostatních prvků, hromadný dialog
+        # z dvojkliku (`mouseDoubleClickEvent`) ho potřebuje; druhý stisk dvojkliku chodí jako DoubleClick, ne Press
+        self._press_selection = ([x.element.id for x in self.selectedItems() if isinstance(x, ElementItem)]
+                                 if ev.button() == Qt.LeftButton else None)
         # SELECT: zapamatovat výchozí pozice pro undo posunu
         super().mousePressEvent(ev)
         if self._seg is not None:
@@ -714,8 +719,12 @@ class SchematicScene(QGraphicsScene):
                 self.open_switchboard.emit(it.element.id)
                 return None
             eid = it.element.id
-            sel = [x.element.id for x in self.selectedItems() if isinstance(x, ElementItem)]
-            if len(sel) >= 2 and eid in sel:     # prvek ve výběru 2+ prvků → hromadná úprava
+            sel, self._press_selection = self._press_selection, None
+            # prvek ve výběru 2+ prvků → hromadná úprava
+            if sel and len(sel) >= 2 and eid in sel and all(i in self.element_items for i in sel):
+                self.clearSelection()
+                for i in sel:
+                    self.element_items[i].setSelected(True)
                 QTimer.singleShot(0, lambda: self.edit_elements_bulk(sel))
                 return None
             QTimer.singleShot(0, lambda: self.edit_element(eid))
@@ -821,7 +830,8 @@ class SchematicScene(QGraphicsScene):
         if not changes:
             return 0
         n = len({c.element_id for c in changes})
-        self.undo.beginMacro(f"Upravit {n} prvků")
+        from envocad.ui.dialogs import prvku_text
+        self.undo.beginMacro(f"Upravit {prvku_text(n)}")
         for c in changes:
             if c.key == "component":
                 self.undo.push(commands.SetComponentCommand(self, c.element_id, c.old, c.new))

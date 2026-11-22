@@ -8,14 +8,16 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QUndoStack
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QDialog, QFormLayout, QLabel, QLineEdit, QMessageBox, QPushButton
 
 from envocad.cmd.edits import bulk_edit_elements
 from envocad.library.store import LibraryStore
 from envocad.model.project import Element, Project
-from envocad.ui.canvas import SchematicScene
-from envocad.ui.dialogs import BulkElementDialog
+from envocad.ui.canvas import SchematicScene, SchematicView
+from envocad.ui.dialogs import BulkElementDialog, ElementDialog
 from envocad.ui.panels import PropertiesPanel
 
 ART = "eaton-az-3-b100"      # reálný artikl značky fve.breaker_mcb
@@ -148,7 +150,7 @@ def test_dialog_values_only_changed_fields(app, lib):
     dlg = _dlg(p, lib, "F1", "F2", "F3")
     dlg.edits["func"].setText("rfve")               # (různé) → nová hodnota
     dlg.edits["note"].setText("")                   # společná → vymazat
-    assert dlg.values() == {"func": "rfve", "note": ""} or dlg.values() == {"func": "RFVE", "note": ""}
+    assert dlg.values() == {"func": "rfve", "note": ""}      # dialog vrací text jak je, velká písmena až bulk_changes
     assert "loc" not in dlg.values()
     dlg.edits["func"].setText("")                   # zpět na prázdné („(různé)“ nedotčené)
     assert "func" not in dlg.values()
@@ -251,3 +253,109 @@ def test_properties_panel_has_note_field(jps):
     ed.editingFinished.emit()
     QApplication.processEvents()   # panel vysílá attr_edited odloženě (QTimer.singleShot po editingFinished)
     assert got and got[-1][2:] == ("note", "jiná")
+
+
+# ---- oprava: nezměněné neplatné pole nebrání OK, skloňování, tooltip ---------------------------------------
+def test_dialog_unchanged_invalid_common_code_does_not_block_ok(app, lib):
+    p = _project()
+    for ref in ("F1", "F2", "F3"):
+        _el(p, ref).attrs["func"] = "1 neplatný!"      # starý společný neplatný kód
+    dlg = _dlg(p, lib, "F1", "F2", "F3")
+    assert dlg.edits["func"].text() == "1 neplatný!"
+    dlg.edits["note"].setText("jen poznámka")
+    dlg.accept()
+    assert dlg.result() == QDialog.Accepted and dlg.values() == {"note": "jen poznámka"}
+    dlg2 = _dlg(p, lib, "F1", "F2", "F3")
+    dlg2.edits["func"].setText("1 jiný neplatný!")      # změněné pole se validuje dál
+    dlg2.accept()
+    assert dlg2.result() != QDialog.Accepted
+
+
+def test_dialog_mixed_tooltip_and_plural(app, lib):
+    p = _project()
+    dlg = _dlg(p, lib, "F1", "F2", "F3")
+    assert "Prázdné pole = ponechat rozdílné hodnoty" in dlg.edits["func"].toolTip()
+    assert "Prázdné pole = ponechat" not in dlg.edits["loc"].toolTip()
+    assert dlg.windowTitle() == "Upravit 3 prvky"
+    assert _dlg(p, lib, "F1", "F2", "F3", "T1").windowTitle() == "Upravit 4 prvky"
+
+
+def test_undo_text_plural(jps):
+    p, sc, undo = jps
+    sc.apply_bulk_edit(_ids(p, "F1", "F2", "F3", "T1"), note="a")
+    assert undo.undoText() == "Upravit 4 prvky"
+    sc.apply_bulk_edit(_ids(p, "F1", "F2"), note="b")
+    assert undo.undoText() == "Upravit 2 prvky"
+
+
+# ---- ElementDialog: pole Poznámka --------------------------------------------------------------------------
+def _edlg(attrs):
+    from envocad.library.store import LibraryStore
+    sym = LibraryStore().get_symbol("fve.breaker_mcb")
+    return ElementDialog(sym, attrs)
+
+
+def test_element_dialog_note(app):
+    dlg = _edlg({"ref": "F9"})
+    assert "note" not in dlg.values()                   # prázdná poznámka při vložení nepřidá klíč
+    dlg.note_edit.setText("  pozn  ")
+    assert dlg.values()["note"] == "pozn"
+    dlg2 = _edlg({"ref": "F9", "note": "stará"})
+    assert dlg2.note_edit.text() == "stará"
+    dlg2.note_edit.setText("")
+    assert dlg2.values()["note"] == ""                  # vymazání existující
+    assert dlg2._form.rowCount() > 0
+
+
+# ---- dvojklik přes viewport (reálná sekvence stisků) --------------------------------------------------------
+@pytest.fixture
+def view(jps):
+    p, sc, _undo = jps
+    v = SchematicView(sc)
+    v.resize(1200, 900)
+    v.show()
+    QTest.qWaitForWindowExposed(v)
+    calls = []
+    sc.edit_elements_bulk = lambda ids: calls.append(("bulk", sorted(ids)))
+    sc.edit_element = lambda eid: calls.append(("single", eid))
+    yield p, sc, v, calls
+    v.close()
+
+
+def _real_double_click(v, pt):
+    vp = v.viewport()
+    QTest.mousePress(vp, Qt.LeftButton, Qt.NoModifier, pt)
+    QTest.mouseRelease(vp, Qt.LeftButton, Qt.NoModifier, pt)
+    QTest.mouseDClick(vp, Qt.LeftButton, Qt.NoModifier, pt)
+    QTest.mouseRelease(vp, Qt.LeftButton, Qt.NoModifier, pt)
+    QTest.qWait(30)
+
+
+def test_double_click_in_multi_selection_opens_bulk_dialog(view):
+    p, sc, v, calls = view
+    ids = _ids(p, "F1", "F2", "F3")
+    for i in ids:
+        sc.element_items[i].setSelected(True)
+    pt = v.mapFromScene(sc.element_items[ids[1]].sceneBoundingRect().center())
+    _real_double_click(v, pt)
+    assert calls == [("bulk", sorted(ids))]
+    assert len([x for x in sc.selectedItems() if x.__class__.__name__ == "ElementItem"]) == 3
+
+
+def test_double_click_with_single_selection_opens_element_dialog(view):
+    p, sc, v, calls = view
+    ids = _ids(p, "F1", "F2", "F3")
+    sc.element_items[ids[1]].setSelected(True)
+    pt = v.mapFromScene(sc.element_items[ids[1]].sceneBoundingRect().center())
+    _real_double_click(v, pt)
+    assert calls == [("single", ids[1])]
+
+
+def test_double_click_outside_selection_opens_single_dialog(view):
+    p, sc, v, calls = view
+    ids = _ids(p, "F1", "F2", "F3")
+    for i in ids[:2]:
+        sc.element_items[i].setSelected(True)
+    pt = v.mapFromScene(sc.element_items[ids[2]].sceneBoundingRect().center())
+    _real_double_click(v, pt)                           # F3 nebyl ve výběru → obyčejná úprava jednoho prvku
+    assert calls == [("single", ids[2])]

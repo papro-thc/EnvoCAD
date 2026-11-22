@@ -314,7 +314,7 @@ def bulk_common(sheet: Sheet, element_ids) -> dict[str, BulkField]:
 
 def bulk_changes(sheet: Sheet, element_ids, *, component: str | None = None, func: str | None = None,
                  loc: str | None = None, note: str | None = None) -> list[BulkChange]:
-    """Skutečné změny hromadné úpravy (model nemění; jedna implementace pro GUI i příkazový řádek).
+    """Skutečné změny hromadné úpravy (model nemění; jedna implementace pro GUI i skripty/agenty, příkazový řádek ji zatím nevolá).
     None = ponechat, "" = vymazat (artikl → None). `func`/`loc`: ořez, velká písmena a kontrola kódu, `note`: ořez.
     ValueError (česká zpráva) při neplatném kódu nebo artiklu zadaném pro prvky různých značek. Změna artiklu
     prvku přidá vymazání ručních rozměrů (`size_resets_for_component`)."""
@@ -348,7 +348,9 @@ def bulk_changes(sheet: Sheet, element_ids, *, component: str | None = None, fun
 
 
 def bulk_edit_elements(project: Project, sheet: Sheet, element_ids, **fields) -> int:
-    """Provede `bulk_changes` na modelu, vrací počet změněných prvků. Při ValueError se model nemění."""
+    """Provede `bulk_changes` na modelu, vrací počet změněných prvků. Při ValueError se model nemění.
+    Headless funkce pro skripty a agenty (GUI jde přes `SchematicScene.apply_bulk_edit` a undo); `project` se nepoužívá,
+    zůstává kvůli shodě podpisu s ostatními funkcemi modulu."""
     changes = bulk_changes(sheet, element_ids, **fields)
     for c in changes:
         e = sheet.element(c.element_id)
