@@ -170,7 +170,9 @@ označeními (makro bez proměnných se vloží jako kopie výřezu: čísla svo
 říká, které makro se použije: `dc_tech` (string v DC rozvaděči u technologie), `dc_route` (po trase),
 `ac_feed` (přívod od střídače), `ac_core` (jádro AC rozvaděče). Výchozí jsou vestavěná makra stejných jmen;
 **vlastní makro se stejným názvem** (uložené do `~/.envocad/macros/` nebo do sdílené knihovny) má přednost –
-stačí tedy nakreslit svou verzi, uložit ji pod tím jménem a generátor ji začne používat.
+stačí tedy nakreslit svou verzi, uložit ji pod tím jménem a generátor ji začne používat. Má-li vlastní kopie
+makra „DC string po trase“ ještě odpínač (vestavěné ho nemá), generátor to zapíše do logu a přidá připomínku
+na list prvního rozvaděče po trase; kopii nemění – upravte nebo smažte ji ručně.
 
 Parametrické makro používá v atributech, označeních a názvech portů **proměnné** `{k}` (pořadí instance),
 `{nk}` (n + k – pro vývod X{nk}), `{n}`, `{i}` / `{j}` (číslo střídače / stringu u něj – číslování ENVO

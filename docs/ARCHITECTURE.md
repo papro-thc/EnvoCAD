@@ -27,6 +27,8 @@ envocad/
   library/    knihovna prvků
     store.py       SQLite úložiště symbolů a komponent (artiklů)
     dxf_import.py  DXF → Symbol
+    symbol_edit.py Úpravy portů a atributů značky pro editor symbolů (`ui/symbol_editor.py`); vestavěnou ani souborovou
+                   (user/shared složka) značku nepřepisuje, uloží kopii `<id>_N` (bez Qt)
     topologies.py  presety topologií (builtin/topologies, sdílená, ~/.envocad/topologies) – jako makra
     builtin/       startovní symboly (JSON), verzované v gitu
   generate.py   tenký re-export generátoru (build_project, DEFAULT_SPEC…) + CLI `python -m envocad.generate`
@@ -76,6 +78,7 @@ envocad/
     canvas.py       QGraphicsView – mřížka, zoom, snap
     items.py        QGraphicsItem obaly nad Element/Wire
     main_window.py  okno, panely, akce
+    symbol_editor.py  dialog editoru symbolů (porty a atributy značky, náhled; logika v library/symbol_edit.py)
     update_prompt.py  aktualizace při startu: dotaz Aktualizovat / Teď ne, průběh kopie, hlášení výsledku
                     (`app.startup_update`, `app.report_update`)
   export/     DXF, PDF, výkazy .xlsx, docx (protokol kusového ověření, TZ a DSPS ze šablony: doc_template.py engine

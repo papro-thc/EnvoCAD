@@ -1,0 +1,1 @@
+- **PDF „Celá dokumentace“ má klikací křížové odkazy** – text odkazu na listu schématu (přerušovací bod, odkaz kontaktu na hostitele, řádek zrcadla kontaktů) je odkaz na stranu cílového listu, `xref.sheet_xref_links` + `export/pdf_annots.py`

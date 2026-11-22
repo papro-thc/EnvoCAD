@@ -45,6 +45,9 @@ _BUILD_LIB = None    # knihovna sdílená během jednoho `build_project` (otevř
 # sestavení z více vláken – druhé vlákno by vidělo cizí knihovnu jako „vnořené volání“ (SQLite spojení patří vláknu,
 # které ho otevřelo → ProgrammingError) a konec prvního sestavení by ji druhému vzal. Generátor se volá z jednoho
 # vlákna (GUI, CLI, testy); sestavení v pracovním vlákně jen tehdy, když jiné neběží.
+# Varování už zalogovaná v běžícím `build_project` (sestavení se může opakovat – `_build_project` → `_build_once`);
+# `_build_project` ho na začátku vyprázdní.
+_BUILD_WARNED: set[str] = set()
 
 
 def _lib():

@@ -68,6 +68,28 @@ def _insert_macro(project: Project, sheet: Sheet, m, values: dict, dx: float, li
     return [e for e in els if e.modules > 0 and e.symbol_id not in (FEED_SYMBOL, "sb.busbar")]
 
 
+DC_DISCONNECT_SYMBOL = "fve.dc_disconnect"
+
+
+def route_macro_with_disconnect(entry):
+    """Makro role `dc_route`, když je to vlastní kopie, která ještě obsahuje odpínač (vestavěné makro ho nemá);
+    jinak None. Soubor kopie se jen čte (jako dosud), nic se nemění."""
+    from envocad.library.macros import find_macro
+    name = _macro_ref(entry)[0]
+    m = find_macro(name) if name else None
+    if m is None or m.source != "vlastní":
+        return None
+    if not any(isinstance(e, dict) and e.get("symbol_id") == DC_DISCONNECT_SYMBOL
+               for e in (m.fragment or {}).get("elements", [])):
+        return None
+    return m
+
+
+def route_macro_warning_text(m, path: str) -> str:
+    return (f"Makro „{m.name}“ (role dc_route, DC rozvaděč po trase) je vlastní kopie a ještě obsahuje odpínač; vestavěné makro odpínač "
+            f"nemá. Soubor kopie ({path}) je třeba upravit nebo smazat ručně, generátor ho nemění.")
+
+
 def _dc_box_from_macro(project: Project, sheet: Sheet, strings: list[str], name, dc: dict,
                        inv_no: int = 1, inv_ref: str = "", k0: int = 0, n: int | None = None, dx0: float = 0.0) -> bool:
     """DC rozvaděč složený z makra na string. Kontext: k (pořadí v rozvaděči), nk (n + k), n, string (G3),
