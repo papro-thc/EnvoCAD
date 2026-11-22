@@ -163,6 +163,15 @@ přidaná hodnota oproti ručnímu kreslení v ZWCAD.
 
 Viz `docs/LIBRARY_FORMAT.md`.
 
+## Archiv projektu `.ecpz` (`library/archive.py`)
+Zip s plochými členy `manifest.json` (`{"format": 1, "app": verze}`), `project.ecp` (stejný JSON jako `Project.save`,
+formát `.ecp` se nemění), `symbols.json` (`Symbol.to_dict()`) a `components.json` (tvar `LibraryStore.get_component`).
+Balí se jen **nevestavěné** značky a artikly použité v projektu (`symbol_id`, `component_id` prvků i kabelů, značky
+artiklu a `params["footprint_id"]`); vestavěné zůstávají jen odkazem. Čtení nic nerozbaluje na disk, odmítá členy se
+jménem obsahujícím `/`, `\\`, `:`, zip bomby a vadný obsah (`ArchiveError`). Import doplní chybějící položky;
+rozdílný obsah pod stejným id je konflikt a bez výslovného `overwrite=True` se nepřepíše, vestavěná značka nikdy.
+Archiv může obsahovat data výrobců, proto je `*.ecpz` v `.gitignore` i v `tools/check_licensed_data.py`.
+
 ## Undo/redo
 
 `QUndoStack` v UI; každá změna modelu je `QUndoCommand` (přidat/smazat/posunout element, přidat vodič,
@@ -233,6 +242,9 @@ Jeden model, dva pohledy nad stejnými daty:
   Kreslicí seznam `MultipoleGeometry.prims` (`Prim`, lokální souřadnice strany) je zdroj pro export DXF vícepólu
   (`export/dxf_export.export_multipole_dxf`: jeden soubor se stranami vedle sebe a layoutem na stranu, nebo soubor
   na stranu).
+- Rozložení rozvaděče bez Qt: `model/layout_geometry.py:layout_geometry` (skříň, lišty, přístroje, texty; mm, Y nahoru)
+  je zdroj pro `export/dxf_export.export_layout_dxf`; `export_terminal_plan_dxf` kreslí plán svorkovnice (strany
+  vedle sebe, layout „Strana k“) z `model/terminal_plan.py`. Vrstvy `LAYOUT_LAYERS`, `TERMINAL_LAYERS`.
 - Formát stran vícepólu a plánu svorkovnice: `multipole.paper_choice` – `Sheet.mp_paper` (nepovinný klíč), jinak
   firemní standard `standard.switchboard_paper` (výchozí „A4“ = 297 × 210); list, který není rozvaděč, a starší list
   rozvaděče s jiným rozměrem než A3 nebo s `mp_pos` → „list“ (rozměr listu jako dřív). `page_size`, `page_width`,
@@ -267,7 +279,7 @@ Tři vrstvy rozšíření, od nejjednodušší:
    `C:\Users\<jméno>\.envocad\library\`) může obsahovat libovolné podsložky se značkami `*.json`
    (formát `docs/LIBRARY_FORMAT.md`) a artikly `*.csv` (`docs/COMPONENTS.md`). Načtou se při startu, změny
    podle data souboru. Firemní sdílená knihovna = tato složka na síťovém disku (nebo git repozitář).
-2. **Importéry** – `library/dxf_import.py`, `qet_import.py`, `eplan_import.py` převádějí cizí formáty na (1).
+2. **Importéry** – `library/dxf_import.py`, `qet_import.py`, `eplan_import.py`, `bmecat_import.py` převádějí cizí formáty na (1).
    Nový formát = nový modul se stejným rozhraním (vstup → `Symbol` / řádky CSV).
 3. **Pluginy** – `~/.envocad/plugins/*.py` s `register(ctx)` (`envocad/plugins.py`): položky menu, šablony
    rozvaděčů, importéry v menu, vlastní výkazy. Vzor: `envocad/plugins_builtin/example_counts.py`.

@@ -940,6 +940,45 @@ class AddSheetCommand(QUndoCommand):
             self.on_change(self.sheet, False)
 
 
+class DuplicateSheetCommand(QUndoCommand):
+    """Duplikování listu (`edits.duplicate_sheet`): kopie hned za originálem; u listu rozvaděče i nový blok ROZVADĚČ
+    na nadřazeném listu a záznam „+“ v registru struktur. První `redo` kopii vytvoří (`result`), další vloží tytéž
+    objekty (stejná id) zpět, `undo` je odebere a vrátí registr. `on_change(sheet, present)` jako `AddSheetCommand`."""
+
+    def __init__(self, project, sheet, lib, on_change=None):
+        super().__init__(f"Duplikovat list {sheet.name}")
+        self.project, self.source, self.lib, self.on_change = project, sheet, lib, on_change
+        self.result = None
+        self._structures: tuple[list, list] | None = None
+
+    def redo(self):
+        p = self.project
+        if self.result is None:
+            before = list(p.structures)
+            from envocad.cmd.edits import duplicate_sheet
+            self.result = duplicate_sheet(p, self.source, self.lib)
+            self._structures = (before, list(p.structures))
+        else:
+            r = self.result
+            p.sheets.insert(p.sheets.index(self.source) + 1, r.sheet)
+            if r.block is not None:
+                r.parent.elements.append(r.block)
+            p.structures = list(self._structures[1])
+        if self.on_change:
+            self.on_change(self.result.sheet, True)
+
+    def undo(self):
+        r, p = self.result, self.project
+        if r is None:                    # první redo selhalo – není co vracet
+            return
+        p.sheets.remove(r.sheet)
+        if r.block is not None:
+            r.parent.elements.remove(r.block)
+        p.structures = list(self._structures[0])
+        if self.on_change:
+            self.on_change(r.sheet, False)
+
+
 class SheetsStateCommand(QUndoCommand):
     """Obecný makro-příkaz nad obsahem listů (prvky, vodiče, rozložení, můstky…) a registrem struktur – např.
     vložení šablony rozvaděče, která mění list rozvaděče i vodiče nadřazeného listu. `before`/`after` ze
@@ -966,6 +1005,27 @@ class SheetsStateCommand(QUndoCommand):
 
     def undo(self):
         self._set(self.before)
+
+
+class ReplaceTextCommand(QUndoCommand):
+    """Najít a nahradit text (`cmd.edits.find_text`): jeden krok undo pro všechny nalezené hodnoty. Zápis dělá
+    `edits.apply_text_matches` (undo zapíše původní hodnoty); `on_change(sheet_ids)` přestaví pohledy."""
+
+    def __init__(self, project, matches: list, text: str = "Najít a nahradit", on_change=None):
+        super().__init__(text)
+        self.project, self.matches, self.on_change = project, list(matches), on_change
+
+    def _set(self, redo: bool):
+        from envocad.cmd.edits import apply_text_matches
+        ids = apply_text_matches(self.project, self.matches, redo)
+        if self.on_change:
+            self.on_change(ids)
+
+    def redo(self):
+        self._set(True)
+
+    def undo(self):
+        self._set(False)
 
 
 class SetProjectMetaCommand(QUndoCommand):

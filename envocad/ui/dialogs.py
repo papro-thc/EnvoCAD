@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 
 from envocad.library.macros import repeat_context_names, resolve_values
 from envocad.model import multipole as mp
+from envocad.model.advisory import ADVISORY_NOTE
 from envocad.model.designation import element_name
 from envocad.model.project import (
     ENCLOSURE_PARAMS,
@@ -1998,7 +1999,7 @@ class EnclosurePanel(QWidget):
         self.errors.setVisible(False)
         root.addWidget(self.errors)
 
-        g3 = QGroupBox("Oteplení (IEC 60890, orientačně)")
+        g3 = QGroupBox(f"Oteplení (IEC 60890, {ADVISORY_NOTE})")
         v3 = QVBoxLayout(g3)
         self.thermal = QLabel()
         self.thermal.setWordWrap(True)

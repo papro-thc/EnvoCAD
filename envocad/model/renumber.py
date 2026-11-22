@@ -173,20 +173,24 @@ def plan(project: Project, lib, mode: str = FIX, sheets: Iterable[Sheet] | None 
             continue
         if u.wire is not None:
             out.append(TextChange("wire", u.wire.id, "ref", u.wire.attrs.get("ref", ""), new))
-            cable = project.cable_of_wire(u.wire) if u.ref and not u.wire.attrs.get("cable_id") else None
-            if cable is not None and cable.ref == u.ref:
-                # kabel navázaný jen označením: jediný vodič → přejmenovat i kabel, jinak vazbu zachovat přes cable_id
-                users = [w for s in project.sheets for w in s.wires
-                         if w.attrs.get("cable_id") == cable.id or (not w.attrs.get("cable_id")
-                                                                     and w.attrs.get("ref") == cable.ref)]
-                if len(users) == 1:
-                    out.append(TextChange("cable", cable.id, "ref", cable.ref, new))
-                else:
-                    out.append(TextChange("wire", u.wire.id, "cable_id", None, cable.id))
+            out += wire_cable_changes(project, u.wire, u.ref, new)
         else:
             for e in u.elements:
                 out.append(TextChange("element", e.id, "ref", e.ref, new))
     return out
+
+
+def wire_cable_changes(project: Project, wire: Wire, old: str, new: str) -> list[TextChange]:
+    """Kabel vodiče navázaný jen označením (bez `cable_id`), když se vodiči mění označení `old` → `new`: jediný vodič
+    → přejmenuje se i kabel, jinak se vazba zachová přes `cable_id`. Vodič s `cable_id` nebo bez kabelu → nic."""
+    cable = project.cable_of_wire(wire) if old and not wire.attrs.get("cable_id") else None
+    if cable is None or cable.ref != old:
+        return []
+    users = [w for s in project.sheets for w in s.wires
+             if w.attrs.get("cable_id") == cable.id or (not w.attrs.get("cable_id") and w.attrs.get("ref") == cable.ref)]
+    if len(users) == 1:
+        return [TextChange("cable", cable.id, "ref", cable.ref, new)]
+    return [TextChange("wire", wire.id, "cable_id", None, cable.id)]
 
 
 def summary(changes: list[TextChange]) -> str:

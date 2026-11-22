@@ -63,6 +63,8 @@ Volitelné (podle kategorie): viz tabulka. Neznámou hodnotu nechte **prázdnou*
 | `in_max_a` | držák pojistky (`fuse_holder`): max. In vložky (EFH 10 DC = 25 A, OEZ OPVP10/14/22 = 32/63/125 A, Eaton CHPV1U = 30 A). Mez se bere **jen** z `in_max_a` (ne z `in_`). Generátor podle něj omezí In pojistky gPV stringu (i SolarEdge 25 A); když žádná velikost nevyhoví, nechá In prázdné a kontrola (F7) hlásí chybu; In vložky nad `in_max_a` přiřazeného držáku = chyba F7 `fuse_over_holder`. `in_` u držáku = jmenovitý proud odpínače (OPVP: Ie) – do prvku se **nepropisuje** (In je vlastnost vložky) | A |
 | `cores_n`, `cross_mm2`, `od_mm`, `un_v`, `shield` | kabely: počet žil, průřez, vnější průměr, Un, stínění (`ano`) | ks, mm², mm, V |
 | `contacts` | kontaktní obraz (stykače, relé, jističe s pomocnými kontakty): páry svorek oddělené mezerou, volitelně `NO:`/`NC:`/`P:` – viz `docs/LIBRARY_FORMAT.md` | např. `1/2 3/4 5/6 13/14`, `NO:11/14 NC:11/12` |
+| `gtin` | GTIN / EAN artiklu (import BMEcat), jen informativně | text |
+| `etim_class`, `etim_version`, `etim_features` | klasifikace ETIM z importu BMEcat: třída (`EC000042`), verze (`9.0`) a vlastnosti jako JSON seznam `{"f": kód, "v": [hodnoty], "u": jednotka}`. Zatím se do parametrů knihovny (`in_`, `p_loss_w`…) nemapují | text |
 | `macro` | **rezervováno** pro funkční šablonu artiklu: název makra (`docs/LIBRARY_FORMAT.md`, „Formát makra“), které artikl vkládá. Zatím se nevyhodnocuje – sloupec se jen uloží do `params` | |
 | `note` | cokoliv dalšího (např. „DC 1000 V“, „s pomocným kontaktem“) | |
 

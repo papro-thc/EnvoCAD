@@ -412,7 +412,7 @@ výrobního seznamu počítají se skutečnou výškou přístroje z artiklu (sv
 
 Panel ukazuje obsazenost a **odhad oteplení** podle IEC TR 60890 (ΣPv z atributu `p_loss_w`, jinak z artiklu,
 jinak odhad z In a pólů – zdroj „Pv: 5× artikl, 1× ruční, 2× odhad“ je u ΣPv v panelu, v TZ (tabulka ztrát po
-přístrojích) i v protokolu kusového ověření; chladicí plocha podle montáže, Δt uprostřed a v horní části, kritický přístroj, hodnocení). Parametry
+přístrojích) i ve výkazu Výpočty; chladicí plocha podle montáže, Δt uprostřed a v horní části, kritický přístroj, hodnocení). Parametry
 skříně se kreslí v informačním bloku listu rozvaděče a jdou do protokolu kusového ověření.
 
 **Hodnocení oteplení po přístrojích.** Rozhoduje teplota vzduchu u každého přístroje proti rozsahu provozní teploty
@@ -430,9 +430,9 @@ z jeho datasheetu, ne pevný práh skříně:
 - *Dolní mez*: jen když skříň má **nejnižší teplotu okolí** (`t_ambient_min`); vzduch uvnitř se pak bere rovný
   okolí (bez zatížení se skříň neohřívá). Přístroj bez `t_min` předpokládá −5 °C.
 - *Verdikt*: nejhorší přístroj (prokázané překročení z artiklu/atributu má přednost před překročením předpokladu):
-  „NEVYHOVUJE (orientačně) – F3 v řadě 1: ≈ 58 °C > t_max 55 °C; …“, jinak „vyhovuje (orientačně) – nejteplejší
+  „NEVYHOVUJE (orientační – neověřeno proti normě) – F3 v řadě 1: ≈ 58 °C > t_max 55 °C; …“, jinak „vyhovuje (orientační – neověřeno proti normě) – nejteplejší
   F3 ≈ 48 °C (t_max 55 °C, rezerva 7 K)“; nad 40 °C připomene odlehčení (derating) jističů. Stejný text je v TZ
-  a v protokolu kusového ověření. Řadové svorky se hodnotí jen s vlastním `t_max`.
+  a ve výkazu Výpočty (řádek „Oteplení“); protokol kusového ověření oteplení neuvádí (kusové ověření ho neprokazuje). Řadové svorky se hodnotí jen s vlastním `t_max`.
 
 Pozor: hodnoty křivek k a c v tabulkách jsou orientační – pro průkaz ověř proti normě.
 
@@ -586,6 +586,7 @@ součinitel, atributy střídače Umax, MPPT min/max, Imax), proud kabelem (1,25
 zatížitelnost Iz podle ČSN 33 2000-5-52 pro uložení A1/B1/C/D/E (atribut vodiče „Uložení dle ČSN“, nebo se
 pozná z textu trasy: „v zemi“, „trubka“, „na vzduchu“, „ve stěně“), In ≤ Iz, úbytek napětí (mez 3 %) a
 základní selektivita (poměr In po cestě ke zdroji ≥ 1,6). Tabulky Iz jsou orientační přepis normy.
+Výkaz má i řádek **Oteplení** za každý rozvaděč; Iz i oteplení nesou označení „orientační – neověřeno proti normě“.
 
 Podrobnosti kontroly stringů (sdílí ji `F7`, výkaz Výpočty i asistent průvodce):
 - **Teploty** – návrhové teploty z Vlastností projektu (`pv_t_min` / `pv_t_max`, jinak −10 / 70 °C). Pole přijme
@@ -940,7 +941,7 @@ Výchozí hodnoty (kabely, zpracoval) bere průvodce z **firemního standardu** 
 | PDF listu (skutečný formát / zmenšený na A4) – z blokového schématu, schématu (vícepólu) i plánu svorkovnice rozvaděče (strany A4); z rozložení celý pohled zmenšený na A3 (A4) | Soubor → Export PDF / Export PDF na A4 |
 | DXF listu – z blokového schématu, listu rozvaděče v editoru, vícepólu a jednopólového schématu (z plánu svorkovnice a rozložení program upozorní, ať se použije PDF) | Soubor → Export DXF |
 | **Celá dokumentace do jednoho PDF**: titulní list, obsah, listy blokového schématu, jednopólové schéma, schéma + plán svorkovnice každého rozvaděče (kromě rozvaděče VN), výkazy, změnový list – strany schématu a plánu svorkovnice A4, ostatní A3 (smíšené formáty v jednom PDF, obsah i „n/N“ počítají skutečné strany) | Výstupy → Celá dokumentace (`Ctrl+Shift+E`) |
-| Výkazy xlsx (Data pro DS, Výpočty, Přístroje, Výkaz materiálu, Kabely, Kabelový plán, Kabely a vodiče k objednání, Zapojovací seznam, Svorkovnice, Plán svorkovnice, Štítky) | Výstupy → Výkazy listu / projektu |
+| Výkazy xlsx (Data pro DS, Výpočty, Přístroje, Výkaz materiálu, Výkaz po výrobcích, Kabely, Kabelový plán, Kabely a vodiče k objednání, Zapojovací seznam, Svorkovnice, Plán svorkovnice, Štítky) | Výstupy → Výkazy listu / projektu |
 | Protokol kusového ověření rozvaděče (docx) | Výstupy → Protokol kusového ověření |
 | Technická zpráva (docx) ze šablony – údaje, tabulky a výpočty z modelu | Výstupy → Technická zpráva |
 | Dokumentace skutečného provedení – DSPS (docx): jádro TZ + změny proti projektu dle PD | Výstupy → DSPS |

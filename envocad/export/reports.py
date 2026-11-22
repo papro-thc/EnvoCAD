@@ -8,6 +8,7 @@ import functools
 from collections import OrderedDict
 
 from envocad.library.store import LibraryStore
+from envocad.model.advisory import ADVISORY_NOTE
 from envocad.model.designation import LOCATION_SYMBOLS, designation, element_name, full_designation, scope_key
 from envocad.model.feed import FEED_SYMBOL
 from envocad.model.notes import plural
@@ -269,6 +270,22 @@ def bom(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tupl
     for i, (key, refs) in enumerate(order, start=1):
         rows.append([i, key[0], key[1], key[2], key[3], qty[key], ", ".join(sorted(refs, key=_ref_key))])
     return head, rows
+
+
+NO_MANUFACTURER = "bez výrobce"
+
+
+@over_clean
+def bom_by_manufacturer(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
+    """Výkaz artiklů po výrobcích – řádky `bom()` sloučené podle (výrobce, objednací číslo, název), parametry se
+    nerozlišují. Výrobci abecedně, „bez výrobce“ na konci; uvnitř výrobce podle objednacího čísla. Bez cen a dodavatelů."""
+    head = ["Výrobce", "Objednací číslo", "Název", "Ks"]
+    qty: dict[tuple[str, str, str], int] = {}
+    for _pol, name, typ, mfr, _params, ks, _refs in bom(project, lib, sheet)[1]:
+        key = ((mfr or "").strip() or NO_MANUFACTURER, typ, name)
+        qty[key] = qty.get(key, 0) + ks
+    order = sorted(qty, key=lambda k: (k[0] == NO_MANUFACTURER, k[0].casefold(), natural_key(k[1]), k[2]))
+    return head, [[m, typ, name, qty[(m, typ, name)]] for m, typ, name in order]
 
 
 @over_clean
@@ -549,7 +566,7 @@ def fixed_voltage_text(sc) -> str:
 
 @over_clean
 def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
-    """Výkaz výpočtů: stringy vs. střídač, kabely (I, Iz, In, ΔU), selektivita."""
+    """Výkaz výpočtů: stringy vs. střídač, kabely (I, Iz, In, ΔU), selektivita, oteplení rozvaděčů."""
     from envocad.model import calc
     head = ["Část", "Prvek", "Hodnoty", "Mez / porovnání", "Výsledek"]
     rows = []
@@ -570,12 +587,34 @@ def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None
         if sheet is not None and cc.sheet != sheet.name:
             continue
         vals = f"I = {cc.i_a or '–'} A, S = {cc.cross or '–'} mm², L = {cc.length or '–'} m, uložení {cc.method}, {cc.system}"
-        lim = f"Iz = {cc.iz or '–'} A" + (f", In {cc.breaker_ref} = {cc.in_breaker:g} A" if cc.in_breaker else "") + \
+        lim = f"Iz = {cc.iz or '–'} A ({ADVISORY_NOTE})" + \
+              (f", In {cc.breaker_ref} = {cc.in_breaker:g} A" if cc.in_breaker else "") + \
               (f", ΔU = {cc.du_v} V ({cc.du_pct} %)" if cc.du_pct is not None else "")
         rows.append(["Kabel", cc.ref, vals, lim, "OK" if not cc.issues else "; ".join(cc.issues)])
     for lo, hi, il, ih, msg in calc.check_selectivity(project, sheet):
         rows.append(["Selektivita", f"{lo} → {hi}", f"In {il:g} A → {ih:g} A", f"poměr ≥ {calc.SELECTIVITY_RATIO}", msg])
+    rows += _thermal_rows(project, lib, sheet)
     return head, rows
+
+
+def _thermal_rows(project: Project, lib: LibraryStore, sheet: Sheet | None) -> list[list]:
+    """Řádky „Oteplení“ výkazu Výpočty: jeden na list rozvaděče (IEC TR 60890, výsledek `ThermalResult.verdict`)."""
+    from envocad.model.thermal import layout_inputs, temperature_rise
+    rows = []
+    for sb in project.switchboards():
+        if sheet is not None and sb.id != sheet.id:
+            continue
+        try:
+            rdf, t_amb = layout_inputs(sb.layout)
+            r = temperature_rise(sb, rdf=rdf, t_ambient_c=t_amb, project=project, lib=lib)
+        except Exception:  # noqa: BLE001 – výkaz se vytvoří i bez výpočtu oteplení
+            r = None
+        if r is None:
+            continue
+        src = r.loss_summary()     # zdroj ztrát přístrojů: artikl / ruční / odhad
+        rows.append(["Oteplení", sb.name, f"ΣPv {r.p_total_w:.0f} W" + (f" ({src})" if src else "")
+                     + f", okolí {r.t_ambient_c:.0f} °C", f"horní část ≈ {r.t_top_c:.0f} °C", r.verdict()])
+    return rows
 
 
 @over_clean
@@ -706,14 +745,15 @@ def marking(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> 
     return head, rows
 
 
-ALL_REPORTS = [("Data pro DS", dso_report), ("Výpočty", calculations), ("Přístroje", device_list), ("Výkaz materiálu", bom), ("Kabely", cables),
+ALL_REPORTS = [("Data pro DS", dso_report), ("Výpočty", calculations), ("Přístroje", device_list), ("Výkaz materiálu", bom),
+               ("Výkaz po výrobcích", bom_by_manufacturer), ("Kabely", cables),
                ("Kabelový plán", cable_plan), ("Kabely a vodiče k objednání", cable_material),
                ("Zapojovací seznam", wiring_list),
                ("Výrobní zapojovací seznam", production_wiring_list), ("Značení vodičů a kabelů", marking),
                ("Svorkovnice", terminals), ("Plán svorkovnice", terminal_plan_report), ("Potenciály", potentials), ("Štítky", labels)]
 
-# výkazy, které nejsou součástí PDF dokumentace (výrobní podklad pro dílnu) – `doc_pdf.DocBuilder.plan` je přeskočí
-NOT_IN_DOC = {"Výrobní zapojovací seznam", "Kabely a vodiče k objednání", "Značení vodičů a kabelů"}
+# výkazy, které nejsou součástí PDF dokumentace (výrobní podklad pro dílnu, nákupní podklad) – `doc_pdf.DocBuilder.plan` je přeskočí
+NOT_IN_DOC = {"Výrobní zapojovací seznam", "Kabely a vodiče k objednání", "Značení vodičů a kabelů", "Výkaz po výrobcích"}
 
 # doplňkové řádky podnadpisu výkazu v xlsx: název → fn(project, sheet) -> list[str]
 REPORT_SUBTITLES = {"Výrobní zapojovací seznam": production_subtitle}
