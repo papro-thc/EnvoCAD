@@ -42,20 +42,17 @@ def test_bom_by_manufacturer_grouping_and_order(tmp_path):
     assert rows[1][2] == next(r[1] for r in bom_rows if r[2] == "B-16")   # název = sloupec Přístroj
 
 
-def test_bom_by_manufacturer_merges_different_params():
+def test_bom_by_manufacturer_merges_different_params(tmp_path):
     # parametry se nerozlišují – stejný (výrobce, typ, název) se sloučí
-    import tempfile
-    from pathlib import Path
-    with tempfile.TemporaryDirectory() as d:
-        lib = LibraryStore(Path(d) / "lib.db")
-        p = Project()
-        s = p.sheets[0]
-        s.elements += [
-            Element("fve.breaker_mcb", 10, 10, attrs={"ref": "F1", "type": "X", "manufacturer": "M", "poles": "1"}),
-            Element("fve.breaker_mcb", 30, 10, attrs={"ref": "F2", "type": "X", "manufacturer": "M", "poles": "3"}),
-        ]
-        _, rows = reports.bom_by_manufacturer(p, lib, s)
-        assert len(rows) == 1 and rows[0][3] == 2
+    lib = LibraryStore(tmp_path / "lib.db")
+    p = Project()
+    s = p.sheets[0]
+    s.elements += [
+        Element("fve.breaker_mcb", 10, 10, attrs={"ref": "F1", "type": "X", "manufacturer": "M", "poles": "1"}),
+        Element("fve.breaker_mcb", 30, 10, attrs={"ref": "F2", "type": "X", "manufacturer": "M", "poles": "3"}),
+    ]
+    _, rows = reports.bom_by_manufacturer(p, lib, s)
+    assert len(rows) == 1 and rows[0][3] == 2
 
 
 def test_bom_by_manufacturer_sort_inside_group(tmp_path):
