@@ -24,6 +24,7 @@ FORBIDDEN_SUFFIXES = {
     ".7z": "archiv",
     ".step": "3D model výrobce",
     ".stp": "3D model výrobce",
+    ".ecpz": "archiv projektu EnvoCAD (může obsahovat data výrobců)",
 }
 # složky s lokálními podklady (jsou i v .gitignore)
 FORBIDDEN_DIRS = ("EPLAN/", "katalogy/", "datasheets/", "_sync/")
