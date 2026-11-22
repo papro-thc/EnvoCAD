@@ -82,6 +82,30 @@ ráno: projdeš PR, stáhneš build z artefaktů, sloučíš – nebo napíšeš
    (`opus`/`sonnet`/`haiku`) se na ně mapují přes `ANTHROPIC_DEFAULT_*_MODEL`.
 4. Ruční zkouška: Actions → „Agent – noční issue“ → Run workflow (lze zadat číslo issue).
 
+### Vlastní runner (místo minut GitHubu)
+Soukromé repo má na plánu Free 2 000 minut Actions měsíčně. Po vyčerpání joby běží na vlastním Linuxu
+(např. CachyOS bez apt). Výběr runneru je jen v proměnných repa – zpět na GitHub = proměnné smazat:
+
+| Proměnná | Vlastní runner | Výchozí (GitHub) |
+|---|---|---|
+| `RUNS_ON_LINUX` | `["self-hosted","linux"]` | `"ubuntu-latest"` |
+| `CI_OS` | `["linux"]` (Windows testy se nespouští) | `["linux","windows"]` |
+| `CI_PYTHON` | `["3.14"]` (systémový `python3`) | `["3.12","3.14"]` |
+
+Na vlastním runneru `.github/actions/python-env` přeskočí `setup-python` a `apt-get` a založí virtualenv ze
+systémového `python3` (potřeba: `python3` ≥ 3.11, `git`, `gh`, knihovny Qt jako pro běžné spuštění EnvoCADu).
+
+Instalace (jednou, vlastním terminálem – registrační token do chatu nepatří):
+1. Samostatný uživatel bez sudo – runner instaluje Claude Code a plugin ECC do svého `~` a agent vidí jeho soubory,
+   ne tvoje: `sudo useradd -m ghrunner`
+2. Settings → Actions → Runners → **New self-hosted runner** → Linux x64; příkazy z té stránky spusť jako `ghrunner`
+   (`sudo -iu ghrunner`), štítky nech výchozí (`self-hosted`, `Linux`, `X64`).
+3. Služba: `sudo ./svc.sh install ghrunner && sudo ./svc.sh start` (ve složce runneru).
+4. Víc běhů najednou = víc runnerů (každý ve vlastní složce, např. `actions-runner-2`); jeden runner = jeden job.
+5. Proměnné z tabulky: Settings → Secrets and variables → Actions → Variables (nebo `gh variable set`).
+
+Vlastní runner jen u **soukromého** repa – u veřejného by cizí PR z forku mohl spustit kód na tvém stroji.
+
 ### Limity spotřeby
 Noční cron bere jednu issue (`concurrency: agent-auto`); ruční spuštění s číslem issue běží paralelně (každá issue
 zvlášť). `--max-turns 150`, timeout 150 min; oprava CI max 2 pokusy po 60 turnech; `@claude` jen od vlastníka repa,

@@ -1,0 +1,1 @@
+- **CI a agenti na vlastním runneru** – výběr runneru proměnnými repa (`RUNS_ON_LINUX`, `CI_OS`, `CI_PYTHON`), společná akce `python-env` (na vlastním Linuxu bez apt virtualenv ze systémového Pythonu)
