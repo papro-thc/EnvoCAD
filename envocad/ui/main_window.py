@@ -264,6 +264,7 @@ class MainWindow(QMainWindow):
         act(m_edit, "Kabel vybraného vodiče (žíly, barvy, stínění)…", self.edit_cable, "Ctrl+Shift+K", "cable")
         m_edit.addSeparator()
         act(m_edit, "Najít označení…", self.find_ref, "Ctrl+F", "find")
+        act(m_edit, "Najít a nahradit…", self.find_replace, "Ctrl+H", "replace")
         act(m_edit, "Kontrola projektu…", self.run_checks, "F7", "checks")
         act(m_edit, "Hledat příkaz…", self.command_palette, "Ctrl+K", "palette")
 
@@ -1150,6 +1151,28 @@ class MainWindow(QMainWindow):
         for sc in self._scenes:
             if hasattr(sc, "set_notes_visible"):
                 sc.set_notes_visible(bool(on))
+
+    def find_replace(self) -> None:
+        from envocad.ui.replace_dialog import ReplaceDialog
+        ReplaceDialog(self, self.project, self.library, lambda: self.current_sheet, self.apply_replace).exec()
+
+    def apply_replace(self, find: str, replace: str, scope: str = "project", match_case: bool = False) -> int:
+        """Najít a nahradit text jako jeden krok undo (`ReplaceTextCommand`). Vrací počet náhrad; 0 = nic se nezměnilo."""
+        from envocad.cmd import edits
+        sheet = self.current_sheet if scope == "sheet" else None
+        try:
+            matches = edits.find_text(self.project, self.library, find, replace, sheet, match_case)
+        except ValueError as ex:
+            self.statusBar().showMessage(str(ex), 4000)
+            return 0
+        if not matches:
+            self.statusBar().showMessage(f"„{find}“ nenalezeno", 4000)
+            return 0
+        n = sum(m.count for m in matches)
+        self.undo.push(commands.ReplaceTextCommand(self.project, matches, "Najít a nahradit",
+                                                   on_change=self._sheets_changed))
+        self.statusBar().showMessage(f"Nahrazeno výskytů: {n}", 4000)
+        return n
 
     def find_ref(self) -> None:
         text, ok = QInputDialog.getText(self, "Najít", "Označení prvku nebo vodiče (např. F2, X1, W3):")

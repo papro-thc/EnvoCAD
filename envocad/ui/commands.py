@@ -968,6 +968,27 @@ class SheetsStateCommand(QUndoCommand):
         self._set(self.before)
 
 
+class ReplaceTextCommand(QUndoCommand):
+    """Najít a nahradit text (`cmd.edits.find_text`): jeden krok undo pro všechny nalezené hodnoty. Zápis dělá
+    `edits.apply_text_matches` (undo zapíše původní hodnoty); `on_change(sheet_ids)` přestaví pohledy."""
+
+    def __init__(self, project, matches: list, text: str = "Najít a nahradit", on_change=None):
+        super().__init__(text)
+        self.project, self.matches, self.on_change = project, list(matches), on_change
+
+    def _set(self, redo: bool):
+        from envocad.cmd.edits import apply_text_matches
+        ids = apply_text_matches(self.project, self.matches, redo)
+        if self.on_change:
+            self.on_change(ids)
+
+    def redo(self):
+        self._set(True)
+
+    def undo(self):
+        self._set(False)
+
+
 class SetProjectMetaCommand(QUndoCommand):
     """Vlastnosti projektu: název (`Project.name`) a metadata (`Project.meta`) jedním krokem."""
 
