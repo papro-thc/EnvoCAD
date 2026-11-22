@@ -347,6 +347,7 @@ class MainWindow(QMainWindow):
         act(m_lib, "Prohlížet artikly…", self.browse_components)
         act(m_lib, "Importovat artikly z CSV…", self.import_components_csv)
         act(m_lib, "Importovat artikly z EPLAN (XML / CSV / ZIP)…", self.import_eplan)
+        act(m_lib, "Importovat artikly z BMEcat (XML)…", self.import_bmecat)
         m_lib.addSeparator()
         act(m_lib, "Sdílená knihovna (síťová složka)…", self.set_shared_library)
         act(m_lib, "Firemní standard (výchozí kabely, zpracoval)…", self.edit_standard)
@@ -2175,6 +2176,28 @@ class MainWindow(QMainWindow):
             self.lib_panel.refresh()
         QMessageBox.information(self, "Import z EPLAN", f"Načteno {n} artiklů" + (f" a {n_fp} footprintů" if n_fp else "")
                                 + f".\nUloženo do {out_dir}.")
+
+    def import_bmecat(self) -> None:
+        """BMEcat (XML 1.2 / 2005) → artikly v uživatelské knihovně (`~/.envocad/library/bmecat/`). Logika je
+        v `library/bmecat_import.py`; neplatný soubor → česká hláška, knihovna se nezmění."""
+        from envocad.library.bmecat_import import import_bmecat
+        from envocad.library.store import user_library_dir
+        path, _ = QFileDialog.getOpenFileName(self, "Import artiklů z BMEcat", "", "BMEcat (*.xml)")
+        if not path:
+            return
+        out_dir = user_library_dir() / "bmecat"
+        try:
+            res = import_bmecat(self.library, path, out_dir)
+        except Exception as ex:  # noqa: BLE001 – ValueError z parseru, OSError, chyba zápisu…
+            log.warning("import BMEcat %s selhal: %s", path, ex)
+            QMessageBox.warning(self, "Import z BMEcat", f"Soubor nejde načíst:\n{path}\n\n{error_text(ex)}")
+            return
+        text = f"Načteno {res.imported} artiklů, přeskočeno {res.skipped} duplicit, varování: {len(res.warnings)}."
+        if res.warnings:
+            text += "\n\n" + "\n".join(res.warnings[:5]) + ("\n…" if len(res.warnings) > 5 else "")
+        if res.csv_path:
+            text += f"\n\nUloženo do {res.csv_path}."
+        QMessageBox.information(self, "Import z BMEcat", text)
 
     def import_dxf_symbol(self) -> None:
         from envocad.library.dxf_import import import_dxf, list_blocks

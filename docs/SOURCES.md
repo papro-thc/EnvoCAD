@@ -23,7 +23,7 @@ používejte volně dostupné zdroje níže.
 ## Data výrobců mimo EPLAN (právně čisté)
 
 - **ETIM / BMEcat** – strukturované katalogy (XML) pro velkoobchod: OEZ, Hager, Eaton, Schneider, ABB je poskytují
-  (často ke stažení na webu výrobce v sekci „Data pro partnery“ / „Produktová data“). Plán: `library/bmecat_import.py`.
+  (často ke stažení na webu výrobce v sekci „Data pro partnery“ / „Produktová data“). Stav: parser hotov (`library/bmecat_import.py`, menu Knihovna → Importovat artikly z BMEcat); ETIM třída a vlastnosti se zatím jen uloží do parametrů, mapování ETIM → parametry knihovny je další krok. Katalogy se do gitu nedávají.
 - **PDF katalogy** – OEZ Katalog Minia / 3VA Parametry (rozměry, ztrátové výkony), Hager, Eaton xPole, Schneider
   Acti9, ABB System pro M compact. Agenti `data-entry` je přepíší do CSV (čtou PDF přímo).
 - **DXF/STEP** výrobců (OEZ „CAD data“, Hager, Eaton) → footprinty přes `dxf_import.py`.

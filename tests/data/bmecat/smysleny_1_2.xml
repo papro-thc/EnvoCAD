@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE BMECAT SYSTEM "bmecat_new_catalog_1_2.dtd">
+<!-- SMYŠLENÁ data pro testy EnvoCAD: výrobce, čísla, EAN i odkazy neexistují (doména example.com). Není to katalog žádného výrobce. -->
+<BMECAT version="1.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <HEADER>
+    <GENERATOR_INFO>Ruční smyšlený soubor pro testy</GENERATOR_INFO>
+    <CATALOG>
+      <LANGUAGE>ces</LANGUAGE>
+      <CATALOG_ID>FIKTIV-TEST</CATALOG_ID>
+      <CATALOG_VERSION>1.0</CATALOG_VERSION>
+      <CURRENCY>CZK</CURRENCY>
+    </CATALOG>
+    <SUPPLIER>
+      <SUPPLIER_NAME>Fiktiv GmbH</SUPPLIER_NAME>
+    </SUPPLIER>
+  </HEADER>
+  <T_NEW_CATALOG>
+    <!-- 1: kompletní artikl, ETIM + UDX rozměry + datasheet; Šířka ve FEATURE se má ignorovat (UDX má přednost) -->
+    <ARTICLE mode="new">
+      <SUPPLIER_AID>FK-MCB-B16-3</SUPPLIER_AID>
+      <ARTICLE_DETAILS>
+        <DESCRIPTION_SHORT>Jistič 3P B16 smyšlený</DESCRIPTION_SHORT>
+        <EAN>4000000000017</EAN>
+        <MANUFACTURER_AID>FK-MCB-B16-3</MANUFACTURER_AID>
+        <MANUFACTURER_NAME>Fiktiv GmbH</MANUFACTURER_NAME>
+      </ARTICLE_DETAILS>
+      <ARTICLE_FEATURES>
+        <REFERENCE_FEATURE_SYSTEM_NAME>ETIM-9.0</REFERENCE_FEATURE_SYSTEM_NAME>
+        <REFERENCE_FEATURE_GROUP_ID>EC000042</REFERENCE_FEATURE_GROUP_ID>
+        <FEATURE>
+          <FNAME>EF000001</FNAME>
+          <FVALUE>16</FVALUE>
+          <FUNIT>A</FUNIT>
+        </FEATURE>
+        <FEATURE>
+          <FNAME>EF000002</FNAME>
+          <FVALUE>B</FVALUE>
+          <FVALUE>C</FVALUE>
+        </FEATURE>
+      </ARTICLE_FEATURES>
+      <ARTICLE_FEATURES>
+        <FEATURE>
+          <FNAME>Šířka</FNAME>
+          <FVALUE>99</FVALUE>
+          <FUNIT>mm</FUNIT>
+        </FEATURE>
+      </ARTICLE_FEATURES>
+      <MIME_INFO>
+        <MIME>
+          <MIME_SOURCE>https://example.com/ds/fk-mcb-b16-3.pdf</MIME_SOURCE>
+          <MIME_TYPE>application/pdf</MIME_TYPE>
+          <MIME_PURPOSE>data_sheet</MIME_PURPOSE>
+        </MIME>
+      </MIME_INFO>
+      <USER_DEFINED_EXTENSIONS>
+        <UDX.EDXF.NETWIDTH>0.0525</UDX.EDXF.NETWIDTH>
+        <UDX.EDXF.NETLENGTH>0.085</UDX.EDXF.NETLENGTH>
+        <UDX.EDXF.NETDEPTH>0.0695</UDX.EDXF.NETDEPTH>
+        <UDX.EDXF.NETWEIGHT>0.35</UDX.EDXF.NETWEIGHT>
+      </USER_DEFINED_EXTENSIONS>
+    </ARTICLE>
+    <!-- 2: rozměry ve FEATURE (mm, cm, g), jiný výrobce než v hlavičce, MANUFACTURER_AID != SUPPLIER_AID -->
+    <ARTICLE mode="new">
+      <SUPPLIER_AID>INT-0004</SUPPLIER_AID>
+      <ARTICLE_DETAILS>
+        <DESCRIPTION_SHORT>Svorka řadová 4 mm2 smyšlená</DESCRIPTION_SHORT>
+        <EAN>4000000000024</EAN>
+        <MANUFACTURER_AID>FK-TERM-4</MANUFACTURER_AID>
+        <MANUFACTURER_NAME>Smyšlený Elektro s.r.o.</MANUFACTURER_NAME>
+      </ARTICLE_DETAILS>
+      <ARTICLE_FEATURES>
+        <FEATURE>
+          <FNAME>Šířka</FNAME>
+          <FVALUE>6.2</FVALUE>
+          <FUNIT>mm</FUNIT>
+        </FEATURE>
+        <FEATURE>
+          <FNAME>Výška</FNAME>
+          <FVALUE>5</FVALUE>
+          <FUNIT>cm</FUNIT>
+        </FEATURE>
+        <FEATURE>
+          <FNAME>Hmotnost</FNAME>
+          <FVALUE>12</FVALUE>
+          <FUNIT>g</FUNIT>
+        </FEATURE>
+      </ARTICLE_FEATURES>
+    </ARTICLE>
+    <!-- 3: neznámá jednotka u šířky (furlong) -> šířka se nepoužije + varování; hloubka v pořádku -->
+    <ARTICLE mode="new">
+      <SUPPLIER_AID>FK-WEIRD-1</SUPPLIER_AID>
+      <ARTICLE_DETAILS>
+        <DESCRIPTION_SHORT>Krabička s divnou jednotkou</DESCRIPTION_SHORT>
+      </ARTICLE_DETAILS>
+      <ARTICLE_FEATURES>
+        <FEATURE>
+          <FNAME>Breite</FNAME>
+          <FVALUE>3</FVALUE>
+          <FUNIT>furlong</FUNIT>
+        </FEATURE>
+        <FEATURE>
+          <FNAME>Tiefe</FNAME>
+          <FVALUE>10</FVALUE>
+          <FUNIT>mm</FUNIT>
+        </FEATURE>
+      </ARTICLE_FEATURES>
+    </ARTICLE>
+    <!-- 4: chybí objednací číslo -> přeskočit + varování -->
+    <ARTICLE mode="new">
+      <ARTICLE_DETAILS>
+        <DESCRIPTION_SHORT>Artikl bez čísla</DESCRIPTION_SHORT>
+        <EAN>4000000000048</EAN>
+      </ARTICLE_DETAILS>
+    </ARTICLE>
+    <!-- 5: chybí název -> název = objednací číslo + varování -->
+    <ARTICLE mode="new">
+      <SUPPLIER_AID>FK-NONAME-7</SUPPLIER_AID>
+      <ARTICLE_DETAILS>
+        <EAN>4000000000055</EAN>
+      </ARTICLE_DETAILS>
+    </ARTICLE>
+    <!-- 6: duplicita artiklu 1 (jiná velikost písmen a mezery) -> jen první výskyt + varování -->
+    <ARTICLE mode="new">
+      <SUPPLIER_AID> fk-mcb-b16-3 </SUPPLIER_AID>
+      <ARTICLE_DETAILS>
+        <DESCRIPTION_SHORT>Duplicitní jistič, nemá se načíst</DESCRIPTION_SHORT>
+        <MANUFACTURER_NAME>FIKTIV GMBH</MANUFACTURER_NAME>
+      </ARTICLE_DETAILS>
+    </ARTICLE>
+    <!-- 7: datasheet jen jako název souboru (ne http) -> nepoužije se + varování -->
+    <ARTICLE mode="new">
+      <SUPPLIER_AID>FK-LOCALDS-9</SUPPLIER_AID>
+      <ARTICLE_DETAILS>
+        <DESCRIPTION_SHORT>Artikl s lokálním datasheetem</DESCRIPTION_SHORT>
+      </ARTICLE_DETAILS>
+      <MIME_INFO>
+        <MIME>
+          <MIME_SOURCE>datasheet_fk_localds_9.pdf</MIME_SOURCE>
+          <MIME_PURPOSE>data_sheet</MIME_PURPOSE>
+        </MIME>
+      </MIME_INFO>
+    </ARTICLE>
+  </T_NEW_CATALOG>
+</BMECAT>
