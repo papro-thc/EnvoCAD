@@ -11,9 +11,13 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from envocad.model.busbar import PARAM_KEYS as BUSBAR_PARAM_KEYS
 from envocad.model.grid import snap
 from envocad.model.multipole import branch_conductors, default_conductors
 from envocad.model.project import (
+    BLOCK_PORTS_IN,
+    BLOCK_PORTS_OUT,
+    BLOCK_PROTECT,
     FEED_SYMBOLS,
     WIRE_ATTRIBUTES,
     ConductorChange,
@@ -267,9 +271,23 @@ def set_attr(project: Project, sheet: Sheet, target_id: str, is_wire: bool, key:
 
 
 # ---- najít a nahradit text (issue #74) ---------------------------------------------------------------------------
-# Atributy, které se nikdy nenahrazují: označení (`ref`, přejmenování řeší `set_attr` s navázanými změnami), funkce
-# a umístění (`func`, `loc` – kódy struktury), technické klíče vazby přívodu/vývodu (`wire_id`, `dir`).
-REPLACE_PROTECTED_KEYS = frozenset({"ref", "func", "loc", "wire_id", "dir"})
+# Atributy, které se nikdy nenahrazují – nejsou to texty, ale označení a technické vazby (změna by je rozpojila):
+# - označení (`ref`, přejmenování řeší `set_attr` s navázanými změnami), funkce a umístění (`func`, `loc`),
+# - vazba přívodu/vývodu na vodič (`wire_id`, `dir`),
+# - čísla svorek a kontaktů (`terminal`, `terminals`, `contacts`) – chráněná stejně jako `ref` (rozhodnutí vlastníka),
+# - blok rozvaděče: porty z atributů (`ports_in`, `ports_out` – vedou na ně vodiče), jištění těchto portů (`protect`,
+#   klíčem je název portu) a `sheet` (zrcadlo názvu listu, udržuje `rename_followups`),
+# - síťová ochrana: `acts_on` (odkaz na označení vazebního prvku),
+# - parametry sběrnice (`busbar.PARAM_KEYS` – počet a rozteč odboček = porty sběrnice).
+# Skryté atributy (`show: false`) se obecně nevynechávají: patří mezi ně i běžné texty (trasa vodiče, popis kontaktu,
+# výrobce, „kam“ u vývodu), které se nahrazovat mají.
+REPLACE_PROTECTED_KEYS = frozenset({
+    "ref", "func", "loc", "wire_id", "dir",
+    "terminal", "terminals", "contacts",
+    BLOCK_PORTS_IN, BLOCK_PORTS_OUT, BLOCK_PROTECT, "sheet",
+    "acts_on",
+    *BUSBAR_PARAM_KEYS,
+})
 # U přívodu/vývodu s vazbou na vodič jsou tyto atributy odvozené (`sync_feed_link_attrs`) – přepsaly by se zpět.
 REPLACE_DERIVED_FEED_KEYS = frozenset({"from", "to", "cable"})
 

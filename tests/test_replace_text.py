@@ -138,3 +138,75 @@ def test_replace_command_registered():
     cmd = default_registry(user_aliases=False).resolve("replace")
     assert cmd is not None
     assert not cmd.needs_gui
+
+
+# ---- chráněné technické atributy (review PR #98): vazby a čísla svorek / kontaktů se nahrazením nesmí změnit ----------
+# (značka, klíč, hodnota, hledaný text, náhrada)
+PROTECTED_CASES = [
+    ("fve.switchboard", "ports_in", "X1 X2", "X1", "X9"),
+    ("fve.switchboard", "ports_out", "XOUT X1B", "X1", "X9"),
+    ("fve.switchboard", "protect", "X1=63, X3=40", "X1", "X9"),
+    ("fve.switchboard", "sheet", "RDC1 – DC rozvaděč", "RDC1", "RDC5"),
+    ("fve.grid_protection", "acts_on", "Q1", "Q1", "Q9"),
+    ("sb.busbar", "taps", "3", "3", "5"),
+    ("sb.busbar", "outs", "3", "3", "5"),
+    ("sb.busbar", "tap_pitch", "30", "3", "5"),
+    ("sb.terminal_block", "terminal", "1 2 3", "3", "5"),
+    ("sb.feed", "terminal", "1 2 3", "3", "5"),
+    ("ctl.contact_no", "terminals", "13/14", "13", "23"),
+    ("ctl.contact_nc", "terminals", "21/22", "21", "31"),
+    ("ctl.coil", "contacts", "1/2 3/4 13/14", "13", "23"),
+    ("fve.contactor", "contacts", "1/2 3/4 13/14", "13", "23"),
+]
+
+
+@pytest.mark.parametrize("symbol_id, key, value, find, new", PROTECTED_CASES,
+                         ids=[f"{c[0]}:{c[1]}" for c in PROTECTED_CASES])
+def test_protected_technical_attr_unchanged(lib, symbol_id, key, value, find, new):
+    assert key in {a.key for a in lib.get_symbol(symbol_id).attributes}     # klíč je atributem značky, ne cizí
+    p = Project(name="Protected")
+    e = Element(symbol_id, 30, 150, attrs={"ref": "A1", key: value})
+    p.sheets[0].elements.append(e)
+    p.sheets[0].texts.append(SheetText(10, 10, f"popis {find}"))
+    ms = find_text(p, lib, find, new)
+    assert [(m.kind, m.key) for m in ms] == [("text", "text")]
+    assert replace_text(p, lib, find, new) == 1
+    assert e.attrs[key] == value
+    assert p.sheets[0].texts[0].text == f"popis {new}"                       # běžný text se přitom nahradí
+
+
+def test_protected_keys_cover_busbar_params():
+    from envocad.cmd.edits import REPLACE_PROTECTED_KEYS
+    from envocad.model.busbar import PARAM_KEYS
+    assert set(PARAM_KEYS) <= REPLACE_PROTECTED_KEYS
+
+
+def test_replace_keeps_wire_on_block_port(lib):
+    """`REPLACE X1 X9` nesmí přejmenovat port bloku rozvaděče pod vodičem (kontrola `bad_port`)."""
+    from envocad.model.checks import check_project
+    p = Project(name="Ports")
+    s = p.sheets[0]
+    blk = Element("fve.switchboard", 100, 150, attrs={"ref": "RD1", "ports_in": "X1", "desc": "přívod X1"})
+    src = Element("fve.hds", 30, 150, attrs={"ref": "Q1"})
+    s.elements += [blk, src]
+    s.wires.append(Wire(WireEnd(src.id, "1"), WireEnd(blk.id, "X1")))
+    def bad():
+        return [f for f in check_project(p, lib, standard_paper="A3") if f.code == "bad_port"]
+
+    assert bad() == []
+    assert replace_text(p, lib, "X1", "X9") == 1
+    assert blk.attrs["ports_in"] == "X1" and blk.attrs["desc"] == "přívod X9"
+    assert bad() == []
+
+
+def test_hidden_text_attrs_still_replaced(lib):
+    """Skryté atributy (`show: false`) se obecně nevynechávají – trasa vodiče i skrytý popis jsou běžné texty."""
+    p = Project(name="Hidden")
+    s = p.sheets[0]
+    a = Element("ctl.contact_no", 30, 150, attrs={"ref": "K1", "desc": "pomocný kabel", "terminals": "13/14"})
+    b = Element("fve.hds", 80, 150, attrs={"ref": "Q2"})
+    s.elements += [a, b]
+    s.wires.append(Wire(WireEnd(a.id, "1"), WireEnd(b.id, "1"), attrs={"route": "kabel v zemi"}))
+    assert not next(x for x in lib.get_symbol("ctl.contact_no").attributes if x.key == "desc").show
+    assert replace_text(p, lib, "kabel", "vodič") == 2
+    assert a.attrs["desc"] == "pomocný vodič" and s.wires[0].attrs["route"] == "vodič v zemi"

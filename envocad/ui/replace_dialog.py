@@ -25,6 +25,8 @@ class ReplaceDialog(QDialog):
         self.scope = QComboBox()
         self.scope.addItem("Celý projekt", "project")
         self.scope.addItem("Aktuální list", "sheet")
+        if current_sheet() is None:                # bez aktivního listu (např. jednopólové schéma) nejde zvolit
+            self.scope.model().item(self.scope.findData("sheet")).setEnabled(False)
         self.match_case = QCheckBox("Rozlišovat velká a malá písmena")
         self.count = QLabel("")
         form = QFormLayout()
@@ -46,17 +48,18 @@ class ReplaceDialog(QDialog):
             sig.connect(self._update_count)
         self._update_count()
 
-    def _sheet(self):
-        return self._current_sheet() if self.scope.currentData() == "sheet" else None
-
     def _update_count(self, *_) -> None:
         text = self.find.text()
+        sheet = self._current_sheet() if self.scope.currentData() == "sheet" else None
+        if self.scope.currentData() == "sheet" and sheet is None:     # nepočítat z celého projektu
+            self.count.setText("žádný aktivní list")
+            self.btn_replace.setEnabled(False)
+            return
         if not text:
             self.count.setText("")
             self.btn_replace.setEnabled(False)
             return
-        ms = find_text(self._project, self._library, text, self.replace.text(), self._sheet(),
-                       self.match_case.isChecked())
+        ms = find_text(self._project, self._library, text, self.replace.text(), sheet, self.match_case.isChecked())
         n = sum(m.count for m in ms)
         self.count.setText(f"{n} výskytů v {len(ms)} hodnotách" if n else "nic nenalezeno")
         self.btn_replace.setEnabled(n > 0)

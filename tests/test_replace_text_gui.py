@@ -97,3 +97,43 @@ def test_sheet_scope_only_current_sheet(win):
     assert json.dumps(s2.to_dict(), sort_keys=True) == before2
     win.undo.undo()
     assert s1.texts[0].text == "kabel A"
+
+
+# ---- „Aktuální list“ bez aktivního listu (review PR #98): karta jednopólového schématu ---------------------------
+def test_sheet_scope_without_active_sheet_replaces_nothing(win):
+    win.open_single_line()
+    assert win.current_sheet is None
+    before = _state(win.project)
+    n0 = win.undo.count()
+    assert win.apply_replace("kabel", "vodič", scope="sheet") == 0
+    assert win.undo.count() == n0
+    assert _state(win.project) == before
+    assert win.statusBar().currentMessage() == "Žádný aktivní list"
+    assert win.apply_replace("kabel", "vodič", scope="project") == 5      # celý projekt jde i odtud
+
+
+def test_dialog_disables_sheet_scope_without_active_sheet(win):
+    from envocad.ui.replace_dialog import ReplaceDialog
+    win.open_single_line()
+    calls = []
+    dlg = ReplaceDialog(win, win.project, win.library, lambda: win.current_sheet, lambda *a: calls.append(a))
+    i = dlg.scope.findData("sheet")
+    assert not dlg.scope.model().item(i).isEnabled()
+    assert dlg.scope.currentData() == "project"
+    dlg.find.setText("kabel")
+    assert dlg.count.text().startswith("5 ") and dlg.btn_replace.isEnabled()
+    dlg.scope.setCurrentIndex(i)                 # i kdyby se volba vybrala programově: počet není z celého projektu
+    assert dlg.count.text() == "žádný aktivní list"
+    assert not dlg.btn_replace.isEnabled()
+    dlg.close()
+
+
+def test_dialog_sheet_scope_counts_current_sheet(win):
+    from envocad.ui.replace_dialog import ReplaceDialog
+    dlg = ReplaceDialog(win, win.project, win.library, lambda: win.current_sheet, lambda *a: None)
+    i = dlg.scope.findData("sheet")
+    assert dlg.scope.model().item(i).isEnabled()
+    dlg.find.setText("kabel")
+    dlg.scope.setCurrentIndex(i)
+    assert dlg.count.text().startswith("2 ") and dlg.btn_replace.isEnabled()
+    dlg.close()

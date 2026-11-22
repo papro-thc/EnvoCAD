@@ -1160,6 +1160,9 @@ class MainWindow(QMainWindow):
         """Najít a nahradit text jako jeden krok undo (`ReplaceTextCommand`). Vrací počet náhrad; 0 = nic se nezměnilo."""
         from envocad.cmd import edits
         sheet = self.current_sheet if scope == "sheet" else None
+        if scope == "sheet" and sheet is None:     # např. karta jednopólového schématu – nenahrazovat celý projekt
+            self.statusBar().showMessage("Žádný aktivní list", 4000)
+            return 0
         try:
             matches = edits.find_text(self.project, self.library, find, replace, sheet, match_case)
         except ValueError as ex:
