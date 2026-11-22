@@ -233,6 +233,9 @@ Jeden model, dva pohledy nad stejnými daty:
   Kreslicí seznam `MultipoleGeometry.prims` (`Prim`, lokální souřadnice strany) je zdroj pro export DXF vícepólu
   (`export/dxf_export.export_multipole_dxf`: jeden soubor se stranami vedle sebe a layoutem na stranu, nebo soubor
   na stranu).
+- Rozložení rozvaděče bez Qt: `model/layout_geometry.py:layout_geometry` (skříň, lišty, přístroje, texty; mm, Y nahoru)
+  je zdroj pro `export/dxf_export.export_layout_dxf`; `export_terminal_plan_dxf` kreslí plán svorkovnice (strany
+  vedle sebe, layout „Strana k“) z `model/terminal_plan.py`. Vrstvy `LAYOUT_LAYERS`, `TERMINAL_LAYERS`.
 - Formát stran vícepólu a plánu svorkovnice: `multipole.paper_choice` – `Sheet.mp_paper` (nepovinný klíč), jinak
   firemní standard `standard.switchboard_paper` (výchozí „A4“ = 297 × 210); list, který není rozvaděč, a starší list
   rozvaděče s jiným rozměrem než A3 nebo s `mp_pos` → „list“ (rozměr listu jako dřív). `page_size`, `page_width`,

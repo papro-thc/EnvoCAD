@@ -228,6 +228,8 @@ class MainWindow(QMainWindow):
         act(m_file, "Spustit skript…", self.run_script, None, "run_script")
         m_file.addSeparator()
         act(m_file, "Export &DXF…", self.export_dxf, None, "export_dxf")
+        act(m_file, "Export DXF rozložení rozvaděče…", self.export_layout_dxf, None, "export_layout_dxf")
+        act(m_file, "Export DXF plánu svorkovnice…", self.export_terminal_plan_dxf, None, "export_terminal_plan_dxf")
         act(m_file, "Export &PDF…", self.export_pdf, None, "export_pdf")
         act(m_file, "Export PDF na A4 (zmenšeno)…", lambda: self.export_pdf("A4"))
         m_file.addSeparator()
@@ -1903,9 +1905,40 @@ class MainWindow(QMainWindow):
             sc.update()
 
     # ---- export / import -------------------------------------------------------
-    DXF_ONLY_SCHEMATIC = ("DXF se exportuje z blokového schématu, z listu rozvaděče v editoru nebo "
-                          "z vícepólového schématu. Plán svorkovnice a rozložení rozvaděče exportuj do PDF "
-                          "(Soubor → Export PDF nebo Výstupy → Celá dokumentace).")
+    DXF_ONLY_SCHEMATIC = ("DXF se exportuje z blokového schématu, z listu rozvaděče v editoru, z vícepólového "
+                          "schématu, z rozložení rozvaděče nebo z plánu svorkovnice.")
+    DXF_NEEDS_SWITCHBOARD = "Otevřete list rozvaděče (jeho rozložení, plán svorkovnice nebo vícepól)."
+
+    def _active_switchboard_sheet(self) -> Sheet | None:
+        """List rozvaděče z aktivního pohledu (schéma, rozložení, vícepól, plán svorkovnice), jinak None."""
+        v = self.view
+        sc = v.scene() if v is not None and not isinstance(v, SingleLineView) else None
+        sh = getattr(sc, "sheet", None)
+        return sh if sh is not None and sh.is_switchboard else None
+
+    def export_layout_dxf(self) -> None:
+        """Export DXF rozložení rozvaděče aktuálního listu rozvaděče (i z jiného pohledu téhož listu)."""
+        from envocad.export.dxf_export import export_layout_dxf
+        sh = self._active_switchboard_sheet()
+        if sh is None:
+            QMessageBox.information(self, "Export DXF rozložení rozvaděče", self.DXF_NEEDS_SWITCHBOARD)
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "Export DXF rozložení rozvaděče", "", "DXF (*.dxf)")
+        if path:
+            out = export_layout_dxf(self.project, sh, self.library, path)
+            self.statusBar().showMessage(f"Exportováno: {out}", 3000)
+
+    def export_terminal_plan_dxf(self) -> None:
+        """Export DXF plánu svorkovnice aktuálního listu rozvaděče (i z jiného pohledu téhož listu)."""
+        from envocad.export.dxf_export import export_terminal_plan_dxf
+        sh = self._active_switchboard_sheet()
+        if sh is None:
+            QMessageBox.information(self, "Export DXF plánu svorkovnice", self.DXF_NEEDS_SWITCHBOARD)
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "Export DXF plánu svorkovnice", "", "DXF (*.dxf)")
+        if path:
+            out = export_terminal_plan_dxf(self.project, sh, self.library, path)
+            self.statusBar().showMessage(f"Exportováno: {out}", 3000)
 
     def _ask_multipole_dxf_split(self) -> bool | None:
         """Volba stránkování DXF vícepólu: False = jeden soubor (layout na stranu), True = soubor na stranu,
@@ -1936,6 +1969,12 @@ class MainWindow(QMainWindow):
                 files = export_multipole_dxf(self.project, self.view.scene().sheet, self.library, path,
                                              split_pages=split)
                 self.statusBar().showMessage(export_files_message(files), 3000)
+            return
+        if isinstance(self.view, LayoutView):
+            self.export_layout_dxf()
+            return
+        if isinstance(self.view, TerminalPlanView):
+            self.export_terminal_plan_dxf()
             return
         if not self.scene:
             QMessageBox.information(self, "Export DXF", self.DXF_ONLY_SCHEMATIC if self.view is not None
