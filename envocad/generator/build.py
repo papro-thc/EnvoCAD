@@ -43,6 +43,7 @@ def _build_project(spec: dict) -> Project:
     """Sestavení; společný RFVE.DC (výchozí pro 2+ střídače), se kterým by list blokového schématu přerostl
     `jps_max_paper` (list „AC a připojení“ s RFVE.DC pro desítky stringů), se nahradí RFVE.DC na střídač – jen když
     projektant `chain.rfve_dc.per_inverter` nezadal (review F2, B1)."""
+    context._BUILD_WARNED.clear()
     p, common = _build_once(spec)
     if common is not None and _jps_over_limit(p, spec, common) and not _per_inverter_given(spec):
         from envocad.generator.context import log

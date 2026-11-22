@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 
 from envocad import __version__
 from envocad.library.store import LibraryStore
+from envocad.library.symbol_edit import free_symbol_id
 from envocad.model.project import Project, Sheet
 from envocad.ui import commands, theme
 from envocad.ui.canvas import Mode, SchematicScene, SchematicView
@@ -66,14 +67,6 @@ def error_text(ex: BaseException) -> str:
             return f"{what} ({ex.filename or ''})".replace(" ()", "")
         return f"chyba souboru: {ex.strerror or ex}"
     return str(ex) or type(ex).__name__
-
-
-def free_symbol_id(library, sid: str) -> str:
-    """První volné ID ve tvaru `<sid>_2`, `<sid>_3`…"""
-    n = 2
-    while library.has_symbol(f"{sid}_{n}"):
-        n += 1
-    return f"{sid}_{n}"
 
 
 def export_files_message(files: list) -> str:
@@ -353,6 +346,7 @@ class MainWindow(QMainWindow):
         m_lib = mb.addMenu("&Knihovna")
         act(m_lib, "Importovat symbol z DXF…", self.import_dxf_symbol)
         act(m_lib, "Importovat značku z QElectroTech (.elmt)…", self.import_qet_symbol)
+        act(m_lib, "Upravit značku…", lambda: self.edit_symbol())
         act(m_lib, "Prohlížet artikly…", self.browse_components)
         act(m_lib, "Importovat artikly z CSV…", self.import_components_csv)
         act(m_lib, "Importovat artikly z EPLAN (XML / CSV / ZIP)…", self.import_eplan)
@@ -2478,6 +2472,28 @@ class MainWindow(QMainWindow):
         self.lib_panel.refresh()
         QMessageBox.information(self, "Import DXF", f"Symbol {sid} importován ({len(sym.primitives)} primitiv).\n"
                                 "Porty zatím doplňte v JSON (viz docs/LIBRARY_FORMAT.md).")
+
+    def edit_symbol(self, symbol_id: str | None = None) -> None:
+        """Editor portů a atributů značky (vybrané v panelu Knihovna); uložená značka je v uživatelské knihovně."""
+        from envocad.ui.symbol_editor import SymbolEditorDialog
+        if symbol_id is None:
+            item = self.lib_panel.tree.currentItem()
+            sid = item.data(0, Qt.UserRole) if item else None
+            if not sid or str(sid).startswith("macro:"):
+                QMessageBox.information(self, "Upravit značku", "Vyberte značku v panelu Knihovna.")
+                return
+            symbol_id = str(sid)
+        try:
+            dlg = SymbolEditorDialog(self.library, symbol_id, self)
+        except KeyError:
+            QMessageBox.warning(self, "Upravit značku", f"Značka {symbol_id} v knihovně není.")
+            return
+        dlg.exec()
+        if dlg.saved_symbol is not None:
+            self.lib_panel.refresh()
+            for i in range(self.tabs.count()):     # list se starou značkou (přepis pod stejným id) – jako `_refs_changed`
+                self._unwrap(self.tabs.widget(i)).scene().rebuild()
+            self.statusBar().showMessage(f"Značka {dlg.saved_symbol.id} uložena do uživatelské knihovny.", 8000)
 
     def open_log_dir(self) -> None:
         from PySide6.QtCore import QUrl
