@@ -111,7 +111,7 @@ def test_verdict_ok_names_hottest_with_margin():
     r = temperature_rise(sb, project=p)
     v = r.verdict()
     hot = max(r.devices, key=lambda d: d.t_air)
-    assert v.startswith("vyhovuje (orientačně) – nejteplejší F1 ≈")
+    assert v.startswith("vyhovuje (orientační – neověřeno proti normě) – nejteplejší F1 ≈")
     assert f"(t_max 70 °C, rezerva {70 - hot.t_air:.0f} K)" in v
     assert "chybí rozsah" not in v
     assert "F1 v řadě 1" in r.critical_text() and "(atribut)" in r.critical_text()
@@ -123,7 +123,7 @@ def test_verdict_one_device_exceeds():
     f3 = next(d for d in r.devices if d.ref == "F3")
     assert f3.t_air > 42 and f3.margin < 0
     v = r.verdict()
-    assert v.startswith(f"NEVYHOVUJE (orientačně) – F3 v řadě 1: ≈ {f3.t_air:.0f} °C > t_max 42 °C;"), v
+    assert v.startswith(f"NEVYHOVUJE (orientační – neověřeno proti normě) – F3 v řadě 1: ≈ {f3.t_air:.0f} °C > t_max 42 °C;"), v
     assert "a další" not in v and "(předpoklad)" not in v
     assert r.critical().ref == "F3" and "překročeno o" in r.critical_text()
     fs = thermal_findings(p)
@@ -135,12 +135,12 @@ def test_verdict_with_assumed_limit_and_missing_data():
     p, sb = _board(("F1", 2, {"t_max": "70"}), ("F2", 2, {}), ("F3", 2, {}))
     r = temperature_rise(sb, project=p, t_ambient_c=20)                      # chladno → i 40 °C vyhovuje
     v = r.verdict()
-    assert v.startswith("vyhovuje (orientačně)")
+    assert v.startswith("vyhovuje (orientační – neověřeno proti normě)")
     assert "u 2 přístrojů chybí rozsah teplot – ověřit (předpoklad 40 °C)" in v
     assert v.endswith("(předpoklad 40 °C)")
     r = temperature_rise(sb, project=p, t_ambient_c=38)                      # nad 40 °C jen podle předpokladu
     v = r.verdict()
-    assert v.startswith("NEVYHOVUJE (orientačně) – F2") and "t_max 40 °C (předpoklad), a další 1" in v
+    assert v.startswith("NEVYHOVUJE (orientační – neověřeno proti normě) – F2") and "t_max 40 °C (předpoklad), a další 1" in v
     assert "u 2 přístrojů chybí rozsah teplot" in v
 
 
@@ -173,7 +173,7 @@ def test_t_min_checked_only_with_ambient_min():
     assert r.t_ambient_min_c == -25
     assert [d.ref for d in r.cold_devices()] == ["F1"]
     v = r.verdict()
-    assert v.startswith("NEVYHOVUJE (orientačně) – F1: t_min −5 °C > nejnižší okolí −25 °C") and "vytápění" in v
+    assert v.startswith("NEVYHOVUJE (orientační – neověřeno proti normě) – F1: t_min −5 °C > nejnižší okolí −25 °C") and "vytápění" in v
     fs = thermal_findings(p)
     assert [(f.severity, f.ref) for f in fs] == [(WARNING, "F1")] and "pod t_min −5 °C" in fs[0].text
     # přístroj bez t_min při zadaném minimu okolí → předpoklad −5 °C, počítá se mezi chybějící údaje
@@ -294,11 +294,11 @@ def test_tz_and_protocol_show_device_verdict(lib, tmp_path):
     sb.name = "RH"
     export_tz_docx(p, lib, tmp_path / "tz.docx")
     tz = _docx_text(tmp_path / "tz.docx")
-    assert "NEVYHOVUJE (orientačně) – F3 v řadě 1:" in tz and "> t_max 42 °C" in tz
+    assert "NEVYHOVUJE (orientační – neověřeno proti normě) – F3 v řadě 1:" in tz and "> t_max 42 °C" in tz
     assert "u 1 přístroje chybí rozsah teplot" in tz
     export_routine_test_docx(p, lib, sb, tmp_path / "p.docx")
     prot = _docx_text(tmp_path / "p.docx")
-    assert "Oteplení (IEC TR 60890, výpočet) |" in prot and "F3 v řadě 1" in prot and "orientačně" in prot
+    assert "Oteplení" not in prot and "60890" not in prot and "F3 v řadě 1" not in prot   # #80: oteplení není v protokolu
 
 
 def test_enclosure_panel_shows_critical_device():
@@ -311,19 +311,19 @@ def test_enclosure_panel_shows_critical_device():
     panel = EnclosurePanel(sb, project=p)
     txt = panel.thermal.text()
     assert "Kritický přístroj: F3 v řadě 1:" in txt and "t_max 42 °C (atribut)" in txt
-    assert "Hodnocení: NEVYHOVUJE (orientačně) – F3" in txt
+    assert "Hodnocení: NEVYHOVUJE (orientační – neověřeno proti normě) – F3" in txt
     assert "t_ambient_min" in panel._edits
     panel._edits["t_ambient_min"].setText("-30")
     panel._edits["t_ambient_min"].editingFinished.emit()
     assert sb.layout.params["t_ambient_min"] == "-30"
     _el(sb, "F3").attrs["t_max"] = "70"
     panel.refresh()                                     # bez t_min přístrojů platí předpoklad −5 °C > −30 °C
-    assert "Hodnocení: NEVYHOVUJE (orientačně) – F1: t_min −5 °C (předpoklad)" not in panel.thermal.text()
+    assert "Hodnocení: NEVYHOVUJE (orientační – neověřeno proti normě) – F1: t_min −5 °C (předpoklad)" not in panel.thermal.text()
     assert "t_min −5 °C > nejnižší okolí −30 °C (předpoklad)" in panel.thermal.text()
     for ref in ("F1", "F3"):
         _el(sb, ref).attrs["t_min"] = "-40"
     panel.refresh()
-    assert "Hodnocení: vyhovuje (orientačně)" in panel.thermal.text()
+    assert "Hodnocení: vyhovuje (orientační – neověřeno proti normě)" in panel.thermal.text()
     panel.deleteLater()
 
 
@@ -331,4 +331,4 @@ def test_unused_sheet_without_devices():
     s = Sheet(kind="switchboard")
     r = temperature_rise(s)
     assert r.devices == [] and r.critical() is None and r.critical_text() == ""
-    assert r.verdict().startswith("vyhovuje (orientačně) – bez přístrojů")
+    assert r.verdict().startswith("vyhovuje (orientační – neověřeno proti normě) – bez přístrojů")

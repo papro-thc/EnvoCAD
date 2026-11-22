@@ -8,6 +8,7 @@ import functools
 from collections import OrderedDict
 
 from envocad.library.store import LibraryStore
+from envocad.model.advisory import ADVISORY_NOTE
 from envocad.model.designation import LOCATION_SYMBOLS, designation, element_name, full_designation, scope_key
 from envocad.model.feed import FEED_SYMBOL
 from envocad.model.notes import plural
@@ -565,7 +566,7 @@ def fixed_voltage_text(sc) -> str:
 
 @over_clean
 def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
-    """Výkaz výpočtů: stringy vs. střídač, kabely (I, Iz, In, ΔU), selektivita."""
+    """Výkaz výpočtů: stringy vs. střídač, kabely (I, Iz, In, ΔU), selektivita, oteplení rozvaděčů."""
     from envocad.model import calc
     head = ["Část", "Prvek", "Hodnoty", "Mez / porovnání", "Výsledek"]
     rows = []
@@ -586,12 +587,34 @@ def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None
         if sheet is not None and cc.sheet != sheet.name:
             continue
         vals = f"I = {cc.i_a or '–'} A, S = {cc.cross or '–'} mm², L = {cc.length or '–'} m, uložení {cc.method}, {cc.system}"
-        lim = f"Iz = {cc.iz or '–'} A" + (f", In {cc.breaker_ref} = {cc.in_breaker:g} A" if cc.in_breaker else "") + \
+        lim = f"Iz = {cc.iz or '–'} A ({ADVISORY_NOTE})" + \
+              (f", In {cc.breaker_ref} = {cc.in_breaker:g} A" if cc.in_breaker else "") + \
               (f", ΔU = {cc.du_v} V ({cc.du_pct} %)" if cc.du_pct is not None else "")
         rows.append(["Kabel", cc.ref, vals, lim, "OK" if not cc.issues else "; ".join(cc.issues)])
     for lo, hi, il, ih, msg in calc.check_selectivity(project, sheet):
         rows.append(["Selektivita", f"{lo} → {hi}", f"In {il:g} A → {ih:g} A", f"poměr ≥ {calc.SELECTIVITY_RATIO}", msg])
+    rows += _thermal_rows(project, lib, sheet)
     return head, rows
+
+
+def _thermal_rows(project: Project, lib: LibraryStore, sheet: Sheet | None) -> list[list]:
+    """Řádky „Oteplení“ výkazu Výpočty: jeden na list rozvaděče (IEC TR 60890, výsledek `ThermalResult.verdict`)."""
+    from envocad.model.thermal import layout_inputs, temperature_rise
+    rows = []
+    for sb in project.switchboards():
+        if sheet is not None and sb.id != sheet.id:
+            continue
+        try:
+            rdf, t_amb = layout_inputs(sb.layout)
+            r = temperature_rise(sb, rdf=rdf, t_ambient_c=t_amb, project=project, lib=lib)
+        except Exception:  # noqa: BLE001 – výkaz se vytvoří i bez výpočtu oteplení
+            r = None
+        if r is None:
+            continue
+        src = r.loss_summary()     # zdroj ztrát přístrojů: artikl / ruční / odhad
+        rows.append(["Oteplení", sb.name, f"ΣPv {r.p_total_w:.0f} W" + (f" ({src})" if src else "")
+                     + f", okolí {r.t_ambient_c:.0f} °C", f"horní část ≈ {r.t_top_c:.0f} °C", r.verdict()])
+    return rows
 
 
 @over_clean

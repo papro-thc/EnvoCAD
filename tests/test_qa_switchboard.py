@@ -240,15 +240,15 @@ def test_thermal_verdict_uses_absolute_temperature():
         r.devices = [DeviceTemp("e1", "F3", 0, amb + dt, t_max, src)]
         return r
     assert res(25, 35).verdict().startswith("NEVYHOVUJE")                # 60 °C > 55 °C
-    assert res(10, 35).verdict().startswith("vyhovuje (orientačně)")     # 45 °C ≤ 55 °C
+    assert res(10, 35).verdict().startswith("vyhovuje (orientační – neověřeno proti normě)")     # 45 °C ≤ 55 °C
     assert "derating" in res(10, 35).verdict()                           # nad 40 °C připomenout odlehčení
     assert "derating" not in res(4, 35).verdict()
     assert res(10, 50).verdict().startswith("NEVYHOVUJE")                # 60 °C uvnitř
     assert res(10, 50, t_max=70).verdict().startswith("vyhovuje")        # přístroj do 70 °C
     assert res(4, 35, t_max=DEFAULT_T_MAX_C, src="předpoklad").verdict().startswith("vyhovuje")
-    assert "orientačně" in res(4, 35).verdict() and "orientačně" in res(25, 35).verdict()
+    assert "orientační – neověřeno proti normě" in res(4, 35).verdict() and "orientační – neověřeno proti normě" in res(25, 35).verdict()
     empty = ThermalResult(0, 0, 1, 0, 0, 0.8, 35, [])
-    assert empty.verdict().startswith("vyhovuje (orientačně) – bez přístrojů")
+    assert empty.verdict().startswith("vyhovuje (orientační – neověřeno proti normě) – bez přístrojů")
 
 
 # ---- vícepól ---------------------------------------------------------------------------------------------------------
