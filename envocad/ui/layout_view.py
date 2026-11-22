@@ -8,13 +8,16 @@ from PySide6.QtWidgets import QGraphicsItem, QGraphicsRectItem, QGraphicsScene, 
 
 from envocad.library.store import LibraryStore
 from envocad.model.device_size import SHAPE_BOX, SHAPE_TERMINAL, DeviceSize, device_size
+from envocad.model.layout_geometry import (  # noqa: F401 – konstanty zůstávají dostupné i odsud
+    MARGIN,
+    ROW_H,
+    UNPLACED_X_GAP,
+    device_width_mm,
+)
 from envocad.model.project import DEVICE_HEIGHT_MM, MODULE_WIDTH, Element, Project, Sheet, terminal_count
 from envocad.ui.render import draw_text
 from envocad.ui.theme import colors
 
-ROW_H = 90.0        # mm – výška řady (přístroj + prostor na vodiče)
-MARGIN = 20.0
-UNPLACED_X_GAP = 30.0
 SNAP = 0.5          # modulu
 
 
@@ -45,8 +48,7 @@ class DeviceItem(QGraphicsRectItem):
                  size: DeviceSize | None = None):
         self.size = size if size is not None else device_size(element)
         # skutečný rozměr (artikl / ruční mm) se kreslí, jak je; šířka z modulů nejméně 1 modul jako dřív
-        w = max(self.size.width_mm, 1.0) if self.size.real else max(self.size.modules, 1.0) * MODULE_WIDTH
-        super().__init__(0, 0, w, self.size.height_mm)
+        super().__init__(0, 0, device_width_mm(self.size), self.size.height_mm)
         self.element, self.name, self.placed, self.footprint, self.kind = element, name, placed, footprint, kind
         self.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemSendsGeometryChanges)
         self.setZValue(5)
