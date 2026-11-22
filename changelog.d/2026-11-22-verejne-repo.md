@@ -1,0 +1,1 @@
+- **Repo veřejné, main chráněná** – docs/AGENTS.md: ochrana větve main, neomezené minuty Actions, bez vlastního runneru

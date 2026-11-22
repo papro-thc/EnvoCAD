@@ -107,8 +107,14 @@ jobs:
           GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
         run: |
           [ -n "$GH_TOKEN" ] || { echo "::error::Chybí secret AGENT_GH_TOKEN"; exit 1; }
-          perm=$(gh api "repos/$REPO" --jq '.permissions.push' 2>/dev/null) || perm=""
-          [ "$perm" = "true" ] || { echo "::error::AGENT_GH_TOKEN nemá přístup k $REPO s právem zápisu (fine-grained PAT: Resource owner = vlastník repa, Repository access → $REPO, Contents/Pull requests/Issues: Read and write)"; exit 1; }
+          # zápis ověří až skutečné spojení pro push (git-receive-pack); --dry-run nic nepošle
+          echo "API permissions: $(gh api "repos/$REPO" --jq '.permissions // "—"' 2>&1 | head -c 200)"
+          if ! git push --dry-run -q "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+               "HEAD:refs/heads/agent/token-probe" 2>"$RUNNER_TEMP/probe.err"; then
+            sed "s/${GH_TOKEN}/***/g" "$RUNNER_TEMP/probe.err" | tail -n 3
+            echo "::error::AGENT_GH_TOKEN nemá právo zápisu do $REPO (fine-grained PAT: Resource owner = vlastník repa, Repository access → $REPO, Contents/Pull requests/Issues: Read and write)"; exit 1
+          fi
+          gh issue view "$ISSUE" -R "$REPO" --json number >/dev/null || { echo "::error::AGENT_GH_TOKEN nečte issues v $REPO"; exit 1; }
 
       - name: Štítek agent-in-progress
         run: gh issue edit "$ISSUE" -R "$REPO" --add-label agent-in-progress
