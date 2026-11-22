@@ -35,6 +35,7 @@ import math
 from bisect import bisect_left
 from dataclasses import dataclass, field
 
+from envocad.model.advisory import ADVISORY_NOTE
 from envocad.model.project import Element, Sheet
 
 # Odhad ztrátového výkonu na pól při In [W/A] – ORIENTAČNÍ střední hodnoty z katalogů (MCB/MCCB/RCD, odpínače,
@@ -267,13 +268,13 @@ class ThermalResult:
                              + (" (předpoklad)" if d.t_min_source == SOURCE_ASSUMED else "") + more)
             fix = ("zvětšit skříň, snížit zatížení, doplnit ventilaci nebo zvolit přístroje s vyšší t_max" if hot
                    else "doplnit vytápění skříně nebo zvolit přístroje s nižší t_min")
-            return f"NEVYHOVUJE (orientačně) – {'; '.join(parts)}; {fix}{tail}"
+            return f"NEVYHOVUJE ({ADVISORY_NOTE}) – {'; '.join(parts)}; {fix}{tail}"
         d = self.critical()
         if d is None:
-            return f"vyhovuje (orientačně) – bez přístrojů, uvnitř ≈ {self.t_top_c:.0f} °C"
+            return f"vyhovuje ({ADVISORY_NOTE}) – bez přístrojů, uvnitř ≈ {self.t_top_c:.0f} °C"
         hottest = max(x.t_air for x in self.devices)
         label = "nejteplejší" if d.t_air >= hottest - 1e-9 else "nejmenší rezerva"
-        txt = (f"vyhovuje (orientačně) – {label} {d.ref or '?'} ≈ {d.t_air:.0f} °C "
+        txt = (f"vyhovuje ({ADVISORY_NOTE}) – {label} {d.ref or '?'} ≈ {d.t_air:.0f} °C "
                f"(t_max {d.t_max:.0f} °C, rezerva {d.margin:.0f} K)")
         if hottest > DEVICE_REF_C:
             txt += (f"; nad {DEVICE_REF_C:.0f} °C ověřit odlehčení (derating) jističů a přístrojů podle katalogu")

@@ -8,6 +8,7 @@ from collections import Counter
 from dataclasses import dataclass
 
 from envocad.model import multipole as mp
+from envocad.model.advisory import ADVISORY_NOTE
 from envocad.model.designation import (
     FUNC,
     LOC,
@@ -1087,7 +1088,7 @@ def thermal_findings(project: Project, lib=None) -> list[Finding]:
                 over_assumed += 1
                 continue
             out.append(Finding(WARNING, s.id, s.name, d.element_id, False, d.ref,
-                               f"Oteplení (orientačně): {d.place} ≈ {d.t_air:.0f} °C > t_max {d.t_max:.0f} °C "
+                               f"Oteplení ({ADVISORY_NOTE}): {d.place} ≈ {d.t_air:.0f} °C > t_max {d.t_max:.0f} °C "
                                f"({d.source})", "thermal_device"))
         for d in r.cold_devices():
             if d.t_min_source == SOURCE_ASSUMED:
