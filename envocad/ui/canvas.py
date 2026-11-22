@@ -714,6 +714,10 @@ class SchematicScene(QGraphicsScene):
                 self.open_switchboard.emit(it.element.id)
                 return None
             eid = it.element.id
+            sel = [x.element.id for x in self.selectedItems() if isinstance(x, ElementItem)]
+            if len(sel) >= 2 and eid in sel:     # prvek ve výběru 2+ prvků → hromadná úprava
+                QTimer.singleShot(0, lambda: self.edit_elements_bulk(sel))
+                return None
             QTimer.singleShot(0, lambda: self.edit_element(eid))
             return None
         for w in self.items(ev.scenePos()):
@@ -806,6 +810,36 @@ class SchematicScene(QGraphicsScene):
         if dlg.wire_combo is not None and dlg.wire_id:
             self._take_conductors_from_link(eid, dlg.wire_id)
         self.undo.endMacro()
+
+    def apply_bulk_edit(self, eids, *, component: str | None = None, func: str | None = None,
+                        loc: str | None = None, note: str | None = None) -> int:
+        """Hromadná úprava prvků (artikl, func, loc, note): jedno makro undo z `SetComponentCommand` a `set_attr`.
+        Změny počítá `cmd.edits.bulk_changes` (stejně jako příkazový řádek); vrací počet změněných prvků, bez změny
+        nepushne nic, ValueError (neplatný kód, artikl pro různé značky) propustí dřív, než se změní model."""
+        from envocad.cmd.edits import bulk_changes
+        changes = bulk_changes(self.sheet, eids, component=component, func=func, loc=loc, note=note)
+        if not changes:
+            return 0
+        n = len({c.element_id for c in changes})
+        self.undo.beginMacro(f"Upravit {n} prvků")
+        for c in changes:
+            if c.key == "component":
+                self.undo.push(commands.SetComponentCommand(self, c.element_id, c.old, c.new))
+            else:
+                self.set_attr(c.element_id, False, c.key, c.new)
+        self.undo.endMacro()
+        return n
+
+    def edit_elements_bulk(self, eids) -> None:
+        """Dialog společných vlastností vybraných prvků; po potvrzení jedna změna přes `apply_bulk_edit`."""
+        from envocad.ui.dialogs import BulkElementDialog
+        els = [e for e in self.sheet.elements if e.id in set(eids)]
+        if len(els) < 2:
+            return
+        dlg = BulkElementDialog(els, self.library, self._parent_widget(), self.sheet)
+        if dlg.exec() != BulkElementDialog.Accepted:
+            return
+        self.apply_bulk_edit([e.id for e in els], **dlg.values())
 
     def _wire_choices(self, symbol_id: str):
         from envocad.model.project import FEED_SYMBOLS, wire_choices

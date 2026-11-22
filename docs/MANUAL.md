@@ -132,7 +132,10 @@ rozdělí uzlem (tečka, značka *Odbočka*) a z volného portu uzlu kreslíš d
 vodiče. Stejně jde vodič na jiném vodiči i ukončit. Uzel má čtyři porty, všechny jsou jeden potenciál.
 
 ### Úpravy
-Dvojklik na prvek nebo vodič otevře dialog s parametry, panel Vlastnosti upravuje jednotlivé atributy přímo.
+Dvojklik na prvek nebo vodič otevře dialog s parametry, panel Vlastnosti upravuje jednotlivé atributy přímo. Při výběru **2 a více prvků** otevře dvojklik na vybraný prvek (nebo pravé tlačítko → **Vlastnosti vybraných
+prvků**) hromadný dialog: nastavíš všem artikl (jen u prvků téže značky), funkci, umístění a poznámku. Pole s rozdílnými
+hodnotami ukazují „(různé)“ a zůstanou beze změny, dokud do nich nic nezapíšeš; celá úprava je jeden krok Undo.
+**Poznámka** je interní text prvku (panel Vlastnosti i dialog) – do výkresu ani výkazů se nepropisuje.
 Tažení myší posouvá (snap 2,5 mm), `R` otáčí, `M` zrcadlí, `Delete` maže, `Ctrl+Z`/`Ctrl+Y` vrací. `Ctrl+C`/`Ctrl+V`
 kopíruje vybrané prvky včetně vodičů mezi nimi – kopie dostanou nová označení a posun 10 mm. Výběr více prvků
 tažením rámečku v prázdné ploše. Kolečko zoomuje, střední tlačítko posouvá pohled, `Home` přizpůsobí list.

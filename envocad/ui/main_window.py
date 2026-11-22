@@ -2514,6 +2514,10 @@ class MainWindow(QMainWindow):
                 menu.addAction("Otevřít rozvaděč", lambda: self.open_switchboard_from_block(eid))
             if isinstance(hit, ElementItem):
                 menu.addAction("Vlastnosti…", lambda: sc.edit_element(eid))
+                sel = [it.element.id for it in sc.selectedItems() if isinstance(it, ElementItem)]
+                if len(sel) >= 2:      # vodiče ve výběru se ignorují
+                    menu.addAction(f"Vlastnosti vybraných prvků ({len(sel)})…",
+                                   lambda: sc.edit_elements_bulk(sel))
             else:
                 menu.addAction("Vlastnosti…", lambda: self._edit_element_anywhere(sheet, eid))
             menu.addSeparator()
