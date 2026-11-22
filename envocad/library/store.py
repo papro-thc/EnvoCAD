@@ -74,6 +74,22 @@ def _rel(f: Path, root: Path) -> str:
     return str(f.relative_to(root))
 
 
+def symbol_sources(db_path: Path) -> list[tuple[Path, str]]:
+    """Zdroje souborů knihovny `(složka, značka)` v pořadí přednosti builtin → user → shared; user a sdílená složka
+    jen pro výchozí databázi (editor značek podle toho pozná souborové značky)."""
+    sources = [(BUILTIN_DIR, "builtin")]
+    if db_path == default_db_path():
+        sources.append((user_library_dir(), "user"))
+        try:  # sdílená firemní knihovna (síťová složka) z nastavení – načítá se navíc, přebíjí stejná id
+            from envocad.settings import shared_library_dir
+            shared = shared_library_dir()
+            if shared is not None:
+                sources.append((shared, "shared"))
+        except Exception:  # noqa: BLE001, S110
+            pass
+    return sources
+
+
 class LibraryStore:
     def __init__(self, path: Path | str | None = None, load_builtin: bool = True):
         self.path = Path(path) if path else default_db_path()
@@ -90,16 +106,7 @@ class LibraryStore:
         n = 0
         seen = {r["path"]: r["mtime"] for r in self.conn.execute("SELECT path, mtime FROM builtin_files")}
         rows = []
-        sources = [(BUILTIN_DIR, "builtin")]
-        if self.path == default_db_path():
-            sources.append((user_library_dir(), "user"))
-            try:  # sdílená firemní knihovna (síťová složka) z nastavení – načítá se navíc, přebíjí stejná id
-                from envocad.settings import shared_library_dir
-                shared = shared_library_dir()
-                if shared is not None:
-                    sources.append((shared, "shared"))
-            except Exception:  # noqa: BLE001, S110
-                pass
+        sources = symbol_sources(self.path)
         # přednost zdrojů builtin → user → shared (pozdější přebíjí stejná id): když se změní soubor jednoho zdroje,
         # musí se znovu zapsat i všechny soubory po něm (zbytek zdroje a pozdější zdroje), jinak by přenačtený
         # vestavěný soubor přepsal firemní přepis se stejným id. Mezipaměť podle mtime platí jen před první změnou.

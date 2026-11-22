@@ -302,3 +302,95 @@ def test_library_round_trip_new_store(lib, tmp_path):
         assert lib2.is_builtin(BUILTIN) and not lib2.is_builtin(saved.id)
     finally:
         lib2.close()
+
+
+# ---- souborové značky (user / shared knihovna) jsou jen pro čtení ---------------------------------------------------
+def _file_symbol(sid="firma.x"):
+    sym = _user_symbol(sid)
+    return sym
+
+
+def _write_user_file(sid="firma.x"):
+    from envocad.library.store import user_library_dir
+    f = user_library_dir() / "firma" / "x.json"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    _file_symbol(sid).to_json(f)
+    return f
+
+
+def test_file_symbol_saved_as_copy_and_survives_resync():
+    from envocad.library import store as store_mod
+    se = _se()
+    f = _write_user_file()
+    before = f.read_text(encoding="utf-8")
+    st = LibraryStore()
+    try:
+        assert not st.is_builtin("firma.x") and se.is_read_only(st, "firma.x")
+        sym = se.editable_copy(st.get_symbol("firma.x"))
+        se.add_port(sym, "C", 2.6, 0)
+        saved = se.save_user_symbol(st, sym)
+        assert saved.id == "firma.x_2"
+        assert [p.name for p in st.get_symbol("firma.x").ports] == ["A", "B"]
+        assert f.read_text(encoding="utf-8") == before
+    finally:
+        st.close()
+    st2 = LibraryStore()
+    try:
+        st2.conn.execute("DELETE FROM builtin_files")
+        st2.conn.commit()
+        store_mod._PARSED_SYMBOLS.clear()
+        st2.sync_builtin()
+        assert [p.name for p in st2.get_symbol("firma.x_2").ports] == ["A", "B", "C"]
+        assert [p.name for p in st2.get_symbol("firma.x").ports] == ["A", "B"]
+    finally:
+        st2.close()
+
+
+def test_sqlite_only_symbol_is_not_read_only_with_default_store():
+    se = _se()
+    _write_user_file()
+    st = LibraryStore()
+    try:
+        st.put_symbol(_user_symbol("only.sql"))
+        assert not se.is_read_only(st, "only.sql") and se.is_read_only(st, BUILTIN)
+        assert not se.is_read_only(st, "neexistuje")
+    finally:
+        st.close()
+
+
+def test_is_read_only_ignores_non_symbol_dirs_and_bad_files():
+    from envocad.library.store import user_library_dir
+    se = _se()
+    d = user_library_dir()
+    (d / "macros").mkdir(parents=True, exist_ok=True)
+    _user_symbol("in.macros").to_json(d / "macros" / "m.json")
+    (d / "bad.json").write_text("{nesmysl", encoding="utf-8")
+    st = LibraryStore()
+    try:
+        st.put_symbol(_user_symbol("in.macros"))
+        assert not se.is_read_only(st, "in.macros")
+    finally:
+        st.close()
+
+
+def test_is_read_only_non_default_store_ignores_user_dir(lib):
+    se = _se()
+    _write_user_file()
+    lib.put_symbol(_user_symbol("firma.x"))
+    assert not se.is_read_only(lib, "firma.x")
+
+
+# ---- nekonečné / NaN souřadnice ----------------------------------------------------------------------------------------
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf"), 1e400])
+def test_add_and_move_port_reject_non_finite(bad):
+    se = _se()
+    sym = _user_symbol()
+    with pytest.raises(se.SymbolEditError):
+        se.add_port(sym, "Q", bad, 0)
+    with pytest.raises(se.SymbolEditError):
+        se.add_port(sym, "Q", 0, bad)
+    with pytest.raises(se.SymbolEditError):
+        se.move_port(sym, "A", bad, 0)
+    with pytest.raises(se.SymbolEditError):
+        se.move_port(sym, "A", 0, bad)
+    assert [(p.name, p.x, p.y) for p in sym.ports] == [("A", 0, 0), ("B", 5, 0)]

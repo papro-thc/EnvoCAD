@@ -1,11 +1,13 @@
 """Úpravy portů a atributů existující značky (editor symbolů, fáze 1) – čistá logika bez Qt.
 
 Pracuje se vždy s pracovní kopií (`editable_copy`); kresba (primitiva) se needituje. Chyby uživatele jsou
-`SymbolEditError` s českou hláškou. Uložení (`save_user_symbol`) vestavěnou značku nepřepíše, uloží kopii.
+`SymbolEditError` s českou hláškou. Uložení (`save_user_symbol`) vestavěnou ani souborovou značku nepřepíše, uloží kopii.
 """
 from __future__ import annotations
 
 import copy
+import math
+import os
 
 from envocad.model.grid import snap
 from envocad.model.symbol import DIRS, Attribute, Port, Symbol
@@ -40,6 +42,11 @@ def _check_direction(direction: str) -> None:
         raise SymbolEditError(f"Neplatný směr portu „{direction}“ (povoleno N, E, S, W).")
 
 
+def _check_finite(*values: float) -> None:
+    if not all(math.isfinite(v) for v in values):
+        raise SymbolEditError("Souřadnice musí být konečné číslo.")
+
+
 def add_port(sym: Symbol, name: str, x: float, y: float, direction: str = "E") -> Port:
     name = (name or "").strip()
     if not name:
@@ -47,6 +54,7 @@ def add_port(sym: Symbol, name: str, x: float, y: float, direction: str = "E") -
     if any(p.name == name for p in sym.ports):
         raise SymbolEditError(f"Port „{name}“ už na značce je.")
     _check_direction(direction)
+    _check_finite(x, y)
     port = Port(name, snap(x), snap(y), direction)
     sym.ports.append(port)
     return port
@@ -54,6 +62,7 @@ def add_port(sym: Symbol, name: str, x: float, y: float, direction: str = "E") -
 
 def move_port(sym: Symbol, name: str, x: float, y: float) -> Port:
     port = _find_port(sym, name)
+    _check_finite(x, y)
     port.x, port.y = snap(x), snap(y)
     return port
 
@@ -127,14 +136,38 @@ def removed_ports(old: Symbol, new: Symbol) -> list[str]:
     return sorted({p.name for p in old.ports} - have)
 
 
+def _id_in_library_files(store, sid: str) -> bool:
+    from envocad.library.store import NON_SYMBOL_DIRS, _rel, symbol_sources
+    for root, _tag in symbol_sources(store.path):
+        try:
+            files = sorted(root.rglob("*.json"))
+        except OSError:
+            continue
+        for f in files:
+            try:
+                if NON_SYMBOL_DIRS & set(_rel(f, root).split(os.sep)):
+                    continue
+                if Symbol.from_json(f).id == sid:
+                    return True
+            except Exception:  # noqa: BLE001, S112 – vadný soubor se přeskočí jako při synchronizaci
+                continue
+    return False
+
+
+def is_read_only(store, sid: str) -> bool:
+    """Značku nelze přepsat pod jejím id: je vestavěná, nebo pochází ze souboru ve zdrojích knihovny (uživatelská /
+    sdílená složka) – další synchronizace by řádek znovu načetla ze souboru a úpravu by zahodila."""
+    return bool(store.is_builtin(sid)) or _id_in_library_files(store, sid)
+
+
 def save_user_symbol(store, sym: Symbol) -> Symbol:
-    """Uloží značku do uživatelské knihovny. Vestavěnou nepřepíše – uloží kopii pod prvním volným `<id>_N`.
-    Při chybě (`check`) se nic neuloží. Vrací uloženou značku (u vestavěné kopii s novým id)."""
+    """Uloží značku do uživatelské knihovny. Vestavěnou ani souborovou (`is_read_only`) nepřepíše – uloží kopii pod prvním volným `<id>_N`.
+    Při chybě (`check`) se nic neuloží. Vrací uloženou značku (u vestavěné / souborové kopii s novým id)."""
     issues = check(sym)
     if issues:
         raise SymbolEditError("Značku nelze uložit: " + "; ".join(issues) + ".")
     to_save = editable_copy(sym)
-    if store.is_builtin(sym.id):
+    if is_read_only(store, sym.id):
         to_save.id = free_symbol_id(store, sym.id)
     store.put_symbol(to_save)
     return to_save

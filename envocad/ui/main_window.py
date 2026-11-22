@@ -337,7 +337,7 @@ class MainWindow(QMainWindow):
         m_lib = mb.addMenu("&Knihovna")
         act(m_lib, "Importovat symbol z DXF…", self.import_dxf_symbol)
         act(m_lib, "Importovat značku z QElectroTech (.elmt)…", self.import_qet_symbol)
-        act(m_lib, "Upravit značku…", self.edit_symbol)
+        act(m_lib, "Upravit značku…", lambda: self.edit_symbol())
         act(m_lib, "Prohlížet artikly…", self.browse_components)
         act(m_lib, "Importovat artikly z CSV…", self.import_components_csv)
         act(m_lib, "Importovat artikly z EPLAN (XML / CSV / ZIP)…", self.import_eplan)
@@ -2230,6 +2230,8 @@ class MainWindow(QMainWindow):
         dlg.exec()
         if dlg.saved_symbol is not None:
             self.lib_panel.refresh()
+            for i in range(self.tabs.count()):     # list se starou značkou (přepis pod stejným id) – jako `_refs_changed`
+                self._unwrap(self.tabs.widget(i)).scene().rebuild()
             self.statusBar().showMessage(f"Značka {dlg.saved_symbol.id} uložena do uživatelské knihovny.", 8000)
 
     def open_log_dir(self) -> None:

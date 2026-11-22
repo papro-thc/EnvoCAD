@@ -71,16 +71,16 @@ class SymbolEditorDialog(QDialog):
         self.original: Symbol = library.get_symbol(symbol_id)      # KeyError → volající ohlásí
         self.symbol: Symbol = se.editable_copy(self.original)
         self.saved_symbol: Symbol | None = None
-        self._builtin = bool(library.is_builtin(symbol_id))
+        self._read_only = se.is_read_only(library, symbol_id)
         self._port_names: list[str] = []
         self._attr_keys: list[str] = []
         self.setWindowTitle(f"Upravit značku – {self.original.name} ({symbol_id})")
         self.resize(820, 560)
 
         lay = QVBoxLayout(self)
-        if self._builtin:
-            info = QLabel("Vestavěnou značku nelze přepsat – uloží se jako kopie do uživatelské knihovny "
-                          "pod novým ID.")
+        if self._read_only:
+            info = QLabel("Vestavěná nebo souborová značka knihovny se nepřepisuje – uloží se kopie do "
+                          "uživatelské knihovny pod novým ID.")
             info.setWordWrap(True)
             info.setObjectName("builtin_info")
             lay.addWidget(info)
@@ -211,6 +211,7 @@ class SymbolEditorDialog(QDialog):
             return
         name = self._port_names[r]
         t = self.ports_table
+        error: str | None = None
         try:
             if c == 0:
                 port = se.update_port(self.symbol, name, new_name=item.text())
@@ -218,20 +219,25 @@ class SymbolEditorDialog(QDialog):
             else:
                 port = self.symbol.port(name)
                 try:
-                    val = float(t.item(r, c).text().replace(",", "."))
+                    val = float(item.text().replace(",", "."))
                 except ValueError as ex:
                     raise se.SymbolEditError("Souřadnice musí být číslo.") from ex
                 x, y = (val, port.y) if c == 1 else (port.x, val)
-                port = se.move_port(self.symbol, name, x, y)
+                se.move_port(self.symbol, name, x, y)
         except se.SymbolEditError as ex:
-            self._warn(str(ex))
-            port = self.symbol.port(name)
-        t.blockSignals(True)
-        t.item(r, 0).setText(port.name)
-        t.item(r, 1).setText(f"{port.x:g}")
-        t.item(r, 2).setText(f"{port.y:g}")
-        t.blockSignals(False)
-        self._refresh_preview()
+            error = str(ex)
+        finally:
+            port = self.symbol.port(self._port_names[r])
+            t.blockSignals(True)
+            try:
+                t.item(r, 0).setText(port.name)
+                t.item(r, 1).setText(f"{port.x:g}")
+                t.item(r, 2).setText(f"{port.y:g}")
+            finally:
+                t.blockSignals(False)
+            self._refresh_preview()
+        if error:
+            self._warn(error)
 
     def _port_dir_changed(self, combo: QComboBox, direction: str) -> None:
         for r in range(self.ports_table.rowCount()):
@@ -267,6 +273,9 @@ class SymbolEditorDialog(QDialog):
     def add_attribute(self) -> None:
         key, ok = QInputDialog.getText(self, "Nový atribut", "Klíč atributu (např. power):")
         if not ok:
+            return
+        if any(a.key == key.strip() for a in self.symbol.attributes):
+            self._warn(f"Atribut „{key.strip()}“ už na značce je.")
             return
         try:
             se.set_attribute(self.symbol, key)
@@ -309,7 +318,7 @@ class SymbolEditorDialog(QDialog):
             self._warn("Značku nelze uložit:\n- " + "\n- ".join(issues))
             return False
         lost = se.removed_ports(self.original, self.symbol)
-        if lost and not self._builtin:
+        if lost and not self._read_only:
             answer = QMessageBox.question(
                 self, "Ubyly porty",
                 f"Zmizely porty: {', '.join(lost)}.\n\nVodiče v projektech, které tuto značku používají, "
