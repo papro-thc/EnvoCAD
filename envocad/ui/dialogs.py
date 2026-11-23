@@ -1556,10 +1556,12 @@ class ProjectWizard(QDialog):
 
         from envocad.library.store import LibraryStore
         from envocad.model.checks import ERROR, WARNING, check_project
+        from envocad.plugins import plugin_checks
         from envocad.settings import switchboard_paper
         ok, warn, bad = "#2e7d32", "#b26a00", INVALID_COLOR
         try:
-            found = check_project(project, self.library or LibraryStore(), standard_paper=switchboard_paper())
+            found = check_project(project, self.library or LibraryStore(), standard_paper=switchboard_paper(),
+                                  extra_checks=plugin_checks())
         except Exception as ex:  # noqa: BLE001
             return (f"<h3>Kontrola projektu (F7)</h3><p style='color:{warn}'>Kontrolu se nepodařilo provést: "
                     f"{esc(str(ex))}</p>")

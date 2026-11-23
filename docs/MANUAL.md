@@ -1122,7 +1122,9 @@ prvku, rozměry pro rozložení a ztrátový výkon pro oteplení.
   svorkovnice (výchozí A4 na šířku), největší list JPS z průvodce (`jps_max_paper`, výchozí A2) a výchozí volba
   listů JPS v PDF dokumentace (`doc_jps_page`, výchozí „Zmenšit na A3“) (`~/.envocad/settings.json`).
 - Pluginy: `~/.envocad/plugins/*.py` s funkcí `register(ctx)` přidají menu, šablony, importéry, výkazy nebo
-  příkazy příkazového řádku (`ctx.add_command`, viz `envocad/plugins.py`).
+  příkazy příkazového řádku (`ctx.add_command`) nebo vlastní kontroly projektu (`ctx.add_check`, nálezy se objeví
+  ve Kontrole F7 i v příkazu CHECKS; vzor `envocad/plugins_builtin/example_check.py`). Plugin, který vyžaduje novější
+  API (`REQUIRES_API` > `API_VERSION` v `envocad/plugins.py`), se nenačte a okno to po startu ohlásí. Viz `envocad/plugins.py`.
 
 Data artiklů jsou opsaná z veřejných katalogů (zdroj a strana je u každého řádku) – před použitím
 v projektu je ověř u výrobce.

@@ -134,6 +134,7 @@ def main(argv: list[str] | None = None) -> int:
     failed = not rep.ok
     saved = None
     from envocad.model.checks import check_project
+    from envocad.plugins import plugin_checks
     from envocad.settings import switchboard_paper
     if not failed or a.keep_going:
         sync_derived(project)
@@ -144,7 +145,8 @@ def main(argv: list[str] | None = None) -> int:
             except OSError as ex:
                 print(f"Uložení do {target} selhalo: {ex}", file=sys.stderr)
                 return COMMAND_ERROR
-    counts = Counter(f.severity for f in check_project(project, lib, standard_paper=switchboard_paper()))
+    counts = Counter(f.severity for f in check_project(project, lib, standard_paper=switchboard_paper(),
+                                     extra_checks=plugin_checks()))
     if a.json:
         _emit({"summary": {"ok": not failed, "commands": rep.count, "errors": rep.errors, "saved": saved,
                            "checks": dict(counts)}}, True)
