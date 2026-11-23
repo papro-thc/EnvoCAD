@@ -171,7 +171,9 @@ Databáze `library.db` nese verzi schématu v `PRAGMA user_version` (`LIBRARY_SC
 ji čte při otevření před `SCHEMA`: DB bez verze (0) s tabulkami = verze 1, prázdný soubor = nová DB s aktuální verzí.
 Novější verze než program zná (knihovnu vytvořil novější EnvoCAD) → `LibrarySchemaError` s českou hláškou a soubor se
 nezmění (GUI ukáže dialog, `python -m envocad.cmd` vypíše chybu a skončí kódem 1). Nižší verze → `migrate()` zavolá
-kroky z `MIGRATIONS` (klíč N = převod N → N+1, chybějící krok jen zvýší číslo) v jedné transakci s rollbackem při chybě.
+kroky z `MIGRATIONS` (klíč N = převod N → N+1, chybějící krok jen zvýší číslo) v jedné transakci `BEGIN IMMEDIATE`
+s rollbackem při chybě; verze se pod zámkem čte znovu (souběžný proces mohl už převést → nic se nespustí podruhé).
+Nová DB se zakládá ve stejné transakci jako zápis verze (tabulky po jednom přes `execute`, ne `executescript`).
 Stejná verze nic nezapisuje (knihovna se otevírá při každém `build_project`).
 Změna schématu: zvednout `LIBRARY_SCHEMA_VERSION`, upravit `SCHEMA` a přidat krok do `MIGRATIONS`. Vestavěná data
 jsou přestavitelný index souborů JSON/CSV – v kroku stačí smazat `builtin_files`, aby se načetla znovu. Uživatelská data
