@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import sqlite3
+from collections.abc import Callable
 from pathlib import Path
 
 from envocad.model.feed import LEGACY_FEEDS
@@ -90,15 +91,78 @@ def symbol_sources(db_path: Path) -> list[tuple[Path, str]]:
     return sources
 
 
+# Verze schématu knihovny, uložená v `PRAGMA user_version`. Databáze bez verze (0) s tabulkami = verze 1.
+# Při změně schématu: zvednout číslo a přidat do MIGRATIONS krok z předchozí verze.
+LIBRARY_SCHEMA_VERSION = 1
+
+
+class LibrarySchemaError(RuntimeError):
+    """Databázi knihovny nelze otevřít (např. ji vytvořila novější verze EnvoCADu)."""
+
+
+# Převody schématu: klíč N = krok z verze N na N+1 (dostane spojení uvnitř transakce, nesmí dělat commit).
+# Přidání: `def _v1_to_v2(conn): conn.execute("ALTER TABLE ...")` a `MIGRATIONS[1] = _v1_to_v2`.
+# Chybějící krok = jen zvýšení čísla verze.
+MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {}
+
+
+def migrate(conn: sqlite3.Connection, from_version: int, to_version: int | None = None) -> None:
+    """Převede schéma z `from_version` na `to_version` (výchozí aktuální) v jedné transakci; při chybě rollback."""
+    target = LIBRARY_SCHEMA_VERSION if to_version is None else to_version
+    old_isolation = conn.isolation_level
+    conn.isolation_level = None          # ruční transakce (výchozí režim sqlite3 by před DDL/PRAGMA dělal commit)
+    try:
+        conn.execute("BEGIN")
+        try:
+            for v in range(from_version, target):
+                step = MIGRATIONS.get(v)
+                if step is not None:
+                    step(conn)
+            conn.execute(f"PRAGMA user_version = {int(target)}")
+            conn.execute("COMMIT")
+        except BaseException:
+            if conn.in_transaction:
+                conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.isolation_level = old_isolation
+
+
 class LibraryStore:
     def __init__(self, path: Path | str | None = None, load_builtin: bool = True):
         self.path = Path(path) if path else default_db_path()
         self.conn = sqlite3.connect(str(self.path))
         self.conn.row_factory = sqlite3.Row
-        self.conn.executescript(SCHEMA)
+        try:
+            self.schema_version = self._open_schema()
+        except BaseException:
+            self.conn.close()
+            raise
         self._cache: dict[str, Symbol] = {}
         if load_builtin:
             self.sync_builtin()
+
+    def _open_schema(self) -> int:
+        """Ověří/založí/převede schéma podle `user_version`; vrátí verzi po otevření."""
+        current = LIBRARY_SCHEMA_VERSION
+        found = self.conn.execute("PRAGMA user_version").fetchone()[0]
+        if found > current:
+            raise LibrarySchemaError(
+                f"Knihovna {self.path} má verzi schématu {found}, tato verze EnvoCADu podporuje nejvýše {current}. "
+                "Knihovnu vytvořila novější verze EnvoCADu – aktualizujte program. Soubor knihovny nebyl změněn.")
+        if found == current:
+            self.conn.executescript(SCHEMA)       # IF NOT EXISTS, bez zápisu u hotové databáze
+            return found
+        if found == 0:
+            has_tables = self.conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' LIMIT 1").fetchone()
+            if not has_tables:                    # nová databáze: schéma a rovnou aktuální verze
+                self.conn.executescript(SCHEMA)
+                migrate(self.conn, current, current)
+                return current
+            found = 1                             # dnešní databáze bez verze
+        migrate(self.conn, found)                 # kroky vidí staré schéma; chybějící tabulky doplní SCHEMA potom
+        self.conn.executescript(SCHEMA)
+        return current
 
     # ---- symboly ---------------------------------------------------------
     def sync_builtin(self) -> int:

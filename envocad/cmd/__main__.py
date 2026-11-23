@@ -101,8 +101,12 @@ def main(argv: list[str] | None = None) -> int:
     save = SaveOptions(target=target, allow=target is not None and not a.dry_run, overwrite=a.force,
                        dry_run=a.dry_run, deferred=True)
     from envocad.cmd.builtin import default_registry
-    from envocad.library.store import LibraryStore
-    lib = LibraryStore()
+    from envocad.library.store import LibrarySchemaError, LibraryStore
+    try:
+        lib = LibraryStore()
+    except LibrarySchemaError as ex:
+        print(f"Knihovnu nelze otevřít: {ex}", file=sys.stderr)
+        return COMMAND_ERROR
     sync_feed_links(project)               # jako otevření v GUI
     sync_cables(project)
     registry = default_registry(user_aliases=not a.no_user_aliases)

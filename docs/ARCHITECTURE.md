@@ -166,6 +166,17 @@ přidaná hodnota oproti ručnímu kreslení v ZWCAD.
 
 Viz `docs/LIBRARY_FORMAT.md`.
 
+## Verze schématu knihovny (`library/store.py`)
+Databáze `library.db` nese verzi schématu v `PRAGMA user_version` (`LIBRARY_SCHEMA_VERSION`, dnes 1). `LibraryStore`
+ji čte při otevření před `SCHEMA`: DB bez verze (0) s tabulkami = verze 1, prázdný soubor = nová DB s aktuální verzí.
+Novější verze než program zná (knihovnu vytvořil novější EnvoCAD) → `LibrarySchemaError` s českou hláškou a soubor se
+nezmění (GUI ukáže dialog, `python -m envocad.cmd` vypíše chybu a skončí kódem 1). Nižší verze → `migrate()` zavolá
+kroky z `MIGRATIONS` (klíč N = převod N → N+1, chybějící krok jen zvýší číslo) v jedné transakci s rollbackem při chybě.
+Stejná verze nic nezapisuje (knihovna se otevírá při každém `build_project`).
+Změna schématu: zvednout `LIBRARY_SCHEMA_VERSION`, upravit `SCHEMA` a přidat krok do `MIGRATIONS`. Vestavěná data
+jsou přestavitelný index souborů JSON/CSV – v kroku stačí smazat `builtin_files`, aby se načetla znovu. Uživatelská data
+(řádky `symbols` s `builtin=0` a ručně importované artikly) krok převést musí.
+
 ## Archiv projektu `.ecpz` (`library/archive.py`)
 Zip s plochými členy `manifest.json` (`{"format": 1, "app": verze}`), `project.ecp` (stejný JSON jako `Project.save`,
 formát `.ecp` se nemění), `symbols.json` (`Symbol.to_dict()`) a `components.json` (tvar `LibraryStore.get_component`).
