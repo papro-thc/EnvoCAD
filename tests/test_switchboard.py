@@ -320,7 +320,7 @@ def test_structures_and_revisions_roundtrip():
                    fingerprints={p.sheets[0].id: "abc"})
     p.revisions = [Revision("A", closed=True), rev]
     d = p.to_dict()
-    assert d["format_version"] == FORMAT_VERSION == 18
+    assert d["format_version"] == FORMAT_VERSION == 19
     q = Project.from_dict(json.loads(json.dumps(d)))
     assert q.to_dict() == d
     assert q.sheets[0].func == "AC" and q.sheets[0].loc == "STR"

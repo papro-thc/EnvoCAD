@@ -92,6 +92,7 @@ Cena zvolené cesty: kopie změněných listů v undo zásobníku a přestavba s
 | `sheet` | LIST | název nebo pořadí listu (aktivní list) |
 | `zoom` | Z (+ ZE = rozsah, ZA = vše → `fit`) | GUI-only |
 | `checks` | F7, KONTROLA | headless vypíše nálezy `checks.check_project` |
+| `waive` / `unwaive` | POTLACIT / ZRUSITPOTLACENI | `WAIVE kód cíl "důvod"` / `UNWAIVE kód cíl` – potlačení nálezu F7 (`Project.waivers`), cíl = id nebo označení, `-` = celý list |
 | `undo`/`redo`, `save`, `export_dxf`/`export_pdf` | U, ULOZ | cesta jako argument; PDF headless s offscreen Qt |
 | `script` | SCR, SKRIPT | soubor `.ecs` (vnoření max. 4) |
 \*M = MOVE jen v řádku (ZWCAD); klávesa M na canvasu zůstává Zrcadlit (otázka 1).

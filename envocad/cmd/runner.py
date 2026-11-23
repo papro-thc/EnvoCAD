@@ -69,13 +69,14 @@ class ChangeSet:
     @classmethod
     def between(cls, label: str, before: dict, after: dict) -> ChangeSet | None:
         changed = [sid for sid, d in after["sheets"].items() if before["sheets"].get(sid) != d]
-        if not changed and before["structures"] == after["structures"]:
+        rest = [k for k in after if k != "sheets"]       # registr struktur, potlačené nálezy… (celé)
+        if not changed and all(before.get(k) == after[k] for k in rest):
             return None
         return cls(label,
                    {"sheets": {sid: copy.deepcopy(before["sheets"][sid]) for sid in changed if sid in before["sheets"]},
-                    "structures": copy.deepcopy(before["structures"])},
+                    **{k: copy.deepcopy(before[k]) for k in rest if k in before}},
                    {"sheets": {sid: copy.deepcopy(after["sheets"][sid]) for sid in changed},
-                    "structures": copy.deepcopy(after["structures"])})
+                    **{k: copy.deepcopy(after[k]) for k in rest}})
 
 
 @dataclass

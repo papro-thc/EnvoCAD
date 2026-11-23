@@ -430,17 +430,107 @@ def _prune_selection(ctx: Ctx) -> None:
 
 
 def cmd_checks(ctx: Ctx):
+    from collections import Counter
+
     from envocad.model.checks import check_project
     from envocad.settings import switchboard_paper
-    findings = check_project(ctx.project, ctx.library, standard_paper=switchboard_paper())
-    ctx.data = [{"severity": f.severity, "sheet": f.sheet_name, "ref": f.ref, "text": f.text, "code": f.code}
-                for f in findings]
-    for f in findings:
+    findings = check_project(ctx.project, ctx.library, standard_paper=switchboard_paper(), include_waived=True)
+    active = [f for f in findings if not f.waived]
+    waived = [f for f in findings if f.waived]
+    ctx.data = [{"severity": f.severity, "sheet": f.sheet_name, "ref": f.ref, "text": f.text, "code": f.code,
+                 "target_id": f.target_id, "sheet_id": f.sheet_id, "waived": f.waived, "reason": f.waiver_reason}
+                for f in [*active, *waived]]
+    for f in active:
         where = f"„{f.sheet_name}“" + (f" {f.ref}" if f.ref else "")
         ctx.log(f"{f.severity}: {where}: {f.text}")
-    from collections import Counter
-    c = Counter(f.severity for f in findings)
-    return "Kontrola: " + (", ".join(f"{k} {v}" for k, v in sorted(c.items())) if findings else "bez nálezů")
+    if waived:
+        by_key = {w.key: w for w in ctx.project.waivers}
+        ctx.log(f"Potlačeno ({len(waived)}):")
+        for f in waived:
+            w = by_key.get(f.key)
+            who = ", ".join(x for x in (w.author, w.date) if x) if w else ""
+            ctx.log(f"  {f.code} „{f.sheet_name}“" + (f" {f.ref}" if f.ref else "") + f": {f.text} – {f.waiver_reason}"
+                    + (f" ({who})" if who else ""))
+    c = Counter(f.severity for f in active)
+    text = ", ".join(f"{k} {v}" for k, v in sorted(c.items())) if active else "bez nálezů"
+    return "Kontrola: " + text + (f", potlačeno {len(waived)}" if waived else "")
+
+
+def _waiver_scope(ctx: Ctx, target: str, items, tid, sid, ref):
+    """Vybere z `items` (nálezy / potlačení) ty, které cíl `target` označuje: „-“ = celolistový na aktivním listu,
+    jinak id prvku/vodiče, jinak označení (nejdřív aktivní list, pak celý projekt)."""
+    if target == "-":
+        return [x for x in items if not tid(x) and ctx.sheet is not None and sid(x) == ctx.sheet.id]
+    hit = [x for x in items if tid(x) == target]
+    if hit:
+        return hit
+    on_sheet = [x for x in items if ref(x) == target and ctx.sheet is not None and sid(x) == ctx.sheet.id]
+    return on_sheet or [x for x in items if ref(x) == target]
+
+
+def cmd_waive(ctx: Ctx):
+    import datetime
+
+    from envocad import settings
+    from envocad.model.checks import check_project
+    from envocad.model.project import Waiver
+    code = yield Param("code", "text", "Kód nálezu:")
+    target = yield Param("target", "text", "Prvek / vodič (id nebo označení), „-“ = celý list:")
+    reason = yield Param("reason", "text", "Důvod:")
+    reason = reason.strip()
+    if not reason:
+        raise CommandError("Důvod potlačení nesmí být prázdný")
+    if code == "waiver_orphan":
+        raise CommandError("Osiřelé potlačení nelze potlačit – zrušte ho příkazem UNWAIVE")
+    found = [f for f in check_project(ctx.project, ctx.library, standard_paper=settings.switchboard_paper(),
+                                      include_waived=True, aggregate=False) if f.code == code]
+    if not found:
+        raise CommandError(f"Nález {code} nevzniká")
+    hit = _waiver_scope(ctx, target, found, lambda f: f.target_id, lambda f: f.sheet_id, lambda f: f.ref)
+    if not hit:
+        raise CommandError(f"Nález {code} pro „{target}“ nevzniká")
+    keys = list(dict.fromkeys(f.key for f in hit))
+    if len(keys) > 1:
+        raise CommandError(f"Cíl „{target}“ není jednoznačný ({len(keys)} nálezů {code}) – zadejte id prvku")
+    if target == "-" or not keys[0][1]:
+        n = sum(f.key == keys[0] for f in found)
+        if n > 1:
+            raise CommandError(f"Nález nemá jednoznačný klíč ({n} nálezů) – v této fázi nelze potlačit")
+    f = hit[0]
+    if f.waived:
+        raise CommandError(f"Nález {code} {f.ref} je už potlačen (důvod: {f.waiver_reason})".replace("  ", " "))
+    edits.waive(ctx.project, Waiver(code, f.target_id, f.sheet_id, reason, settings.current_user(),
+                                    datetime.date.today().isoformat(), f.ref))
+    return f"Potlačeno: {code} {f.ref} na listu „{f.sheet_name}“ ({reason})".replace("  ", " ")
+
+
+def cmd_unwaive(ctx: Ctx):
+    code = yield Param("code", "text", "Kód nálezu:")
+    target = yield Param("target", "text", "Prvek / vodič (id nebo označení), „-“ = celý list:")
+    sheets = {s.id: s for s in ctx.project.sheets}
+
+    def current_ref(w) -> str:
+        s = sheets.get(w.sheet_id)
+        if s is None:
+            return ""
+        e = next((x for x in s.elements if x.id == w.target_id), None)
+        if e is not None:
+            return e.ref
+        wire = next((x for x in s.wires if x.id == w.target_id), None)
+        return wire.attrs.get("ref", "") if wire is not None else ""
+
+    cands = [w for w in ctx.project.waivers if w.code == code]
+    hit = _waiver_scope(ctx, target, cands, lambda w: w.target_id, lambda w: w.sheet_id,
+                        lambda w: current_ref(w) or w.ref)
+    if not hit and target != "-":
+        hit = [w for w in cands if w.ref == target]
+    if not hit:
+        raise CommandError(f"Potlačení {code} pro „{target}“ neexistuje")
+    if len(hit) > 1:
+        raise CommandError(f"Cíl „{target}“ není jednoznačný ({len(hit)} potlačení {code}) – zadejte id prvku")
+    w = edits.unwaive(ctx.project, hit[0].key)
+    s = sheets.get(w.sheet_id)
+    return f"Potlačení zrušeno: {code} {current_ref(w) or w.ref} na listu „{s.name if s else '?'}“".replace("  ", " ")
 
 
 WINDOWS_DEVICES = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
@@ -632,6 +722,9 @@ BUILTIN = (
     CommandDef("redo", "Znovu", run=cmd_redo, transaction=False, gui_fallback="redo", usage="REDO [počet]"),
     CommandDef("checks", "Kontrola projektu", run=cmd_checks, transaction=False, gui_fallback="checks",
                usage="CHECKS (nálezy F7)"),
+    CommandDef("waive", "Potlačit nález", run=cmd_waive,
+               usage='WAIVE kód cíl "důvod" (cíl = id nebo označení prvku/vodiče, „-“ = celý list; WAIVE unconnected F1 "Rezerva")'),
+    CommandDef("unwaive", "Zrušit potlačení nálezu", run=cmd_unwaive, usage="UNWAIVE kód cíl (cíl jako u WAIVE)"),
     CommandDef("save", "Uložit", run=cmd_save, transaction=False, gui_fallback="save",
                usage="SAVE [soubor.ecp] (CLI jen s -o / --in-place)"),
     CommandDef("script", "Spustit skript", run=cmd_script, usage="SCRIPT soubor.ecs"),

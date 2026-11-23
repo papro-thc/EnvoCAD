@@ -189,7 +189,7 @@ def test_v7_revisions_from_meta_skips_header_and_free_text():
 
 def test_example_migrates_to_current():
     p = Project.load(EXAMPLE)
-    assert FORMAT_VERSION == 18
+    assert FORMAT_VERSION == 19
     assert all(s.func == "" and s.loc == "" for s in p.sheets)
     assert p.structures == [] and p.revisions == [] and p.notes == []
 
@@ -309,7 +309,7 @@ def test_v13_to_v14_parametric_busbar_noop(monkeypatch):
     before = copy.deepcopy(raw)
     mig = migrate(raw, 13)
     assert raw == before                                         # vstup se nemění
-    assert mig == {**before, "format_version": FORMAT_VERSION}   # jen číslo verze
+    assert mig == {**before, "waivers": [], "format_version": FORMAT_VERSION}   # jen číslo verze a prázdná potlačení (v19)
     p = Project.from_dict(copy.deepcopy(raw))
     d = p.to_dict()
     assert d["format_version"] == FORMAT_VERSION
@@ -336,7 +336,7 @@ def test_v14_to_v15_block_ports_noop(monkeypatch):
     raw = _v(14, [sh])
     before = copy.deepcopy(raw)
     mig = migrate(raw, 14)
-    assert raw == before and mig == {**before, "format_version": FORMAT_VERSION}
+    assert raw == before and mig == {**before, "waivers": [], "format_version": FORMAT_VERSION}
     p = Project.from_dict(copy.deepcopy(raw))
     lib = LibraryStore()
     _ports_ok(p, lib)                                        # starý blok bez listu: porty 1–4 jako dřív
@@ -366,7 +366,7 @@ def test_v15_to_v16_fingerprints_with_texts(monkeypatch):
     raw["revisions"] = [{"id": "r", "label": "A", "closed": True,
                          "fingerprints": {"s1": sheet_fingerprint(s, texts=False)}}]
     before = copy.deepcopy(raw)
-    assert migrate(raw, 15) == {**before, "format_version": FORMAT_VERSION} and raw == before
+    assert migrate(raw, 15) == {**before, "waivers": [], "format_version": FORMAT_VERSION} and raw == before
     p = Project.from_dict(copy.deepcopy(raw))
     assert p.revisions[0].fingerprints == {"s1": sheet_fingerprint(p.sheets[0])} != before["revisions"][0]["fingerprints"]
     d = p.to_dict()
@@ -375,3 +375,36 @@ def test_v15_to_v16_fingerprints_with_texts(monkeypatch):
     monkeypatch.setattr(prj, "FORMAT_VERSION", 15)
     with pytest.raises(ValueError, match="novější"):
         Project.from_dict(d)
+
+
+def test_v18_to_v19_waivers():
+    """v19: potlačení nálezů (`waivers`) – v18 je nemá → prázdný seznam; vstupní dict migrace se nemění."""
+    from envocad.model.project import migrate
+    d = _v(18, [_sheet("s1", [_el("f", "fve.breaker_mcb", "F1")])])
+    src = copy.deepcopy(d)
+    out = migrate(d, 18)
+    assert d == src and out["waivers"] == [] and out["format_version"] == FORMAT_VERSION
+    p = Project.from_dict(copy.deepcopy(d))
+    assert p.waivers == [] and p.sheets[0].elements[0].ref == "F1"
+    assert p.to_dict()["waivers"] == []
+    _roundtrip_stable(p)
+
+
+def test_v19_waivers_roundtrip_and_v18_program_rejects():
+    from envocad.model.project import Waiver
+    p = Project()
+    sid = p.sheets[0].id
+    p.waivers = [Waiver("unconnected", "e1", sid, "Rezerva", "PR", "2026-11-23", "TZ 1"),
+                 Waiver("sb_no_block", "", sid, "Dočasně")]
+    d = json.loads(json.dumps(p.to_dict()))
+    q = Project.from_dict(d)
+    assert q.waivers == p.waivers
+    _roundtrip_stable(q)
+    import envocad.model.project as prj
+    old = prj.FORMAT_VERSION
+    try:
+        prj.FORMAT_VERSION = 18
+        with pytest.raises(ValueError, match="novější"):
+            Project.from_dict(d)
+    finally:
+        prj.FORMAT_VERSION = old
