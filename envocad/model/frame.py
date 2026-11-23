@@ -67,7 +67,6 @@ class FrameGeometry:
     lines: list[tuple[float, float, float, float]] = field(default_factory=list)      # x1, y1, x2, y2
     texts: list[tuple[float, float, str, float, str]] = field(default_factory=list)  # x, y, text, výška, zarovnání
     inner: tuple[float, float, float, float] = (0, 0, 0, 0)                           # x0, y0, x1, y1 kreslicí plochy
-    rects: list[tuple[float, float, float, float]] = field(default_factory=list)      # vyplněné obdélníky (QR): x, y, w, h
     polys: list[tuple[list[tuple[float, float]], str]] = field(default_factory=list)  # vyplněné mnohoúhelníky (logo), barva
 
 

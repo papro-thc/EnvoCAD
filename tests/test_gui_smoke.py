@@ -504,7 +504,7 @@ def test_autosave_recent_and_a4(app, tmp_path, monkeypatch):
     # razítko ENVO v rámečku (logo), QR kód už ne
     from envocad.model.frame import frame_geometry
     g = frame_geometry(p, p.sheets[0])
-    assert g.polys and not g.rects
+    assert g.polys and not hasattr(g, "rects")
     w.undo.setClean()
     w.close()
     os.environ.pop("ENVOCAD_HOME", None)

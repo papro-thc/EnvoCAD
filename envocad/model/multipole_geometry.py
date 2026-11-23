@@ -130,7 +130,7 @@ class MultipoleGeometry:
 
 
 TERMINAL_NUMBER = "číslo svorky"   # popis textu čísla svorky (kontrola překryvů ho bere bez tolerance)
-TB_PAD = 2.5          # odstup kresby od popisového pole a QR kódu
+TB_PAD = 2.5          # odstup kresby od popisového pole
 BREAK_LO = 15.0      # přerušení na okraji strany nejníž 15 mm nad spodní hranou strany (uvnitř rámečku)
 BREAK_INSET = 4.0     # hrot šipky přerušení od vnitřního rámečku (odkaz je uvnitř rámečku před šipkou)
 BREAK_TEXT_DX = 3.5   # odkaz přerušení: vodorovně od hrotu šipky (za křidélky šipky, směrem do strany)
