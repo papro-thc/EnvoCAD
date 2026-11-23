@@ -2230,18 +2230,12 @@ class MainWindow(QMainWindow):
 
     def export_labels_csv(self) -> None:
         """Štítky pro Brady/Partex apod.: CSV se středníkem, UTF-8 s BOM (Excel/tiskárna to otevře přímo)."""
-        import csv
-
-        from envocad.export import reports
+        from envocad.export.labels_csv import write_labels_csv
         path, _ = QFileDialog.getSaveFileName(self, "Štítky", "stitky.csv", "CSV (*.csv)")
         if not path:
             return
-        head, rows = reports.labels(self.project, self.library, None)
-        with open(path, "w", encoding="utf-8-sig", newline="") as f:
-            w = csv.writer(f, delimiter=";")
-            w.writerow(head)
-            w.writerows(rows)
-        self.statusBar().showMessage(f"Exportováno {len(rows)} štítků: {path}", 3000)
+        n = write_labels_csv(self.project, self.library, path)
+        self.statusBar().showMessage(f"Exportováno {n} štítků: {path}", 3000)
 
     def export_tz(self) -> None:
         self.export_report("tz")
