@@ -42,6 +42,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         python: ["3.12", "3.14"]   # 3.14 = lokální prostředí vývoje
+        include:
+          # pokrytí kódu měří jen jeden job (report bez prahu, CI kvůli němu nepadá); ostatní běží bez --cov
+          - os: ubuntu-latest
+            python: "3.12"
+            coverage: true
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
@@ -59,13 +64,26 @@ jobs:
       - name: Instalace
         run: python -m pip install -e ".[dev]"
       - name: pytest
-        run: python -m pytest -q --junitxml=pytest-${{ matrix.os }}-${{ matrix.python }}.xml
+        env:
+          # sys.monitoring (Python 3.12+): výrazně menší zpomalení než výchozí trasování; bez --cov se nepoužije
+          COVERAGE_CORE: sysmon
+        run: >-
+          python -m pytest -q --junitxml=pytest-${{ matrix.os }}-${{ matrix.python }}.xml
+          ${{ matrix.coverage && '--cov=envocad --cov-report=xml --cov-report=term' || '' }}
       - name: Výsledky testů
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pytest-${{ matrix.os }}-${{ matrix.python }}
           path: pytest-${{ matrix.os }}-${{ matrix.python }}.xml
+          retention-days: 7
+      - name: Pokrytí kódu (coverage.xml)
+        if: always() && matrix.coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}-${{ matrix.python }}
+          path: coverage.xml
+          if-no-files-found: warn
           retention-days: 7
 
   build:
