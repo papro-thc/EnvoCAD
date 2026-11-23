@@ -489,19 +489,27 @@ def cmd_waive(ctx: Ctx):
     hit = _waiver_scope(ctx, target, found, lambda f: f.target_id, lambda f: f.sheet_id, lambda f: f.ref)
     if not hit:
         raise CommandError(f"Nález {code} pro „{target}“ nevzniká")
+    if target != "-":
+        # nález bez id cíle (kabel bez vodiče, revizní nález, projektový nález) nemá stabilní klíč – potlačení by
+        # tiše skrylo i budoucí nálezy téhož kódu
+        stable = [f for f in hit if f.target_id]
+        if not stable:
+            raise CommandError(f"Nález {code} pro „{target}“ nemá stabilní cíl – v této fázi nelze potlačit")
+        hit = stable
     keys = list(dict.fromkeys(f.key for f in hit))
     if len(keys) > 1:
         raise CommandError(f"Cíl „{target}“ není jednoznačný ({len(keys)} nálezů {code}) – zadejte id prvku")
-    if target == "-" or not keys[0][1]:
+    if target == "-":
         n = sum(f.key == keys[0] for f in found)
         if n > 1:
             raise CommandError(f"Nález nemá jednoznačný klíč ({n} nálezů) – v této fázi nelze potlačit")
     f = hit[0]
     if f.waived:
-        raise CommandError(f"Nález {code} {f.ref} je už potlačen (důvod: {f.waiver_reason})".replace("  ", " "))
+        raise CommandError(" ".join(x for x in (f"Nález {code}", f.ref, f"je už potlačen (důvod: {f.waiver_reason})") if x))
     edits.waive(ctx.project, Waiver(code, f.target_id, f.sheet_id, reason, settings.current_user(),
                                     datetime.date.today().isoformat(), f.ref))
-    return f"Potlačeno: {code} {f.ref} na listu „{f.sheet_name}“ ({reason})".replace("  ", " ")
+    what = " ".join(x for x in (code, f.ref) if x)
+    return f"Potlačeno: {what} na listu „{f.sheet_name}“ ({reason})"
 
 
 def cmd_unwaive(ctx: Ctx):
@@ -524,13 +532,20 @@ def cmd_unwaive(ctx: Ctx):
                         lambda w: current_ref(w) or w.ref)
     if not hit and target != "-":
         hit = [w for w in cands if w.ref == target]
+    if not hit and target == "-":
+        # celolistová potlačení smazaných listů: na aktivním listu žádné není, zruší se všechna osiřelá tohoto kódu
+        hit = [w for w in cands if not w.target_id and w.sheet_id not in sheets]
     if not hit:
         raise CommandError(f"Potlačení {code} pro „{target}“ neexistuje")
-    if len(hit) > 1:
-        raise CommandError(f"Cíl „{target}“ není jednoznačný ({len(hit)} potlačení {code}) – zadejte id prvku")
-    w = edits.unwaive(ctx.project, hit[0].key)
-    s = sheets.get(w.sheet_id)
-    return f"Potlačení zrušeno: {code} {current_ref(w) or w.ref} na listu „{s.name if s else '?'}“".replace("  ", " ")
+    keys = list(dict.fromkeys(w.key for w in hit))
+    if len(keys) > 1 and not (target == "-" and all(k[2] not in sheets for k in keys)):
+        raise CommandError(f"Cíl „{target}“ není jednoznačný ({len(keys)} potlačení {code}) – zadejte id prvku")
+    done = [edits.unwaive(ctx.project, k) for k in keys]
+    parts = []
+    for w in done:
+        s = sheets.get(w.sheet_id)
+        parts.append(" ".join(x for x in (code, current_ref(w) or w.ref) if x) + f" na listu „{s.name if s else '?'}“")
+    return "Potlačení zrušeno: " + "; ".join(parts)
 
 
 WINDOWS_DEVICES = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}

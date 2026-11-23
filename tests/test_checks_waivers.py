@@ -327,3 +327,67 @@ def test_edits_waive_unwaive_helpers():
     assert edits.unwaive(p, ("nic", "e1", "s")) is None
     assert edits.unwaive(p, w.key) == w
     assert p.waivers == []
+
+
+# ---- review: stabilní cíl, duplicity, osiřelá potlačení -----------------------------------------------------------
+def test_waive_finding_without_target_id_is_refused(lib):
+    from envocad.model.project import Cable
+    p = Project(name="Kabely")
+    p.cables.append(Cable("W1"))
+    r = CommandRunner(p, lib, journal=Journal())
+    assert any(f.code == "cable_no_wire" and f.target_id == "" for f in _check(p, lib))
+    before = json.dumps(p.to_dict(), sort_keys=True)
+    res = r.execute('WAIVE cable_no_wire W1 "rezerva"')
+    assert not res.ok and "stabilní cíl" in res.error
+    assert p.waivers == [] and json.dumps(p.to_dict(), sort_keys=True) == before
+    p.cables.append(Cable("W2"))
+    assert {f.ref for f in _by(_check(p, lib), "cable_no_wire")} == {"W1", "W2"}
+
+
+def test_unwaive_duplicate_key_removes_all(run):
+    p = run.p
+    run('WAIVE unconnected F1 "a"')
+    p.waivers.append(Waiver(*p.waivers[0].key, "b"))
+    assert len(p.waivers) == 2
+    run("UNWAIVE unconnected F1")
+    assert p.waivers == []
+    p.waivers = [_waiver(p, "unconnected", "F1", reason="a"), _waiver(p, "unconnected", "F1", reason="b")]
+    run(f"UNWAIVE unconnected {_el(p, 'F1').id}")
+    assert p.waivers == []
+
+
+def test_edits_unwaive_removes_all_with_key_returns_first():
+    from envocad.cmd import edits
+    p = Project()
+    a, b = Waiver("c", "e1", "s", "a"), Waiver("c", "e1", "s", "b")
+    p.waivers = [a, b, Waiver("c", "e2", "s", "z")]
+    assert edits.unwaive(p, a.key) is a
+    assert [w.target_id for w in p.waivers] == ["e2"]
+
+
+def test_apply_waivers_duplicate_uses_first(lib):
+    p = _project()
+    p.waivers = [_waiver(p, "unconnected", "F1", reason="první"), _waiver(p, "unconnected", "F1", reason="druhý")]
+    w = _by(_check(p, lib, include_waived=True), "unconnected", "F1")
+    assert len(w) == 1 and w[0].waiver_reason == "první"
+
+
+def test_unwaive_orphaned_sheet_level_waiver(run):
+    p = run.p
+    p.waivers = [Waiver("sb_no_block", "", "smazany-list", "dočasně")]
+    run("UNWAIVE sb_no_block -")
+    assert p.waivers == []
+
+
+def test_unwaive_dash_prefers_active_sheet(run):
+    p = run.p
+    p.waivers = [Waiver("sb_no_block", "", "smazany-list", "a"), Waiver("sb_no_block", "", p.sheets[0].id, "b")]
+    run("UNWAIVE sb_no_block -")
+    assert [w.reason for w in p.waivers] == ["a"]
+
+
+def test_waive_messages_keep_double_spaces_in_reason(run):
+    res = run('WAIVE unconnected F1 "dvě  mezery"')
+    assert "dvě  mezery" in "\n".join(res.messages)
+    res = run('WAIVE unconnected F1 "jiný"', ok=False)
+    assert "dvě  mezery" in res.error

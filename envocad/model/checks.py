@@ -272,7 +272,10 @@ def apply_waivers(findings: list[Finding], project: Project) -> list[Finding]:
     """Označí nálezy potlačené `project.waivers` (`waived=True` + důvod; jedno potlačení kryje všechny nálezy se
     stejným klíčem) a přidá nález `waiver_orphan` za každé potlačení, ke kterému žádný nález nevznikl. Nález
     `waiver_orphan` potlačit nelze."""
-    by_key = {w.key: w for w in project.waivers if w.code != "waiver_orphan"}
+    by_key: dict = {}
+    for w in project.waivers:
+        if w.code != "waiver_orphan":
+            by_key.setdefault(w.key, w)         # při duplicitě platí první výskyt
     out = [replace(f, waived=True, waiver_reason=by_key[f.key].reason)
            if f.code != "waiver_orphan" and f.key in by_key else f for f in findings]
     seen = {f.key for f in findings}

@@ -487,7 +487,8 @@ stavovém řádku. Co kontrola hlásí:
 Potlačení nálezu s důvodem (zatím jen příkazový řádek / skript, GUI přijde v další fázi): `WAIVE kód cíl "důvod"`
 schová nález z `CHECKS` i z panelu a uloží ho do projektu s důvodem, autorem a datem. Cíl je id nebo označení
 prvku či vodiče, nebo `-` pro nález celého aktivního listu. Jedno potlačení kryje všechny nálezy téhož kódu na
-stejném prvku. `CHECKS` potlačené vypíše zvlášť v sekci „Potlačeno (N):“ a souhrn je počítá zvlášť
+stejném prvku. Nálezy bez id prvku či vodiče (kabel bez vodiče, projektové a revizní nálezy) zatím potlačit nelze.
+`CHECKS` potlačené vypíše zvlášť v sekci „Potlačeno (N):“ a souhrn je počítá zvlášť
 („, potlačeno N“). `UNWAIVE kód cíl` potlačení zruší. Když nález přestane vznikat nebo prvek zmizí, kontrola
 ohlásí informaci `waiver_orphan` („Potlačení nálezu … je osiřelé“) – potlačení pak zrušte příkazem `UNWAIVE`
 (cíl lze zadat i uloženým označením).

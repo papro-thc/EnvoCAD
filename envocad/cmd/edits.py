@@ -533,8 +533,9 @@ def waive(project: Project, waiver: Waiver) -> None:
 
 
 def unwaive(project: Project, key: tuple[str, str, str]) -> Waiver | None:
-    """Zruší potlačení s klíčem (kód, id cíle, id listu); vrací zrušené, nebo None, když takové není."""
-    for i, w in enumerate(project.waivers):
-        if w.key == key:
-            return project.waivers.pop(i)
-    return None
+    """Zruší všechna potlačení s klíčem (kód, id cíle, id listu; soubor může obsahovat duplicitu); vrací první
+    zrušené, nebo None, když takové není."""
+    gone = [w for w in project.waivers if w.key == key]
+    if gone:
+        project.waivers[:] = [w for w in project.waivers if w.key != key]
+    return gone[0] if gone else None
