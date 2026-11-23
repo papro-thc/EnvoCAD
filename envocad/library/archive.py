@@ -18,7 +18,7 @@ from pathlib import Path
 from envocad import __version__
 from envocad.library.store import BUILTIN_DIR, LibraryStore
 from envocad.model.project import Project
-from envocad.model.symbol import Symbol
+from envocad.model.symbol import Symbol, SymbolVersionError
 
 log = logging.getLogger("envocad.library")
 
@@ -105,8 +105,14 @@ def pack_project(project: Project, store: LibraryStore, path: Path | str) -> Pro
         fp = (comp.get("params") or {}).get("footprint_id")
         if isinstance(fp, str) and fp:
             sym_ids.add(fp)
-    symbols = [store.get_symbol(sid) for sid in sorted(sym_ids)
-               if store.has_symbol(sid) and not store.is_builtin(sid)]
+    symbols = []
+    for sid in sorted(sym_ids):
+        if not store.has_symbol(sid) or store.is_builtin(sid):
+            continue
+        try:
+            symbols.append(store.get_symbol(sid))
+        except KeyError:   # značka v knihovně je z novější verze programu (varování zapsal store) – nebalí se
+            continue
 
     def dump(obj) -> str:
         return json.dumps(obj, ensure_ascii=False, indent=1)
@@ -184,6 +190,8 @@ def read_archive(path: Path | str) -> ProjectArchive:
     for k, sd in enumerate(raw_syms):
         try:
             symbols.append(Symbol.from_dict(sd))
+        except SymbolVersionError as ex:
+            raise ArchiveError(f"Archiv obsahuje značku „{sd.get('id', '?')}“ z novější verze programu – {ex}") from None
         except Exception as ex:  # noqa: BLE001 – cokoli ve vadné značce = poškozený archiv
             raise ArchiveError(f"Archiv je poškozen: značka č. {k + 1} je neplatná ({ex})") from None
     return ProjectArchive(project=project, symbols=symbols, components=raw_comps)
@@ -211,10 +219,17 @@ def _plan(archive: ProjectArchive, store: LibraryStore) -> tuple[ImportReport, l
         if not store.has_symbol(s.id):
             rep.new_symbols.append(s.id)
             syms.append(s)
-        elif _sym_data(store.get_symbol(s.id)) != _sym_data(s):
-            rep.conflict_symbols.append(s.id)
-            if not store.is_builtin(s.id):
-                syms.append(s)
+        else:
+            try:
+                differs = _sym_data(store.get_symbol(s.id)) != _sym_data(s)
+            except KeyError:
+                # značka v knihovně je z novější verze programu – je to konflikt a nikdy se nepřepíše
+                rep.conflict_symbols.append(s.id)
+                continue
+            if differs:
+                rep.conflict_symbols.append(s.id)
+                if not store.is_builtin(s.id):
+                    syms.append(s)
     for c in archive.components:
         have = store.get_component(c["id"])
         if have is None:

@@ -6,11 +6,12 @@ Pracuje se vždy s pracovní kopií (`editable_copy`); kresba (primitiva) se nee
 from __future__ import annotations
 
 import copy
+import json
 import math
 import os
 
 from envocad.model.grid import snap
-from envocad.model.symbol import DIRS, Attribute, Port, Symbol
+from envocad.model.symbol import DIRS, Attribute, Port, Symbol, SymbolVersionError
 
 
 class SymbolEditError(ValueError):
@@ -149,6 +150,13 @@ def _id_in_library_files(store, sid: str) -> bool:
                     continue
                 if Symbol.from_json(f).id == sid:
                     return True
+            except SymbolVersionError:
+                # soubor z novější verze: synchronizace ho přeskočila, ale id mu patří – přepsat ho nelze
+                try:
+                    if json.loads(f.read_text(encoding="utf-8-sig")).get("id") == sid:
+                        return True
+                except Exception:  # noqa: BLE001, S112
+                    continue
             except Exception:  # noqa: BLE001, S112 – vadný soubor se přeskočí jako při synchronizaci
                 continue
     return False

@@ -20,6 +20,13 @@ Primitive = dict[str, Any]
 
 DIRS = ("N", "E", "S", "W")
 
+# Verze formátu JSON symbolu; zvedat jen při nekompatibilní změně (viz docs/LIBRARY_FORMAT.md)
+SYMBOL_FORMAT_VERSION = 1
+
+
+class SymbolVersionError(ValueError):
+    """Symbol byl uložen novějším formátem, než tento program umí číst."""
+
 
 @dataclass
 class Port:
@@ -144,6 +151,7 @@ class Symbol:
     # ---- serializace -------------------------------------------------
     def to_dict(self) -> dict:
         return {
+            "format_version": SYMBOL_FORMAT_VERSION,
             "id": self.id,
             "name": self.name,
             "category": self.category,
@@ -159,6 +167,12 @@ class Symbol:
 
     @classmethod
     def from_dict(cls, d: dict) -> Symbol:
+        ver = d.get("format_version", 1)
+        if isinstance(ver, bool) or not isinstance(ver, int) or ver < 1:
+            raise ValueError(f"Symbol „{d.get('id', '?')}“: neplatná verze formátu {ver!r}")
+        if ver > SYMBOL_FORMAT_VERSION:
+            raise SymbolVersionError(
+                f"Symbol „{d.get('id', '?')}“ byl vytvořen novější verzí EnvoCAD (formát {ver}) – aktualizujte EnvoCAD")
         lp = d.get("label_pos") or {"x": 0, "y": 0}
         sym = cls(
             id=d["id"],

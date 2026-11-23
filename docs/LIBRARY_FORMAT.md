@@ -5,6 +5,7 @@ a při startu se nahrají do SQLite (`~/.envocad/library.db`), kde přibývají 
 
 ```json
 {
+  "format_version": 1,                // volitelné; chybí = 1 (viz „Verze formátu“)
   "id": "fve.inverter.3ph",
   "name": "Střídač 3f",
   "category": "Střídače a měniče",   // druh prvku = nadpis v panelu; "Druh/QET" = podsložka cizích značek
@@ -89,14 +90,23 @@ písmenný kód označení žádné třídě neodpovídá. Shoda je prefixem: t�
 - Firemní číslování: tečka (`FU1.1`) je schválený standard ENVO a kontrola ji nehlásí; vnitřní „-“ (`SPD-DC1.1`)
   je jen informace. Třída, délka a znaky (bez oddělovačů) se kontrolují dál.
 
-Formát symbolu kvůli tomu nemá verzi – nový klíč je nepovinný a starší program ho ignoruje.
+Nový klíč je nepovinný a starší program ho ignoruje, proto kvůli němu verze formátu symbolu nestoupá (viz „Verze formátu“).
+
+## Verze formátu
+
+Klíč `format_version` je nepovinný; chybí-li (starší soubory), platí 1. Aktuální verzi určuje konstanta
+`SYMBOL_FORMAT_VERSION` v `envocad/model/symbol.py`. Značku s vyšší verzí program nenačte: v knihovně ji při
+synchronizaci přeskočí s varováním v logu (zbytek knihovny se načte), archiv projektu s takovou značkou odmítne
+a zbytek programu ji bere jako chybějící. Verzi zapisuje každý zápis symbolu (import DXF/QET/EPLAN, uložení,
+editor symbolů, archiv). Verzi zvedat jen při nekompatibilní změně formátu; nepovinné klíče jako `function_class`
+nebo `choices` verzi nezvedají.
 
 ## Nabídka hodnot atributu (`choices`)
 
 Nepovinný klíč atributu `choices` = seznam `[hodnota, popisek]` (nebo jen řetězců, pak hodnota = popisek). Panel
 Vlastnosti i dialog atributů pak místo textového pole nabídnou výběr (`ui/dialogs.ChoiceEdit`); hodnota mimo nabídku
 (ručně upravený soubor) se zobrazí jako další položka. Uloží se hodnota, ne popisek. Starší program klíč ignoruje,
-verze symbolu se nemění (jako `function_class`). Použití: směr přívodu/vývodu `sb.feed` (`dir`: `in` přívod, `out` vývod).
+verze formátu symbolu se nemění (jako u `function_class`). Použití: směr přívodu/vývodu `sb.feed` (`dir`: `in` přívod, `out` vývod).
 
 ## Rezervované atributy prvku
 
