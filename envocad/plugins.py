@@ -109,7 +109,8 @@ class PluginContext:
         self.commands.append(cmd)
 
     def add_check(self, fn: Callable) -> None:
-        """Kontrola projektu `fn(project, lib)` → seznam `Finding` / None (viz `check_project`)."""
+        """Kontrola projektu `fn(project, lib)` → seznam `Finding` / None (viz `check_project`). Kontrola projekt
+        jen čte – dostává živý model, změny mimo undo nejsou dovolené."""
         if not callable(fn):
             raise TypeError("kontrola: fn není funkce")
         if self.live:
@@ -208,6 +209,8 @@ def load_plugins(library) -> PluginContext:
                 continue
             name = f"envocad_plugin_{f.stem}"
             sub = PluginContext(library=library, live=False)
+            # opakované načtení (další okno): kontroly z minulého běhu téhož pluginu pryč, ať se nehromadí
+            CHECKS[:] = [c for c in CHECKS if getattr(c, "__module__", None) != name]
             writes = _LibraryWrites(library)
             try:
                 with writes:

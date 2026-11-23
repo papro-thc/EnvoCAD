@@ -309,3 +309,31 @@ def test_example_check_plugin_loads_and_runs(lib, monkeypatch, tmp_path):
     for fn in fns:
         assert isinstance(fn(Project(name="prázdný"), lib), list)
     assert isinstance(check_project(Project(name="prázdný"), lib, standard_paper="A3", extra_checks=fns), list)
+
+
+# ---- nálezy z review ------------------------------------------------------------------------------------------------
+def test_finding_with_non_text_fields_does_not_break_sorting(lib):
+    """Finding s `sheet_name=None` / `ref=None` by shodil společné řazení – zahodí se a nahlásí jako `plugin_check`."""
+    def bad_fields(project, library):
+        return [Finding(WARNING, "", None, "", False, "", "bez listu", "x"),
+                Finding(WARNING, "", "A", "", False, None, "bez ref", "x"),
+                Finding(WARNING, "", "A", "", False, "", "platný", "x")]
+    found = _run(_project(), lib, bad_fields)
+    assert [f.text for f in found if f.code == "x"] == ["platný"]
+    errs = [f for f in found if f.code == "plugin_check"]
+    assert len(errs) == 1 and errs[0].severity == ERROR and "bad_fields" in errs[0].text
+
+
+def test_loading_plugins_twice_does_not_duplicate_checks(tmp_path, monkeypatch, lib):
+    """Každé okno volá `load_plugins` – kontrola téhož pluginu smí být v registru jen jednou (ta nejnovější)."""
+    (tmp_path / "twice.py").write_text(
+        "def register(ctx):\n"
+        "    ctx.add_check(lambda project, lib: [])\n"
+        "    ctx.add_check(lambda project, lib: None)\n", encoding="utf-8")
+    monkeypatch.setattr(plugins, "plugin_dirs", lambda: [tmp_path])
+    plugins.load_plugins(lib)
+    first = plugins.plugin_checks()
+    plugins.load_plugins(lib)
+    second = plugins.plugin_checks()
+    assert len(first) == len(second) == 2
+    assert not set(map(id, first)) & set(map(id, second))

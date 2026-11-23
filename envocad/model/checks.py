@@ -68,6 +68,12 @@ def _connected_ports(sheet: Sheet, e: Element) -> set[str]:
     return {end.port for w in sheet.wires for end in (w.a, w.b) if end.element_id == e.id}
 
 
+def _valid_plugin_finding(f) -> bool:
+    """Nález pluginu, který nerozbije řazení ani seznam v GUI: `Finding`, známá závažnost, textová pole jsou `str`."""
+    return (isinstance(f, Finding) and f.severity in (ERROR, WARNING, INFO) and isinstance(f.is_wire, bool)
+            and all(isinstance(v, str) for v in (f.sheet_id, f.sheet_name, f.target_id, f.ref, f.text, f.code)))
+
+
 def plugin_findings(project: Project, lib, extra_checks) -> list[Finding]:
     """Nálezy kontrol pluginů (`fn(project, lib)` → iterovatelné `Finding` nebo None). Chyba pluginu kontrolu
     neshodí: výjimka, nevalidní návrat nebo vadné položky se změní na nález ERROR `plugin_check` se jménem funkce,
@@ -86,11 +92,11 @@ def plugin_findings(project: Project, lib, extra_checks) -> list[Finding]:
             out.append(Finding(ERROR, "", "", "", False, "",
                                f"Kontrola pluginu {name} selhala: {type(ex).__name__}: {ex}", "plugin_check"))
             continue
-        good = [f for f in items if isinstance(f, Finding) and f.severity in (ERROR, WARNING, INFO)]
+        good = [f for f in items if _valid_plugin_finding(f)]
         if len(good) < len(items):
             out.append(Finding(ERROR, "", "", "", False, "",
                                f"Kontrola pluginu {name} vrátila {len(items) - len(good)} vadných položek "
-                               "(čeká se Finding se závažností chyba / varování / info) – zahozeno", "plugin_check"))
+                               "(čeká se Finding se závažností chyba / varování / info a textovými poli) – zahozeno", "plugin_check"))
         out += good
     return out
 
