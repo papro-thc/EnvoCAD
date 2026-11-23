@@ -139,9 +139,14 @@ def test_count_czech_forms_and_non_numeric_fallback(n, expected):
     assert dx._count(n, "řada", "řady", "řad") == expected
 
 
-# ---- _thermal_text --------------------------------------------------------------------------------------------
-def test_thermal_text_is_empty_when_calculation_fails(monkeypatch):
+# ---- oteplení: protokol kusového ověření ho od #80 neobsahuje, výpočet je ve výkazu Výpočty -------------------------
+def test_routine_test_protocol_has_no_thermal_row():
+    assert not hasattr(dx, "_thermal_text")
+
+
+def test_thermal_rows_skip_board_when_calculation_fails(monkeypatch):
     import envocad.model.thermal as th
+    from envocad.export import reports
 
     def boom(*a, **k):
         raise ValueError("výpočet selhal")
@@ -149,12 +154,14 @@ def test_thermal_text_is_empty_when_calculation_fails(monkeypatch):
     p = Project()
     s = Sheet(name="R", kind="switchboard")
     p.sheets.append(s)
-    assert dx._thermal_text(p, LibraryStore(), s) == ""
+    assert reports._thermal_rows(p, LibraryStore(), s) == []
 
 
-def test_thermal_text_summarises_result_for_empty_board():
+def test_thermal_rows_summarise_result_for_empty_board():
+    from envocad.export import reports
     p = Project()
     s = Sheet(name="R", kind="switchboard")
     p.sheets.append(s)
-    text = dx._thermal_text(p, LibraryStore(), s)
-    assert text.startswith("ΣPv ") and " W" in text and "okolí" in text and "horní část ≈" in text
+    (row,) = reports._thermal_rows(p, LibraryStore(), s)
+    assert row[:2] == ["Oteplení", "R"] and row[2].startswith("ΣPv ") and " W" in row[2] and "okolí" in row[2]
+    assert row[3].startswith("horní část ≈")
