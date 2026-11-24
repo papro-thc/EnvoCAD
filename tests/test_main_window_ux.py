@@ -506,3 +506,25 @@ def test_context_menu_in_multipole_and_cursor_on_grid():
     for v in (float(f"{mm[1]}.{mm[2]}"), float(f"{mm[3]}.{mm[4]}")):
         assert abs(v / 2.5 - round(v / 2.5)) < 1e-9, v          # na mřížce 2,5 mm
     w.close()
+
+
+def test_context_menu_bulk_properties_for_multi_selection():
+    from envocad.ui.items import ElementItem
+    w, _p, s = _sb_window()
+    w.open_sheet(s, "schematic")
+    QApplication.processEvents()
+    sc = w.scene
+    items = [it for it in sc.items() if isinstance(it, ElementItem)]
+    f1 = next(it for it in items if it.element.attrs.get("ref") == "F1")
+    m = w.context_menu(f1.sceneBoundingRect().center())
+    assert not any("vybraných prvků" in t for t in _menu_texts(m))      # jeden prvek: bez hromadné položky
+    for it in items:
+        it.setSelected(True)
+    m = w.context_menu(f1.sceneBoundingRect().center())
+    act = next(a for a in m.actions() if a.text().startswith("Vlastnosti vybraných prvků"))
+    assert act.text() == f"Vlastnosti vybraných prvků ({len(items)})…"
+    got = []
+    sc.edit_elements_bulk = lambda ids: got.append(sorted(ids))
+    act.trigger()
+    assert got == [sorted(it.element.id for it in items)]
+    w.close()
