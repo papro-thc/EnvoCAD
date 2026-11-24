@@ -60,6 +60,7 @@ envocad/
                  (`textlayout.layout_cache`, klíč = úplný stav listů; benchmark `tools/bench_generate.py`); přístroje řetězce nesou atribut `chain`
                  (inv, rfve_main, fve_out, main, meter_main, inst_switch) pro `calc.check_selectivity_tree` (F7
                  `checks.chain_findings`)
+  i18n.py     překlady rozhraní (gettext-styl bez Qt: `tr("česky")` + katalogy `resources/i18n/<jazyk>.po`, `docs/PREKLADY.md`)
   updater.py  aktualizace na vydané verze (klon: git tagy `vX.Y.Z`; samostatná aplikace: `latest.json` ve sdílené složce,
               ZIP + SHA-256, `current.txt`); bez Qt – dotaz a hlášení v `ui/update_prompt.py` (`docs/RELEASE.md`)
   cmd/        příkazový řádek ve stylu ZWCAD (bez Qt – hlídá `test_model_pure.py`), pro GUI, CLI, skripty a agenty;

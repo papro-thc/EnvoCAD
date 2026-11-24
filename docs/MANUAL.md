@@ -78,6 +78,7 @@ Nový prázdný projekt ukáže **úvodní obrazovku** s průvodcem, otevřením
 nebo křížkem.
 
 Tmavý a světlý režim přepíná `Ctrl+D` (menu Zobrazit). Tisk a export jsou vždy černobílé na bílém.
+`Zobrazit → Jazyk rozhraní` přepne češtinu a angličtinu; volba platí po restartu a zatím se přeloží jen menu Soubor.
 
 Druhy záložek (podle názvu):
 

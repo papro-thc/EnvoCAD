@@ -15,6 +15,7 @@ envocad/
   library/     knihovna prvků: SQLite store, importy DXF/QET/EPLAN CSV, builtin/ JSON symboly a artikly – BEZ Qt
   generator/   generátor FVE podle topologie (build, pv, chain, boards/) – BEZ Qt
   cmd/         příkazový řádek (GUI, CLI, skripty, agenti) – BEZ Qt (hlídá tests/test_model_pure.py)
+  i18n.py      překlady rozhraní: `tr()` + katalogy `resources/i18n/*.po` – BEZ Qt
   export/      DXF, PDF, xlsx, docx
   ui/          PySide6 GUI, žádná business logika
 tests/         pytest; GUI testy běží offscreen
@@ -27,7 +28,7 @@ Podrobně: `docs/ARCHITECTURE.md`.
 - Jednotky: mm, Y nahoru (CAD konvence). Mřížka 2,5 mm. Převod na Qt souřadnice dělá jen `ui/`.
 - Každá změna modelu z GUI jde přes `QUndoCommand` (viz `ui/commands.py`).
 - Nové symboly = JSON do `envocad/library/builtin/<obor>/`, porty na mřížce, atribut `ref` povinný.
-- Texty v UI česky, identifikátory v kódu anglicky.
+- Zdrojové texty v UI česky (obalené `tr()` z `envocad/i18n.py`), překlady v `envocad/resources/i18n/<jazyk>.po` – viz `docs/PREKLADY.md`; identifikátory v kódu anglicky.
 - Nepřidávej závislosti bez důvodu; pokud ano, zapiš do `pyproject.toml`.
 
 ## Spuštění a testy
