@@ -280,6 +280,103 @@ def set_attr(project: Project, sheet: Sheet, target_id: str, is_wire: bool, key:
     return True
 
 
+# ---- hromadná úprava prvků (issue #77) ---------------------------------------------------------------------------
+BULK_ATTR_KEYS = ("func", "loc", "note")   # atributy, které jde měnit hromadně (vedle artiklu); `ref` ne
+_BULK_ASPECT = {"func": "=", "loc": "+"}   # aspekt pro `validate_code`; `note` je volný text
+
+
+@dataclass(frozen=True)
+class BulkField:
+    """Společná hodnota pole přes vybrané prvky: `mixed` = prvky se liší (`value` pak ""), `enabled` False = pole
+    nejde hromadně měnit (prázdný výběr, artikl při různých značkách)."""
+    value: str = ""
+    mixed: bool = False
+    enabled: bool = True
+
+
+@dataclass(frozen=True)
+class BulkChange:
+    """Jedna změna prvku: `key` je "component" (`old`/`new` = id artiklu nebo None) nebo klíč atributu
+    (chybějící atribut = ""), `new` None se nepoužívá pro atributy."""
+    element_id: str
+    key: str
+    old: str | None
+    new: str | None
+
+
+def _bulk_elements(sheet: Sheet, element_ids) -> list[Element]:
+    wanted = set(element_ids)
+    return [e for e in sheet.elements if e.id in wanted]       # vodiče a cizí id se ignorují
+
+
+def _common(values: list[str]) -> BulkField:
+    first = values[0]
+    return BulkField(first, False) if all(v == first for v in values) else BulkField("", True)
+
+
+def bulk_common(sheet: Sheet, element_ids) -> dict[str, BulkField]:
+    """Společné hodnoty polí hromadné úpravy (`component`, `func`, `loc`, `note`) pro dialog."""
+    els = _bulk_elements(sheet, element_ids)
+    keys = ("component", *BULK_ATTR_KEYS)
+    if not els:
+        return {k: BulkField(enabled=False) for k in keys}
+    out = {"component": _common([e.component_id or "" for e in els])}
+    if len({e.symbol_id for e in els}) > 1:
+        out["component"] = BulkField(enabled=False)
+    for k in BULK_ATTR_KEYS:
+        out[k] = _common([str(e.attrs.get(k) or "") for e in els])
+    return out
+
+
+def bulk_changes(sheet: Sheet, element_ids, *, component: str | None = None, func: str | None = None,
+                 loc: str | None = None, note: str | None = None) -> list[BulkChange]:
+    """Skutečné změny hromadné úpravy (model nemění; jedna implementace pro GUI i skripty/agenty, příkazový řádek ji zatím nevolá).
+    None = ponechat, "" = vymazat (artikl → None). `func`/`loc`: ořez, velká písmena a kontrola kódu, `note`: ořez.
+    ValueError (česká zpráva) při neplatném kódu nebo artiklu zadaném pro prvky různých značek. Změna artiklu
+    prvku přidá vymazání ručních rozměrů (`size_resets_for_component`)."""
+    from envocad.model.designation import validate_code
+    from envocad.model.device_size import size_resets_for_component
+    els = _bulk_elements(sheet, element_ids)
+    new_attrs: dict[str, str] = {}
+    for key, raw in (("func", func), ("loc", loc), ("note", note)):
+        if raw is None:
+            continue
+        val = raw.strip() if key == "note" else raw.strip().upper()
+        if key in _BULK_ASPECT:
+            issues = validate_code(val, _BULK_ASPECT[key])
+            if issues:
+                raise ValueError(issues[0].text)
+        new_attrs[key] = val
+    if component is not None and len({e.symbol_id for e in els}) > 1:
+        raise ValueError("Artikl lze hromadně nastavit jen prvkům téže značky")
+    new_comp = (component or None) if component is not None else None
+    out: list[BulkChange] = []
+    for e in els:
+        if component is not None and new_comp != (e.component_id or None):
+            out.append(BulkChange(e.id, "component", e.component_id, new_comp))
+            out += [BulkChange(e.id, k, str(e.attrs.get(k) or ""), v)
+                    for k, v in size_resets_for_component(e, new_comp).items()]
+        for k, v in new_attrs.items():
+            old = str(e.attrs.get(k) or "")
+            if old != v:
+                out.append(BulkChange(e.id, k, old, v))
+    return out
+
+
+def bulk_edit_elements(project: Project, sheet: Sheet, element_ids, **fields) -> int:
+    """Provede `bulk_changes` na modelu, vrací počet změněných prvků. Při ValueError se model nemění.
+    Headless funkce pro skripty a agenty (GUI jde přes `SchematicScene.apply_bulk_edit` a undo); `project` se nepoužívá,
+    zůstává kvůli shodě podpisu s ostatními funkcemi modulu."""
+    changes = bulk_changes(sheet, element_ids, **fields)
+    for c in changes:
+        e = sheet.element(c.element_id)
+        if c.key == "component":
+            e.component_id = c.new
+        else:
+            e.attrs[c.key] = c.new
+    return len({c.element_id for c in changes})
+
+
 # ---- listy -------------------------------------------------------------------------------------------------------
 @dataclass
 class SheetCopy:

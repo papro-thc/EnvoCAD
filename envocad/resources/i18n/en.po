@@ -1,0 +1,80 @@
+# English translation of the EnvoCAD interface (see docs/PREKLADY.md).
+msgid ""
+msgstr ""
+"Project-Id-Version: EnvoCAD\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "&Soubor"
+msgstr "&File"
+
+msgid "&Nový"
+msgstr "&New"
+
+msgid "Nový projekt z průvodce…"
+msgstr "New Project from Wizard…"
+
+msgid "Nový projekt ze specifikace (JSON)…"
+msgstr "New Project from Specification (JSON)…"
+
+msgid "&Otevřít…"
+msgstr "&Open…"
+
+msgid "Poslední projekty"
+msgstr "Recent Projects"
+
+msgid "(zatím nic)"
+msgstr "(nothing yet)"
+
+msgid "&Uložit"
+msgstr "&Save"
+
+msgid "Uložit &jako…"
+msgstr "Save &As…"
+
+msgid "Archiv projektu…"
+msgstr "Project Archive…"
+
+msgid "Otevřít archiv projektu…"
+msgstr "Open Project Archive…"
+
+msgid "Spustit skript…"
+msgstr "Run Script…"
+
+msgid "Export &DXF…"
+msgstr "Export &DXF…"
+
+msgid "Export DXF rozložení rozvaděče…"
+msgstr "Export Switchboard Layout DXF…"
+
+msgid "Export DXF plánu svorkovnice…"
+msgstr "Export Terminal Plan DXF…"
+
+msgid "Export &PDF…"
+msgstr "Export &PDF…"
+
+msgid "Export PDF na A4 (zmenšeno)…"
+msgstr "Export PDF to A4 (scaled down)…"
+
+msgid "Vlastnosti projektu…"
+msgstr "Project Properties…"
+
+msgid "Porovnat s revizí (.ecp)…"
+msgstr "Compare with Revision (.ecp)…"
+
+msgid "Uzavřít revizi"
+msgstr "Close Revision"
+
+msgid "Uzavřít revizi listu"
+msgstr "Close Sheet Revision"
+
+msgid "Konec"
+msgstr "Exit"
+
+msgid "Jazyk rozhraní"
+msgstr "Interface Language"
+
+msgid "Jazyk rozhraní se změní po restartu EnvoCAD."
+msgstr "The interface language will change after EnvoCAD is restarted."

@@ -1,1 +1,0 @@
-- **Testy: výkaz Výpočty a oteplení** – charakterizační testy z #66 srovnány s #80 (řádky Oteplení ve výkazu, označení „orientační“); `_thermal_text` v docx už neexistuje, test používá `reports._thermal_rows`.

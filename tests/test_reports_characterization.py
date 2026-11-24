@@ -608,8 +608,14 @@ def test_calculations_and_dso_house(house, built, lib):
     assert rows[2] == ["Kabel", "W1", "I = 17.38 A, S = 6.0 mm², L = 30.0 m, uložení E, dc",
                        "Iz = 56.1 A (orientační – neověřeno proti normě), ΔU = 3.91 V (0.59 %)", "OK"]
     assert rows[4][3] == "Iz = 56.1 A (orientační – neověřeno proti normě), In RFVE:F8 = 25 A"
-    assert [r[0] for r in rows[-4:]] == ["Oteplení"] * 4 and rows[-1][1] == "RE – elektroměrový rozvaděč"
-    assert [r[0] for r in reports.calculations(house, lib, sheet_of(house, "RE"))[1]] == ["Oteplení"]  # jen oteplení listu
+    # oteplení (#80): jeden řádek na rozvaděč, na konci výkazu
+    therm = [r for r in rows if r[0] == "Oteplení"]
+    assert [r[1] for r in therm] == [s.name for s in house.switchboards()] and rows[-4:] == therm
+    assert therm[0][2:4] == ["ΣPv 1 W (Pv: 2× odhad), okolí 35 °C", "horní část ≈ 36 °C"]
+    assert therm[0][4].startswith("vyhovuje (orientační – neověřeno proti normě)")
+    # list rozvaděče: kabely a stringy patří na list JPS, zbývá jen oteplení toho rozvaděče
+    re_rows = reports.calculations(house, lib, sheet_of(house, "RE"))[1]
+    assert [r[:2] for r in re_rows] == [["Oteplení", sheet_of(house, "RE").name]]
     # pevné napětí (optimizéry): vlastní text hodnot i mezí
     opt = reports.calculations(built["apartment_optimizer"], lib)[1][0]
     assert opt[:4] == ["String", "G1", "20 modulů, 20 optimizérů, pevné U – V, P stringu 9000 / 11250 W",

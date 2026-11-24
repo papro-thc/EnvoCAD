@@ -78,6 +78,7 @@ Nový prázdný projekt ukáže **úvodní obrazovku** s průvodcem, otevřením
 nebo křížkem.
 
 Tmavý a světlý režim přepíná `Ctrl+D` (menu Zobrazit). Tisk a export jsou vždy černobílé na bílém.
+`Zobrazit → Jazyk rozhraní` přepne češtinu a angličtinu; volba platí po restartu a zatím se přeloží jen menu Soubor.
 
 Druhy záložek (podle názvu):
 
@@ -132,7 +133,10 @@ rozdělí uzlem (tečka, značka *Odbočka*) a z volného portu uzlu kreslíš d
 vodiče. Stejně jde vodič na jiném vodiči i ukončit. Uzel má čtyři porty, všechny jsou jeden potenciál.
 
 ### Úpravy
-Dvojklik na prvek nebo vodič otevře dialog s parametry, panel Vlastnosti upravuje jednotlivé atributy přímo.
+Dvojklik na prvek nebo vodič otevře dialog s parametry, panel Vlastnosti upravuje jednotlivé atributy přímo. Při výběru **2 a více prvků** otevře dvojklik na vybraný prvek (nebo pravé tlačítko → **Vlastnosti vybraných
+prvků**) hromadný dialog: nastavíš všem artikl (jen u prvků téže značky), funkci, umístění a poznámku. Pole s rozdílnými
+hodnotami ukazují „(různé)“ a zůstanou beze změny, dokud do nich nic nezapíšeš; celá úprava je jeden krok Undo.
+**Poznámka** je interní text prvku (panel Vlastnosti i dialog) – do výkresu ani výkazů se nepropisuje.
 Tažení myší posouvá (snap 2,5 mm), `R` otáčí, `M` zrcadlí, `Delete` maže, `Ctrl+Z`/`Ctrl+Y` vrací. `Ctrl+C`/`Ctrl+V`
 kopíruje vybrané prvky včetně vodičů mezi nimi – kopie dostanou nová označení a posun 10 mm. Výběr více prvků
 tažením rámečku v prázdné ploše. Kolečko zoomuje, střední tlačítko posouvá pohled, `Home` přizpůsobí list.
@@ -968,7 +972,9 @@ pole (ručně přesunuté přístroje zůstanou, kde jsou).
 a *List výkresu* (číslo listu projektu, které ukazuje popisové pole listu – např. „2/6“). Strany obsahu, výkazů
 a změnového listu nesou v popisovém poli číslo strany dokumentace („15/33“), strany listů číslo listu výkresu.
 Obsah, výkazy i změnový list jsou tabulky stránkované na víc stran; šířky sloupců se řídí obsahem a šířkou strany,
-dlouhý text se v buňce zalomí. **Bez rámečku** (výchozí) má každá strana malé „strana n/N“ v pravém dolním rohu –
+dlouhý text se v buňce zalomí. Při exportu se program zeptá, zda na konec (před změnový list) přidat strany
+„Přehled použitých značek“ (legenda: obrázek značky, název, počet použití v projektu; výchozí je nepřidávat).
+**Bez rámečku** (výchozí) má každá strana malé „strana n/N“ v pravém dolním rohu –
 dokumentace se vždy dá očíslovat a seřadit, rámeček ale zůstává volbou uživatele (např. pro vložení do rámečku
 zákazníka). Otevřené připomínky listu rozvaděče se v dokumentaci (s volbou „Přidávat připomínky do exportu“)
 ukážou na straně jeho vícepólu u přístroje, ke kterému patří (vodič → jeho první konec); připomínka bez vazby na

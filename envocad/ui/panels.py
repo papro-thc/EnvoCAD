@@ -157,6 +157,9 @@ class PropertiesPanel(QWidget):
                                 on_value="", off_value="0")
             self._add_field("func", "Funkce (=)", e.attrs.get("func", ""), getattr(sheet, "func", ""))
             self._add_field("loc", "Umístění (+)", e.attrs.get("loc", ""), getattr(sheet, "loc", ""))
+            self._add_field("note", "Poznámka", e.attrs.get("note", ""))
+            self.form.itemAt(self.form.rowCount() - 1, QFormLayout.FieldRole).widget().setToolTip(
+                "Interní poznámka – do výkresu ani výkazů se nepropisuje")
             # rámečky jednopólového schématu: pole / kobka rozvaděče, trafostanice (bloky a prvky blokového schématu)
             if sheet is not None and sheet.is_switchboard and sym.id not in ("sb.busbar",):
                 self._add_field("cell", "Pole / kobka (JPS)", e.attrs.get("cell", ""))

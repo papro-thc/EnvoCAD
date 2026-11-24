@@ -27,7 +27,7 @@ include = ["envocad*"]
 
 [tool.setuptools.package-data]
 envocad = ["library/builtin/**/*.json", "library/builtin/**/*.csv", "library/builtin/doc_templates/*.md", "cmd/aliases.json", "resources/icons/*.svg", "resources/*.json",
-           "resources/icons/*.txt"]
+           "resources/icons/*.txt", "resources/i18n/*.po"]
 
 [tool.ruff]
 line-length = 110
