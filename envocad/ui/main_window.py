@@ -350,6 +350,7 @@ class MainWindow(QMainWindow):
         act(m_lib, "Prohlížet artikly…", self.browse_components)
         act(m_lib, "Importovat artikly z CSV…", self.import_components_csv)
         act(m_lib, "Importovat artikly z EPLAN (XML / CSV / ZIP)…", self.import_eplan)
+        act(m_lib, "Importovat z PVsyst (.PAN/.OND)…", self.import_pvsyst)
         act(m_lib, "Importovat artikly z BMEcat (XML)…", self.import_bmecat)
         m_lib.addSeparator()
         act(m_lib, "Sdílená knihovna (síťová složka)…", self.set_shared_library)
@@ -2382,6 +2383,40 @@ class MainWindow(QMainWindow):
             self.lib_panel.refresh()
         QMessageBox.information(self, "Import z EPLAN", f"Načteno {n} artiklů" + (f" a {n_fp} footprintů" if n_fp else "")
                                 + f".\nUloženo do {out_dir}.")
+
+    def import_pvsyst(self) -> None:
+        """PVsyst: FV modul (.PAN) nebo střídač (.OND) → artikl v uživatelské knihovně (`…/library/pvsyst/`)."""
+        from envocad.library import pvsyst_import as pi
+        from envocad.library.store import user_library_dir
+        path, _ = QFileDialog.getOpenFileName(self, "Import z PVsyst", "", "PVsyst (*.pan *.ond *.PAN *.OND)")
+        if not path:
+            return
+        try:
+            comp, warns = pi.import_pvsyst(path)
+            old = self.library.component(comp.id)
+            if old is not None:
+                desc = f"{old.manufacturer} {old.part_number}".strip()
+                if QMessageBox.question(
+                        self, "Import z PVsyst",
+                        f"Artikl {comp.id} už v knihovně je ({desc}).\nPřepsat ho hodnotami z PVsyst?",
+                        QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
+                    return
+            out_dir = user_library_dir() / "pvsyst"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            csv_path = out_dir / f"pvsyst-{comp.id}.csv"
+            pi.write_components_csv([comp], csv_path)
+            saved = self.library.import_components_csv_v2(csv_path)
+        except Exception as ex:  # noqa: BLE001
+            log.warning("import PVsyst %s selhal: %s", path, ex)
+            QMessageBox.warning(self, "Import z PVsyst", f"Soubor nejde načíst:\n{path}\n\n{error_text(ex)}")
+            return
+        if saved != 1:
+            QMessageBox.warning(self, "Import z PVsyst", "Artikl se nepodařilo uložit do knihovny.")
+            return
+        text = f"Načten artikl {comp.name}.\nUloženo do {csv_path}."
+        if warns:
+            text += "\n\nUpozornění:\n" + "\n".join(f"• {w}" for w in warns)
+        QMessageBox.information(self, "Import z PVsyst", text)
 
     def import_bmecat(self) -> None:
         """BMEcat (XML 1.2 / 2005) → artikly v uživatelské knihovně (`~/.envocad/library/bmecat/`). Logika je

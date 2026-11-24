@@ -1,0 +1,29 @@
+PVObject_=pvModule
+  Version=7.2
+  Flags=$00900243
+  PVObject_Commercial=pvCommercial
+    Comment=Smyšlený modul pro testy – žlutý ý ü ö Ž Š
+    Flags=$0041
+    Manufacturer=Solární Dílna Pribram
+    Model=SD-430M
+    DataSource=Smyšlená data pro testy EnvoCAD
+    Width=1.134
+    Height=1.722
+    Depth=0.030
+    Weight=21.50
+  End of PVObject pvCommercial
+  Technol=mtSiMono
+  NCelS=54
+  NCelP=2
+  GRef=1000
+  TRef=25.0
+  PNom=430.0
+  Isc=13.900
+  Voc=38.80
+  Imp=13.150
+  Vmp=32.70
+  muISC=6.26
+  muVocSpec=-100.9
+  muPmpReq=-0.300
+  VMaxIEC=1500
+End of PVObject pvModule
