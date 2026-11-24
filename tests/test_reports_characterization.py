@@ -602,13 +602,20 @@ def test_potentials_and_terminal_plan_house(house, lib):
 
 def test_calculations_and_dso_house(house, built, lib):
     head, rows = reports.calculations(house, lib)
-    assert head == ["Část", "Prvek", "Hodnoty", "Mez / porovnání", "Výsledek"] and len(rows) == 15
+    assert head == ["Část", "Prvek", "Hodnoty", "Mez / porovnání", "Výsledek"] and len(rows) == 19
     assert rows[0] == ["String", "G1", "16 modulů, Uoc(-10 °C) = 866.8 V, Umpp(70 °C) = 583.3 V, 1,25·Isc = 17.4 A",
                        "T1: Umax 1100.0 V, MPPT 200.0–1000.0 V, Imax 30.0 A", "OK"]
     assert rows[2] == ["Kabel", "W1", "I = 17.38 A, S = 6.0 mm², L = 30.0 m, uložení E, dc",
-                       "Iz = 56.1 A, ΔU = 3.91 V (0.59 %)", "OK"]
-    assert rows[4][3] == "Iz = 56.1 A, In RFVE:F8 = 25 A"
-    assert reports.calculations(house, lib, sheet_of(house, "RE"))[1] == []      # výpočty patří na list JPS
+                       "Iz = 56.1 A (orientační – neověřeno proti normě), ΔU = 3.91 V (0.59 %)", "OK"]
+    assert rows[4][3] == "Iz = 56.1 A (orientační – neověřeno proti normě), In RFVE:F8 = 25 A"
+    # oteplení (#80): jeden řádek na rozvaděč, na konci výkazu
+    therm = [r for r in rows if r[0] == "Oteplení"]
+    assert [r[1] for r in therm] == [s.name for s in house.switchboards()] and rows[-4:] == therm
+    assert therm[0][2:4] == ["ΣPv 1 W (Pv: 2× odhad), okolí 35 °C", "horní část ≈ 36 °C"]
+    assert therm[0][4].startswith("vyhovuje (orientační – neověřeno proti normě)")
+    # list rozvaděče: kabely a stringy patří na list JPS, zbývá jen oteplení toho rozvaděče
+    re_rows = reports.calculations(house, lib, sheet_of(house, "RE"))[1]
+    assert [r[:2] for r in re_rows] == [["Oteplení", sheet_of(house, "RE").name]]
     # pevné napětí (optimizéry): vlastní text hodnot i mezí
     opt = reports.calculations(built["apartment_optimizer"], lib)[1][0]
     assert opt[:4] == ["String", "G1", "20 modulů, 20 optimizérů, pevné U – V, P stringu 9000 / 11250 W",
