@@ -745,6 +745,26 @@ def marking(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> 
     return head, rows
 
 
+SYMBOL_LEGEND_NAME = "Přehled použitých značek"
+
+
+@over_clean
+def symbol_legend(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
+    """Přehled použitých značek (legenda): symbol_id, název značky, počet použití v projektu (nebo na listu).
+    Řazeno podle názvu (bez ohledu na velikost písmen), pak symbol_id. Neznámá značka = název je její symbol_id.
+    Není v `ALL_REPORTS` – do PDF dokumentace se přidává jen na výslovnou žádost (`DocBuilder(legend=True)`)."""
+    counts: dict[str, int] = {}
+    for s in _sheets(project, sheet):
+        for e in s.elements:
+            counts[e.symbol_id] = counts.get(e.symbol_id, 0) + 1
+    rows = []
+    for sid, n in counts.items():
+        sym = _symbol(lib, sid)
+        rows.append([sid, sid if sym.placeholder else (sym.name or sid), n])
+    rows.sort(key=lambda r: (r[1].casefold(), r[0]))
+    return ["Značka", "Název", "Počet"], rows
+
+
 ALL_REPORTS = [("Data pro DS", dso_report), ("Výpočty", calculations), ("Přístroje", device_list), ("Výkaz materiálu", bom),
                ("Výkaz po výrobcích", bom_by_manufacturer), ("Kabely", cables),
                ("Kabelový plán", cable_plan), ("Kabely a vodiče k objednání", cable_material),

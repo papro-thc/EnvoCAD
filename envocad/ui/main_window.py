@@ -2191,12 +2191,15 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getSaveFileName(self, "Celá dokumentace", f"{base} – dokumentace.pdf", "PDF (*.pdf)")
         if not path:
             return
+        legend = self._ask_doc_legend()
+        if legend is None:
+            return
         jps_page = self._ask_doc_jps_page()
         if jps_page is None:
             return
         numbers: list[str] = []
         n = export_documentation_pdf(self.project, self.library, path, notes=self._export_notes(), jps_page=jps_page,
-                                     page_numbers=numbers)
+                                     page_numbers=numbers, legend=legend)
         self._set_doc_pages(numbers[0] if numbers else "")
         self.statusBar().showMessage(f"Exportováno {n} stran: {path}", 5000)
 
@@ -2217,6 +2220,12 @@ class MainWindow(QMainWindow):
         self._set_doc_pages(numbers)
         import json
         self.statusBar().showMessage(f"Strany dokumentace přečíslovány ({json.loads(numbers)['total']} stran)", 5000)
+
+    def _ask_doc_legend(self) -> bool | None:
+        """Volba při exportu PDF dokumentace: přidat na konec „Přehled použitých značek“ (legendu)? Zrušení → None."""
+        items = ["Nepřidávat", "Přidat na konec dokumentace"]
+        v, ok = QInputDialog.getItem(self, "Celá dokumentace", "Přehled použitých značek (legenda):", items, 0, False)
+        return (v == items[1]) if ok else None
 
     def _ask_doc_jps_page(self) -> str | None:
         """Volba při exportu PDF dokumentace: listy JPS „Zmenšit na A3“ / „Skutečný formát listu“ (výchozí podle

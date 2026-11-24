@@ -968,7 +968,9 @@ pole (ručně přesunuté přístroje zůstanou, kde jsou).
 a *List výkresu* (číslo listu projektu, které ukazuje popisové pole listu – např. „2/6“). Strany obsahu, výkazů
 a změnového listu nesou v popisovém poli číslo strany dokumentace („15/33“), strany listů číslo listu výkresu.
 Obsah, výkazy i změnový list jsou tabulky stránkované na víc stran; šířky sloupců se řídí obsahem a šířkou strany,
-dlouhý text se v buňce zalomí. **Bez rámečku** (výchozí) má každá strana malé „strana n/N“ v pravém dolním rohu –
+dlouhý text se v buňce zalomí. Při exportu se program zeptá, zda na konec (před změnový list) přidat strany
+„Přehled použitých značek“ (legenda: obrázek značky, název, počet použití v projektu; výchozí je nepřidávat).
+**Bez rámečku** (výchozí) má každá strana malé „strana n/N“ v pravém dolním rohu –
 dokumentace se vždy dá očíslovat a seřadit, rámeček ale zůstává volbou uživatele (např. pro vložení do rámečku
 zákazníka). Otevřené připomínky listu rozvaděče se v dokumentaci (s volbou „Přidávat připomínky do exportu“)
 ukážou na straně jeho vícepólu u přístroje, ke kterému patří (vodič → jeho první konec); připomínka bez vazby na

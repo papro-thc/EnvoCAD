@@ -273,6 +273,8 @@ Jeden model, dva pohledy nad stejnými daty:
   „Číslo listu“ stran odvozených pohledů `page_label` („2/5, str. 1/3“), formát strany v popisovém poli (`paper`).
   PDF dokumentace (`export/doc_pdf.py`) má smíšené formáty stran: `QPdfWriter.setPageLayout` před každou novou
   stranou (`DocBuilder.page_sizes`).
+  Volitelná strana „Přehled použitých značek“ (`DocBuilder(legend=True)`, výkaz `reports.symbol_legend`): tabulka s
+  obrázkem značky v prvním sloupci.
 
 ## Modularita a rozšiřování
 
