@@ -12,6 +12,12 @@ HEAD = ["Výrobce", "Objednací číslo", "Název", "Ks"]
 SHEET_NAME = "Výkaz po výrobcích"
 
 
+@pytest.fixture
+def lib(tmp_path):
+    with LibraryStore(tmp_path / "lib.db") as store:
+        yield store
+
+
 def _small_project():
     p = Project(name="Vyrobci")
     s = p.sheets[0]
@@ -28,8 +34,7 @@ def _total(rows, col):
     return sum(r[col] for r in rows)
 
 
-def test_bom_by_manufacturer_grouping_and_order(tmp_path):
-    lib = LibraryStore(tmp_path / "lib.db")
+def test_bom_by_manufacturer_grouping_and_order(lib):
     p, s = _small_project()
     _, bom_rows = reports.bom(p, lib, s)
     assert _total(bom_rows, 5) == 4          # předpoklad: všechny 4 prvky jsou v bom
@@ -42,9 +47,8 @@ def test_bom_by_manufacturer_grouping_and_order(tmp_path):
     assert rows[1][2] == next(r[1] for r in bom_rows if r[2] == "B-16")   # název = sloupec Přístroj
 
 
-def test_bom_by_manufacturer_merges_different_params(tmp_path):
+def test_bom_by_manufacturer_merges_different_params(lib):
     # parametry se nerozlišují – stejný (výrobce, typ, název) se sloučí
-    lib = LibraryStore(tmp_path / "lib.db")
     p = Project()
     s = p.sheets[0]
     s.elements += [
@@ -55,8 +59,7 @@ def test_bom_by_manufacturer_merges_different_params(tmp_path):
     assert len(rows) == 1 and rows[0][3] == 2
 
 
-def test_bom_by_manufacturer_sort_inside_group(tmp_path):
-    lib = LibraryStore(tmp_path / "lib.db")
+def test_bom_by_manufacturer_sort_inside_group(lib):
     p = Project()
     p.sheets[0].elements += [
         Element("fve.breaker_mcb", 10, 10, attrs={"ref": "F1", "type": "B-10", "manufacturer": "Z"}),
@@ -68,16 +71,14 @@ def test_bom_by_manufacturer_sort_inside_group(tmp_path):
 
 
 @pytest.mark.parametrize("use_sheet", [False, True])
-def test_bom_by_manufacturer_total_matches_bom_small(tmp_path, use_sheet):
-    lib = LibraryStore(tmp_path / "lib.db")
+def test_bom_by_manufacturer_total_matches_bom_small(lib, use_sheet):
     p, s = _small_project()
     sh = s if use_sheet else None
     assert _total(reports.bom_by_manufacturer(p, lib, sh)[1], 3) == _total(reports.bom(p, lib, sh)[1], 5)
 
 
 @pytest.mark.parametrize("use_sheet", [False, True])
-def test_bom_by_manufacturer_total_matches_bom_switchboard(tmp_path, use_sheet):
-    lib = LibraryStore(tmp_path / "lib.db")
+def test_bom_by_manufacturer_total_matches_bom_switchboard(lib, use_sheet):
     p, s = _proj()
     sh = s if use_sheet else None
     _, rows = reports.bom_by_manufacturer(p, lib, sh)
@@ -85,8 +86,7 @@ def test_bom_by_manufacturer_total_matches_bom_switchboard(tmp_path, use_sheet):
     assert total > 0 and _total(rows, 3) == total
 
 
-def test_bom_by_manufacturer_empty_project(tmp_path):
-    lib = LibraryStore(tmp_path / "lib.db")
+def test_bom_by_manufacturer_empty_project(lib):
     head, rows = reports.bom_by_manufacturer(Project(), lib)
     assert head == HEAD and rows == []
 
@@ -98,8 +98,7 @@ def test_registration():
     assert SHEET_NAME in reports.NOT_IN_DOC
 
 
-def test_xlsx_sheet(tmp_path):
-    lib = LibraryStore(tmp_path / "lib.db")
+def test_xlsx_sheet(lib, tmp_path):
     p, s = _small_project()
     x = tmp_path / "r.xlsx"
     export_reports_xlsx(p, lib, x, s)

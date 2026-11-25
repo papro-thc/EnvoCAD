@@ -433,8 +433,10 @@ def cmd_checks(ctx: Ctx):
     from collections import Counter
 
     from envocad.model.checks import check_project
+    from envocad.plugins import plugin_checks
     from envocad.settings import switchboard_paper
-    findings = check_project(ctx.project, ctx.library, standard_paper=switchboard_paper(), include_waived=True)
+    findings = check_project(ctx.project, ctx.library, standard_paper=switchboard_paper(), include_waived=True,
+                             extra_checks=plugin_checks())
     active = [f for f in findings if not f.waived]
     waived = [f for f in findings if f.waived]
     ctx.data = [{"severity": f.severity, "sheet": f.sheet_name, "ref": f.ref, "text": f.text, "code": f.code,

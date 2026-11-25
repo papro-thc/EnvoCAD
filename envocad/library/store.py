@@ -1,15 +1,19 @@
 """SQLite úložiště knihovny: symboly + komponenty (artikly). Bez Qt."""
 from __future__ import annotations
 
+import contextlib
 import csv
 import json
 import logging
 import os
 import sqlite3
+from collections.abc import Callable, Iterator
 from pathlib import Path
+from types import TracebackType
+from typing import Self
 
 from envocad.model.feed import LEGACY_FEEDS
-from envocad.model.symbol import Symbol
+from envocad.model.symbol import Symbol, SymbolVersionError
 
 BUILTIN_DIR = Path(__file__).parent / "builtin"
 # soubory vestavěných značek, které knihovna už nemá (v13: sb.feed_in / sb.feed_out → sb.feed) – klíče `builtin_files`
@@ -90,15 +94,102 @@ def symbol_sources(db_path: Path) -> list[tuple[Path, str]]:
     return sources
 
 
+# Verze schématu knihovny, uložená v `PRAGMA user_version`. Databáze bez verze (0) s tabulkami = verze 1.
+# Při změně schématu: zvednout číslo a přidat do MIGRATIONS krok z předchozí verze.
+LIBRARY_SCHEMA_VERSION = 1
+
+
+class LibrarySchemaError(RuntimeError):
+    """Databázi knihovny nelze otevřít (např. ji vytvořila novější verze EnvoCADu)."""
+
+
+# Převody schématu: klíč N = krok z verze N na N+1 (dostane spojení uvnitř transakce, nesmí dělat commit).
+# Přidání: `def _v1_to_v2(conn): conn.execute("ALTER TABLE ...")` a `MIGRATIONS[1] = _v1_to_v2`.
+# Chybějící krok = jen zvýšení čísla verze.
+MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {}
+
+
+def _newer_schema_message(path: object, found: int, current: int) -> str:
+    return (f"Knihovna {path} má verzi schématu {found}, tato verze EnvoCADu podporuje nejvýše {current}. "
+            "Knihovnu vytvořila novější verze EnvoCADu – aktualizujte program. Soubor knihovny nebyl změněn.")
+
+
+@contextlib.contextmanager
+def _write_lock(conn: sqlite3.Connection) -> Iterator[None]:
+    """Ruční transakce `BEGIN IMMEDIATE` (zámek pro zápis hned, ne až při prvním zápisu); commit/rollback, obnoví režim."""
+    if conn.in_transaction:
+        raise RuntimeError("Převod schématu nelze spustit uvnitř rozpracované transakce")
+    old_isolation = conn.isolation_level
+    conn.isolation_level = None          # ruční transakce (výchozí režim sqlite3 by před DDL/PRAGMA dělal commit)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            yield
+            conn.execute("COMMIT")
+        except BaseException:
+            with contextlib.suppress(sqlite3.Error):
+                conn.rollback()
+            raise
+    finally:
+        conn.isolation_level = old_isolation
+
+
+def _upgrade(conn: sqlite3.Connection, from_version: int, target: int, path: object, create_empty: bool) -> None:
+    """Převod pod zámkem; verzi čte znovu až po získání zámku (jiný proces mohl mezitím převést)."""
+    with _write_lock(conn):
+        stored = conn.execute("PRAGMA user_version").fetchone()[0]
+        if stored > target:
+            raise LibrarySchemaError(_newer_schema_message(path, stored, target))
+        if stored >= target:
+            return                        # jiný proces už převedl
+        if create_empty and stored == 0 and not conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' LIMIT 1").fetchone():
+            for stmt in SCHEMA.split(";"):   # po jednom přes execute: executescript by commitnul mimo transakci
+                if stmt.strip():
+                    conn.execute(stmt)
+        else:
+            for v in range(max(from_version, stored, 1), target):
+                step = MIGRATIONS.get(v)
+                if step is not None:
+                    step(conn)
+        conn.execute(f"PRAGMA user_version = {int(target)}")
+
+
+def migrate(conn: sqlite3.Connection, from_version: int, to_version: int | None = None,
+            path: object = "(spojení)") -> None:
+    """Převede schéma na `to_version` (výchozí aktuální) v jedné transakci `BEGIN IMMEDIATE`; při chybě rollback.
+
+    Začíná od max(`from_version`, verze uložená po získání zámku; 0 se bere jako 1). Uložená verze >= cíl = nic."""
+    target = LIBRARY_SCHEMA_VERSION if to_version is None else to_version
+    if from_version > target:
+        raise ValueError(f"Verzi schématu nelze snížit ({from_version} → {target})")
+    _upgrade(conn, from_version, target, path, create_empty=False)
+
+
 class LibraryStore:
     def __init__(self, path: Path | str | None = None, load_builtin: bool = True):
         self.path = Path(path) if path else default_db_path()
         self.conn = sqlite3.connect(str(self.path))
-        self.conn.row_factory = sqlite3.Row
-        self.conn.executescript(SCHEMA)
-        self._cache: dict[str, Symbol] = {}
-        if load_builtin:
-            self.sync_builtin()
+        try:
+            self.conn.row_factory = sqlite3.Row
+            self.schema_version = self._open_schema()
+            self._cache: dict[str, Symbol] = {}
+            if load_builtin:
+                self.sync_builtin()
+        except BaseException:
+            self.conn.close()             # jinak na Windows zůstane soubor zamčený
+            raise
+
+    def _open_schema(self) -> int:
+        """Ověří/založí/převede schéma podle `user_version`; vrátí verzi po otevření."""
+        current = LIBRARY_SCHEMA_VERSION
+        found = self.conn.execute("PRAGMA user_version").fetchone()[0]
+        if found > current:
+            raise LibrarySchemaError(_newer_schema_message(self.path, found, current))
+        if found < current:                   # 0 = nová DB, nebo dnešní bez verze (rozhodne se pod zámkem)
+            _upgrade(self.conn, 1, current, self.path, create_empty=True)
+        self.conn.executescript(SCHEMA)       # IF NOT EXISTS, bez zápisu u hotové databáze; doplní chybějící tabulky
+        return current
 
     # ---- symboly ---------------------------------------------------------
     def sync_builtin(self) -> int:
@@ -249,7 +340,11 @@ class LibraryStore:
         row = self.conn.execute("SELECT data FROM symbols WHERE id=?", (sid,)).fetchone()
         if row is None:
             raise KeyError(f"Symbol {sid!r} není v knihovně")
-        sym = Symbol.from_dict(json.loads(row["data"]))
+        try:
+            sym = Symbol.from_dict(json.loads(row["data"]))
+        except SymbolVersionError as ex:
+            log.warning("knihovna: značka %s se nenačetla: %s", sid, ex)
+            raise KeyError(f"Symbol {sid!r} je z novější verze EnvoCAD – aktualizujte EnvoCAD") from None
         self._cache[sid] = sym
         return sym
 
@@ -324,3 +419,12 @@ class LibraryStore:
 
     def close(self) -> None:
         self.conn.close()
+
+    def __enter__(self) -> Self:
+        """Použití v `with`: vrací samotnou knihovnu."""
+        return self
+
+    def __exit__(self, exc_type: type[BaseException] | None, exc: BaseException | None,
+                 tb: TracebackType | None) -> None:
+        """Na konci bloku zavře spojení; výjimky nepotlačuje."""
+        self.close()

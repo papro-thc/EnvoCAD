@@ -45,7 +45,6 @@ def place_ref(project, from_sheet, from_target, to_sheet, to_target) -> str
 class MirrorGeometry:            # pole jako FrameGeometry → draw_frame() / DXF helper beze změny
     lines: list[tuple[float, float, float, float]]
     texts: list[tuple[float, float, str, float, str]]
-    rects: list[...]             # vždy prázdné (duck typing)
     boxes: list[Box]             # obálky textů pro textlayout / překryvy
     bounds: Box
 def mirror_geometry(e, sym, mirror) -> MirrorGeometry

@@ -89,7 +89,7 @@ def test_grow_sheet_pins_given_standard():
         assert sh.paper != "A3" and sh.mp_paper == expect
 
 
-QT_FREE = ("model", "library", "cmd")     # bez Qt – headless (CLAUDE.md; příkazový řádek envocad/cmd)
+QT_FREE = ("model", "library", "generator", "cmd")     # bez Qt – headless (CLAUDE.md; příkazový řádek envocad/cmd)
 
 
 def _imports_qt(path: Path) -> list[str]:

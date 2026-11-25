@@ -9,7 +9,7 @@ from typing import ClassVar
 
 import shiboken6
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QAction, QKeySequence, QUndoStack
+from PySide6.QtGui import QAction, QActionGroup, QKeySequence, QUndoStack
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -24,7 +24,8 @@ from PySide6.QtWidgets import (
     QToolBar,
 )
 
-from envocad import __version__
+from envocad import __version__, i18n
+from envocad.i18n import tr
 from envocad.library.store import LibraryStore
 from envocad.library.symbol_edit import free_symbol_id
 from envocad.model.project import Project, Sheet
@@ -210,32 +211,33 @@ class MainWindow(QMainWindow):
                 self.actions[key] = a
             return a
 
-        m_file = mb.addMenu("&Soubor")
-        act(m_file, "&Nový", self.new_project, "Ctrl+N", "new")
-        act(m_file, "Nový projekt z průvodce…", self.new_project_wizard, "Ctrl+Shift+N")
-        act(m_file, "Nový projekt ze specifikace (JSON)…", self.new_project_from_spec)
-        act(m_file, "&Otevřít…", self.open_project, "Ctrl+O", "open")
-        self.m_recent = m_file.addMenu("Poslední projekty")
+        m_file = mb.addMenu(tr("&Soubor"))
+        m_file.setProperty("source_title", "Soubor")   # pluginy hledají menu podle českého názvu (i v angličtině)
+        act(m_file, tr("&Nový"), self.new_project, "Ctrl+N", "new")
+        act(m_file, tr("Nový projekt z průvodce…"), self.new_project_wizard, "Ctrl+Shift+N")
+        act(m_file, tr("Nový projekt ze specifikace (JSON)…"), self.new_project_from_spec)
+        act(m_file, tr("&Otevřít…"), self.open_project, "Ctrl+O", "open")
+        self.m_recent = m_file.addMenu(tr("Poslední projekty"))
         self._refresh_recent_menu()
-        act(m_file, "&Uložit", self.save_project, "Ctrl+S", "save")
-        act(m_file, "Uložit &jako…", self.save_project_as, "Ctrl+Shift+S")
-        act(m_file, "Archiv projektu…", self.export_archive)
-        act(m_file, "Otevřít archiv projektu…", self.open_archive)
+        act(m_file, tr("&Uložit"), self.save_project, "Ctrl+S", "save")
+        act(m_file, tr("Uložit &jako…"), self.save_project_as, "Ctrl+Shift+S")
+        act(m_file, tr("Archiv projektu…"), self.export_archive)
+        act(m_file, tr("Otevřít archiv projektu…"), self.open_archive)
         m_file.addSeparator()
-        act(m_file, "Spustit skript…", self.run_script, None, "run_script")
+        act(m_file, tr("Spustit skript…"), self.run_script, None, "run_script")
         m_file.addSeparator()
-        act(m_file, "Export &DXF…", self.export_dxf, None, "export_dxf")
-        act(m_file, "Export DXF rozložení rozvaděče…", self.export_layout_dxf, None, "export_layout_dxf")
-        act(m_file, "Export DXF plánu svorkovnice…", self.export_terminal_plan_dxf, None, "export_terminal_plan_dxf")
-        act(m_file, "Export &PDF…", self.export_pdf, None, "export_pdf")
-        act(m_file, "Export PDF na A4 (zmenšeno)…", lambda: self.export_pdf("A4"))
+        act(m_file, tr("Export &DXF…"), self.export_dxf, None, "export_dxf")
+        act(m_file, tr("Export DXF rozložení rozvaděče…"), self.export_layout_dxf, None, "export_layout_dxf")
+        act(m_file, tr("Export DXF plánu svorkovnice…"), self.export_terminal_plan_dxf, None, "export_terminal_plan_dxf")
+        act(m_file, tr("Export &PDF…"), self.export_pdf, None, "export_pdf")
+        act(m_file, tr("Export PDF na A4 (zmenšeno)…"), lambda: self.export_pdf("A4"))
         m_file.addSeparator()
-        act(m_file, "Vlastnosti projektu…", self.edit_project_meta)
-        act(m_file, "Porovnat s revizí (.ecp)…", self.compare_revision)
-        act(m_file, "Uzavřít revizi", self.close_revision_all)
-        act(m_file, "Uzavřít revizi listu", self.close_revision_sheet)
+        act(m_file, tr("Vlastnosti projektu…"), self.edit_project_meta)
+        act(m_file, tr("Porovnat s revizí (.ecp)…"), self.compare_revision)
+        act(m_file, tr("Uzavřít revizi"), self.close_revision_all)
+        act(m_file, tr("Uzavřít revizi listu"), self.close_revision_sheet)
         m_file.addSeparator()
-        act(m_file, "Konec", self.close, "Ctrl+Q")
+        act(m_file, tr("Konec"), self.close, "Ctrl+Q")
 
         m_edit = mb.addMenu("&Úpravy")
         u = self.undo.createUndoAction(self, "Zpět")
@@ -306,6 +308,20 @@ class MainWindow(QMainWindow):
         self.act_notes.setChecked(self._notes_visible_setting())
         self.act_notes.toggled.connect(self.set_notes_visible)
         m_view.addAction(self.act_notes)
+        # před oddělovačem: poslední položkou menu musí zůstat „Obnovit rozložení…“ (před ni se vkládá Příkazový řádek)
+        m_lang = m_view.addMenu(tr("Jazyk rozhraní"))
+        group = QActionGroup(self)
+        group.setExclusive(True)
+        self.language_actions: dict[str, QAction] = {}
+        from envocad import settings as envo_settings
+        current = envo_settings.language()
+        for code, name in i18n.LANGUAGES.items():
+            la = QAction(name, self, checkable=True)
+            la.setChecked(code == current)
+            la.triggered.connect(lambda _c=False, code=code: self.set_ui_language(code))
+            group.addAction(la)
+            m_lang.addAction(la)
+            self.language_actions[code] = la
         m_view.addSeparator()
         act(m_view, "Obnovit rozložení panelů a lišt", self.reset_layout)
 
@@ -350,6 +366,7 @@ class MainWindow(QMainWindow):
         act(m_lib, "Prohlížet artikly…", self.browse_components)
         act(m_lib, "Importovat artikly z CSV…", self.import_components_csv)
         act(m_lib, "Importovat artikly z EPLAN (XML / CSV / ZIP)…", self.import_eplan)
+        act(m_lib, "Importovat z PVsyst (.PAN/.OND)…", self.import_pvsyst)
         act(m_lib, "Importovat artikly z BMEcat (XML)…", self.import_bmecat)
         m_lib.addSeparator()
         act(m_lib, "Sdílená knihovna (síťová složka)…", self.set_shared_library)
@@ -362,6 +379,15 @@ class MainWindow(QMainWindow):
         self._build_toolbars()
         self._shortcut_tooltips()
 
+    def set_ui_language(self, code: str) -> None:
+        """Uloží jazyk rozhraní do nastavení; platí po restartu (běžící okno se nepřekládá). Nejde o změnu projektu."""
+        from envocad import settings as envo_settings
+        code = code if code in i18n.LANGUAGES else i18n.DEFAULT_LANGUAGE
+        data = envo_settings.load_settings()
+        data["language"] = code
+        envo_settings.save_settings(data)
+        self.statusBar().showMessage(tr("Jazyk rozhraní se změní po restartu EnvoCAD."))
+
     # ---- pluginy ---------------------------------------------------------------
     def _load_plugins(self) -> None:
         from envocad.plugins import load_plugins
@@ -372,6 +398,9 @@ class MainWindow(QMainWindow):
             log.warning(msg)
             QTimer.singleShot(0, lambda: self.statusBar().showMessage(msg, 20_000))
         menus = {m.title().replace("&", ""): m for m in self.menuBar().findChildren(QMenu) if m.title()}
+        for m in self.menuBar().findChildren(QMenu):     # i podle českého zdrojového názvu (menu přeložené tr())
+            if m.property("source_title"):
+                menus[m.property("source_title")] = m
         for menu_name, text, cb in self.plugins.menu_actions:
             menu = menus.get(menu_name)
             if menu is None:
@@ -1079,7 +1108,7 @@ class MainWindow(QMainWindow):
                 w.side_panel.load_from_model()
 
     def set_frame(self, on: bool) -> None:
-        """Zapne/vypne rámeček s popisovým polem a QR na všech listech (uloží se do ~/.envocad/settings.json)."""
+        """Zapne/vypne rámeček s popisovým polem na všech listech (uloží se do ~/.envocad/settings.json)."""
         from envocad.settings import load_settings, save_settings
         data = load_settings()
         data["frame"] = bool(on)
@@ -1257,8 +1286,10 @@ class MainWindow(QMainWindow):
 
     def _check_now(self) -> None:
         from envocad.model.checks import check_project
+        from envocad.plugins import plugin_checks
         from envocad.settings import switchboard_paper
-        self._findings = check_project(self.project, self.library, standard_paper=switchboard_paper())
+        self._findings = check_project(self.project, self.library, standard_paper=switchboard_paper(),
+                                       extra_checks=plugin_checks())
         self.checks_panel.set_findings(self._findings)
         self._update_status()
 
@@ -1811,7 +1842,7 @@ class MainWindow(QMainWindow):
             a = self.m_recent.addAction(p)
             a.triggered.connect(lambda _c=False, p=p: self.open_path(p))
         if self.m_recent.isEmpty():
-            self.m_recent.addAction("(zatím nic)").setEnabled(False)
+            self.m_recent.addAction(tr("(zatím nic)")).setEnabled(False)
 
     def open_path(self, path: str) -> None:
         if not self._confirm_discard():
@@ -2191,12 +2222,15 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getSaveFileName(self, "Celá dokumentace", f"{base} – dokumentace.pdf", "PDF (*.pdf)")
         if not path:
             return
+        legend = self._ask_doc_legend()
+        if legend is None:
+            return
         jps_page = self._ask_doc_jps_page()
         if jps_page is None:
             return
         numbers: list[str] = []
         n = export_documentation_pdf(self.project, self.library, path, notes=self._export_notes(), jps_page=jps_page,
-                                     page_numbers=numbers)
+                                     page_numbers=numbers, legend=legend)
         self._set_doc_pages(numbers[0] if numbers else "")
         self.statusBar().showMessage(f"Exportováno {n} stran: {path}", 5000)
 
@@ -2218,6 +2252,12 @@ class MainWindow(QMainWindow):
         import json
         self.statusBar().showMessage(f"Strany dokumentace přečíslovány ({json.loads(numbers)['total']} stran)", 5000)
 
+    def _ask_doc_legend(self) -> bool | None:
+        """Volba při exportu PDF dokumentace: přidat na konec „Přehled použitých značek“ (legendu)? Zrušení → None."""
+        items = ["Nepřidávat", "Přidat na konec dokumentace"]
+        v, ok = QInputDialog.getItem(self, "Celá dokumentace", "Přehled použitých značek (legenda):", items, 0, False)
+        return (v == items[1]) if ok else None
+
     def _ask_doc_jps_page(self) -> str | None:
         """Volba při exportu PDF dokumentace: listy JPS „Zmenšit na A3“ / „Skutečný formát listu“ (výchozí podle
         firemního standardu `doc_jps_page`). Zrušení → None."""
@@ -2230,18 +2270,12 @@ class MainWindow(QMainWindow):
 
     def export_labels_csv(self) -> None:
         """Štítky pro Brady/Partex apod.: CSV se středníkem, UTF-8 s BOM (Excel/tiskárna to otevře přímo)."""
-        import csv
-
-        from envocad.export import reports
+        from envocad.export.labels_csv import write_labels_csv
         path, _ = QFileDialog.getSaveFileName(self, "Štítky", "stitky.csv", "CSV (*.csv)")
         if not path:
             return
-        head, rows = reports.labels(self.project, self.library, None)
-        with open(path, "w", encoding="utf-8-sig", newline="") as f:
-            w = csv.writer(f, delimiter=";")
-            w.writerow(head)
-            w.writerows(rows)
-        self.statusBar().showMessage(f"Exportováno {len(rows)} štítků: {path}", 3000)
+        n = write_labels_csv(self.project, self.library, path)
+        self.statusBar().showMessage(f"Exportováno {n} štítků: {path}", 3000)
 
     def export_tz(self) -> None:
         self.export_report("tz")
@@ -2373,6 +2407,40 @@ class MainWindow(QMainWindow):
             self.lib_panel.refresh()
         QMessageBox.information(self, "Import z EPLAN", f"Načteno {n} artiklů" + (f" a {n_fp} footprintů" if n_fp else "")
                                 + f".\nUloženo do {out_dir}.")
+
+    def import_pvsyst(self) -> None:
+        """PVsyst: FV modul (.PAN) nebo střídač (.OND) → artikl v uživatelské knihovně (`…/library/pvsyst/`)."""
+        from envocad.library import pvsyst_import as pi
+        from envocad.library.store import user_library_dir
+        path, _ = QFileDialog.getOpenFileName(self, "Import z PVsyst", "", "PVsyst (*.pan *.ond *.PAN *.OND)")
+        if not path:
+            return
+        try:
+            comp, warns = pi.import_pvsyst(path)
+            old = self.library.component(comp.id)
+            if old is not None:
+                desc = f"{old.manufacturer} {old.part_number}".strip()
+                if QMessageBox.question(
+                        self, "Import z PVsyst",
+                        f"Artikl {comp.id} už v knihovně je ({desc}).\nPřepsat ho hodnotami z PVsyst?",
+                        QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
+                    return
+            out_dir = user_library_dir() / "pvsyst"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            csv_path = out_dir / f"pvsyst-{comp.id}.csv"
+            pi.write_components_csv([comp], csv_path)
+            saved = self.library.import_components_csv_v2(csv_path)
+        except Exception as ex:  # noqa: BLE001
+            log.warning("import PVsyst %s selhal: %s", path, ex)
+            QMessageBox.warning(self, "Import z PVsyst", f"Soubor nejde načíst:\n{path}\n\n{error_text(ex)}")
+            return
+        if saved != 1:
+            QMessageBox.warning(self, "Import z PVsyst", "Artikl se nepodařilo uložit do knihovny.")
+            return
+        text = f"Načten artikl {comp.name}.\nUloženo do {csv_path}."
+        if warns:
+            text += "\n\nUpozornění:\n" + "\n".join(f"• {w}" for w in warns)
+        QMessageBox.information(self, "Import z PVsyst", text)
 
     def import_bmecat(self) -> None:
         """BMEcat (XML 1.2 / 2005) → artikly v uživatelské knihovně (`~/.envocad/library/bmecat/`). Logika je
@@ -2756,6 +2824,10 @@ class MainWindow(QMainWindow):
                 menu.addAction("Otevřít rozvaděč", lambda: self.open_switchboard_from_block(eid))
             if isinstance(hit, ElementItem):
                 menu.addAction("Vlastnosti…", lambda: sc.edit_element(eid))
+                sel = [it.element.id for it in sc.selectedItems() if isinstance(it, ElementItem)]
+                if len(sel) >= 2:      # vodiče ve výběru se ignorují
+                    menu.addAction(f"Vlastnosti vybraných prvků ({len(sel)})…",
+                                   lambda: sc.edit_elements_bulk(sel))
             else:
                 menu.addAction("Vlastnosti…", lambda: self._edit_element_anywhere(sheet, eid))
             menu.addSeparator()

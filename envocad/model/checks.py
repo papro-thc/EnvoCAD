@@ -76,12 +76,49 @@ def _connected_ports(sheet: Sheet, e: Element) -> set[str]:
     return {end.port for w in sheet.wires for end in (w.a, w.b) if end.element_id == e.id}
 
 
+def _valid_plugin_finding(f) -> bool:
+    """Nález pluginu, který nerozbije řazení ani seznam v GUI: `Finding`, známá závažnost, textová pole jsou `str`."""
+    return (isinstance(f, Finding) and f.severity in (ERROR, WARNING, INFO) and isinstance(f.is_wire, bool)
+            and all(isinstance(v, str) for v in (f.sheet_id, f.sheet_name, f.target_id, f.ref, f.text, f.code)))
+
+
+def plugin_findings(project: Project, lib, extra_checks) -> list[Finding]:
+    """Nálezy kontrol pluginů (`fn(project, lib)` → iterovatelné `Finding` nebo None). Chyba pluginu kontrolu
+    neshodí: výjimka, nevalidní návrat nebo vadné položky se změní na nález ERROR `plugin_check` se jménem funkce,
+    platné nálezy se zachovají a další kontroly běží dál."""
+    out: list[Finding] = []
+    for fn in extra_checks or ():
+        name = getattr(fn, "__name__", repr(fn))
+        try:
+            res = fn(project, lib)
+            if res is None:
+                continue
+            if isinstance(res, (str, bytes)):
+                raise TypeError("kontrola má vrátit seznam nálezů (Finding), ne text")
+            items = list(res)
+        except Exception as ex:  # noqa: BLE001 – plugin je cizí kód
+            out.append(Finding(ERROR, "", "", "", False, "",
+                               f"Kontrola pluginu {name} selhala: {type(ex).__name__}: {ex}", "plugin_check"))
+            continue
+        good = [f for f in items if _valid_plugin_finding(f)]
+        if len(good) < len(items):
+            out.append(Finding(ERROR, "", "", "", False, "",
+                               f"Kontrola pluginu {name} vrátila {len(items) - len(good)} vadných položek "
+                               "(čeká se Finding se závažností chyba / varování / info a textovými poli) – zahozeno", "plugin_check"))
+        out += good
+    return out
+
+
 def check_project(project: Project, lib, *, standard_paper: str, include_waived: bool = False,
-                  aggregate: bool = True) -> list[Finding]:
+                  aggregate: bool = True, extra_checks=()) -> list[Finding]:
     """Kontrola projektu (F7). `standard_paper` = formát stran vícepólu z firemního standardu
     (`envocad.settings.switchboard_paper`) pro překryvy ve vícepólu – model nastavení nečte.
     Potlačené nálezy (`project.waivers`) se vynechají, s `include_waived` jsou v seznamu s `waived=True`; osiřelé
-    potlačení hlásí vždy nález `waiver_orphan`. `aggregate=False` neslučuje informační nálezy po prvcích."""
+    potlačení hlásí vždy nález `waiver_orphan`. `aggregate=False` neslučuje informační nálezy po prvcích.
+    `extra_checks` = kontroly pluginů (`envocad.plugins.plugin_checks()`; model plugins neimportuje): každá
+    `fn(project, lib)` dostane projekt bez visících vodičů a vrací iterovatelné `Finding` / None. Spouští se až
+    po potlačení a `aggregate_info` (INFO nálezy pluginu se tak nesloučí s vestavěnými podle `code`; potlačit je
+    zatím nelze) a před společným řazením."""
     from envocad.model.xref import (
         DeviceIndex,
         has_cable_data,
@@ -261,6 +298,7 @@ def check_project(project: Project, lib, *, standard_paper: str, include_waived:
     out = [f for f in out if not f.waived]
     if aggregate:
         out = aggregate_info(out)
+    out += plugin_findings(project, lib, extra_checks)
     if include_waived:
         out += waived
     order = {ERROR: 0, WARNING: 1, INFO: 2}
