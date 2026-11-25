@@ -180,6 +180,7 @@ def export_routine_test_docx(project: Project, lib: LibraryStore, sheet: Sheet, 
     mains = [e for e in devs if e.symbol_id in ("sb.main_switch", "fve.breaker_mccb")]
     i_n = mains[0].attrs.get("in_", "") if mains else ""
     from envocad.settings import company as standard_company
+    from envocad.settings import routine_test_signer
     company = standard_company()
     setup_document(doc, f"Protokol o kusovém ověření rozvaděče {sheet.name}", doc_author(project),
                    f"{project.name}" + (f" (č. {m['order']})" if m.get("order") else ""))
@@ -197,6 +198,8 @@ def export_routine_test_docx(project: Project, lib: LibraryStore, sheet: Sheet, 
              (("mounting", "montáž"), ("material", "materiál"), ("door", "dveře"))]
     parts = [(lbl, v) for lbl, v in parts if v]
     mount = (" / ".join(lbl for lbl, _ in parts).capitalize(), " / ".join(v for _, v in parts)) if parts else None
+    from envocad.model.project import design_verification
+    dv_method, dv_doc = design_verification(lay)
     rows = [
         ["Zakázka", f"{project.name}" + (f" (č. {m['order']})" if m.get("order") else "")],
         ["Investor", m.get("investor", "")],
@@ -213,6 +216,7 @@ def export_routine_test_docx(project: Project, lib: LibraryStore, sheet: Sheet, 
         ["Zkratová odolnost", _with_unit(lay.params.get("icw", ""), "kA")],
         ["Síť / uzemnění", lay.params.get("network", "TN-S")],
         ["Krytí / IK", " / ".join(x for x in (lay.params.get("ip", ""), lay.params.get("ik", "")) if x)],
+        ["Ověření návrhu (čl. 10)", f"způsob: {dv_method or 'neuvedeno'}; doklad: {dv_doc or 'neuvedeno'}"],
         ["Výrobce rozvaděče", company],
         ["Datum", datetime.now().astimezone().strftime("%d.%m.%Y")],   # dnešní datum v místním čase
     ]
@@ -238,7 +242,7 @@ def export_routine_test_docx(project: Project, lib: LibraryStore, sheet: Sheet, 
     doc.add_heading("5. Závěr", level=2)
     doc.add_paragraph("Rozvaděč ☐ vyhovuje  ☐ nevyhovuje požadavkům ČSN EN 61439-1 a je schopen bezpečného provozu.")
     doc.add_paragraph("")
-    _table(doc, ["Zkoušku provedl", "Datum", "Podpis"], [["", "", ""]], style="Table Grid")
+    _table(doc, ["Zkoušku provedl", "Datum", "Podpis"], [[routine_test_signer(), "", ""]], style="Table Grid")
     doc.add_paragraph("")
     doc.add_paragraph(f"Vygenerováno EnvoCAD – {project.name}").runs[0].font.size = Pt(8)
     doc.save(str(path))

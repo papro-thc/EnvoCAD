@@ -41,8 +41,10 @@ def test_checks_switchboard_template_is_mostly_clean():
     apply_template(p, sb, "ac_fve", {"distribution": "terminals"}, standard_paper="A4")
     fs = [x for x in check_project(p, lib, standard_paper="A4") if x.sheet_id == sb.id]
     assert not any(x.severity == ERROR for x in fs), [x.text for x in fs if x.severity == ERROR]
-    # vývody bez vazby na JPS jsou jen informace; přístroje šablony nemají rozsah teplot → jedna agregovaná INFO
-    assert all(x.code in ("feed_unlinked", "no_article", "no_cable", "thermal_device") for x in fs), {x.code for x in fs}
+    # vývody bez vazby na JPS jsou jen informace; přístroje šablony nemají rozsah teplot → jedna agregovaná INFO;
+    # šablona nemá způsob / doklad ověření návrhu → INFO design_verification_missing (#126)
+    assert all(x.code in ("feed_unlinked", "no_article", "no_cable", "thermal_device", "design_verification_missing")
+               for x in fs), {x.code for x in fs}
     th = [x for x in fs if x.code == "thermal_device"]
     assert len(th) == 1 and th[0].severity == INFO and "chybí rozsah teplot" in th[0].text
 

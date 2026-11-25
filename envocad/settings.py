@@ -10,6 +10,7 @@
     "jps_max_paper": "A2",                                 // největší list JPS z generátoru, větší se rozdělí na listy
     "grid_protection_kwp": 30,                             // síťová ochrana v RFVE.AC / RFVE nad tímto výkonem DC [kWp]
     "ac_builtin": false,                                   // AC listy (RFVE.AC, AC část RFVE, RD/HR/RE) vestavěným kódem, když chybí mustr
+    "routine_test_signer": "",                             // jméno podepisující protokol kusového ověření (prázdné = nevyplněno)
     "doc_jps_page": "A3",                                  // listy JPS v PDF dokumentace: "A3" = zmenšit, "list" = skutečný formát
     "preferred_manufacturers": ["OEZ", "Eaton", "Weidmüller"],
     "pv_t_min": -20, "pv_t_max": 70,                       // návrhové teploty stringů [°C] pro průvodce
@@ -44,6 +45,8 @@ DEFAULTS = {
         # AC listy bez mustru vestavěným kódem (RFVE.AC, AC část RFVE, stávající RD / HR / RE); False = jen bloky
         # v blokovém schématu, AC rozvaděče z mustrů (makra rolí ac_feed / ac_core / ac_eps ve sdílené knihovně)
         "ac_builtin": False,
+        # jméno osoby podepisující protokol kusového ověření (buňka „Zkoušku provedl“); firemní standard, prázdné = nevyplněno
+        "routine_test_signer": "",
         "jps_max_paper": "A2",       # větší JPS generátor rozdělí na listy tohoto formátu (AC list + listy střídačů)
         "doc_jps_page": "A3",        # listy JPS v PDF dokumentace: „A3“ = zmenšit na A3, „list“ = skutečný formát listu
         "switchboard_paper": "A4",   # strany schématu rozvaděče a plánu svorkovnice: „A4“, „A4 na výšku“, „A3“
@@ -129,6 +132,14 @@ def company() -> str:
         return str(load_settings()["standard"].get("company") or COMPANY).strip() or COMPANY
     except Exception:  # noqa: BLE001
         return COMPANY
+
+
+def routine_test_signer() -> str:
+    """Jméno osoby podepisující protokol kusového ověření (`standard.routine_test_signer`; prázdné = nevyplněno)."""
+    try:
+        return str(load_settings()["standard"].get("routine_test_signer") or "").strip()
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 def switchboard_paper() -> str:

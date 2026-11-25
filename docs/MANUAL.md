@@ -435,7 +435,7 @@ z jeho datasheetu, ne pevný práh skříně:
 - *Verdikt*: nejhorší přístroj (prokázané překročení z artiklu/atributu má přednost před překročením předpokladu):
   „NEVYHOVUJE (orientační – neověřeno proti normě) – F3 v řadě 1: ≈ 58 °C > t_max 55 °C; …“, jinak „vyhovuje (orientační – neověřeno proti normě) – nejteplejší
   F3 ≈ 48 °C (t_max 55 °C, rezerva 7 K)“; nad 40 °C připomene odlehčení (derating) jističů. Stejný text je v TZ
-  a ve výkazu Výpočty (řádek „Oteplení“); protokol kusového ověření oteplení neuvádí (kusové ověření ho neprokazuje). Řadové svorky se hodnotí jen s vlastním `t_max`.
+  a ve výkazu Výpočty (řádek „Oteplení“); protokol kusového ověření oteplení neuvádí (kusové ověření ho neprokazuje). Místo toho uvádí řádek „Ověření návrhu (čl. 10)“ s údaji z parametrů skříně „Ověření návrhu – způsob“ (zkouška / výpočet / pravidla konstrukce / doklad výrobce skříně) a „Ověření návrhu – doklad“ (číslo nebo odkaz); nezadané údaje jsou „neuvedeno“ a kontrola je hlásí jako info `design_verification_missing`. Jméno v buňce „Zkoušku provedl“ se předvyplní z nastavení `standard.routine_test_signer`. Řadové svorky se hodnotí jen s vlastním `t_max`.
 
 Pozor: hodnoty křivek k a c v tabulkách jsou orientační – pro průkaz ověř proti normě.
 
@@ -524,6 +524,7 @@ Rozložení rozvaděče (rozměry z artiklu nebo ručních rozměrů prvku; př�
 |---|---|---|
 | `layout_overflow` / `layout_overlap` | varování | přeplněná řada, přístroj za koncem řady, překryv přístrojů (šířky z artiklů) |
 | `outside_enclosure` | varování | přístroj umístěný v řadě mimo skříň (po zmenšení počtu řad) |
+| `design_verification_missing` | info | rozvaděč bez uvedeného způsobu nebo dokladu ověření návrhu (ČSN EN 61439-1 čl. 10) |
 | `layout_height` | varování | přístroj je vyšší než rozteč řad – zasahuje do sousední řady (3VA13 248 mm při rozteči 150 mm) |
 | `layout_enclosure` | varování | přístroj je širší než užitná šířka řady |
 | `layout_depth` | varování | hloubka přístroje je větší než hloubka skříně (jen se zadanou hloubkou skříně) |

@@ -1,0 +1,1 @@
+- **Protokol kusového ověření: odkaz na ověření návrhu** – parametry skříně mají pole „Ověření návrhu – způsob / doklad“ (ČSN EN 61439-1 čl. 10), protokol je uvádí v identifikaci a podpis se předvyplní z `standard.routine_test_signer`; kontrola F7 hlásí chybějící údaje jako info `design_verification_missing`. Test `test_design_verification.py`.

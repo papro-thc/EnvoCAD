@@ -278,6 +278,7 @@ def check_project(project: Project, lib, *, standard_paper: str, include_waived:
                                        f"Můstek {strip}:{'-'.join(g)} odkazuje na neexistující svorky {', '.join(missing)}",
                                        "bridge_missing"))
     out += layout_findings(project, lib)
+    out += design_verification_findings(project)
     out += contact_findings(project, idx)
     out += interrupt_findings(project, idx)
     out += spd_findings(project)
@@ -456,6 +457,24 @@ def layout_findings(project: Project, lib=None) -> list[Finding]:
             out.append(Finding(WARNING, s.id, s.name, sp.element.id, False, sp.element.ref, sp.text, sp.code))
     from envocad.model.bridges import bridge_findings
     out += bridge_findings(project, lib)      # artikl můstku (`bridge_id`): neznámý, není můstek, málo pólů
+    return out
+
+
+def design_verification_findings(project: Project) -> list[Finding]:
+    """Rozvaděč bez uvedeného způsobu nebo dokladu ověření návrhu (ČSN EN 61439-1 čl. 10) – INFO
+    `design_verification_missing`; údaje se doplňují v parametrech skříně a jdou do protokolu kusového ověření."""
+    from envocad.model.project import design_verification
+    out: list[Finding] = []
+    for s in project.sheets:
+        if not s.is_switchboard:
+            continue
+        method, doc = design_verification(s.layout)
+        if method and doc:
+            continue
+        what = "způsob ani doklad" if not method and not doc else ("způsob" if not method else "doklad")
+        out.append(Finding(INFO, s.id, s.name, "", False, "",
+                           f"Ověření návrhu (ČSN EN 61439-1 čl. 10): není uveden {what} – doplňte v parametrech skříně",
+                           "design_verification_missing"))
     return out
 
 

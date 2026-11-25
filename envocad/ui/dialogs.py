@@ -35,6 +35,7 @@ from envocad.model import multipole as mp
 from envocad.model.advisory import ADVISORY_NOTE
 from envocad.model.designation import element_name
 from envocad.model.project import (
+    DESIGN_VERIFICATION_METHODS,
     ENCLOSURE_PARAMS,
     MODULE_WIDTH,
     Layout,
@@ -1940,9 +1941,22 @@ class EnclosurePanel(QWidget):
                  "icw": "krátkodobá výdržná odolnost rozvaděče 1 s [kA] – kontrola Icw ≥ Ik",
                  "ipk": "špičková výdržná odolnost Ipk [kA] (údaj výrobce skříně / rozvaděče)",
                  "ik_ka": "očekávaný zkratový proud v rozvaděči [kA] z výpočtu; prázdné = odhad z projektu "
-                          "(Vlastnosti projektu) – kontroly Icu a Icw"}
+                          "(Vlastnosti projektu) – kontroly Icu a Icw",
+                 "dv_method": "ověření návrhu rozvaděče podle ČSN EN 61439-1 čl. 10 (do protokolu kusového ověření)",
+                 "dv_document": "číslo / odkaz dokladu (protokol zkoušky, výpočet, prohlášení výrobce skříně)"}
         self._edits: dict[str, QLineEdit] = {}
+        self._choices: dict[str, QComboBox] = {}   # výběrové parametry (dv_method; výrobní data – české popisky, ukládá se kód)
         for key, label, default in ENCLOSURE_PARAMS:
+            if key == "dv_method":
+                combo = QComboBox()
+                combo.addItem("neuvedeno", "")
+                for m in DESIGN_VERIFICATION_METHODS:
+                    combo.addItem(m, m)
+                combo.setToolTip(hints[key])
+                self._choices[key] = combo
+                self._load_dv_method(lay)
+                f2.addRow(label, combo)
+                continue
             ed = QLineEdit(lay.params.get(key, default))
             ed.setPlaceholderText(hints.get(key, default))
             ed.setMinimumWidth(140)
@@ -1968,7 +1982,6 @@ class EnclosurePanel(QWidget):
         self._wiring_body = QWidget()
         f4 = QFormLayout(self._wiring_body)
         f4.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
-        self._choices: dict[str, QComboBox] = {}   # výběrové parametry (české popisky, ukládá se kód)
         for key, label, _default in WIRING_PARAMS:
             if key in CHOICE_LABELS:
                 combo = QComboBox()
@@ -2016,6 +2029,14 @@ class EnclosurePanel(QWidget):
             ed.editingFinished.connect(lambda k=key: self._apply(k))
         self.refresh()
 
+    def _load_dv_method(self, lay: Layout) -> None:
+        """Nastaví combo způsobu ověření návrhu; ručně zapsaná hodnota mimo nabídku se přidá jako další položka."""
+        combo = self._choices["dv_method"]
+        cur = str(lay.params.get("dv_method") or "").strip()
+        if cur and combo.findData(cur) < 0:
+            combo.addItem(cur, cur)
+        combo.setCurrentIndex(max(combo.findData(cur), 0))
+
     @property
     def layout(self) -> Layout:
         """Rozložení, které panel zobrazuje (kopie v dialogu, jinak rozložení listu)."""
@@ -2040,8 +2061,11 @@ class EnclosurePanel(QWidget):
                 text = lay.params.get(key, "" if key in self._wiring_keys else defaults.get(key, ""))
                 if ed.text().strip() != text:
                     ed.setText(text)
+            self._load_dv_method(lay)
             if own_wiring:
                 for key, combo in self._choices.items():
+                    if key == "dv_method":
+                        continue
                     cur = parse_param(key, lay.params.get(key)) or ""
                     combo.setCurrentIndex(max(combo.findData(cur), 0))
         finally:
@@ -2185,10 +2209,11 @@ class EnclosurePanel(QWidget):
         # neplatné číslo se do modelu nepropíše: zůstane předchozí hodnota (pole je zvýrazněné, viz `_mark_invalid`)
         edits.update({k: lay.params[k] for k in bad if k in lay.params})
         for key, combo in self._choices.items():
-            if own_wiring and combo.currentData():
+            if (own_wiring or key == "dv_method") and combo.currentData():
                 edits[key] = combo.currentData()
         # klíče, které panel nezná, zůstanou; wire_* spravuje skupina „Výrobní data“
-        unknown = {k: v for k, v in lay.params.items() if k not in self._edits and k not in self._wiring_keys}
+        unknown = {k: v for k, v in lay.params.items() if k not in self._edits and k not in self._choices
+                   and k not in self._wiring_keys}
         lay.params = {**unknown, **edits}   # model-write-ok: kopie rozložení (viz začátek `_write`)
         # umístění v řadách nad novým počtem řad zůstanou (vrátí se po zvětšení počtu řad); do té doby je rozložení
         # kreslí mezi nerozmístěnými a kontrola je hlásí (`outside_enclosure`)

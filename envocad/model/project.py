@@ -499,8 +499,19 @@ ENCLOSURE_PARAMS = [
     ("t_ambient", "Teplota okolí [°C]", "35"),
     ("t_ambient_min", "Nejnižší teplota okolí [°C]", ""),   # nepovinné – kontrola dolních mezí přístrojů (t_min)
     ("rdf", "RDF (Ib/In)", "0,8"),
+    ("dv_method", "Ověření návrhu – způsob", ""),     # výběr z DESIGN_VERIFICATION_METHODS (ČSN EN 61439-1 čl. 10)
+    ("dv_document", "Ověření návrhu – doklad", ""),   # číslo / odkaz dokladu (protokol zkoušky, výpočet, prohlášení)
     ("note", "Poznámka", ""),
 ]
+
+# Způsoby ověření návrhu rozvaděče (ČSN EN 61439-1 čl. 10); v parametrech skříně `dv_method`
+DESIGN_VERIFICATION_METHODS = ("zkouška", "výpočet", "pravidla konstrukce", "doklad výrobce skříně")
+
+
+def design_verification(layout: Layout) -> tuple[str, str]:
+    """(způsob, doklad) ověření návrhu z parametrů skříně; ořezané, nezadané = prázdný text."""
+    p = layout.params
+    return str(p.get("dv_method") or "").strip(), str(p.get("dv_document") or "").strip()
 
 # Číselné parametry skříně: klíč → (min, max, min vyloučeno, jednotka pro hlášku). Prázdné pole = nezadáno.
 ENCLOSURE_NUMERIC: dict[str, tuple[float, float, bool, str]] = {
