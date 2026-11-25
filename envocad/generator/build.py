@@ -18,6 +18,7 @@ from envocad.generator.spec import (
     _apply_module_component,
     _apply_optimizer_component,
     ac_groups,
+    board_prefixes,
     building_kind,
     chain_text,
     resolve_chain_refs,
@@ -119,6 +120,7 @@ def _build_once(spec: dict) -> tuple[Project, str | None]:
     if building == "house" and _s((spec.get("connection") or {}).get("level")).strip().lower() == "vn":
         raise ValueError("Rodinný dům: rozvaděč FVE se připojuje do HDS (připojení na nn) – přípojka VN se "
                          "negeneruje. Zvolte druh objektu firma, nebo připojení nn.")
+    board_prefixes(raw)             # neplatné značení rozvaděčů (`board_prefix`) → ValueError před vznikem prvků
     # topologie před vznikem prvního prvku (pořadí = id, `next_ref`); neplatná volba → ValueError
     topology = select_topology(raw)
     # označení článků z presetu (`node.ref`); `chain.<role>.ref` a dřívější `switchboard` / `connection.*_board`

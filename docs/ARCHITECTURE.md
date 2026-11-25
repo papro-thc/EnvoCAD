@@ -111,7 +111,8 @@ Model nečte ani uživatelská nastavení (`~/.envocad/settings.json`): firemní
   úroveň; tečka uvnitř kódu (firemní `RFVE.AC`, `RFVE.DC1`) úrovně nedělí (`CODE_RE`, `parse_designation`). Generátor
   označuje rozvaděče podle presetu topologie (`node.ref`; přepis `chain.<role>.ref`, dřívější `switchboard.ref`,
   `connection.*_board.ref` – `generator/spec.resolve_chain_refs`): RFVE.AC, společný RFVE.DC (na střídač RFVE.DC1…n
-  s `chain.rfve_dc.per_inverter`), RDCn, HR, RD, RE, HDS, u rodinného domu RFVE (`generator/boards/rfve_dc.dc_box_ref`).
+  s `chain.rfve_dc.per_inverter`), RDCn, HR, RD, RE, HDS, u rodinného domu RFVE (`generator/boards/rfve_dc.dc_box_ref`). Volitelné `board_prefix` (druh `dc_route` / `dc_tech` / `ac` / `main` / `mv` / `meter` → předpona,
+  `generator/spec.board_prefixes`) mění předpony; přednost: `chain.<role>.ref` > `board_prefix` > preset > dnešní značení.
 - **Revize** – `Project.revisions` (`Revision`: označení, datum, zpracoval, otisky listů při uzavření, značky
   `RevisionMark` na listu, prvku nebo vodiči). Značky vznikají z porovnání `model/diff.py` přes `model/revision.py`;
   kreslí se v editoru, PDF a DXF (vrstva `REVIZE`) a revizi listu ukazuje popisové pole. **Uzavření revize je měkký

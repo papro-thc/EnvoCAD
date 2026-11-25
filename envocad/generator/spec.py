@@ -22,7 +22,15 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from envocad.generator import context
-from envocad.generator.context import AC_SWITCHBOARD_REF, MAIN_LV_BOARD_REF, _num, _s, log
+from envocad.generator.context import (
+    AC_SWITCHBOARD_REF,
+    DC_ROUTE_BOX_PREFIX,
+    DC_TECH_BOX_REF,
+    MAIN_LV_BOARD_REF,
+    _num,
+    _s,
+    log,
+)
 from envocad.model.project import Element
 from envocad.model.topology import Topology
 
@@ -199,13 +207,67 @@ def chain_flag(v, default: bool = False) -> bool:
     return t in ("1", "true", "ano", "yes", "a", "y")
 
 
+# ---- značení rozvaděčů podle druhu (`spec["board_prefix"]`, issue #144) ------------------------------------------
+# druh rozvaděče → role článků presetu, kterých se týká; výchozí předpona = dnešní značení generátoru (bez volby beze změny)
+BOARD_KINDS: dict[str, str] = {
+    "dc_route": "DC rozvaděč po trase (předpona + číslo: RDC1, RDC2…)",
+    "dc_tech": "DC rozvaděč u technologie (předpona; u více rozvaděčů na střídač předpona + číslo střídače)",
+    "ac": "AC rozvaděč FVE (u rodinného domu rozvaděč FVE)",
+    "main": "hlavní rozvaděč nn",
+    "mv": "rozvaděč VN",
+    "meter": "elektroměrový rozvaděč",
+}
+BOARD_KIND_OF_ROLE = {"rfve_dc": "dc_tech", "rfve_ac": "ac", "rfve": "ac", "hr": "main", "rvn": "mv", "re": "meter"}
+BOARD_DEFAULT_PREFIX = {"dc_route": DC_ROUTE_BOX_PREFIX, "dc_tech": DC_TECH_BOX_REF, "ac": AC_SWITCHBOARD_REF,
+                        "main": MAIN_LV_BOARD_REF, "mv": "RVN", "meter": "RE"}
+
+
+def board_prefixes(spec: Mapping | None) -> dict[str, str]:
+    """Předpony rozvaděčů zadané ve specifikaci (`board_prefix`: druh → předpona), jen neprázdné. Neplatná volba →
+    ValueError (česky): neznámý druh, předpona mimo tvar kódu umístění (`designation.CODE_RE`), dva druhy se stejnou
+    předponou (včetně výchozích předpon druhů, které zadané nejsou)."""
+    raw = (spec or {}).get("board_prefix")
+    if raw in (None, ""):
+        return {}
+    if not isinstance(raw, Mapping):
+        raise ValueError("Značení rozvaděčů (`board_prefix`) musí být objekt „druh → předpona“.")  # noqa: TRY004 – chyby specifikace jsou ValueError
+    from envocad.model.designation import CODE_RE, MAX_CODE_LEN
+    out: dict[str, str] = {}
+    for kind, value in raw.items():
+        if kind not in BOARD_KINDS:
+            raise ValueError(f"Neznámý druh rozvaděče „{kind}“ ve značení (`board_prefix`) – "
+                             f"k dispozici: {', '.join(BOARD_KINDS)}.")
+        if value is None or (isinstance(value, str) and not value.strip()):
+            continue
+        prefix = value.strip() if isinstance(value, str) else None
+        if prefix is None or not CODE_RE.fullmatch(prefix) or len(prefix) > MAX_CODE_LEN:
+            raise ValueError(f"Neplatná předpona rozvaděče „{value}“ (druh {kind}) – velká písmena, číslice a "
+                             f"podtržítko, začíná písmenem, tečka jen uvnitř (např. RDC, RFVE.AC).")
+        out[kind] = prefix
+    effective = {k: out.get(k, d) for k, d in BOARD_DEFAULT_PREFIX.items()}
+    for kind in out:
+        same = [k for k, v in effective.items() if v == effective[kind]]
+        if len(same) > 1:
+            raise ValueError(f"Druhy rozvaděčů {', '.join(same)} by měly stejná předpona „{effective[kind]}“ – "
+                             f"značení rozvaděčů musí být jedinečné.")
+    return out
+
+
+def board_prefix(spec: Mapping | None, kind: str) -> str:
+    """Předpona druhu `kind`: `board_prefix` ve specifikaci > dnešní výchozí značení generátoru."""
+    return board_prefixes(spec).get(kind) or BOARD_DEFAULT_PREFIX[kind]
+
+
 def node_ref(spec: Mapping, topology: Topology | None, role: str, legacy: str = "", default: str = "") -> str:
     """Označení článku: `chain.<role>.ref` > dřívější klíč specifikace (`legacy` – `switchboard.ref`,
-    `connection.main_board.ref`…, jen zadaný uživatelem) > `ref` článku presetu > `default` (konstanta generátoru)."""
+    `connection.main_board.ref`…, jen zadaný uživatelem) > předpona druhu (`board_prefix`) > `ref` článku presetu >
+    `default` (konstanta generátoru)."""
     given = (spec.get("chain") or {}).get(role) if isinstance(spec.get("chain"), Mapping) else None
     ref = _s((given or {}).get("ref") if isinstance(given, Mapping) else "").strip()
     node = topology.node(role) if topology is not None else None
-    return ref or _s(legacy).strip() or (node.ref if node is not None else "") or default
+    kind = BOARD_KIND_OF_ROLE.get(role)
+    by_kind = board_prefixes(spec).get(kind, "") if kind else ""
+    return ref or _s(legacy).strip() or by_kind or (node.ref if node is not None else "") or default
 
 
 def node_desc(spec: Mapping, topology: Topology | None, role: str, legacy: str = "", default: str = "") -> str:

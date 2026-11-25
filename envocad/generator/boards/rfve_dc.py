@@ -24,15 +24,16 @@ from envocad.model.project import Element, Note, Project, Sheet
 from envocad.model.topology import ChainNode
 
 
-def dc_box_ref(kind: str, inv_index: int, n_tech: int, p: Project, base: str = DC_TECH_BOX_REF) -> str:
+def dc_box_ref(kind: str, inv_index: int, n_tech: int, p: Project, base: str = DC_TECH_BOX_REF,
+               route_prefix: str = DC_ROUTE_BOX_PREFIX) -> str:
     """Označení DC rozvaděče generátoru: u technologie (`kind` "tech") `base` (z presetu, výchozí RFVE.DC), je-li
     jediný, jinak RFVE.DC1, RFVE.DC2… podle pořadí střídače (`inv_index` od 0; `n_tech` = počet rozvaděčů u
-    technologie); po trase další volné RDCn (rozvaděče u technologie číslo RDC neberou, takže po trase jdou RDC1…n
+    technologie); po trase další volné RDCn (rozvaděče u technologie číslo RDC neberou; `route_prefix` = předpona z `board_prefix.dc_route`, takže po trase jdou RDC1…n
     souvisle)."""
     if kind == "tech":
         base = base or DC_TECH_BOX_REF
         return base if n_tech <= 1 else f"{base}{inv_index + 1}"
-    return p.next_ref(DC_ROUTE_BOX_PREFIX)
+    return p.next_ref(route_prefix or DC_ROUTE_BOX_PREFIX)
 
 
 def _mark_unresolved(elements, symbols, why: str) -> None:
