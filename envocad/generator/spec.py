@@ -248,7 +248,7 @@ def board_prefixes(spec: Mapping | None) -> dict[str, str]:
     for kind in out:
         same = [k for k, v in effective.items() if v == effective[kind]]
         if len(same) > 1:
-            raise ValueError(f"Druhy rozvaděčů {', '.join(same)} by měly stejná předpona „{effective[kind]}“ – "
+            raise ValueError(f"Druhy rozvaděčů {', '.join(same)} by měly stejnou předponu „{effective[kind]}“ – "
                              f"značení rozvaděčů musí být jedinečné.")
     return out
 

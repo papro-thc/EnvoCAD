@@ -48,7 +48,7 @@ def test_house_board_prefix():
     ({"neznamy": "A"}, "Neznámý druh rozvaděče"),
     ({"ac": "rac x"}, "Neplatná předpona"),
     ({"ac": 5}, "Neplatná předpona"),
-    ({"dc_route": "RX", "dc_tech": "RX"}, "stejná předpona"),
+    ({"dc_route": "RX", "dc_tech": "RX"}, "stejnou předponu"),
 ])
 def test_invalid_prefix_czech_error(prefix, msg):
     with pytest.raises(ValueError, match=msg):
