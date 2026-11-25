@@ -290,6 +290,7 @@ def check_project(project: Project, lib, *, standard_paper: str, include_waived:
     out += calc_findings(project, lib)
     out += rating_findings(project, lib)
     out += battery_findings(project, lib)
+    out += dso_findings(project)
     out += thermal_findings(project, lib)
     out += potential_findings(project, lib)
     out += text_findings(project, lib, standard_paper=standard_paper)
@@ -787,6 +788,70 @@ def battery_findings(project: Project, lib) -> list[Finding]:
                     out.append(Finding(WARNING, s.id, s.name, bat.id, False, bat.ref,
                                        f"Baterie {cb.part_number} nepasuje ke střídači {inv.ref} ({ci.part_number}) "
                                        "podle datasheetu baterie – ověřte kompatibilitu", "battery_incompatible"))
+    return out
+
+
+# ---- F7: úplnost podkladů pro distributora (issue #132) -----------------------------------------------------------
+# Elektroměrový a hlavní rozvaděč objektu: model roli rozvaděče nenese, list se pozná podle označení bloku
+# rozvaděče (výchozí „RE“ / „HR“) nebo podle slov v jeho popisu (výchozí „elektroměrový rozvaděč“, „hlavní rozvaděč nn“).
+DSO_BOARD_REFS = frozenset({"RE", "HR"})
+DSO_BOARD_WORDS = ("elektroměrov", "hlavní rozvaděč")
+DSO_MAIN_BREAKER_CHAINS = frozenset({"main", "meter_main"})   # `chain` hlavního jističe generátoru (HR, HJ před elektroměrem)
+DSO_TRANSFORMERS = frozenset({"fve.ct", "fve.vt"})
+
+
+def _blank(e: Element, key: str) -> bool:
+    return not str(e.attrs.get(key) or "").strip()
+
+
+def _missing(e: Element, labels: dict[str, str]) -> list[str]:
+    return [label for key, label in labels.items() if _blank(e, key)]
+
+
+def is_billing_board_sheet(project: Project, s: Sheet) -> bool:
+    """List elektroměrového rozvaděče nebo hlavního rozvaděče objektu (pro kontrolu měřicích transformátorů)."""
+    if not s.is_switchboard:
+        return False
+    blk = next((e for t in project.sheets for e in t.elements if e.id == s.parent_element_id), None)
+    ref = (blk.ref if blk is not None else s.loc).strip().upper()
+    desc = str(blk.attrs.get("desc") or "").lower() if blk is not None else ""
+    return ref in DSO_BOARD_REFS or any(w in desc for w in DSO_BOARD_WORDS)
+
+
+def dso_findings(project: Project) -> list[Finding]:
+    """Údaje, které distributor chce u žádosti o připojení (jen přítomnost, žádné prahy; jen při vyplněném
+    distributoru `fve.grid.dso`): střídač (výrobce, typ, AC výkon, fáze) `dso_inverter_data`, akumulace (kapacita,
+    výkon) `dso_battery_data`, hlavní jistič (hodnota, póly) `dso_main_breaker`, MTP / MTN fakturačního měření
+    v elektroměrovém / hlavním rozvaděči (převod, třída, zatížitelnost) `dso_instrument_transformers` – všechno
+    varování; připojovací kabel (typ, průřez, délka) `dso_feed_cable` – info."""
+    if not any(str(e.attrs.get("dso") or "").strip() for s in project.sheets for e in s.elements
+               if e.symbol_id == "fve.grid"):
+        return []
+    out: list[Finding] = []
+
+    def add(severity, s, e, what, miss, code, is_wire=False):
+        out.append(Finding(severity, s.id, s.name, e.id, is_wire, e.attrs.get("ref", "") if is_wire else e.ref,
+                           f"Podklady pro distributora: {what} – chybí {', '.join(miss)}", code))
+
+    inv_labels = {"manufacturer": "výrobce", "type": "typ", "p_ac": "AC výkon", "phases": "počet fází"}
+    for s in project.sheets:
+        board = is_billing_board_sheet(project, s)
+        for e in s.elements:
+            if e.symbol_id in INVERTER_SYMBOLS and (m := _missing(e, inv_labels)):
+                add(WARNING, s, e, f"střídač {e.ref}", m, "dso_inverter_data")
+            elif e.symbol_id == "fve.battery" and (m := _missing(e, {"e_kwh": "kapacita", "p_kw": "výkon"})):
+                add(WARNING, s, e, f"akumulace {e.ref}", m, "dso_battery_data")
+            elif (e.symbol_id == "sb.main_switch" or e.attrs.get("chain") in DSO_MAIN_BREAKER_CHAINS) \
+                    and (m := _missing(e, {"in_": "hodnota", "poles": "počet pólů"})):
+                add(WARNING, s, e, f"hlavní jistič {e.ref}", m, "dso_main_breaker")
+            elif board and e.symbol_id in DSO_TRANSFORMERS and (
+                    m := _missing(e, {"ratio": "převod", "cls": "třída přesnosti", "burden": "zatížitelnost"})):
+                kind = "MTP" if e.symbol_id == "fve.ct" else "MTN"
+                add(WARNING, s, e, f"měřicí transformátor {kind} {e.ref}", m, "dso_instrument_transformers")
+        for w in s.wires:
+            if any(s.element(end.element_id).symbol_id == "fve.grid" for end in (w.a, w.b)) and (
+                    m := _missing(w, {"cable": "typ", "cross": "průřez", "length": "délka"})):
+                add(INFO, s, w, "připojovací kabel", m, "dso_feed_cable", is_wire=True)
     return out
 
 
