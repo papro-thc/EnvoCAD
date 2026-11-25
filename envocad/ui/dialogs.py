@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 
 from envocad.library.macros import repeat_context_names, resolve_values
 from envocad.model import multipole as mp
+from envocad.model.advisory import ADVISORY_NOTE
 from envocad.model.designation import element_name
 from envocad.model.project import (
     ENCLOSURE_PARAMS,
@@ -121,6 +122,7 @@ class AttrDialog(QDialog):
         if heading:
             lay.addWidget(QLabel(heading))
         form = QFormLayout()
+        self._form = form
         for a in attributes:
             items = a.choice_items() if hasattr(a, "choice_items") else []
             if items:                      # nabídka hodnot (směr přívodu/vývodu)
@@ -1555,10 +1557,12 @@ class ProjectWizard(QDialog):
 
         from envocad.library.store import LibraryStore
         from envocad.model.checks import ERROR, WARNING, check_project
+        from envocad.plugins import plugin_checks
         from envocad.settings import switchboard_paper
         ok, warn, bad = "#2e7d32", "#b26a00", INVALID_COLOR
         try:
-            found = check_project(project, self.library or LibraryStore(), standard_paper=switchboard_paper())
+            found = check_project(project, self.library or LibraryStore(), standard_paper=switchboard_paper(),
+                                  extra_checks=plugin_checks())
         except Exception as ex:  # noqa: BLE001
             return (f"<h3>Kontrola projektu (F7)</h3><p style='color:{warn}'>Kontrolu se nepodařilo provést: "
                     f"{esc(str(ex))}</p>")
@@ -1659,6 +1663,10 @@ class ElementDialog(AttrDialog):
         self.library = library
         self.symbol = symbol
         self.component_id = component_id
+        self._had_note = "note" in attrs
+        self.note_edit = QLineEdit(attrs.get("note", ""))
+        self.note_edit.setToolTip("Interní poznámka – do výkresu ani výkazů se nepropisuje")
+        self._form.addRow("Poznámka", self.note_edit)
         self.wire_combo: QComboBox | None = None
         if wire_choices is not None:
             # přívod/vývod rozvaděče: vazba na vodič nadřazeného JPS (přebere kabel, žíly, křížový odkaz)
@@ -1669,8 +1677,7 @@ class ElementDialog(AttrDialog):
             cur = attrs.get("wire_id", "")
             idx = self.wire_combo.findData(cur)
             self.wire_combo.setCurrentIndex(max(idx, 0))
-            form = self.layout().itemAt(1).layout()
-            form.addRow("Vodič v blokovém schématu", self.wire_combo)
+            self._form.addRow("Vodič v blokovém schématu", self.wire_combo)
         if library is not None:
             row = QHBoxLayout()
             self.comp_label = QLabel(self._comp_text())
@@ -1687,6 +1694,13 @@ class ElementDialog(AttrDialog):
     @property
     def wire_id(self) -> str:
         return self.wire_combo.currentData() if self.wire_combo is not None else ""
+
+    def values(self) -> dict[str, str]:
+        out = super().values()
+        note = self.note_edit.text().strip()
+        if note or self._had_note:      # nový prvek bez poznámky nepřidá do atributů prázdný klíč
+            out["note"] = note
+        return out
 
     def _comp_text(self) -> str:
         if self.library is not None and self.component_id:
@@ -1718,7 +1732,152 @@ class ElementDialog(AttrDialog):
         self.comp_label.setText(self._comp_text())
 
 
+def prvku_text(n: int) -> str:
+    """„2 prvky“, „5 prvků“ (české skloňování)."""
+    return f"{n} prvky" if 2 <= n <= 4 else f"{n} prvků"
+
+
 INVALID_COLOR = "#d32f2f"   # zvýraznění neplatného pole a varování (čitelné ve světlém i tmavém motivu)
+
+
+class BulkElementDialog(QDialog):
+    """Hromadná úprava vybraných prvků (artikl, funkce, umístění, poznámka). Pole s rozdílnými hodnotami ukazují
+    „(různé)“ a bez změny se nepřepisují; `values()` vrací jen změněná pole pro `SchematicScene.apply_bulk_edit`.
+    Artikl jde jen u prvků téže značky."""
+
+    MIXED = "(různé)"
+
+    def __init__(self, elements, library=None, parent=None, sheet=None):
+        super().__init__(parent)
+        from envocad.cmd.edits import BULK_ATTR_KEYS
+        self.library = library
+        self.elements = list(elements)
+        self.setWindowTitle(f"Upravit {prvku_text(len(self.elements))}")
+        self.setMinimumWidth(420)
+        common = self._common(sheet)
+        self._common_fields = common
+        lay = QVBoxLayout(self)
+        lay.addWidget(QLabel(f"<b>Upravit {prvku_text(len(self.elements))}</b><br>"
+                             "<small>Pole „(různé)“ zůstane beze změny, dokud do něj něco nezapíšeš.</small>"))
+        # artikl
+        comp = common["component"]
+        self._comp_initial: str | None = (comp.value or None) if not comp.mixed else None
+        self._comp_mixed = comp.mixed
+        self.component_id: str | None = self._comp_initial
+        self._comp_touched = False
+        row = QHBoxLayout()
+        self.comp_label = QLabel()
+        self.comp_label.setWordWrap(True)
+        self.comp_button = QPushButton("Vybrat artikl z knihovny…")
+        self.comp_button.clicked.connect(self.pick_component)
+        self.comp_clear = QPushButton("Zrušit artikl")
+        self.comp_clear.clicked.connect(self._clear_component)
+        row.addWidget(self.comp_label, 1)
+        row.addWidget(self.comp_button)
+        row.addWidget(self.comp_clear)
+        lay.addLayout(row)
+        if not comp.enabled or library is None:
+            tip = ("Artikl jde nastavit jen prvkům téže značky" if not comp.enabled
+                   else "Knihovna artiklů není k dispozici")
+            for w in (self.comp_button, self.comp_clear):
+                w.setEnabled(False)
+                w.setToolTip(tip)
+            self.comp_label.setToolTip(tip)
+        self._refresh_comp_label()
+        # atributy
+        form = QFormLayout()
+        labels = {"func": "Funkce (=)", "loc": "Umístění (+)", "note": "Poznámka"}
+        tips = {"func": "Kód A–Z, 0–9, _, tečka uvnitř; prázdné pole = hodnota se zděďí z listu",
+                "loc": "Kód A–Z, 0–9, _, tečka uvnitř; prázdné pole = hodnota se zděďí z listu",
+                "note": "Interní poznámka – do výkresu ani výkazů se nepropisuje"}
+        self.edits: dict[str, QLineEdit] = {}
+        self._initial: dict[str, str] = {}
+        for key in BULK_ATTR_KEYS:
+            f = common[key]
+            ed = QLineEdit("" if f.mixed else f.value)
+            self._initial[key] = ed.text()
+            if f.mixed:
+                ed.setPlaceholderText(self.MIXED)
+            elif not f.value and key in ("func", "loc"):
+                inherited = getattr(sheet, key, "") if sheet is not None else ""
+                ed.setPlaceholderText(inherited or "(z listu)")
+            ed.setToolTip(tips[key] + ("\nPrázdné pole = ponechat rozdílné hodnoty" if f.mixed else ""))
+            ed.setEnabled(f.enabled)
+            self.edits[key] = ed
+            form.addRow(labels[key], ed)
+        lay.addLayout(form)
+        self.error = QLabel()
+        self.error.setWordWrap(True)
+        self.error.setStyleSheet(f"color: {INVALID_COLOR};")
+        self.error.setVisible(False)
+        lay.addWidget(self.error)
+        bb = button_box(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        lay.addWidget(bb)
+
+    def _common(self, sheet):
+        """Společné hodnoty polí (`bulk_common`); bez listu z prvků samotných."""
+        from envocad.cmd.edits import bulk_common
+        from envocad.model.project import Sheet
+        tmp = sheet if sheet is not None else Sheet(name="", elements=self.elements)
+        return bulk_common(tmp, [e.id for e in self.elements])
+
+    def _refresh_comp_label(self) -> None:
+        if self._comp_touched or not self._comp_mixed:
+            cid = self.component_id
+            text = "<i>Artikl nepřiřazen</i>"
+            if cid and self.library is not None:
+                c = self.library.component(cid)
+                text = f"Artikl: <b>{c.label}</b>" if c else f"Artikl: <b>{cid}</b>"
+            elif cid:
+                text = f"Artikl: <b>{cid}</b>"
+        else:
+            text = f"Artikl: <i>{self.MIXED}</i>"
+        self.comp_label.setText(text)
+
+    def _clear_component(self) -> None:
+        self.set_component(None)
+
+    def set_component(self, component_id: str | None) -> None:
+        """Nový artikl pro všechny prvky (None = artikl odebrat všem)."""
+        self.component_id = component_id or None
+        self._comp_touched = True
+        self._refresh_comp_label()
+
+    def pick_component(self) -> None:
+        from envocad.ui.component_picker import ComponentPicker
+        dlg = ComponentPicker(self.library, symbol_id=self.elements[0].symbol_id, parent=self)
+        if dlg.exec() == ComponentPicker.Accepted and dlg.selected:
+            self.set_component(dlg.selected.id)
+
+    def values(self) -> dict[str, str]:
+        """Jen změněná pole: klíče `component` (id nebo "" = odebrat), `func`, `loc`, `note` (prázdné = vymazat)."""
+        out: dict[str, str] = {}
+        if self._comp_touched:      # výslovná volba artiklu (i odebrání); beze změny ji zahodí `bulk_changes`
+            out["component"] = self.component_id or ""
+        for key, ed in self.edits.items():
+            if ed.isEnabled() and ed.text().strip() != self._initial[key].strip():
+                out[key] = ed.text().strip()
+        return out
+
+    def accept(self) -> None:
+        from envocad.model.designation import validate_code
+        problems: list[str] = []
+        changed = self.values()
+        for key, aspect in (("func", "="), ("loc", "+")):
+            ed = self.edits[key]
+            if key not in changed:      # nezměněné pole (i starý neplatný společný kód) se nevaliduje
+                ed.setStyleSheet("")
+                continue
+            issues = validate_code(ed.text().strip().upper(), aspect)
+            ed.setStyleSheet(f"border: 1px solid {INVALID_COLOR};" if issues else "")
+            problems += [i.text for i in issues]
+        self.error.setText("<br>".join(problems))
+        self.error.setVisible(bool(problems))
+        if problems:
+            return
+        super().accept()
 
 
 class EnclosurePanel(QWidget):
@@ -1842,7 +2001,7 @@ class EnclosurePanel(QWidget):
         self.errors.setVisible(False)
         root.addWidget(self.errors)
 
-        g3 = QGroupBox("Oteplení (IEC 60890, orientačně)")
+        g3 = QGroupBox(f"Oteplení (IEC 60890, {ADVISORY_NOTE})")
         v3 = QVBoxLayout(g3)
         self.thermal = QLabel()
         self.thermal.setWordWrap(True)

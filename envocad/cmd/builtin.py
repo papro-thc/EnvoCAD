@@ -431,8 +431,10 @@ def _prune_selection(ctx: Ctx) -> None:
 
 def cmd_checks(ctx: Ctx):
     from envocad.model.checks import check_project
+    from envocad.plugins import plugin_checks
     from envocad.settings import switchboard_paper
-    findings = check_project(ctx.project, ctx.library, standard_paper=switchboard_paper())
+    findings = check_project(ctx.project, ctx.library, standard_paper=switchboard_paper(),
+                             extra_checks=plugin_checks())
     ctx.data = [{"severity": f.severity, "sheet": f.sheet_name, "ref": f.ref, "text": f.text, "code": f.code}
                 for f in findings]
     for f in findings:

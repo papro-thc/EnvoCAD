@@ -78,6 +78,7 @@ Nový prázdný projekt ukáže **úvodní obrazovku** s průvodcem, otevřením
 nebo křížkem.
 
 Tmavý a světlý režim přepíná `Ctrl+D` (menu Zobrazit). Tisk a export jsou vždy černobílé na bílém.
+`Zobrazit → Jazyk rozhraní` přepne češtinu a angličtinu; volba platí po restartu a zatím se přeloží jen menu Soubor.
 
 Druhy záložek (podle názvu):
 
@@ -132,7 +133,10 @@ rozdělí uzlem (tečka, značka *Odbočka*) a z volného portu uzlu kreslíš d
 vodiče. Stejně jde vodič na jiném vodiči i ukončit. Uzel má čtyři porty, všechny jsou jeden potenciál.
 
 ### Úpravy
-Dvojklik na prvek nebo vodič otevře dialog s parametry, panel Vlastnosti upravuje jednotlivé atributy přímo.
+Dvojklik na prvek nebo vodič otevře dialog s parametry, panel Vlastnosti upravuje jednotlivé atributy přímo. Při výběru **2 a více prvků** otevře dvojklik na vybraný prvek (nebo pravé tlačítko → **Vlastnosti vybraných
+prvků**) hromadný dialog: nastavíš všem artikl (jen u prvků téže značky), funkci, umístění a poznámku. Pole s rozdílnými
+hodnotami ukazují „(různé)“ a zůstanou beze změny, dokud do nich nic nezapíšeš; celá úprava je jeden krok Undo.
+**Poznámka** je interní text prvku (panel Vlastnosti i dialog) – do výkresu ani výkazů se nepropisuje.
 Tažení myší posouvá (snap 2,5 mm), `R` otáčí, `M` zrcadlí, `Delete` maže, `Ctrl+Z`/`Ctrl+Y` vrací. `Ctrl+C`/`Ctrl+V`
 kopíruje vybrané prvky včetně vodičů mezi nimi – kopie dostanou nová označení a posun 10 mm. Výběr více prvků
 tažením rámečku v prázdné ploše. Kolečko zoomuje, střední tlačítko posouvá pohled, `Home` přizpůsobí list.
@@ -167,7 +171,9 @@ označeními (makro bez proměnných se vloží jako kopie výřezu: čísla svo
 říká, které makro se použije: `dc_tech` (string v DC rozvaděči u technologie), `dc_route` (po trase),
 `ac_feed` (přívod od střídače), `ac_core` (jádro AC rozvaděče). Výchozí jsou vestavěná makra stejných jmen;
 **vlastní makro se stejným názvem** (uložené do `~/.envocad/macros/` nebo do sdílené knihovny) má přednost –
-stačí tedy nakreslit svou verzi, uložit ji pod tím jménem a generátor ji začne používat.
+stačí tedy nakreslit svou verzi, uložit ji pod tím jménem a generátor ji začne používat. Má-li vlastní kopie
+makra „DC string po trase“ ještě odpínač (vestavěné ho nemá), generátor to zapíše do logu a přidá připomínku
+na list prvního rozvaděče po trase; kopii nemění – upravte nebo smažte ji ručně.
 
 Parametrické makro používá v atributech, označeních a názvech portů **proměnné** `{k}` (pořadí instance),
 `{nk}` (n + k – pro vývod X{nk}), `{n}`, `{i}` / `{j}` (číslo střídače / stringu u něj – číslování ENVO
@@ -409,7 +415,7 @@ výrobního seznamu počítají se skutečnou výškou přístroje z artiklu (sv
 
 Panel ukazuje obsazenost a **odhad oteplení** podle IEC TR 60890 (ΣPv z atributu `p_loss_w`, jinak z artiklu,
 jinak odhad z In a pólů – zdroj „Pv: 5× artikl, 1× ruční, 2× odhad“ je u ΣPv v panelu, v TZ (tabulka ztrát po
-přístrojích) i v protokolu kusového ověření; chladicí plocha podle montáže, Δt uprostřed a v horní části, kritický přístroj, hodnocení). Parametry
+přístrojích) i ve výkazu Výpočty; chladicí plocha podle montáže, Δt uprostřed a v horní části, kritický přístroj, hodnocení). Parametry
 skříně se kreslí v informačním bloku listu rozvaděče a jdou do protokolu kusového ověření.
 
 **Hodnocení oteplení po přístrojích.** Rozhoduje teplota vzduchu u každého přístroje proti rozsahu provozní teploty
@@ -427,9 +433,9 @@ z jeho datasheetu, ne pevný práh skříně:
 - *Dolní mez*: jen když skříň má **nejnižší teplotu okolí** (`t_ambient_min`); vzduch uvnitř se pak bere rovný
   okolí (bez zatížení se skříň neohřívá). Přístroj bez `t_min` předpokládá −5 °C.
 - *Verdikt*: nejhorší přístroj (prokázané překročení z artiklu/atributu má přednost před překročením předpokladu):
-  „NEVYHOVUJE (orientačně) – F3 v řadě 1: ≈ 58 °C > t_max 55 °C; …“, jinak „vyhovuje (orientačně) – nejteplejší
+  „NEVYHOVUJE (orientační – neověřeno proti normě) – F3 v řadě 1: ≈ 58 °C > t_max 55 °C; …“, jinak „vyhovuje (orientační – neověřeno proti normě) – nejteplejší
   F3 ≈ 48 °C (t_max 55 °C, rezerva 7 K)“; nad 40 °C připomene odlehčení (derating) jističů. Stejný text je v TZ
-  a v protokolu kusového ověření. Řadové svorky se hodnotí jen s vlastním `t_max`.
+  a ve výkazu Výpočty (řádek „Oteplení“); protokol kusového ověření oteplení neuvádí (kusové ověření ho neprokazuje). Řadové svorky se hodnotí jen s vlastním `t_max`.
 
 Pozor: hodnoty křivek k a c v tabulkách jsou orientační – pro průkaz ověř proti normě.
 
@@ -583,6 +589,7 @@ součinitel, atributy střídače Umax, MPPT min/max, Imax), proud kabelem (1,25
 zatížitelnost Iz podle ČSN 33 2000-5-52 pro uložení A1/B1/C/D/E (atribut vodiče „Uložení dle ČSN“, nebo se
 pozná z textu trasy: „v zemi“, „trubka“, „na vzduchu“, „ve stěně“), In ≤ Iz, úbytek napětí (mez 3 %) a
 základní selektivita (poměr In po cestě ke zdroji ≥ 1,6). Tabulky Iz jsou orientační přepis normy.
+Výkaz má i řádek **Oteplení** za každý rozvaděč; Iz i oteplení nesou označení „orientační – neověřeno proti normě“.
 
 Podrobnosti kontroly stringů (sdílí ji `F7`, výkaz Výpočty i asistent průvodce):
 - **Teploty** – návrhové teploty z Vlastností projektu (`pv_t_min` / `pv_t_max`, jinak −10 / 70 °C). Pole přijme
@@ -965,7 +972,9 @@ pole (ručně přesunuté přístroje zůstanou, kde jsou).
 a *List výkresu* (číslo listu projektu, které ukazuje popisové pole listu – např. „2/6“). Strany obsahu, výkazů
 a změnového listu nesou v popisovém poli číslo strany dokumentace („15/33“), strany listů číslo listu výkresu.
 Obsah, výkazy i změnový list jsou tabulky stránkované na víc stran; šířky sloupců se řídí obsahem a šířkou strany,
-dlouhý text se v buňce zalomí. **Bez rámečku** (výchozí) má každá strana malé „strana n/N“ v pravém dolním rohu –
+dlouhý text se v buňce zalomí. Při exportu se program zeptá, zda na konec (před změnový list) přidat strany
+„Přehled použitých značek“ (legenda: obrázek značky, název, počet použití v projektu; výchozí je nepřidávat).
+**Bez rámečku** (výchozí) má každá strana malé „strana n/N“ v pravém dolním rohu –
 dokumentace se vždy dá očíslovat a seřadit, rámeček ale zůstává volbou uživatele (např. pro vložení do rámečku
 zákazníka). Otevřené připomínky listu rozvaděče se v dokumentaci (s volbou „Přidávat připomínky do exportu“)
 ukážou na straně jeho vícepólu u přístroje, ke kterému patří (vodič → jeho první konec); připomínka bez vazby na
@@ -1119,7 +1128,9 @@ prvku, rozměry pro rozložení a ztrátový výkon pro oteplení.
   svorkovnice (výchozí A4 na šířku), největší list JPS z průvodce (`jps_max_paper`, výchozí A2) a výchozí volba
   listů JPS v PDF dokumentace (`doc_jps_page`, výchozí „Zmenšit na A3“) (`~/.envocad/settings.json`).
 - Pluginy: `~/.envocad/plugins/*.py` s funkcí `register(ctx)` přidají menu, šablony, importéry, výkazy nebo
-  příkazy příkazového řádku (`ctx.add_command`, viz `envocad/plugins.py`).
+  příkazy příkazového řádku (`ctx.add_command`) nebo vlastní kontroly projektu (`ctx.add_check`, nálezy se objeví
+  ve Kontrole F7 i v příkazu CHECKS; vzor `envocad/plugins_builtin/example_check.py`). Plugin, který vyžaduje novější
+  API (`REQUIRES_API` > `API_VERSION` v `envocad/plugins.py`), se nenačte a okno to po startu ohlásí. Viz `envocad/plugins.py`.
 
 Data artiklů jsou opsaná z veřejných katalogů (zdroj a strana je u každého řádku) – před použitím
 v projektu je ověř u výrobce.

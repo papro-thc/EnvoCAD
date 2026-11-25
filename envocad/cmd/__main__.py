@@ -109,8 +109,12 @@ def main(argv: list[str] | None = None) -> int:
     save = SaveOptions(target=target, allow=target is not None and not a.dry_run, overwrite=a.force,
                        dry_run=a.dry_run, deferred=True)
     from envocad.cmd.builtin import default_registry
-    from envocad.library.store import LibraryStore
-    lib = LibraryStore()
+    from envocad.library.store import LibrarySchemaError, LibraryStore
+    try:
+        lib = LibraryStore()
+    except LibrarySchemaError as ex:
+        print(f"Knihovnu nelze otevřít: {ex}", file=sys.stderr)
+        return COMMAND_ERROR
     sync_feed_links(project)               # jako otevření v GUI
     sync_cables(project)
     registry = default_registry(user_aliases=not a.no_user_aliases)
@@ -141,6 +145,7 @@ def main(argv: list[str] | None = None) -> int:
         return COMMAND_ERROR
     failed = not rep.ok
     saved = None
+    from envocad.plugins import plugin_checks
     from envocad.settings import switchboard_paper
     if not failed or a.keep_going:
         sync_derived(project)
@@ -151,7 +156,8 @@ def main(argv: list[str] | None = None) -> int:
             except OSError as ex:
                 print(f"Uložení do {target} selhalo: {ex}", file=sys.stderr)
                 return COMMAND_ERROR
-    counts = Counter(f.severity for f in check_project(project, lib, standard_paper=switchboard_paper()))
+    counts = Counter(f.severity for f in check_project(project, lib, standard_paper=switchboard_paper(),
+                                     extra_checks=plugin_checks()))
     if a.json:
         _emit({"summary": {"ok": not failed, "commands": rep.count, "errors": rep.errors, "saved": saved,
                            "checks": dict(counts)}}, True)

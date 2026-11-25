@@ -330,7 +330,7 @@ def test_mirror_geometry_layout(lib):
     assert top == pytest.approx(200 - 10)                          # spodek cívky −7,5 → −2,5 mm → na mřížku
     axis = [ln for ln in g.lines if ln[0] == ln[2] == 100]
     assert axis and axis[0][1] == pytest.approx(top) and axis[0][3] == pytest.approx(y1)
-    assert x1 < 100 < x2 and g.rects == [] and len(g.boxes) == len(g.texts) == 5
+    assert x1 < 100 < x2 and not hasattr(g, "rects") and len(g.boxes) == len(g.texts) == 5
     assert y1 == pytest.approx(top - X.HEADER_H - X.ROW_PITCH * 3)
     left = [t for t in g.texts if t[0] < 100]
     right = [t for t in g.texts if t[0] > 100]

@@ -8,6 +8,7 @@ import functools
 from collections import OrderedDict
 
 from envocad.library.store import LibraryStore
+from envocad.model.advisory import ADVISORY_NOTE
 from envocad.model.designation import LOCATION_SYMBOLS, designation, element_name, full_designation, scope_key
 from envocad.model.feed import FEED_SYMBOL
 from envocad.model.notes import plural
@@ -565,7 +566,7 @@ def fixed_voltage_text(sc) -> str:
 
 @over_clean
 def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
-    """Výkaz výpočtů: stringy vs. střídač, kabely (I, Iz, In, ΔU), selektivita."""
+    """Výkaz výpočtů: stringy vs. střídač, kabely (I, Iz, In, ΔU), selektivita, oteplení rozvaděčů."""
     from envocad.model import calc
     head = ["Část", "Prvek", "Hodnoty", "Mez / porovnání", "Výsledek"]
     rows = []
@@ -586,12 +587,34 @@ def calculations(project: Project, lib: LibraryStore, sheet: Sheet | None = None
         if sheet is not None and cc.sheet != sheet.name:
             continue
         vals = f"I = {cc.i_a or '–'} A, S = {cc.cross or '–'} mm², L = {cc.length or '–'} m, uložení {cc.method}, {cc.system}"
-        lim = f"Iz = {cc.iz or '–'} A" + (f", In {cc.breaker_ref} = {cc.in_breaker:g} A" if cc.in_breaker else "") + \
+        lim = f"Iz = {cc.iz or '–'} A ({ADVISORY_NOTE})" + \
+              (f", In {cc.breaker_ref} = {cc.in_breaker:g} A" if cc.in_breaker else "") + \
               (f", ΔU = {cc.du_v} V ({cc.du_pct} %)" if cc.du_pct is not None else "")
         rows.append(["Kabel", cc.ref, vals, lim, "OK" if not cc.issues else "; ".join(cc.issues)])
     for lo, hi, il, ih, msg in calc.check_selectivity(project, sheet):
         rows.append(["Selektivita", f"{lo} → {hi}", f"In {il:g} A → {ih:g} A", f"poměr ≥ {calc.SELECTIVITY_RATIO}", msg])
+    rows += _thermal_rows(project, lib, sheet)
     return head, rows
+
+
+def _thermal_rows(project: Project, lib: LibraryStore, sheet: Sheet | None) -> list[list]:
+    """Řádky „Oteplení“ výkazu Výpočty: jeden na list rozvaděče (IEC TR 60890, výsledek `ThermalResult.verdict`)."""
+    from envocad.model.thermal import layout_inputs, temperature_rise
+    rows = []
+    for sb in project.switchboards():
+        if sheet is not None and sb.id != sheet.id:
+            continue
+        try:
+            rdf, t_amb = layout_inputs(sb.layout)
+            r = temperature_rise(sb, rdf=rdf, t_ambient_c=t_amb, project=project, lib=lib)
+        except Exception:  # noqa: BLE001 – výkaz se vytvoří i bez výpočtu oteplení
+            r = None
+        if r is None:
+            continue
+        src = r.loss_summary()     # zdroj ztrát přístrojů: artikl / ruční / odhad
+        rows.append(["Oteplení", sb.name, f"ΣPv {r.p_total_w:.0f} W" + (f" ({src})" if src else "")
+                     + f", okolí {r.t_ambient_c:.0f} °C", f"horní část ≈ {r.t_top_c:.0f} °C", r.verdict()])
+    return rows
 
 
 @over_clean
@@ -720,6 +743,26 @@ def marking(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> 
         if pw.marker_to:
             rows.append(["Návlečka", pw.marker_to, "", pw.local_to or pw.to_text, name, pw.conductor, pw.sheet])
     return head, rows
+
+
+SYMBOL_LEGEND_NAME = "Přehled použitých značek"
+
+
+@over_clean
+def symbol_legend(project: Project, lib: LibraryStore, sheet: Sheet | None = None) -> tuple[list[str], list[list]]:
+    """Přehled použitých značek (legenda): symbol_id, název značky, počet použití v projektu (nebo na listu).
+    Řazeno podle názvu (bez ohledu na velikost písmen), pak symbol_id. Neznámá značka = název je její symbol_id.
+    Není v `ALL_REPORTS` – do PDF dokumentace se přidává jen na výslovnou žádost (`DocBuilder(legend=True)`)."""
+    counts: dict[str, int] = {}
+    for s in _sheets(project, sheet):
+        for e in s.elements:
+            counts[e.symbol_id] = counts.get(e.symbol_id, 0) + 1
+    rows = []
+    for sid, n in counts.items():
+        sym = _symbol(lib, sid)
+        rows.append([sid, sid if sym.placeholder else (sym.name or sid), n])
+    rows.sort(key=lambda r: (r[1].casefold(), r[0]))
+    return ["Značka", "Název", "Počet"], rows
 
 
 ALL_REPORTS = [("Data pro DS", dso_report), ("Výpočty", calculations), ("Přístroje", device_list), ("Výkaz materiálu", bom),

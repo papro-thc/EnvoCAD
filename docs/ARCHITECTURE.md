@@ -27,6 +27,8 @@ envocad/
   library/    knihovna prvků
     store.py       SQLite úložiště symbolů a komponent (artiklů)
     dxf_import.py  DXF → Symbol
+    symbol_edit.py Úpravy portů a atributů značky pro editor symbolů (`ui/symbol_editor.py`); vestavěnou ani souborovou
+                   (user/shared složka) značku nepřepisuje, uloží kopii `<id>_N` (bez Qt)
     topologies.py  presety topologií (builtin/topologies, sdílená, ~/.envocad/topologies) – jako makra
     builtin/       startovní symboly (JSON), verzované v gitu
   generate.py   tenký re-export generátoru (build_project, DEFAULT_SPEC…) + CLI `python -m envocad.generate`
@@ -58,6 +60,7 @@ envocad/
                  (`textlayout.layout_cache`, klíč = úplný stav listů; benchmark `tools/bench_generate.py`); přístroje řetězce nesou atribut `chain`
                  (inv, rfve_main, fve_out, main, meter_main, inst_switch) pro `calc.check_selectivity_tree` (F7
                  `checks.chain_findings`)
+  i18n.py     překlady rozhraní (gettext-styl bez Qt: `tr("česky")` + katalogy `resources/i18n/<jazyk>.po`, `docs/PREKLADY.md`)
   updater.py  aktualizace na vydané verze (klon: git tagy `vX.Y.Z`; samostatná aplikace: `latest.json` ve sdílené složce,
               ZIP + SHA-256, `current.txt`); bez Qt – dotaz a hlášení v `ui/update_prompt.py` (`docs/RELEASE.md`)
   cmd/        příkazový řádek ve stylu ZWCAD (bez Qt – hlídá `test_model_pure.py`), pro GUI, CLI, skripty a agenty;
@@ -76,6 +79,7 @@ envocad/
     canvas.py       QGraphicsView – mřížka, zoom, snap
     items.py        QGraphicsItem obaly nad Element/Wire
     main_window.py  okno, panely, akce
+    symbol_editor.py  dialog editoru symbolů (porty a atributy značky, náhled; logika v library/symbol_edit.py)
     update_prompt.py  aktualizace při startu: dotaz Aktualizovat / Teď ne, průběh kopie, hlášení výsledku
                     (`app.startup_update`, `app.report_update`)
   export/     DXF, PDF, výkazy .xlsx, docx (protokol kusového ověření, TZ a DSPS ze šablony: doc_template.py engine
@@ -162,6 +166,19 @@ přidaná hodnota oproti ručnímu kreslení v ZWCAD.
 ## Formát symbolu (JSON)
 
 Viz `docs/LIBRARY_FORMAT.md`.
+
+## Verze schématu knihovny (`library/store.py`)
+Databáze `library.db` nese verzi schématu v `PRAGMA user_version` (`LIBRARY_SCHEMA_VERSION`, dnes 1). `LibraryStore`
+ji čte při otevření před `SCHEMA`: DB bez verze (0) s tabulkami = verze 1, prázdný soubor = nová DB s aktuální verzí.
+Novější verze než program zná (knihovnu vytvořil novější EnvoCAD) → `LibrarySchemaError` s českou hláškou a soubor se
+nezmění (GUI ukáže dialog, `python -m envocad.cmd` vypíše chybu a skončí kódem 1). Nižší verze → `migrate()` zavolá
+kroky z `MIGRATIONS` (klíč N = převod N → N+1, chybějící krok jen zvýší číslo) v jedné transakci `BEGIN IMMEDIATE`
+s rollbackem při chybě; verze se pod zámkem čte znovu (souběžný proces mohl už převést → nic se nespustí podruhé).
+Nová DB se zakládá ve stejné transakci jako zápis verze (tabulky po jednom přes `execute`, ne `executescript`).
+Stejná verze nic nezapisuje (knihovna se otevírá při každém `build_project`).
+Změna schématu: zvednout `LIBRARY_SCHEMA_VERSION`, upravit `SCHEMA` a přidat krok do `MIGRATIONS`. Vestavěná data
+jsou přestavitelný index souborů JSON/CSV – v kroku stačí smazat `builtin_files`, aby se načetla znovu. Uživatelská data
+(řádky `symbols` s `builtin=0` a ručně importované artikly) krok převést musí.
 
 ## Archiv projektu `.ecpz` (`library/archive.py`)
 Zip s plochými členy `manifest.json` (`{"format": 1, "app": verze}`), `project.ecp` (stejný JSON jako `Project.save`,
@@ -270,6 +287,8 @@ Jeden model, dva pohledy nad stejnými daty:
   „Číslo listu“ stran odvozených pohledů `page_label` („2/5, str. 1/3“), formát strany v popisovém poli (`paper`).
   PDF dokumentace (`export/doc_pdf.py`) má smíšené formáty stran: `QPdfWriter.setPageLayout` před každou novou
   stranou (`DocBuilder.page_sizes`).
+  Volitelná strana „Přehled použitých značek“ (`DocBuilder(legend=True)`, výkaz `reports.symbol_legend`): tabulka s
+  obrázkem značky v prvním sloupci.
 
 ## Modularita a rozšiřování
 
@@ -279,16 +298,21 @@ Tři vrstvy rozšíření, od nejjednodušší:
    `C:\Users\<jméno>\.envocad\library\`) může obsahovat libovolné podsložky se značkami `*.json`
    (formát `docs/LIBRARY_FORMAT.md`) a artikly `*.csv` (`docs/COMPONENTS.md`). Načtou se při startu, změny
    podle data souboru. Firemní sdílená knihovna = tato složka na síťovém disku (nebo git repozitář).
-2. **Importéry** – `library/dxf_import.py`, `qet_import.py`, `eplan_import.py` převádějí cizí formáty na (1).
+2. **Importéry** – `library/dxf_import.py`, `qet_import.py`, `eplan_import.py`, `bmecat_import.py` převádějí cizí formáty na (1).
    Nový formát = nový modul se stejným rozhraním (vstup → `Symbol` / řádky CSV).
 3. **Pluginy** – `~/.envocad/plugins/*.py` s `register(ctx)` (`envocad/plugins.py`): položky menu, šablony
-   rozvaděčů, importéry v menu, vlastní výkazy. Vzor: `envocad/plugins_builtin/example_counts.py`.
+   rozvaděčů, importéry v menu, vlastní výkazy, příkazy a kontroly projektu (`ctx.add_check(fn)` → `Finding`,
+   registr `plugins.CHECKS`, do `check_project(extra_checks=…)` ho předávají volající; model plugins neimportuje).
+   Verze API: `plugins.API_VERSION`; plugin s `REQUIRES_API` vyšším než `API_VERSION` se nenačte (hlášení v
+   `ctx.failed`). Vzory: `envocad/plugins_builtin/example_counts.py` (menu), `example_check.py` (kontrola).
    Budoucí obory (HVAC, MaR, silnoproud budov) = balíček knihovny + plugin se šablonami a výkazy, jádro se nemění.
    Přívod/vývod rozvaděče je v API jedna značka `sb.feed` + `attrs.dir` (`feed.FEED_SYMBOL`); šablona pluginu se
    starými `sb.feed_in` / `sb.feed_out` se po `build` převede (`feed.normalize_legacy_objects` v `apply_template`),
    callback menu, který vkládá prvky sám, musí použít `sb.feed`.
 
-Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **17** – formát stran schématu rozvaděče `mp_paper` navíc A2, A1 a volný A4 (výška 297, šířka podle kresby, `multipole.FREE_A4`) a formát listu volný A4 (`frame.sheet_format_size`), data se nemění; v16 otisk listu uzavřené revize zahrnuje volné texty listu, migrace v15 → v16 přepočítá
+Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **18** – formát listu a stran schématu rozvaděče navíc A0, formáty na výšku („A3 na výšku“…) a vlastní
+„šířka×výška“ v mm (`multipole.parse_custom_paper`), data se nemění, verze zvednutá, aby program v17 soubor odmítl místo
+kreslení na A4; v17 formát stran schématu rozvaděče `mp_paper` navíc A2, A1 a volný A4 (výška 297, šířka podle kresby, `multipole.FREE_A4`) a formát listu volný A4 (`frame.sheet_format_size`), data se nemění; v16 otisk listu uzavřené revize zahrnuje volné texty listu, migrace v15 → v16 přepočítá
 otisky listů s texty, které sedí na starý výpočet (`diff.upgrade_fingerprints`), data se nemění; v15 blok rozvaděče bez listu
 s porty z atributů `ports_in` / `ports_out` a jištěním portů `protect` (`project.block_port_names`, `is_block_only`,
 `block_protect`; generátor tak kreslí stávající RD / HR / RE a RFVE.AC bez mustru jen jako blok), migrace v14 → v15

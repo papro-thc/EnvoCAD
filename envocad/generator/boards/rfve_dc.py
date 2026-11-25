@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from envocad.generator import context
 from envocad.generator.boards.base import ChainContext, ChainPorts
-from envocad.generator.boards.macro_glue import FUSE_SYMBOLS, _dc_box_from_macro
+from envocad.generator.boards.macro_glue import (
+    FUSE_SYMBOLS,
+    _dc_box_from_macro,
+    route_macro_warning_text,
+    route_macro_with_disconnect,
+)
 from envocad.generator.context import (
     DC_ROUTE_BOX_PREFIX,
     DC_TECH_BOX_REF,
@@ -14,7 +19,8 @@ from envocad.generator.context import (
 from envocad.generator.dc_voltage import un_label
 from envocad.generator.spec import fuse_in_why
 from envocad.library.templates import _place_sequential, build_dc_strings
-from envocad.model.project import Element, Project, Sheet
+from envocad.model.notes import put_note
+from envocad.model.project import Element, Note, Project, Sheet
 from envocad.model.topology import ChainNode
 
 
@@ -78,6 +84,20 @@ def fuse_of(ctx: ChainContext, t: Element | None) -> tuple[str, str]:
     return ctx.fuse_cache[key]
 
 
+def _warn_route_macro(ctx: ChainContext, sheet: Sheet, entry) -> None:
+    """Vlastní kopie makra `dc_route` s odpínačem: jedno varování do logu (ne při opakovaném sestavení téhož
+    `build_project`) a jedna připomínka na listu prvního rozvaděče po trase."""
+    m = route_macro_with_disconnect(entry)
+    if m is None:
+        return
+    text = route_macro_warning_text(m, str(m.path))
+    if text not in context._BUILD_WARNED:
+        context._BUILD_WARNED.add(text)
+        log.warning(text)
+    put_note(ctx.project, Note(sheet_id=sheet.id, x=0.0, y=0.0, author="generátor",
+                               text=route_macro_warning_text(m, m.path.name)))
+
+
 def build_dc_sheets(ctx: ChainContext) -> None:
     """Listy DC rozvaděčů z `ctx.dc_boxes` (po trase i u technologie, v pořadí vzniku bloků): makro na string
     (`dc_route` / `dc_tech`), jinak `build_dc_strings`; artikly SPD a držáku pojistky, neurčené In → `in_unresolved`.
@@ -96,6 +116,9 @@ def build_dc_sheets(ctx: ChainContext) -> None:
             build_common_sheet(ctx, sheet, macros.get("dc_tech", ""))
             continue
         entry = macros.get("dc_tech" if kind == "tech" else "dc_route", "")
+        if kind != "tech" and "dc_route_macro_checked" not in ctx.done:
+            ctx.done.add("dc_route_macro_checked")
+            _warn_route_macro(ctx, sheet, entry)
         fin, why = fuse_of(ctx, inv_by_ref.get(inv_ref))
         dc_box = {**dc, "fuse_in": fin}
         if not _dc_box_from_macro(p, sheet, [g.ref for g in gens], entry, dc_box, inv_no, inv_ref):

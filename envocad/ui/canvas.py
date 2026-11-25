@@ -60,6 +60,7 @@ class SchematicScene(QGraphicsScene):
         super().__init__()
         self.project, self.sheet, self.library, self.undo = project, sheet, library, undo
         self.element_items: dict[str, ElementItem] = {}
+        self._press_selection: list[str] | None = None   # id vybraných prvků před posledním stiskem (dvojklik)
         self.wire_items: dict[str, WireItem] = {}
         self.note_items: dict[str, NoteItem] = {}
         self.text_items: dict[str, TextItem] = {}
@@ -608,6 +609,10 @@ class SchematicScene(QGraphicsScene):
                 idx = nearest_segment(pts, p.x(), -p.y(), tol=2.5)
                 if idx is not None and 0 < idx < len(pts) - 2:
                     self._seg = (top, idx, (p.x(), -p.y()), pts, [tuple(x) for x in top.wire.points])
+        # snímek výběru před stiskem: první klik dvojkliku bez Ctrl zruší výběr ostatních prvků, hromadný dialog
+        # z dvojkliku (`mouseDoubleClickEvent`) ho potřebuje; druhý stisk dvojkliku chodí jako DoubleClick, ne Press
+        self._press_selection = ([x.element.id for x in self.selectedItems() if isinstance(x, ElementItem)]
+                                 if ev.button() == Qt.LeftButton else None)
         # SELECT: zapamatovat výchozí pozice pro undo posunu
         super().mousePressEvent(ev)
         if self._seg is not None:
@@ -714,6 +719,14 @@ class SchematicScene(QGraphicsScene):
                 self.open_switchboard.emit(it.element.id)
                 return None
             eid = it.element.id
+            sel, self._press_selection = self._press_selection, None
+            # prvek ve výběru 2+ prvků → hromadná úprava
+            if sel and len(sel) >= 2 and eid in sel and all(i in self.element_items for i in sel):
+                self.clearSelection()
+                for i in sel:
+                    self.element_items[i].setSelected(True)
+                QTimer.singleShot(0, lambda: self.edit_elements_bulk(sel))
+                return None
             QTimer.singleShot(0, lambda: self.edit_element(eid))
             return None
         for w in self.items(ev.scenePos()):
@@ -806,6 +819,37 @@ class SchematicScene(QGraphicsScene):
         if dlg.wire_combo is not None and dlg.wire_id:
             self._take_conductors_from_link(eid, dlg.wire_id)
         self.undo.endMacro()
+
+    def apply_bulk_edit(self, eids, *, component: str | None = None, func: str | None = None,
+                        loc: str | None = None, note: str | None = None) -> int:
+        """Hromadná úprava prvků (artikl, func, loc, note): jedno makro undo z `SetComponentCommand` a `set_attr`.
+        Změny počítá `cmd.edits.bulk_changes` (stejně jako příkazový řádek); vrací počet změněných prvků, bez změny
+        nepushne nic, ValueError (neplatný kód, artikl pro různé značky) propustí dřív, než se změní model."""
+        from envocad.cmd.edits import bulk_changes
+        changes = bulk_changes(self.sheet, eids, component=component, func=func, loc=loc, note=note)
+        if not changes:
+            return 0
+        n = len({c.element_id for c in changes})
+        from envocad.ui.dialogs import prvku_text
+        self.undo.beginMacro(f"Upravit {prvku_text(n)}")
+        for c in changes:
+            if c.key == "component":
+                self.undo.push(commands.SetComponentCommand(self, c.element_id, c.old, c.new))
+            else:
+                self.set_attr(c.element_id, False, c.key, c.new)
+        self.undo.endMacro()
+        return n
+
+    def edit_elements_bulk(self, eids) -> None:
+        """Dialog společných vlastností vybraných prvků; po potvrzení jedna změna přes `apply_bulk_edit`."""
+        from envocad.ui.dialogs import BulkElementDialog
+        els = [e for e in self.sheet.elements if e.id in set(eids)]
+        if len(els) < 2:
+            return
+        dlg = BulkElementDialog(els, self.library, self._parent_widget(), self.sheet)
+        if dlg.exec() != BulkElementDialog.Accepted:
+            return
+        self.apply_bulk_edit([e.id for e in els], **dlg.values())
 
     def _wire_choices(self, symbol_id: str):
         from envocad.model.project import FEED_SYMBOLS, wire_choices

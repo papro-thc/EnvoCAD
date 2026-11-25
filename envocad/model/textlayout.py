@@ -219,24 +219,24 @@ def segment_hits_box(p: Point, q: Point, b: Box, tol: float = 0.2) -> bool:
 
 def symbol_segments(e: Element, sym) -> list[tuple[Point, Point]]:
     """Čáry značky v souřadnicích listu (čáry, hrany obdélníků a lomených čar, kružnice jako čtverec)."""
-    def tr(x, y):
+    def to_sheet(x, y):
         rx, ry = place_point(x, y, e.rotation, getattr(e, "mirror", False))
         return (e.x + rx, e.y + ry)
     out = []
     for pr in sym.primitives:
         t = pr["type"]
         if t == "line":
-            out.append((tr(pr["x1"], pr["y1"]), tr(pr["x2"], pr["y2"])))
+            out.append((to_sheet(pr["x1"], pr["y1"]), to_sheet(pr["x2"], pr["y2"])))
         elif t == "rect":
             x, y, w, h = pr["x"], pr["y"], pr["w"], pr["h"]
-            c = [tr(x, y), tr(x + w, y), tr(x + w, y + h), tr(x, y + h)]
+            c = [to_sheet(x, y), to_sheet(x + w, y), to_sheet(x + w, y + h), to_sheet(x, y + h)]
             out += list(zip(c, c[1:] + c[:1]))
         elif t == "polyline":
-            c = [tr(x, y) for x, y in pr["points"]]
+            c = [to_sheet(x, y) for x, y in pr["points"]]
             out += list(pairwise(c + ([c[0]] if pr.get("closed") else [])))
         elif t in ("circle", "arc"):
             cx, cy, r = pr["cx"], pr["cy"], pr["r"]
-            c = [tr(cx - r, cy - r), tr(cx + r, cy - r), tr(cx + r, cy + r), tr(cx - r, cy + r)]
+            c = [to_sheet(cx - r, cy - r), to_sheet(cx + r, cy - r), to_sheet(cx + r, cy + r), to_sheet(cx - r, cy + r)]
             out += list(zip(c, c[1:] + c[:1]))
     return out
 

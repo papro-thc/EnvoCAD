@@ -1,0 +1,30 @@
+﻿PVObject_=pvGInverter
+  Version=7.2
+  PVObject_Commercial=pvCommercial
+    Manufacturer=Solární Dílna Příbram
+    Model=SD-10K-T2
+    Width=0.525
+    Height=0.470
+    Depth=0.262
+    Weight=27.00
+  End of PVObject pvCommercial
+  Transfo=Without
+  PVObject_Converter=TConverter
+    PNomConv=10.000
+    PMaxOUT=11.000
+    VOutConv=400.0
+    VMppMin=160
+    VMPPMax=950
+    VAbsMax=1100
+    EfficMax=98.60
+    EfficEuro=98.10
+    MonoTri=Tri
+    PNomDC=10.200
+    PMaxDC=15.000
+    IMaxDC=44.0
+    INomAC=14.5
+    IMaxAC=16.9
+  End of PVObject TConverter
+  NbInputs=4
+  NbMPPT=2
+End of PVObject pvGInverter

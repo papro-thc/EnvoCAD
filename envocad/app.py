@@ -8,10 +8,13 @@ from PySide6.QtWidgets import QApplication
 QT_TRANSLATIONS = ("qtbase_cs", "qt_cs")   # české texty standardních tlačítek a dialogů Qt (Ano/Ne/Storno…)
 
 
-def install_qt_translations(app) -> list:
+def install_qt_translations(app, language: str = "cs") -> list:
     """Načte české překlady Qt (`qtbase_cs`, případně `qt_cs`) z adresáře překladů Qt (`QLibraryInfo`; v balíčku
     PyInstaller `PySide6/Qt/translations`) a nainstaluje je do aplikace. Vrací nainstalované překladače (aplikace si
-    je musí držet – jinak je uvolní GC); chybějící soubor nevadí (zůstanou anglická tlačítka)."""
+    je musí držet – jinak je uvolní GC); chybějící soubor nevadí (zůstanou anglická tlačítka). Pro jiný jazyk než
+    češtinu se nic neinstaluje (Qt je výchozí anglicky) a vrací se `[]`."""
+    if language != "cs":
+        return []
     from PySide6.QtCore import QLibraryInfo, QTranslator
     path = QLibraryInfo.path(QLibraryInfo.TranslationsPath)
     out = []
@@ -26,6 +29,12 @@ def install_qt_translations(app) -> list:
     return out
 
 
+def setup_language() -> str:
+    """Nastaví jazyk rozhraní podle nastavení (`settings.language()`); vrací nastavený kód."""
+    from envocad import i18n, settings
+    return i18n.set_language(settings.language())
+
+
 def main() -> None:
     from envocad.logging_setup import log, setup
 
@@ -33,7 +42,11 @@ def main() -> None:
     app = QApplication(sys.argv)
     app.setApplicationName("EnvoCAD")
     app.setOrganizationName("ENVO")
-    install_qt_translations(app)
+    lang = setup_language()
+    if lang == "cs":
+        install_qt_translations(app)
+    else:
+        install_qt_translations(app, lang)    # nic neinstaluje (Qt zůstane anglicky)
     if startup_update(sys.argv[1:]):     # nová verze samostatné aplikace spuštěna → tento proces končí
         log.info("Spuštěna nová verze, konec")
         sys.exit(0)
@@ -43,7 +56,14 @@ def main() -> None:
     theme.apply(theme.load_saved(), app)
 
     project, error = load_start_project(sys.argv[1:])
-    win = MainWindow(project=project)
+    from envocad.library.store import LibrarySchemaError
+    try:
+        win = MainWindow(project=project)
+    except LibrarySchemaError as ex:
+        from PySide6.QtWidgets import QMessageBox
+        log.error("Knihovnu nelze otevřít: %s", ex)
+        QMessageBox.critical(None, "Knihovnu nelze otevřít", str(ex))
+        sys.exit(1)
     win.statusBar().showMessage(f"Log: {log_path}", 5000)
     win.show()
     report_update(win)
