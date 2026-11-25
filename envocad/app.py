@@ -56,7 +56,14 @@ def main() -> None:
     theme.apply(theme.load_saved(), app)
 
     project, error = load_start_project(sys.argv[1:])
-    win = MainWindow(project=project)
+    from envocad.library.store import LibrarySchemaError
+    try:
+        win = MainWindow(project=project)
+    except LibrarySchemaError as ex:
+        from PySide6.QtWidgets import QMessageBox
+        log.error("Knihovnu nelze otevřít: %s", ex)
+        QMessageBox.critical(None, "Knihovnu nelze otevřít", str(ex))
+        sys.exit(1)
     win.statusBar().showMessage(f"Log: {log_path}", 5000)
     win.show()
     report_update(win)
