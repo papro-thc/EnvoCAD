@@ -1224,7 +1224,8 @@ def thermal_findings(project: Project, lib=None) -> list[Finding]:
     teplota vzduchu v řadě přístroje nad jeho `t_max` z artiklu / atributu (nebo `t_min` nad nejnižší teplotou okolí
     skříně) – WARNING u přístroje. Přístroje bez rozsahu teplot z datasheetu (předpoklad `DEFAULT_T_MAX_C` /
     `DEFAULT_T_MIN_C`) – jedna INFO na list, včetně počtu těch, které jsou nad předpokladem (bez údaje z datasheetu
-    nejde o prokázané překročení, ale o úkol doplnit data; verdikt oteplení je přesto hodnotí konzervativně)."""
+    nejde o prokázané překročení, ale o úkol doplnit data; verdikt oteplení je přesto hodnotí konzervativně).
+    Skříň mimo rozsah metody IEC TR 60890 (`ThermalResult.out_of_scope`): jen WARNING `thermal_out_of_scope`."""
     from envocad.model.thermal import SOURCE_ASSUMED, layout_inputs, temperature_rise
     out: list[Finding] = []
     for s in project.sheets:
@@ -1232,6 +1233,10 @@ def thermal_findings(project: Project, lib=None) -> list[Finding]:
             continue
         rdf, t_amb = layout_inputs(s.layout)
         r = temperature_rise(s, rdf=rdf, t_ambient_c=t_amb, project=project, lib=lib)
+        if not r.valid:   # mimo rozsah metody IEC TR 60890 – místo čísel jeden nález, po přístrojích se nehodnotí
+            out.append(Finding(WARNING, s.id, s.name, "", False, "", f"Oteplení: {r.scope_text()}",
+                               "thermal_out_of_scope"))
+            continue
         over_assumed = 0
         for d in r.hot_devices():
             if d.source == SOURCE_ASSUMED:
