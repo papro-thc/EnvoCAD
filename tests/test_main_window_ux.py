@@ -336,7 +336,9 @@ def test_checks_panel_restored_from_last_run_fills_itself():
     w.run_checks()
     w.close()                                        # stav okna s otevřeným panelem Kontrola se uloží
     w2, _p2, _s2 = _sb_window()
-    assert w2.checks_dock.isVisible() and w2._checks_timer.isActive()
+    assert w2.checks_dock.isVisible()
+    # časovač (800 ms) mohl na pomalém běhu (Windows CI) už vypršet a nálezy se doplnily samy
+    assert w2._checks_timer.isActive() or w2._findings is not None
     w2._checks_timer.timeout.emit()
     assert w2._findings is not None and w2.checks_panel.tree.topLevelItemCount() > 0
     w2.close()
