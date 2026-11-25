@@ -1,7 +1,7 @@
 {
  "default_1inv": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -2844,11 +2844,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "two_inv": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "FVE Test",
   "meta": {
    "investor": "Test s.r.o.",
@@ -7034,11 +7035,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "route2_terminals": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -9814,11 +9816,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "with_component": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -13240,11 +13243,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "company_9inv": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -25552,11 +25556,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "company_9inv_code": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -37536,11 +37541,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "house_code_battery": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "rodinný dům",
@@ -40445,11 +40451,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "house_2inv": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "rodinný dům",
@@ -43575,11 +43582,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "house_3inv": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "rodinný dům",
@@ -48629,11 +48637,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "apartment_optimizer": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "bytový dům",
@@ -51785,11 +51794,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "vn_kiosk_nn": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -55215,11 +55225,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "vn_kobky_vn_1250": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -59542,11 +59553,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "vn_sloup": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -61814,11 +61826,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "split_4x8": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -82632,11 +82645,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "dc_disconnect": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -84091,11 +84105,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "house_ac_only": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "rodinný dům",
@@ -85936,11 +85951,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "house_terminals": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "rodinný dům",
@@ -88339,11 +88355,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "company_battery": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -90755,11 +90772,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "route_boxes3": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -93948,11 +93966,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "fuse_in_unresolved": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -96305,11 +96324,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "macro_values": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -99387,11 +99407,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "two_inv_per_inverter": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "FVE Test",
   "meta": {
    "investor": "Test s.r.o.",
@@ -103591,11 +103612,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "nn_existing_fuse": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -110661,11 +110683,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "nn_hr_meter": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -112836,11 +112859,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "house_existing": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "rodinný dům",
@@ -115178,11 +115202,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "nn_grid_protection": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -118599,11 +118624,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "house_eps": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "rodinný dům",
@@ -121538,11 +121564,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "nn_ac_groups": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -125137,11 +125164,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "inverter_1phase": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -127476,11 +127504,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "scope_company": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -129723,11 +129752,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "scope_house_eps": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "rodinný dům",
@@ -131731,11 +131761,12 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  },
  "scope_vn": {
   "format": "envocad-project",
-  "format_version": 18,
+  "format_version": 19,
   "name": "Nový projekt FVE",
   "meta": {
    "building": "firma",
@@ -134612,6 +134643,7 @@
    }
   ],
   "revisions": [],
-  "notes": []
+  "notes": [],
+  "waivers": []
  }
 }

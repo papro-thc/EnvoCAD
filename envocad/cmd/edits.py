@@ -31,6 +31,7 @@ from envocad.model.project import (
     SheetText,
     StructureId,
     TextChange,
+    Waiver,
     Wire,
     WireEnd,
     _uid,
@@ -621,3 +622,17 @@ def replace_text(project: Project, lib, find: str, replace: str, sheet: Sheet | 
     matches = find_text(project, lib, find, replace, sheet, match_case)
     apply_text_matches(project, matches)
     return sum(m.count for m in matches)
+
+
+def waive(project: Project, waiver: Waiver) -> None:
+    """Přidá potlačení nálezu (volající ohlídá, že stejný klíč ještě potlačen není)."""
+    project.waivers.append(waiver)
+
+
+def unwaive(project: Project, key: tuple[str, str, str]) -> Waiver | None:
+    """Zruší všechna potlačení s klíčem (kód, id cíle, id listu; soubor může obsahovat duplicitu); vrací první
+    zrušené, nebo None, když takové není."""
+    gone = [w for w in project.waivers if w.key == key]
+    if gone:
+        project.waivers[:] = [w for w in project.waivers if w.key != key]
+    return gone[0] if gone else None

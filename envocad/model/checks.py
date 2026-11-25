@@ -5,7 +5,7 @@ Každý nález: závažnost, list, prvek/vodič, text. GUI z nich dělá seznam 
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from envocad.model import multipole as mp
 from envocad.model.advisory import ADVISORY_NOTE
@@ -31,6 +31,7 @@ from envocad.model.project import (
     Element,
     Project,
     Sheet,
+    Waiver,
     contact_terminals,
     dangling_wires,
     element_symbol,
@@ -62,6 +63,13 @@ class Finding:
     ref: str
     text: str
     code: str = ""
+    waived: bool = False         # potlačeno (`Waiver`) – jen s `check_project(include_waived=True)`
+    waiver_reason: str = ""
+
+    @property
+    def key(self) -> tuple[str, str, str]:
+        """Klíč potlačení: (kód, id prvku/vodiče nebo "" pro celý list, id listu)."""
+        return (self.code, self.target_id, self.sheet_id)
 
 
 def _connected_ports(sheet: Sheet, e: Element) -> set[str]:
@@ -101,12 +109,16 @@ def plugin_findings(project: Project, lib, extra_checks) -> list[Finding]:
     return out
 
 
-def check_project(project: Project, lib, *, standard_paper: str, extra_checks=()) -> list[Finding]:
+def check_project(project: Project, lib, *, standard_paper: str, include_waived: bool = False,
+                  aggregate: bool = True, extra_checks=()) -> list[Finding]:
     """Kontrola projektu (F7). `standard_paper` = formát stran vícepólu z firemního standardu
     (`envocad.settings.switchboard_paper`) pro překryvy ve vícepólu – model nastavení nečte.
+    Potlačené nálezy (`project.waivers`) se vynechají, s `include_waived` jsou v seznamu s `waived=True`; osiřelé
+    potlačení hlásí vždy nález `waiver_orphan`. `aggregate=False` neslučuje informační nálezy po prvcích.
     `extra_checks` = kontroly pluginů (`envocad.plugins.plugin_checks()`; model plugins neimportuje): každá
     `fn(project, lib)` dostane projekt bez visících vodičů a vrací iterovatelné `Finding` / None. Spouští se až
-    po `aggregate_info` (INFO nálezy pluginu se tak nesloučí s vestavěnými podle `code`) a před společným řazením."""
+    po potlačení a `aggregate_info` (INFO nálezy pluginu se tak nesloučí s vestavěnými podle `code`; potlačit je
+    zatím nelze) a před společným řazením."""
     from envocad.model.xref import (
         DeviceIndex,
         has_cable_data,
@@ -281,11 +293,47 @@ def check_project(project: Project, lib, *, standard_paper: str, extra_checks=()
     out += thermal_findings(project, lib)
     out += potential_findings(project, lib)
     out += text_findings(project, lib, standard_paper=standard_paper)
-    out = aggregate_info(out)
+    out = apply_waivers(out, full)
+    waived = [f for f in out if f.waived]
+    out = [f for f in out if not f.waived]
+    if aggregate:
+        out = aggregate_info(out)
     out += plugin_findings(project, lib, extra_checks)
+    if include_waived:
+        out += waived
     order = {ERROR: 0, WARNING: 1, INFO: 2}
     out.sort(key=lambda f: (order[f.severity], f.sheet_name, f.ref))
     return out
+
+
+def apply_waivers(findings: list[Finding], project: Project) -> list[Finding]:
+    """Označí nálezy potlačené `project.waivers` (`waived=True` + důvod; jedno potlačení kryje všechny nálezy se
+    stejným klíčem) a přidá nález `waiver_orphan` za každé potlačení, ke kterému žádný nález nevznikl. Nález
+    `waiver_orphan` potlačit nelze."""
+    by_key: dict = {}
+    for w in project.waivers:
+        if w.code != "waiver_orphan":
+            by_key.setdefault(w.key, w)         # při duplicitě platí první výskyt
+    out = [replace(f, waived=True, waiver_reason=by_key[f.key].reason)
+           if f.code != "waiver_orphan" and f.key in by_key else f for f in findings]
+    seen = {f.key for f in findings}
+    out += [_orphan_finding(project, w) for w in project.waivers if w.key not in seen]
+    return out
+
+
+def _orphan_finding(project: Project, w: Waiver) -> Finding:
+    sheet = next((s for s in project.sheets if s.id == w.sheet_id), None)
+    target_id, is_wire, ref = "", False, w.ref
+    if sheet is not None and w.target_id:
+        e = next((x for x in sheet.elements if x.id == w.target_id), None)
+        wire = next((x for x in sheet.wires if x.id == w.target_id), None)
+        if e is not None:
+            target_id, ref = e.id, e.ref or w.ref
+        elif wire is not None:
+            target_id, is_wire, ref = wire.id, True, wire.attrs.get("ref") or w.ref
+    why = ("nález už nevzniká" if target_id or not w.target_id else "prvek/vodič už neexistuje")
+    return Finding(INFO, sheet.id if sheet else "", sheet.name if sheet else "", target_id, is_wire, ref,
+                   f"Potlačení nálezu {w.code} je osiřelé – {why} (důvod: {w.reason})", "waiver_orphan")
 
 
 def is_earthing_feed(sheet: Sheet, e: Element) -> bool:
@@ -1148,5 +1196,8 @@ def thermal_findings(project: Project, lib=None) -> list[Finding]:
 
 
 def summary(findings: list[Finding]) -> str:
-    c = Counter(f.severity for f in findings)
-    return f"{c.get(ERROR, 0)} chyb, {c.get(WARNING, 0)} varování, {c.get(INFO, 0)} informací"
+    """Souhrn počtů; potlačené nálezy se nepočítají, jen (když nějaké jsou) se připojí „, N potlačeno“."""
+    c = Counter(f.severity for f in findings if not f.waived)
+    n_waived = sum(f.waived for f in findings)
+    return (f"{c.get(ERROR, 0)} chyb, {c.get(WARNING, 0)} varování, {c.get(INFO, 0)} informací"
+            + (f", {n_waived} potlačeno" if n_waived else ""))

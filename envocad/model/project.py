@@ -67,7 +67,7 @@ def wire_attributes(sheet: Sheet | None) -> list[Attribute]:
     return list(SWITCHBOARD_WIRE_ATTRIBUTES) if sheet is not None and sheet.is_switchboard else list(WIRE_ATTRIBUTES)
 
 
-FORMAT_VERSION = 18
+FORMAT_VERSION = 19
 
 MODULE_WIDTH = 17.5  # mm – šířka jednoho modulu na DIN liště
 DEVICE_HEIGHT_MM = 45.0  # mm – výška modulového přístroje na liště (rozložení, délky vodičů)
@@ -676,6 +676,36 @@ class Note:
                    resolved_by=d.get("resolved_by", ""), resolved=d.get("resolved", ""), id=d.get("id") or _uid())
 
 
+@dataclass
+class Waiver:
+    """Potlačení nálezu kontroly s důvodem (F7). Klíč = (kód, id prvku/vodiče nebo "" pro celý list, id listu);
+    jedno potlačení kryje všechny nálezy se stejným klíčem. `ref` = označení v okamžiku potlačení (text osiřelého
+    nálezu, když prvek zmizel), `date` ISO „2026-11-23“."""
+    code: str
+    target_id: str
+    sheet_id: str
+    reason: str = ""
+    author: str = ""
+    date: str = ""
+    ref: str = ""
+
+    @property
+    def key(self) -> tuple[str, str, str]:
+        return (self.code, self.target_id, self.sheet_id)
+
+    def to_dict(self) -> dict:
+        return {"code": self.code, "target_id": self.target_id, "sheet_id": self.sheet_id, "reason": self.reason,
+                "author": self.author, "date": self.date, "ref": self.ref}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> Waiver:
+        def s(k: str) -> str:
+            v = d.get(k)
+            return "" if v is None else v if isinstance(v, str) else str(v)
+        return cls(code=s("code"), target_id=s("target_id"), sheet_id=s("sheet_id"), reason=s("reason"),
+                   author=s("author"), date=s("date"), ref=s("ref"))
+
+
 TEXT_HEIGHTS = (2.5, 3.5, 5.0, 7.0)   # výšky písma volného textu [mm] (ISO 3098)
 TEXT_LINE = 1.4                        # řádkování víceřádkového textu (× výška)
 
@@ -816,6 +846,7 @@ class Project:
     structures: list[StructureId] = field(default_factory=list)   # registr kódů =funkce / +umístění s popisy
     revisions: list[Revision] = field(default_factory=list)
     notes: list[Note] = field(default_factory=list)   # připomínky (redlining), viz model/notes.py
+    waivers: list[Waiver] = field(default_factory=list)   # potlačené nálezy kontroly (s důvodem)
     path: Path | None = None
     # kabely odebrané `sync_cables` (žádný vodič na ně neodkazuje): id → (pořadí, kabel). Vrátí-li se vodič s tímto
     # `cable_id` (undo smazání, redo vložení), kabel se obnoví beze změny i na původním místě. Neukládá se.
@@ -946,6 +977,7 @@ class Project:
             "structures": [x.to_dict() for x in self.structures],
             "revisions": [r.to_dict() for r in self.revisions],
             "notes": [n.to_dict() for n in self.notes],
+            "waivers": [w.to_dict() for w in self.waivers],
         }
 
     @classmethod
@@ -975,7 +1007,8 @@ class Project:
                    structures=[_part(StructureId.from_dict, x, f"struktura č. {k + 1}")
                                for k, x in enumerate(_top(d, "structures"))],
                    revisions=[_part(Revision.from_dict, r, _label(r, "revize", k)) for k, r in enumerate(_top(d, "revisions"))],
-                   notes=[_part(Note.from_dict, n, f"připomínka č. {k + 1}") for k, n in enumerate(_top(d, "notes"))])
+                   notes=[_part(Note.from_dict, n, f"připomínka č. {k + 1}") for k, n in enumerate(_top(d, "notes"))],
+                   waivers=[_part(Waiver.from_dict, w, f"potlačení č. {k + 1}") for k, w in enumerate(_top(d, "waivers"))])
         _repair_duplicate_ids(proj)
         if ver < 16:
             from envocad.model.diff import upgrade_fingerprints  # diff importuje project – až tady
@@ -1001,11 +1034,12 @@ class Project:
 
 
 def sheets_state(project: Project) -> dict:
-    """Stav listů a registru struktur: {"sheets": {id: to_dict}, "structures": [...]} – snímek pro undo
+    """Stav listů, registru struktur a potlačených nálezů: {"sheets": {id: to_dict}, "structures": [...], "waivers": [...]} – snímek pro undo
     (`ui/commands.SheetsStateCommand`) i transakce příkazového řádku (`envocad/cmd`, `ChangeSet`). Hluboká kopie –
     `to_dict` sdílí slovníky atributů s modelem."""
     return copy.deepcopy({"sheets": {s.id: s.to_dict() for s in project.sheets},
-                          "structures": [x.to_dict() for x in project.structures]})
+                          "structures": [x.to_dict() for x in project.structures],
+                          "waivers": [w.to_dict() for w in project.waivers]})
 
 
 def restore_sheets_state(project: Project, state: dict) -> None:
@@ -1016,6 +1050,8 @@ def restore_sheets_state(project: Project, state: dict) -> None:
         if d is not None and s.to_dict() != d:
             s.restore_state(d)
     project.structures = [StructureId.from_dict(x) for x in state["structures"]]
+    if "waivers" in state:
+        project.waivers = [Waiver.from_dict(x) for x in state["waivers"]]
 
 
 def dangling_wires(sheet: Sheet) -> list[Wire]:
@@ -1317,6 +1353,9 @@ def migrate(d: dict, ver: int) -> dict:
     # by nepoznal a vícepól tiše vykreslil na A4.
     # v18: formát listu a stran schématu rozvaděče navíc A0, formáty na výšku („A3 na výšku“…) a vlastní „šířka×výška“
     # v mm. Data se nemění; verze se zvedla, aby program v17 soubor odmítl – formát stran by nepoznal (A4).
+    if ver < 19:
+        # v19: potlačení nálezů (Project.waivers). Starší program v18 by potlačení při uložení tiše zahodil.
+        d.setdefault("waivers", [])
     d["format_version"] = FORMAT_VERSION
     return d
 
