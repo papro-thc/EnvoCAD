@@ -611,6 +611,10 @@ def _thermal_rows(project: Project, lib: LibraryStore, sheet: Sheet | None) -> l
             r = None
         if r is None:
             continue
+        if not r.valid:   # mimo rozsah metody: místo čísla a verdiktu jen hlášení
+            rows.append(["Oteplení", sb.name, f"ΣPv {r.p_total_w:.0f} W, okolí {r.t_ambient_c:.0f} °C",
+                         "mimo rozsah metody", r.verdict()])
+            continue
         src = r.loss_summary()     # zdroj ztrát přístrojů: artikl / ruční / odhad
         rows.append(["Oteplení", sb.name, f"ΣPv {r.p_total_w:.0f} W" + (f" ({src})" if src else "")
                      + f", okolí {r.t_ambient_c:.0f} °C", f"horní část ≈ {r.t_top_c:.0f} °C", r.verdict()])

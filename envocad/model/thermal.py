@@ -1,4 +1,4 @@
-"""Ověření oteplení rozvaděče výpočtem – ČSN EN 61439-1 čl. 10.10.4.3.1 / IEC TR 60890:2014. Bez Qt.
+"""Ověření oteplení rozvaděče výpočtem – ČSN EN 61439-1 čl. 10.10.4.3.1 / IEC TR 60890:2022. Bez Qt.
 
 Postup:
 1. Ztrátový výkon přístrojů ΣPv – z atributu `p_loss_w` přístroje (ruční údaj), jinak z artiklu (`p_loss_w`
@@ -132,6 +132,19 @@ B_FACTORS = {
     "zapuštěná": (0.7, 0.0, 0.9, 0.5, 0.5),
     "stojanová": (1.4, 0.0, 0.9, 0.9, 0.9),
 }
+# Meze platnosti metody IEC TR 60890:2022 (jen čísla; výpočet mimo ně se nehlásí jako platný, `scope_problems`).
+# zdroj: IEC TR 60890:2022 kap. 4, potvrdil projektant 2026-11-25
+MAX_AC_CURRENT_A = 1600.0       # AC: proud skříně nejvýš; model proud skříně nezná → dnes se nekontroluje
+MAX_AC_FREQUENCY_HZ = 60.0      # AC: kmitočet nejvýš; model kmitočet nezná → dnes se nekontroluje
+MAX_DC_CURRENT_A = 3200.0       # DC: proud skříně nejvýš; model proud skříně nezná → dnes se nekontroluje
+# zdroj: IEC TR 60890:2022 kap. 1, potvrdil projektant 2026-11-25
+AMBIENT_MIN_C, AMBIENT_MAX_C = 10.0, 50.0   # teplota okolí (max. denní průměr)
+# zdroj: IEC TR 60890:2022 kap. 5.1, potvrdil projektant 2026-11-25
+MAX_PARTITIONS = 5              # nejvýš vodorovných přepážek
+# zdroj: IEC TR 60890:2022 kap. 5.3.1, potvrdil projektant 2026-11-25
+AE_MAX_M2 = 11.5                # větší Ae nebo šířka → norma dělí na fiktivní sekce, EnvoCAD hlásí mimo rozsah
+WIDTH_MAX_MM = 1500.0
+OUT_OF_SCOPE = "mimo rozsah metody IEC TR 60890 – doložit jinak"
 K_PLASTIC_PENALTY = 1.15  # plastová skříň odvádí teplo hůř než lakovaná ocel (předpoklad EnvoCAD, ne norma)
 
 AE_LIMIT_M2 = 1.25
@@ -183,6 +196,16 @@ class ThermalResult:
     devices: list[DeviceTemp] = field(default_factory=list)
     t_ambient_min_c: float | None = None
     losses: list[DeviceLoss] = field(default_factory=list)
+    out_of_scope: list[str] = field(default_factory=list)   # důvody, proč je skříň mimo rozsah metody (`scope_problems`)
+
+    @property
+    def valid(self) -> bool:
+        """False = skříň je mimo rozsah metody IEC TR 60890 – čísla nejsou platný výsledek (`out_of_scope`)."""
+        return not self.out_of_scope
+
+    def scope_text(self) -> str:
+        """„mimo rozsah metody IEC TR 60890 – doložit jinak (důvod; důvod)“, prázdné v rozsahu."""
+        return f"{OUT_OF_SCOPE} ({'; '.join(self.out_of_scope)})" if self.out_of_scope else ""
 
     def loss_counts(self) -> dict[str, int]:
         """Počet přístrojů s nenulovou ztrátou podle zdroje (`LOSS_ARTICLE`, `LOSS_MANUAL`, `LOSS_ESTIMATE`)."""
@@ -250,7 +273,10 @@ class ThermalResult:
     def verdict(self) -> str:
         """Orientační hodnocení po přístrojích: nejhorší přístroj (nejmenší rezerva k `t_max`, teplota vzduchu
         v jeho řadě – `device_temperatures`) určuje verdikt; při zadané `t_ambient_min` i dolní meze `t_min`.
-        Chybějící údaje se doplní předpokladem (`DEFAULT_T_MAX_C`) a verdikt na ně upozorní."""
+        Chybějící údaje se doplní předpokladem (`DEFAULT_T_MAX_C`) a verdikt na ně upozorní. Mimo rozsah metody
+        (`out_of_scope`) verdikt není – jen text „mimo rozsah … doložit jinak“."""
+        if not self.valid:
+            return self.scope_text()
         hot, cold = self.hot_devices(), self.cold_devices()
         tail = self.missing_text()
         tail = f"; {tail}" if tail else ""
@@ -444,6 +470,22 @@ def c_factor(ae: float, height_mm: float, width_mm: float, depth_mm: float) -> f
     return _interp(C_SMALL, g)
 
 
+def scope_problems(ae_geo_m2: float, width_mm: float, t_ambient_c: float, partitions: int) -> list[str]:
+    """Důvody, proč je skříň mimo rozsah metody IEC TR 60890:2022 (prázdné = v rozsahu). Kontroluje jen vstupy, které
+    model zná: Ae a šířku skříně, teplotu okolí a počet přepážek. Proud skříně, kmitočet a sluneční záření model
+    nezná – nekontrolují se (`MAX_AC_CURRENT_A` …)."""
+    out = []
+    if ae_geo_m2 > AE_MAX_M2:
+        out.append(f"Ae {ae_geo_m2:.1f} m² > {AE_MAX_M2:g} m²".replace(".", ","))
+    if width_mm > WIDTH_MAX_MM:
+        out.append(f"šířka {width_mm:g} mm > {WIDTH_MAX_MM:g} mm")
+    if not AMBIENT_MIN_C <= t_ambient_c <= AMBIENT_MAX_C:
+        out.append(f"teplota okolí {t_ambient_c:g} °C mimo {AMBIENT_MIN_C:g}–{AMBIENT_MAX_C:g} °C")
+    if partitions > MAX_PARTITIONS:
+        out.append(f"{partitions} vodorovných přepážek > {MAX_PARTITIONS}")
+    return out
+
+
 def temperature_rise(sheet: Sheet, rdf: float = 0.8, t_ambient_c: float = 35.0, wiring_pct: float = 15.0,
                      partitions: int = 0, vents: bool = False, project=None, layout=None, lib=None) -> ThermalResult:
     """Oteplení skříně dle IEC TR 60890. Cívka stykače se nezapočítá, když položkou výkazu je stykač na stejném
@@ -471,6 +513,7 @@ def temperature_rise(sheet: Sheet, rdf: float = 0.8, t_ambient_c: float = 35.0, 
     p_total = p_dev * (1 + wiring_pct / 100)
     ae = cooling_area(lay.width_mm, lay.height_mm, lay.depth_mm, lay.params.get("mounting", "nástěnná"))
     notes.append("Ae dle IEC TR 60890 tab. 3")
+    scope = scope_problems(ae, lay.width_mm, t_ambient_c, partitions)
     if "plast" in (lay.params.get("material", "") or "").lower():
         ae /= K_PLASTIC_PENALTY
         notes.append("plastová skříň – chladicí plocha snížena o 15 %")
@@ -499,10 +542,12 @@ def temperature_rise(sheet: Sheet, rdf: float = 0.8, t_ambient_c: float = 35.0, 
         notes.append("ztráty přístrojů odhadnuty z In (doplňte p_loss_w z katalogů pro přesnější výsledek)")
     res = ThermalResult(round(p_dev, 1), round(p_total, 1), round(ae, 3), round(dt_mid, 1), round(dt_top, 1),
                         rdf, t_ambient_c, notes, k=round(k, 4), c=round(c, 3), d=d, x=x,
-                        t_ambient_min_c=ambient_min(lay), losses=losses)
+                        t_ambient_min_c=ambient_min(lay), losses=losses, out_of_scope=scope)
+    if scope:
+        notes.append(res.scope_text())
     if any(x.source != LOSS_ESTIMATE for x in losses) and res.loss_counts().get(LOSS_ESTIMATE):
         notes.append(f"{res.loss_summary()} – odhad z In u přístrojů bez údaje výrobce")
-    res.devices = device_temperatures(sheet, res, lay, project, lib, res.t_ambient_min_c)
+    res.devices = [] if scope else device_temperatures(sheet, res, lay, project, lib, res.t_ambient_min_c)
     if res.devices:
         notes.append("teplota u přístroje v úrovni osy jeho řady (střed → horní část lineárně, spodní polovina "
                      "jako střed); neumístěný přístroj = horní část")

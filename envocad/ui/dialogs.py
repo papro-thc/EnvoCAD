@@ -2105,6 +2105,9 @@ class EnclosurePanel(QWidget):
         r = temperature_rise(self._sheet, rdf=rdf, t_ambient_c=t_amb, project=self._project, layout=lay,
                              lib=self.library)
         src = r.loss_summary()      # zdroj ztrát: artikl / ruční / odhad
+        if not r.valid:   # mimo rozsah metody IEC TR 60890 – žádné číslo ani verdikt
+            self.thermal.setText(f"Oteplení: {r.scope_text()}")
+            return
         txt = (f"Ztráty přístrojů ΣPv = {r.p_devices_w:g} W" + (f" ({src})" if src else "")
                + f", celkem s vodiči {r.p_total_w:g} W\n"
                f"Účinná chladicí plocha Ae = {r.ae_m2:g} m²\n"
