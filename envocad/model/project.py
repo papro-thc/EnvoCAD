@@ -807,6 +807,17 @@ class Sheet:
         )
 
 
+# Údaje žádosti o připojení k distributorovi (`Project.meta`, volný slovník řetězců → formát se nemění):
+# (klíč, popisek). `island_capable` = „ano“ / „ne“ / prázdné (nevyplněno); výkony v kW jako text.
+DSO_META_FIELDS: list[tuple[str, str]] = [
+    ("ean_consumption", "EAN odběrného místa – spotřeba"), ("ean_supply", "EAN odběrného místa – dodávka"),
+    ("metering_point_no", "Číslo odběrného místa"), ("cadastral_area", "Katastrální území"),
+    ("parcels", "Parcelní čísla"), ("island_capable", "Schopnost ostrovního provozu"),
+    ("p_installed_total_kw", "Celkový instalovaný výkon (zadaný)"), ("p_reserved_kw", "Požadovaný rezervovaný výkon"),
+]
+DSO_META_KW_KEYS = ("p_installed_total_kw", "p_reserved_kw")
+
+
 @dataclass
 class Project:
     name: str = "Nový projekt"
