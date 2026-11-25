@@ -425,9 +425,9 @@ def test_check_now_passes_standard_from_settings(qapp, lib, monkeypatch):
     seen = []
     real = checks.check_project
 
-    def spy(project, lib_, *, standard_paper):
+    def spy(project, lib_, *, standard_paper, **kw):      # **kw: kontroly pluginů (`extra_checks`, #142)
         seen.append(standard_paper)
-        return real(project, lib_, standard_paper=standard_paper)
+        return real(project, lib_, standard_paper=standard_paper, **kw)
 
     monkeypatch.setattr(checks, "check_project", spy)
     w = MainWindow(lib, p)

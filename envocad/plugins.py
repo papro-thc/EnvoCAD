@@ -13,10 +13,17 @@ Přes `ctx` může plugin:
 - `ctx.add_command(CommandDef(...))`         – příkaz příkazového řádku (dok v okně, skripty .ecs, CLI s --plugins);
                                                `run(ctx)` je generátor výzev jako vestavěné příkazy (envocad/cmd/builtin.py),
                                                model mění přes `envocad.cmd.edits`; jméno nesmí kolidovat s vestavěným
+- `ctx.add_check(fn)`                        – kontrola projektu (F7, příkaz CHECKS); fn(project, lib) vrací seznam
+                                               `envocad.model.checks.Finding` (nebo None), dostane projekt bez visících
+                                               vodičů; výjimka / vadný návrat = nález ERROR `plugin_check`, nespadne
+                                               (vzor: `plugins_builtin/example_check.py`)
 - `ctx.library`, `ctx.log`                   – knihovna a logger
 
-Registrace je transakční jen pro položky přes `ctx.add_*` (menu, importéry, šablony, výkazy): plugin, který
-v `register` spadne, po sobě nezanechá žádnou z nich. **Změny knihovny transakce nepokrývá** – co plugin zapíše
+Verze API: `API_VERSION` (číslo). Plugin může mít na úrovni modulu `REQUIRES_API = <int>` – vyžaduje-li novější
+API, než má tento EnvoCAD, nenačte se (`register` se nezavolá) a hlášení je v `ctx.failed`.
+
+Registrace je transakční jen pro položky přes `ctx.add_*` (menu, importéry, šablony, výkazy, kontroly, příkazy):
+plugin, který v `register` spadne, po sobě nezanechá žádnou z nich. **Změny knihovny transakce nepokrývá** – co plugin zapíše
 přes `ctx.library.put_symbol(...)` (nebo jinou metodu knihovny), zůstane v knihovně i po pádu pluginu; v logu je
 pak varování se seznamem zapsaných značek. Plugin, který knihovnu mění, ať to dělá až na konci `register`.
 
@@ -40,6 +47,14 @@ from pathlib import Path
 
 log = logging.getLogger("envocad.plugins")
 
+API_VERSION = 1                    # verze API pro pluginy; plugin může vyžadovat `REQUIRES_API` (int)
+CHECKS: list[Callable] = []        # kontroly pluginů (`ctx.add_check`); volající je předají do `check_project`
+
+
+def plugin_checks() -> list[Callable]:
+    """Kopie registru kontrol pluginů – pro `check_project(..., extra_checks=plugin_checks())`."""
+    return list(CHECKS)
+
 
 @dataclass
 class PluginContext:
@@ -53,6 +68,7 @@ class PluginContext:
     failed: list[tuple[str, str]] = field(default_factory=list)   # (plugin, chyba) – hlásí okno po startu
     templates: list = field(default_factory=list)                 # čekající šablony / výkazy (do commit)
     reports: list[tuple[str, Callable]] = field(default_factory=list)
+    checks: list[Callable] = field(default_factory=list)          # čekající kontroly (do commit)
     commands: list = field(default_factory=list)                  # CommandDef příkazového řádku (registruje je volající)
     live: bool = True        # False = zatím jen sbírat (plugin se právě registruje)
     log = log
@@ -92,6 +108,16 @@ class PluginContext:
                              "(vestavěný příkaz nebo alias)")
         self.commands.append(cmd)
 
+    def add_check(self, fn: Callable) -> None:
+        """Kontrola projektu `fn(project, lib)` → seznam `Finding` / None (viz `check_project`). Kontrola projekt
+        jen čte – dostává živý model, změny mimo undo nejsou dovolené."""
+        if not callable(fn):
+            raise TypeError("kontrola: fn není funkce")
+        if self.live:
+            _apply_check(fn)
+        else:
+            self.checks.append(fn)
+
     def add_report(self, name: str, fn: Callable) -> None:
         if not callable(fn):
             raise TypeError(f"výkaz „{name}“: fn není funkce")
@@ -122,6 +148,11 @@ def _apply_report(name: str, fn: Callable) -> None:
     from envocad.export import reports
     fn = reports.over_clean(fn)   # i výkaz pluginu počítá nad projektem bez visících vodičů
     reports.ALL_REPORTS[:] = [r for r in reports.ALL_REPORTS if r[0] != name] + [(name, fn)]
+
+
+def _apply_check(fn: Callable) -> None:
+    if fn not in CHECKS:
+        CHECKS.append(fn)
 
 
 class _LibraryWrites:
@@ -157,6 +188,17 @@ def plugin_dirs() -> list[Path]:
     return dirs
 
 
+def _check_api(mod) -> None:
+    """`REQUIRES_API` modulu: chybí = OK; musí být int (ne bool) a nesmí být vyšší než `API_VERSION`."""
+    need = getattr(mod, "REQUIRES_API", None)
+    if need is None and not hasattr(mod, "REQUIRES_API"):
+        return
+    if not isinstance(need, int) or isinstance(need, bool):
+        raise TypeError(f"REQUIRES_API musí být celé číslo, ne {need!r}")
+    if need > API_VERSION:
+        raise RuntimeError(f"plugin vyžaduje API {need}, tento EnvoCAD má API {API_VERSION} – aktualizujte EnvoCAD")
+
+
 def load_plugins(library) -> PluginContext:
     """Načte pluginy. Chyba pluginu (i SyntaxError, SystemExit…) start neshodí: plugin se přeskočí, jeho
     registrace se zahodí a skončí v `ctx.failed`. Jen KeyboardInterrupt se propustí."""
@@ -167,6 +209,8 @@ def load_plugins(library) -> PluginContext:
                 continue
             name = f"envocad_plugin_{f.stem}"
             sub = PluginContext(library=library, live=False)
+            # opakované načtení (další okno): kontroly z minulého běhu téhož pluginu pryč, ať se nehromadí
+            CHECKS[:] = [c for c in CHECKS if getattr(c, "__module__", None) != name]
             writes = _LibraryWrites(library)
             try:
                 with writes:
@@ -174,6 +218,7 @@ def load_plugins(library) -> PluginContext:
                     mod = importlib.util.module_from_spec(spec)
                     sys.modules[name] = mod
                     spec.loader.exec_module(mod)
+                    _check_api(mod)
                     if not hasattr(mod, "register"):
                         continue
                     mod.register(sub)
@@ -202,6 +247,9 @@ def load_plugins(library) -> PluginContext:
                 _apply_template(t)
             for rname, fn in sub.reports:
                 _apply_report(rname, fn)
+            for fn in sub.checks:
+                _apply_check(fn)
+            sub.checks.clear()
             sub.templates.clear()
             sub.reports.clear()
             sub.live = True     # pozdější registrace (mimo register) už platí hned

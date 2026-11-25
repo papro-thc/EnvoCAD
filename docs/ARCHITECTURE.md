@@ -301,7 +301,10 @@ Tři vrstvy rozšíření, od nejjednodušší:
 2. **Importéry** – `library/dxf_import.py`, `qet_import.py`, `eplan_import.py`, `bmecat_import.py` převádějí cizí formáty na (1).
    Nový formát = nový modul se stejným rozhraním (vstup → `Symbol` / řádky CSV).
 3. **Pluginy** – `~/.envocad/plugins/*.py` s `register(ctx)` (`envocad/plugins.py`): položky menu, šablony
-   rozvaděčů, importéry v menu, vlastní výkazy. Vzor: `envocad/plugins_builtin/example_counts.py`.
+   rozvaděčů, importéry v menu, vlastní výkazy, příkazy a kontroly projektu (`ctx.add_check(fn)` → `Finding`,
+   registr `plugins.CHECKS`, do `check_project(extra_checks=…)` ho předávají volající; model plugins neimportuje).
+   Verze API: `plugins.API_VERSION`; plugin s `REQUIRES_API` vyšším než `API_VERSION` se nenačte (hlášení v
+   `ctx.failed`). Vzory: `envocad/plugins_builtin/example_counts.py` (menu), `example_check.py` (kontrola).
    Budoucí obory (HVAC, MaR, silnoproud budov) = balíček knihovny + plugin se šablonami a výkazy, jádro se nemění.
    Přívod/vývod rozvaděče je v API jedna značka `sb.feed` + `attrs.dir` (`feed.FEED_SYMBOL`); šablona pluginu se
    starými `sb.feed_in` / `sb.feed_out` se po `build` převede (`feed.normalize_legacy_objects` v `apply_template`),
