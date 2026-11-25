@@ -488,6 +488,19 @@ stavovém řádku. Co kontrola hlásí:
   ukazuje u vodiče potenciál každé žíly (`L1 X1`, `L+ G1`, `N (W3)`), výkaz **Potenciály** vypíše všechny sítě;
 - informace: přívod bez vazby na blokové schéma, prvek bez artiklu, vodič bez kabelu/žil, selektivita nejistá.
 
+Potlačení nálezu s důvodem (zatím jen příkazový řádek / skript, GUI přijde v další fázi): `WAIVE kód cíl "důvod"`
+schová nález z `CHECKS` i z panelu a uloží ho do projektu s důvodem, autorem a datem. Cíl je id nebo označení
+prvku či vodiče, nebo `-` pro nález celého aktivního listu. Jedno potlačení kryje všechny nálezy téhož kódu na
+stejném prvku. Nálezy bez id prvku či vodiče (kabel bez vodiče, projektové a revizní nálezy) zatím potlačit nelze.
+`CHECKS` potlačené vypíše zvlášť v sekci „Potlačeno (N):“ a souhrn je počítá zvlášť
+(„, potlačeno N“). `UNWAIVE kód cíl` potlačení zruší. Když nález přestane vznikat nebo prvek zmizí, kontrola
+ohlásí informaci `waiver_orphan` („Potlačení nálezu … je osiřelé“) – potlačení pak zrušte příkazem `UNWAIVE`
+(cíl lze zadat i uloženým označením).
+
+| Kód | Závažnost | Význam |
+|---|---|---|
+| `waiver_orphan` | info | potlačení, ke kterému už žádný nález nevzniká nebo jehož prvek/vodič zmizel |
+
 Kontakty a přerušovací body:
 
 | Kód | Závažnost | Význam |
@@ -1220,13 +1233,16 @@ python -m envocad.cmd projekt.ecp - < skript.ecs             # skript ze vstupu
 | `--force` | s `-o` přepsat existující soubor (jinak chyba) |
 | `--dry-run` | vykonat a vypsat, neuložit ani s `-o` |
 | `--keep-going` | po chybném řádku pokračovat (a uložit); jinak konec při první chybě bez uložení |
-| `--json` | na každý příkaz řádek JSON `{"line", "cmd", "ok", "messages", "changed_sheets"}` (u `CHECKS` navíc `data` s nálezy), nakonec `{"summary": …}` |
+| `--json` | na každý příkaz řádek JSON `{"line", "cmd", "ok", "messages", "changed_sheets"}` (u `CHECKS` navíc `data` s nálezy: `severity`, `sheet`, `ref`, `text`, `code`, `target_id`, `sheet_id`, `waived`, `reason`), nakonec `{"summary": …}` |
+| `--fail-on chyba` / `--fail-on varování` | kód návratu 3, když kontrola F7 najde nález dané nebo vyšší závažnosti (`chyba` = jen chyby, `varování` = varování i chyby; `info` kód nikdy nezmění); bez volby se kód podle nálezů nemění |
 | `--var jmeno=hodnota` | dosadí `${jmeno}` ve skriptu (jen text, dosazuje se před rozdělením řádku – mezera nebo uvozovka v hodnotě přidá argument) |
 | `--no-user-aliases` | bez uživatelských aliasů `~/.envocad/aliases.json` – skript se chová stejně na každém stroji (doporučeno pro agenty) |
 | `--plugins` | načíst pluginy `~/.envocad/plugins` a jejich příkazy (plugin je kód s právy uživatele – bez volby se nenačtou) |
 
 Kód návratu: 0 = vše proběhlo, 1 = chyba příkazu (hláška s číslem řádku, např. `řádek 7: MOVE – chybí Cílový bod`),
-2 = chybné použití (argumenty, projekt nebo skript nejde načíst). Před uložením se dopočtou kabely a vazby přívodů
+2 = chybné použití (argumenty, projekt nebo skript nejde načíst), 3 = jen s `--fail-on`: skript proběhl (a výsledek se
+případně uložil), ale kontrola F7 má nález požadované závažnosti – skript nebo agent to pozná bez čtení textu; chyba
+příkazu (1) má přednost. Před uložením se dopočtou kabely a vazby přívodů
 (jako v GUI) a výstup dostane souhrn kontroly F7. Vstup i výstup je vždy UTF-8, i v rouře na Windows.
 
 Bezpečnost skriptů (skript může napsat agent nebo přijít s cizím projektem): žádný kód se nespouští, `SAVE` ve skriptu
@@ -1271,7 +1287,9 @@ poslední výběr (`SELECT`). `SELECT F1 F2 Q*` (označení prvků i vodičů, `
 | `SELECT` | VYBER | viz výše |
 | `SHEET` | LIST | `SHEET 2` nebo `SHEET "RFVE.AC"` (aktivní list; bez argumentu vypíše listy) |
 | `UNDO` / `REDO` | U, ZPET / ZNOVU | `UNDO [počet]` |
-| `CHECKS` | F7, KONTROLA | vypíše nálezy kontroly projektu |
+| `CHECKS` | F7, KONTROLA | vypíše nálezy kontroly projektu; potlačené zvlášť v sekci „Potlačeno (N):“ |
+| `WAIVE` | POTLACIT | `WAIVE unconnected F1 "Rezerva pro 2. etapu"` – potlačí nález s důvodem (cíl = id / označení prvku či vodiče, `-` = nález celého aktivního listu); jde zpět přes `UNDO` |
+| `UNWAIVE` | ZRUSITPOTLACENI | `UNWAIVE unconnected F1` – zruší potlačení (i osiřelé) |
 | `SAVE` | ULOZ, QSAVE | `SAVE [soubor.ecp]` – v CLI jen potvrdí cíl `-o` / `--in-place` (uloží se po úspěšném konci skriptu), jiná cesta je chyba |
 | `SCRIPT` | SCR, SKRIPT | `SCRIPT jiny.ecs` – vnoření nejvýš 4×, cesta relativně ke skriptu a jen pod složkou hlavního skriptu; celý vnořený skript je jeden krok (chyba v něm nezmění nic). V okně Soubor → Spustit skript… (jeden krok Ctrl+Z) |
 | `EXPORT_DXF` | DXFOUT, EXPORTDXF | `EXPORT_DXF soubor.dxf` – aktivní list (list rozvaděče jako vícepól po stranách); bez cesty v okně dialog |

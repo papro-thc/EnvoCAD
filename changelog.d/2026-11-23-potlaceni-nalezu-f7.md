@@ -1,0 +1,1 @@
+- **Potlačení nálezu kontroly s důvodem (fáze 1)** – příkazy `WAIVE kód cíl "důvod"` a `UNWAIVE` uloží potlačení do projektu (formát 19, `Project.waivers`); `CHECKS` potlačené vypíše zvlášť a souhrn je počítá zvlášť, osiřelé potlačení hlásí info `waiver_orphan`. Undo/redo i pro změnu jen potlačení. Test `test_checks_waivers.py`.

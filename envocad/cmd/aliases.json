@@ -46,6 +46,8 @@
     "ZPET": "undo",
     "ZNOVU": "redo",
     "KONTROLA": "checks",
+    "POTLACIT": "waive",
+    "ZRUSITPOTLACENI": "unwaive",
     "ULOZ": "save",
     "ULOZIT": "save",
     "SKRIPT": "script",

@@ -21,6 +21,7 @@ from envocad.generator.spec import (
     _apply_inverter_component,
     _apply_optimizer_rules,
     _modules_per_optimizer,
+    board_prefix,
     node_ref,
 )
 from envocad.library.templates import AC_CONDUCTORS, DC_CONDUCTORS
@@ -196,6 +197,7 @@ def build(ctx: ChainContext) -> None:
     common = geo.common_dc      # jeden společný RFVE.DC (2+ střídače) – přívody X1…Xn všech stringů, vývody za nimi
     n_tech = len(invs) if dc.get("tech_box") and not combined and not common else 0   # DC rozvaděče u technologie na střídač
     tech_ref = node_ref(spec, ctx.topology, "rfve_dc", default=DC_TECH_BOX_REF)
+    route_prefix = board_prefix(spec, "dc_route")
     common_gens: list[Element] = []
     lane0 = geo.lanes_fan if common else []
     n_in_lanes = max(geo.lanes_in, default=0) + 1
@@ -272,7 +274,7 @@ def build(ctx: ChainContext) -> None:
                 boxes.append(ctx.dc_common)
                 break
             desc = f"DC rozvaděč u {ref_t}" if kind == "tech" else (f"DC rozvaděč po trase {ref_t}" + (f" ({j + 1})" if n_route > 1 else ""))
-            b = Element("fve.switchboard", x_boxes[j], y_mid, attrs={"ref": dc_box_ref(kind, i, n_tech, p, tech_ref), "desc": desc})
+            b = Element("fve.switchboard", x_boxes[j], y_mid, attrs={"ref": dc_box_ref(kind, i, n_tech, p, tech_ref, route_prefix), "desc": desc})
             s.elements.append(b)
             boxes.append(b)
             row.append(b)

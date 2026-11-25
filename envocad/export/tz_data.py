@@ -15,7 +15,7 @@ from envocad.export.docx_export import _table, set_landscape
 from envocad.library.store import LibraryStore
 from envocad.model import calc
 from envocad.model.advisory import ADVISORY_NOTE
-from envocad.model.project import Element, Project, Sheet
+from envocad.model.project import DSO_META_FIELDS, DSO_META_KW_KEYS, Element, Project, Sheet
 
 INVERTERS = ("fve.inverter", "fve.inverter_hybrid")
 FUSES = ("fve.fuse_disconnect", "fve.fuse")
@@ -93,7 +93,17 @@ def dso_data(project: Project, lib: LibraryStore) -> list[tuple[str, str]]:
                                         for w in grid_wires)),
         ("Režim", "paralelní provoz s DS, dodávka přetoků dle smlouvy"),
     ]
+    rows += _dso_application_rows(project)
     return rows
+
+
+def _dso_application_rows(project: Project) -> list[tuple[str, str]]:
+    """Údaje žádosti z `Project.meta` (`DSO_META_FIELDS`); prázdný údaj = „neuvedeno“, výkony s jednotkou kW."""
+    out = []
+    for key, label in DSO_META_FIELDS:
+        v = _s(project.meta.get(key))
+        out.append((label, (f"{v} kW" if key in DSO_META_KW_KEYS else v) if v else "neuvedeno"))
+    return out
 
 
 # ---- kontext ----------------------------------------------------------------------------------------------------

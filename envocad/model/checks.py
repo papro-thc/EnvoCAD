@@ -5,7 +5,7 @@ Každý nález: závažnost, list, prvek/vodič, text. GUI z nich dělá seznam 
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from envocad.model import multipole as mp
 from envocad.model.advisory import ADVISORY_NOTE
@@ -31,6 +31,7 @@ from envocad.model.project import (
     Element,
     Project,
     Sheet,
+    Waiver,
     contact_terminals,
     dangling_wires,
     element_symbol,
@@ -62,6 +63,13 @@ class Finding:
     ref: str
     text: str
     code: str = ""
+    waived: bool = False         # potlačeno (`Waiver`) – jen s `check_project(include_waived=True)`
+    waiver_reason: str = ""
+
+    @property
+    def key(self) -> tuple[str, str, str]:
+        """Klíč potlačení: (kód, id prvku/vodiče nebo "" pro celý list, id listu)."""
+        return (self.code, self.target_id, self.sheet_id)
 
 
 def _connected_ports(sheet: Sheet, e: Element) -> set[str]:
@@ -101,12 +109,16 @@ def plugin_findings(project: Project, lib, extra_checks) -> list[Finding]:
     return out
 
 
-def check_project(project: Project, lib, *, standard_paper: str, extra_checks=()) -> list[Finding]:
+def check_project(project: Project, lib, *, standard_paper: str, include_waived: bool = False,
+                  aggregate: bool = True, extra_checks=()) -> list[Finding]:
     """Kontrola projektu (F7). `standard_paper` = formát stran vícepólu z firemního standardu
     (`envocad.settings.switchboard_paper`) pro překryvy ve vícepólu – model nastavení nečte.
+    Potlačené nálezy (`project.waivers`) se vynechají, s `include_waived` jsou v seznamu s `waived=True`; osiřelé
+    potlačení hlásí vždy nález `waiver_orphan`. `aggregate=False` neslučuje informační nálezy po prvcích.
     `extra_checks` = kontroly pluginů (`envocad.plugins.plugin_checks()`; model plugins neimportuje): každá
     `fn(project, lib)` dostane projekt bez visících vodičů a vrací iterovatelné `Finding` / None. Spouští se až
-    po `aggregate_info` (INFO nálezy pluginu se tak nesloučí s vestavěnými podle `code`) a před společným řazením."""
+    po potlačení a `aggregate_info` (INFO nálezy pluginu se tak nesloučí s vestavěnými podle `code`; potlačit je
+    zatím nelze) a před společným řazením."""
     from envocad.model.xref import (
         DeviceIndex,
         has_cable_data,
@@ -278,14 +290,51 @@ def check_project(project: Project, lib, *, standard_paper: str, extra_checks=()
     out += calc_findings(project, lib)
     out += rating_findings(project, lib)
     out += battery_findings(project, lib)
+    out += dso_findings(project)
     out += thermal_findings(project, lib)
     out += potential_findings(project, lib)
     out += text_findings(project, lib, standard_paper=standard_paper)
-    out = aggregate_info(out)
+    out = apply_waivers(out, full)
+    waived = [f for f in out if f.waived]
+    out = [f for f in out if not f.waived]
+    if aggregate:
+        out = aggregate_info(out)
     out += plugin_findings(project, lib, extra_checks)
+    if include_waived:
+        out += waived
     order = {ERROR: 0, WARNING: 1, INFO: 2}
     out.sort(key=lambda f: (order[f.severity], f.sheet_name, f.ref))
     return out
+
+
+def apply_waivers(findings: list[Finding], project: Project) -> list[Finding]:
+    """Označí nálezy potlačené `project.waivers` (`waived=True` + důvod; jedno potlačení kryje všechny nálezy se
+    stejným klíčem) a přidá nález `waiver_orphan` za každé potlačení, ke kterému žádný nález nevznikl. Nález
+    `waiver_orphan` potlačit nelze."""
+    by_key: dict = {}
+    for w in project.waivers:
+        if w.code != "waiver_orphan":
+            by_key.setdefault(w.key, w)         # při duplicitě platí první výskyt
+    out = [replace(f, waived=True, waiver_reason=by_key[f.key].reason)
+           if f.code != "waiver_orphan" and f.key in by_key else f for f in findings]
+    seen = {f.key for f in findings}
+    out += [_orphan_finding(project, w) for w in project.waivers if w.key not in seen]
+    return out
+
+
+def _orphan_finding(project: Project, w: Waiver) -> Finding:
+    sheet = next((s for s in project.sheets if s.id == w.sheet_id), None)
+    target_id, is_wire, ref = "", False, w.ref
+    if sheet is not None and w.target_id:
+        e = next((x for x in sheet.elements if x.id == w.target_id), None)
+        wire = next((x for x in sheet.wires if x.id == w.target_id), None)
+        if e is not None:
+            target_id, ref = e.id, e.ref or w.ref
+        elif wire is not None:
+            target_id, is_wire, ref = wire.id, True, wire.attrs.get("ref") or w.ref
+    why = ("nález už nevzniká" if target_id or not w.target_id else "prvek/vodič už neexistuje")
+    return Finding(INFO, sheet.id if sheet else "", sheet.name if sheet else "", target_id, is_wire, ref,
+                   f"Potlačení nálezu {w.code} je osiřelé – {why} (důvod: {w.reason})", "waiver_orphan")
 
 
 def is_earthing_feed(sheet: Sheet, e: Element) -> bool:
@@ -742,6 +791,70 @@ def battery_findings(project: Project, lib) -> list[Finding]:
     return out
 
 
+# ---- F7: úplnost podkladů pro distributora (issue #132) -----------------------------------------------------------
+# Elektroměrový a hlavní rozvaděč objektu: model roli rozvaděče nenese, list se pozná podle označení bloku
+# rozvaděče (výchozí „RE“ / „HR“) nebo podle slov v jeho popisu (výchozí „elektroměrový rozvaděč“, „hlavní rozvaděč nn“).
+DSO_BOARD_REFS = frozenset({"RE", "HR"})
+DSO_BOARD_WORDS = ("elektroměrov", "hlavní rozvaděč")
+DSO_MAIN_BREAKER_CHAINS = frozenset({"main", "meter_main"})   # `chain` hlavního jističe generátoru (HR, HJ před elektroměrem)
+DSO_TRANSFORMERS = frozenset({"fve.ct", "fve.vt"})
+
+
+def _blank(e: Element, key: str) -> bool:
+    return not str(e.attrs.get(key) or "").strip()
+
+
+def _missing(e: Element, labels: dict[str, str]) -> list[str]:
+    return [label for key, label in labels.items() if _blank(e, key)]
+
+
+def is_billing_board_sheet(project: Project, s: Sheet) -> bool:
+    """List elektroměrového rozvaděče nebo hlavního rozvaděče objektu (pro kontrolu měřicích transformátorů)."""
+    if not s.is_switchboard:
+        return False
+    blk = next((e for t in project.sheets for e in t.elements if e.id == s.parent_element_id), None)
+    ref = (blk.ref if blk is not None else s.loc).strip().upper()
+    desc = str(blk.attrs.get("desc") or "").lower() if blk is not None else ""
+    return ref in DSO_BOARD_REFS or any(w in desc for w in DSO_BOARD_WORDS)
+
+
+def dso_findings(project: Project) -> list[Finding]:
+    """Údaje, které distributor chce u žádosti o připojení (jen přítomnost, žádné prahy; jen při vyplněném
+    distributoru `fve.grid.dso`): střídač (výrobce, typ, AC výkon, fáze) `dso_inverter_data`, akumulace (kapacita,
+    výkon) `dso_battery_data`, hlavní jistič (hodnota, póly) `dso_main_breaker`, MTP / MTN fakturačního měření
+    v elektroměrovém / hlavním rozvaděči (převod, třída, zatížitelnost) `dso_instrument_transformers` – všechno
+    varování; připojovací kabel (typ, průřez, délka) `dso_feed_cable` – info."""
+    if not any(str(e.attrs.get("dso") or "").strip() for s in project.sheets for e in s.elements
+               if e.symbol_id == "fve.grid"):
+        return []
+    out: list[Finding] = []
+
+    def add(severity, s, e, what, miss, code, is_wire=False):
+        out.append(Finding(severity, s.id, s.name, e.id, is_wire, e.attrs.get("ref", "") if is_wire else e.ref,
+                           f"Podklady pro distributora: {what} – chybí {', '.join(miss)}", code))
+
+    inv_labels = {"manufacturer": "výrobce", "type": "typ", "p_ac": "AC výkon", "phases": "počet fází"}
+    for s in project.sheets:
+        board = is_billing_board_sheet(project, s)
+        for e in s.elements:
+            if e.symbol_id in INVERTER_SYMBOLS and (m := _missing(e, inv_labels)):
+                add(WARNING, s, e, f"střídač {e.ref}", m, "dso_inverter_data")
+            elif e.symbol_id == "fve.battery" and (m := _missing(e, {"e_kwh": "kapacita", "p_kw": "výkon"})):
+                add(WARNING, s, e, f"akumulace {e.ref}", m, "dso_battery_data")
+            elif (e.symbol_id == "sb.main_switch" or e.attrs.get("chain") in DSO_MAIN_BREAKER_CHAINS) \
+                    and (m := _missing(e, {"in_": "hodnota", "poles": "počet pólů"})):
+                add(WARNING, s, e, f"hlavní jistič {e.ref}", m, "dso_main_breaker")
+            elif board and e.symbol_id in DSO_TRANSFORMERS and (
+                    m := _missing(e, {"ratio": "převod", "cls": "třída přesnosti", "burden": "zatížitelnost"})):
+                kind = "MTP" if e.symbol_id == "fve.ct" else "MTN"
+                add(WARNING, s, e, f"měřicí transformátor {kind} {e.ref}", m, "dso_instrument_transformers")
+        for w in s.wires:
+            if any(s.element(end.element_id).symbol_id == "fve.grid" for end in (w.a, w.b)) and (
+                    m := _missing(w, {"cable": "typ", "cross": "průřez", "length": "délka"})):
+                add(INFO, s, w, "připojovací kabel", m, "dso_feed_cable", is_wire=True)
+    return out
+
+
 TIGO_RSS, TIGO_CCA, TIGO_TAP = "fve.tigo_rss", "fve.tigo_cca", "fve.tigo_tap"
 
 
@@ -1111,7 +1224,8 @@ def thermal_findings(project: Project, lib=None) -> list[Finding]:
     teplota vzduchu v řadě přístroje nad jeho `t_max` z artiklu / atributu (nebo `t_min` nad nejnižší teplotou okolí
     skříně) – WARNING u přístroje. Přístroje bez rozsahu teplot z datasheetu (předpoklad `DEFAULT_T_MAX_C` /
     `DEFAULT_T_MIN_C`) – jedna INFO na list, včetně počtu těch, které jsou nad předpokladem (bez údaje z datasheetu
-    nejde o prokázané překročení, ale o úkol doplnit data; verdikt oteplení je přesto hodnotí konzervativně)."""
+    nejde o prokázané překročení, ale o úkol doplnit data; verdikt oteplení je přesto hodnotí konzervativně).
+    Skříň mimo rozsah metody IEC TR 60890 (`ThermalResult.out_of_scope`): jen WARNING `thermal_out_of_scope`."""
     from envocad.model.thermal import SOURCE_ASSUMED, layout_inputs, temperature_rise
     out: list[Finding] = []
     for s in project.sheets:
@@ -1119,6 +1233,10 @@ def thermal_findings(project: Project, lib=None) -> list[Finding]:
             continue
         rdf, t_amb = layout_inputs(s.layout)
         r = temperature_rise(s, rdf=rdf, t_ambient_c=t_amb, project=project, lib=lib)
+        if not r.valid:   # mimo rozsah metody IEC TR 60890 – místo čísel jeden nález, po přístrojích se nehodnotí
+            out.append(Finding(WARNING, s.id, s.name, "", False, "", f"Oteplení: {r.scope_text()}",
+                               "thermal_out_of_scope"))
+            continue
         over_assumed = 0
         for d in r.hot_devices():
             if d.source == SOURCE_ASSUMED:
@@ -1148,5 +1266,8 @@ def thermal_findings(project: Project, lib=None) -> list[Finding]:
 
 
 def summary(findings: list[Finding]) -> str:
-    c = Counter(f.severity for f in findings)
-    return f"{c.get(ERROR, 0)} chyb, {c.get(WARNING, 0)} varování, {c.get(INFO, 0)} informací"
+    """Souhrn počtů; potlačené nálezy se nepočítají, jen (když nějaké jsou) se připojí „, N potlačeno“."""
+    c = Counter(f.severity for f in findings if not f.waived)
+    n_waived = sum(f.waived for f in findings)
+    return (f"{c.get(ERROR, 0)} chyb, {c.get(WARNING, 0)} varování, {c.get(INFO, 0)} informací"
+            + (f", {n_waived} potlačeno" if n_waived else ""))

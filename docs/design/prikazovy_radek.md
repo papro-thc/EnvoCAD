@@ -92,6 +92,7 @@ Cena zvolené cesty: kopie změněných listů v undo zásobníku a přestavba s
 | `sheet` | LIST | název nebo pořadí listu (aktivní list) |
 | `zoom` | Z (+ ZE = rozsah, ZA = vše → `fit`) | GUI-only |
 | `checks` | F7, KONTROLA | headless vypíše nálezy `checks.check_project` |
+| `waive` / `unwaive` | POTLACIT / ZRUSITPOTLACENI | `WAIVE kód cíl "důvod"` / `UNWAIVE kód cíl` – potlačení nálezu F7 (`Project.waivers`), cíl = id nebo označení, `-` = celý list |
 | `undo`/`redo`, `save`, `export_dxf`/`export_pdf` | U, ULOZ | cesta jako argument; PDF headless s offscreen Qt |
 | `script` | SCR, SKRIPT | soubor `.ecs` (vnoření max. 4) |
 \*M = MOVE jen v řádku (ZWCAD); klávesa M na canvasu zůstává Zrcadlit (otázka 1).
@@ -111,7 +112,8 @@ Cena zvolené cesty: kopie změněných listů v undo zásobníku a přestavba s
   (jinak chyba „řádek 7: MOVE – chybí Cílový bod“). Volitelné `--var name=value` → `${name}` (jen textové dosazení).
 - CLI: `python -m envocad.cmd projekt.ecp skript.ecs [-o vystup.ecp | --in-place] [--dry-run] [--json] [--keep-going]`;
   `-` = skript ze stdin. Bez `-o`/`--in-place` se nic neuloží (bezpečný výchozí stav pro agenty). `--json` = řádek
-  na příkaz `{"line", "cmd", "ok", "messages", "changed_sheets"}`. Kód návratu 0 / 1 chyba příkazu / 2 použití.
+  na příkaz `{"line", "cmd", "ok", "messages", "changed_sheets"}`. Kód návratu 0 / 1 chyba příkazu / 2 použití /
+  3 nálezy F7 (jen s `--fail-on chyba|varování`; hodnoty = `ERROR`, `WARNING` z `model/checks.py`).
   Před uložením `sync_cables` a kontrola F7 do výstupu. Konec při první chybě (bez uložení), `--keep-going` pokračuje.
 - GUI: Soubor → „Spustit skript…“ = celý skript jako jedno makro undo (`beginMacro`), výstup do doku, Esc přeruší
   (vrátí se i hotové řádky).

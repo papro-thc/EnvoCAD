@@ -35,6 +35,8 @@ from envocad.model import multipole as mp
 from envocad.model.advisory import ADVISORY_NOTE
 from envocad.model.designation import element_name
 from envocad.model.project import (
+    DSO_META_FIELDS,
+    DSO_META_KW_KEYS,
     ENCLOSURE_PARAMS,
     MODULE_WIDTH,
     Layout,
@@ -2105,6 +2107,9 @@ class EnclosurePanel(QWidget):
         r = temperature_rise(self._sheet, rdf=rdf, t_ambient_c=t_amb, project=self._project, layout=lay,
                              lib=self.library)
         src = r.loss_summary()      # zdroj ztrát: artikl / ruční / odhad
+        if not r.valid:   # mimo rozsah metody IEC TR 60890 – žádné číslo ani verdikt
+            self.thermal.setText(f"Oteplení: {r.scope_text()}")
+            return
         txt = (f"Ztráty přístrojů ΣPv = {r.p_devices_w:g} W" + (f" ({src})" if src else "")
                + f", celkem s vodiči {r.p_total_w:g} W\n"
                f"Účinná chladicí plocha Ae = {r.ae_m2:g} m²\n"
@@ -2742,6 +2747,18 @@ class ProjectMetaDialog(QDialog):
                 ed.setToolTip(IK_META_HINT)
                 ed.setPlaceholderText("prázdné = odhad z trafa")
             form.addRow(label, ed)
+        for key, label in DSO_META_FIELDS:
+            if key == "island_capable":
+                self.island = QComboBox()
+                for text, data in (("nevyplněno", ""), ("ano", "ano"), ("ne", "ne")):
+                    self.island.addItem(text, data)
+                self.island.setCurrentIndex(max(0, self.island.findData(project.meta.get(key, ""))))
+                form.addRow(label, self.island)
+            else:
+                self.edits[key] = QLineEdit(project.meta.get(key, ""))
+                if key in DSO_META_KW_KEYS:
+                    self.edits[key].setPlaceholderText("kW")
+                form.addRow(label, self.edits[key])
         self.changes = QPlainTextEdit(project.meta.get("changes", ""))
         self.changes.setMinimumHeight(90)
         form.addRow(QLabel(PROJECT_CHANGES_LABEL))
@@ -2787,6 +2804,7 @@ class ProjectMetaDialog(QDialog):
         if texts.get("ik_ka", "").strip():
             texts["ik_ka"] = texts["ik_ka"].strip()
         texts["changes"] = self.changes.toPlainText()
+        texts["island_capable"] = self.island.currentData() or ""
         for k, v in texts.items():
             if v or k in meta:
                 meta[k] = v

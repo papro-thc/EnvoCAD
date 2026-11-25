@@ -84,6 +84,13 @@
       "fmt": "tř. {}"
     },
     {
+      "key": "burden",
+      "label": "Zátěž [VA]",
+      "default": "",
+      "show": false,
+      "fmt": "{} VA"
+    },
+    {
       "key": "n",
       "label": "Počet kusů",
       "default": "3",

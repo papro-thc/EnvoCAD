@@ -116,7 +116,8 @@ parametru `tables=`.
   úroveň; tečka uvnitř kódu (firemní `RFVE.AC`, `RFVE.DC1`) úrovně nedělí (`CODE_RE`, `parse_designation`). Generátor
   označuje rozvaděče podle presetu topologie (`node.ref`; přepis `chain.<role>.ref`, dřívější `switchboard.ref`,
   `connection.*_board.ref` – `generator/spec.resolve_chain_refs`): RFVE.AC, společný RFVE.DC (na střídač RFVE.DC1…n
-  s `chain.rfve_dc.per_inverter`), RDCn, HR, RD, RE, HDS, u rodinného domu RFVE (`generator/boards/rfve_dc.dc_box_ref`).
+  s `chain.rfve_dc.per_inverter`), RDCn, HR, RD, RE, HDS, u rodinného domu RFVE (`generator/boards/rfve_dc.dc_box_ref`). Volitelné `board_prefix` (druh `dc_route` / `dc_tech` / `ac` / `main` / `mv` / `meter` → předpona,
+  `generator/spec.board_prefixes`) mění předpony; přednost: `chain.<role>.ref` > `board_prefix` > preset > dnešní značení.
 - **Revize** – `Project.revisions` (`Revision`: označení, datum, zpracoval, otisky listů při uzavření, značky
   `RevisionMark` na listu, prvku nebo vodiči). Značky vznikají z porovnání `model/diff.py` přes `model/revision.py`;
   kreslí se v editoru, PDF a DXF (vrstva `REVIZE`) a revizi listu ukazuje popisové pole. **Uzavření revize je měkký
@@ -315,7 +316,7 @@ Tři vrstvy rozšíření, od nejjednodušší:
    starými `sb.feed_in` / `sb.feed_out` se po `build` převede (`feed.normalize_legacy_objects` v `apply_template`),
    callback menu, který vkládá prvky sám, musí použít `sb.feed`.
 
-Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **18** – formát listu a stran schématu rozvaděče navíc A0, formáty na výšku („A3 na výšku“…) a vlastní
+Formát projektu (`.ecp`) je verzovaný (`FORMAT_VERSION` + migrace, aktuálně **19** – v19 potlačení nálezů kontroly `Project.waivers` (`Waiver`: kód, cíl, list, důvod, autor, datum; `checks.apply_waivers`), migrace v18 → v19 jen doplní prázdný seznam, verze zvednutá, aby program v18 potlačení při uložení tiše nezahodil; v18 formát listu a stran schématu rozvaděče navíc A0, formáty na výšku („A3 na výšku“…) a vlastní
 „šířka×výška“ v mm (`multipole.parse_custom_paper`), data se nemění, verze zvednutá, aby program v17 soubor odmítl místo
 kreslení na A4; v17 formát stran schématu rozvaděče `mp_paper` navíc A2, A1 a volný A4 (výška 297, šířka podle kresby, `multipole.FREE_A4`) a formát listu volný A4 (`frame.sheet_format_size`), data se nemění; v16 otisk listu uzavřené revize zahrnuje volné texty listu, migrace v15 → v16 přepočítá
 otisky listů s texty, které sedí na starý výpočet (`diff.upgrade_fingerprints`), data se nemění; v15 blok rozvaděče bez listu

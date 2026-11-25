@@ -622,7 +622,7 @@ def test_calculations_and_dso_house(house, built, lib):
                        "T1: optimizérů 16–50, P stringu ≤ 11250 W"]
     assert "chybí údaj pevné napětí stringu střídače" in opt[4]
     head, dso = reports.dso_report(house, lib)
-    assert head == ["Údaj", "Hodnota"] and len(dso) == 11 and dso[4][0] == "Instalovaný výkon FV (DC)"
+    assert head == ["Údaj", "Hodnota"] and len(dso) == 19 and dso[4][0] == "Instalovaný výkon FV (DC)"
     assert dso[4][1] == "14.4 kWp (32 modulů, 2 stringů)"
     assert reports.dso_report(Project(name="Prázdný"), lib)[1] == []            # bez elektrárny žádné řádky
 

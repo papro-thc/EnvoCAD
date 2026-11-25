@@ -471,4 +471,4 @@ příkazu ne; alias na neznámý příkaz se ignoruje (varování do logu). Klí
 příkazů: `docs/design/prikazovy_radek.md`, `docs/MANUAL.md` sekce 12.
 
 Skripty příkazového řádku (`.ecs`) nejsou součástí knihovny ani projektu – formát projektu se nemění
-(aktuální `FORMAT_VERSION` je 18, viz `docs/ARCHITECTURE.md`).
+(aktuální `FORMAT_VERSION` je 19, viz `docs/ARCHITECTURE.md`).

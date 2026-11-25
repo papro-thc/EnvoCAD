@@ -990,10 +990,11 @@ class SheetsStateCommand(QUndoCommand):
         import copy
         changed = {sid for sid, d in after["sheets"].items() if before["sheets"].get(sid) != d}
         self.project, self.on_change = project, on_change
+        rest = [k for k in after if k != "sheets"]       # registr struktur, potlačené nálezy… (celé)
         self.before = {"sheets": {sid: copy.deepcopy(before["sheets"][sid]) for sid in changed if sid in before["sheets"]},
-                       "structures": copy.deepcopy(before["structures"])}
+                       **{k: copy.deepcopy(before[k]) for k in rest if k in before}}
         self.after = {"sheets": {sid: copy.deepcopy(after["sheets"][sid]) for sid in changed},
-                      "structures": copy.deepcopy(after["structures"])}
+                      **{k: copy.deepcopy(after[k]) for k in rest}}
 
     def _set(self, state):
         restore_sheets_state(self.project, state)
