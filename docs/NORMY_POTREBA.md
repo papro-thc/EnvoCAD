@@ -3,6 +3,9 @@
 Stav k 2026-11-22 (issue #79). Dokument říká, **které hodnoty musí člověk s přístupem k normám dodat nebo
 potvrdit**, aby šly výpočty EnvoCADu ověřit. Agent normy nemá – nic zde není z norem doplněno ani odhadnuto.
 
+Hodnoty z norem se do EnvoCADu doplňují **lokálně mimo git** (`~/.envocad/norms/*.json`); formát souboru, mapování
+klíčů na řádky K1–K5 a T1–T7 níže a referenční sady pro kontrolu proti Sichru popisuje `docs/NORMY_FORMAT.md`.
+
 ## Jak tabulky číst
 
 - **Kde v kódu** – `soubor:řádek` (cesty od `envocad/`) a jméno konstanty / funkce. Čísla řádků platí k datu

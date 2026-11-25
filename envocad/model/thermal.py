@@ -28,6 +28,10 @@ Implementována je pouze varianta skříně BEZ ventilačních otvorů; pro `ven
    teplotou okolí skříně `t_ambient_min` i dolní mez `t_min`.
 
 Výsledek je orientační – pro průkaz dle normy lze použít i údaje výrobce skříně (Rittal Therm, Hager…).
+
+Tabulky a činitele (k, c, d, b, x, mez Ae) lze lokálně přepsat souborem `~/.envocad/norms/*.json`
+(`model/norm_tables.py`, formát v `docs/NORMY_FORMAT.md`); výpočet je bere z `norm_tables.current()`, nebo z
+parametru `tables=`. Konstanty níže jsou vestavěné hodnoty (bez souborů se počítá přesně s nimi).
 """
 from __future__ import annotations
 
@@ -35,6 +39,7 @@ import math
 from bisect import bisect_left
 from dataclasses import dataclass, field
 
+from envocad.model import norm_tables
 from envocad.model.advisory import ADVISORY_NOTE
 from envocad.model.project import Element, Sheet
 
@@ -404,11 +409,13 @@ def device_power_loss(e: Element, rdf: float = 0.8, comp=None) -> float:
     return round(p, 2)
 
 
-def cooling_area(width_mm: float, height_mm: float, depth_mm: float, mounting: str) -> float:
+def cooling_area(width_mm: float, height_mm: float, depth_mm: float, mounting: str,
+                 tables: norm_tables.NormTables | None = None) -> float:
     """Účinná chladicí plocha Ae [m²] dle IEC TR 60890 tab. 3 (plochy × činitel b)."""
+    t = tables if tables is not None else norm_tables.current()
     w, h, d = width_mm / 1000, height_mm / 1000, max(depth_mm, 150) / 1000
-    key = next((k for k in B_FACTORS if k in (mounting or "").lower()), "nástěnná")
-    b_top, b_bottom, b_front, b_back, b_side = B_FACTORS[key]
+    key = next((k for k in t.b_factors if k in (mounting or "").lower()), "nástěnná")
+    b_top, b_bottom, b_front, b_back, b_side = t.b_factors[key]
     return (w * d) * b_top + (w * d) * b_bottom + (w * h) * b_front + (w * h) * b_back + 2 * (h * d) * b_side
 
 
@@ -424,24 +431,58 @@ def _interp(table: tuple[tuple[float, float], ...], xv: float) -> float:
     return y0 + (y1 - y0) * (xv - x0) / (x1 - x0)
 
 
-def k_factor(ae: float) -> float:
+def k_factor(ae: float, tables: norm_tables.NormTables | None = None) -> float:
     """Konstanta skříně k (IEC TR 60890 obr. 3 pro Ae > 1,25 m², obr. 4 pro Ae ≤ 1,25 m²; bez ventilace)."""
-    return _interp(K_LARGE_NO_VENTS if ae > AE_LIMIT_M2 else K_SMALL, ae)
+    t = tables if tables is not None else norm_tables.current()
+    return _interp(t.k_large_no_vents if ae > t.ae_limit_m2 else t.k_small, ae)
 
 
-def d_factor(partitions: int) -> float:
+def d_factor(partitions: int, tables: norm_tables.NormTables | None = None) -> float:
     """Činitel vodorovných přepážek d (skříň bez ventilačních otvorů)."""
-    return D_PARTITIONS_NO_VENTS[min(max(int(partitions), 0), 3)]
+    t = tables if tables is not None else norm_tables.current()
+    return t.d_partitions_no_vents[min(max(int(partitions), 0), 3)]
 
 
-def c_factor(ae: float, height_mm: float, width_mm: float, depth_mm: float) -> float:
+def c_factor(ae: float, height_mm: float, width_mm: float, depth_mm: float,
+             tables: norm_tables.NormTables | None = None) -> float:
     """Činitel rozložení teploty c (obr. 6: f = h^1,35/Ab pro Ae > 1,25 m²; obr. 7: g = h/š jinak)."""
+    t = tables if tables is not None else norm_tables.current()
     h, w, dd = height_mm / 1000, width_mm / 1000, max(depth_mm, 150) / 1000
-    if ae > AE_LIMIT_M2:
+    if ae > t.ae_limit_m2:
         f = h ** 1.35 / (w * dd) if w > 0 else 0.0
-        return _interp(C_LARGE_NO_VENTS, f)
+        return _interp(t.c_large_no_vents, f)
     g = h / w if w > 0 else 0.0
-    return _interp(C_SMALL, g)
+    return _interp(t.c_small, g)
+
+
+@dataclass(frozen=True)
+class EnclosureRise:
+    """Oteplení skříně bez zaokrouhlení: chladicí plocha Ae [m²] (u plastu už snížená), k, c, d, exponent x,
+    oteplení uprostřed výšky `dt_mid_k` a v horní části `dt_top_k` [K]."""
+    ae_m2: float
+    k: float
+    c: float
+    d: float
+    x: float
+    dt_mid_k: float
+    dt_top_k: float
+
+
+def enclosure_rise(width_mm: float, height_mm: float, depth_mm: float, mounting: str, p_total_w: float,
+                   partitions: int = 0, plastic: bool = False,
+                   tables: norm_tables.NormTables | None = None) -> EnclosureRise:
+    """Δt0,5 = k·d·P^x a Δt1,0 = c·Δt0,5 pro skříň daných rozměrů a celkový ztrátový výkon `p_total_w` [W]
+    (`temperature_rise` ji volá po sečtení ztrát přístrojů). `plastic`: Ae se dělí `K_PLASTIC_PENALTY`."""
+    t = tables if tables is not None else norm_tables.current()
+    ae = cooling_area(width_mm, height_mm, depth_mm, mounting, t)
+    if plastic:
+        ae /= K_PLASTIC_PENALTY
+    x = t.x_large if ae > t.ae_limit_m2 else t.x_small
+    k = k_factor(ae, t)
+    d = d_factor(partitions, t)
+    c = c_factor(ae, height_mm, width_mm, depth_mm, t)
+    dt_mid = k * d * p_total_w ** x if p_total_w > 0 else 0.0
+    return EnclosureRise(ae, k, c, d, x, dt_mid, c * dt_mid)
 
 
 def temperature_rise(sheet: Sheet, rdf: float = 0.8, t_ambient_c: float = 35.0, wiring_pct: float = 15.0,
@@ -469,16 +510,15 @@ def temperature_rise(sheet: Sheet, rdf: float = 0.8, t_ambient_c: float = 35.0, 
         if p:
             p_dev += p
     p_total = p_dev * (1 + wiring_pct / 100)
-    ae = cooling_area(lay.width_mm, lay.height_mm, lay.depth_mm, lay.params.get("mounting", "nástěnná"))
+    t = norm_tables.current()
+    plastic = "plast" in (lay.params.get("material", "") or "").lower()
     notes.append("Ae dle IEC TR 60890 tab. 3")
-    if "plast" in (lay.params.get("material", "") or "").lower():
-        ae /= K_PLASTIC_PENALTY
+    if plastic:
         notes.append("plastová skříň – chladicí plocha snížena o 15 %")
-    large = ae > AE_LIMIT_M2
-    x = X_LARGE if large else X_SMALL
-    k = k_factor(ae)
-    d = d_factor(partitions)
-    c = c_factor(ae, lay.height_mm, lay.width_mm, lay.depth_mm)
+    r = enclosure_rise(lay.width_mm, lay.height_mm, lay.depth_mm, lay.params.get("mounting", "nástěnná"), p_total,
+                       partitions, plastic, t)
+    ae, k, d, c, x, dt_mid, dt_top = r.ae_m2, r.k, r.d, r.c, r.x, r.dt_mid_k, r.dt_top_k
+    large = ae > t.ae_limit_m2
     if large:
         notes.append(f"k dle IEC TR 60890 obr. 3 (Ae > 1,25 m², bez ventilace), x = {x}")
         notes.append("c dle obr. 6 (f = h^1,35/Ab, samostatná skříň – konzervativně)")
@@ -491,8 +531,6 @@ def temperature_rise(sheet: Sheet, rdf: float = 0.8, t_ambient_c: float = 35.0, 
         notes.append("skříň s ventilačními otvory: výpočet proveden jako bez otvorů (obr. 5 neimplementován) "
                      "– výsledek na straně bezpečnosti")
     notes.append("tabulky k a c jsou orientační – ověřit proti IEC TR 60890")
-    dt_mid = k * d * p_total ** x if p_total > 0 else 0.0
-    dt_top = c * dt_mid
     if not lay.params.get("depth_mm"):
         notes.append("hloubka skříně nezadána – počítáno 150 mm")
     if not any(x.source != LOSS_ESTIMATE for x in losses):

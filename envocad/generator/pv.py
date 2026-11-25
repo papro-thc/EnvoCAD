@@ -155,14 +155,15 @@ def ac_cable_of(t: Element, ac: dict) -> tuple[list[str], str, str]:
     from envocad.model.calc import min_cross
     if (_num(t.attrs.get("phases")) or 3) != 1:
         return list(AC_CONDUCTORS), _s(ac.get("cable")), _s(ac.get("cross"))
-    from envocad.model.calc import IZ_3, voltage_drop
+    from envocad.model import norm_tables
+    from envocad.model.calc import voltage_drop
     p_kw = _num(t.attrs.get("p_ac"))
     i_a = p_kw * 1000 / 230.0 if p_kw else 0.0
     i_n = _num(ac1_breaker_in(t)) or i_a
     x = min_cross(max(i_a, i_n), "B1", loaded=2) if i_a else None     # Iz ≥ In jističe přívodu (In ≤ Iz)
     length = _num(ac.get("length"))
     while x and length and voltage_drop(i_a, length, x, "1f", 230.0)[1] > AC1_MAX_DROP_PCT:
-        x = next((c for c in sorted(IZ_3["B1"]) if c > x), None)     # i úbytek napětí (kontrola F7 3 %)
+        x = next((c for c in sorted(norm_tables.current().iz3["B1"]) if c > x), None)     # i úbytek napětí (kontrola F7 3 %)
     cross = f"{max(x, AC1_MIN_CROSS):g}".replace(".", ",") if x else _s(ac.get("cross"))
     family = (_s(ac.get("cable")).split() or ["CYKY-J"])[0]
     return list(AC1_CONDUCTORS), f"{family} 3x{cross}", cross

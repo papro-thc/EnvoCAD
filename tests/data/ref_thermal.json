@@ -1,0 +1,13 @@
+{
+  "format": "envocad-refset",
+  "format_version": 1,
+  "kind": "thermal",
+  "tolerance": {
+    "ae_m2": {"abs": null, "rel": null},
+    "k": {"abs": null, "rel": null},
+    "c": {"abs": null, "rel": null},
+    "dt_mid_k": {"abs": null, "rel": null},
+    "dt_top_k": {"abs": null, "rel": null}
+  },
+  "cases": []
+}
