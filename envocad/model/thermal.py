@@ -129,6 +129,8 @@ B_FACTORS = {
     # (horní, spodní, přední, zadní, boky)
     "volně stojící": (1.4, 0.0, 0.9, 0.9, 0.9),
     "nástěnná": (1.4, 0.0, 0.9, 0.5, 0.9),
+    # „zapuštěná“ není v normě samostatný typ instalace – podle činitelů b číselně odpovídá řádku 7 tabulky Rittal
+    # (prostřední nástěnná skříň se zakrytou střechou). Potvrdil: projektant, 2026-11-25 (#128).
     "zapuštěná": (0.7, 0.0, 0.9, 0.5, 0.5),
     "stojanová": (1.4, 0.0, 0.9, 0.9, 0.9),
 }
