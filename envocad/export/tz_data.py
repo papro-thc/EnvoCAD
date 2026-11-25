@@ -93,8 +93,30 @@ def dso_data(project: Project, lib: LibraryStore) -> list[tuple[str, str]]:
                                         for w in grid_wires)),
         ("Režim", "paralelní provoz s DS, dodávka přetoků dle smlouvy"),
     ]
+    rows += _dso_power_rows(project, grid.attrs.get("dso", "") if grid else "", p_dc, p_ac)
     rows += _dso_application_rows(project)
     return rows
+
+
+def _dso_power_rows(project: Project, dso: str, p_dc: float, p_ac: float) -> list[tuple[str, str]]:
+    """Instalovaný výkon Pi a kategorie výrobního modulu podle pravidla distributora (#133).
+
+    Ručně zadaný „Celkový instalovaný výkon“ (`p_installed_total_kw`) má přednost před spočteným; neznámý či
+    nezvolený distributor = „neuvedeno“ (pravidlo se nehádá)."""
+    from envocad.library.distributors import load_distributor_rules
+    from envocad.model.dso_rules import category_of, find_rule, installed_power
+    rule = find_rule(list(load_distributor_rules()), dso)
+    pi_label, cat_label = "Instalovaný výkon Pi dle distributora", "Kategorie výrobního modulu"
+    if rule is None:
+        return [(pi_label, "neuvedeno"), (cat_label, "neuvedeno")]
+    basis = "Σ kWp panelů" if rule.basis == "pv_kwp" else "Σ AC výkonů střídačů"
+    manual = _num(project.meta.get("p_installed_total_kw"))
+    if manual is not None and manual > 0:
+        return [(pi_label, f"{_cz(manual)} kW (zadáno ručně; {rule.name})"), (cat_label, category_of(rule, manual))]
+    res = installed_power(rule, p_dc, p_ac)
+    if res is None:
+        return [(pi_label, "neuvedeno"), (cat_label, "neuvedeno")]
+    return [(pi_label, f"{_cz(res.kw)} kW ({basis}; {rule.name})"), (cat_label, res.category)]
 
 
 def _dso_application_rows(project: Project) -> list[tuple[str, str]]:

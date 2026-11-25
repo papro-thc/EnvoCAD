@@ -1,0 +1,43 @@
+# Jednou ročně (15. 1.) založí issue „Ověřit pravidla distributorů“ se seznamem souborů a jejich verified_on.
+# Upozornění přijde vlastníkovi repa e-mailem přes notifikace GitHubu. Duplicitní otevřené issue se nezakládá.
+name: Pravidla distributorů – roční ověření
+
+on:
+  schedule:
+    - cron: "0 6 15 1 *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  issue:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Založit issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          title="Ověřit pravidla distributorů"
+          open=$(gh issue list --state open --search "\"$title\" in:title" --json title \
+            --jq "[.[] | select(.title == \"$title\")] | length")
+          if [ "$open" != "0" ]; then
+            echo "Otevřené issue '$title' už existuje, nic nezakládám."
+            exit 0
+          fi
+          {
+            echo "Roční kontrola pravidel distributorů (instalovaný výkon, hranice kategorií A1–D)."
+            echo
+            echo "Ověř, že pravidla v souborech odpovídají aktuálním podmínkám distributorů (viz \`source_url\`),"
+            echo "a po ověření aktualizuj \`verified_on\`."
+            echo
+            for f in envocad/library/builtin/distributors/*.json; do
+              v=$(jq -r '.verified_on' "$f")
+              u=$(jq -r '.source_url' "$f")
+              echo "- [ ] \`$f\` – ověřeno: $v – zdroj: $u"
+            done
+          } > body.md
+          gh issue create --title "$title" --body-file body.md
