@@ -1234,12 +1234,15 @@ python -m envocad.cmd projekt.ecp - < skript.ecs             # skript ze vstupu
 | `--dry-run` | vykonat a vypsat, neuložit ani s `-o` |
 | `--keep-going` | po chybném řádku pokračovat (a uložit); jinak konec při první chybě bez uložení |
 | `--json` | na každý příkaz řádek JSON `{"line", "cmd", "ok", "messages", "changed_sheets"}` (u `CHECKS` navíc `data` s nálezy: `severity`, `sheet`, `ref`, `text`, `code`, `target_id`, `sheet_id`, `waived`, `reason`), nakonec `{"summary": …}` |
+| `--fail-on chyba` / `--fail-on varování` | kód návratu 3, když kontrola F7 najde nález dané nebo vyšší závažnosti (`chyba` = jen chyby, `varování` = varování i chyby; `info` kód nikdy nezmění); bez volby se kód podle nálezů nemění |
 | `--var jmeno=hodnota` | dosadí `${jmeno}` ve skriptu (jen text, dosazuje se před rozdělením řádku – mezera nebo uvozovka v hodnotě přidá argument) |
 | `--no-user-aliases` | bez uživatelských aliasů `~/.envocad/aliases.json` – skript se chová stejně na každém stroji (doporučeno pro agenty) |
 | `--plugins` | načíst pluginy `~/.envocad/plugins` a jejich příkazy (plugin je kód s právy uživatele – bez volby se nenačtou) |
 
 Kód návratu: 0 = vše proběhlo, 1 = chyba příkazu (hláška s číslem řádku, např. `řádek 7: MOVE – chybí Cílový bod`),
-2 = chybné použití (argumenty, projekt nebo skript nejde načíst). Před uložením se dopočtou kabely a vazby přívodů
+2 = chybné použití (argumenty, projekt nebo skript nejde načíst), 3 = jen s `--fail-on`: skript proběhl (a výsledek se
+případně uložil), ale kontrola F7 má nález požadované závažnosti – skript nebo agent to pozná bez čtení textu; chyba
+příkazu (1) má přednost. Před uložením se dopočtou kabely a vazby přívodů
 (jako v GUI) a výstup dostane souhrn kontroly F7. Vstup i výstup je vždy UTF-8, i v rouře na Windows.
 
 Bezpečnost skriptů (skript může napsat agent nebo přijít s cizím projektem): žádný kód se nespouští, `SAVE` ve skriptu
