@@ -7,6 +7,8 @@ import logging
 import os
 import sqlite3
 from pathlib import Path
+from types import TracebackType
+from typing import Self
 
 from envocad.model.feed import LEGACY_FEEDS
 from envocad.model.symbol import Symbol
@@ -324,3 +326,12 @@ class LibraryStore:
 
     def close(self) -> None:
         self.conn.close()
+
+    def __enter__(self) -> Self:
+        """Použití v `with`: vrací samotnou knihovnu."""
+        return self
+
+    def __exit__(self, exc_type: type[BaseException] | None, exc: BaseException | None,
+                 tb: TracebackType | None) -> None:
+        """Na konci bloku zavře spojení; výjimky nepotlačuje."""
+        self.close()
