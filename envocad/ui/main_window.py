@@ -1108,7 +1108,7 @@ class MainWindow(QMainWindow):
                 w.side_panel.load_from_model()
 
     def set_frame(self, on: bool) -> None:
-        """Zapne/vypne rámeček s popisovým polem a QR na všech listech (uloží se do ~/.envocad/settings.json)."""
+        """Zapne/vypne rámeček s popisovým polem na všech listech (uloží se do ~/.envocad/settings.json)."""
         from envocad.settings import load_settings, save_settings
         data = load_settings()
         data["frame"] = bool(on)

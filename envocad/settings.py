@@ -28,7 +28,7 @@ from envocad.library.store import home_dir
 DEFAULTS = {
     "shared_library_dir": "",
     "language": "cs",   # jazyk rozhraní (`envocad/i18n.py`, `docs/PREKLADY.md`): „cs“ / „en“, platí po restartu
-    "frame": True,    # rámeček s razítkem ENVO a QR na listech (vypne Zobrazit → Rámeček a popisové pole)
+    "frame": True,    # rámeček s razítkem ENVO na listech (vypne Zobrazit → Rámeček a popisové pole)
     # klávesy ve výkresu: „zwcad“ = psaní jde do příkazového řádku (M = MOVE, RO = otočit…), „envocad“ = jednoklávesové
     # zkratky R otočit, M zrcadlit, W vodič, N narovnat, T text (rozhodnutí 1 návrhu příkazového řádku)
     "cmdline_keys": "zwcad",

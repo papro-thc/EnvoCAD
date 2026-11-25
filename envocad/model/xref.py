@@ -345,10 +345,9 @@ MIN_COL_W = 10.0
 
 @dataclass
 class MirrorGeometry:
-    """Pole jako `frame.FrameGeometry` – kreslí se stejně (Qt `draw_frame`, DXF `_draw_geometry`)."""
+    """Pole jako `frame.FrameGeometry` – kreslí se stejně (Qt `draw_geometry`, DXF `_draw_geometry`)."""
     lines: list[tuple[float, float, float, float]] = field(default_factory=list)
     texts: list[tuple[float, float, str, float, str]] = field(default_factory=list)
-    rects: list[tuple[float, float, float, float]] = field(default_factory=list)   # vždy prázdné (duck typing)
     boxes: list[Box] = field(default_factory=list)           # obálky textů pro textlayout / překryvy
     bounds: Box = (0.0, 0.0, 0.0, 0.0)
 

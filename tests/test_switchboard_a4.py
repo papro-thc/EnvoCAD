@@ -129,7 +129,7 @@ def test_frame_without_qr_and_page_label():
     p, sb = _tpl("dc", {"n_strings": "2"})
     land = frame_geometry(p, sb, 297.0, 210.0, "vícepólové schéma", "x", "A4")
     port = frame_geometry(p, sb, 210.0, 297.0, "vícepólové schéma", "x", "A4")
-    assert not land.rects and not port.rects                 # QR kód v rámečku není
+    assert not hasattr(land, "rects") and not hasattr(port, "rects")   # QR kód v rámečku není (pole zrušeno)
     assert title_block_box(210.0, 297.0)[0] >= MARGIN_LEFT
     assert title_block_box(297.0, 210.0)[0] >= MARGIN_LEFT
     assert any(t[2] == "A4" for t in land.texts)             # formát strany v popisovém poli
@@ -152,7 +152,7 @@ def test_groups_not_split_and_drawing_inside_a4_frame(case, lib):
             continue
         assert g.page_of[w.a.element_id] == g.page_of[w.b.element_id], (case, els[w.a.element_id].ref,
                                                                        els[w.b.element_id].ref)
-    # všechny texty a čáry uvnitř vnitřního rámečku A4 a mimo popisové pole s QR kódem
+    # všechny texty a čáry uvnitř vnitřního rámečku A4 a mimo popisové pole
     x0, y0, x1, y1 = inner_box(W, H)
     tb = title_block_box(W, H)
     for box, owner, what in g.texts:
