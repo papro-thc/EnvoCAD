@@ -13,7 +13,7 @@ from types import TracebackType
 from typing import Self
 
 from envocad.model.feed import LEGACY_FEEDS
-from envocad.model.symbol import Symbol
+from envocad.model.symbol import Symbol, SymbolVersionError
 
 BUILTIN_DIR = Path(__file__).parent / "builtin"
 # soubory vestavěných značek, které knihovna už nemá (v13: sb.feed_in / sb.feed_out → sb.feed) – klíče `builtin_files`
@@ -340,7 +340,11 @@ class LibraryStore:
         row = self.conn.execute("SELECT data FROM symbols WHERE id=?", (sid,)).fetchone()
         if row is None:
             raise KeyError(f"Symbol {sid!r} není v knihovně")
-        sym = Symbol.from_dict(json.loads(row["data"]))
+        try:
+            sym = Symbol.from_dict(json.loads(row["data"]))
+        except SymbolVersionError as ex:
+            log.warning("knihovna: značka %s se nenačetla: %s", sid, ex)
+            raise KeyError(f"Symbol {sid!r} je z novější verze EnvoCAD – aktualizujte EnvoCAD") from None
         self._cache[sid] = sym
         return sym
 
