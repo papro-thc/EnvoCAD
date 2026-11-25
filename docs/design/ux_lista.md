@@ -1,6 +1,9 @@
 # UX audit a návrh lišt – EnvoCAD GUI
 
-Stav: **návrh** (kód se nemění). Podnět: „víc uživatelské GUI, lištu s funkcemi“. Cílovka: projektant FVE z EPLAN/AutoCAD.
+Stav: **realizováno 10/2026** (body 1–10 tabulky v kap. 4 jsou v GUI – lišty s ikonami `ui/icons.py`, stavový řádek, panel Kontrola,
+hledání příkazů Ctrl+K, kontextová menu, úvodní obrazovka; testy `tests/test_main_window_ux.py`;
+nerealizováno: sloučení doků Knihovna/Navigátor do záložek z kap. 3.6). Text níže je původní audit a návrh.
+Podnět: „víc uživatelské GUI, lištu s funkcemi“. Cílovka: projektant FVE z EPLAN/AutoCAD.
 Screenshoty (offscreen, projekt `route2_terminals` z `tests/generate_snapshot.py`, světlé téma), skript `shots.py` v téže složce:
 `/tmp/claude-0/-home-user-EnvoCAD/218ef7e0-ef83-5cc1-9211-57e519398ff2/scratchpad/ux/`
 - `00_prazdny_stav.png` prázdný start, `01_hlavni_okno.png` JPS, `02_jps_rozvadec.png`, `03_multipole.png`,
