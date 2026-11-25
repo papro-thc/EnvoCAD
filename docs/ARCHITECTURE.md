@@ -92,6 +92,11 @@ Model nečte ani uživatelská nastavení (`~/.envocad/settings.json`): firemní
 `envocad/settings.py` (`switchboard_paper`, `company`, `frame_enabled`); hlídá `tests/test_model_pure.py`. Knihovna
 čte z nastavení jen umístění dat (uživatelská a sdílená složka knihovny, maker a topologií).
 
+Normové tabulky výpočtů Iz a oteplení (`model/norm_tables.py`) mají vestavěné hodnoty z konstant `calc` / `thermal`;
+lokálně je lze přepsat souborem `~/.envocad/norms/*.json` (čtení `library/norms.py`, formát a pravidla
+`docs/NORMY_FORMAT.md`, soubory norem do gitu nepatří). Výpočty berou tabulky z `norm_tables.current()` nebo z
+parametru `tables=`.
+
 ## Klíčové pojmy
 
 - **Symbol** – grafická definice (čáry, kružnice, oblouky, texty) v jednotkách mm na mřížce 2,5 mm,

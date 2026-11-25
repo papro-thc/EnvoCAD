@@ -1,0 +1,7 @@
+{
+  "format": "envocad-refset",
+  "format_version": 1,
+  "kind": "iz",
+  "tolerance": {"iz_a": {"abs": null, "rel": null}},
+  "cases": []
+}

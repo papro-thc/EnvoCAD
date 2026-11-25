@@ -33,6 +33,9 @@ def _isolated_home(tmp_path_factory, monkeypatch):
     # dostat výsledek z předchozího testu
     from envocad.library import topologies
     topologies.clear_cache()
+    # lokální normové tabulky (#82): cache podle ENVOCAD_HOME, další test nesmí dostat tabulky z jiného domova
+    from envocad.model import norm_tables
+    norm_tables.clear_cache()
 
 
 @pytest.fixture(autouse=True)

@@ -3,6 +3,10 @@ dle ČSN 33 2000-5-52 (zjednodušené tabulky), soulad jištění s kabelem (In 
 
 Hodnoty Iz jsou tabulky A.52 pro Cu/PVC 70 °C při 30 °C okolí (B.52.x) – přepsané z normy, označené
 „orientační“: pro průkaz použijte normu. Výsledky jdou do kontroly projektu (F7) a do výkazu „Výpočty“.
+
+Tabulky Iz, činitele a teplotní činitel lze lokálně přepsat souborem `~/.envocad/norms/*.json`
+(`model/norm_tables.py`, formát v `docs/NORMY_FORMAT.md`); funkce je berou z `norm_tables.current()`, nebo z
+parametru `tables=`. Konstanty níže jsou vestavěné hodnoty (bez souborů se počítá přesně s nimi).
 """
 from __future__ import annotations
 
@@ -11,6 +15,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field, replace
 
+from envocad.model import norm_tables
 from envocad.model.feed import FEED_SYMBOL, is_feed
 from envocad.model.notes import plural
 from envocad.model.project import INTERRUPT_SYMBOL, Element, Project, Sheet, Wire
@@ -41,6 +46,8 @@ IZ_3 = {
 }
 IZ_2_FACTOR = 1.10   # 2 zatížené vodiče (1f, DC) ≈ +10 % (orientační)
 AL_FACTOR = 0.78     # Al vodiče
+# teplotní činitel (tab. B.52.14 pro PVC, orientační): 30 °C 1,0; 35 °C 0,94; 40 °C 0,87; 45 °C 0,79; 50 °C 0,71
+K_T_PVC_AIR = {30: 1.0, 35: 0.94, 40: 0.87, 45: 0.79, 50: 0.71}
 METHOD_HINTS = [("zem", "D"), ("výkop", "D"), ("vzduch", "E"), ("lávk", "E"), ("rošt", "E"), ("žlab", "E"),
                 ("trubk", "B1"), ("lišt", "B1"), ("chránič", "B1"), ("zatepl", "A1"), ("izolac", "A1"),
                 ("stěn", "C"), ("omítk", "C"), ("příchytk", "C")]
@@ -58,9 +65,10 @@ def _num_cz(x: float) -> str:
     return f"{x:g}".replace(".", ",")
 
 
-def route_method(w: Wire) -> str:
+def route_method(w: Wire, tables: norm_tables.NormTables | None = None) -> str:
+    t = tables if tables is not None else norm_tables.current()
     m = (w.attrs.get("method") or "").strip().upper()
-    if m in IZ_3:
+    if m in t.iz3:
         return m
     text = (w.attrs.get("route") or "").lower()
     for key, meth in METHOD_HINTS:
@@ -70,8 +78,10 @@ def route_method(w: Wire) -> str:
 
 
 def ampacity(cross: float, method: str = "C", loaded: int = 3, aluminium: bool = False, t_ambient: float = 30.0,
-             grouping: float = 1.0) -> float | None:
-    table = IZ_3.get(method, IZ_3["C"])
+             grouping: float = 1.0, tables: norm_tables.NormTables | None = None) -> float | None:
+    """Zatížitelnost Iz [A]; `tables` = normové tabulky (None = `norm_tables.current()`)."""
+    t = tables if tables is not None else norm_tables.current()
+    table = t.iz3.get(method, t.iz3["C"])
     sizes = sorted(table)
     size = next((s for s in sizes if s >= cross - 1e-6), None)
     if size is None:
@@ -80,24 +90,26 @@ def ampacity(cross: float, method: str = "C", loaded: int = 3, aluminium: bool =
     if size != cross:  # průřez mimo řadu: lineární odhad
         iz = iz * cross / size
     if loaded <= 2:
-        iz *= IZ_2_FACTOR
+        iz *= t.iz2_factor
     if aluminium:
-        iz *= AL_FACTOR
-    # teplotní činitel (tab. B.52.14 pro PVC, orientační): 30 °C 1,0; 35 °C 0,94; 40 °C 0,87; 45 °C 0,79; 50 °C 0,71
-    k_t = {30: 1.0, 35: 0.94, 40: 0.87, 45: 0.79, 50: 0.71}
-    kt = k_t.get(int(round(t_ambient / 5) * 5), 1.0 if t_ambient <= 30 else 0.71)
+        iz *= t.al_factor
+    # teplotní činitel: zaokrouhleno na 5 °C, bez interpolace; chybí-li klíč: 1,0 pro t ≤ 30 °C, jinak hodnota
+    # u nejvyšší teploty tabulky
+    k_t = t.k_t_pvc_air
+    kt = k_t.get(int(round(t_ambient / 5) * 5), 1.0 if t_ambient <= 30 else k_t[max(k_t)])
     return round(iz * kt * grouping, 1)
 
 
 def min_cross(in_a: float, method: str = "C", loaded: int = 3, aluminium: bool = False,
-              t_ambient: float = 30.0) -> float | None:
+              t_ambient: float = 30.0, tables: norm_tables.NormTables | None = None) -> float | None:
     """Nejmenší průřez z tabulky Iz (`IZ_3`, způsob uložení `method`), jehož zatížitelnost (`ampacity`) je ≥ `in_a`
     (In jisticího přístroje kabelu, ČSN 33 2000-4-43: In ≤ Iz). Nic nevyhoví (nad 240 mm²) nebo neplatné In → None –
     průřez se pak nedosazuje (prázdný = nález F7)."""
     if not in_a or in_a <= 0:
         return None
-    for cross in sorted(IZ_3.get(method, IZ_3["C"])):
-        iz = ampacity(cross, method, loaded, aluminium, t_ambient)
+    t = tables if tables is not None else norm_tables.current()
+    for cross in sorted(t.iz3.get(method, t.iz3["C"])):
+        iz = ampacity(cross, method, loaded, aluminium, t_ambient, tables=t)
         if iz is not None and iz >= in_a - 1e-9:
             return float(cross)
     return None

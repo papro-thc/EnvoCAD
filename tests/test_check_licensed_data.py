@@ -35,3 +35,22 @@ def test_oversized_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "big.bin").write_bytes(b"0" * (check.MAX_BYTES + 1))
     assert check.problems(["big.bin"])
+
+
+def test_norms_dir_is_forbidden(tmp_path, monkeypatch):
+    """Lokální normové tabulky (#82) žijí v `~/.envocad/norms/`, do gitu nepatří."""
+    monkeypatch.chdir(tmp_path)
+    found = check.problems(["norms/csn.json", "envocad/norms/x.json"])
+    assert len(found) == 2
+
+
+def test_norms_marker_in_tracked_json_is_problem(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "tabulky").mkdir()
+    (tmp_path / "tabulky" / "cizi.json").write_text('{"format": "envocad-norms", "format_version": 1}',
+                                                    encoding="utf-8")
+    (tmp_path / "tabulky" / "ok.json").write_text('{"format": "jiny"}', encoding="utf-8")
+    (tmp_path / "tabulky" / "kod.py").write_text('NORMS_FORMAT = "envocad-norms"\n', encoding="utf-8")
+    (tmp_path / "tabulky" / "doc.md").write_text("formát `envocad-norms`\n", encoding="utf-8")
+    found = check.problems(["tabulky/cizi.json", "tabulky/ok.json", "tabulky/kod.py", "tabulky/doc.md"])
+    assert len(found) == 1 and "cizi.json" in found[0]

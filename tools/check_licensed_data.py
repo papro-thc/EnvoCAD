@@ -27,9 +27,12 @@ FORBIDDEN_SUFFIXES = {
     ".ecpz": "archiv projektu EnvoCAD (může obsahovat data výrobců)",
 }
 # složky s lokálními podklady (jsou i v .gitignore)
-FORBIDDEN_DIRS = ("EPLAN/", "katalogy/", "datasheets/", "_sync/")
+FORBIDDEN_DIRS = ("EPLAN/", "katalogy/", "datasheets/", "_sync/", "norms/")
 # značky surového exportu z EPLAN Data Portalu v datech knihovny
 DATA_MARKERS = ("P_ARTICLE_", "dataportal.eplan", "ePulse")
+# lokální normové tabulky (#82, `~/.envocad/norms/*.json`) nepatří do gitu: sledovaný *.json s touto značkou je chyba
+# (zdrojáky .py a dokumentace .md ji obsahovat smějí)
+NORMS_MARKER = "envocad-norms"
 DATA_DIR, DATA_SUFFIXES = "envocad/library/builtin/", {".csv", ".json"}
 MAX_BYTES = 5 * 1024 * 1024  # větší soubor je skoro jistě stažený podklad, ne náš zdroj
 
@@ -63,6 +66,9 @@ def problems(paths: list[str]) -> list[str]:
             continue  # smazaný soubor v pracovní kopii
         if len(data) > MAX_BYTES:
             found.append(f"{path}: větší než {MAX_BYTES // 1024 // 1024} MB")
+            continue
+        if p.suffix.lower() == ".json" and NORMS_MARKER in data.decode("utf-8", errors="ignore"):
+            found.append(f"{path}: normové tabulky (`{NORMS_MARKER}`) patří do ~/.envocad/norms/, ne do gitu")
             continue
         if path.startswith(DATA_DIR) and p.suffix.lower() in DATA_SUFFIXES:
             text = data.decode("utf-8", errors="ignore")
