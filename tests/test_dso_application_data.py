@@ -31,7 +31,7 @@ def test_empty_fields_are_neuvedeno():
     rows = dict(dso_data(p, LibraryStore()))
     for _, label in DSO_META_FIELDS:
         assert rows[label] == "neuvedeno"
-    assert len(dso_report(p, LibraryStore())[1]) == 11 + len(DSO_META_FIELDS)
+    assert len(dso_report(p, LibraryStore())[1]) == 13 + len(DSO_META_FIELDS)
 
 
 def test_filled_fields_in_report():

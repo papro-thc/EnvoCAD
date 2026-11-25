@@ -1,0 +1,44 @@
+{
+  "id": "cez",
+  "name": "ČEZ Distribuce",
+  "aliases": [
+    "cez",
+    "cez distribuce"
+  ],
+  "installed_power_basis": "pv_kwp",
+  "categories": [
+    {
+      "id": "A1",
+      "upper_kw": 11,
+      "upper_inclusive": true
+    },
+    {
+      "id": "A2",
+      "upper_kw": 100,
+      "upper_inclusive": false
+    },
+    {
+      "id": "B1",
+      "upper_kw": 1000,
+      "upper_inclusive": false
+    },
+    {
+      "id": "B2",
+      "upper_kw": 30000,
+      "upper_inclusive": false
+    },
+    {
+      "id": "C",
+      "upper_kw": 75000,
+      "upper_inclusive": false
+    },
+    {
+      "id": "D",
+      "upper_kw": null,
+      "upper_inclusive": false
+    }
+  ],
+  "source_url": "https://www.cezdistribuce.cz/file/edee/distribuce/ppnn/2026/pripojovaci_podminky_nn.pdf",
+  "verified_on": "2026-11-25",
+  "note": "Pravidlo a hranice kategorií potvrdil projektant (issue #133); udržuje projektant."
+}
