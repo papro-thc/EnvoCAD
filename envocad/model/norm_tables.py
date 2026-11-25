@@ -15,9 +15,11 @@ from __future__ import annotations
 import dataclasses
 import math
 import os
+import threading
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from itertools import pairwise
+from types import MappingProxyType
 from typing import Any
 
 NORMS_FORMAT = "envocad-norms"
@@ -33,6 +35,10 @@ IZ_KEY = "iz/cu/pvc70/3/"                                    # + způsob uložen
 K_TEMP_KEY = "k_temp_air/pvc70"
 SOURCE_REQUIRED = ("standard", "edition", "transcribed_by", "transcribed_on")
 SOURCE_FIELDS = SOURCE_REQUIRED + ("year", "amendments", "checked_by", "note")
+# TECHNICKÉ meze věrohodnosti (nejde o normové hodnoty): ochrana proti překlepu typu 1e308 nebo exponent 715, který
+# by shodil výpočet přetečením. Překročení = odmítnutí celého souboru.
+TECH_MAX_ABS = 1e6
+TECH_MAX_EXPONENT = 10.0
 
 
 @dataclass(frozen=True)
@@ -79,17 +85,22 @@ class LoadReport:
 
 
 # ---- BUILTIN (líně z konstant calc / thermal) ------------------------------------------------------------------
+def _freeze_iz(iz3: Mapping[str, Mapping[float, float]]) -> Mapping[str, Mapping[float, float]]:
+    return MappingProxyType({m: MappingProxyType(dict(t)) for m, t in iz3.items()})
+
+
 def _build_builtin() -> NormTables:
     from envocad.model import calc, thermal
-    iz3 = {m: dict(t) for m, t in calc.IZ_3.items()}
+    iz3 = _freeze_iz({m: dict(t) for m, t in calc.IZ_3.items()})
     keys = [IZ_KEY + m for m in iz3] + [K_TEMP_KEY, "d_partitions_no_vents", "b_factors", *CURVES, *SCALARS]
-    sources: dict[str, NormSource | None] = {k: None for k in keys}
+    sources = MappingProxyType({k: None for k in keys})
     return NormTables(
-        iz3=iz3, iz2_factor=calc.IZ_2_FACTOR, al_factor=calc.AL_FACTOR, k_t_pvc_air=dict(calc.K_T_PVC_AIR),
+        iz3=iz3, iz2_factor=calc.IZ_2_FACTOR, al_factor=calc.AL_FACTOR,
+        k_t_pvc_air=MappingProxyType(dict(calc.K_T_PVC_AIR)),
         k_large_no_vents=tuple(thermal.K_LARGE_NO_VENTS), k_small=tuple(thermal.K_SMALL),
         c_large_no_vents=tuple(thermal.C_LARGE_NO_VENTS), c_small=tuple(thermal.C_SMALL),
-        d_partitions_no_vents=dict(thermal.D_PARTITIONS_NO_VENTS),
-        b_factors={m: tuple(v) for m, v in thermal.B_FACTORS.items()},
+        d_partitions_no_vents=MappingProxyType(dict(thermal.D_PARTITIONS_NO_VENTS)),
+        b_factors=MappingProxyType({m: tuple(v) for m, v in thermal.B_FACTORS.items()}),
         x_large=thermal.X_LARGE, x_small=thermal.X_SMALL, ae_limit_m2=thermal.AE_LIMIT_M2, sources=sources)
 
 
@@ -107,7 +118,30 @@ def _builtin() -> NormTables:
 
 # ---- validace jednoho dokumentu --------------------------------------------------------------------------------
 def _num(v: Any) -> bool:
-    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+    if not isinstance(v, (int, float)) or isinstance(v, bool):
+        return False
+    try:
+        return math.isfinite(v)
+    except OverflowError:                         # obří celé číslo
+        return False
+
+
+def _tech_limit_errors(node: Any, where: str, errors: list[str]) -> None:
+    """Technická mez věrohodnosti: žádné číslo v souboru nesmí mít |hodnota| > `TECH_MAX_ABS` (chyba jmenuje
+    položku). Nejde o normovou hodnotu, jen o ochranu proti překlepu."""
+    if isinstance(node, bool):
+        return
+    if isinstance(node, (int, float)):
+        if abs(node) > TECH_MAX_ABS:
+            shown = f"{node:g}" if isinstance(node, float) else "obří celé číslo"
+            errors.append(f"{where}: hodnota {shown} překračuje technickou mez věrohodnosti "
+                          f"{TECH_MAX_ABS:g} (překlep?)")
+    elif isinstance(node, dict):
+        for k, v in node.items():
+            _tech_limit_errors(v, f"{where}.{k}" if where else str(k), errors)
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            _tech_limit_errors(v, f"{where}[{i}]", errors)
 
 
 def _text(v: Any) -> bool:
@@ -117,7 +151,7 @@ def _text(v: Any) -> bool:
 def _warn_unknown(d: dict, allowed: Iterable[str], where: str, warnings: list[str]) -> None:
     for k in d:
         if k not in allowed:
-            warnings.append(f"{where}: neznámé pole „{k}“ (ignorováno)")
+            warnings.append(f"{where}: neznámé pole {k!r} (ignorováno)")
 
 
 def _points(item: dict, where: str, errors: list[str], *, x_min: float | None = 0.0, x_open: bool = False,
@@ -157,13 +191,17 @@ def _need_ref(item: Any, where: str, errors: list[str]) -> bool:
     return True
 
 
-def _scalar(item: Any, where: str, errors: list[str], warnings: list[str]) -> float | None:
+def _scalar(item: Any, where: str, errors: list[str], warnings: list[str], exponent: bool = False) -> float | None:
     if not _need_ref(item, where, errors):
         return None
     _warn_unknown(item, ("ref", "value", "unit", "note"), where, warnings)
     v = item.get("value")
     if not _num(v) or v <= 0:
         errors.append(f"{where}: `value` musí být konečné číslo > 0")
+        return None
+    if exponent and v > TECH_MAX_EXPONENT:
+        errors.append(f"{where}: exponent {v:g} překračuje technickou mez věrohodnosti {TECH_MAX_EXPONENT:g} "
+                      f"(překlep?)")
         return None
     return float(v)
 
@@ -177,7 +215,7 @@ def apply_document(doc: object, base: NormTables, path: str = "", sha256: str = 
     try:
         result = _apply(doc, base, path, sha256, errors, warnings)
     except Exception as ex:  # noqa: BLE001 – vadný soubor nesmí shodit výpočet
-        errors.append(f"vnitřní chyba při ověření: {ex}")
+        errors.append(f"vnitřní chyba při ověření: {ex!r}")
         result = None
     if errors:
         return None, errors, warnings
@@ -208,13 +246,14 @@ def _apply(doc: object, base: NormTables, path: str, sha256: str, errors: list[s
         if isinstance(year, bool) or not isinstance(year, int):
             errors.append("`source.year` chybí nebo není celé číslo")
         _warn_unknown(src, SOURCE_FIELDS, "source", warnings)
+    _tech_limit_errors(doc, "", errors)
     tables = doc.get("tables")
     if not isinstance(tables, dict):
         errors.append("chybí objekt `tables`")
         return None
     for k in tables:
         if k not in TABLE_KEYS:
-            errors.append(f"tables: neznámý klíč „{k}“")
+            errors.append(f"tables: neznámý klíč {k!r}")
 
     def make_source(item: dict) -> NormSource | None:
         if not source_ok:
@@ -260,14 +299,14 @@ def _apply(doc: object, base: NormTables, path: str, sha256: str, errors: list[s
             method = method.strip().upper()
             ident = f"{conductor}/{insulation}/{loaded}/{t_ref:g}/{method}"
             if ident in seen:
-                errors.append(f"{where}: duplicitní položka {ident}")
+                errors.append(f"{where}: duplicitní položka {ident!r}")
                 continue
             seen.add(ident)
             if (conductor, insulation, loaded, t_ref) != ("cu", "pvc70", 3, 30):
-                warnings.append(f"{where}: kombinace {conductor}/{insulation}/{loaded} vodiče/{t_ref:g} °C se "
+                warnings.append(f"{where}: kombinace {conductor!r}/{insulation!r}/{loaded} vodiče/{t_ref:g} °C se "
                                 f"zatím nepoužívá (implementováno jen cu/pvc70/3/30) – přeskočeno")
             elif method not in base.iz3:
-                warnings.append(f"{where}: způsob uložení „{method}“ program nezná "
+                warnings.append(f"{where}: způsob uložení {method!r} program nezná "
                                 f"({', '.join(base.iz3)}) – přeskočeno")
             elif pts:
                 iz3[method] = dict(pts)
@@ -275,7 +314,7 @@ def _apply(doc: object, base: NormTables, path: str, sha256: str, errors: list[s
     # skaláry
     for key, attr in SCALARS.items():
         if key in tables:
-            v = _scalar(tables[key], f"tables.{key}", errors, warnings)
+            v = _scalar(tables[key], f"tables.{key}", errors, warnings, exponent=key in ("x_large", "x_small"))
             if v is not None:
                 new[attr] = v
                 put(key, tables[key])
@@ -323,13 +362,17 @@ def _apply(doc: object, base: NormTables, path: str, sha256: str, errors: list[s
                 continue
             pts = _points(it, where, errors, x_min=None)
             if ins in seen_ins:
-                errors.append(f"{where}: duplicitní položka pro izolaci {ins}")
+                errors.append(f"{where}: duplicitní položka pro izolaci {ins!r}")
                 continue
             seen_ins.add(ins)
             if ins != "pvc70":
-                warnings.append(f"{where}: izolace „{ins}“ se zatím nepoužívá (implementováno jen pvc70) – "
+                warnings.append(f"{where}: izolace {ins!r} se zatím nepoužívá (implementováno jen pvc70) – "
                                 f"přeskočeno")
             elif pts:
+                off_step = [f"{x:g}" for x, _ in pts if x % 5 != 0]
+                if off_step:
+                    warnings.append(f"{where}: teploty {', '.join(off_step)} °C nejsou násobkem 5 °C – výpočet "
+                                    f"hledá činitel po kroku 5 °C, tyto body se nepoužijí")
                 keys = [round(x) for x, _ in pts]
                 if len(set(keys)) != len(keys):
                     errors.append(f"{where}: teploty po zaokrouhlení na celé °C nejsou jedinečné")
@@ -347,7 +390,10 @@ def _apply(doc: object, base: NormTables, path: str, sha256: str, errors: list[s
                 put("b_factors", it)
     if errors:
         return None
-    return dataclasses.replace(base, iz3=iz3, sources=sources, **new)
+    for attr in ("k_t_pvc_air", "d_partitions_no_vents", "b_factors"):
+        if attr in new:
+            new[attr] = MappingProxyType(new[attr])
+    return dataclasses.replace(base, iz3=_freeze_iz(iz3), sources=MappingProxyType(sources), **new)
 
 
 def _b_factors(value: Any, where: str, errors: list[str], warnings: list[str]):
@@ -359,7 +405,7 @@ def _b_factors(value: Any, where: str, errors: list[str], warnings: list[str]):
     for m in MOUNTINGS:
         faces = value.get(m)
         if not isinstance(faces, dict):
-            errors.append(f"{where}: chybí montáž „{m}“")
+            errors.append(f"{where}: chybí montáž {m!r}")
             ok = False
             continue
         vals = []
@@ -391,47 +437,69 @@ def reset_keys(tables: NormTables, keys: Iterable[str], builtin: NormTables | No
             if m in b.iz3:
                 iz3[m] = dict(b.iz3[m])
         elif key == K_TEMP_KEY:
-            changes["k_t_pvc_air"] = dict(b.k_t_pvc_air)
+            changes["k_t_pvc_air"] = b.k_t_pvc_air
         else:
             attr = SCALARS.get(key, key)
             changes[attr] = getattr(b, attr)
         sources[key] = None
-    return dataclasses.replace(tables, iz3=iz3, sources=sources, **changes)
+    return dataclasses.replace(tables, iz3=_freeze_iz(iz3), sources=MappingProxyType(sources), **changes)
 
 
 # ---- aktuální tabulky (cache) ----------------------------------------------------------------------------------
-_state: dict[str, Any] = {}
+@dataclass(frozen=True)
+class _Snapshot:
+    """Neměnný stav cache: prostředí (`ENVOCAD_HOME`), klíč složky, tabulky a report. Přiřazuje se jedním krokem."""
+    env: str
+    key: str
+    tables: NormTables
+    report: LoadReport
 
 
-def _load() -> None:
+_snapshot: _Snapshot | None = None
+_lock = threading.RLock()
+
+
+def _load() -> _Snapshot:
+    snap = _snapshot
     env = os.environ.get("ENVOCAD_HOME") or ""
-    if _state and _state.get("env") == env:
-        return
+    if snap is not None and snap.env == env:
+        return snap
+    with _lock:
+        return _load_locked(env)
+
+
+def _load_locked(env: str) -> _Snapshot:
+    global _snapshot
+    snap = _snapshot
+    if snap is not None and snap.env == env:
+        return snap
     builtin = _builtin()
     try:
         from envocad.library import norms
         key = str(norms.norms_dir().resolve())
-        if _state and _state.get("key") == key:
-            _state["env"] = env
-            return
+        if snap is not None and snap.key == key:
+            snap = _Snapshot(env, key, snap.tables, snap.report)
+            _snapshot = snap
+            return snap
         tables, report = norms.load_dir(norms.norms_dir(), builtin)
     except Exception as ex:  # noqa: BLE001 – složka norem nesmí shodit výpočet
         key, tables = "", builtin
-        report = LoadReport(warnings=[f"složku norem se nepodařilo načíst: {ex}"])
-    _state.clear()
-    _state.update(env=env, key=key, tables=tables, report=report)
+        report = LoadReport(warnings=[f"složku norem se nepodařilo načíst: {ex!r}"])
+    snap = _Snapshot(env, key, tables, report)
+    _snapshot = snap
+    return snap
 
 
 def current() -> NormTables:
     """Tabulky platné pro výpočty: vestavěné přepsané soubory z `~/.envocad/norms/` (při prvním volání načteno,
     změny souborů se nesledují – až `reload()`). Bez souborů je to přímo `BUILTIN`."""
-    _load()
-    return _state["tables"]
+    return _load().tables
 
 
 def load_report() -> LoadReport:
-    _load()
-    return _state["report"]
+    """Kopie reportu posledního načtení (změna kopie cache neovlivní)."""
+    r = _load().report
+    return LoadReport(list(r.files_used), [(p, list(e)) for p, e in r.files_rejected], list(r.warnings))
 
 
 def provenance(keys: Iterable[str] | None = None) -> dict[str, NormSource | None]:
@@ -447,7 +515,9 @@ def is_builtin(key: str) -> bool:
 
 
 def clear_cache() -> None:
-    _state.clear()
+    global _snapshot
+    with _lock:
+        _snapshot = None
 
 
 def reload() -> NormTables:

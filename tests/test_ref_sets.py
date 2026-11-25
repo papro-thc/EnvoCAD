@@ -71,8 +71,8 @@ def test_real_refset_schema_is_valid(name):
 
 
 @pytest.mark.parametrize("name", sorted(SETS))
-def test_real_refset_tolerance_not_yet_decided(name):
-    """Tolerance vlastník ještě neurčil – v gitu je null (žádná výchozí konstanta). Až ji určí, test se upraví."""
+def test_real_refset_tolerance_shape(name):
+    """Tvar tolerance v sadě v gitu: každá veličina má právě klíče abs a rel (hodnoty smí být null; žádná výchozí konstanta)."""
     doc = ref_sets.load_refset(DATA / name)
     assert doc["tolerance"]
     for tol in doc["tolerance"].values():
@@ -310,3 +310,25 @@ def test_norms_case_in_real_set_flow(tmp_path, monkeypatch):
     assert ref_sets.validate_refset(loaded) == []
     results = [ref_sets.run_case(c, loaded["tolerance"], ref_sets.resolve_tables(c)) for c in loaded["cases"]]
     assert results[0] == [] and len(results[1]) == 1
+
+
+def test_norms_case_fails_when_folder_rejected_or_empty(tmp_path, monkeypatch):
+    """Nenačtené tabulky nesmí tiše skončit u vestavěných hodnot: odmítnutý soubor / prázdná složka = fail."""
+    bad = tmp_path / "spatne"
+    bad.mkdir()
+    (bad / "a.json").write_text("{nejson", encoding="utf-8")
+    empty = tmp_path / "prazdna"
+    empty.mkdir()
+    for folder in (bad, empty):
+        monkeypatch.setenv("ENVOCAD_REF_NORMS", str(folder))
+        with pytest.raises(pytest.fail.Exception) as ex:
+            ref_sets.resolve_tables({"id": "x", "tables": "norms"})
+        assert "vestavěnými" in str(ex.value)
+    assert "a.json" in _fail_text(bad, monkeypatch)
+
+
+def _fail_text(folder, monkeypatch) -> str:
+    monkeypatch.setenv("ENVOCAD_REF_NORMS", str(folder))
+    with pytest.raises(pytest.fail.Exception) as ex:
+        ref_sets.resolve_tables({"id": "x", "tables": "norms"})
+    return str(ex.value)

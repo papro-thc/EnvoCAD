@@ -481,7 +481,10 @@ def enclosure_rise(width_mm: float, height_mm: float, depth_mm: float, mounting:
     k = k_factor(ae, t)
     d = d_factor(partitions, t)
     c = c_factor(ae, height_mm, width_mm, depth_mm, t)
-    dt_mid = k * d * p_total_w ** x if p_total_w > 0 else 0.0
+    try:
+        dt_mid = k * d * p_total_w ** x if p_total_w > 0 else 0.0
+    except OverflowError:       # nesmyslná tabulka (obří exponent) nesmí shodit kontrolu; výsledek = nekonečno
+        return EnclosureRise(ae, k, c, d, x, math.inf, math.inf)
     return EnclosureRise(ae, k, c, d, x, dt_mid, c * dt_mid)
 
 

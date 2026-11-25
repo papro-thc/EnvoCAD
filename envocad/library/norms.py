@@ -9,9 +9,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 from pathlib import Path
 
-from envocad.library.store import home_dir
 from envocad.model import norm_tables
 from envocad.model.norm_tables import LoadReport, NormTables
 
@@ -19,13 +19,21 @@ log = logging.getLogger("envocad.norms")
 
 
 def norms_dir() -> Path:
-    """Složka s normovými tabulkami; nevytváří se (jen se vrací cesta)."""
-    return home_dir() / "norms"
+    """Složka s normovými tabulkami (`ENVOCAD_HOME`, jinak `~/.envocad`, + `norms`). Nic nezakládá na disku:
+    `store.home_dir()` by dělalo `mkdir`, čistý výpočet nesmí vytvářet složky."""
+    base = Path(os.environ.get("ENVOCAD_HOME") or os.path.join(os.path.expanduser("~"), ".envocad"))
+    return base / "norms"
+
+
+MAX_FILE_BYTES = 1024 * 1024        # větší soubor norem se nečte (technická ochrana, ne normová hodnota)
 
 
 def _read_document(path: Path) -> tuple[object, str, list[str]]:
     """(dokument, sha256 bajtů, chyby čtení)."""
     try:
+        size = path.stat().st_size
+        if size > MAX_FILE_BYTES:
+            return None, "", [f"soubor je větší než {MAX_FILE_BYTES // 1024} kB ({size} B) – nečte se"]
         data = path.read_bytes()
     except OSError as ex:
         return None, "", [f"soubor nelze přečíst: {ex}"]
@@ -45,7 +53,7 @@ def load_dir(path: Path, base: NormTables | None = None) -> tuple[NormTables, Lo
         files = sorted((p for p in Path(path).iterdir() if p.suffix.lower() == ".json" and p.is_file()),
                        key=lambda p: p.name) if Path(path).is_dir() else []
     except OSError as ex:
-        msg = f"složku norem {path} nelze číst: {ex}"
+        msg = f"složku norem {str(path)!r} nelze číst: {ex!r}"
         log.warning(msg)
         report.warnings.append(msg)
         return base, report

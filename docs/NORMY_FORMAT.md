@@ -92,9 +92,13 @@ podporovaná (1); chybí `source.standard|edition|year|transcribed_by|transcribe
 je ≤ 0 (výjimky: `bottom` v činiteli b a x-ové souřadnice křivek / počet přepážek mohou být 0; x křivek nesmí být
 záporné); křivka nebo Iz má méně než 2 body nebo x neroste ostře vzestupně; průřez v `iz` není > 0; Iz s průřezem
 klesá; `d_partitions_no_vents` nemá x = 0, 1, 2, 3; `b_factors` nemá všechny 4 montáže a 5 ploch.
+Dále **technické meze věrohodnosti** – nejsou to normové hodnoty, jen ochrana proti překlepu (např. `1e308` nebo
+exponent 715, který by shodil výpočet přetečením): každé číslo v souboru musí mít |hodnota| ≤ 1e6 a exponenty
+`x_large` / `x_small` musí být ≤ 10. Hláška jmenuje položku. Soubor větší než 1 MB se nečte a odmítne se.
 
 **Jen varování** (soubor se použije, položka se přeskočí): nepodporovaná kombinace v `iz` / `k_temp_air` (viz výše);
-neznámé pole v `source` nebo v položce.
+neznámé pole v `source` nebo v položce. Teplotní činitel `k_temp_air` hledá výpočet po kroku 5 °C (zaokrouhlená teplota okolí, bez interpolace);
+bod s teplotou, která není násobkem 5 °C, se proto nikdy nepoužije – soubor se použije a zapíše se varování.
 
 **Konflikt:** definují-li stejnou položku (způsob uložení Iz, skalár, křivku) dva soubory, položka zůstane
 **vestavěná** a zapíše se varování s klíčem položky; oba soubory jinak platí pro své ostatní položky.

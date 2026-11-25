@@ -631,3 +631,145 @@ def test_apply_document_partial_keeps_rest():
     assert t.x_large == 7 and t.x_small == norm_tables.BUILTIN.x_small
     assert t.iz3 == calc.IZ_3 and t.b_factors == thermal.B_FACTORS
     assert math.isfinite(t.al_factor)
+
+
+# ---- review #82: meze věrohodnosti, pojistka, snapshot, read-only, ... -----------------------------------------
+@pytest.mark.parametrize("path,value", [
+    ("tables.x_small.value", 715), ("tables.x_large.value", 11),
+    ("tables.al_factor.value", 1e7), ("tables.k_small.points.0.1", 1e308),
+    ("tables.iz.0.points.0.1", 1e6 + 1), ("tables.iz.0.points.0.1", 10 ** 400),
+])
+def test_technical_limits_reject_whole_file(path, value):
+    doc = set_path(make_doc(), path, value)
+    t, errors, _ = norm_tables.apply_document(doc, norm_tables.BUILTIN)
+    assert t is None and errors
+    assert any(path.split(".")[1] in e for e in errors)           # hláška jmenuje položku
+
+
+def test_technical_limits_boundary_accepted():
+    doc = set_path(make_doc(), "tables.x_small.value", 10)
+    set_path(doc, "tables.al_factor.value", 1e6)
+    t, errors, _ = norm_tables.apply_document(doc, norm_tables.BUILTIN)
+    assert t is not None and not errors
+
+
+def test_overflowing_exponent_does_not_crash_enclosure_rise():
+    t = dataclasses.replace(norm_tables.BUILTIN, x_small=715.0, x_large=715.0)      # mimo validaci
+    r = thermal.enclosure_rise(600, 800, 200, "nástěnná", 500, tables=t)
+    assert r.dt_mid_k == math.inf and r.dt_top_k == math.inf
+
+
+def test_temperature_rise_survives_overflow_from_current(home, monkeypatch):
+    from envocad.model.project import Sheet
+    t = dataclasses.replace(norm_tables.BUILTIN, x_small=715.0, x_large=715.0)
+    monkeypatch.setattr(norm_tables, "current", lambda: t)
+    sheet = Sheet(name="L1")
+    monkeypatch.setattr(thermal, "device_power_loss", lambda *a, **k: 500.0)
+    from envocad.model.project import Element
+    sheet.elements.append(Element(symbol_id="x", attrs={"ref": "Q1"}))
+    monkeypatch.setattr("envocad.model.xref.DeviceIndex.is_bom_device", lambda self, e, s: True)
+    res = thermal.temperature_rise(sheet)
+    assert res.dt_mid_k == math.inf
+    res.verdict(), res.critical_text()
+
+
+def test_current_does_not_create_folders(tmp_path, monkeypatch):
+    h = tmp_path / "neexistuje" / "home"
+    monkeypatch.setenv("ENVOCAD_HOME", str(h))
+    calc.ampacity(2.5, "B1")
+    assert not h.exists() and not h.parent.exists()
+
+
+def test_norms_dir_default_is_dot_envocad(tmp_path, monkeypatch):
+    monkeypatch.delenv("ENVOCAD_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    assert norms.norms_dir() == tmp_path / ".envocad" / "norms"
+    assert not (tmp_path / ".envocad").exists()
+
+
+def test_current_is_thread_safe_with_reload(home):
+    import threading
+    write_norm(home, "a.json", doc_with(iz=[iz_item()]))
+    errors: list[BaseException] = []
+
+    def reader():
+        try:
+            for _ in range(200):
+                assert norm_tables.current().iz3["B1"] == B1_FAKE
+                norm_tables.load_report()
+        except BaseException as ex:  # noqa: BLE001
+            errors.append(ex)
+
+    def reloader():
+        try:
+            for _ in range(30):
+                norm_tables.reload()
+        except BaseException as ex:  # noqa: BLE001
+            errors.append(ex)
+
+    threads = [threading.Thread(target=reader) for _ in range(6)] + [threading.Thread(target=reloader)]
+    for th in threads:
+        th.start()
+    for th in threads:
+        th.join()
+    assert errors == []
+
+
+def test_tables_mappings_are_read_only(home):
+    write_norm(home, "a.json", doc_with(iz=[iz_item()], k_temp_air=[{"insulation": "pvc70", "ref": "r",
+                                                                      "points": [[30, 1], [35, 2]]}]))
+    for t in (norm_tables.BUILTIN, norm_tables.reload()):
+        with pytest.raises(TypeError):
+            t.iz3["C"][1.5] = 0
+        with pytest.raises(TypeError):
+            t.iz3["Z"] = {}
+        with pytest.raises(TypeError):
+            t.k_t_pvc_air[30] = 0
+        with pytest.raises(TypeError):
+            t.d_partitions_no_vents[0] = 0
+        with pytest.raises(TypeError):
+            t.b_factors["x"] = ()
+        with pytest.raises(TypeError):
+            t.sources["x"] = None
+    t = norm_tables.reset_keys(norm_tables.current(), [B1_KEY])
+    with pytest.raises(TypeError):
+        t.iz3["B1"][1.5] = 0
+    assert norm_tables.BUILTIN.iz3 == calc.IZ_3
+
+
+def test_load_report_returns_copy(home):
+    norm_tables.load_report().warnings.append("x")
+    assert norm_tables.load_report().warnings == []
+
+
+def test_k_temp_air_off_step_warns_but_is_used():
+    doc = doc_with(k_temp_air=[{"insulation": "pvc70", "ref": "r", "points": [[30, 1], [32, 2], [35, 3]]}])
+    t, errors, warnings = norm_tables.apply_document(doc, norm_tables.BUILTIN)
+    assert t is not None and not errors
+    assert any("32" in w and "5 °C" in w for w in warnings)
+    assert 32 in t.k_t_pvc_air
+    _, _, ok_warnings = norm_tables.apply_document(
+        doc_with(k_temp_air=[{"insulation": "pvc70", "ref": "r", "points": [[30, 1], [35, 2]]}]),
+        norm_tables.BUILTIN)
+    assert not any("5 °C" in w for w in ok_warnings)
+
+
+def test_file_over_1mb_is_rejected_without_reading(home):
+    big = json.dumps(make_doc()) + " " * (1024 * 1024)
+    write_norm(home, "velky.json", big)
+    norm_tables.reload()
+    rep = norm_tables.load_report()
+    assert norm_tables.current() is norm_tables.BUILTIN
+    assert len(rep.files_rejected) == 1 and "větší" in rep.files_rejected[0][1][0]
+
+
+def test_user_text_in_messages_is_repr_escaped():
+    evil = "B1\nPODVRH"
+    doc = doc_with(iz=[iz_item(method=evil), iz_item(method="B1", conductor="al\nx")])
+    doc["tables"]["neznamy\nklic"] = {}
+    _, errors, warnings = norm_tables.apply_document(doc, norm_tables.BUILTIN)
+    assert errors and all("\n" not in m for m in errors + warnings)
+    doc = doc_with(iz=[iz_item(method=evil)])
+    _, _, warnings = norm_tables.apply_document(doc, norm_tables.BUILTIN)
+    assert warnings and all("\n" not in w for w in warnings)

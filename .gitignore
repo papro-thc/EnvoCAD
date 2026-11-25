@@ -40,4 +40,4 @@ datasheets/
 *.ecpz
 
 # lokální normové tabulky (#82) – hodnoty z norem nepatří do gitu (docs/NORMY_FORMAT.md)
-norms/
+/norms/

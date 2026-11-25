@@ -163,7 +163,11 @@ def resolve_tables(case: dict):
     folder = os.environ.get(ENV_NORMS)
     if not folder:
         pytest.skip(f"případ {case.get('id')}: bez {ENV_NORMS} (lokální normové tabulky) se neběží")
-    tables, _report = norms.load_dir(Path(folder))
+    tables, report = norms.load_dir(Path(folder))
+    if report.files_rejected or not report.files_used:
+        reasons = [f"{p}: {'; '.join(errs)}" for p, errs in report.files_rejected] or ["žádný použitelný soubor"]
+        pytest.fail(f"případ {case.get('id')}: normové tabulky z {ENV_NORMS} se nenačetly ({'; '.join(reasons)}) – "
+                    f"výpočet by tiše běžel s vestavěnými hodnotami")
     return tables
 
 
