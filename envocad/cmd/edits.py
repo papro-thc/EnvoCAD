@@ -411,14 +411,24 @@ def _copy_name(project: Project, name: str) -> str:
     return cand
 
 
+def _taken_designations(project: Project) -> set[str]:
+    """Obsazená označení pro kopii rozvaděče: označení prvků, `loc` listů a kódy „+“ v registru."""
+    return (project.used_refs() | {s.loc for s in project.sheets}
+            | {x.code for x in project.structures if x.aspect == LOC})
+
+
 def _free_designation(project: Project, ref: str) -> str:
-    """Nejbližší volné označení tvaru předpona + číslo od `ref` výš (vůči označením prvků, `loc` listů a kódům „+“
-    v registru); `ref` jiného tvaru → "". Volné `ref` zůstane."""
+    """Označení kopie rozvaděče `ref`. Podle schématu generátoru (`generator.spec.next_board_ref`: předpona druhu
+    rozvaděče + první volné číslo) a bez schématu (druh nepoznán) nejbližší volné označení tvaru předpona + číslo
+    od `ref` výš (volné `ref` zůstane); `ref` jiného tvaru → ""."""
+    from envocad.generator.spec import next_board_ref
+    taken = _taken_designations(project)
+    by_scheme = next_board_ref(ref, taken)
+    if by_scheme:
+        return by_scheme
     m = re.fullmatch(r"([^\d\s]+)(\d+)", ref or "")
     if not m:
         return ""
-    taken = (project.used_refs() | {s.loc for s in project.sheets}
-             | {x.code for x in project.structures if x.aspect == LOC})
     n = int(m.group(2))
     while f"{m.group(1)}{n}" in taken:
         n += 1
@@ -505,7 +515,8 @@ def duplicate_sheet(project: Project, sheet: Sheet, lib) -> SheetCopy:
     els, _ = paste_fragment(project, copy_fragment(parent, [block.id]), _ref_prefix_of(lib),
                             target=parent)
     nb = els[0]
-    free = _free_designation(project, nb.ref)
+    from envocad.generator.spec import board_kind_of_ref
+    free = _free_designation(project, block.ref if board_kind_of_ref(block.ref) else nb.ref)
     if free:
         nb.attrs["ref"] = free
     old = block.ref

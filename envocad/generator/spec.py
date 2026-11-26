@@ -258,6 +258,30 @@ def board_prefix(spec: Mapping | None, kind: str) -> str:
     return board_prefixes(spec).get(kind) or BOARD_DEFAULT_PREFIX[kind]
 
 
+def board_kind_of_ref(ref: str, spec: Mapping | None = None) -> str | None:
+    """Druh rozvaděče podle označení („RDC2“ → `dc_route`, „RFVE.DC“ → `dc_tech`): označení je předpona druhu
+    (`board_prefix` ve `spec`, jinak výchozí) a případně číslo. Jiný tvar → None (schéma se neuplatní). Projekt
+    zadanou specifikaci neukládá, bez `spec` se tedy poznají jen výchozí předpony generátoru."""
+    m = re.fullmatch(r"(.+?)(\d*)", _s(ref).strip())
+    if not m or not m.group(1):
+        return None
+    effective = {k: board_prefixes(spec).get(k) or d for k, d in BOARD_DEFAULT_PREFIX.items()}
+    return next((k for k, v in effective.items() if v == m.group(1) or v == m.group(0)), None)
+
+
+def next_board_ref(ref: str, taken: set[str], spec: Mapping | None = None) -> str | None:
+    """Návrh označení kopie rozvaděče `ref`: předpona jeho druhu + první volné číslo (od 1, mimo `taken`), jako
+    `Project.next_ref` u RDCn v generátoru. Druh nepoznán → None (zůstává dnešní chování)."""
+    kind = board_kind_of_ref(ref, spec)
+    if kind is None:
+        return None
+    prefix = board_prefix(spec, kind)
+    n = 1
+    while f"{prefix}{n}" in taken:
+        n += 1
+    return f"{prefix}{n}"
+
+
 def node_ref(spec: Mapping, topology: Topology | None, role: str, legacy: str = "", default: str = "") -> str:
     """Označení článku: `chain.<role>.ref` > dřívější klíč specifikace (`legacy` – `switchboard.ref`,
     `connection.main_board.ref`…, jen zadaný uživatelem) > předpona druhu (`board_prefix`) > `ref` článku presetu >
